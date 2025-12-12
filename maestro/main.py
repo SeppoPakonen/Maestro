@@ -597,6 +597,7 @@ def main():
     # task run (runs tasks, similar to resume)
     task_run_parser = task_subparsers.add_parser('run', help='Run tasks (similar to resume)')
     task_run_parser.add_argument('num_tasks', nargs='?', type=int, help='Number of tasks to run (if omitted, runs all pending tasks)')
+    task_run_parser.add_argument('-q', '--quiet', action='store_true', help='Suppress streaming AI output')
 
     # task log (synonymous to "log task")
     task_log_parser = task_subparsers.add_parser('log', help='Show past tasks (limited to 10, -a shows all)')
@@ -742,7 +743,7 @@ def main():
             elif args.task_subcommand == 'run':
                 # For task run, we need to handle num_tasks properly
                 num_tasks = getattr(args, 'num_tasks', None)
-                handle_task_run(args.session, num_tasks, args.verbose)
+                handle_task_run(args.session, num_tasks, args.verbose, quiet=args.quiet)
             elif args.task_subcommand == 'log':
                 handle_task_log(args.session, args.all, args.verbose)
             else:
@@ -1041,6 +1042,13 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
 
                 with open(partial_filename, 'w', encoding='utf-8') as f:
                     f.write(output if output else "")
+
+                # Also create an empty summary file to prevent error on resume
+                # This ensures that when the task is resumed, the expected summary file exists
+                if subtask.summary_file and not os.path.exists(subtask.summary_file):
+                    os.makedirs(os.path.dirname(subtask.summary_file), exist_ok=True)
+                    with open(subtask.summary_file, 'w', encoding='utf-8') as f:
+                        f.write("")  # Create empty summary file
 
                 if verbose:
                     print(f"[VERBOSE] Partial stdout saved to: {partial_filename}")
@@ -2685,7 +2693,7 @@ def handle_task_list(session_path, verbose=False):
                     styled_print(f"  {i}. {rule_line} [Rule-based task]", Colors.BRIGHT_CYAN, None, 0)
 
 
-def handle_task_run(session_path, num_tasks=None, verbose=False):
+def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
     """
     Run tasks (similar to resume, but with optional limit on number of tasks).
     If num_tasks is specified, only that many tasks will be executed.
@@ -2790,11 +2798,11 @@ def handle_task_run(session_path, num_tasks=None, verbose=False):
             # Look up the worker engine
             from engines import get_engine
             try:
-                engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=False)
+                engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=not quiet)
             except ValueError:
                 # If we don't have the specific model with "_worker" suffix, try directly
                 try:
-                    engine = get_engine(subtask.worker_model, debug=verbose, stream_output=False)
+                    engine = get_engine(subtask.worker_model, debug=verbose, stream_output=not quiet)
                 except ValueError:
                     print(f"Error: Unknown worker model '{subtask.worker_model}'", file=sys.stderr)
                     session.status = "failed"
@@ -2834,6 +2842,13 @@ def handle_task_run(session_path, num_tasks=None, verbose=False):
 
                 with open(partial_filename, 'w', encoding='utf-8') as f:
                     f.write(output if output else "")
+
+                # Also create an empty summary file to prevent error on resume
+                # This ensures that when the task is resumed, the expected summary file exists
+                if subtask.summary_file and not os.path.exists(subtask.summary_file):
+                    os.makedirs(os.path.dirname(subtask.summary_file), exist_ok=True)
+                    with open(subtask.summary_file, 'w', encoding='utf-8') as f:
+                        f.write("")  # Create empty summary file
 
                 if verbose:
                     print_info(f"Partial stdout saved to: {partial_filename}", 2)
