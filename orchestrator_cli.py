@@ -47,6 +47,20 @@ def assert_no_legacy_subtasks(subtasks):
         )
 
 
+def has_legacy_plan(subtasks):
+    """
+    Check if the given subtasks represent the legacy 3-task hard-coded plan.
+
+    Args:
+        subtasks: List of subtask objects with 'title' attribute
+
+    Returns:
+        bool: True if legacy 3-task plan is detected, False otherwise
+    """
+    titles = {getattr(st, 'title', '') for st in subtasks if hasattr(st, 'title')}
+    return LEGACY_TITLES.issubset(titles)
+
+
 def edit_root_task_in_editor():
     """Open an editor to input the root task text."""
     import tempfile
@@ -246,6 +260,9 @@ def main():
     # Add --planner-order argument for specifying planner preference order
     parser.add_argument('--planner-order', help='Comma-separated list of planners in preference order (e.g., "claude,codex")', default="codex,claude")
 
+    # Add --force-replan flag for clearing existing subtasks and running JSON planner from scratch
+    parser.add_argument('--force-replan', action='store_true', help='Force re-planning by clearing existing subtasks and running JSON planner from scratch')
+
     args = parser.parse_args()
 
     # Determine which action to take based on flags
@@ -256,7 +273,7 @@ def main():
     elif args.rules:
         handle_rules_file(args.session, args.verbose)
     elif args.plan:
-        handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order)
+        handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan)
 
 
 def handle_new_session(session_path, verbose=False, root_task_file=None):
@@ -349,6 +366,15 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
             save_session(session, session_path)
         except:
             pass  # If we can't even load to set failed status, we just exit
+        sys.exit(1)
+
+    # MIGRATION CHECK: Detect legacy hard-coded 3-task plan and handle appropriately
+    if has_legacy_plan(session.subtasks):
+        print(f"Warning: Session contains legacy hard-coded plan with tasks: {list(LEGACY_TITLES)}", file=sys.stderr)
+        print("This legacy plan is no longer supported.", file=sys.stderr)
+        print("Please re-plan the session using '--plan' before resuming.", file=sys.stderr)
+        if verbose:
+            print("[VERBOSE] Legacy plan migration: refusing to resume with legacy tasks")
         sys.exit(1)
 
     if verbose:
@@ -656,7 +682,7 @@ def load_rules(session: Session) -> str:
 
 
 
-def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude"):
+def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", force_replan=False):
     """
     Handle planning subtasks for the session.
     LEGACY PLANNER BANNED: This function must only use JSON-based planning.
@@ -692,6 +718,20 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         except:
             pass
         sys.exit(1)
+
+    # MIGRATION CHECK: For --plan, if there are only legacy tasks, warn and recommend re-planning
+    if has_legacy_plan(session.subtasks) and len(session.subtasks) == 3:
+        print(f"Warning: Session contains legacy hard-coded plan with tasks: {list(LEGACY_TITLES)}", file=sys.stderr)
+        print("The legacy plan will be replaced with a new JSON-based plan.", file=sys.stderr)
+        if verbose:
+            print("[VERBOSE] Legacy plan detected during planning; will replace with new JSON plan")
+
+    # FORCE REPLAN: If --force-replan is specified, clear all existing subtasks
+    if force_replan:
+        if verbose:
+            print(f"[VERBOSE] Force re-plan flag detected: clearing {len(session.subtasks)} existing subtasks")
+        session.subtasks.clear()  # Clear all existing subtasks
+        print("Cleared existing subtasks. Running fresh planning from scratch.", file=sys.stderr)
 
     # Ensure root_task is set
     if not session.root_task or session.root_task.strip() == "":
