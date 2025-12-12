@@ -9,8 +9,9 @@ import subprocess
 import uuid
 from datetime import datetime
 
-# Import the session model from the same directory
+# Import the session model and engines from the same directory
 from session_model import Session, Subtask, load_session, save_session
+from engines import EngineError
 
 
 def log_verbose(verbose, message: str):
@@ -179,12 +180,24 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             if verbose:
                 print(f"[VERBOSE] Processing subtask: '{subtask.title}' (ID: {subtask.id})")
 
-            # Build the full worker prompt
+            # Set the summary file path if not already set
+            if not subtask.summary_file:
+                subtask.summary_file = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
+
+            # Build the full worker prompt with structured format
             prompt = f"[ROOT TASK]\n{session.root_task}\n\n"
-            prompt += f"[SUBTASK]\n{subtask.description}\n\n"
+            prompt += f"[SUBTASK]\n"
+            prompt += f"id: {subtask.id}\n"
+            prompt += f"title: {subtask.title}\n"
+            prompt += f"description:\n{subtask.description}\n\n"
             prompt += f"[RULES]\n{rules}\n\n"
-            prompt += f"[INSTRUCTIONS]\n- Perform the work for this subtask.\n"
-            prompt += f"- Write a short summary of what you did to the summary file: {subtask.summary_file}."
+            prompt += f"[INSTRUCTIONS]\n"
+            prompt += f"You are an autonomous coding agent working in this repository.\n"
+            prompt += f"- Perform ONLY the work needed for this subtask.\n"
+            prompt += f"- Use your normal tools and workflows.\n"
+            prompt += f"- When you are done, write a short plain-text summary of what you did\n"
+            prompt += f"  into the file: {subtask.summary_file}\n\n"
+            prompt += f"The summary MUST be written to that file before you consider the task complete."
 
             if verbose:
                 print(f"[VERBOSE] Using worker model: {subtask.worker_model}")
@@ -226,8 +239,19 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             # Call engine.generate(prompt) - this is still simulated
             try:
                 output = engine.generate(prompt)
+            except EngineError as e:
+                # Log stderr for engine errors
+                print(f"Engine error stderr: {e.stderr}", file=sys.stderr)
+
+                print(f"Error: Engine failed with exit code {e.exit_code}: {e.name}", file=sys.stderr)
+                subtask.status = "error"
+                session.status = "failed"
+                session.updated_at = datetime.now().isoformat()
+                save_session(session, session_path)
+                sys.exit(1)
             except Exception as e:
                 print(f"Error: Failed to generate output from engine: {str(e)}", file=sys.stderr)
+                subtask.status = "error"
                 session.status = "failed"
                 session.updated_at = datetime.now().isoformat()
                 save_session(session, session_path)
@@ -235,6 +259,34 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
 
             if verbose:
                 print(f"[VERBOSE] Generated output from engine (length: {len(output)} chars)")
+
+            # Save the raw stdout to a file
+            stdout_filename = os.path.join(outputs_dir, f"worker_{subtask.id}.stdout.txt")
+            if not dry_run:
+                with open(stdout_filename, 'w', encoding='utf-8') as f:
+                    f.write(output)
+
+                if verbose:
+                    print(f"[VERBOSE] Saved raw stdout to: {stdout_filename}")
+
+            # Verify summary file exists and is non-empty
+            if not dry_run:
+                if not os.path.exists(subtask.summary_file):
+                    print(f"Error: Summary file missing for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
+                    subtask.status = "error"
+                    session.status = "failed"
+                    session.updated_at = datetime.now().isoformat()
+                    save_session(session, session_path)
+                    sys.exit(1)
+
+                size = os.path.getsize(subtask.summary_file)
+                if size == 0:
+                    print(f"Error: Summary file empty for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
+                    subtask.status = "error"
+                    session.status = "failed"
+                    session.updated_at = datetime.now().isoformat()
+                    save_session(session, session_path)
+                    sys.exit(1)
 
             if not dry_run:
                 output_file_path = os.path.join(outputs_dir, f"{subtask.id}.txt")
@@ -533,6 +585,15 @@ def handle_plan_session(session_path, verbose=False):
         # Call the planner engine to get updated plan
         try:
             planner_output = planner_engine.generate(planner_prompt)
+        except EngineError as e:
+            # Log stderr for engine errors
+            print(f"Planner engine error stderr: {e.stderr}", file=sys.stderr)
+
+            print(f"Error: Planner engine failed with exit code {e.exit_code}: {e.name}", file=sys.stderr)
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+            sys.exit(1)
         except Exception as e:
             print(f"Error: Failed to generate plan from planner engine: {str(e)}", file=sys.stderr)
             session.status = "failed"
@@ -632,37 +693,28 @@ def collect_worker_summaries(session: Session, session_path: str) -> str:
     outputs_dir = os.path.join(session_dir, "outputs")
 
     for subtask in session.subtasks:
-        # First check if the explicit summary_file exists
-        if subtask.summary_file and os.path.exists(subtask.summary_file):
-            try:
-                with open(subtask.summary_file, 'r', encoding='utf-8') as f:
-                    content = f.read().strip()
-                    if content:
-                        summaries.append(f"--- Summary for '{subtask.title}' (Status: {subtask.status}) ---\n{content}")
-            except Exception:
-                # If there's an error reading a summary file, continue with other files
-                pass
-        # If not, check for the output file generated by the worker in the outputs directory
-        else:
-            output_file_path = os.path.join(outputs_dir, f"{subtask.id}.txt")
-            if os.path.exists(output_file_path):
+        # Only collect summaries for subtasks that are marked as done
+        if subtask.status == "done":
+            # First check if the explicit summary_file exists
+            summary_file_path = subtask.summary_file
+            if not summary_file_path:
+                # If summary_file is not set, try the default location
+                summary_file_path = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
+
+            if summary_file_path and os.path.exists(summary_file_path):
                 try:
-                    with open(output_file_path, 'r', encoding='utf-8') as f:
+                    with open(summary_file_path, 'r', encoding='utf-8') as f:
                         content = f.read().strip()
                         if content:
-                            # Extract the actual output from the simulation format
-                            # The content looks like "[MODEL SIMULATION]\n[ROOT TASK]..."
-                            # We want to get just the part after the simulation header
-                            lines = content.split('\n')
-                            if len(lines) > 1:
-                                # Skip the first line which is the simulation header
-                                actual_content = '\n'.join(lines[1:]).strip()
-                                summaries.append(f"--- Summary for '{subtask.title}' (Status: {subtask.status}) ---\n{actual_content}")
+                            summaries.append(f"### Subtask {subtask.id} ({subtask.title})\n")
+                            summaries.append(content)
+                            summaries.append("\n\n")
                 except Exception:
-                    # If there's an error reading an output file, continue with other files
+                    # If there's an error reading a summary file, continue with other files
                     pass
 
-    return "\n\n".join(summaries)
+    summaries_text = "".join(summaries) if summaries else "(no summaries yet)"
+    return summaries_text
 
 
 def build_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: list) -> str:
@@ -686,10 +738,14 @@ def build_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: l
     current_plan = "\n".join(current_plan_parts)
 
     prompt = f"[ROOT TASK]\n{root_task}\n\n"
-    prompt += f"[CURRENT SUMMARIES FROM WORKERS]\n{summaries}\n\n" if summaries else "[CURRENT SUMMARIES FROM WORKERS]\nNo summaries available.\n\n"
     prompt += f"[CURRENT RULES]\n{rules}\n\n"
+    prompt += f"[CURRENT SUMMARIES FROM WORKERS]\n{summaries}\n\n"
     prompt += f"[CURRENT PLAN]\n{current_plan}\n\n"
-    prompt += f"[INSTRUCTIONS]\n- Propose an updated plan.\n- You may add new subtasks if necessary.\n- Keep the number of subtasks manageable."
+    prompt += f"[INSTRUCTIONS]\n"
+    prompt += f"You are a planning AI. Propose an updated subtask plan.\n"
+    prompt += f"- You may add new subtasks if strictly necessary.\n"
+    prompt += f"- Keep the number of subtasks manageable.\n"
+    prompt += f"- Clearly mark each subtask with an id, title and description."
 
     return prompt
 
