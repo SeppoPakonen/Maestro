@@ -806,7 +806,8 @@ def apply_json_plan_to_session(session: Session, plan: dict) -> None:
         depends_on = item.get("depends_on", [])  # default to no dependencies
 
         # Determine worker model using the helper function
-        worker_model = select_worker_model(kind, complexity)
+        preferred_worker = item.get("preferred_worker", None)
+        worker_model = select_worker_model(kind, complexity, preferred_worker)
 
         # Create the Subtask with all required fields
         subtask = Subtask(
@@ -829,29 +830,34 @@ def apply_json_plan_to_session(session: Session, plan: dict) -> None:
     session.updated_at = datetime.now().isoformat()
 
 
-def select_worker_model(kind: str, complexity: str) -> str:
+def select_worker_model(kind: str, complexity: str, preferred_worker: str | None = None) -> str:
     """
-    Select an appropriate worker model based on task kind and complexity.
-
-    Args:
-        kind: The type of task ("code", "research", "documentation", etc.)
-        complexity: The complexity level ("simple", "normal", "complex")
-
-    Returns:
-        String representing the selected worker model
+    Decide which worker model to use ("qwen" or "gemini") based on task kind,
+    complexity, and planner's hint.
     """
-    # For now, implement a simple selection strategy
-    # This could be expanded with more sophisticated logic later
-    if kind == "research" or kind == "documentation":
-        if complexity == "complex":
-            return "gemini"
-        else:
+    # If preferred_worker is "qwen" or "gemini", and it's allowed, use it.
+    if preferred_worker in ["qwen", "gemini"]:
+        return preferred_worker
+
+    # Else, heuristics:
+    # If kind in {"code", "bugfix"}:
+    if kind in {"code", "bugfix"}:
+        # Use "qwen" for "trivial" or "normal".
+        if complexity in {"trivial", "normal"}:
             return "qwen"
-    else:  # default to code tasks
-        if complexity == "complex":
-            return "gemini"
-        else:
+        # For "hard" bugfixes, you *may* still route to qwen but flag them in planner_notes for possible manual rerouting to claude/codex later.
+        elif complexity == "hard" and kind == "bugfix":
+            return "qwen"  # For hard bugfixes, default to qwen but they may need manual attention
+        else:  # "complex" or "hard" code tasks
             return "qwen"
+
+    # If kind in {"research", "text", "docs"}:
+    elif kind in {"research", "text", "docs"}:
+        # Use "gemini" by default.
+        return "gemini"
+
+    # Default fallback: "qwen".
+    return "qwen"
 
 
 def json_to_planned_subtasks(json_plan: dict) -> list:
