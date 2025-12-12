@@ -7,6 +7,10 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
+# Define possible session and subtask statuses
+SESSION_STATUSES = {"new", "planned", "in_progress", "interrupted", "failed", "done"}
+SUBTASK_STATUSES = {"pending", "in_progress", "done", "error", "interrupted"}
+
 
 class Subtask:
     """

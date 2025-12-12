@@ -181,9 +181,23 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             print(f"Warning: Engine {engine_name}_planner not found, skipping: {e}", file=sys.stderr)
             continue
 
-        # Call engine.generate(prompt)
+        # Call engine.generate(prompt) with interruption handling
         try:
             stdout = engine.generate(prompt)
+        except KeyboardInterrupt:
+            # For planner interruptions, don't modify the session
+            print(f"\n[orchestrator] Planner interrupted by user", file=sys.stderr)
+            # Save partial output for debugging, but don't modify session
+            partial_dir = os.path.join(session_dir, "partials")
+            os.makedirs(partial_dir, exist_ok=True)
+            partial_filename = os.path.join(partial_dir, f"planner_{engine_name}_{int(time.time())}.partial.txt")
+            with open(partial_filename, 'w', encoding='utf-8') as f:
+                f.write(stdout if stdout else "")
+            if verbose:
+                print(f"[VERBOSE] Partial planner output saved to: {partial_filename}")
+
+            # Re-raise to allow main thread to handle properly
+            raise KeyboardInterrupt
         except Exception as e:
             print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
             continue
@@ -279,13 +293,17 @@ def main():
     parser.add_argument('-f', '--force-replan', action='store_true',
                        help='Ignore existing subtasks and force new planning')
 
+    # Add --retry-interrupted flag for resuming interrupted subtasks
+    parser.add_argument('--retry-interrupted', action='store_true',
+                       help='Automatically resume interrupted subtasks using partial output')
+
     args = parser.parse_args()
 
     # Determine which action to take based on flags
     if args.new:
         handle_new_session(args.session, args.verbose, root_task_file=args.root_task)
     elif args.resume:
-        handle_resume_session(args.session, args.verbose, args.dry_run, args.stream_ai_output, args.print_ai_prompts)
+        handle_resume_session(args.session, args.verbose, args.dry_run, args.stream_ai_output, args.print_ai_prompts, retry_interrupted=args.retry_interrupted)
     elif args.rules:
         handle_rules_file(args.session, args.verbose)
     elif args.plan:
@@ -348,7 +366,7 @@ def handle_new_session(session_path, verbose=False, root_task_file=None):
         print(f"[VERBOSE] Session created with ID: {session.id}")
 
 
-def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_output=False, print_ai_prompts=False):
+def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_output=False, print_ai_prompts=False, retry_interrupted=False):
     """Handle resuming an existing session."""
     if verbose and dry_run:
         print(f"[VERBOSE] DRY RUN MODE: Loading session from: {session_path}")
@@ -401,13 +419,20 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
     if verbose:
         print(f"[VERBOSE] Loaded rules (length: {len(rules)} chars)")
 
-    # Process pending subtasks
-    pending_subtasks = [subtask for subtask in session.subtasks if subtask.status == "pending"]
+    # Process pending subtasks (and interrupted subtasks if retry_interrupted is True)
+    if retry_interrupted:
+        target_subtasks = [subtask for subtask in session.subtasks if subtask.status in ["pending", "interrupted"]]
+        if verbose and target_subtasks:
+            interrupt_count = len([s for s in target_subtasks if s.status == "interrupted"])
+            pending_count = len([s for s in target_subtasks if s.status == "pending"])
+            print(f"[VERBOSE] Processing {len(target_subtasks)} subtasks: {pending_count} pending, {interrupt_count} interrupted")
+    else:
+        target_subtasks = [subtask for subtask in session.subtasks if subtask.status == "pending"]
 
-    if not pending_subtasks:
-        # No pending subtasks, just print current status
+    if not target_subtasks:
+        # No subtasks to process, just print current status
         if verbose:
-            print("[VERBOSE] No pending subtasks to process")
+            print("[VERBOSE] No subtasks to process")
         print(f"Status: {session.status}")
         print(f"Number of subtasks: {len(session.subtasks)}")
         all_done = all(subtask.status == "done" for subtask in session.subtasks)
@@ -426,9 +451,10 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
     if not dry_run:
         os.makedirs(outputs_dir, exist_ok=True)
 
-    # Process each pending subtask in order
-    for subtask in session.subtasks:
-        if subtask.status == "pending":
+    # Process each target subtask in order
+    for subtask in target_subtasks:
+        # Check if this subtask should be processed (status is pending or interrupted)
+        if subtask.status in ["pending", "interrupted"]:
             if verbose:
                 print(f"[VERBOSE] Processing subtask: '{subtask.title}' (ID: {subtask.id})")
 
@@ -436,12 +462,32 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
             if not subtask.summary_file:
                 subtask.summary_file = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
 
+            # Check if there's partial output from a previous interrupted run
+            partial_dir = os.path.join(session_dir, "partials")
+            partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
+            partial_output = None
+            if os.path.exists(partial_filename):
+                try:
+                    with open(partial_filename, 'r', encoding='utf-8') as f:
+                        partial_output = f.read()
+                except:
+                    partial_output = None
+
             # Build the full worker prompt with structured format
             prompt = f"[ROOT TASK]\n{session.root_task}\n\n"
-            prompt += f"[SUBTASK]\n"
-            prompt += f"id: {subtask.id}\n"
-            prompt += f"title: {subtask.title}\n"
-            prompt += f"description:\n{subtask.description}\n\n"
+
+            # Include partial result if available
+            if partial_output:
+                prompt += f"[PARTIAL RESULT FROM PREVIOUS ATTEMPT]\n{partial_output}\n\n"
+                prompt += f"[CURRENT INSTRUCTIONS]\n"
+                prompt += f"You must continue the work from the partial output above.\n"
+                prompt += f"Do not repeat already completed steps.\n\n"
+            else:
+                prompt += f"[SUBTASK]\n"
+                prompt += f"id: {subtask.id}\n"
+                prompt += f"title: {subtask.title}\n"
+                prompt += f"description:\n{subtask.description}\n\n"
+
             prompt += f"[RULES]\n{rules}\n\n"
             prompt += f"[INSTRUCTIONS]\n"
             prompt += f"You are an autonomous coding agent working in this repository.\n"
@@ -488,9 +534,31 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
             log_verbose(verbose, f"Prompt file: {worker_prompt_filename}")
             log_verbose(verbose, f"Output file: {os.path.join(outputs_dir, f'{subtask.id}.txt')}")
 
-            # Call engine.generate(prompt) - this is still simulated
+            # Call engine.generate(prompt) with interruption handling
             try:
                 output = engine.generate(prompt)
+            except KeyboardInterrupt:
+                # Handle user interruption
+                print(f"\n[orchestrator] Interrupt received — stopping after current AI step...", file=sys.stderr)
+                subtask.status = "interrupted"
+                session.status = "interrupted"
+                session.updated_at = datetime.now().isoformat()
+                save_session(session, session_path)
+
+                # Save partial output if available
+                partial_dir = os.path.join(session_dir, "partials")
+                os.makedirs(partial_dir, exist_ok=True)
+                partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
+
+                with open(partial_filename, 'w', encoding='utf-8') as f:
+                    f.write(output if output else "")
+
+                if verbose:
+                    print(f"[VERBOSE] Partial stdout saved to: {partial_filename}")
+                    print(f"[VERBOSE] Subtask {subtask.id} marked as interrupted")
+
+                # Exit with clean code for interruption
+                sys.exit(130)
             except EngineError as e:
                 # Log stderr for engine errors
                 print(f"Engine error stderr: {e.stderr}", file=sys.stderr)
@@ -791,6 +859,12 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
 
             # Safety check: ensure legacy hard-coded subtasks are not present
             assert_no_legacy_subtasks(planned_subtasks)
+        except KeyboardInterrupt:
+            # For planner interruptions, don't modify the session at all
+            print("\n[orchestrator] Planner interrupted by user - session unchanged", file=sys.stderr)
+            if verbose:
+                print("[VERBOSE] Planner interrupted, exiting cleanly")
+            sys.exit(130)  # Standard exit code for Ctrl+C
         except PlannerError as e:
             print(f"Error: Planner failed: {e}", file=sys.stderr)
             session.status = "failed"
@@ -828,6 +902,12 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
 
             # Safety check: ensure legacy hard-coded subtasks are not present
             assert_no_legacy_subtasks(planned_subtasks)
+        except KeyboardInterrupt:
+            # For planner interruptions, don't modify the session at all
+            print("\n[orchestrator] Planner interrupted by user - session unchanged", file=sys.stderr)
+            if verbose:
+                print("[VERBOSE] Planner interrupted, exiting cleanly")
+            sys.exit(130)  # Standard exit code for Ctrl+C
         except PlannerError as e:
             print(f"Error: Planner failed: {e}", file=sys.stderr)
             session.status = "failed"
