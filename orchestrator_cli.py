@@ -236,32 +236,48 @@ class PlannedSubtask:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AI Task Orchestrator")
-    parser.add_argument('--session', required=True, help='Path to the session JSON file')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Print detailed steps and information')
+    parser = argparse.ArgumentParser(
+        description="AI Task Orchestrator - Manage AI task sessions",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument('-s', '--session', required=True,
+                       help='Path to session JSON file')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                       help='Show detailed debug, engine commands, and file paths')
 
     # Mutually exclusive group for commands
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--new', action='store_true', help='Create a new session')
-    group.add_argument('--resume', action='store_true', help='Resume an existing session')
-    group.add_argument('--rules', action='store_true', help='Edit the rules file')
-    group.add_argument('--plan', action='store_true', help='Plan subtasks for the session')
+    group.add_argument('-n', '--new', action='store_true',
+                      help='Create a new session and read root task from stdin')
+    group.add_argument('-r', '--resume', action='store_true',
+                      help='Resume processing subtasks')
+    group.add_argument('-R', '--rules', action='store_true',
+                      help='Edit the session\'s rules file in $EDITOR')
+    group.add_argument('-p', '--plan', action='store_true',
+                      help='Run planner and update subtask plan')
 
     # Add --dry-run flag, but only for --resume command
-    parser.add_argument('--dry-run', action='store_true', help='Simulate running subtasks without writing files or changing statuses (for --resume only)')
+    parser.add_argument('-d', '--dry-run', action='store_true',
+                       help='Simulate execution without modifying files')
 
     # Add new streaming and prompt printing flags
-    parser.add_argument('--stream-ai-output', action='store_true', help='Stream engine stdout line-by-line to orchestrator stdout')
-    parser.add_argument('--print-ai-prompts', action='store_true', help='Print the prompt text before calling the engine')
+    parser.add_argument('-o', '--stream-ai-output', action='store_true',
+                       help='Stream model stdout live to the terminal')
+    parser.add_argument('-P', '--print-ai-prompts', action='store_true',
+                       help='Print constructed prompts before running them')
 
     # Add --root-task argument for loading from file
-    parser.add_argument('--root-task', help='Path to file containing root task text')
+    parser.add_argument('-t', '--root-task',
+                       help='Inline root task instead of reading stdin')
 
     # Add --planner-order argument for specifying planner preference order
-    parser.add_argument('--planner-order', help='Comma-separated list of planners in preference order (e.g., "claude,codex")', default="codex,claude")
+    parser.add_argument('-O', '--planner-order',
+                       help='Comma-separated order: codex,claude',
+                       default="codex,claude")
 
     # Add --force-replan flag for clearing existing subtasks and running JSON planner from scratch
-    parser.add_argument('--force-replan', action='store_true', help='Force re-planning by clearing existing subtasks and running JSON planner from scratch')
+    parser.add_argument('-f', '--force-replan', action='store_true',
+                       help='Ignore existing subtasks and force new planning')
 
     args = parser.parse_args()
 
