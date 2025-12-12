@@ -135,6 +135,7 @@ def run_planner(session: Session, session_path: str, rules_text: str, summaries_
     categories_str = ", ".join(session.root_task_categories) if session.root_task_categories else "No specific categories"
 
     prompt = f"[ROOT TASK]\n{root_task_to_use}\n\n"
+    prompt += f"[ROOT TASK SUMMARY]\n{session.root_task_summary or '(no summary available)'}\n\n"
     prompt += f"[ROOT TASK CATEGORIES]\n{categories_str}\n\n"
     prompt += f"[RULES]\n{rules_text}\n\n"
     prompt += f"[SUMMARIES]\n{summaries_text}\n\n"
@@ -142,9 +143,12 @@ def run_planner(session: Session, session_path: str, rules_text: str, summaries_
     prompt += f"[INSTRUCTIONS]\n"
     prompt += f"You are a planning AI. Propose an updated subtask plan in JSON format.\n"
     prompt += f"- Return a JSON object with a 'subtasks' field containing an array of subtask objects.\n"
-    prompt += f"- Also include 'root' field with 'raw_summary', 'clean_text', and 'categories'.\n"
+    prompt += f"- Include 'root' field with 'raw_summary', 'clean_text', and 'categories'.\n"
     prompt += f"- Each subtask object should have 'title', 'description', 'categories', and 'root_excerpt' fields.\n"
+    prompt += f"- Use the cleaned root task and categories to guide subtask creation.\n"
+    prompt += f"- Consider previous subtask summaries when planning new tasks.\n"
     prompt += f"- The root.clean_text should be a cleaned-up, well-structured description.\n"
+    prompt += f"- The root.raw_summary should be 1-3 sentences summarizing the intent.\n"
     prompt += f"- The root.categories should be high-level categories from the root task.\n"
     prompt += f"- For each subtask, select which categories apply and provide an optional root_excerpt.\n"
     prompt += f"- You may add new subtasks if strictly necessary.\n"
@@ -961,7 +965,7 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     for msg in planner_conversation:
         final_conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
 
-    final_conversation_prompt += "Return ONLY the JSON plan with 'subtasks' array, 'root' object with 'clean_text' and 'categories', and no other text."
+    final_conversation_prompt += "Return ONLY the JSON plan with 'subtasks' array and 'root' object with 'clean_text', 'raw_summary', and 'categories', and no other text."
 
     planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
     planner_preference = [item.strip() for item in planner_preference if item.strip()]
@@ -1421,6 +1425,7 @@ def apply_json_plan_to_session(session: Session, plan: dict) -> None:
         root_info = plan["root"]
         session.root_task_raw = session.root_task  # Set raw from current root_task
         session.root_task_clean = root_info.get("clean_text", session.root_task)
+        session.root_task_summary = root_info.get("raw_summary")  # Add raw_summary
         session.root_task_categories = root_info.get("categories", [])
 
         # Update the main root_task to the clean version
