@@ -593,12 +593,14 @@ def main():
     # task list
     task_list_parser = task_subparsers.add_parser('list', help='List tasks in the current plan')
     task_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show rule-based tasks too')
-    task_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
+    # task run (runs tasks, similar to resume)
+    task_run_parser = task_subparsers.add_parser('run', help='Run tasks (similar to resume)')
+    task_run_parser.add_argument('num_tasks', nargs='?', type=int, help='Number of tasks to run (if omitted, runs all pending tasks)')
 
     # task log (synonymous to "log task")
     task_log_parser = task_subparsers.add_parser('log', help='Show past tasks (limited to 10, -a shows all)')
     task_log_parser.add_argument('-a', '--all', action='store_true', help='Show all tasks instead of just the last 10')
-    task_log_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # Log command
     log_parser = subparsers.add_parser('log', help='Log management commands')
@@ -638,7 +640,7 @@ def main():
 
     # Determine which action to take based on subcommands
     # For commands that require a session, look for default if not provided
-    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log']:
+    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'task']:
         # For these commands, if session is not provided, look for default
         if not args.session:
             default_session = find_default_session_file()
@@ -659,6 +661,10 @@ def main():
                 elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
                     # For log subcommands specifically, if no session, show error
                     print_error("Session is required for log commands", 2)
+                    sys.exit(1)
+                elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
+                    # For task subcommands specifically, if no session, show error
+                    print_error("Session is required for task commands", 2)
                     sys.exit(1)
                 else:
                     # For other commands in this group, if no session, show error
@@ -733,6 +739,10 @@ def main():
         if hasattr(args, 'task_subcommand') and args.task_subcommand:
             if args.task_subcommand == 'list':
                 handle_task_list(args.session, args.verbose)
+            elif args.task_subcommand == 'run':
+                # For task run, we need to handle num_tasks properly
+                num_tasks = getattr(args, 'num_tasks', None)
+                handle_task_run(args.session, num_tasks, args.verbose)
             elif args.task_subcommand == 'log':
                 handle_task_log(args.session, args.all, args.verbose)
             else:
@@ -2675,9 +2685,11 @@ def handle_task_list(session_path, verbose=False):
                     styled_print(f"  {i}. {rule_line} [Rule-based task]", Colors.BRIGHT_CYAN, None, 0)
 
 
-def handle_task_log(session_path, show_all=False, verbose=False):
+def handle_task_run(session_path, num_tasks=None, verbose=False):
     """
-    Show past tasks (limited to 10 by default, -a shows all).
+    Run tasks (similar to resume, but with optional limit on number of tasks).
+    If num_tasks is specified, only that many tasks will be executed.
+    This function emulates the resume functionality but with task limiting.
     """
     try:
         session = load_session(session_path)
@@ -2688,26 +2700,253 @@ def handle_task_log(session_path, show_all=False, verbose=False):
         print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
         sys.exit(1)
 
-    print_header("TASK LOG")
+    # Load rules
+    rules = load_rules(session)
+    if verbose:
+        print_info(f"Loaded rules (length: {len(rules)} chars)", 2)
 
-    # Show completed tasks (subtasks with status "done")
-    completed_tasks = [st for st in session.subtasks if st.status == "done"]
+    # MIGRATION: Ensure plan tree structure exists for backward compatibility
+    migrate_session_if_needed(session)
 
-    # Order by some heuristic (e.g., by creation order in the session)
-    # Since we don't have explicit timestamps, use the order in the session
-    completed_tasks = completed_tasks if show_all else completed_tasks[-10:]  # Last 10, or all if show_all is True
+    # Determine active plan and get tasks to run
+    active_plan_id = session.active_plan_id
+    active_plan = None
+    if active_plan_id:
+        for plan in session.plans:
+            if plan.plan_id == active_plan_id:
+                active_plan = plan
+                break
 
-    if not completed_tasks:
-        print("No completed tasks in log.")
+    # Determine target subtasks based on active plan or all pending tasks
+    if active_plan:
+        # Only consider subtasks from the active plan
+        target_subtasks = [
+            subtask for subtask in session.subtasks
+            if subtask.status == "pending"
+            and subtask.plan_id == active_plan_id
+        ]
+    else:
+        # Consider all pending subtasks if no active plan
+        target_subtasks = [
+            subtask for subtask in session.subtasks
+            if subtask.status == "pending"
+        ]
+
+    # Limit to the specified number of tasks if provided
+    if num_tasks is not None and num_tasks > 0:
+        target_subtasks = target_subtasks[:num_tasks]
+
+    # If no tasks to process, just print current status
+    if not target_subtasks:
+        if verbose:
+            print_info("No tasks to process", 2)
+        print(f"Status: {session.status}")
+        print(f"Number of pending tasks: {len([st for st in session.subtasks if st.status == 'pending'])}")
         return
 
-    print_info(f"Showing {'all' if show_all else 'last 10'} completed tasks:", 2)
+    # Create inputs and outputs directories for the session
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    inputs_dir = os.path.join(session_dir, "inputs")
+    outputs_dir = os.path.join(session_dir, "outputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+    os.makedirs(outputs_dir, exist_ok=True)
 
-    # Show tasks in reverse chronological order (most recent first)
-    for i, subtask in enumerate(reversed(completed_tasks), 1):
-        styled_print(f"{i:2d}. ✓ {subtask.title}", Colors.BRIGHT_GREEN, None, 0)
-        if verbose:
-            styled_print(f"    Description: {subtask.description[:100]}{'...' if len(subtask.description) > 100 else ''}", Colors.BRIGHT_WHITE, None, 0)
+    # Process each target subtask in order
+    tasks_processed = 0
+    for subtask in target_subtasks:
+        if subtask.status == "pending":
+            if verbose:
+                print_info(f"Processing subtask: '{subtask.title}' (ID: {subtask.id})", 2)
+
+            # Set the summary file path if not already set
+            if not subtask.summary_file:
+                subtask.summary_file = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
+
+            # Build the full worker prompt with structured format using flexible root task handling
+            # Use the clean root task and relevant categories/excerpt for this subtask
+            root_task_to_use = session.root_task_clean or session.root_task_raw or session.root_task
+            categories_str = ", ".join(subtask.categories) if subtask.categories else "No specific categories"
+            root_excerpt = subtask.root_excerpt if subtask.root_excerpt else "No specific excerpt, see categories."
+
+            prompt = f"[ROOT TASK (CLEANED)]\n{root_task_to_use}\n\n"
+            prompt += f"[RELEVANT CATEGORIES]\n{categories_str}\n\n"
+            prompt += f"[RELEVANT ROOT EXCERPT]\n{root_excerpt}\n\n"
+            prompt += f"[SUBTASK]\n"
+            prompt += f"id: {subtask.id}\n"
+            prompt += f"title: {subtask.title}\n"
+            prompt += f"description:\n{subtask.description}\n\n"
+            prompt += f"[RULES]\n{rules}\n\n"
+            prompt += f"[INSTRUCTIONS]\n"
+            prompt += f"You are an autonomous coding agent working in this repository.\n"
+            prompt += f"- Perform ONLY the work needed for this subtask.\n"
+            prompt += f"- Use your normal tools and workflows.\n"
+            prompt += f"- When you are done, write a short plain-text summary of what you did\n"
+            prompt += f"  into the file: {subtask.summary_file}\n\n"
+            prompt += f"The summary MUST be written to that file before you consider the task complete."
+
+            if verbose:
+                print_info(f"Using worker model: {subtask.worker_model}", 2)
+
+            # Look up the worker engine
+            from engines import get_engine
+            try:
+                engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=False)
+            except ValueError:
+                # If we don't have the specific model with "_worker" suffix, try directly
+                try:
+                    engine = get_engine(subtask.worker_model, debug=verbose, stream_output=False)
+                except ValueError:
+                    print(f"Error: Unknown worker model '{subtask.worker_model}'", file=sys.stderr)
+                    session.status = "failed"
+                    session.updated_at = datetime.now().isoformat()
+                    save_session(session, session_path)
+                    sys.exit(1)
+
+            if verbose:
+                print_info(f"Generated prompt for engine (length: {len(prompt)} chars)", 2)
+
+            # Save the worker prompt to the inputs directory
+            worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{subtask.worker_model}.txt")
+            with open(worker_prompt_filename, "w", encoding="utf-8") as f:
+                f.write(prompt)
+
+            # Log verbose information
+            if verbose:
+                print_info(f"Engine={subtask.worker_model} subtask={subtask.id}", 2)
+                print_info(f"Prompt file: {worker_prompt_filename}", 2)
+                print_info(f"Output file: {os.path.join(outputs_dir, f'{subtask.id}.txt')}", 2)
+
+            # Call engine.generate(prompt) with interruption handling
+            try:
+                output = engine.generate(prompt)
+            except KeyboardInterrupt:
+                # Handle user interruption
+                print(f"\n[orchestrator] Interrupt received — stopping after current AI step...", file=sys.stderr)
+                subtask.status = "interrupted"
+                session.status = "interrupted"
+                session.updated_at = datetime.now().isoformat()
+                save_session(session, session_path)
+
+                # Save partial output if available
+                partial_dir = os.path.join(session_dir, "partials")
+                os.makedirs(partial_dir, exist_ok=True)
+                partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
+
+                with open(partial_filename, 'w', encoding='utf-8') as f:
+                    f.write(output if output else "")
+
+                if verbose:
+                    print_info(f"Partial stdout saved to: {partial_filename}", 2)
+                    print_info(f"Subtask {subtask.id} marked as interrupted", 2)
+
+                # Exit with clean code for interruption
+                sys.exit(130)
+            except Exception as e:
+                print(f"Error: Failed to generate output from engine: {str(e)}", file=sys.stderr)
+                subtask.status = "error"
+                session.status = "failed"
+                session.updated_at = datetime.now().isoformat()
+                save_session(session, session_path)
+                sys.exit(1)
+
+            if verbose:
+                print_info(f"Generated output from engine (length: {len(output)} chars)", 2)
+
+            # Save the raw stdout to a file
+            stdout_filename = os.path.join(outputs_dir, f"worker_{subtask.id}.stdout.txt")
+            with open(stdout_filename, 'w', encoding='utf-8') as f:
+                f.write(output)
+
+            if verbose:
+                print_info(f"Saved raw stdout to: {stdout_filename}", 2)
+
+            output_file_path = os.path.join(outputs_dir, f"{subtask.id}.txt")
+            with open(output_file_path, 'w', encoding='utf-8') as f:
+                f.write(output)
+
+            if verbose:
+                print_info(f"Saved output to: {output_file_path}", 2)
+
+            # Verify summary file exists and is non-empty
+            if not os.path.exists(subtask.summary_file):
+                print(f"Error: Summary file missing for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
+                subtask.status = "error"
+                session.status = "failed"
+                session.updated_at = datetime.now().isoformat()
+                save_session(session, session_path)
+                sys.exit(1)
+
+            size = os.path.getsize(subtask.summary_file)
+            if size == 0:
+                print(f"Error: Summary file empty for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
+                subtask.status = "error"
+                session.status = "failed"
+                session.updated_at = datetime.now().isoformat()
+                save_session(session, session_path)
+                sys.exit(1)
+
+            # Mark subtask.status as "done" and update updated_at
+            subtask.status = "done"
+            session.updated_at = datetime.now().isoformat()
+
+            if verbose:
+                print_info(f"Updated subtask status to 'done'", 2)
+
+            tasks_processed += 1
+
+            # Process rule-based post-tasks if any
+            if verbose:
+                print_info("Processing rule-based post-tasks...", 2)
+
+            # Process rule-based post-tasks if they exist in the rules
+            # When running with limited tasks, we still process rules for each completed task
+            process_rule_based_post_tasks(session, subtask, rules, session_dir, verbose)
+
+    # Update session status based on subtask completion
+    all_done = all(subtask.status == "done" for subtask in session.subtasks)
+    if all_done and session.subtasks:
+        session.status = "done"
+    else:
+        session.status = "in_progress"
+
+    # Save the updated session
+    save_session(session, session_path)
+
+    if verbose:
+        print_info(f"Saved session with new status: {session.status}", 2)
+
+    print_info(f"Processed {tasks_processed} subtasks", 2)
+    print_info(f"New session status: {session.status}", 2)
+
+
+def process_rule_based_post_tasks(session, completed_subtask, rules, session_dir, verbose=False):
+    """
+    Process rule-based post-tasks that should be executed after each completed task.
+    """
+    # This function would handle recurring tasks defined in rules that should be executed
+    # after each completed task. Since the AI converts rules to JSON with task info,
+    # we would parse those rules and execute associated tasks.
+
+    # For now, we'll implement basic rule parsing to identify recurring tasks
+    import json
+
+    try:
+        # Try to parse rules as JSON with structured rule information
+        rules_json = json.loads(rules)
+        if isinstance(rules_json, dict) and "rules" in rules_json:
+            for rule in rules_json.get("rules", []):
+                if isinstance(rule, dict):
+                    rule_content = rule.get("content", "")
+                    # Example: look for recurring tasks like "commit to git" or "run tests"
+                    # In a real implementation, this would create and execute new tasks
+                    if verbose and rule_content:
+                        print_info(f"Rule-based post-task identified: {rule_content}", 4)
+    except json.JSONDecodeError:
+        # If not JSON, process as text rules
+        rule_lines = [line.strip() for line in rules.split('\n') if line.strip() and not line.strip().startswith('#')]
+        for rule_line in rule_lines:
+            if verbose:
+                print_info(f"Rule-based post-task: {rule_line}", 4)
 
 
 def find_default_session_file():
