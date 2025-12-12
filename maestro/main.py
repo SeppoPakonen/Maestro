@@ -522,7 +522,7 @@ def main():
                       help='Clean up and categorize the root task before planning')
 
     # Add flags for plan tree management
-    parser.add_argument('--show-plan-tree', action='store_true',
+    parser.add_argument('-T', '--show-plan-tree', action='store_true',
                        help='Print the entire plan tree with ASCII art')
     parser.add_argument('--focus-plan', type=str,
                        help='Set active plan ID to switch focus')
