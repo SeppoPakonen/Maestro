@@ -64,7 +64,6 @@ def run_cli_engine(
             return result.returncode, result.stdout, result.stderr
         else:
             # Stream output mode: process line by line
-            import sys
             process = subprocess.Popen(
                 cmd,
                 stdin=subprocess.DEVNULL,
