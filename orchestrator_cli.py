@@ -155,6 +155,14 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             print("Session status updated to 'done'")
         return
 
+    # Create inputs and outputs directories for the session
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    inputs_dir = os.path.join(session_dir, "inputs")
+    outputs_dir = os.path.join(session_dir, "outputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+    if not dry_run:
+        os.makedirs(outputs_dir, exist_ok=True)
+
     # Process each pending subtask in order
     for subtask in session.subtasks:
         if subtask.status == "pending":
@@ -189,6 +197,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             if verbose:
                 print(f"[VERBOSE] Generated prompt for engine (length: {len(prompt)} chars)")
 
+            # Save the worker prompt to the inputs directory
+            worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{subtask.worker_model}.txt")
+            with open(worker_prompt_filename, "w", encoding="utf-8") as f:
+                f.write(prompt)
+
             # Call engine.generate(prompt) - this is still simulated
             try:
                 output = engine.generate(prompt)
@@ -202,13 +215,7 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             if verbose:
                 print(f"[VERBOSE] Generated output from engine (length: {len(output)} chars)")
 
-            # Create output directory based on session file location
-            session_dir = os.path.dirname(os.path.abspath(session_path))
-            outputs_dir = os.path.join(session_dir, "outputs")
-
             if not dry_run:
-                os.makedirs(outputs_dir, exist_ok=True)
-
                 output_file_path = os.path.join(outputs_dir, f"{subtask.id}.txt")
                 with open(output_file_path, 'w', encoding='utf-8') as f:
                     f.write(output)
@@ -478,6 +485,18 @@ def handle_plan_session(session_path, verbose=False):
             session.updated_at = datetime.now().isoformat()
             save_session(session, session_path)
             sys.exit(1)
+
+        # Create inputs directory if it doesn't exist (planner section)
+        session_dir = os.path.dirname(os.path.abspath(session_path))
+        inputs_dir = os.path.join(session_dir, "inputs")
+        os.makedirs(inputs_dir, exist_ok=True)
+
+        # Save the planner prompt to the inputs directory
+        import time
+        timestamp = int(time.time())
+        planner_prompt_filename = os.path.join(inputs_dir, f"planner_{planner_engine.name}_{timestamp}.txt")
+        with open(planner_prompt_filename, "w", encoding="utf-8") as f:
+            f.write(planner_prompt)
 
         # Call the planner engine to get updated plan
         try:
