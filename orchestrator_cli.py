@@ -14,6 +14,46 @@ from session_model import Session, Subtask, load_session, save_session
 from engines import EngineError
 
 
+def edit_root_task_in_editor():
+    """Open an editor to input the root task text."""
+    import tempfile
+
+    # Create a temporary file with default content
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp_file:
+        tmp_file.write("# Enter the root task here\n# This is the main task for your AI session\n\n")
+        temp_file_path = tmp_file.name
+
+    try:
+        # Use the EDITOR environment variable or default to 'vi'
+        editor = os.environ.get('EDITOR', 'vi')
+
+        # Open the editor
+        result = subprocess.run([editor, temp_file_path])
+
+        if result.returncode != 0:
+            print(f"Editor exited with code {result.returncode}. Using empty root task.", file=sys.stderr)
+            return ""
+
+        # Read the content from the temporary file
+        with open(temp_file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Remove comments and empty lines, and return the first non-empty line or all content
+        lines = [line for line in content.split('\n') if not line.strip().startswith('#')]
+        content = '\n'.join(lines).strip()
+
+        return content
+    except FileNotFoundError:
+        # If the editor is not found, fall back to stdin
+        print(f"Editor '{editor}' not found. Falling back to stdin input.", file=sys.stderr)
+        print("Enter the root task:", end=" ", flush=True)
+        return sys.stdin.readline().strip()
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+
+
 def log_verbose(verbose, message: str):
     """Simple logging helper for verbose mode."""
     if verbose:
@@ -48,11 +88,14 @@ def main():
     parser.add_argument('--stream-ai-output', action='store_true', help='Stream engine stdout line-by-line to orchestrator stdout')
     parser.add_argument('--print-ai-prompts', action='store_true', help='Print the prompt text before calling the engine')
 
+    # Add --root-task argument for loading from file
+    parser.add_argument('--root-task', help='Path to file containing root task text')
+
     args = parser.parse_args()
 
     # Determine which action to take based on flags
     if args.new:
-        handle_new_session(args.session, args.verbose)
+        handle_new_session(args.session, args.verbose, root_task_file=args.root_task)
     elif args.resume:
         handle_resume_session(args.session, args.verbose, args.dry_run)
     elif args.rules:
@@ -61,7 +104,7 @@ def main():
         handle_plan_session(args.session, args.verbose)
 
 
-def handle_new_session(session_path, verbose=False):
+def handle_new_session(session_path, verbose=False, root_task_file=None):
     """Handle creating a new session."""
     if verbose:
         print(f"[VERBOSE] Creating new session at: {session_path}")
@@ -83,9 +126,21 @@ def handle_new_session(session_path, verbose=False):
     elif verbose:
         print(f"[VERBOSE] No rules file found in directory: {session_dir}")
 
-    # Prompt user for the root task
-    print("Enter the root task:", end=" ", flush=True)
-    root_task = sys.stdin.readline().strip()
+    # Get root task based on provided file or interactive editor
+    if root_task_file:
+        # Load from file
+        try:
+            with open(root_task_file, 'r', encoding='utf-8') as f:
+                root_task = f.read().strip()
+        except FileNotFoundError:
+            print(f"Error: Root task file '{root_task_file}' not found.", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error: Could not read root task file '{root_task_file}': {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Open editor for the root task
+        root_task = edit_root_task_in_editor()
 
     # Create a new session with status="new" and empty subtasks
     session = Session(
