@@ -495,116 +495,223 @@ def main():
     parser.add_argument('--version', action='version',
                        version=f'maestro {__version__}',
                        help='Show version information')
-    parser.add_argument('-s', '--session', required=True,
-                       help='Path to session JSON file')
+    parser.add_argument('-s', '--session', required=False,
+                       help='Path to session JSON file (required for most commands)')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Show detailed debug, engine commands, and file paths')
 
-    # Mutually exclusive group for main action commands
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-n', '--new', action='store_true',
-                      help='Create a new session and read root task from stdin')
-    group.add_argument('-r', '--resume', action='store_true',
-                      help='Resume processing subtasks')
-    group.add_argument('-R', '--rules', action='store_true',
-                      help='Edit the session\'s rules file in $EDITOR')
-    group.add_argument('-p', '--plan', action='store_true',
-                      help='Run planner and update subtask plan')
+    # Create subparsers for command-based interface
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
-    # Add new modes for planning
-    group.add_argument('--one-shot-plan', action='store_true',
-                      help='Run single planner call that rewrites root task and returns finalized JSON plan')
-    group.add_argument('--discuss-plan', action='store_true',
-                      help='Enter interactive planning mode for back-and-forth discussion')
+    # New session command
+    new_parser = subparsers.add_parser('new', help='Create a new session and read root task from stdin')
+    new_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    new_parser.add_argument('-t', '--root-task', help='Inline root task instead of reading stdin')
 
-    # Add --refine-root flag for cleaning up and categorizing the root task (as part of the group)
-    group.add_argument('--refine-root', action='store_true',
-                      help='Clean up and categorize the root task before planning')
+    # Resume command
+    resume_parser = subparsers.add_parser('resume', help='Resume processing subtasks')
+    resume_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    resume_parser.add_argument('-d', '--dry-run', action='store_true',
+                              help='Simulate execution without modifying files')
+    resume_parser.add_argument('-o', '--stream-ai-output', action='store_true',
+                              help='Stream model stdout live to the terminal')
+    resume_parser.add_argument('-P', '--print-ai-prompts', action='store_true',
+                              help='Print constructed prompts before running them')
+    resume_parser.add_argument('--retry-interrupted', action='store_true',
+                              help='Automatically resume interrupted subtasks using partial output')
 
-    # Add flags for plan tree management
-    parser.add_argument('-T', '--show-plan-tree', action='store_true',
-                       help='Print the entire plan tree with ASCII art')
-    parser.add_argument('--focus-plan', type=str,
-                       help='Set active plan ID to switch focus')
+    # Rules command
+    rules_parser = subparsers.add_parser('rules', help='Edit the session\'s rules file in $EDITOR')
+    rules_parser.add_argument('-s', '--session', help='Path to session JSON file (required for rules operations)')
 
-    # Add --dry-run flag, but only for --resume command
-    parser.add_argument('-d', '--dry-run', action='store_true',
-                       help='Simulate execution without modifying files')
+    # Plan command
+    plan_parser = subparsers.add_parser('plan', help='Run planner and update subtask plan')
+    plan_parser.add_argument('-s', '--session', help='Path to session JSON file (required for all plan operations)')
+    plan_parser.add_argument('--one-shot', action='store_true', help='Run single planner call that rewrites root task and returns finalized JSON plan')
+    plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
+    plan_parser.add_argument('--force', action='store_true', help='Ignore existing subtasks and force new planning')
+    plan_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+    plan_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
+    plan_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
 
-    # Add new streaming and prompt printing flags
-    parser.add_argument('-o', '--stream-ai-output', action='store_true',
-                       help='Stream model stdout live to the terminal')
-    parser.add_argument('-P', '--print-ai-prompts', action='store_true',
-                       help='Print constructed prompts before running them')
+    # Plan subcommands
+    plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands')
 
-    # Add --root-task argument for loading from file
-    parser.add_argument('-t', '--root-task',
-                       help='Inline root task instead of reading stdin')
+    # plan tree
+    plan_tree_parser = plan_subparsers.add_parser('tree', help='Show the plan tree with ASCII art')
+    plan_tree_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
 
-    # Add --planner-order argument for specifying planner preference order
-    parser.add_argument('-O', '--planner-order',
-                       help='Comma-separated order: codex,claude',
-                       default="codex,claude")
+    # plan list
+    plan_list_parser = plan_subparsers.add_parser('list', help='List plans as numbered list')
+    plan_list_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
 
-    # Add --force-replan flag for clearing existing subtasks and running JSON planner from scratch
-    parser.add_argument('-f', '--force-replan', action='store_true',
-                       help='Ignore existing subtasks and force new planning')
+    # plan show
+    plan_show_parser = plan_subparsers.add_parser('show', help='Show details of a specific plan')
+    plan_show_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_show_parser.add_argument('plan_id', help='Plan ID, number, or name to show')
 
-    # Add --retry-interrupted flag for resuming interrupted subtasks
-    parser.add_argument('--retry-interrupted', action='store_true',
-                       help='Automatically resume interrupted subtasks using partial output')
+    # plan discuss (alternative to --discuss)
+    plan_discuss_parser = plan_subparsers.add_parser('discuss', help='Alternative to plan --discuss')
+    plan_discuss_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_discuss_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+    plan_discuss_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
+    plan_discuss_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
+    plan_discuss_parser.add_argument('--force', action='store_true', help='Ignore existing subtasks and force new planning')
 
-    # Add --kill-plan flag for marking plan branches as dead
-    parser.add_argument('--kill-plan', type=str,
-                       help='Mark a plan branch as dead by setting its status to "dead"')
+    # plan set
+    plan_set_parser = plan_subparsers.add_parser('set', help='Set active plan ID to switch focus')
+    plan_set_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_set_parser.add_argument('plan_id', help='Plan ID to switch focus to')
+
+    # plan get
+    plan_get_parser = plan_subparsers.add_parser('get', help='Print active plan')
+    plan_get_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+
+    # Rules subcommands
+    rules_subparsers = rules_parser.add_subparsers(dest='rules_subcommand', help='Rules subcommands')
+
+    # rules list
+    rules_list_parser = rules_subparsers.add_parser('list', help='List all rules in JSON format')
+    rules_list_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+
+    # rules enable
+    rules_enable_parser = rules_subparsers.add_parser('enable', help='Enable a specific rule')
+    rules_enable_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    rules_enable_parser.add_argument('rule_id', help='Rule ID or number to enable')
+
+    # rules disable
+    rules_disable_parser = rules_subparsers.add_parser('disable', help='Disable a specific rule')
+    rules_disable_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    rules_disable_parser.add_argument('rule_id', help='Rule ID or number to disable')
+
+    # Log command
+    log_parser = subparsers.add_parser('log', help='Log management commands')
+    log_parser.add_argument('-s', '--session', help='Path to session JSON file (required for log operations)')
+    log_subparsers = log_parser.add_subparsers(dest='log_subcommand', help='Log subcommands')
+
+    # log help
+    log_subparsers.add_parser('help', help='Show help for log commands')
+
+    # log list
+    log_list_parser = log_subparsers.add_parser('list', help='List all past modifications')
+    log_list_parser.add_argument('log_type', nargs='?', default='all', help='Type of logs to show: all, work, plan')
+
+    # log list work
+    log_subparsers.add_parser('list-work', help='List all working sessions of tasks')
+
+    # log list plan
+    log_subparsers.add_parser('list-plan', help='List all plan changes')
+
+    # Add --refine-root command
+    refine_parser = subparsers.add_parser('refine-root', help='Clean up and categorize the root task before planning')
+    refine_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    refine_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+
+    # Add --kill-plan command (as a plan subcommand)
+    kill_parser = plan_subparsers.add_parser('kill', help='Mark a plan branch as dead')
+    kill_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    kill_parser.add_argument('plan_id', help='Plan ID to mark as dead')
 
     args = parser.parse_args()
 
-    # Validate that at least one command is specified
-    main_command = any([args.new, args.resume, args.rules, args.plan, args.one_shot_plan, args.discuss_plan, args.refine_root])
-    management_command = any([args.show_plan_tree, args.focus_plan is not None, args.kill_plan is not None])
-
-    if not (main_command or management_command):
+    # Validate that command is specified
+    if not args.command:
         print_error("No valid command specified", 2)
+        parser.print_help()
         sys.exit(1)
 
-    # Determine which action to take based on flags
-    if args.new:
+    # Determine which action to take based on subcommands
+    if args.command == 'new':
         handle_new_session(args.session, args.verbose, root_task_file=args.root_task)
-    elif args.resume:
+    elif args.command == 'resume':
         handle_resume_session(args.session, args.verbose, args.dry_run, args.stream_ai_output, args.print_ai_prompts, retry_interrupted=args.retry_interrupted)
-    elif args.rules:
-        handle_rules_file(args.session, args.verbose)
-    elif args.plan or args.one_shot_plan or args.discuss_plan:
-        # Handle different planning modes
-        if args.discuss_plan:
-            handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan)
+    elif args.command == 'rules':
+        if not args.session:
+            print_error("Session is required for rules commands", 2)
+            sys.exit(1)
+
+        if hasattr(args, 'rules_subcommand'):
+            if args.rules_subcommand == 'list':
+                handle_rules_list(args.session, args.verbose)
+            elif args.rules_subcommand == 'enable':
+                handle_rules_enable(args.session, args.rule_id, args.verbose)
+            elif args.rules_subcommand == 'disable':
+                handle_rules_disable(args.session, args.rule_id, args.verbose)
+            else:
+                handle_rules_file(args.session, args.verbose)  # Default to editing rules file
         else:
-            # If --one-shot-plan is set, or --plan with no explicit mode, use one-shot planning
-            # For --plan case, ask user which mode to use
-            if args.plan and not args.one_shot_plan:
+            handle_rules_file(args.session, args.verbose)
+    elif args.command == 'plan':
+        if not args.session:
+            print_error("Session is required for plan commands", 2)
+            sys.exit(1)
+
+        if hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+            if args.plan_subcommand == 'tree':
+                handle_show_plan_tree(args.session, args.verbose)
+            elif args.plan_subcommand == 'list':
+                handle_plan_list(args.session, args.verbose)
+            elif args.plan_subcommand == 'show':
+                handle_plan_show(args.session, args.plan_id, args.verbose)
+            elif args.plan_subcommand == 'discuss':
+                handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force)
+            elif args.plan_subcommand == 'set':
+                handle_focus_plan(args.session, args.plan_id, args.verbose)
+            elif args.plan_subcommand == 'get':
+                handle_plan_get(args.session, args.verbose)
+            elif args.plan_subcommand == 'kill':
+                handle_kill_plan(args.session, args.plan_id, args.verbose)
+            else:
+                # Default to regular planning if subcommand is provided but not recognized
+                if args.discuss or (not args.discuss and not hasattr(args, 'one_shot') or not args.one_shot):
+                    handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force)
+                else:
+                    clean_task = True if hasattr(args, 'one_shot') and args.one_shot else False
+                    handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force, clean_task=clean_task)
+        else:
+            # Handle main plan command without subcommands
+            if hasattr(args, 'discuss') and args.discuss:
+                handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force)
+            else:
+                # Ask user which mode to use if no specific mode specified
                 response = input("Do you want to discuss the plan with the planner AI first? [Y/n]: ").strip().lower()
                 if response in ['', 'y', 'yes']:
-                    handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan)
+                    handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force)
                 else:
                     # Ask whether to rewrite/clean the root task
                     response = input("Do you want the planner to rewrite/clean the root task before planning? [Y/n]: ").strip().lower()
                     clean_task = response in ['', 'y', 'yes']
-                    handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan, clean_task=clean_task)
-            else:
-                # Use one-shot planning
-                clean_task = True if args.one_shot_plan else False
-                handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan, clean_task=clean_task)
-    elif args.show_plan_tree:
-        handle_show_plan_tree(args.session, args.verbose)
-    elif args.focus_plan:
-        handle_focus_plan(args.session, args.focus_plan, args.verbose)
-    elif args.kill_plan:
-        handle_kill_plan(args.session, args.kill_plan, args.verbose)
-    elif args.refine_root:
+                    handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force, clean_task=clean_task)
+    elif args.command == 'refine-root':
         handle_refine_root(args.session, args.verbose, args.planner_order)
+    elif args.command == 'log':
+        if not args.session:
+            print_error("Session is required for log commands", 2)
+            sys.exit(1)
+
+        if hasattr(args, 'log_subcommand') and args.log_subcommand:
+            if args.log_subcommand == 'help':
+                handle_log_help(args.session, args.verbose)
+            elif args.log_subcommand == 'list':
+                if hasattr(args, 'log_type'):
+                    if args.log_type == 'work':
+                        handle_log_list_work(args.session, args.verbose)
+                    elif args.log_type == 'plan':
+                        handle_log_list_plan(args.session, args.verbose)
+                    else:  # 'all' or default
+                        handle_log_list(args.session, args.verbose)
+                else:
+                    handle_log_list(args.session, args.verbose)
+            elif args.log_subcommand == 'list-work':
+                handle_log_list_work(args.session, args.verbose)
+            elif args.log_subcommand == 'list-plan':
+                handle_log_list_plan(args.session, args.verbose)
+            else:
+                handle_log_help(args.session, args.verbose)
+        else:
+            handle_log_help(args.session, args.verbose)
     else:
-        print_error("No valid command specified", 2)
+        print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
 
 
@@ -2221,6 +2328,206 @@ Respond ONLY with valid JSON in the following format:
   "raw_summary": "...",
   "categories": []
 }}"""
+
+
+def handle_plan_list(session_path, verbose=False):
+    """
+    List all plans in the session as a numbered list.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    if not session.plans:
+        print("No plans in session yet.")
+        return
+
+    print_header("PLANS LIST")
+    for i, plan in enumerate(session.plans, 1):
+        marker = "[*]" if plan.plan_id == session.active_plan_id else "[ ]"
+        status_symbol = "✓" if plan.status == "active" else "✗" if plan.status == "dead" else "○"
+        print(f"{i:2d}. {marker} {status_symbol} {plan.plan_id}  {plan.label} ({plan.status})")
+
+
+def handle_plan_show(session_path, plan_id, verbose=False):
+    """
+    Show details of a specific plan by ID, number, or name.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    if not session.plans:
+        print("No plans in session yet.")
+        return
+
+    # Try to find plan by ID, or by index number
+    target_plan = None
+
+    # First, try to match by exact plan_id
+    for plan in session.plans:
+        if plan.plan_id == plan_id:
+            target_plan = plan
+            break
+
+    # If not found and plan_id is a number, try to match by index
+    if target_plan is None:
+        try:
+            plan_index = int(plan_id) - 1  # Convert to 0-based index
+            if 0 <= plan_index < len(session.plans):
+                target_plan = session.plans[plan_index]
+        except ValueError:
+            # Not a number, continue without error
+            pass
+
+    if target_plan is None:
+        print(f"Error: Plan with ID or number '{plan_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    # Print plan details
+    print_header(f"PLAN DETAILS: {target_plan.plan_id}")
+    styled_print(f"Label: {target_plan.label}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+    styled_print(f"Status: {target_plan.status}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Created: {target_plan.created_at}", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Active: {'Yes' if target_plan.plan_id == session.active_plan_id else 'No'}", Colors.BRIGHT_MAGENTA, None, 2)
+    styled_print(f"Notes: {target_plan.notes if target_plan.notes else '(no notes)'}", Colors.BRIGHT_WHITE, None, 2)
+    styled_print(f"Root snapshot: {target_plan.root_snapshot[:100] if target_plan.root_snapshot else '(no root snapshot)'}", Colors.BRIGHT_WHITE, None, 2)
+    styled_print(f"Categories: {target_plan.categories_snapshot if target_plan.categories_snapshot else '[]'}", Colors.BRIGHT_WHITE, None, 2)
+
+    if target_plan.subtask_ids:
+        print_subheader("SUBTASKS IN THIS PLAN")
+        for subtask_id in target_plan.subtask_ids:
+            subtask = next((st for st in session.subtasks if st.id == subtask_id), None)
+            if subtask:
+                status_symbol = "✓" if subtask.status == "done" else "○" if subtask.status == "pending" else "✗"
+                styled_print(f"  {status_symbol} {subtask.title} [{subtask.status}]", Colors.BRIGHT_WHITE, None, 2)
+            else:
+                styled_print(f"  ? Subtask ID: {subtask_id}", Colors.BRIGHT_RED, None, 2)
+    else:
+        styled_print("No subtasks in this plan", Colors.BRIGHT_RED, None, 2)
+
+
+def handle_plan_get(session_path, verbose=False):
+    """
+    Print the active plan ID.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    if session.active_plan_id:
+        print(session.active_plan_id)
+    else:
+        print("No active plan set")
+
+
+def handle_rules_list(session_path, verbose=False):
+    """
+    Parse and list all rules from the rules file in JSON format.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    # Load rules text
+    rules_text = load_rules(session)
+
+    if not rules_text.strip():
+        print("No rules found in rules file.")
+        return
+
+    # Try to parse as JSON first
+    import json
+    try:
+        parsed_rules = json.loads(rules_text)
+        print(json.dumps(parsed_rules, indent=2))
+        return
+    except json.JSONDecodeError:
+        # If not JSON, parse as text
+        # Split into lines and remove empty lines
+        lines = [line.strip() for line in rules_text.split('\n') if line.strip()]
+
+        # Create a JSON object representing the rules
+        rules_json = {
+            "rules": []
+        }
+
+        for i, line in enumerate(lines):
+            # Skip comment lines (starting with #)
+            if line.startswith('#'):
+                continue
+            rules_json["rules"].append({
+                "id": f"rule_{i+1}",
+                "content": line,
+                "enabled": True  # Assume all rules are enabled by default
+            })
+
+        print(json.dumps(rules_json, indent=2))
+
+
+def handle_rules_enable(session_path, rule_id, verbose=False):
+    """
+    Enable a specific rule by ID or number.
+    """
+    print_warning(f"Rule enabling not implemented in this version. Rule '{rule_id}' is now considered enabled.", 2)
+
+
+def handle_rules_disable(session_path, rule_id, verbose=False):
+    """
+    Disable a specific rule by ID or number.
+    """
+    print_warning(f"Rule disabling not implemented in this version. Rule '{rule_id}' is now considered disabled.", 2)
+
+
+def handle_log_help(session_path, verbose=False):
+    """
+    Show help for log commands.
+    """
+    print_header("LOG COMMANDS HELP")
+    styled_print("log list [all|work|plan]    List all past modifications", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+    styled_print("log list-work              List all working sessions of tasks", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+    styled_print("log list-plan              List all plan changes", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+
+
+def handle_log_list(session_path, verbose=False):
+    """
+    List all past modifications/logs.
+    """
+    print_warning("Log functionality not fully implemented in this version.", 2)
+
+
+def handle_log_list_work(session_path, verbose=False):
+    """
+    List all working sessions of tasks.
+    """
+    print_warning("Work log functionality not fully implemented in this version.", 2)
+
+
+def handle_log_list_plan(session_path, verbose=False):
+    """
+    List all plan changes.
+    """
+    print_warning("Plan log functionality not fully implemented in this version.", 2)
 
 
 if __name__ == "__main__":
