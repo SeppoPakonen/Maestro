@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import json
 import os
 import subprocess
+import sys
 from typing import Protocol
 
 
@@ -39,6 +40,9 @@ def run_cli_engine(
     """
     # Build the command
     cmd = [config.binary] + config.base_args + [prompt]
+
+    # Debug mode: print the final command
+    print(f"[DEBUG] Running command: {' '.join(cmd)}", file=sys.stderr)
 
     # Prepare environment
     env = os.environ.copy()
@@ -148,7 +152,8 @@ class ClaudePlannerEngine:
     def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False):
         self.use_json = use_json
         if config is None:
-            base_args = ["--print", "--output-format", "json" if use_json else "text"]
+            base_args = ["--print", "--output-format", "json" if use_json else "text",
+                         "--permission-mode", "dontAsk"]  # Auto-approve all permissions
             config = CliEngineConfig(
                 binary="claude",
                 base_args=base_args
@@ -195,7 +200,7 @@ class QwenWorkerEngine:
         if config is None:
             config = CliEngineConfig(
                 binary="qwen",
-                base_args=["--output-format", "text"]
+                base_args=["--yolo"]  # Auto-approve all permissions
             )
         self.config = config
 
@@ -230,7 +235,7 @@ class GeminiWorkerEngine:
         if config is None:
             config = CliEngineConfig(
                 binary="gemini",
-                base_args=["--output-format", "text"]
+                base_args=["--approval-mode", "yolo"]  # Auto-approve all permissions
             )
         self.config = config
 
