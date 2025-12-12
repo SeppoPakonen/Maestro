@@ -96,6 +96,8 @@ def log_verbose(verbose, message: str):
 def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str], verbose: bool = False) -> dict:
     """
     Build the planner prompt, call the planner engine, and parse JSON.
+    IMPORTANT: All planning must use the JSON-based planner. Hard-coded plans are FORBIDDEN.
+    Legacy planning approaches are not allowed - only JSON-based planning is permitted.
 
     planner_preference is a list like ["codex", "claude"].
     Returns the parsed JSON object.
@@ -655,7 +657,11 @@ def load_rules(session: Session) -> str:
 
 
 def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude"):
-    """Handle planning subtasks for the session."""
+    """
+    Handle planning subtasks for the session.
+    LEGACY PLANNER BANNED: This function must only use JSON-based planning.
+    Hard-coded plans are forbidden - only JSON-based planning is allowed.
+    """
     if verbose:
         print(f"[VERBOSE] Loading session from: {session_path}")
 
@@ -701,6 +707,16 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     if verbose:
         print(f"[VERBOSE] Loaded rules (length: {len(rules)} chars)")
 
+    # LEGACY PLANNER BANNED: Runtime guard to ensure no legacy planning is used
+    # Ensure that we are using the JSON-based planner and not any legacy approach
+    import inspect
+    # Check that the plan_subtasks function does not exist (was removed in Task A)
+    if hasattr(inspect.getmodule(handle_plan_session), 'plan_subtasks'):
+        raise RuntimeError(
+            "Legacy planner function 'plan_subtasks' detected; this is forbidden. "
+            "All planning must use the JSON-based planner."
+        )
+
     # Check if there are existing subtasks to determine the planning phase
     if not session.subtasks:
         # Initial planning phase: no existing subtasks
@@ -730,6 +746,16 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         if verbose:
             print("[VERBOSE] Starting refinement planning phase using worker summaries...")
         print("Starting refinement planning phase using worker summaries...")
+
+        # LEGACY PLANNER BANNED: Runtime guard to ensure no legacy planning is used
+        # Ensure that we are using the JSON-based planner and not any legacy approach
+        import inspect
+        # Check that the plan_subtasks function does not exist (was removed in Task A)
+        if hasattr(inspect.getmodule(handle_plan_session), 'plan_subtasks'):
+            raise RuntimeError(
+                "Legacy planner function 'plan_subtasks' detected; this is forbidden. "
+                "All planning must use the JSON-based planner."
+            )
 
         # Collect existing subtask summaries
         summaries = collect_worker_summaries(session, session_path)
