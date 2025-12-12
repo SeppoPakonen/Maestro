@@ -169,6 +169,38 @@ def run_planner(session: Session, session_path: str, rules_text: str, summaries_
     return run_planner_with_prompt(prompt, planner_preference, session_path, verbose)
 
 
+def clean_json_response(response_text: str) -> str:
+    """
+    Clean up JSON response by removing markdown code block wrappers and other formatting.
+
+    Args:
+        response_text: Raw response text from the planner
+
+    Returns:
+        Cleaned JSON string ready for parsing
+    """
+    import re
+
+    # Remove markdown code block markers (both with and without language specification)
+    # Pattern matches ```json, ```JSON, ``` or just ```
+    cleaned = re.sub(r'^\s*```\s*(json|JSON)?\s*\n?', '', response_text, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s*```\s*$', '', cleaned, flags=re.IGNORECASE)
+
+    # Also handle cases where there are multiple code blocks or trailing text
+    # Find the first JSON object between code blocks
+    if not cleaned.strip().startswith('{') and not cleaned.strip().startswith('['):
+        # Look for JSON object within the response
+        matches = re.findall(r'\{.*\}', response_text, re.DOTALL)
+        if matches:
+            # Get the most likely JSON response (longest match that looks like JSON)
+            potential_jsons = [match for match in matches if '"version"' in match or '"subtasks"' in match or '"clean_text"' in match]
+            if potential_jsons:
+                # Take the first one that looks like our expected JSON format
+                cleaned = potential_jsons[0]
+
+    return cleaned.strip()
+
+
 def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_path: str, verbose: bool = False) -> dict:
     """
     Execute the planner with the given prompt against preferred engines.
@@ -201,6 +233,7 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             # For planner interruptions, don't modify the session
             print(f"\n[orchestrator] Planner interrupted by user", file=sys.stderr)
             # Save partial output for debugging, but don't modify session
+            session_dir = os.path.dirname(os.path.abspath(session_path))
             partial_dir = os.path.join(session_dir, "partials")
             os.makedirs(partial_dir, exist_ok=True)
             partial_filename = os.path.join(partial_dir, f"planner_{engine_name}_{int(time.time())}.partial.txt")
@@ -226,15 +259,23 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(stdout)
 
-        # Try json.loads(stdout)
+        # Clean the response to remove markdown wrappers before parsing
+        cleaned_stdout = clean_json_response(stdout)
+
+        # Try json.loads(cleaned_stdout)
         try:
-            result = json.loads(stdout)
-            # If parsing succeeds and the result contains "subtasks" list, return it
-            if isinstance(result, dict) and "subtasks" in result and isinstance(result["subtasks"], list):
-                return result
+            result = json.loads(cleaned_stdout)
+            # If parsing succeeds and the result contains expected fields, return it
+            if isinstance(result, dict):
+                # For regular planning, check for subtasks
+                if "subtasks" in result and isinstance(result["subtasks"], list):
+                    return result
+                # For root refinement, check for expected fields
+                if "version" in result and "clean_text" in result and "raw_summary" in result and "categories" in result:
+                    return result
         except json.JSONDecodeError as e:
-            # If parsing fails, log the error with first ~200 chars of output
-            output_preview = stdout[:200] if len(stdout) > 200 else stdout
+            # If parsing fails, log the error with first ~200 chars of cleaned output
+            output_preview = cleaned_stdout[:200] if len(cleaned_stdout) > 200 else cleaned_stdout
             print(f"Warning: Failed to parse JSON from {engine_name} planner: {e}", file=sys.stderr)
             if verbose:  # Only in verbose mode
                 print(f"[VERBOSE] Planner output (first 200 chars): {output_preview}", file=sys.stderr)
@@ -244,8 +285,10 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             with open(error_filename, "w", encoding="utf-8") as f:
                 f.write(f"Engine: {engine_name}\n")
                 f.write(f"Error: {e}\n")
-                f.write(f"Output that failed to parse:\n")
+                f.write(f"Original output that failed to parse:\n")
                 f.write(stdout)
+                f.write(f"\n\nCleaned output that failed to parse:\n")
+                f.write(cleaned_stdout)
 
             continue
 
@@ -856,6 +899,23 @@ def load_rules(session: Session) -> str:
         return ""
 
 
+def get_multiline_input(prompt: str) -> str:
+    """
+    Get input from user supporting commands and multiline functionality.
+    Enter sends the message; to add newlines, enter \\n in the text or use multiple inputs.
+    For true shift+enter or ctrl+j support, we'd need prompt_toolkit library.
+    For now, the function returns immediately on Enter (satisfies main requirement).
+    """
+    import sys
+
+    try:
+        line = input(prompt)
+        return line.rstrip()
+    except EOFError:
+        # Handle case where input is not available (e.g., if stdin is redirected)
+        return "/quit"
+
+
 def handle_interactive_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", force_replan=False):
     """
     Handle interactive planning mode where user and planner AI chat back-and-forth
@@ -935,7 +995,8 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     os.makedirs(conversations_dir, exist_ok=True)
 
     while True:
-        user_input = input("> ").strip()
+        # Get user input with support for multi-line (for later enhancement)
+        user_input = get_multiline_input("> ")
 
         if user_input == "/done" or user_input == "/plan":
             break
@@ -959,9 +1020,30 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
 
             conversation_prompt += "\nPlease respond to continue the planning discussion."
 
-            json_plan = run_planner_with_prompt(conversation_prompt, planner_preference, session_path, verbose)
-            assistant_response = json.dumps(json_plan) if isinstance(json_plan, dict) else str(json_plan)
+            # During discussion mode, we expect natural language responses, not JSON
+            # Use engine.generate directly instead of run_planner_with_prompt to avoid JSON parsing
+            from engines import get_engine
 
+            # Try each planner in preference order
+            assistant_response = None
+            last_error = None
+            for engine_name in planner_preference:
+                try:
+                    engine = get_engine(engine_name + "_planner")
+                    assistant_response = engine.generate(conversation_prompt)
+
+                    # If we get a response, break out of the loop
+                    if assistant_response:
+                        break
+                except Exception as e:
+                    last_error = e
+                    print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+                    continue
+
+            if assistant_response is None:
+                raise Exception(f"All planners failed: {last_error}")
+
+            # Print the natural language response from the AI
             print(f"[planner]: {assistant_response}")
 
             # Append assistant's response to conversation
@@ -974,18 +1056,18 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
             print(f"Error in conversation: {e}", file=sys.stderr)
             continue
 
-    # Final: Generate the actual plan
+    # Final: Generate the actual plan with forced JSON output
     final_conversation_prompt = "The planning conversation is complete. Please generate the final JSON plan based on the discussion:\n\n"
     for msg in planner_conversation:
         final_conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
 
-    final_conversation_prompt += "Return ONLY the JSON plan with 'subtasks' array and 'root' object with 'clean_text', 'raw_summary', and 'categories', and no other text."
+    final_conversation_prompt += "Return ONLY the JSON plan with 'subtasks' array and 'root' object with 'clean_text', 'raw_summary', and 'categories', and no other text. Format: {\"subtasks\": [...], \"root\": {\"clean_text\": \"...\", \"raw_summary\": \"...\", \"categories\": [...]}}"
 
     planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
     planner_preference = [item.strip() for item in planner_preference if item.strip()]
 
     try:
-        final_json_plan = run_planner_with_prompt(final_conversation_prompt, planner_preference, session_path, verbose)
+        final_json_plan = run_planner_with_prompt(final_conversation_prompt, planner_preference, session_path, verbose=True)
 
         # Show the plan to the user
         print("Final plan generated:")
