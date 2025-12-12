@@ -67,7 +67,7 @@ def log_verbose(verbose, message: str):
         print(f"[orchestrator] {message}")
 
 
-def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str]) -> dict:
+def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str], verbose: bool = False) -> dict:
     """
     Build the planner prompt, call the planner engine, and parse JSON.
 
@@ -111,10 +111,10 @@ def run_planner(session: Session, session_path: str, rules_text: str, summaries_
     with open(planner_prompt_filename, "w", encoding="utf-8") as f:
         f.write(prompt)
 
-    return run_planner_with_prompt(prompt, planner_preference, session_path)
+    return run_planner_with_prompt(prompt, planner_preference, session_path, verbose)
 
 
-def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_path: str) -> dict:
+def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_path: str, verbose: bool = False) -> dict:
     """
     Execute the planner with the given prompt against preferred engines.
 
@@ -164,12 +164,24 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             if isinstance(result, dict) and "subtasks" in result and isinstance(result["subtasks"], list):
                 return result
         except json.JSONDecodeError as e:
-            # If parsing fails, log the error and try the next planner in the list
+            # If parsing fails, log the error with first ~200 chars of output
+            output_preview = stdout[:200] if len(stdout) > 200 else stdout
             print(f"Warning: Failed to parse JSON from {engine_name} planner: {e}", file=sys.stderr)
+            if verbose:  # Only in verbose mode
+                print(f"[VERBOSE] Planner output (first 200 chars): {output_preview}", file=sys.stderr)
+
+            # Write the error details to a file
+            error_filename = os.path.join(outputs_dir, f"planner_{engine_name}_parse_error.txt")
+            with open(error_filename, "w", encoding="utf-8") as f:
+                f.write(f"Engine: {engine_name}\n")
+                f.write(f"Error: {e}\n")
+                f.write(f"Output that failed to parse:\n")
+                f.write(stdout)
+
             continue
 
     # If all planners fail, raise a custom PlannerError
-    raise PlannerError(f"All planners failed: {planner_preference}")
+    raise PlannerError("All planners failed or returned invalid JSON")
 
 
 class PlannedSubtask:
@@ -706,7 +718,7 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         # Clean up whitespace from split
         planner_preference = [item.strip() for item in planner_preference if item.strip()]
         try:
-            json_plan = run_planner(session, session_path, rules, summaries, planner_preference)
+            json_plan = run_planner(session, session_path, rules, summaries, planner_preference, verbose)
             planned_subtasks = json_to_planned_subtasks(json_plan)
         except PlannerError as e:
             print(f"Error: Planner failed: {e}", file=sys.stderr)
@@ -730,7 +742,7 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         # Clean up whitespace from split
         planner_preference = [item.strip() for item in planner_preference if item.strip()]
         try:
-            json_plan = run_planner(session, session_path, rules, summaries, planner_preference)
+            json_plan = run_planner(session, session_path, rules, summaries, planner_preference, verbose)
             planned_subtasks = json_to_planned_subtasks(json_plan)
         except PlannerError as e:
             print(f"Error: Planner failed: {e}", file=sys.stderr)
