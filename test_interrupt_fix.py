@@ -29,7 +29,9 @@ def test_summary_file_creation_on_interrupt():
         )
         
         # Set up the summary file path (this would normally be done in the main function)
-        outputs_dir = os.path.join(temp_dir, "outputs")
+        maestro_dir = os.path.join(temp_dir, ".maestro")
+        os.makedirs(maestro_dir, exist_ok=True)
+        outputs_dir = os.path.join(maestro_dir, "outputs")
         os.makedirs(outputs_dir, exist_ok=True)
         subtask.summary_file = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
         

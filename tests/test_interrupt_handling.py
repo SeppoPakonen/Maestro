@@ -107,8 +107,10 @@ def test_partial_output_file_creation():
     
     # Create a temporary directory for the test
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create partials directory
-        partials_dir = Path(temp_dir) / "partials"
+        # Create .maestro directory and partials inside it
+        maestro_dir = Path(temp_dir) / ".maestro"
+        maestro_dir.mkdir(exist_ok=True)
+        partials_dir = maestro_dir / "partials"
         partials_dir.mkdir(exist_ok=True)
         
         # Test file creation

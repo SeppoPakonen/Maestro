@@ -120,6 +120,58 @@ def print_user_input(text):
     styled_print(f"[USER]: {text}", Colors.BRIGHT_BLUE, Colors.BOLD, 2)
 
 
+def format_tool_usage(text):
+    """
+    Format tool usage (shell commands, builtin stuff) with dark color styling.
+    """
+    # Patterns to detect tool usage in AI output
+    import re
+
+    # Patterns for shell commands and tool usage
+    patterns = [
+        # Shell command patterns
+        r'`[^`]+`',  # Inline code (markdown)
+        r'```[\s\S]*?```',  # Code blocks (markdown)
+        r'(ls|cd|pwd|mkdir|rm|cp|mv|cat|echo|grep|find|ps|kill|git|npm|yarn|python|pip|conda|docker|kubectl|make|bash|sh)\s+',
+        r'(&&|\|\||;)',  # Command chaining operators
+        r'\$ [^\n]+',  # Lines starting with $ (terminal commands)
+        r'# [^\n]+',  # Comment lines
+    ]
+
+    # Add darker color styling for tool usage
+    dark_color = Colors.DIM
+    reset_color = Colors.RESET
+
+    # Check for shell command patterns
+    lines = text.split('\n')
+    formatted_lines = []
+
+    for line in lines:
+        # Check if line contains command patterns
+        is_command = any(
+            re.search(pattern, line, re.IGNORECASE) for pattern in patterns[:4]
+        ) or line.strip().startswith('$ ') or line.strip().startswith('# ')
+
+        if is_command:
+            formatted_lines.append(f"{dark_color}{line}{reset_color}")
+        else:
+            formatted_lines.append(line)
+
+    return '\n'.join(formatted_lines)
+
+
+def print_tool_usage(text, indent=0):
+    """Print tool usage (shell commands, builtin stuff) with dark color styling."""
+    formatted_text = format_tool_usage(text)
+    indent_str = " " * indent
+    # Use a dark color for tool usage
+    dark_color = Colors.DIM
+    reset_color = Colors.RESET
+
+    # Print with dark styling
+    print(f"{indent_str}{dark_color}{formatted_text}{reset_color}")
+
+
 class StyledArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser that provides styled help output."""
 
@@ -290,6 +342,74 @@ def log_verbose(verbose, message: str):
         print_info(f"orchestrator: {message}", 2)
 
 
+def get_maestro_dir(session_path: str) -> str:
+    """
+    Get the .maestro directory path for the given session.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the .maestro directory
+    """
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    maestro_dir = os.path.join(session_dir, ".maestro")
+    os.makedirs(maestro_dir, exist_ok=True)
+    return maestro_dir
+
+
+def update_subtask_summary_paths(session: Session, session_path: str):
+    """
+    Update subtask summary paths to point to the .maestro directory for backward compatibility.
+    If summary files exist in the old location (relative to session file), move them to the new location.
+
+    Args:
+        session: The session object
+        session_path: Path to the session file
+    """
+    import shutil
+
+    maestro_dir = get_maestro_dir(session_path)
+    outputs_dir = os.path.join(maestro_dir, "outputs")
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    for subtask in session.subtasks:
+        # If the summary_file path doesn't already contain .maestro, update it
+        if subtask.summary_file and ".maestro" not in subtask.summary_file:
+            # Extract just the filename from the old path
+            filename = os.path.basename(subtask.summary_file)
+            # Create the new path in the .maestro directory
+            new_path = os.path.join(outputs_dir, filename)
+
+            # Check if the old file exists relative to the session file's directory
+            # The old path from the session file would be relative to where the session was created
+            old_path_relative_to_session = os.path.join(session_dir, subtask.summary_file)
+
+            # If the old file exists (either at the direct path from session or relative to session dir), move it to the new location
+            old_path_to_use = None
+            if os.path.exists(subtask.summary_file):
+                # Old path is accessible as-is (relative to current working directory)
+                old_path_to_use = subtask.summary_file
+            elif os.path.exists(old_path_relative_to_session):
+                # Old path is relative to session file directory
+                old_path_to_use = old_path_relative_to_session
+
+            if old_path_to_use and not os.path.exists(new_path):
+                try:
+                    # Ensure the new directory exists
+                    os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                    # Move the file to the new location
+                    shutil.move(old_path_to_use, new_path)
+                    print_debug(f"Moved summary file from {old_path_to_use} to {new_path}", 2)
+                except Exception as e:
+                    print_warning(f"Could not move summary file from {old_path_to_use} to {new_path}: {e}", 2)
+
+            # Update the path in the session to point to the new location
+            subtask.summary_file = new_path
+
+
 def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str], verbose: bool = False, clean_task: bool = True) -> dict:
     """
     Build the planner prompt, call the planner engine, and parse JSON.
@@ -339,8 +459,8 @@ def run_planner(session: Session, session_path: str, rules_text: str, summaries_
     prompt += f"- Only return valid JSON with no additional text or explanations outside the JSON."
 
     # Create inputs directory if it doesn't exist
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    inputs_dir = os.path.join(session_dir, "inputs")
+    maestro_dir = get_maestro_dir(session_path)
+    inputs_dir = os.path.join(maestro_dir, "inputs")
     os.makedirs(inputs_dir, exist_ok=True)
 
     # Save the planner prompt to the inputs directory
@@ -416,8 +536,8 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             # For planner interruptions, don't modify the session
             print_warning("\norchestrator: Planner interrupted by user", 2)
             # Save partial output for debugging, but don't modify session
-            session_dir = os.path.dirname(os.path.abspath(session_path))
-            partial_dir = os.path.join(session_dir, "partials")
+            maestro_dir = get_maestro_dir(session_path)
+            partial_dir = os.path.join(maestro_dir, "partials")
             os.makedirs(partial_dir, exist_ok=True)
             partial_filename = os.path.join(partial_dir, f"planner_{engine_name}_{int(time.time())}.partial.txt")
             with open(partial_filename, 'w', encoding='utf-8') as f:
@@ -432,8 +552,8 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             continue
 
         # Create outputs directory if it doesn't exist
-        session_dir = os.path.dirname(os.path.abspath(session_path))
-        outputs_dir = os.path.join(session_dir, "outputs")
+        maestro_dir = get_maestro_dir(session_path)
+        outputs_dir = os.path.join(maestro_dir, "outputs")
         os.makedirs(outputs_dir, exist_ok=True)
 
         # Save the raw planner stdout to outputs directory
@@ -845,6 +965,10 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
     # Attempt to load the session, which will handle file not found and JSON errors
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         # Set status to failed if the session file doesn't exist but we tried to resume
@@ -927,12 +1051,15 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
         return
 
     # Create inputs and outputs directories for the session
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    inputs_dir = os.path.join(session_dir, "inputs")
-    outputs_dir = os.path.join(session_dir, "outputs")
+    maestro_dir = get_maestro_dir(session_path)
+    inputs_dir = os.path.join(maestro_dir, "inputs")
+    outputs_dir = os.path.join(maestro_dir, "outputs")
     os.makedirs(inputs_dir, exist_ok=True)
     if not dry_run:
         os.makedirs(outputs_dir, exist_ok=True)
+        # Also create partials directory in the maestro directory
+        partials_dir = os.path.join(maestro_dir, "partials")
+        os.makedirs(partials_dir, exist_ok=True)
 
     # Process each target subtask in order
     for subtask in target_subtasks:
@@ -946,7 +1073,7 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 subtask.summary_file = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
 
             # Check if there's partial output from a previous interrupted run
-            partial_dir = os.path.join(session_dir, "partials")
+            partial_dir = os.path.join(maestro_dir, "partials")
             partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
             partial_output = None
             if os.path.exists(partial_filename):
@@ -1036,7 +1163,7 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 save_session(session, session_path)
 
                 # Save partial output if available
-                partial_dir = os.path.join(session_dir, "partials")
+                partial_dir = os.path.join(maestro_dir, "partials")
                 os.makedirs(partial_dir, exist_ok=True)
                 partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
 
@@ -1167,6 +1294,8 @@ def handle_rules_file(session_path, verbose=False):
     # Load the session first
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         # If session doesn't exist, we can't update its rules_path, but we'll still create a rules file
         session = None
@@ -1290,6 +1419,10 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     # Load the session
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         error_session = Session(
@@ -1354,8 +1487,8 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     print_info("Type your message and press Enter. Use /done when you want to generate the plan.", 4)
 
     # Create conversations directory
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    conversations_dir = os.path.join(session_dir, "conversations")
+    maestro_dir = get_maestro_dir(session_path)
+    conversations_dir = os.path.join(maestro_dir, "conversations")
     os.makedirs(conversations_dir, exist_ok=True)
 
     while True:
@@ -1600,6 +1733,8 @@ def handle_show_plan_tree(session_path, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -1753,6 +1888,8 @@ def handle_kill_plan(session_path, plan_id, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -1798,6 +1935,8 @@ def handle_focus_plan(session_path, plan_id, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -1854,6 +1993,8 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     # Load the session
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print_error(f"Session file '{session_path}' does not exist.", 2)
         # Create a failed session
@@ -2195,8 +2336,8 @@ def collect_worker_summaries(session: Session, session_path: str) -> str:
     summaries = []
 
     # Get the directory containing the session file
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    outputs_dir = os.path.join(session_dir, "outputs")
+    maestro_dir = get_maestro_dir(session_path)
+    outputs_dir = os.path.join(maestro_dir, "outputs")
 
     for subtask in session.subtasks:
         # Only collect summaries for subtasks that are marked as done
@@ -2267,6 +2408,8 @@ def handle_refine_root(session_path, verbose=False, planner_order="codex,claude"
     # Load the session
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         error_session = Session(
@@ -2303,8 +2446,8 @@ def handle_refine_root(session_path, verbose=False, planner_order="codex,claude"
     prompt = create_root_refinement_prompt(root_task_raw)
 
     # Create inputs directory if it doesn't exist
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    inputs_dir = os.path.join(session_dir, "inputs")
+    maestro_dir = get_maestro_dir(session_path)
+    inputs_dir = os.path.join(maestro_dir, "inputs")
     os.makedirs(inputs_dir, exist_ok=True)
 
     # Save the planner prompt to the inputs directory
@@ -2407,6 +2550,8 @@ def handle_plan_list(session_path, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -2432,6 +2577,8 @@ def handle_plan_show(session_path, plan_id, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -2510,6 +2657,8 @@ def handle_plan_get(session_path, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -2529,6 +2678,8 @@ def handle_rules_list(session_path, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -2624,6 +2775,8 @@ def handle_task_list(session_path, verbose=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -2701,6 +2854,8 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
     """
     try:
         session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -2753,11 +2908,14 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
         return
 
     # Create inputs and outputs directories for the session
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    inputs_dir = os.path.join(session_dir, "inputs")
-    outputs_dir = os.path.join(session_dir, "outputs")
+    maestro_dir = get_maestro_dir(session_path)
+    inputs_dir = os.path.join(maestro_dir, "inputs")
+    outputs_dir = os.path.join(maestro_dir, "outputs")
     os.makedirs(inputs_dir, exist_ok=True)
     os.makedirs(outputs_dir, exist_ok=True)
+    # Also create partials directory in the maestro directory
+    partials_dir = os.path.join(maestro_dir, "partials")
+    os.makedirs(partials_dir, exist_ok=True)
 
     # Process each target subtask in order
     tasks_processed = 0
@@ -2836,7 +2994,7 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
                 save_session(session, session_path)
 
                 # Save partial output if available
-                partial_dir = os.path.join(session_dir, "partials")
+                partial_dir = os.path.join(maestro_dir, "partials")
                 os.makedirs(partial_dir, exist_ok=True)
                 partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
 
@@ -2966,7 +3124,7 @@ def process_rule_based_post_tasks(session, completed_subtask, rules, session_dir
 
 def find_default_session_file():
     """
-    Look for a default session file in the current directory.
+    Look for a default session file in the current directory and .maestro subdirectory.
     Returns the path if found, or None if not found.
     """
     import os
@@ -2978,10 +3136,18 @@ def find_default_session_file():
         "maestro_session.json"
     ]
 
-    # Look for these files in the current working directory
+    # Look for these files in the current working directory first
     for filename in default_session_files:
         if os.path.exists(filename):
             return filename
+
+    # Then look in the .maestro subdirectory
+    maestro_dir = ".maestro"
+    if os.path.isdir(maestro_dir):
+        for filename in default_session_files:
+            maestro_file_path = os.path.join(maestro_dir, filename)
+            if os.path.exists(maestro_file_path):
+                return maestro_file_path
 
     return None
 
