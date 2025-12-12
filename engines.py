@@ -6,6 +6,7 @@ This module defines the interface and dummy implementations for various LLM engi
 used in the orchestrator system.
 """
 from dataclasses import dataclass
+import json
 import os
 import subprocess
 from typing import Protocol
@@ -95,11 +96,16 @@ class CodexPlannerEngine:
     """
     name = CODEX_PLANNER
 
-    def __init__(self, config: CliEngineConfig | None = None):
+    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False):
+        self.use_json = use_json
         if config is None:
+            base_args = ["exec"]
+            if use_json:
+                # For future JSON support, though codex may not support it directly
+                pass  # Currently codex just uses exec, no specific JSON format option
             config = CliEngineConfig(
                 binary="codex",
-                base_args=["exec"]
+                base_args=base_args
             )
         self.config = config
 
@@ -121,27 +127,62 @@ class CodexPlannerEngine:
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
 
+        if self.use_json:
+            try:
+                # Attempt to parse the response as JSON
+                parsed_json = json.loads(stdout)
+                # For this task, return the original stdout_text as requested
+                return stdout
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Failed to parse JSON response from {self.name}: {e}")
+
         return stdout
 
 
 class ClaudePlannerEngine:
     """
-    Dummy implementation for the claude planner engine.
+    Real implementation for the claude planner engine using claude CLI.
     """
-    def __init__(self):
-        self.name = CLAUDE_PLANNER
-    
+    name = CLAUDE_PLANNER
+
+    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False):
+        self.use_json = use_json
+        if config is None:
+            base_args = ["--print", "--output-format", "json" if use_json else "text"]
+            config = CliEngineConfig(
+                binary="claude",
+                base_args=base_args
+            )
+        self.config = config
+
     def generate(self, prompt: str) -> str:
         """
-        Generate a response simulating the claude planner.
-        
+        Generate a response using the claude CLI in non-interactive mode.
+
         Args:
             prompt: The input prompt string
-            
+
         Returns:
-            A simulated response string
+            The generated response string from claude CLI
+
+        Raises:
+            EngineError: If the claude CLI returns a non-zero exit code
         """
-        return f"[{self.name.upper()} SIMULATION]\n{prompt}"
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt)
+
+        if exit_code != 0:
+            raise EngineError(self.name, exit_code, stderr)
+
+        if self.use_json:
+            try:
+                # Attempt to parse the response as JSON
+                parsed_json = json.loads(stdout)
+                # For this task, return the original stdout_text as requested
+                return stdout
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Failed to parse JSON response from {self.name}: {e}")
+
+        return stdout
 
 
 class QwenWorkerEngine:
@@ -214,34 +255,43 @@ class GeminiWorkerEngine:
         return stdout
 
 
+ALIASES = {
+    "codex": "codex_planner",
+    "claude": "claude_planner",
+    "qwen": "qwen_worker",
+    "gemini": "gemini_worker",
+}
+
+
 def get_engine(name: str) -> Engine:
     """
     Registry function to get an engine instance by name.
 
     Args:
-        name: The name of the engine to retrieve
+        name: The name of the engine to retrieve (can be direct name or alias)
 
     Returns:
         An instance of the requested engine
     """
-    # Handle orchestrator aliases
-    if name == "qwen":
-        name = QWEN_WORKER
-    elif name == "gemini":
-        name = GEMINI_WORKER
-    elif name == "codex":
-        name = CODEX_PLANNER
+    # Check if the name is a direct engine name first
+    direct_engines = {
+        CODEX_PLANNER: CodexPlannerEngine(),
+        CLAUDE_PLANNER: ClaudePlannerEngine(),
+        QWEN_WORKER: QwenWorkerEngine(),  # Uses default config
+        GEMINI_WORKER: GeminiWorkerEngine(),
+    }
 
-    if name == CODEX_PLANNER:
-        return CodexPlannerEngine()
-    elif name == CLAUDE_PLANNER:
-        return ClaudePlannerEngine()
-    elif name == QWEN_WORKER:
-        return QwenWorkerEngine()  # Uses default config
-    elif name == GEMINI_WORKER:
-        return GeminiWorkerEngine()
-    else:
-        raise ValueError(f"Unknown engine name: {name}")
+    if name in direct_engines:
+        return direct_engines[name]
+
+    # If not a direct name, check if it's an alias
+    if name in ALIASES:
+        alias_target = ALIASES[name]
+        if alias_target in direct_engines:
+            return direct_engines[alias_target]
+
+    # If we get here, the name is unknown
+    raise KeyError(f"Unknown engine name or alias: {name}")
 
 
 if __name__ == "__main__":
