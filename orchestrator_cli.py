@@ -8,6 +8,10 @@ import os
 import subprocess
 import uuid
 import json
+
+# Version information
+__version__ = "1.2.0"
+
 import time
 from datetime import datetime
 
@@ -113,6 +117,80 @@ def print_ai_response(text):
 def print_user_input(text):
     """Print user input with special styling."""
     styled_print(f"[USER]: {text}", Colors.BRIGHT_BLUE, Colors.BOLD, 2)
+
+
+class StyledArgumentParser(argparse.ArgumentParser):
+    """Custom ArgumentParser that provides styled help output."""
+
+    def format_help(self):
+        """Override format_help to return styled output."""
+        # Get the original help text
+        original_help = super().format_help()
+
+        # Apply styling to the help text
+        lines = original_help.split('\n')
+        styled_lines = []
+
+        for line in lines:
+            if line.strip() == '':
+                styled_lines.append('')
+            elif line.startswith('usage:') or line.startswith('options:') or line.startswith('optional arguments:'):
+                # Style section headers
+                styled_lines.append(f"{Colors.BRIGHT_CYAN}{Colors.BOLD}{line}{Colors.RESET}")
+            elif line.startswith('  -') or line.startswith('    -'):
+                # Style argument descriptions
+                if ':' in line and not line.startswith('    -'):
+                    # This is a main argument line
+                    styled_lines.append(f"{Colors.BRIGHT_YELLOW}{line}{Colors.RESET}")
+                else:
+                    # This is a sub-description line
+                    styled_lines.append(f"{Colors.BRIGHT_WHITE}{line}{Colors.RESET}")
+            else:
+                # Style general description text
+                styled_lines.append(f"{Colors.BRIGHT_GREEN}{line}{Colors.RESET}")
+
+        return '\n'.join(styled_lines)
+
+    def print_help(self, file=None):
+        """Override print_help to use our styled formatter."""
+        # Print a splash header first
+        styled_print("  █████╗ ██████╗ ██████╗ ██╗   ██╗███████╗██████╗ ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print(" ██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔════╝██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print(" ███████║██████╔╝██████╔╝██║   ██║█████╗  ██████╔╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print(" ██╔══██║██╔═══╝ ██╔═══╝ ██║   ██║██╔══╝  ██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print(" ██║  ██║██║     ██║     ╚██████╔╝███████╗██║  ██║", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print(" ╚═╝  ╚═╝╚═╝     ╚═╝      ╚═════╝ ╚══════╝╚═╝  ╚═╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("                                                    ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("            AI TASK ORCHESTRATOR CLI                ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
+        styled_print(f"                    v{__version__}                      ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
+        print()
+
+        # Print the styled help using our functions
+        original_help = super().format_help()
+        lines = original_help.split('\n')
+
+        print_subheader("COMMAND OPTIONS")
+        for line in lines:
+            if not line.strip():
+                continue
+            elif line.startswith('usage:'):
+                styled_print(line, Colors.BRIGHT_YELLOW, Colors.BOLD, 0)
+            elif line.startswith('options:') or line.startswith('optional arguments:'):
+                styled_print(line, Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+            elif line.startswith('  -') or line.startswith('    -'):
+                if line.startswith('    -'):
+                    # Sub-description
+                    styled_print(line, Colors.BRIGHT_WHITE, None, 4)
+                else:
+                    # Main argument
+                    styled_print(line, Colors.BRIGHT_YELLOW, None, 0)
+            else:
+                styled_print(line, Colors.BRIGHT_GREEN, None, 0)
+
+        # Add a footer with version information
+        print()
+        styled_print(f" orchestrator-cli v{__version__} - AI Task Orchestrator ", Colors.BRIGHT_MAGENTA, Colors.UNDERLINE, 0)
+        styled_print(" Made with ❤️  for AI task automation ", Colors.BRIGHT_RED, Colors.BOLD, 0)
 
 
 class PlannerError(Exception):
@@ -405,10 +483,13 @@ class PlannedSubtask:
 
 
 def main():
-    parser = argparse.ArgumentParser(
+    parser = StyledArgumentParser(
         description="AI Task Orchestrator - Manage AI task sessions",
         formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.add_argument('--version', action='version',
+                       version=f'orchestrator-cli {__version__}',
+                       help='Show version information')
     parser.add_argument('-s', '--session', required=True,
                        help='Path to session JSON file')
     parser.add_argument('-v', '--verbose', action='store_true',
