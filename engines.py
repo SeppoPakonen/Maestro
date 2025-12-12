@@ -93,19 +93,49 @@ def run_cli_engine(
         interrupted = False
 
         try:
+            # Define color codes locally
+            DIM = '\033[2m'  # Dark color
+            RESET = '\033[0m'  # Reset to default
+
+            def detect_tool_usage(line):
+                """
+                Detect if a line contains tool usage (shell commands, builtin stuff).
+                """
+                import re
+
+                # Patterns for shell commands and tool usage
+                patterns = [
+                    # Common shell commands
+                    r'\$ [^\n]+',  # Lines starting with $ (terminal commands)
+                    r'# [^\n]+',  # Comment lines
+                    r'\b(ls|cd|pwd|mkdir|rm|cp|mv|cat|echo|grep|find|ps|kill|git|npm|yarn|python|pip|conda|docker|kubectl|make|bash|sh)\b',
+                    r'(&&|\|\||;)',  # Command chaining operators
+                    r'`[^`]+`',  # Inline code (markdown)
+                    r'^\s*(export|set|alias|source|chmod|chown|tar|zip|unzip|which|whereis|man|help)\b',  # More commands
+                ]
+
+                # Check if line matches any of the patterns
+                for pattern in patterns:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        return True
+
+                return False
+
             if stream_output:
-                # Stream output mode: process line by line
+                # Stream output mode: process line by line with tool usage detection and formatting
                 for line in process.stdout:
-                    sys.stdout.write(line)
+                    # Check if line contains tool usage and format accordingly
+                    if detect_tool_usage(line):
+                        formatted_line = f"{DIM}{line}{RESET}"
+                    else:
+                        formatted_line = line
+                    sys.stdout.write(formatted_line)
                     sys.stdout.flush()
-                    stdout_chunks.append(line)
+                    stdout_chunks.append(line)  # Store unformatted version for return
             else:
                 # Non-streaming mode: read line by line to allow interruption
                 for line in process.stdout:
                     stdout_chunks.append(line)
-                    if stream_output:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
         except KeyboardInterrupt:
             # Handle interrupt gracefully
             interrupted = True
