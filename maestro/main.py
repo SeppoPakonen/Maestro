@@ -967,8 +967,6 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
         session = load_session(session_path)
         # Update summary file paths for backward compatibility with old sessions
         update_subtask_summary_paths(session, session_path)
-        # Update summary file paths for backward compatibility with old sessions
-        update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
         print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
         # Set status to failed if the session file doesn't exist but we tried to resume
@@ -1419,8 +1417,6 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     # Load the session
     try:
         session = load_session(session_path)
-        # Update summary file paths for backward compatibility with old sessions
-        update_subtask_summary_paths(session, session_path)
         # Update summary file paths for backward compatibility with old sessions
         update_subtask_summary_paths(session, session_path)
     except FileNotFoundError:
