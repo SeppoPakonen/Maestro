@@ -24,8 +24,8 @@ def edit_root_task_in_editor():
         temp_file_path = tmp_file.name
 
     try:
-        # Use the EDITOR environment variable or default to 'vi'
-        editor = os.environ.get('EDITOR', 'vi')
+        # Use the EDITOR environment variable or default to 'nano'
+        editor = os.environ.get('EDITOR', 'nano')
 
         # Open the editor
         result = subprocess.run([editor, temp_file_path])
