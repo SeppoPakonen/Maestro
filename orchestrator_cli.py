@@ -203,6 +203,9 @@ def main():
     # Add --root-task argument for loading from file
     parser.add_argument('--root-task', help='Path to file containing root task text')
 
+    # Add --planner-order argument for specifying planner preference order
+    parser.add_argument('--planner-order', help='Comma-separated list of planners in preference order (e.g., "claude,codex")', default="codex,claude")
+
     args = parser.parse_args()
 
     # Determine which action to take based on flags
@@ -213,7 +216,7 @@ def main():
     elif args.rules:
         handle_rules_file(args.session, args.verbose)
     elif args.plan:
-        handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts)
+        handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order)
 
 
 def handle_new_session(session_path, verbose=False, root_task_file=None):
@@ -643,7 +646,7 @@ def plan_subtasks(root_task: str, rules: str) -> list:
     return subtasks
 
 
-def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False):
+def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude"):
     """Handle planning subtasks for the session."""
     if verbose:
         print(f"[VERBOSE] Loading session from: {session_path}")
@@ -697,9 +700,11 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
             print("[VERBOSE] Starting initial planning phase...")
         print("Starting initial planning phase...")
 
-        # Use the new run_planner function with a default planner preference
+        # Use the new run_planner function with planner preference from CLI
         summaries = "(no summaries yet)"
-        planner_preference = ["codex", "claude"]  # Default preference order
+        planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+        # Clean up whitespace from split
+        planner_preference = [item.strip() for item in planner_preference if item.strip()]
         try:
             json_plan = run_planner(session, session_path, rules, summaries, planner_preference)
             planned_subtasks = json_to_planned_subtasks(json_plan)
@@ -720,8 +725,10 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         if verbose:
             print(f"[VERBOSE] Collected summaries (length: {len(summaries)} chars)")
 
-        # Use the new run_planner function with a default planner preference
-        planner_preference = ["codex", "claude"]  # Default preference order
+        # Use the new run_planner function with planner preference from CLI
+        planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+        # Clean up whitespace from split
+        planner_preference = [item.strip() for item in planner_preference if item.strip()]
         try:
             json_plan = run_planner(session, session_path, rules, summaries, planner_preference)
             planned_subtasks = json_to_planned_subtasks(json_plan)
