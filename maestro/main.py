@@ -505,12 +505,12 @@ def main():
 
     # New session command
     new_parser = subparsers.add_parser('new', help='Create a new session and read root task from stdin')
-    new_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    new_parser.add_argument('-s', '--session', help='Path to session JSON file (required for new command)')
     new_parser.add_argument('-t', '--root-task', help='Inline root task instead of reading stdin')
 
     # Resume command
     resume_parser = subparsers.add_parser('resume', help='Resume processing subtasks')
-    resume_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    resume_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     resume_parser.add_argument('-d', '--dry-run', action='store_true',
                               help='Simulate execution without modifying files')
     resume_parser.add_argument('-o', '--stream-ai-output', action='store_true',
@@ -522,11 +522,11 @@ def main():
 
     # Rules command
     rules_parser = subparsers.add_parser('rules', help='Edit the session\'s rules file in $EDITOR')
-    rules_parser.add_argument('-s', '--session', help='Path to session JSON file (required for rules operations)')
+    rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # Plan command
     plan_parser = subparsers.add_parser('plan', help='Run planner and update subtask plan')
-    plan_parser.add_argument('-s', '--session', help='Path to session JSON file (required for all plan operations)')
+    plan_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_parser.add_argument('--one-shot', action='store_true', help='Run single planner call that rewrites root task and returns finalized JSON plan')
     plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
     plan_parser.add_argument('--force', action='store_true', help='Ignore existing subtasks and force new planning')
@@ -539,20 +539,20 @@ def main():
 
     # plan tree
     plan_tree_parser = plan_subparsers.add_parser('tree', help='Show the plan tree with ASCII art')
-    plan_tree_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_tree_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # plan list
     plan_list_parser = plan_subparsers.add_parser('list', help='List plans as numbered list')
-    plan_list_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # plan show
     plan_show_parser = plan_subparsers.add_parser('show', help='Show details of a specific plan')
-    plan_show_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_show_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_show_parser.add_argument('plan_id', help='Plan ID, number, or name to show')
 
     # plan discuss (alternative to --discuss)
     plan_discuss_parser = plan_subparsers.add_parser('discuss', help='Alternative to plan --discuss')
-    plan_discuss_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_discuss_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_discuss_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
     plan_discuss_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
     plan_discuss_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
@@ -560,33 +560,33 @@ def main():
 
     # plan set
     plan_set_parser = plan_subparsers.add_parser('set', help='Set active plan ID to switch focus')
-    plan_set_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_set_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_set_parser.add_argument('plan_id', help='Plan ID to switch focus to')
 
     # plan get
     plan_get_parser = plan_subparsers.add_parser('get', help='Print active plan')
-    plan_get_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    plan_get_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # Rules subcommands
     rules_subparsers = rules_parser.add_subparsers(dest='rules_subcommand', help='Rules subcommands')
 
     # rules list
     rules_list_parser = rules_subparsers.add_parser('list', help='List all rules in JSON format')
-    rules_list_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    rules_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # rules enable
     rules_enable_parser = rules_subparsers.add_parser('enable', help='Enable a specific rule')
-    rules_enable_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    rules_enable_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     rules_enable_parser.add_argument('rule_id', help='Rule ID or number to enable')
 
     # rules disable
     rules_disable_parser = rules_subparsers.add_parser('disable', help='Disable a specific rule')
-    rules_disable_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    rules_disable_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     rules_disable_parser.add_argument('rule_id', help='Rule ID or number to disable')
 
     # Log command
     log_parser = subparsers.add_parser('log', help='Log management commands')
-    log_parser.add_argument('-s', '--session', help='Path to session JSON file (required for log operations)')
+    log_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     log_subparsers = log_parser.add_subparsers(dest='log_subcommand', help='Log subcommands')
 
     # log help
@@ -604,12 +604,12 @@ def main():
 
     # Add --refine-root command
     refine_parser = subparsers.add_parser('refine-root', help='Clean up and categorize the root task before planning')
-    refine_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    refine_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     refine_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
 
     # Add --kill-plan command (as a plan subcommand)
     kill_parser = plan_subparsers.add_parser('kill', help='Mark a plan branch as dead')
-    kill_parser.add_argument('-s', '--session', required=True, help='Path to session JSON file')
+    kill_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     kill_parser.add_argument('plan_id', help='Plan ID to mark as dead')
 
     args = parser.parse_args()
@@ -621,15 +621,43 @@ def main():
         sys.exit(1)
 
     # Determine which action to take based on subcommands
+    # For commands that require a session, look for default if not provided
+    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log']:
+        # For these commands, if session is not provided, look for default
+        if not args.session:
+            default_session = find_default_session_file()
+            if default_session:
+                args.session = default_session
+                if args.verbose:
+                    print_info(f"Using default session file: {default_session}", 2)
+            else:
+                # If no session provided and no default exists, show error
+                if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+                    # For plan subcommands specifically, if no session, show error
+                    print_error("Session is required for plan commands", 2)
+                    sys.exit(1)
+                elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
+                    # For rules subcommands specifically, if no session, show error
+                    print_error("Session is required for rules commands", 2)
+                    sys.exit(1)
+                elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
+                    # For log subcommands specifically, if no session, show error
+                    print_error("Session is required for log commands", 2)
+                    sys.exit(1)
+                else:
+                    # For other commands in this group, if no session, show error
+                    print_error(f"Session is required for {args.command} command", 2)
+                    sys.exit(1)
+
+    # For 'new' command, session is always required
     if args.command == 'new':
+        if not args.session:
+            print_error("Session file must be specified for 'new' command", 2)
+            sys.exit(1)
         handle_new_session(args.session, args.verbose, root_task_file=args.root_task)
     elif args.command == 'resume':
         handle_resume_session(args.session, args.verbose, args.dry_run, args.stream_ai_output, args.print_ai_prompts, retry_interrupted=args.retry_interrupted)
     elif args.command == 'rules':
-        if not args.session:
-            print_error("Session is required for rules commands", 2)
-            sys.exit(1)
-
         if hasattr(args, 'rules_subcommand'):
             if args.rules_subcommand == 'list':
                 handle_rules_list(args.session, args.verbose)
@@ -642,10 +670,6 @@ def main():
         else:
             handle_rules_file(args.session, args.verbose)
     elif args.command == 'plan':
-        if not args.session:
-            print_error("Session is required for plan commands", 2)
-            sys.exit(1)
-
         if hasattr(args, 'plan_subcommand') and args.plan_subcommand:
             if args.plan_subcommand == 'tree':
                 handle_show_plan_tree(args.session, args.verbose)
@@ -685,10 +709,6 @@ def main():
     elif args.command == 'refine-root':
         handle_refine_root(args.session, args.verbose, args.planner_order)
     elif args.command == 'log':
-        if not args.session:
-            print_error("Session is required for log commands", 2)
-            sys.exit(1)
-
         if hasattr(args, 'log_subcommand') and args.log_subcommand:
             if args.log_subcommand == 'help':
                 handle_log_help(args.session, args.verbose)
@@ -2528,6 +2548,28 @@ def handle_log_list_plan(session_path, verbose=False):
     List all plan changes.
     """
     print_warning("Plan log functionality not fully implemented in this version.", 2)
+
+
+def find_default_session_file():
+    """
+    Look for a default session file in the current directory.
+    Returns the path if found, or None if not found.
+    """
+    import os
+
+    # Common default session file names to look for
+    default_session_files = [
+        "session.json",
+        "maestro-session.json",
+        "maestro_session.json"
+    ]
+
+    # Look for these files in the current working directory
+    for filename in default_session_files:
+        if os.path.exists(filename):
+            return filename
+
+    return None
 
 
 if __name__ == "__main__":
