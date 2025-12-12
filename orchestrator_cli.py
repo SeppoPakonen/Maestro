@@ -13,6 +13,12 @@ from datetime import datetime
 from session_model import Session, Subtask, load_session, save_session
 
 
+def log_verbose(verbose, message: str):
+    """Simple logging helper for verbose mode."""
+    if verbose:
+        print(f"[orchestrator] {message}")
+
+
 class PlannedSubtask:
     """
     Represents a planned subtask before being converted to the session format.
@@ -182,11 +188,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             # Look up the worker engine
             from engines import get_engine
             try:
-                engine = get_engine(subtask.worker_model + "_worker")
+                engine = get_engine(subtask.worker_model + "_worker", debug=verbose)
             except ValueError:
                 # If we don't have the specific model with "_worker" suffix, try directly
                 try:
-                    engine = get_engine(subtask.worker_model)
+                    engine = get_engine(subtask.worker_model, debug=verbose)
                 except ValueError:
                     print(f"Error: Unknown worker model '{subtask.worker_model}'", file=sys.stderr)
                     session.status = "failed"
@@ -201,6 +207,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{subtask.worker_model}.txt")
             with open(worker_prompt_filename, "w", encoding="utf-8") as f:
                 f.write(prompt)
+
+            # Log verbose information
+            log_verbose(verbose, f"Engine={subtask.worker_model} subtask={subtask.id}")
+            log_verbose(verbose, f"Prompt file: {worker_prompt_filename}")
+            log_verbose(verbose, f"Output file: {os.path.join(outputs_dir, f'{subtask.id}.txt')}")
 
             # Call engine.generate(prompt) - this is still simulated
             try:
@@ -476,7 +487,7 @@ def handle_plan_session(session_path, verbose=False):
         # Get the planner engine (use codex_planner for now)
         from engines import get_engine
         try:
-            planner_engine = get_engine("codex_planner")  # or "claude_planner"
+            planner_engine = get_engine("codex_planner", debug=verbose)  # or "claude_planner"
             if verbose:
                 print(f"[VERBOSE] Using planner engine: {planner_engine.name}")
         except ValueError:
@@ -497,6 +508,11 @@ def handle_plan_session(session_path, verbose=False):
         planner_prompt_filename = os.path.join(inputs_dir, f"planner_{planner_engine.name}_{timestamp}.txt")
         with open(planner_prompt_filename, "w", encoding="utf-8") as f:
             f.write(planner_prompt)
+
+        # Log verbose information
+        log_verbose(verbose, f"Engine={planner_engine.name}")
+        log_verbose(verbose, f"Prompt file: {planner_prompt_filename}")
+        # Note: planner doesn't save to output file in this context
 
         # Call the planner engine to get updated plan
         try:

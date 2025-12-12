@@ -32,6 +32,7 @@ class CliEngineConfig:
 def run_cli_engine(
     config: CliEngineConfig,
     prompt: str,
+    debug: bool = False,
 ) -> tuple[int, str, str]:
     """
     Run the CLI with the given prompt.
@@ -42,7 +43,8 @@ def run_cli_engine(
     cmd = [config.binary] + config.base_args + [prompt]
 
     # Debug mode: print the final command
-    print(f"[DEBUG] Running command: {' '.join(cmd)}", file=sys.stderr)
+    if debug:
+        print(f"[engine-debug] running: {' '.join(cmd)}", file=sys.stderr)
 
     # Prepare environment
     env = os.environ.copy()
@@ -100,7 +102,7 @@ class CodexPlannerEngine:
     """
     name = CODEX_PLANNER
 
-    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False):
+    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False):
         self.use_json = use_json
         if config is None:
             base_args = ["exec"]
@@ -112,6 +114,7 @@ class CodexPlannerEngine:
                 base_args=base_args
             )
         self.config = config
+        self.debug = debug
 
     def generate(self, prompt: str) -> str:
         """
@@ -126,7 +129,7 @@ class CodexPlannerEngine:
         Raises:
             EngineError: If the codex CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -149,7 +152,7 @@ class ClaudePlannerEngine:
     """
     name = CLAUDE_PLANNER
 
-    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False):
+    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False):
         self.use_json = use_json
         if config is None:
             base_args = ["--print", "--output-format", "json" if use_json else "text",
@@ -159,6 +162,7 @@ class ClaudePlannerEngine:
                 base_args=base_args
             )
         self.config = config
+        self.debug = debug
 
     def generate(self, prompt: str) -> str:
         """
@@ -173,7 +177,7 @@ class ClaudePlannerEngine:
         Raises:
             EngineError: If the claude CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -196,13 +200,14 @@ class QwenWorkerEngine:
     """
     name = QWEN_WORKER
 
-    def __init__(self, config: CliEngineConfig | None = None):
+    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False):
         if config is None:
             config = CliEngineConfig(
                 binary="qwen",
                 base_args=["--yolo"]  # Auto-approve all permissions
             )
         self.config = config
+        self.debug = debug
 
     def generate(self, prompt: str) -> str:
         """
@@ -217,7 +222,7 @@ class QwenWorkerEngine:
         Raises:
             EngineError: If the qwen CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -231,13 +236,14 @@ class GeminiWorkerEngine:
     """
     name = GEMINI_WORKER
 
-    def __init__(self, config: CliEngineConfig | None = None):
+    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False):
         if config is None:
             config = CliEngineConfig(
                 binary="gemini",
                 base_args=["--approval-mode", "yolo"]  # Auto-approve all permissions
             )
         self.config = config
+        self.debug = debug
 
     def generate(self, prompt: str) -> str:
         """
@@ -252,7 +258,7 @@ class GeminiWorkerEngine:
         Raises:
             EngineError: If the gemini CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -268,22 +274,23 @@ ALIASES = {
 }
 
 
-def get_engine(name: str) -> Engine:
+def get_engine(name: str, debug: bool = False) -> Engine:
     """
     Registry function to get an engine instance by name.
 
     Args:
         name: The name of the engine to retrieve (can be direct name or alias)
+        debug: Whether to enable debug mode
 
     Returns:
         An instance of the requested engine
     """
     # Check if the name is a direct engine name first
     direct_engines = {
-        CODEX_PLANNER: CodexPlannerEngine(),
-        CLAUDE_PLANNER: ClaudePlannerEngine(),
-        QWEN_WORKER: QwenWorkerEngine(),  # Uses default config
-        GEMINI_WORKER: GeminiWorkerEngine(),
+        CODEX_PLANNER: CodexPlannerEngine(debug=debug),
+        CLAUDE_PLANNER: ClaudePlannerEngine(debug=debug),
+        QWEN_WORKER: QwenWorkerEngine(debug=debug),  # Uses default config
+        GEMINI_WORKER: GeminiWorkerEngine(debug=debug),
     }
 
     if name in direct_engines:
@@ -309,7 +316,7 @@ if __name__ == "__main__":
     print("\nResults:")
 
     for engine_name in engines_to_test:
-        engine = get_engine(engine_name)
+        engine = get_engine(engine_name, debug=False)  # Debug off for tests
         result = engine.generate(test_prompt)
         print(f"\nEngine: {engine_name}")
         print(f"Output:\n{result}")
