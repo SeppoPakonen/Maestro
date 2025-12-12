@@ -153,16 +153,20 @@ class StyledArgumentParser(argparse.ArgumentParser):
 
     def print_help(self, file=None):
         """Override print_help to use our styled formatter."""
-        # Print a splash header first
-        styled_print("  ███╗   ███╗███████╗███╗   ██╗██╗   ██╗██╗      █████╗ ██████╗ ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ████╗ ████║██╔════╝████╗  ██║██║   ██║██║     ██╔══██╗██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ██╔████╔██║█████╗  ██╔██╗ ██║██║   ██║██║     ███████║██████╔╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ██║╚██╔╝██║██╔══╝  ██║╚██╗██║╚██╗ ██╔╝██║     ██╔══██║██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ██║ ╚═╝ ██║███████╗██║ ╚████║ ╚████╔╝ ███████╗██║  ██║██║  ██║", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("                                                                ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("            MAESTRO - AI TASK ORCHESTRATOR                      ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
-        styled_print(f"                    v{__version__}                        ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
+        # Import pyfiglet to generate ASCII art for "MAESTRO"
+        import pyfiglet
+
+        # Generate ASCII art for "MAESTRO" using the letters font
+        ascii_art = pyfiglet.figlet_format("MAESTRO", font="letters")
+
+        # Print the ASCII art with cyan color
+        for line in ascii_art.split('\n'):
+            if line.strip():  # Only print non-empty lines
+                styled_print(line, Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+
+        # Print additional header information
+        styled_print("  AI TASK ORCHESTRATOR  ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
+        styled_print(f"  v{__version__}  ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
         print()
 
         # Print the styled help using our functions
