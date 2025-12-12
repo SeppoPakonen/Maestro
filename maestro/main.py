@@ -3132,10 +3132,33 @@ def process_rule_based_post_tasks(session, completed_subtask, rules, session_dir
 
 def find_default_session_file():
     """
-    Look for a default session file in the current directory and .maestro subdirectory.
+    Look for a default session file using MAESTRO_SESSION env var or default names.
+    First checks MAESTRO_SESSION environment variable if set.
+    Then looks for default session file names in current directory and .maestro subdirectory.
     Returns the path if found, or None if not found.
     """
     import os
+
+    # Check for MAESTRO_SESSION environment variable first
+    maestro_session_env = os.environ.get('MAESTRO_SESSION')
+    if maestro_session_env:
+        # Check if the file exists at the specified location (could be absolute or relative)
+        if os.path.exists(maestro_session_env):
+            return maestro_session_env
+        # Check if it's a simple filename that exists in .maestro directory
+        # (e.g., MAESTRO_SESSION=my_custom.json would look for .maestro/my_custom.json)
+        maestro_file_path = os.path.join(".maestro", maestro_session_env)
+        if os.path.exists(maestro_file_path):
+            return maestro_file_path
+        # Also check just the basename in case the env var has a path
+        basename = os.path.basename(maestro_session_env)
+        if basename != maestro_session_env:  # It's a path, not just a filename
+            maestro_basename_path = os.path.join(".maestro", basename)
+            if os.path.exists(maestro_basename_path):
+                return maestro_basename_path
+        # If not found anywhere, return the original environment variable value
+        # This allows the calling code to handle the "not found" case appropriately
+        return maestro_session_env
 
     # Common default session file names to look for
     default_session_files = [
