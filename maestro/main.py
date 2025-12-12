@@ -345,6 +345,8 @@ def log_verbose(verbose, message: str):
 def get_maestro_dir(session_path: str) -> str:
     """
     Get the .maestro directory path for the given session.
+    If the session file is already in a .maestro directory, use that directory.
+    Otherwise, create/use the .maestro directory in the same directory as the session file.
 
     Args:
         session_path: Path to the session file
@@ -352,8 +354,18 @@ def get_maestro_dir(session_path: str) -> str:
     Returns:
         Path to the .maestro directory
     """
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    maestro_dir = os.path.join(session_dir, ".maestro")
+    session_abs_path = os.path.abspath(session_path)
+    session_dir = os.path.dirname(session_abs_path)
+
+    # If the session directory is a .maestro directory, use it.
+    # Otherwise, use/create .maestro subdirectory in the session's directory.
+    if os.path.basename(session_dir) == ".maestro":
+        # The session file is already in a .maestro directory, so use that directory
+        maestro_dir = session_dir
+    else:
+        # The session file is not in .maestro, create/use .maestro in the same directory
+        maestro_dir = os.path.join(session_dir, ".maestro")
+
     os.makedirs(maestro_dir, exist_ok=True)
     return maestro_dir
 
