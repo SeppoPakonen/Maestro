@@ -1061,7 +1061,27 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     for msg in planner_conversation:
         final_conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
 
-    final_conversation_prompt += "Return ONLY the JSON plan with 'subtasks' array and 'root' object with 'clean_text', 'raw_summary', and 'categories', and no other text. Format: {\"subtasks\": [...], \"root\": {\"clean_text\": \"...\", \"raw_summary\": \"...\", \"categories\": [...]}}"
+    final_conversation_prompt += """Return ONLY the JSON plan with 'subtasks' array and 'root' object with 'clean_text', 'raw_summary', and 'categories', and no other text.
+
+Expected format:
+{
+  "subtasks": [
+    {
+      "title": "Descriptive title for the subtask",
+      "description": "Detailed description of what needs to be done",
+      "categories": ["category1", "category2"],
+      "root_excerpt": "Relevant excerpt from root task"
+    }
+  ],
+  "root": {
+    "version": 1,
+    "clean_text": "...",
+    "raw_summary": "...",
+    "categories": ["..."]
+  }
+}
+
+Make sure each subtask has a 'title' and 'description' field."""
 
     planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
     planner_preference = [item.strip() for item in planner_preference if item.strip()]
