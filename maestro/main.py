@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Orchestrator CLI - A command-line interface for managing AI task sessions.
+Maestro - A command-line interface for managing AI task sessions.
 """
 import argparse
 import sys
@@ -15,9 +15,9 @@ __version__ = "1.2.0"
 import time
 from datetime import datetime
 
-# Import the session model and engines from the same directory
-from session_model import Session, Subtask, PlanNode, load_session, save_session
-from engines import EngineError
+# Import the session model and engines from the package
+from .session_model import Session, Subtask, PlanNode, load_session, save_session
+from .engines import EngineError
 
 
 # ANSI color codes for styling
@@ -154,14 +154,14 @@ class StyledArgumentParser(argparse.ArgumentParser):
     def print_help(self, file=None):
         """Override print_help to use our styled formatter."""
         # Print a splash header first
-        styled_print("  █████╗ ██████╗ ██████╗ ██╗   ██╗███████╗██████╗ ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print(" ██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔════╝██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print(" ███████║██████╔╝██████╔╝██║   ██║█████╗  ██████╔╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print(" ██╔══██║██╔═══╝ ██╔═══╝ ██║   ██║██╔══╝  ██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print(" ██║  ██║██║     ██║     ╚██████╔╝███████╗██║  ██║", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print(" ╚═╝  ╚═╝╚═╝     ╚═╝      ╚═════╝ ╚══════╝╚═╝  ╚═╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ██╗  ██╗███████╗██╗   ██╗██████╗  █████╗ ██╗   ██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ██║  ██║██╔════╝██║   ██║██╔══██╗██╔══██╗╚██╗ ██╔╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ███████║█████╗  ██║   ██║██████╔╝███████║ ╚████╔╝ ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ██╔══██║██╔══╝  ██║   ██║██╔══██╗██╔══██║  ╚██╔╝  ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ██║  ██║███████╗╚██████╔╝██║  ██║██║  ██║   ██║   ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
         styled_print("                                                    ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("            AI TASK ORCHESTRATOR CLI                ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
+        styled_print("            MAESTRO - AI TASK ORCHESTRATOR          ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
         styled_print(f"                    v{__version__}                      ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
         print()
 
@@ -189,8 +189,8 @@ class StyledArgumentParser(argparse.ArgumentParser):
 
         # Add a footer with version information
         print()
-        styled_print(f" orchestrator-cli v{__version__} - AI Task Orchestrator ", Colors.BRIGHT_MAGENTA, Colors.UNDERLINE, 0)
-        styled_print(" Made with ❤️  for AI task automation ", Colors.BRIGHT_RED, Colors.BOLD, 0)
+        styled_print(f" maestro v{__version__} - AI Task Orchestrator ", Colors.BRIGHT_MAGENTA, Colors.UNDERLINE, 0)
+        styled_print(" Conductor of AI symphonies 🎼 ", Colors.BRIGHT_RED, Colors.BOLD, 0)
 
 
 class PlannerError(Exception):
@@ -484,11 +484,11 @@ class PlannedSubtask:
 
 def main():
     parser = StyledArgumentParser(
-        description="AI Task Orchestrator - Manage AI task sessions",
+        description="Maestro - AI Task Management & Orchestration",
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--version', action='version',
-                       version=f'orchestrator-cli {__version__}',
+                       version=f'maestro {__version__}',
                        help='Show version information')
     parser.add_argument('-s', '--session', required=True,
                        help='Path to session JSON file')

@@ -1,0 +1,206 @@
+# **README.md — Maestro**
+
+### *AI–Driven Project Composition & Branching Workflow Conductor*
+
+Maestro is a command-line tool for composing complex projects with multiple AI models.
+Rather than pushing tasks through a linear pipeline, Maestro behaves like a *conductor* guiding an orchestra of models — planners, workers, refiners — each an instrument with its own voice.
+
+A project planned with Maestro grows organically, like a living composition:
+themes develop, branches emerge, variations unfold, and motifs resolve across multiple voices.
+
+Maestro helps humans and AIs work together to **shape, refine, and restructure** ambitious ideas — one movement at a time.
+
+---
+
+## Features
+
+### **1. Conversational Planning (The Opening Movement)**
+
+Plans don't appear fully formed  they are *composed*.
+Maestro lets you **talk** with its planning AIs (Codex or Claude):
+
+* Discuss, revise, and sculpt the plan
+* Rewrite or clean" the root task
+* Break the project into subtasks
+* Control how much of the root task is given to each worker
+
+You can conduct this process in two modes:
+
+* **Interactive planning** (`--discuss-plan`)
+  Talk with the AI until the structure feels right.
+
+* **One-shot planning** (`--one-shot-plan`)
+  Produce a clean JSON plan in a single gesture.
+
+If neither mode is specified, Maestro politely asks which style you prefer.
+
+---
+
+### **2. Branching Plans (Fugues, Variations, and Development)**
+
+Real projects don't move in straight lines — they branch.
+Maestro treats planning as a **tree of musical ideas**:
+
+* Every plan is a *motif*: a node in a branching structure
+* You can create new branches mid-project
+* Old branches remain as "dead ends" or alternative interpretations
+* You can freely switch focus between branches
+* A plan tree can be printed as colored ASCII score-like structure:
+
+```
+[*] P1  Main Theme (active)
+ ├─ P2  Variant: Split Backend
+ │    └─ P3  Variant: Minimal API (dead)
+ └ P4  Variant: Test-Driven Rewrite
+```
+
+Each branch represents a different interpretation of your original composition.
+
+---
+
+### **3. Multi-Engine Orchestration (Your Orchestra of AIs)**
+
+Maestro assigns roles according to each model's strengths:
+
+**Planners**
+
+* **Codex** – architectural motifs, structural design, advanced debugging
+* **Claude** – deep reasoning, complex refinement, expressive thought
+
+**Workers**
+
+* **Qwen** – implementation, coding, straightforward bugfixing
+* **Gemini** – natural-language heavy tasks, research, summarization
+
+Each subtask receives a carefully crafted prompt with:
+
+* cleaned root task excerpt
+* relevant categories (like instrumental sections)
+* context from previous movements
+* optional partial outputs from interrupted runs
+
+---
+
+### **4. Intelligent Root Task Handling (From Sketch to Score)**
+
+Instead of shoving the raw root task into every prompt, Maestro:
+
+* rewrites your root task into a **clean, musical score**
+* extracts conceptual **categories** (sections, voices, instruments)
+* assigns only the relevant sections to each subtask
+* optionally produces excerpts for workers
+
+This keeps prompts focused, reducing noise and creative drift.
+
+---
+
+### **5. Graceful Interrupts (The Pause Between Movements)**
+
+If you press **Ctrl+C**, Maestro behaves like a seasoned conductor:
+
+* Stops the current AI subprocess gently
+* Captures all partial output
+* Saves it as part of the project history
+* Marks the subtask as *interrupted*
+* Allows a later continuation, including partial context in the next prompt
+
+No stack traces. No lost work. No broken flow.
+
+---
+
+### **6. Rich Session State & Continuity (The Concert Archive)**
+
+Maestro stores:
+
+* root task raw + cleaned version
+* categories + excerpts
+* plan tree nodes
+* subtask statuses
+* all input prompts
+* all raw AI outputs
+* partial results
+* user-facing summaries
+
+Maestro ensures that every run is reproducible — every rehearsal preserved.
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/yourname/maestro.git
+cd maestro
+pip install -r requirements.txt
+```
+
+Or editable install:
+
+```bash
+pip install -e .
+```
+
+---
+
+## Usage
+
+### Create a new session:
+
+```bash
+echo "Build a MIDI-driven sandbox game engine" \
+  | maestro --session sessions/game.json --new
+```
+
+### Start planning:
+
+```bash
+maestro --session sessions/game.json --plan
+```
+
+(defaults to interactive discussion)
+
+### Or produce a plan in one gesture:
+
+```bash
+maestro -s sessions/game.json --one-shot-plan
+```
+
+### Resume execution:
+
+```bash
+maestro -s sessions/game.json --resume
+```
+
+### Show the branching plan tree:
+
+```bash
+maestro -s sessions/game.json --show-plan-tree
+```
+
+### Shift the conductor's focus:
+
+```bash
+maestro -s sessions/game.json --focus-plan P4
+```
+
+---
+
+## Philosophy
+
+> *To compose is to discover.*
+> And discovery is rarely linear.
+
+Maestro assumes:
+
+* Creativity grows through branching ideas
+* Plans evolve like musical themes  explored, revisited, refined
+* AI is best used as a collaborative instrument, not a silent worker
+* Human intuition guides the music; AI provides the ensemble
+* Every project is a symphony in progress
+
+Maestro exists to ensure your composition — technical or artistic — can unfold freely, gracefully, and intelligently.
+
+---
+
+## License
+
+New BSD

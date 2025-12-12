@@ -1,0 +1,134 @@
+{
+  "id": "session-12345",
+  "created_at": "2025-12-12T10:30:00.000000",
+  "updated_at": "2025-12-12T15:45:00.000000",
+  "root_task": "Build a web application with user authentication and dashboard",
+  "subtasks": [
+    {
+      "id": "S1",
+      "title": "Setup project structure",
+      "description": "Initialize the project with proper directory structure and dependencies",
+      "planner_model": "gpt-4",
+      "worker_model": "qwen",
+      "status": "done",
+      "summary_file": "outputs/S1.summary.txt",
+      "categories": ["setup", "architecture"],
+      "root_excerpt": "Project setup and initial configuration",
+      "plan_id": "P1"
+    },
+    {
+      "id": "S2",
+      "title": "Design database schema",
+      "description": "Create the database structure for users, sessions, and dashboard data",
+      "planner_model": "gpt-4",
+      "worker_model": "qwen",
+      "status": "done",
+      "summary_file": "outputs/S2.summary.txt",
+      "categories": ["database", "architecture"],
+      "root_excerpt": "Database design for user authentication system",
+      "plan_id": "P1"
+    },
+    {
+      "id": "S3",
+      "title": "Implement user registration",
+      "description": "Create user registration functionality with validation",
+      "planner_model": "gpt-4",
+      "worker_model": "qwen",
+      "status": "done",
+      "summary_file": "outputs/S3.summary.txt",
+      "categories": ["backend", "security"],
+      "root_excerpt": "User registration and authentication implementation",
+      "plan_id": "P2"
+    },
+    {
+      "id": "S4",
+      "title": "Implement login system",
+      "description": "Create secure user login with session management",
+      "planner_model": "gpt-4",
+      "worker_model": "qwen",
+      "status": "error",
+      "summary_file": "outputs/S4.summary.txt",
+      "categories": ["backend", "security"],
+      "root_excerpt": "User authentication and session management",
+      "plan_id": "P2"
+    },
+    {
+      "id": "S5",
+      "title": "Create dashboard UI",
+      "description": "Design and implement the dashboard user interface",
+      "planner_model": "gpt-4",
+      "worker_model": "gemini",
+      "status": "pending",
+      "summary_file": "outputs/S5.summary.txt",
+      "categories": ["frontend", "ui/ux"],
+      "root_excerpt": "Dashboard interface design and implementation",
+      "plan_id": "P3"
+    },
+    {
+      "id": "S6",
+      "title": "Implement dashboard backend",
+      "description": "Create backend APIs for dashboard functionality",
+      "planner_model": "gpt-4",
+      "worker_model": "qwen",
+      "status": "pending",
+      "summary_file": "outputs/S6.summary.txt",
+      "categories": ["backend", "api"],
+      "root_excerpt": "API endpoints for dashboard data retrieval",
+      "plan_id": "P3"
+    },
+    {
+      "id": "S7",
+      "title": "Add testing framework",
+      "description": "Setup and configure testing framework for the application",
+      "planner_model": "gpt-4",
+      "worker_model": "qwen",
+      "status": "pending",
+      "summary_file": "outputs/S7.summary.txt",
+      "categories": ["testing", "refactoring"],
+      "root_excerpt": "Testing framework implementation",
+      "plan_id": "P3"
+    }
+  ],
+  "rules_path": "rules.txt",
+  "status": "in_progress",
+  "root_task_raw": "Build a web application with user authentication and dashboard",
+  "root_task_clean": "Develop a secure web application featuring user authentication system and comprehensive dashboard with data visualization",
+  "root_task_summary": "Create a full-stack web application with secure user authentication and interactive dashboard",
+  "root_task_categories": ["frontend", "backend", "security", "database", "ui/ux"],
+  "plans": [
+    {
+      "plan_id": "P1",
+      "parent_plan_id": null,
+      "created_at": "2025-12-12T10:30:00.000000",
+      "label": "Initial Composition",
+      "status": "inactive",
+      "notes": "Original structure; replaced by later ideas.",
+      "categories_snapshot": ["architecture", "backend", "database"],
+      "subtask_ids": ["S1", "S2"],
+      "root_snapshot": "Build a web application with user authentication and dashboard"
+    },
+    {
+      "plan_id": "P2",
+      "parent_plan_id": "P1",
+      "created_at": "2025-12-12T12:15:00.000000",
+      "label": "Backend Variation",
+      "status": "dead",
+      "notes": "Discarded: too complex authentication flow.",
+      "categories_snapshot": ["backend", "security"],
+      "subtask_ids": ["S3", "S4"],
+      "root_snapshot": "Build a web application with user authentication and dashboard"
+    },
+    {
+      "plan_id": "P3",
+      "parent_plan_id": "P1",
+      "created_at": "2025-12-12T14:20:00.000000",
+      "label": "Test-Driven Rewrite",
+      "status": "active",
+      "notes": "",
+      "categories_snapshot": ["frontend", "backend", "testing", "ui/ux"],
+      "subtask_ids": ["S5", "S6", "S7"],
+      "root_snapshot": "Develop a secure web application featuring user authentication system and comprehensive dashboard with data visualization"
+    }
+  ],
+  "active_plan_id": "P3"
+}

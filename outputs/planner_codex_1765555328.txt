@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "clean_text": "Enhance the existing codebase by refactoring legacy functions and removing performance bottlenecks to improve efficiency and maintainability.",
+  "raw_summary": "Refactor outdated functions and optimize performance hot spots to make the codebase faster and easier to maintain.",
+  "categories": ["refactoring", "performance", "architecture"]
+}
