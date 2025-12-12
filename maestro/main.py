@@ -154,15 +154,15 @@ class StyledArgumentParser(argparse.ArgumentParser):
     def print_help(self, file=None):
         """Override print_help to use our styled formatter."""
         # Print a splash header first
-        styled_print("  ██╗  ██╗███████╗██╗   ██╗██████╗  █████╗ ██╗   ██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ██║  ██║██╔════╝██║   ██║██╔══██╗██╔══██╗╚██╗ ██╔╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ███████║█████╗  ██║   ██║██████╔╝███████║ ╚████╔╝ ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ██╔══██║██╔══╝  ██║   ██║██╔══██╗██╔══██║  ╚██╔╝  ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ██║  ██║███████╗╚██████╔╝██║  ██║██║  ██║   ██║   ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("  ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("                                                    ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
-        styled_print("            MAESTRO - AI TASK ORCHESTRATOR          ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
-        styled_print(f"                    v{__version__}                      ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
+        styled_print("  ███╗   ███╗███████╗███╗   ██╗██╗   ██╗██╗      █████╗ ██████╗ ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ████╗ ████║██╔════╝████╗  ██║██║   ██║██║     ██╔══██╗██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ██╔████╔██║█████╗  ██╔██╗ ██║██║   ██║██║     ███████║██████╔╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ██║╚██╔╝██║██╔══╝  ██║╚██╗██║╚██╗ ██╔╝██║     ██╔══██║██╔══██╗", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ██║ ╚═╝ ██║███████╗██║ ╚████║ ╚████╔╝ ███████╗██║  ██║██║  ██║", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("  ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("                                                                ", Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+        styled_print("            MAESTRO - AI TASK ORCHESTRATOR                      ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
+        styled_print(f"                    v{__version__}                        ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
         print()
 
         # Print the styled help using our functions
@@ -191,6 +191,7 @@ class StyledArgumentParser(argparse.ArgumentParser):
         print()
         styled_print(f" maestro v{__version__} - AI Task Orchestrator ", Colors.BRIGHT_MAGENTA, Colors.UNDERLINE, 0)
         styled_print(" Conductor of AI symphonies 🎼 ", Colors.BRIGHT_RED, Colors.BOLD, 0)
+        styled_print(" Copyright 2025 Seppo Pakonen ", Colors.BRIGHT_YELLOW, Colors.BOLD, 0)
 
 
 class PlannerError(Exception):

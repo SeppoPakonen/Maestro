@@ -1,6 +1,8 @@
 ![Banner](docs/banner.jpg)
 
-# **README.md — Maestro**
+# **Maestro — AI Task Orchestrator**
+
+Copyright 2025 Seppo Pakonen
 
 ### *AI–Driven Project Composition & Branching Workflow Conductor*
 
