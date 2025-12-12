@@ -7,11 +7,18 @@ import sys
 import os
 import subprocess
 import uuid
+import json
+import time
 from datetime import datetime
 
 # Import the session model and engines from the same directory
 from session_model import Session, Subtask, load_session, save_session
 from engines import EngineError
+
+
+class PlannerError(Exception):
+    """Custom exception for planner errors."""
+    pass
 
 
 def edit_root_task_in_editor():
@@ -60,6 +67,111 @@ def log_verbose(verbose, message: str):
         print(f"[orchestrator] {message}")
 
 
+def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str]) -> dict:
+    """
+    Build the planner prompt, call the planner engine, and parse JSON.
+
+    planner_preference is a list like ["codex", "claude"].
+    Returns the parsed JSON object.
+    Raises on failure.
+    """
+    # Build the planner prompt using the template
+    # <ROOT_TASK> = session.root_task
+    # <RULES> = rules_text
+    # <SUMMARIES> = concatenation of worker summaries (or a note "no summaries yet")
+    # <CURRENT_PLAN> = human-readable list of subtasks and statuses from session.subtasks
+
+    # Build current plan string with subtasks and statuses
+    current_plan_parts = []
+    for i, subtask in enumerate(session.subtasks, 1):
+        current_plan_parts.append(f"{i}. {subtask.title} [{subtask.status}]")
+        current_plan_parts.append(f"   {subtask.description}")
+    current_plan = "\n".join(current_plan_parts) if session.subtasks else "(no current plan)"
+
+    prompt = f"[ROOT TASK]\n{session.root_task}\n\n"
+    prompt += f"[RULES]\n{rules_text}\n\n"
+    prompt += f"[SUMMARIES]\n{summaries_text}\n\n"
+    prompt += f"[CURRENT_PLAN]\n{current_plan}\n\n"
+    prompt += f"[INSTRUCTIONS]\n"
+    prompt += f"You are a planning AI. Propose an updated subtask plan in JSON format.\n"
+    prompt += f"- Return a JSON object with a 'subtasks' field containing an array of subtask objects.\n"
+    prompt += f"- Each subtask object should have 'title' and 'description' fields.\n"
+    prompt += f"- You may add new subtasks if strictly necessary.\n"
+    prompt += f"- Keep the number of subtasks manageable.\n"
+    prompt += f"- Only return valid JSON with no additional text or explanations outside the JSON."
+
+    # Create inputs directory if it doesn't exist
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    inputs_dir = os.path.join(session_dir, "inputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+
+    # Save the planner prompt to the inputs directory
+    timestamp = int(time.time())
+    planner_prompt_filename = os.path.join(inputs_dir, f"planner_{timestamp}.txt")
+    with open(planner_prompt_filename, "w", encoding="utf-8") as f:
+        f.write(prompt)
+
+    return run_planner_with_prompt(prompt, planner_preference, session_path)
+
+
+def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_path: str) -> dict:
+    """
+    Execute the planner with the given prompt against preferred engines.
+
+    Args:
+        prompt: The planner prompt to use
+        planner_preference: List of planner engine names to try
+        session_path: Path to the session file
+
+    Returns:
+        Parsed JSON object containing the plan
+
+    Raises:
+        PlannerError: If all planners fail
+    """
+    # Loop over planner_preference (e.g. ["codex", "claude"])
+    for engine_name in planner_preference:
+        # Resolve engine via get_engine()
+        from engines import get_engine
+        try:
+            engine = get_engine(engine_name + "_planner")
+        except ValueError as e:
+            print(f"Warning: Engine {engine_name}_planner not found, skipping: {e}", file=sys.stderr)
+            continue
+
+        # Call engine.generate(prompt)
+        try:
+            stdout = engine.generate(prompt)
+        except Exception as e:
+            print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+            continue
+
+        # Create outputs directory if it doesn't exist
+        session_dir = os.path.dirname(os.path.abspath(session_path))
+        outputs_dir = os.path.join(session_dir, "outputs")
+        os.makedirs(outputs_dir, exist_ok=True)
+
+        # Save the raw planner stdout to outputs directory
+        timestamp = int(time.time())
+        output_filename = os.path.join(outputs_dir, f"planner_{engine_name}_{timestamp}.txt")
+        with open(output_filename, "w", encoding="utf-8") as f:
+            f.write(stdout)
+
+        # Try json.loads(stdout)
+        try:
+            result = json.loads(stdout)
+            # If parsing succeeds and the result contains "subtasks" list, return it
+            if isinstance(result, dict) and "subtasks" in result and isinstance(result["subtasks"], list):
+                return result
+        except json.JSONDecodeError as e:
+            # If parsing fails, log the error and try the next planner in the list
+            print(f"Warning: Failed to parse JSON from {engine_name} planner: {e}", file=sys.stderr)
+            continue
+
+    # If all planners fail, raise a custom PlannerError
+    raise PlannerError(f"All planners failed: {planner_preference}")
+
+
 class PlannedSubtask:
     """
     Represents a planned subtask before being converted to the session format.
@@ -97,11 +209,11 @@ def main():
     if args.new:
         handle_new_session(args.session, args.verbose, root_task_file=args.root_task)
     elif args.resume:
-        handle_resume_session(args.session, args.verbose, args.dry_run)
+        handle_resume_session(args.session, args.verbose, args.dry_run, args.stream_ai_output, args.print_ai_prompts)
     elif args.rules:
         handle_rules_file(args.session, args.verbose)
     elif args.plan:
-        handle_plan_session(args.session, args.verbose)
+        handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts)
 
 
 def handle_new_session(session_path, verbose=False, root_task_file=None):
@@ -160,7 +272,7 @@ def handle_new_session(session_path, verbose=False, root_task_file=None):
         print(f"[VERBOSE] Session created with ID: {session.id}")
 
 
-def handle_resume_session(session_path, verbose=False, dry_run=False):
+def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_output=False, print_ai_prompts=False):
     """Handle resuming an existing session."""
     if verbose and dry_run:
         print(f"[VERBOSE] DRY RUN MODE: Loading session from: {session_path}")
@@ -260,11 +372,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             # Look up the worker engine
             from engines import get_engine
             try:
-                engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=args.stream_ai_output)
+                engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=stream_ai_output)
             except ValueError:
                 # If we don't have the specific model with "_worker" suffix, try directly
                 try:
-                    engine = get_engine(subtask.worker_model, debug=verbose, stream_output=args.stream_ai_output)
+                    engine = get_engine(subtask.worker_model, debug=verbose, stream_output=stream_ai_output)
                 except ValueError:
                     print(f"Error: Unknown worker model '{subtask.worker_model}'", file=sys.stderr)
                     session.status = "failed"
@@ -281,7 +393,7 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
                 f.write(prompt)
 
             # Print AI prompt if requested
-            if args.print_ai_prompts:
+            if print_ai_prompts:
                 print("===== AI PROMPT BEGIN =====")
                 print(prompt)
                 print("===== AI PROMPT END =====")
@@ -531,7 +643,7 @@ def plan_subtasks(root_task: str, rules: str) -> list:
     return subtasks
 
 
-def handle_plan_session(session_path, verbose=False):
+def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False):
     """Handle planning subtasks for the session."""
     if verbose:
         print(f"[VERBOSE] Loading session from: {session_path}")
@@ -584,7 +696,19 @@ def handle_plan_session(session_path, verbose=False):
         if verbose:
             print("[VERBOSE] Starting initial planning phase...")
         print("Starting initial planning phase...")
-        planned_subtasks = plan_subtasks(session.root_task, rules)
+
+        # Use the new run_planner function with a default planner preference
+        summaries = "(no summaries yet)"
+        planner_preference = ["codex", "claude"]  # Default preference order
+        try:
+            json_plan = run_planner(session, session_path, rules, summaries, planner_preference)
+            planned_subtasks = json_to_planned_subtasks(json_plan)
+        except PlannerError as e:
+            print(f"Error: Planner failed: {e}", file=sys.stderr)
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+            sys.exit(1)
     else:
         # Refinement phase: process existing subtasks and plan new ones based on summaries
         if verbose:
@@ -596,82 +720,27 @@ def handle_plan_session(session_path, verbose=False):
         if verbose:
             print(f"[VERBOSE] Collected summaries (length: {len(summaries)} chars)")
 
-        # Build the planner prompt with summaries, rules, and current plan
-        planner_prompt = build_planner_prompt(session.root_task, summaries, rules, session.subtasks)
-        if verbose:
-            print(f"[VERBOSE] Built planner prompt (length: {len(planner_prompt)} chars)")
-
-        # Get the planner engine (use codex_planner for now)
-        from engines import get_engine
+        # Use the new run_planner function with a default planner preference
+        planner_preference = ["codex", "claude"]  # Default preference order
         try:
-            planner_engine = get_engine("codex_planner", debug=verbose, stream_output=args.stream_ai_output)  # or "claude_planner"
-            if verbose:
-                print(f"[VERBOSE] Using planner engine: {planner_engine.name}")
-        except ValueError:
-            print(f"Error: Unknown planner model 'codex_planner'", file=sys.stderr)
+            json_plan = run_planner(session, session_path, rules, summaries, planner_preference)
+            planned_subtasks = json_to_planned_subtasks(json_plan)
+        except PlannerError as e:
+            print(f"Error: Planner failed: {e}", file=sys.stderr)
             session.status = "failed"
             session.updated_at = datetime.now().isoformat()
             save_session(session, session_path)
             sys.exit(1)
-
-        # Create inputs directory if it doesn't exist (planner section)
-        session_dir = os.path.dirname(os.path.abspath(session_path))
-        inputs_dir = os.path.join(session_dir, "inputs")
-        os.makedirs(inputs_dir, exist_ok=True)
-
-        # Save the planner prompt to the inputs directory
-        import time
-        timestamp = int(time.time())
-        planner_prompt_filename = os.path.join(inputs_dir, f"planner_{planner_engine.name}_{timestamp}.txt")
-        with open(planner_prompt_filename, "w", encoding="utf-8") as f:
-            f.write(planner_prompt)
-
-        # Print AI prompt if requested
-        if args.print_ai_prompts:
-            print("===== AI PROMPT BEGIN =====")
-            print(planner_prompt)
-            print("===== AI PROMPT END =====")
-
-        # Log verbose information
-        log_verbose(verbose, f"Engine={planner_engine.name}")
-        log_verbose(verbose, f"Prompt file: {planner_prompt_filename}")
-        # Note: planner doesn't save to output file in this context
-
-        # Call the planner engine to get updated plan
-        try:
-            planner_output = planner_engine.generate(planner_prompt)
-        except EngineError as e:
-            # Log stderr for engine errors
-            print(f"Planner engine error stderr: {e.stderr}", file=sys.stderr)
-
-            print(f"Error: Planner engine failed with exit code {e.exit_code}: {e.name}", file=sys.stderr)
-            session.status = "failed"
-            session.updated_at = datetime.now().isoformat()
-            save_session(session, session_path)
-            sys.exit(1)
-        except Exception as e:
-            print(f"Error: Failed to generate plan from planner engine: {str(e)}", file=sys.stderr)
-            session.status = "failed"
-            session.updated_at = datetime.now().isoformat()
-            save_session(session, session_path)
-            sys.exit(1)
-
-        if verbose:
-            print(f"[VERBOSE] Received planner output (length: {len(planner_output)} chars)")
-
-        print(f"Planner output:\n{planner_output}\n")
-
-        # For now, parse the planner output in a trivial way (re-use existing plan)
-        # This will be enhanced in future implementation
-        planned_subtasks = plan_subtasks(session.root_task, rules)
 
     # Show the plan to the user
     if verbose:
         print("[VERBOSE] Showing proposed subtask breakdown to user")
     print("Proposed subtask breakdown:")
-    for i, subtask in enumerate(planned_subtasks, 1):
-        print(f"{i}. {subtask.title}")
-        print(f"   {subtask.description}")
+    for i, subtask_data in enumerate(json_plan.get("subtasks", []), 1):
+        title = subtask_data.get("title", "Untitled")
+        description = subtask_data.get("description", "")
+        print(f"{i}. {title}")
+        print(f"   {description}")
 
     # Ask for confirmation
     response = input("Is this subtask breakdown OK? [Y/n]: ").strip().lower()
@@ -680,31 +749,9 @@ def handle_plan_session(session_path, verbose=False):
         # User accepted the plan
         if verbose:
             print("[VERBOSE] User accepted the plan")
-        # Convert PlannedSubtask objects to Subtask objects
-        new_subtasks = []
-        worker_models = ["qwen", "gemini"]  # Alternate between these models
-        for i, planned_task in enumerate(planned_subtasks):
-            subtask = Subtask(
-                id=str(uuid.uuid4()),
-                title=planned_task.title,
-                description=planned_task.description,
-                planner_model="codex",  # Hard-coded for now
-                worker_model=worker_models[i % len(worker_models)],  # Alternate between models
-                status="pending",  # New subtasks start as pending
-                summary_file=""  # Will be set later when worker processes the task
-            )
-            new_subtasks.append(subtask)
 
-        # Update the session with the new subtasks
-        session.subtasks = new_subtasks
-
-        # Update status based on the phase
-        if not session.status or session.status == "new":
-            session.status = "planned"
-        elif session.status in ["done", "in_progress"]:
-            session.status = "planned"  # Replanning updates back to planned
-
-        session.updated_at = datetime.now().isoformat()  # Update timestamp
+        # Apply the JSON plan directly to the session
+        apply_json_plan_to_session(session, json_plan)
 
         # Save the updated session
         save_session(session, session_path)
@@ -728,6 +775,105 @@ def handle_plan_session(session_path, verbose=False):
         # For now, just print that the plan was rejected
         # In a real implementation, we would store this feedback in the session
         print("Plan rejected; please re-run --plan when ready")
+
+
+def apply_json_plan_to_session(session: Session, plan: dict) -> None:
+    """
+    Clear or update session.subtasks based on the JSON plan.
+    Sets planner_model and worker_model for each subtask.
+    """
+    # Validate plan["subtasks"] is a list; if empty, raise error
+    if "subtasks" not in plan or not isinstance(plan["subtasks"], list):
+        raise ValueError("Plan must contain a 'subtasks' list")
+
+    if len(plan["subtasks"]) == 0:
+        raise ValueError("Plan 'subtasks' list cannot be empty")
+
+    # Create new subtasks from the JSON plan
+    new_subtasks = []
+
+    for item in plan["subtasks"]:
+        if not isinstance(item, dict):
+            continue  # Skip non-dict items
+
+        # Extract fields from the JSON item
+        subtask_id = item.get("id", str(uuid.uuid4()))  # Generate if not provided
+        title = item.get("title", "Untitled")
+        description = item.get("description", "")
+        kind = item.get("kind", "code")  # default to "code"
+        complexity = item.get("complexity", "normal")  # default to "normal"
+        planner_model = plan.get("planner_model", "unknown")
+        depends_on = item.get("depends_on", [])  # default to no dependencies
+
+        # Determine worker model using the helper function
+        worker_model = select_worker_model(kind, complexity)
+
+        # Create the Subtask with all required fields
+        subtask = Subtask(
+            id=subtask_id,
+            title=title,
+            description=description,
+            planner_model=planner_model,
+            worker_model=worker_model,
+            status="pending",  # Default to pending
+            summary_file=""  # Will be set later when worker processes the task
+        )
+
+        new_subtasks.append(subtask)
+
+    # Replace session.subtasks entirely
+    session.subtasks = new_subtasks
+
+    # Update session status and timestamp
+    session.status = "planned"
+    session.updated_at = datetime.now().isoformat()
+
+
+def select_worker_model(kind: str, complexity: str) -> str:
+    """
+    Select an appropriate worker model based on task kind and complexity.
+
+    Args:
+        kind: The type of task ("code", "research", "documentation", etc.)
+        complexity: The complexity level ("simple", "normal", "complex")
+
+    Returns:
+        String representing the selected worker model
+    """
+    # For now, implement a simple selection strategy
+    # This could be expanded with more sophisticated logic later
+    if kind == "research" or kind == "documentation":
+        if complexity == "complex":
+            return "gemini"
+        else:
+            return "qwen"
+    else:  # default to code tasks
+        if complexity == "complex":
+            return "gemini"
+        else:
+            return "qwen"
+
+
+def json_to_planned_subtasks(json_plan: dict) -> list:
+    """
+    Convert the JSON plan with subtasks to PlannedSubtask objects.
+
+    Args:
+        json_plan: The parsed JSON object from the planner
+
+    Returns:
+        List of PlannedSubtask objects
+    """
+    planned_subtasks = []
+
+    if "subtasks" in json_plan and isinstance(json_plan["subtasks"], list):
+        for subtask_data in json_plan["subtasks"]:
+            if isinstance(subtask_data, dict) and "title" in subtask_data:
+                title = subtask_data["title"]
+                description = subtask_data.get("description", "")
+                planned_subtasks.append(PlannedSubtask(title=title, description=description))
+
+    return planned_subtasks
 
 
 def collect_worker_summaries(session: Session, session_path: str) -> str:
