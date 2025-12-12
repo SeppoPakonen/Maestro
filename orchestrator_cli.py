@@ -627,36 +627,6 @@ def load_rules(session: Session) -> str:
         return ""
 
 
-def plan_subtasks(root_task: str, rules: str) -> list:
-    """
-    Plan subtasks based on the root task and rules.
-    For now, this is a fake planner that creates 3 hard-coded subtasks.
-
-    Args:
-        root_task: The main task to be broken down
-        rules: Rules to consider when planning
-
-    Returns:
-        List of PlannedSubtask objects
-    """
-    # Simple heuristics to generate subtasks
-    subtasks = [
-        PlannedSubtask(
-            title="Analysis and Research",
-            description=f"Analyze the requirements of the task: '{root_task}'. Research best practices and gather necessary information."
-        ),
-        PlannedSubtask(
-            title="Implementation",
-            description=f"Implement the solution for: '{root_task}' following the architecture and requirements identified in the analysis phase."
-        ),
-        PlannedSubtask(
-            title="Testing and Integration",
-            description=f"Test the implemented solution for '{root_task}', ensure it meets all requirements and integrate it properly."
-        )
-    ]
-
-    return subtasks
-
 
 def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude"):
     """Handle planning subtasks for the session."""
