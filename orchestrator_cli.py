@@ -1088,8 +1088,23 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
 
                 title = subtask_data.get("title", "Untitled")
                 description = subtask_data.get("description", "")
+
+                # If title is still "Untitled", try other common fields
+                if title == "Untitled":
+                    # Check for other common field names that might contain the title
+                    for field_name in ["name", "task", "subtask", "id", "identifier"]:
+                        if field_name in subtask_data:
+                            title = str(subtask_data[field_name])
+                            break
+                    else:
+                        # If no title found, show the raw subtask data for debugging
+                        print(f"  WARNING: Subtask {i} missing 'title' field. Raw data: {str(subtask_data)[:200]}...")
+                        title = f"Untitled Subtask {i}"
+
                 print(f"{i}. {title}")
                 print(f"   {description}")
+        else:
+            print("  WARNING: No 'subtasks' field found in final plan. Raw plan: ", str(final_json_plan)[:500])
 
         # Save the conversation transcript
         plan_id = str(uuid.uuid4())
