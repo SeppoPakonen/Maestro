@@ -43,6 +43,10 @@ def main():
     # Add --dry-run flag, but only for --resume command
     parser.add_argument('--dry-run', action='store_true', help='Simulate running subtasks without writing files or changing statuses (for --resume only)')
 
+    # Add new streaming and prompt printing flags
+    parser.add_argument('--stream-ai-output', action='store_true', help='Stream engine stdout line-by-line to orchestrator stdout')
+    parser.add_argument('--print-ai-prompts', action='store_true', help='Print the prompt text before calling the engine')
+
     args = parser.parse_args()
 
     # Determine which action to take based on flags
@@ -188,11 +192,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             # Look up the worker engine
             from engines import get_engine
             try:
-                engine = get_engine(subtask.worker_model + "_worker", debug=verbose)
+                engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=args.stream_ai_output)
             except ValueError:
                 # If we don't have the specific model with "_worker" suffix, try directly
                 try:
-                    engine = get_engine(subtask.worker_model, debug=verbose)
+                    engine = get_engine(subtask.worker_model, debug=verbose, stream_output=args.stream_ai_output)
                 except ValueError:
                     print(f"Error: Unknown worker model '{subtask.worker_model}'", file=sys.stderr)
                     session.status = "failed"
@@ -207,6 +211,12 @@ def handle_resume_session(session_path, verbose=False, dry_run=False):
             worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{subtask.worker_model}.txt")
             with open(worker_prompt_filename, "w", encoding="utf-8") as f:
                 f.write(prompt)
+
+            # Print AI prompt if requested
+            if args.print_ai_prompts:
+                print("===== AI PROMPT BEGIN =====")
+                print(prompt)
+                print("===== AI PROMPT END =====")
 
             # Log verbose information
             log_verbose(verbose, f"Engine={subtask.worker_model} subtask={subtask.id}")
@@ -487,7 +497,7 @@ def handle_plan_session(session_path, verbose=False):
         # Get the planner engine (use codex_planner for now)
         from engines import get_engine
         try:
-            planner_engine = get_engine("codex_planner", debug=verbose)  # or "claude_planner"
+            planner_engine = get_engine("codex_planner", debug=verbose, stream_output=args.stream_ai_output)  # or "claude_planner"
             if verbose:
                 print(f"[VERBOSE] Using planner engine: {planner_engine.name}")
         except ValueError:
@@ -508,6 +518,12 @@ def handle_plan_session(session_path, verbose=False):
         planner_prompt_filename = os.path.join(inputs_dir, f"planner_{planner_engine.name}_{timestamp}.txt")
         with open(planner_prompt_filename, "w", encoding="utf-8") as f:
             f.write(planner_prompt)
+
+        # Print AI prompt if requested
+        if args.print_ai_prompts:
+            print("===== AI PROMPT BEGIN =====")
+            print(planner_prompt)
+            print("===== AI PROMPT END =====")
 
         # Log verbose information
         log_verbose(verbose, f"Engine={planner_engine.name}")

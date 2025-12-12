@@ -33,6 +33,7 @@ def run_cli_engine(
     config: CliEngineConfig,
     prompt: str,
     debug: bool = False,
+    stream_output: bool = False,
 ) -> tuple[int, str, str]:
     """
     Run the CLI with the given prompt.
@@ -52,14 +53,36 @@ def run_cli_engine(
         env.update(config.env)
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=config.timeout_sec,
-            env=env
-        )
-        return result.returncode, result.stdout, result.stderr
+        if not stream_output:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=config.timeout_sec,
+                env=env
+            )
+            return result.returncode, result.stdout, result.stderr
+        else:
+            # Stream output mode: process line by line
+            import sys
+            process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+            stdout_chunks: list[str] = []
+            # Stream stdout to our stdout
+            for line in process.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                stdout_chunks.append(line)
+            stderr_text = process.stderr.read()
+            exit_code = process.wait()
+            stdout_text = "".join(stdout_chunks)
+            return exit_code, stdout_text, stderr_text
     except FileNotFoundError:
         # Return a synthetic non-zero exit code with helpful error message
         return 127, "", f"Error: Command '{config.binary}' not found"
@@ -102,7 +125,7 @@ class CodexPlannerEngine:
     """
     name = CODEX_PLANNER
 
-    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False):
+    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False, stream_output: bool = False):
         self.use_json = use_json
         if config is None:
             base_args = ["exec"]
@@ -115,6 +138,7 @@ class CodexPlannerEngine:
             )
         self.config = config
         self.debug = debug
+        self.stream_output = stream_output
 
     def generate(self, prompt: str) -> str:
         """
@@ -129,7 +153,7 @@ class CodexPlannerEngine:
         Raises:
             EngineError: If the codex CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug, stream_output=self.stream_output)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -152,7 +176,7 @@ class ClaudePlannerEngine:
     """
     name = CLAUDE_PLANNER
 
-    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False):
+    def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False, stream_output: bool = False):
         self.use_json = use_json
         if config is None:
             base_args = ["--print", "--output-format", "json" if use_json else "text",
@@ -163,6 +187,7 @@ class ClaudePlannerEngine:
             )
         self.config = config
         self.debug = debug
+        self.stream_output = stream_output
 
     def generate(self, prompt: str) -> str:
         """
@@ -177,7 +202,7 @@ class ClaudePlannerEngine:
         Raises:
             EngineError: If the claude CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug, stream_output=self.stream_output)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -200,7 +225,7 @@ class QwenWorkerEngine:
     """
     name = QWEN_WORKER
 
-    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False):
+    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False, stream_output: bool = False):
         if config is None:
             config = CliEngineConfig(
                 binary="qwen",
@@ -208,6 +233,7 @@ class QwenWorkerEngine:
             )
         self.config = config
         self.debug = debug
+        self.stream_output = stream_output
 
     def generate(self, prompt: str) -> str:
         """
@@ -222,7 +248,7 @@ class QwenWorkerEngine:
         Raises:
             EngineError: If the qwen CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug, stream_output=self.stream_output)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -236,7 +262,7 @@ class GeminiWorkerEngine:
     """
     name = GEMINI_WORKER
 
-    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False):
+    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False, stream_output: bool = False):
         if config is None:
             config = CliEngineConfig(
                 binary="gemini",
@@ -244,6 +270,7 @@ class GeminiWorkerEngine:
             )
         self.config = config
         self.debug = debug
+        self.stream_output = stream_output
 
     def generate(self, prompt: str) -> str:
         """
@@ -258,7 +285,7 @@ class GeminiWorkerEngine:
         Raises:
             EngineError: If the gemini CLI returns a non-zero exit code
         """
-        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug)
+        exit_code, stdout, stderr = run_cli_engine(self.config, prompt, debug=self.debug, stream_output=self.stream_output)
 
         if exit_code != 0:
             raise EngineError(self.name, exit_code, stderr)
@@ -274,23 +301,24 @@ ALIASES = {
 }
 
 
-def get_engine(name: str, debug: bool = False) -> Engine:
+def get_engine(name: str, debug: bool = False, stream_output: bool = False) -> Engine:
     """
     Registry function to get an engine instance by name.
 
     Args:
         name: The name of the engine to retrieve (can be direct name or alias)
         debug: Whether to enable debug mode
+        stream_output: Whether to stream output to stdout
 
     Returns:
         An instance of the requested engine
     """
     # Check if the name is a direct engine name first
     direct_engines = {
-        CODEX_PLANNER: CodexPlannerEngine(debug=debug),
-        CLAUDE_PLANNER: ClaudePlannerEngine(debug=debug),
-        QWEN_WORKER: QwenWorkerEngine(debug=debug),  # Uses default config
-        GEMINI_WORKER: GeminiWorkerEngine(debug=debug),
+        CODEX_PLANNER: CodexPlannerEngine(debug=debug, stream_output=stream_output),
+        CLAUDE_PLANNER: ClaudePlannerEngine(debug=debug, stream_output=stream_output),
+        QWEN_WORKER: QwenWorkerEngine(debug=debug, stream_output=stream_output),  # Uses default config
+        GEMINI_WORKER: GeminiWorkerEngine(debug=debug, stream_output=stream_output),
     }
 
     if name in direct_engines:
@@ -316,7 +344,7 @@ if __name__ == "__main__":
     print("\nResults:")
 
     for engine_name in engines_to_test:
-        engine = get_engine(engine_name, debug=False)  # Debug off for tests
+        engine = get_engine(engine_name, debug=False, stream_output=False)  # Debug and streaming off for tests
         result = engine.generate(test_prompt)
         print(f"\nEngine: {engine_name}")
         print(f"Output:\n{result}")
