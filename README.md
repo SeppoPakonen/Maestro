@@ -1,4 +1,6 @@
-# �� **README.md — Maestro**
+![Banner](docs/banner.jpg)
+
+# **README.md — Maestro**
 
 ### *AI–Driven Project Composition & Branching Workflow Conductor*
 
@@ -12,15 +14,15 @@ Maestro helps humans and AIs work together to **shape, refine, and restructure**
 
 ---
 
-## �� Features
+## Features
 
-### **�� 1. Conversational Planning (The Opening Movement)**
+### **1. Conversational Planning (The Opening Movement)**
 
-Plans don’t appear fully formed  they are *composed*.
+Plans don't appear fully formed  they are *composed*.
 Maestro lets you **talk** with its planning AIs (Codex or Claude):
 
 * Discuss, revise, and sculpt the plan
-* Rewrite or clean” the root task
+* Rewrite or clean" the root task
 * Break the project into subtasks
 * Control how much of the root task is given to each worker
 
@@ -36,14 +38,14 @@ If neither mode is specified, Maestro politely asks which style you prefer.
 
 ---
 
-### **�� 2. Branching Plans (Fugues, Variations, and Development)**
+### **2. Branching Plans (Fugues, Variations, and Development)**
 
-Real projects don’t move in straight lines — they branch.
+Real projects don't move in straight lines — they branch.
 Maestro treats planning as a **tree of musical ideas**:
 
 * Every plan is a *motif*: a node in a branching structure
 * You can create new branches mid-project
-* Old branches remain as “dead ends” or alternative interpretations
+* Old branches remain as "dead ends" or alternative interpretations
 * You can freely switch focus between branches
 * A plan tree can be printed as colored ASCII score-like structure:
 
@@ -58,9 +60,9 @@ Each branch represents a different interpretation of your original composition.
 
 ---
 
-### **�� 3. Multi-Engine Orchestration (Your Orchestra of AIs)**
+### **3. Multi-Engine Orchestration (Your Orchestra of AIs)**
 
-Maestro assigns roles according to each model’s strengths:
+Maestro assigns roles according to each model's strengths:
 
 **Planners**
 
@@ -81,7 +83,7 @@ Each subtask receives a carefully crafted prompt with:
 
 ---
 
-### **�� 4. Intelligent Root Task Handling (From Sketch to Score)**
+### **4. Intelligent Root Task Handling (From Sketch to Score)**
 
 Instead of shoving the raw root task into every prompt, Maestro:
 
@@ -94,7 +96,7 @@ This keeps prompts focused, reducing noise and creative drift.
 
 ---
 
-### **�� 5. Graceful Interrupts (The Pause Between Movements)**
+### **5. Graceful Interrupts (The Pause Between Movements)**
 
 If you press **Ctrl+C**, Maestro behaves like a seasoned conductor:
 
@@ -108,7 +110,7 @@ No stack traces. No lost work. No broken flow.
 
 ---
 
-### **�� 6. Rich Session State & Continuity (The Concert Archive)**
+### **6. Rich Session State & Continuity (The Concert Archive)**
 
 Maestro stores:
 
@@ -125,7 +127,7 @@ Maestro ensures that every run is reproducible — every rehearsal preserved.
 
 ---
 
-## �� Installation
+## Installation
 
 ```bash
 git clone https://github.com/yourname/maestro.git
@@ -141,7 +143,7 @@ pip install -e .
 
 ---
 
-## � Usage
+## Usage
 
 ### Create a new session:
 
@@ -176,7 +178,7 @@ maestro -s sessions/game.json --resume
 maestro -s sessions/game.json --show-plan-tree
 ```
 
-### Shift the conductor’s focus:
+### Shift the conductor's focus:
 
 ```bash
 maestro -s sessions/game.json --focus-plan P4
@@ -184,7 +186,7 @@ maestro -s sessions/game.json --focus-plan P4
 
 ---
 
-## �� Philosophy
+## Philosophy
 
 > *To compose is to discover.*
 > And discovery is rarely linear.
@@ -201,6 +203,6 @@ Maestro exists to ensure your composition — technical or artistic — can unfo
 
 ---
 
-## �� License
+## License
 
 New BSD
