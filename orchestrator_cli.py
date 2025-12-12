@@ -130,10 +130,12 @@ def run_planner(session: Session, session_path: str, rules_text: str, summaries_
         current_plan_parts.append(f"   {subtask.description}")
     current_plan = "\n".join(current_plan_parts) if session.subtasks else "(no current plan)"
 
-    # Use the raw root task for the planner prompt
-    root_task_to_use = session.root_task_raw if hasattr(session, 'root_task_raw') else session.root_task
+    # Use the clean root task for the planner prompt if available, otherwise fall back to raw
+    root_task_to_use = session.root_task_clean or session.root_task_raw or session.root_task
+    categories_str = ", ".join(session.root_task_categories) if session.root_task_categories else "No specific categories"
 
     prompt = f"[ROOT TASK]\n{root_task_to_use}\n\n"
+    prompt += f"[ROOT TASK CATEGORIES]\n{categories_str}\n\n"
     prompt += f"[RULES]\n{rules_text}\n\n"
     prompt += f"[SUMMARIES]\n{summaries_text}\n\n"
     prompt += f"[CURRENT_PLAN]\n{current_plan}\n\n"
@@ -283,6 +285,10 @@ def main():
     group.add_argument('--discuss-plan', action='store_true',
                       help='Enter interactive planning mode for back-and-forth discussion')
 
+    # Add --refine-root flag for cleaning up and categorizing the root task (as part of the group)
+    group.add_argument('--refine-root', action='store_true',
+                      help='Clean up and categorize the root task before planning')
+
     # Add flags for plan tree management
     parser.add_argument('--show-plan-tree', action='store_true',
                        help='Print the entire plan tree with ASCII art')
@@ -349,6 +355,8 @@ def main():
         handle_show_plan_tree(args.session, args.verbose)
     elif args.focus_plan:
         handle_focus_plan(args.session, args.focus_plan, args.verbose)
+    elif args.refine_root:
+        handle_refine_root(args.session, args.verbose, args.planner_order)
     else:
         print("No valid command specified", file=sys.stderr)
         sys.exit(1)
@@ -1594,6 +1602,151 @@ def build_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: l
     prompt += f"- Clearly mark each subtask with an id, title and description."
 
     return prompt
+
+
+def handle_refine_root(session_path, verbose=False, planner_order="codex,claude"):
+    """
+    Handle root task refinement: clean up, summarize, and categorize the raw root task.
+    Updates the session with root_task_raw, root_task_clean, root_task_summary, and root_task_categories.
+    """
+    if verbose:
+        print(f"[VERBOSE] Loading session from: {session_path}")
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        error_session = Session(
+            id=str(uuid.uuid4()),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+            root_task="Unknown",
+            subtasks=[],
+            rules_path=None,
+            status="failed"
+        )
+        save_session(error_session, session_path)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        try:
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+        except:
+            pass
+        sys.exit(1)
+
+    # Ensure root_task is set
+    if not session.root_task or session.root_task.strip() == "":
+        print("Error: Session root_task is not set.", file=sys.stderr)
+        session.status = "failed"
+        session.updated_at = datetime.now().isoformat()
+        save_session(session, session_path)
+        sys.exit(1)
+
+    # Prepare the planner prompt for root refinement
+    root_task_raw = session.root_task
+    prompt = create_root_refinement_prompt(root_task_raw)
+
+    # Create inputs directory if it doesn't exist
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    inputs_dir = os.path.join(session_dir, "inputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+
+    # Save the planner prompt to the inputs directory
+    timestamp = int(time.time())
+    planner_prompt_filename = os.path.join(inputs_dir, f"root_refinement_{timestamp}.txt")
+    with open(planner_prompt_filename, "w", encoding="utf-8") as f:
+        f.write(prompt)
+
+    if verbose:
+        print(f"[VERBOSE] Root refinement prompt saved to: {planner_prompt_filename}")
+
+    # Parse planner preference from CLI argument
+    planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+    planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+    # Call the planner with the prompt
+    try:
+        json_result = run_planner_with_prompt(prompt, planner_preference, session_path, verbose)
+    except KeyboardInterrupt:
+        print("\n[orchestrator] Root refinement interrupted by user", file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:
+        print(f"Error: Root refinement failed: {e}", file=sys.stderr)
+        session.status = "failed"
+        session.updated_at = datetime.now().isoformat()
+        save_session(session, session_path)
+        sys.exit(1)
+
+    # Validate the JSON result has the required fields
+    if not isinstance(json_result, dict):
+        print(f"Error: Root refinement did not return a JSON object", file=sys.stderr)
+        session.status = "failed"
+        session.updated_at = datetime.now().isoformat()
+        save_session(session, session_path)
+        sys.exit(1)
+
+    required_fields = ["version", "clean_text", "raw_summary", "categories"]
+    for field in required_fields:
+        if field not in json_result:
+            print(f"Error: Root refinement missing required field: {field}", file=sys.stderr)
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+            sys.exit(1)
+
+    # Update the session with the refinement results
+    session.root_task_raw = root_task_raw
+    session.root_task_clean = json_result["clean_text"]
+    session.root_task_summary = json_result["raw_summary"]
+    session.root_task_categories = json_result["categories"]
+
+    # Update session status and timestamp
+    session.status = "refined"
+    session.updated_at = datetime.now().isoformat()
+
+    # Save the updated session
+    save_session(session, session_path)
+
+    # Print the results
+    print("Root task refinement completed:")
+    print(f"  Version: {json_result['version']}")
+    print(f"  Clean text: {json_result['clean_text'][:100]}{'...' if len(json_result['clean_text']) > 100 else ''}")
+    print(f"  Summary: {json_result['raw_summary']}")
+    print(f"  Categories: {json_result['categories']}")
+
+    if verbose:
+        print(f"[VERBOSE] Session saved with status: {session.status}")
+
+
+def create_root_refinement_prompt(root_task_raw):
+    """
+    Create the prompt for root task refinement.
+    """
+    return f"""You are an expert editor and project architect.
+Your task is ONLY to rewrite, summarize, and categorize the user's original project description.
+
+<ROOT_TASK_RAW>
+{root_task_raw}
+</ROOT_TASK_RAW>
+
+Please produce:
+1. "clean_text" — a clear, structured, well-written restatement.
+2. "raw_summary" — 1–3 sentences summarizing the intent.
+3. "categories" — a list of high-level conceptual categories, such as:
+   architecture, backend, frontend, api, deployment, research, ui/ux, testing, refactoring, docs, etc.
+
+Respond ONLY with valid JSON in the following format:
+
+{{
+  "version": 1,
+  "clean_text": "...",
+  "raw_summary": "...",
+  "categories": []
+}}"""
 
 
 if __name__ == "__main__":

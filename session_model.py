@@ -136,6 +136,7 @@ class Session:
         status: str,
         root_task_raw: Optional[str] = None,
         root_task_clean: Optional[str] = None,
+        root_task_summary: Optional[str] = None,
         root_task_categories: Optional[List[str]] = None,
         plans: Optional[List[PlanNode]] = None,
         active_plan_id: Optional[str] = None
@@ -149,6 +150,7 @@ class Session:
         self.status = status
         self.root_task_raw = root_task_raw or root_task
         self.root_task_clean = root_task_clean
+        self.root_task_summary = root_task_summary
         self.root_task_categories = root_task_categories or []
         self.plans = plans or []
         self.active_plan_id = active_plan_id
@@ -165,6 +167,7 @@ class Session:
             "status": self.status,
             "root_task_raw": self.root_task_raw,
             "root_task_clean": self.root_task_clean,
+            "root_task_summary": self.root_task_summary,
             "root_task_categories": self.root_task_categories,
             "plans": [plan.to_dict() for plan in self.plans] if self.plans else [],
             "active_plan_id": self.active_plan_id
@@ -184,6 +187,10 @@ class Session:
         if root_task_clean is None:
             root_task_clean = data.get("root_task", "")
 
+        root_task_summary = data.get("root_task_summary")
+        if root_task_summary is None:
+            root_task_summary = data.get("root_task_summary", "")
+
         root_task_categories = data.get("root_task_categories")
         if root_task_categories is None:
             root_task_categories = []
@@ -201,6 +208,7 @@ class Session:
             status=data["status"],
             root_task_raw=root_task_raw,
             root_task_clean=root_task_clean,
+            root_task_summary=root_task_summary,
             root_task_categories=root_task_categories,
             plans=[PlanNode.from_dict(plan_data) for plan_data in plans] if plans else [],
             active_plan_id=active_plan_id
