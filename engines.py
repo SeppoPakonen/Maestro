@@ -27,6 +27,7 @@ class CliEngineConfig:
     base_args: list[str]     # flags that are always passed, e.g. ["--output-format", "text"]
     timeout_sec: float = 300 # default timeout
     env: dict[str, str] | None = None  # optional extra environment variables
+    use_stdin: bool = False  # whether to send the prompt via stdin instead of argv
 
 
 @dataclass
@@ -66,7 +67,13 @@ def run_cli_engine(
     Returns EngineResult with exit_code, stdout_text, stderr_text, and interrupted flag.
     """
     # Build the command
-    cmd = [config.binary] + config.base_args + [prompt]
+    cmd = [config.binary] + config.base_args
+    stdin_data = None
+
+    if config.use_stdin:
+        stdin_data = prompt if prompt.endswith("\n") else prompt + "\n"
+    else:
+        cmd.append(prompt)
 
     # Debug mode: print the final command
     if debug:
@@ -81,12 +88,23 @@ def run_cli_engine(
         # Use Popen for interruptible execution
         process = subprocess.Popen(
             cmd,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if stdin_data is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             env=env,
         )
+
+        # Send prompt via stdin when requested to avoid CLI argument parsing issues
+        if stdin_data is not None:
+            try:
+                if process.stdin:
+                    process.stdin.write(stdin_data)
+                    process.stdin.flush()
+                    process.stdin.close()
+            except BrokenPipeError:
+                # If the process exited early, continue to capture stderr for error reporting
+                pass
 
         stdout_chunks: list[str] = []
         stderr_chunks: list[str] = []
@@ -244,13 +262,14 @@ class CodexPlannerEngine:
     def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False, stream_output: bool = False):
         self.use_json = use_json
         if config is None:
-            base_args = ["exec"]
+            base_args = ["exec", "--dangerously-bypass-approvals-and-sandbox"]
             if use_json:
                 # For future JSON support, though codex may not support it directly
                 pass  # Currently codex just uses exec, no specific JSON format option
             config = CliEngineConfig(
                 binary="codex",
-                base_args=base_args
+                base_args=base_args,
+                use_stdin=True  # Pipe prompt to avoid argv parsing issues
             )
         self.config = config
         self.debug = debug
@@ -300,11 +319,17 @@ class ClaudePlannerEngine:
     def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False, stream_output: bool = False):
         self.use_json = use_json
         if config is None:
-            base_args = ["--print", "--output-format", "json" if use_json else "text",
-                         "--permission-mode", "dontAsk"]  # Auto-approve all permissions
+            base_args = [
+                "--print",
+                "--output-format",
+                "json" if use_json else "text",
+                "--permission-mode",
+                "bypassPermissions",  # Auto-approve all permissions
+            ]
             config = CliEngineConfig(
                 binary="claude",
-                base_args=base_args
+                base_args=base_args,
+                use_stdin=True  # Pipe prompt to avoid argv parsing issues
             )
         self.config = config
         self.debug = debug
