@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 
 # Import the session model and engines from the same directory
-from session_model import Session, Subtask, load_session, save_session
+from session_model import Session, Subtask, PlanNode, load_session, save_session
 from engines import EngineError
 
 
@@ -107,7 +107,7 @@ def log_verbose(verbose, message: str):
         print(f"[orchestrator] {message}")
 
 
-def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str], verbose: bool = False) -> dict:
+def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str], verbose: bool = False, clean_task: bool = True) -> dict:
     """
     Build the planner prompt, call the planner engine, and parse JSON.
     IMPORTANT: All planning must use the JSON-based planner. Hard-coded plans are FORBIDDEN.
@@ -130,14 +130,21 @@ def run_planner(session: Session, session_path: str, rules_text: str, summaries_
         current_plan_parts.append(f"   {subtask.description}")
     current_plan = "\n".join(current_plan_parts) if session.subtasks else "(no current plan)"
 
-    prompt = f"[ROOT TASK]\n{session.root_task}\n\n"
+    # Use the raw root task for the planner prompt
+    root_task_to_use = session.root_task_raw if hasattr(session, 'root_task_raw') else session.root_task
+
+    prompt = f"[ROOT TASK]\n{root_task_to_use}\n\n"
     prompt += f"[RULES]\n{rules_text}\n\n"
     prompt += f"[SUMMARIES]\n{summaries_text}\n\n"
     prompt += f"[CURRENT_PLAN]\n{current_plan}\n\n"
     prompt += f"[INSTRUCTIONS]\n"
     prompt += f"You are a planning AI. Propose an updated subtask plan in JSON format.\n"
     prompt += f"- Return a JSON object with a 'subtasks' field containing an array of subtask objects.\n"
-    prompt += f"- Each subtask object should have 'title' and 'description' fields.\n"
+    prompt += f"- Also include 'root' field with 'raw_summary', 'clean_text', and 'categories'.\n"
+    prompt += f"- Each subtask object should have 'title', 'description', 'categories', and 'root_excerpt' fields.\n"
+    prompt += f"- The root.clean_text should be a cleaned-up, well-structured description.\n"
+    prompt += f"- The root.categories should be high-level categories from the root task.\n"
+    prompt += f"- For each subtask, select which categories apply and provide an optional root_excerpt.\n"
     prompt += f"- You may add new subtasks if strictly necessary.\n"
     prompt += f"- Keep the number of subtasks manageable.\n"
     prompt += f"- Only return valid JSON with no additional text or explanations outside the JSON."
@@ -270,6 +277,18 @@ def main():
     group.add_argument('-p', '--plan', action='store_true',
                       help='Run planner and update subtask plan')
 
+    # Add new modes for planning
+    group.add_argument('--one-shot-plan', action='store_true',
+                      help='Run single planner call that rewrites root task and returns finalized JSON plan')
+    group.add_argument('--discuss-plan', action='store_true',
+                      help='Enter interactive planning mode for back-and-forth discussion')
+
+    # Add flags for plan tree management
+    parser.add_argument('--show-plan-tree', action='store_true',
+                       help='Print the entire plan tree with ASCII art')
+    parser.add_argument('--focus-plan', type=str,
+                       help='Set active plan ID to switch focus')
+
     # Add --dry-run flag, but only for --resume command
     parser.add_argument('-d', '--dry-run', action='store_true',
                        help='Simulate execution without modifying files')
@@ -306,8 +325,33 @@ def main():
         handle_resume_session(args.session, args.verbose, args.dry_run, args.stream_ai_output, args.print_ai_prompts, retry_interrupted=args.retry_interrupted)
     elif args.rules:
         handle_rules_file(args.session, args.verbose)
-    elif args.plan:
-        handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan)
+    elif args.plan or args.one_shot_plan or args.discuss_plan:
+        # Handle different planning modes
+        if args.discuss_plan:
+            handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan)
+        else:
+            # If --one-shot-plan is set, or --plan with no explicit mode, use one-shot planning
+            # For --plan case, ask user which mode to use
+            if args.plan and not args.one_shot_plan:
+                response = input("Do you want to discuss the plan with the planner AI first? [Y/n]: ").strip().lower()
+                if response in ['', 'y', 'yes']:
+                    handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan)
+                else:
+                    # Ask whether to rewrite/clean the root task
+                    response = input("Do you want the planner to rewrite/clean the root task before planning? [Y/n]: ").strip().lower()
+                    clean_task = response in ['', 'y', 'yes']
+                    handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan, clean_task=clean_task)
+            else:
+                # Use one-shot planning
+                clean_task = True if args.one_shot_plan else False
+                handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force_replan, clean_task=clean_task)
+    elif args.show_plan_tree:
+        handle_show_plan_tree(args.session, args.verbose)
+    elif args.focus_plan:
+        handle_focus_plan(args.session, args.focus_plan, args.verbose)
+    else:
+        print("No valid command specified", file=sys.stderr)
+        sys.exit(1)
 
 
 def handle_new_session(session_path, verbose=False, root_task_file=None):
@@ -411,6 +455,9 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
             print("[VERBOSE] Legacy plan migration: refusing to resume with legacy tasks")
         sys.exit(1)
 
+    # MIGRATION: Ensure plan tree structure exists for backward compatibility
+    migrate_session_if_needed(session)
+
     if verbose:
         print(f"[VERBOSE] Loaded session with status: {session.status}")
 
@@ -420,14 +467,25 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
         print(f"[VERBOSE] Loaded rules (length: {len(rules)} chars)")
 
     # Process pending subtasks (and interrupted subtasks if retry_interrupted is True)
+    # Only include subtasks that belong to the active plan (if plan tree exists)
+    active_plan_id = session.active_plan_id
+
     if retry_interrupted:
-        target_subtasks = [subtask for subtask in session.subtasks if subtask.status in ["pending", "interrupted"]]
+        target_subtasks = [
+            subtask for subtask in session.subtasks
+            if subtask.status in ["pending", "interrupted"]
+            and (not active_plan_id or subtask.plan_id == active_plan_id)
+        ]
         if verbose and target_subtasks:
             interrupt_count = len([s for s in target_subtasks if s.status == "interrupted"])
             pending_count = len([s for s in target_subtasks if s.status == "pending"])
             print(f"[VERBOSE] Processing {len(target_subtasks)} subtasks: {pending_count} pending, {interrupt_count} interrupted")
     else:
-        target_subtasks = [subtask for subtask in session.subtasks if subtask.status == "pending"]
+        target_subtasks = [
+            subtask for subtask in session.subtasks
+            if subtask.status == "pending"
+            and (not active_plan_id or subtask.plan_id == active_plan_id)
+        ]
 
     if not target_subtasks:
         # No subtasks to process, just print current status
@@ -473,8 +531,15 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 except:
                     partial_output = None
 
-            # Build the full worker prompt with structured format
-            prompt = f"[ROOT TASK]\n{session.root_task}\n\n"
+            # Build the full worker prompt with structured format using flexible root task handling
+            # Use the clean root task and relevant categories/excerpt for this subtask
+            root_task_to_use = session.root_task_clean or session.root_task_raw or session.root_task
+            categories_str = ", ".join(subtask.categories) if subtask.categories else "No specific categories"
+            root_excerpt = subtask.root_excerpt if subtask.root_excerpt else "No specific excerpt, see categories."
+
+            prompt = f"[ROOT TASK (CLEANED)]\n{root_task_to_use}\n\n"
+            prompt += f"[RELEVANT CATEGORIES]\n{categories_str}\n\n"
+            prompt += f"[RELEVANT ROOT EXCERPT]\n{root_excerpt}\n\n"
 
             # Include partial result if available
             if partial_output:
@@ -765,8 +830,362 @@ def load_rules(session: Session) -> str:
         return ""
 
 
+def handle_interactive_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", force_replan=False):
+    """
+    Handle interactive planning mode where user and planner AI chat back-and-forth
+    before finalizing the plan.
+    """
+    if verbose:
+        print(f"[VERBOSE] Loading session from: {session_path}")
 
-def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", force_replan=False):
+    # Load the session
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        error_session = Session(
+            id=str(uuid.uuid4()),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+            root_task="Unknown",
+            subtasks=[],
+            rules_path=None,
+            status="failed"
+        )
+        save_session(error_session, session_path)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        try:
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+        except:
+            pass
+        sys.exit(1)
+
+    # MIGRATION CHECK: For --plan, if there are only legacy tasks, warn and recommend re-planning
+    if has_legacy_plan(session.subtasks) and len(session.subtasks) == 3:
+        print(f"Warning: Session contains legacy hard-coded plan with tasks: {list(LEGACY_TITLES)}", file=sys.stderr)
+        print("The legacy plan will be replaced with a new JSON-based plan.", file=sys.stderr)
+        if verbose:
+            print("[VERBOSE] Legacy plan detected during planning; will replace with new JSON plan")
+
+    # MIGRATION: Ensure plan tree structure exists for backward compatibility
+    migrate_session_if_needed(session)
+
+    # FORCE REPLAN: If --force-replan is specified, clear all existing subtasks
+    if force_replan:
+        if verbose:
+            print(f"[VERBOSE] Force re-plan flag detected: clearing {len(session.subtasks)} existing subtasks")
+        session.subtasks.clear()  # Clear all existing subtasks
+        print("Cleared existing subtasks. Running fresh planning from scratch.", file=sys.stderr)
+
+    # Ensure root_task is set
+    if not session.root_task or session.root_task.strip() == "":
+        print("Error: Session root_task is not set.", file=sys.stderr)
+        session.status = "failed"
+        session.updated_at = datetime.now().isoformat()
+        save_session(session, session_path)
+        sys.exit(1)
+
+    # Load rules
+    rules = load_rules(session)
+    if verbose:
+        print(f"[VERBOSE] Loaded rules (length: {len(rules)} chars)")
+
+    # Initialize conversation
+    planner_conversation = [
+        {"role": "system", "content": f"You are a planning AI. The user will discuss the plan with you and then finalize it. The main goal is: {session.root_task}"},
+        {"role": "user", "content": f"Root task: {session.root_task}\n\nRules: {rules}\n\nCurrent plan: {len(session.subtasks)} existing subtasks"}
+    ]
+
+    print("[planner] Ready to discuss the plan for this session.")
+    print("Type your message and press Enter. Use /done when you want to generate the plan.")
+
+    # Create conversations directory
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    conversations_dir = os.path.join(session_dir, "conversations")
+    os.makedirs(conversations_dir, exist_ok=True)
+
+    while True:
+        user_input = input("> ").strip()
+
+        if user_input == "/done" or user_input == "/plan":
+            break
+
+        if user_input == "/quit" or user_input == "/exit":
+            print("Exiting without generating plan.")
+            return
+
+        # Append user message to conversation
+        planner_conversation.append({"role": "user", "content": user_input})
+
+        # Call the planner engine with the conversation
+        planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+        planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+        try:
+            # Build a prompt from the conversation
+            conversation_prompt = "You are in a planning conversation. Here's the conversation so far:\n\n"
+            for msg in planner_conversation:
+                conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+
+            conversation_prompt += "\nPlease respond to continue the planning discussion."
+
+            json_plan = run_planner_with_prompt(conversation_prompt, planner_preference, session_path, verbose)
+            assistant_response = json.dumps(json_plan) if isinstance(json_plan, dict) else str(json_plan)
+
+            print(f"[planner]: {assistant_response}")
+
+            # Append assistant's response to conversation
+            planner_conversation.append({"role": "assistant", "content": assistant_response})
+
+        except KeyboardInterrupt:
+            print("\n[orchestrator] Conversation interrupted by user", file=sys.stderr)
+            sys.exit(130)
+        except Exception as e:
+            print(f"Error in conversation: {e}", file=sys.stderr)
+            continue
+
+    # Final: Generate the actual plan
+    final_conversation_prompt = "The planning conversation is complete. Please generate the final JSON plan based on the discussion:\n\n"
+    for msg in planner_conversation:
+        final_conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+
+    final_conversation_prompt += "Return ONLY the JSON plan with 'subtasks' array, 'root' object with 'clean_text' and 'categories', and no other text."
+
+    planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+    planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+    try:
+        final_json_plan = run_planner_with_prompt(final_conversation_prompt, planner_preference, session_path, verbose)
+
+        # Show the plan to the user
+        print("Final plan generated:")
+        if "subtasks" in final_json_plan:
+            for i, subtask_data in enumerate(final_json_plan["subtasks"], 1):
+                title = subtask_data.get("title", "Untitled")
+                description = subtask_data.get("description", "")
+                print(f"{i}. {title}")
+                print(f"   {description}")
+
+        # Save the conversation transcript
+        plan_id = str(uuid.uuid4())
+        conversation_filename = os.path.join(conversations_dir, f"planner_conversation_{plan_id}.txt")
+        with open(conversation_filename, "w", encoding="utf-8") as f:
+            f.write(f"Planning conversation for plan {plan_id}\n")
+            f.write(f"Started: {datetime.now().isoformat()}\n\n")
+            for msg in planner_conversation:
+                f.write(f"{msg['role'].upper()}: {msg['content']}\n\n")
+
+        print(f"Conversation saved to: {conversation_filename}")
+
+        # Create a new plan branch for this interactive planning session
+        parent_plan_id = session.active_plan_id
+        new_plan = create_plan_branch(session, parent_plan_id, "Interactive planning session")
+
+        # Apply the plan to the session (this will set the plan_id for subtasks)
+        # Since we just created the new plan and set it as active, the subtasks will be assigned to it
+        apply_json_plan_to_session(session, final_json_plan)
+
+        # Update the new plan's subtask IDs
+        for plan in session.plans:
+            if plan.plan_id == new_plan.plan_id:
+                plan.subtask_ids = [subtask.id for subtask in session.subtasks]
+                break
+
+        # The new plan is already the active plan from create_plan_branch, so we're done
+
+        save_session(session, session_path)
+
+        print("Plan accepted and saved to session.")
+
+    except Exception as e:
+        print(f"Error generating final plan: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def migrate_session_if_needed(session: Session):
+    """
+    Migrate an old session to use the new plan tree structure if needed.
+    This ensures backward compatibility for sessions created before plan trees existed.
+    """
+    # If the session has no plans, create a default plan structure
+    if not session.plans:
+        # For backward compatibility, assume the original root_task was the raw task
+        session.root_task_raw = session.root_task_raw or session.root_task
+        session.root_task_clean = session.root_task_clean or session.root_task
+        session.root_task_categories = session.root_task_categories or []
+
+        # Create the initial plan node
+        plan_id = "P1"  # Default first plan ID
+        initial_plan = PlanNode(
+            plan_id=plan_id,
+            parent_plan_id=None,
+            created_at=datetime.now().isoformat(),
+            label="Initial plan",
+            status="active",
+            notes="Generated from initial planning",
+            root_task_snapshot=session.root_task_raw,
+            root_clean_snapshot=session.root_task_clean,
+            categories_snapshot=session.root_task_categories,
+            subtask_ids=[subtask.id for subtask in session.subtasks]
+        )
+        session.plans.append(initial_plan)
+        session.active_plan_id = plan_id
+
+        # Assign plan_id to all existing subtasks if they don't have one
+        for subtask in session.subtasks:
+            if not subtask.plan_id:
+                subtask.plan_id = plan_id
+
+
+def create_initial_plan_node(session: Session):
+    """
+    Create an initial PlanNode for the session if it doesn't have any plans yet.
+    """
+    if not session.plans:
+        migrate_session_if_needed(session)
+        for plan in session.plans:
+            if plan.plan_id == session.active_plan_id:
+                return plan
+    return session.plans[0] if session.plans else None  # Return the first plan if one exists
+
+
+def create_plan_branch(session: Session, parent_plan_id: str | None, label: str):
+    """
+    Create a new plan branch as a child of the parent plan.
+    """
+    new_plan_id = str(uuid.uuid4())
+    new_plan = PlanNode(
+        plan_id=new_plan_id,
+        parent_plan_id=parent_plan_id,
+        created_at=datetime.now().isoformat(),
+        label=label,
+        status="active",
+        notes=None,
+        root_task_snapshot=session.root_task_raw if hasattr(session, 'root_task_raw') else session.root_task,
+        root_clean_snapshot=session.root_task_clean,
+        categories_snapshot=session.root_task_categories,
+        subtask_ids=[]  # Will be populated when subtasks are created
+    )
+    session.plans.append(new_plan)
+    session.active_plan_id = new_plan_id
+    return new_plan
+
+
+def handle_show_plan_tree(session_path, verbose=False):
+    """
+    Print the entire plan tree with ASCII art representation.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    if not session.plans:
+        print("No plans in session yet.")
+        return
+
+    # Build a tree structure from the plan nodes
+    plan_tree = {}
+    root_plans = []
+
+    for plan in session.plans:
+        if plan.parent_plan_id is None:
+            root_plans.append(plan)
+        else:
+            if plan.parent_plan_id not in plan_tree:
+                plan_tree[plan.parent_plan_id] = []
+            plan_tree[plan.parent_plan_id].append(plan)
+
+    def print_tree_node(plan, level=0, prefix=""):
+        """Recursively print the plan tree."""
+        # Determine if this plan is active
+        is_active = (session.active_plan_id == plan.plan_id)
+        is_dead = (plan.status == "dead")
+
+        # Count subtasks that belong to this plan
+        subtasks_for_plan = [st for st in session.subtasks if st.plan_id == plan.plan_id]
+        done_count = len([st for st in subtasks_for_plan if st.status == "done"])
+        total_count = len(subtasks_for_plan)
+
+        status_str = f" ({done_count}/{total_count} subtasks done)" if subtasks_for_plan else ""
+
+        # Print the plan with appropriate indicators
+        indent = "  " * level
+        marker = "[*]" if is_active else ("[x]" if is_dead else "[ ]")
+        status_symbol = "(dead)" if is_dead else ""
+        print(f"{indent}{prefix}{marker} Plan {plan.plan_id} ({plan.label}) {status_symbol}{status_str}")
+
+        # Print children
+        children = plan_tree.get(plan.plan_id, [])
+        for i, child_plan in enumerate(children):
+            new_prefix = "├─ " if i < len(children) - 1 else "└─ "
+            print_tree_node(child_plan, level + 1, new_prefix)
+
+    # Print the tree starting from root plans
+    for i, plan in enumerate(root_plans):
+        prefix = "├─ " if i < len(root_plans) - 1 else "└─ "
+        print_tree_node(plan, 0, prefix if len(root_plans) > 1 else "")
+
+
+def handle_focus_plan(session_path, plan_id, verbose=False):
+    """
+    Set the active plan ID to switch focus.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if the plan exists
+    target_plan = None
+    for plan in session.plans:
+        if plan.plan_id == plan_id:
+            target_plan = plan
+            break
+
+    if target_plan is None:
+        print(f"Error: Plan with ID '{plan_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if switching focus would affect subtasks
+    current_active_plan = None
+    if session.active_plan_id:
+        for plan in session.plans:
+            if plan.plan_id == session.active_plan_id:
+                current_active_plan = plan
+                break
+
+    # Count subtasks for the new and current plans
+    new_plan_subtasks = [st for st in session.subtasks if st.plan_id == plan_id]
+    current_plan_subtasks = [st for st in session.subtasks if st.plan_id == session.active_plan_id] if session.active_plan_id else []
+
+    if new_plan_subtasks and current_plan_subtasks and new_plan_subtasks != current_plan_subtasks:
+        print(f"This plan branch has {len(new_plan_subtasks)} subtasks that may need to be re-run or ignored.")
+        response = input(f"Are you sure you want to switch focus to PLAN_ID={plan_id}? [y/N]: ").strip().lower()
+        if response not in ['y', 'yes']:
+            print("Plan focus switch cancelled.")
+            return
+
+    # Set the new active plan
+    session.active_plan_id = plan_id
+    save_session(session, session_path)
+    print(f"Plan focus switched to: {plan_id}")
+
+
+
+def handle_plan_session(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", force_replan=False, clean_task=True):
     """
     Handle planning subtasks for the session.
     LEGACY PLANNER BANNED: This function must only use JSON-based planning.
@@ -809,6 +1228,9 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         print("The legacy plan will be replaced with a new JSON-based plan.", file=sys.stderr)
         if verbose:
             print("[VERBOSE] Legacy plan detected during planning; will replace with new JSON plan")
+
+    # MIGRATION: Ensure plan tree structure exists for backward compatibility
+    migrate_session_if_needed(session)
 
     # FORCE REPLAN: If --force-replan is specified, clear all existing subtasks
     if force_replan:
@@ -936,6 +1358,19 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         # Apply the JSON plan directly to the session
         apply_json_plan_to_session(session, json_plan)
 
+        # If this is the first plan for the session, create an initial PlanNode
+        if not session.plans:
+            create_initial_plan_node(session)
+        # Otherwise, for plan branches, we'd normally create a new branch, but for the default case
+        # we update the existing active plan's subtask IDs
+        else:
+            # Update the active plan's subtask IDs to reflect the new subtasks
+            if session.active_plan_id:
+                for plan in session.plans:
+                    if plan.plan_id == session.active_plan_id:
+                        plan.subtask_ids = [subtask.id for subtask in session.subtasks]
+                        break
+
         # Save the updated session
         save_session(session, session_path)
         if verbose:
@@ -964,6 +1399,7 @@ def apply_json_plan_to_session(session: Session, plan: dict) -> None:
     """
     Clear or update session.subtasks based on the JSON plan.
     Sets planner_model and worker_model for each subtask.
+    Also handles root task cleaning and categories from the plan.
     """
     # Validate plan["subtasks"] is a list; if empty, raise error
     if "subtasks" not in plan or not isinstance(plan["subtasks"], list):
@@ -972,8 +1408,21 @@ def apply_json_plan_to_session(session: Session, plan: dict) -> None:
     if len(plan["subtasks"]) == 0:
         raise ValueError("Plan 'subtasks' list cannot be empty")
 
+    # Handle root task information from the plan if present
+    if "root" in plan:
+        root_info = plan["root"]
+        session.root_task_raw = session.root_task  # Set raw from current root_task
+        session.root_task_clean = root_info.get("clean_text", session.root_task)
+        session.root_task_categories = root_info.get("categories", [])
+
+        # Update the main root_task to the clean version
+        session.root_task = session.root_task_clean
+
     # Create new subtasks from the JSON plan
     new_subtasks = []
+
+    # Use the active plan ID for the current plan if available
+    current_plan_id = session.active_plan_id if session.active_plan_id else str(uuid.uuid4())
 
     for item in plan["subtasks"]:
         if not isinstance(item, dict):
@@ -988,6 +1437,10 @@ def apply_json_plan_to_session(session: Session, plan: dict) -> None:
         planner_model = plan.get("planner_model", "unknown")
         depends_on = item.get("depends_on", [])  # default to no dependencies
 
+        # Extract new fields for flexible root task handling
+        categories = item.get("categories", [])
+        root_excerpt = item.get("root_excerpt")
+
         # Determine worker model using the helper function
         preferred_worker = item.get("preferred_worker", None)
         worker_model = select_worker_model(kind, complexity, preferred_worker)
@@ -1000,7 +1453,10 @@ def apply_json_plan_to_session(session: Session, plan: dict) -> None:
             planner_model=planner_model,
             worker_model=worker_model,
             status="pending",  # Default to pending
-            summary_file=""  # Will be set later when worker processes the task
+            summary_file="",  # Will be set later when worker processes the task
+            categories=categories,
+            root_excerpt=root_excerpt,
+            plan_id=current_plan_id  # Assign the plan_id to the subtask
         )
 
         new_subtasks.append(subtask)

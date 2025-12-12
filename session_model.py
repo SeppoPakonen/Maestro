@@ -4,6 +4,7 @@ Defines the core data structure for storing session information with subtasks.
 """
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -24,7 +25,10 @@ class Subtask:
         planner_model: str,
         worker_model: str,
         status: str,
-        summary_file: str
+        summary_file: str,
+        categories: Optional[List[str]] = None,
+        root_excerpt: Optional[str] = None,
+        plan_id: Optional[str] = None
     ):
         self.id = id
         self.title = title
@@ -33,7 +37,10 @@ class Subtask:
         self.worker_model = worker_model
         self.status = status
         self.summary_file = summary_file
-    
+        self.categories = categories or []
+        self.root_excerpt = root_excerpt
+        self.plan_id = plan_id
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the subtask to a dictionary representation."""
         return {
@@ -43,9 +50,12 @@ class Subtask:
             "planner_model": self.planner_model,
             "worker_model": self.worker_model,
             "status": self.status,
-            "summary_file": self.summary_file
+            "summary_file": self.summary_file,
+            "categories": self.categories,
+            "root_excerpt": self.root_excerpt,
+            "plan_id": self.plan_id
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Subtask':
         """Create a Subtask instance from a dictionary."""
@@ -56,7 +66,58 @@ class Subtask:
             planner_model=data["planner_model"],
             worker_model=data["worker_model"],
             status=data["status"],
-            summary_file=data["summary_file"]
+            summary_file=data["summary_file"],
+            categories=data.get("categories", []),
+            root_excerpt=data.get("root_excerpt"),
+            plan_id=data.get("plan_id")
+        )
+
+
+@dataclass
+class PlanNode:
+    """
+    Represents a node in the plan tree for branch support.
+    """
+    plan_id: str
+    parent_plan_id: Optional[str]
+    created_at: str
+    label: str
+    status: str  # "active", "inactive", "dead"
+    notes: Optional[str]
+    root_task_snapshot: str
+    root_clean_snapshot: Optional[str]
+    categories_snapshot: List[str]
+    subtask_ids: List[str]  # IDs of subtasks belonging to this plan
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the PlanNode to a dictionary representation."""
+        return {
+            "plan_id": self.plan_id,
+            "parent_plan_id": self.parent_plan_id,
+            "created_at": self.created_at,
+            "label": self.label,
+            "status": self.status,
+            "notes": self.notes,
+            "root_task_snapshot": self.root_task_snapshot,
+            "root_clean_snapshot": self.root_clean_snapshot,
+            "categories_snapshot": self.categories_snapshot,
+            "subtask_ids": self.subtask_ids
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'PlanNode':
+        """Create a PlanNode instance from a dictionary."""
+        return cls(
+            plan_id=data["plan_id"],
+            parent_plan_id=data.get("parent_plan_id"),
+            created_at=data["created_at"],
+            label=data["label"],
+            status=data["status"],
+            notes=data.get("notes"),
+            root_task_snapshot=data["root_task_snapshot"],
+            root_clean_snapshot=data.get("root_clean_snapshot"),
+            categories_snapshot=data.get("categories_snapshot", []),
+            subtask_ids=data.get("subtask_ids", [])
         )
 
 
@@ -72,7 +133,12 @@ class Session:
         root_task: str,
         subtasks: List[Subtask],
         rules_path: Optional[str],
-        status: str
+        status: str,
+        root_task_raw: Optional[str] = None,
+        root_task_clean: Optional[str] = None,
+        root_task_categories: Optional[List[str]] = None,
+        plans: Optional[List[PlanNode]] = None,
+        active_plan_id: Optional[str] = None
     ):
         self.id = id
         self.created_at = created_at
@@ -81,7 +147,12 @@ class Session:
         self.subtasks = subtasks
         self.rules_path = rules_path
         self.status = status
-    
+        self.root_task_raw = root_task_raw or root_task
+        self.root_task_clean = root_task_clean
+        self.root_task_categories = root_task_categories or []
+        self.plans = plans or []
+        self.active_plan_id = active_plan_id
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the session to a dictionary representation."""
         return {
@@ -91,13 +162,35 @@ class Session:
             "root_task": self.root_task,
             "subtasks": [subtask.to_dict() for subtask in self.subtasks],
             "rules_path": self.rules_path,
-            "status": self.status
+            "status": self.status,
+            "root_task_raw": self.root_task_raw,
+            "root_task_clean": self.root_task_clean,
+            "root_task_categories": self.root_task_categories,
+            "plans": [plan.to_dict() for plan in self.plans] if self.plans else [],
+            "active_plan_id": self.active_plan_id
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Session':
         """Create a Session instance from a dictionary."""
         subtasks = [Subtask.from_dict(subtask_data) for subtask_data in data["subtasks"]]
+
+        # Handle backward compatibility for old sessions without new fields
+        root_task_raw = data.get("root_task_raw")
+        if root_task_raw is None:
+            root_task_raw = data.get("root_task", "")
+
+        root_task_clean = data.get("root_task_clean")
+        if root_task_clean is None:
+            root_task_clean = data.get("root_task", "")
+
+        root_task_categories = data.get("root_task_categories")
+        if root_task_categories is None:
+            root_task_categories = []
+
+        plans = data.get("plans", [])
+        active_plan_id = data.get("active_plan_id")
+
         return cls(
             id=data["id"],
             created_at=data["created_at"],
@@ -105,7 +198,12 @@ class Session:
             root_task=data["root_task"],
             subtasks=subtasks,
             rules_path=data.get("rules_path"),
-            status=data["status"]
+            status=data["status"],
+            root_task_raw=root_task_raw,
+            root_task_clean=root_task_clean,
+            root_task_categories=root_task_categories,
+            plans=[PlanNode.from_dict(plan_data) for plan_data in plans] if plans else [],
+            active_plan_id=active_plan_id
         )
 def load_session(path: str) -> Session:
     '''
