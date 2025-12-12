@@ -38,6 +38,7 @@ class Colors:
     BRIGHT_BLUE = '\033[94m'
     BRIGHT_MAGENTA = '\033[95m'
     BRIGHT_CYAN = '\033[96m'
+    BRIGHT_WHITE = '\033[97m'
 
     # Formatting
     BOLD = '\033[1m'
@@ -548,7 +549,7 @@ def main():
     # plan show
     plan_show_parser = plan_subparsers.add_parser('show', help='Show details of a specific plan')
     plan_show_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
-    plan_show_parser.add_argument('plan_id', help='Plan ID, number, or name to show')
+    plan_show_parser.add_argument('plan_id', nargs='?', help='Plan ID, number, or name to show (if omitted, shows active plan)')
 
     # plan discuss (alternative to --discuss)
     plan_discuss_parser = plan_subparsers.add_parser('discuss', help='Alternative to plan --discuss')
@@ -583,6 +584,21 @@ def main():
     rules_disable_parser = rules_subparsers.add_parser('disable', help='Disable a specific rule')
     rules_disable_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     rules_disable_parser.add_argument('rule_id', help='Rule ID or number to disable')
+
+    # Task command
+    task_parser = subparsers.add_parser('task', help='Task management commands')
+    task_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    task_subparsers = task_parser.add_subparsers(dest='task_subcommand', help='Task subcommands')
+
+    # task list
+    task_list_parser = task_subparsers.add_parser('list', help='List tasks in the current plan')
+    task_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show rule-based tasks too')
+    task_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
+    # task log (synonymous to "log task")
+    task_log_parser = task_subparsers.add_parser('log', help='Show past tasks (limited to 10, -a shows all)')
+    task_log_parser.add_argument('-a', '--all', action='store_true', help='Show all tasks instead of just the last 10')
+    task_log_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # Log command
     log_parser = subparsers.add_parser('log', help='Log management commands')
@@ -708,6 +724,23 @@ def main():
                     handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force, clean_task=clean_task)
     elif args.command == 'refine-root':
         handle_refine_root(args.session, args.verbose, args.planner_order)
+    elif args.command == 'task':
+        # Handle the task command and its subcommands
+        if not args.session:
+            print_error("Session is required for task commands", 2)
+            sys.exit(1)
+
+        if hasattr(args, 'task_subcommand') and args.task_subcommand:
+            if args.task_subcommand == 'list':
+                handle_task_list(args.session, args.verbose)
+            elif args.task_subcommand == 'log':
+                handle_task_log(args.session, args.all, args.verbose)
+            else:
+                print_error(f"Unknown task subcommand: {args.task_subcommand}", 2)
+                sys.exit(1)
+        else:
+            # Default to task list if no subcommand specified
+            handle_task_list(args.session, args.verbose)
     elif args.command == 'log':
         if hasattr(args, 'log_subcommand') and args.log_subcommand:
             if args.log_subcommand == 'help':
@@ -2377,6 +2410,7 @@ def handle_plan_list(session_path, verbose=False):
 def handle_plan_show(session_path, plan_id, verbose=False):
     """
     Show details of a specific plan by ID, number, or name.
+    If plan_id is None, show the active plan.
     """
     try:
         session = load_session(session_path)
@@ -2391,28 +2425,43 @@ def handle_plan_show(session_path, plan_id, verbose=False):
         print("No plans in session yet.")
         return
 
-    # Try to find plan by ID, or by index number
-    target_plan = None
+    # If no plan_id is provided, show the active plan
+    if plan_id is None:
+        if session.active_plan_id:
+            # Find the active plan
+            for plan in session.plans:
+                if plan.plan_id == session.active_plan_id:
+                    target_plan = plan
+                    break
+            else:
+                print(f"Error: Active plan ID '{session.active_plan_id}' not found in session plans.", file=sys.stderr)
+                sys.exit(1)
+        else:
+            print("No active plan set.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Try to find plan by ID, or by index number
+        target_plan = None
 
-    # First, try to match by exact plan_id
-    for plan in session.plans:
-        if plan.plan_id == plan_id:
-            target_plan = plan
-            break
+        # First, try to match by exact plan_id
+        for plan in session.plans:
+            if plan.plan_id == plan_id:
+                target_plan = plan
+                break
 
-    # If not found and plan_id is a number, try to match by index
-    if target_plan is None:
-        try:
-            plan_index = int(plan_id) - 1  # Convert to 0-based index
-            if 0 <= plan_index < len(session.plans):
-                target_plan = session.plans[plan_index]
-        except ValueError:
-            # Not a number, continue without error
-            pass
+        # If not found and plan_id is a number, try to match by index
+        if target_plan is None:
+            try:
+                plan_index = int(plan_id) - 1  # Convert to 0-based index
+                if 0 <= plan_index < len(session.plans):
+                    target_plan = session.plans[plan_index]
+            except ValueError:
+                # Not a number, continue without error
+                pass
 
-    if target_plan is None:
-        print(f"Error: Plan with ID or number '{plan_id}' not found.", file=sys.stderr)
-        sys.exit(1)
+        if target_plan is None:
+            print(f"Error: Plan with ID or number '{plan_id}' not found.", file=sys.stderr)
+            sys.exit(1)
 
     # Print plan details
     print_header(f"PLAN DETAILS: {target_plan.plan_id}")
@@ -2548,6 +2597,117 @@ def handle_log_list_plan(session_path, verbose=False):
     List all plan changes.
     """
     print_warning("Plan log functionality not fully implemented in this version.", 2)
+
+
+def handle_task_list(session_path, verbose=False):
+    """
+    List tasks in the current session.
+    Shows subtasks from the active plan, with optional verbose mode to show rule-based tasks too.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    # Get the active plan or use the first plan if no active plan is set
+    if session.active_plan_id:
+        active_plan = next((p for p in session.plans if p.plan_id == session.active_plan_id), None)
+    else:
+        # If no active plan, use the first plan or show all tasks
+        active_plan = session.plans[0] if session.plans else None
+
+    print_header("TASKS")
+
+    # Determine which subtasks to show
+    subtasks_to_show = []
+
+    if active_plan:
+        # Show tasks from the active plan
+        for subtask_id in active_plan.subtask_ids:
+            subtask = next((st for st in session.subtasks if st.id == subtask_id), None)
+            if subtask:
+                subtasks_to_show.append(subtask)
+    else:
+        # If no plan is active, show all subtasks
+        subtasks_to_show = session.subtasks
+
+    if not subtasks_to_show:
+        print("No tasks in current plan.")
+        return
+
+    # Show tasks with status indicators
+    for i, subtask in enumerate(subtasks_to_show, 1):
+        status_symbol = "✓" if subtask.status == "done" else "○" if subtask.status == "pending" else "✗"
+        status_color = Colors.BRIGHT_GREEN if subtask.status == "done" else Colors.BRIGHT_YELLOW if subtask.status == "pending" else Colors.BRIGHT_RED
+        styled_print(f"{i:2d}. {status_symbol} {subtask.title} [{subtask.status}]", status_color, None, 0)
+        if verbose:
+            # In verbose mode, also show additional information
+            styled_print(f"    Description: {subtask.description[:100]}{'...' if len(subtask.description) > 100 else ''}", Colors.BRIGHT_WHITE, None, 0)
+            if subtask.categories:
+                styled_print(f"    Categories: {', '.join(subtask.categories)}", Colors.BRIGHT_CYAN, None, 0)
+            if subtask.root_excerpt:
+                styled_print(f"    Excerpt: {subtask.root_excerpt[:80]}{'...' if len(subtask.root_excerpt) > 80 else ''}", Colors.BRIGHT_MAGENTA, None, 0)
+
+    # If in verbose mode, also show rule-based information
+    if verbose:
+        # Load rules to identify recurring tasks generated from rules
+        rules = load_rules(session)
+        if rules:
+            print_subheader("RULES-GENERATED TASKS")
+            # Parse rules to identify potential recurring tasks
+            # This would typically be handled by the AI, but we can show common patterns
+            import json
+            try:
+                # Try to parse rules as JSON if it's structured that way
+                rules_json = json.loads(rules)
+                if isinstance(rules_json, dict) and "rules" in rules_json:
+                    for i, rule in enumerate(rules_json.get("rules", []), 1):
+                        if isinstance(rule, dict) and rule.get("enabled", True):
+                            styled_print(f"  {i}. {rule.get('content', 'N/A')} [Rule-based task]", Colors.BRIGHT_CYAN, None, 0)
+            except json.JSONDecodeError:
+                # If not JSON, parse as text rules
+                rule_lines = [line.strip() for line in rules.split('\n') if line.strip() and not line.strip().startswith('#')]
+                for i, rule_line in enumerate(rule_lines, 1):
+                    styled_print(f"  {i}. {rule_line} [Rule-based task]", Colors.BRIGHT_CYAN, None, 0)
+
+
+def handle_task_log(session_path, show_all=False, verbose=False):
+    """
+    Show past tasks (limited to 10 by default, -a shows all).
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    print_header("TASK LOG")
+
+    # Show completed tasks (subtasks with status "done")
+    completed_tasks = [st for st in session.subtasks if st.status == "done"]
+
+    # Order by some heuristic (e.g., by creation order in the session)
+    # Since we don't have explicit timestamps, use the order in the session
+    completed_tasks = completed_tasks if show_all else completed_tasks[-10:]  # Last 10, or all if show_all is True
+
+    if not completed_tasks:
+        print("No completed tasks in log.")
+        return
+
+    print_info(f"Showing {'all' if show_all else 'last 10'} completed tasks:", 2)
+
+    # Show tasks in reverse chronological order (most recent first)
+    for i, subtask in enumerate(reversed(completed_tasks), 1):
+        styled_print(f"{i:2d}. ✓ {subtask.title}", Colors.BRIGHT_GREEN, None, 0)
+        if verbose:
+            styled_print(f"    Description: {subtask.description[:100]}{'...' if len(subtask.description) > 100 else ''}", Colors.BRIGHT_WHITE, None, 0)
 
 
 def find_default_session_file():
