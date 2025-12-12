@@ -326,6 +326,10 @@ def main():
     parser.add_argument('--retry-interrupted', action='store_true',
                        help='Automatically resume interrupted subtasks using partial output')
 
+    # Add --kill-plan flag for marking plan branches as dead
+    parser.add_argument('--kill-plan', type=str,
+                       help='Mark a plan branch as dead by setting its status to "dead"')
+
     args = parser.parse_args()
 
     # Determine which action to take based on flags
@@ -359,6 +363,8 @@ def main():
         handle_show_plan_tree(args.session, args.verbose)
     elif args.focus_plan:
         handle_focus_plan(args.session, args.focus_plan, args.verbose)
+    elif args.kill_plan:
+        handle_kill_plan(args.session, args.kill_plan, args.verbose)
     elif args.refine_root:
         handle_refine_root(args.session, args.verbose, args.planner_order)
     else:
@@ -1039,8 +1045,7 @@ def migrate_session_if_needed(session: Session):
             label="Initial plan",
             status="active",
             notes="Generated from initial planning",
-            root_task_snapshot=session.root_task_raw,
-            root_clean_snapshot=session.root_task_clean,
+            root_snapshot=session.root_task_clean or session.root_task_raw or session.root_task,
             categories_snapshot=session.root_task_categories,
             subtask_ids=[subtask.id for subtask in session.subtasks]
         )
@@ -1077,8 +1082,7 @@ def create_plan_branch(session: Session, parent_plan_id: str | None, label: str)
         label=label,
         status="active",
         notes=None,
-        root_task_snapshot=session.root_task_raw if hasattr(session, 'root_task_raw') else session.root_task,
-        root_clean_snapshot=session.root_task_clean,
+        root_snapshot=session.root_task_clean or session.root_task_raw or session.root_task,
         categories_snapshot=session.root_task_categories,
         subtask_ids=[]  # Will be populated when subtasks are created
     )
@@ -1145,6 +1149,51 @@ def handle_show_plan_tree(session_path, verbose=False):
     for i, plan in enumerate(root_plans):
         prefix = "├─ " if i < len(root_plans) - 1 else "└─ "
         print_tree_node(plan, 0, prefix if len(root_plans) > 1 else "")
+
+
+def handle_kill_plan(session_path, plan_id, verbose=False):
+    """
+    Mark a plan branch as dead by setting its status to 'dead'.
+    """
+    try:
+        session = load_session(session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if the plan exists
+    target_plan = None
+    for plan in session.plans:
+        if plan.plan_id == plan_id:
+            target_plan = plan
+            break
+
+    if target_plan is None:
+        print(f"Error: Plan with ID '{plan_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    # Ask for confirmation before marking as dead
+    subtasks_for_plan = [st for st in session.subtasks if st.plan_id == plan_id]
+    subtask_count = len(subtasks_for_plan)
+
+    print(f"Marking plan '{plan_id}' as dead will affect {subtask_count} subtasks.")
+    if subtask_count > 0:
+        print(f"Subtasks: {[st.title for st in subtasks_for_plan][:5]}{'...' if subtask_count > 5 else ''}")
+
+    response = input(f"Are you sure you want to mark PLAN_ID={plan_id} as dead? [y/N]: ").strip().lower()
+    if response not in ['y', 'yes']:
+        print("Kill plan operation cancelled.")
+        return
+
+    # Mark the plan as dead
+    target_plan.status = "dead"
+
+    # Optionally, we could also mark subtasks as cancelled, but for now just update the plan status
+    save_session(session, session_path)
+    print(f"Plan {plan_id} has been marked as dead.")
 
 
 def handle_focus_plan(session_path, plan_id, verbose=False):
@@ -1370,11 +1419,14 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         # Apply the JSON plan directly to the session
         apply_json_plan_to_session(session, json_plan)
 
-        # If this is the first plan for the session, create an initial PlanNode
-        if not session.plans:
+        # Create a new plan branch when force-replan is used or if no plans exist yet
+        if force_replan:
+            parent_plan_id = session.active_plan_id
+            new_plan = create_plan_branch(session, parent_plan_id, "New plan after force-replan")
+            # The new plan is already set as active in create_plan_branch
+        elif not session.plans:
             create_initial_plan_node(session)
-        # Otherwise, for plan branches, we'd normally create a new branch, but for the default case
-        # we update the existing active plan's subtask IDs
+        # Otherwise, update the currently active plan's subtask IDs
         else:
             # Update the active plan's subtask IDs to reflect the new subtasks
             if session.active_plan_id:

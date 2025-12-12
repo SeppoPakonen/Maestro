@@ -84,8 +84,7 @@ class PlanNode:
     label: str
     status: str  # "active", "inactive", "dead"
     notes: Optional[str]
-    root_task_snapshot: str
-    root_clean_snapshot: Optional[str]
+    root_snapshot: str  # Combined root task snapshot
     categories_snapshot: List[str]
     subtask_ids: List[str]  # IDs of subtasks belonging to this plan
 
@@ -98,8 +97,7 @@ class PlanNode:
             "label": self.label,
             "status": self.status,
             "notes": self.notes,
-            "root_task_snapshot": self.root_task_snapshot,
-            "root_clean_snapshot": self.root_clean_snapshot,
+            "root_snapshot": self.root_snapshot,
             "categories_snapshot": self.categories_snapshot,
             "subtask_ids": self.subtask_ids
         }
@@ -107,6 +105,12 @@ class PlanNode:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PlanNode':
         """Create a PlanNode instance from a dictionary."""
+        # Handle backward compatibility for old sessions with separate root fields
+        root_snapshot = data.get("root_snapshot", "")
+        if not root_snapshot:
+            # Try to get from old field names
+            root_snapshot = data.get("root_task_snapshot", data.get("root_clean_snapshot", ""))
+
         return cls(
             plan_id=data["plan_id"],
             parent_plan_id=data.get("parent_plan_id"),
@@ -114,8 +118,7 @@ class PlanNode:
             label=data["label"],
             status=data["status"],
             notes=data.get("notes"),
-            root_task_snapshot=data["root_task_snapshot"],
-            root_clean_snapshot=data.get("root_clean_snapshot"),
+            root_snapshot=root_snapshot,
             categories_snapshot=data.get("categories_snapshot", []),
             subtask_ids=data.get("subtask_ids", [])
         )
