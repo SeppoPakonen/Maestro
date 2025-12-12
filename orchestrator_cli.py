@@ -1069,10 +1069,23 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     try:
         final_json_plan = run_planner_with_prompt(final_conversation_prompt, planner_preference, session_path, verbose=True)
 
+        # Verify that final_json_plan is a dictionary
+        if not isinstance(final_json_plan, dict):
+            raise PlannerError(f"Planner returned invalid data type: {type(final_json_plan)}")
+
         # Show the plan to the user
         print("Final plan generated:")
         if "subtasks" in final_json_plan:
-            for i, subtask_data in enumerate(final_json_plan["subtasks"], 1):
+            subtasks = final_json_plan["subtasks"]
+            # Ensure subtasks is a list
+            if not isinstance(subtasks, list):
+                raise PlannerError(f"Planner returned invalid subtasks format: expected list, got {type(subtasks)}")
+
+            for i, subtask_data in enumerate(subtasks, 1):
+                # Ensure each subtask is a dictionary
+                if not isinstance(subtask_data, dict):
+                    raise PlannerError(f"Planner returned invalid subtask format: expected dict, got {type(subtask_data)}")
+
                 title = subtask_data.get("title", "Untitled")
                 description = subtask_data.get("description", "")
                 print(f"{i}. {title}")
