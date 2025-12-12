@@ -21,6 +21,32 @@ class PlannerError(Exception):
     pass
 
 
+# Legacy hard-coded subtask titles for safety checking
+LEGACY_TITLES = {
+    "Analysis and Research",
+    "Implementation",
+    "Testing and Integration",
+}
+
+
+def assert_no_legacy_subtasks(subtasks):
+    """
+    Assert that no legacy hard-coded subtasks are present in the plan.
+
+    Args:
+        subtasks: List of subtask objects with 'title' attribute
+
+    Raises:
+        AssertionError: If all three legacy titles are detected together
+    """
+    titles = {getattr(st, 'title', '') for st in subtasks if hasattr(st, 'title')}
+    if LEGACY_TITLES.issubset(titles):
+        raise AssertionError(
+            "Legacy hard-coded subtasks detected in plan: "
+            f"{sorted(titles.intersection(LEGACY_TITLES))}"
+        )
+
+
 def edit_root_task_in_editor():
     """Open an editor to input the root task text."""
     import tempfile
@@ -690,6 +716,9 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         try:
             json_plan = run_planner(session, session_path, rules, summaries, planner_preference, verbose)
             planned_subtasks = json_to_planned_subtasks(json_plan)
+
+            # Safety check: ensure legacy hard-coded subtasks are not present
+            assert_no_legacy_subtasks(planned_subtasks)
         except PlannerError as e:
             print(f"Error: Planner failed: {e}", file=sys.stderr)
             session.status = "failed"
@@ -714,6 +743,9 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         try:
             json_plan = run_planner(session, session_path, rules, summaries, planner_preference, verbose)
             planned_subtasks = json_to_planned_subtasks(json_plan)
+
+            # Safety check: ensure legacy hard-coded subtasks are not present
+            assert_no_legacy_subtasks(planned_subtasks)
         except PlannerError as e:
             print(f"Error: Planner failed: {e}", file=sys.stderr)
             session.status = "failed"
