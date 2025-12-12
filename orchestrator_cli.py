@@ -272,8 +272,8 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Show detailed debug, engine commands, and file paths')
 
-    # Mutually exclusive group for commands
-    group = parser.add_mutually_exclusive_group(required=True)
+    # Mutually exclusive group for main action commands
+    group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument('-n', '--new', action='store_true',
                       help='Create a new session and read root task from stdin')
     group.add_argument('-r', '--resume', action='store_true',
@@ -331,6 +331,14 @@ def main():
                        help='Mark a plan branch as dead by setting its status to "dead"')
 
     args = parser.parse_args()
+
+    # Validate that at least one command is specified
+    main_command = any([args.new, args.resume, args.rules, args.plan, args.one_shot_plan, args.discuss_plan, args.refine_root])
+    management_command = any([args.show_plan_tree, args.focus_plan is not None, args.kill_plan is not None])
+
+    if not (main_command or management_command):
+        print("No valid command specified", file=sys.stderr)
+        sys.exit(1)
 
     # Determine which action to take based on flags
     if args.new:
@@ -1108,47 +1116,140 @@ def handle_show_plan_tree(session_path, verbose=False):
         print("No plans in session yet.")
         return
 
-    # Build a tree structure from the plan nodes
-    plan_tree = {}
+    # Use the new render_plan_tree function
+    tree_str = render_plan_tree(session.plans, session.active_plan_id)
+    print(tree_str)
+
+
+def render_plan_tree(plans, active_plan_id):
+    """
+    Render the plan tree using ASCII art with proper indentation and markers.
+
+    Args:
+        plans: List of PlanNode objects
+        active_plan_id: ID of the currently active plan
+
+    Returns:
+        String representation of the plan tree
+    """
+    if not plans:
+        return "No plans available."
+
+    # 1. Build parent→children mapping
+    children = {}
     root_plans = []
 
-    for plan in session.plans:
+    for plan in plans:
         if plan.parent_plan_id is None:
             root_plans.append(plan)
         else:
-            if plan.parent_plan_id not in plan_tree:
-                plan_tree[plan.parent_plan_id] = []
-            plan_tree[plan.parent_plan_id].append(plan)
+            if plan.parent_plan_id not in children:
+                children[plan.parent_plan_id] = []
+            children[plan.parent_plan_id].append(plan)
 
-    def print_tree_node(plan, level=0, prefix=""):
-        """Recursively print the plan tree."""
-        # Determine if this plan is active
-        is_active = (session.active_plan_id == plan.plan_id)
-        is_dead = (plan.status == "dead")
+    # Add empty lists for plans that have no children
+    for plan in plans:
+        if plan.plan_id not in children:
+            children[plan.plan_id] = []
 
-        # Count subtasks that belong to this plan
-        subtasks_for_plan = [st for st in session.subtasks if st.plan_id == plan.plan_id]
-        done_count = len([st for st in subtasks_for_plan if st.status == "done"])
-        total_count = len(subtasks_for_plan)
+    # Determine terminal colors if supported
+    try:
+        import sys
+        import os
+        # Check if we're in a terminal that supports colors
+        supports_color = (hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()) or os.getenv('TERM')
 
-        status_str = f" ({done_count}/{total_count} subtasks done)" if subtasks_for_plan else ""
+        if supports_color:
+            # ANSI color codes
+            GREEN = '\033[32m'   # Active plans
+            YELLOW = '\033[33m'  # Inactive plans
+            RED = '\033[31m'     # Dead plans
+            RESET = '\033[0m'    # Reset color
+        else:
+            # No colors for terminals that don't support them
+            GREEN = YELLOW = RED = RESET = ''
+    except:
+        # Default to no colors if there's any error
+        GREEN = YELLOW = RED = RESET = ''
 
-        # Print the plan with appropriate indicators
-        indent = "  " * level
-        marker = "[*]" if is_active else ("[x]" if is_dead else "[ ]")
-        status_symbol = "(dead)" if is_dead else ""
-        print(f"{indent}{prefix}{marker} Plan {plan.plan_id} ({plan.label}) {status_symbol}{status_str}")
+    def get_status_marker(plan):
+        """Get the status marker for a plan."""
+        if plan.plan_id == active_plan_id:
+            return "[*]"
+        elif plan.status == "dead":
+            return "[x]"
+        else:  # inactive
+            return "[ ]"
 
-        # Print children
-        children = plan_tree.get(plan.plan_id, [])
-        for i, child_plan in enumerate(children):
-            new_prefix = "├─ " if i < len(children) - 1 else "└─ "
-            print_tree_node(child_plan, level + 1, new_prefix)
+    def get_status_color(plan):
+        """Get the color code for a plan based on its status."""
+        if plan.plan_id == active_plan_id:
+            return GREEN
+        elif plan.status == "dead":
+            return RED
+        else:  # inactive
+            return YELLOW
 
-    # Print the tree starting from root plans
+    result_lines = []  # Define result_lines before inner function
+
+    # Use a helper that tracks which columns have vertical bars
+    def draw_recursive(plan, level=0, is_last_child_list=None, prefix=""):
+        """
+        Draw the plan tree recursively with proper vertical bars.
+        - level: depth in the tree
+        - is_last_child_list: list indicating for each level if the node is the last child
+        """
+        nonlocal result_lines  # Add nonlocal to access the outer scope variable
+        if is_last_child_list is None:
+            is_last_child_list = []
+
+        marker = get_status_marker(plan)
+        color = get_status_color(plan)
+
+        plan_info = f"{color}{marker}{RESET} {plan.plan_id}  {plan.label} ({plan.status})"
+
+        result_lines.append(f"{prefix}{plan_info}")
+
+        # Get children of this plan
+        plan_children = children.get(plan.plan_id, [])
+
+        # Process each child
+        for i, child_plan in enumerate(plan_children):
+            is_last = (i == len(plan_children) - 1)
+
+            # Build prefix for the child
+            child_prefix = ""
+            for j in range(level):
+                if is_last_child_list[j]:
+                    # If the ancestor at level j was the last child, use spaces
+                    child_prefix += "    "
+                else:
+                    # If the ancestor at level j had more siblings, use vertical bar
+                    child_prefix += " │   "
+
+            # Add the connection character for this level
+            if is_last:
+                child_prefix += " └─ "
+            else:
+                child_prefix += " ├─ "
+
+            # Create a new list for this child's recursive call
+            new_is_last_list = is_last_child_list + [is_last]
+
+            draw_recursive(child_plan, level + 1, new_is_last_list, child_prefix)
+
+    # Start from root plans
     for i, plan in enumerate(root_plans):
-        prefix = "├─ " if i < len(root_plans) - 1 else "└─ "
-        print_tree_node(plan, 0, prefix if len(root_plans) > 1 else "")
+        is_last = (i == len(root_plans) - 1)
+        if len(root_plans) > 1:
+            # Multiple root plans - connect them with ├─ or └─
+            prefix = " ├─ " if not is_last else " └─ "
+            draw_recursive(plan, 0, [is_last], prefix)
+        else:
+            # Single root plan - start directly
+            draw_recursive(plan, 0, [True], "")
+
+    return "\n".join(result_lines)
 
 
 def handle_kill_plan(session_path, plan_id, verbose=False):
