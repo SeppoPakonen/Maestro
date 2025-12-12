@@ -16,6 +16,105 @@ from session_model import Session, Subtask, PlanNode, load_session, save_session
 from engines import EngineError
 
 
+# ANSI color codes for styling
+class Colors:
+    # Text colors
+    RED = '\033[31m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    BLUE = '\033[34m'
+    MAGENTA = '\033[35m'
+    CYAN = '\033[36m'
+    WHITE = '\033[37m'
+
+    # Bright colors
+    BRIGHT_RED = '\033[91m'
+    BRIGHT_GREEN = '\033[92m'
+    BRIGHT_YELLOW = '\033[93m'
+    BRIGHT_BLUE = '\033[94m'
+    BRIGHT_MAGENTA = '\033[95m'
+    BRIGHT_CYAN = '\033[96m'
+
+    # Formatting
+    BOLD = '\033[1m'
+    DIM = '\033[2m'
+    ITALIC = '\033[3m'
+    UNDERLINE = '\033[4m'
+    REVERSE = '\033[7m'
+
+    # Reset
+    RESET = '\033[0m'
+
+
+def styled_print(text, color=None, style=None, indent=0):
+    """
+    Print styled text with optional color, style, and indentation.
+
+    Args:
+        text (str): Text to print
+        color (str): Color from Colors class
+        style (str): Style from Colors class
+        indent (int): Number of spaces to indent
+    """
+    indent_str = " " * indent
+    color_code = color or ""
+    style_code = style or ""
+
+    # Only apply colors if we're in a terminal that supports them
+    if not (hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()):
+        color_code = style_code = ""
+
+    formatted_text = f"{indent_str}{color_code}{style_code}{text}{Colors.RESET}"
+    print(formatted_text)
+
+
+def print_header(text):
+    """Print a styled header with separator lines."""
+    styled_print("\n" + "="*60, Colors.BRIGHT_CYAN, Colors.BOLD)
+    styled_print(text.center(60), Colors.BRIGHT_CYAN, Colors.BOLD)
+    styled_print("="*60, Colors.BRIGHT_CYAN, Colors.BOLD)
+
+
+def print_subheader(text):
+    """Print a styled subheader."""
+    styled_print(f"\n{text}", Colors.CYAN, Colors.BOLD, 2)
+
+
+def print_success(text, indent=0):
+    """Print success message in green."""
+    styled_print(text, Colors.GREEN, Colors.BOLD, indent)
+
+
+def print_warning(text, indent=0):
+    """Print warning message in yellow."""
+    styled_print(text, Colors.YELLOW, Colors.BOLD, indent)
+
+
+def print_error(text, indent=0):
+    """Print error message in red."""
+    styled_print(text, Colors.RED, Colors.BOLD, indent)
+
+
+def print_info(text, indent=0):
+    """Print info message in blue."""
+    styled_print(text, Colors.BLUE, None, indent)
+
+
+def print_debug(text, indent=0):
+    """Print debug message in magenta."""
+    styled_print(text, Colors.MAGENTA, None, indent)
+
+
+def print_ai_response(text):
+    """Print AI response with special styling."""
+    styled_print(f"[AI]: {text}", Colors.BRIGHT_GREEN, None, 2)
+
+
+def print_user_input(text):
+    """Print user input with special styling."""
+    styled_print(f"[USER]: {text}", Colors.BRIGHT_BLUE, Colors.BOLD, 2)
+
+
 class PlannerError(Exception):
     """Custom exception for planner errors."""
     pass
@@ -78,7 +177,7 @@ def edit_root_task_in_editor():
         result = subprocess.run([editor, temp_file_path])
 
         if result.returncode != 0:
-            print(f"Editor exited with code {result.returncode}. Using empty root task.", file=sys.stderr)
+            print_warning(f"Editor exited with code {result.returncode}. Using empty root task.", 2)
             return ""
 
         # Read the content from the temporary file
@@ -92,8 +191,8 @@ def edit_root_task_in_editor():
         return content
     except FileNotFoundError:
         # If the editor is not found, fall back to stdin
-        print(f"Editor '{editor}' not found. Falling back to stdin input.", file=sys.stderr)
-        print("Enter the root task:", end=" ", flush=True)
+        print_error(f"Editor '{editor}' not found. Falling back to stdin input.", 2)
+        print_info("Enter the root task:", 2)
         return sys.stdin.readline().strip()
     finally:
         # Clean up the temporary file
@@ -104,7 +203,7 @@ def edit_root_task_in_editor():
 def log_verbose(verbose, message: str):
     """Simple logging helper for verbose mode."""
     if verbose:
-        print(f"[orchestrator] {message}")
+        print_info(f"orchestrator: {message}", 2)
 
 
 def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str], verbose: bool = False, clean_task: bool = True) -> dict:
@@ -223,7 +322,7 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
         try:
             engine = get_engine(engine_name + "_planner")
         except ValueError as e:
-            print(f"Warning: Engine {engine_name}_planner not found, skipping: {e}", file=sys.stderr)
+            print_warning(f"Engine {engine_name}_planner not found, skipping: {e}", 2)
             continue
 
         # Call engine.generate(prompt) with interruption handling
@@ -231,7 +330,7 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             stdout = engine.generate(prompt)
         except KeyboardInterrupt:
             # For planner interruptions, don't modify the session
-            print(f"\n[orchestrator] Planner interrupted by user", file=sys.stderr)
+            print_warning("\norchestrator: Planner interrupted by user", 2)
             # Save partial output for debugging, but don't modify session
             session_dir = os.path.dirname(os.path.abspath(session_path))
             partial_dir = os.path.join(session_dir, "partials")
@@ -276,9 +375,9 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
         except json.JSONDecodeError as e:
             # If parsing fails, log the error with first ~200 chars of cleaned output
             output_preview = cleaned_stdout[:200] if len(cleaned_stdout) > 200 else cleaned_stdout
-            print(f"Warning: Failed to parse JSON from {engine_name} planner: {e}", file=sys.stderr)
+            print_warning(f"Failed to parse JSON from {engine_name} planner: {e}", 2)
             if verbose:  # Only in verbose mode
-                print(f"[VERBOSE] Planner output (first 200 chars): {output_preview}", file=sys.stderr)
+                print_debug(f"Planner output (first 200 chars): {output_preview}", 4)
 
             # Write the error details to a file
             error_filename = os.path.join(outputs_dir, f"planner_{engine_name}_parse_error.txt")
@@ -380,7 +479,7 @@ def main():
     management_command = any([args.show_plan_tree, args.focus_plan is not None, args.kill_plan is not None])
 
     if not (main_command or management_command):
-        print("No valid command specified", file=sys.stderr)
+        print_error("No valid command specified", 2)
         sys.exit(1)
 
     # Determine which action to take based on flags
@@ -419,18 +518,18 @@ def main():
     elif args.refine_root:
         handle_refine_root(args.session, args.verbose, args.planner_order)
     else:
-        print("No valid command specified", file=sys.stderr)
+        print_error("No valid command specified", 2)
         sys.exit(1)
 
 
 def handle_new_session(session_path, verbose=False, root_task_file=None):
     """Handle creating a new session."""
     if verbose:
-        print(f"[VERBOSE] Creating new session at: {session_path}")
+        print_debug(f"Creating new session at: {session_path}", 2)
 
     # Check if session file already exists
     if os.path.exists(session_path):
-        print(f"Error: Session file '{session_path}' already exists.", file=sys.stderr)
+        print_error(f"Session file '{session_path}' already exists.", 2)
         sys.exit(1)
 
     # Determine the directory of the session file
@@ -441,9 +540,9 @@ def handle_new_session(session_path, verbose=False, root_task_file=None):
     rules_path = rules_filename if os.path.exists(rules_filename) else None
 
     if verbose and rules_path:
-        print(f"[VERBOSE] Found rules file: {rules_path}")
+        print_debug(f"Found rules file: {rules_path}", 4)
     elif verbose:
-        print(f"[VERBOSE] No rules file found in directory: {session_dir}")
+        print_debug(f"No rules file found in directory: {session_dir}", 4)
 
     # Get root task based on provided file or interactive editor
     if root_task_file:
@@ -474,9 +573,9 @@ def handle_new_session(session_path, verbose=False, root_task_file=None):
 
     # Save the session
     save_session(session, session_path)
-    print(f"Created new session: {session_path}")
+    print_success(f"Created new session: {session_path}", 2)
     if verbose:
-        print(f"[VERBOSE] Session created with ID: {session.id}")
+        print_debug(f"Session created with ID: {session.id}", 4)
 
 
 def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_output=False, print_ai_prompts=False, retry_interrupted=False):
@@ -952,10 +1051,10 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
 
     # MIGRATION CHECK: For --plan, if there are only legacy tasks, warn and recommend re-planning
     if has_legacy_plan(session.subtasks) and len(session.subtasks) == 3:
-        print(f"Warning: Session contains legacy hard-coded plan with tasks: {list(LEGACY_TITLES)}", file=sys.stderr)
-        print("The legacy plan will be replaced with a new JSON-based plan.", file=sys.stderr)
+        print_warning(f"Session contains legacy hard-coded plan with tasks: {list(LEGACY_TITLES)}", 2)
+        print_warning("The legacy plan will be replaced with a new JSON-based plan.", 2)
         if verbose:
-            print("[VERBOSE] Legacy plan detected during planning; will replace with new JSON plan")
+            print_debug("Legacy plan detected during planning; will replace with new JSON plan", 4)
 
     # MIGRATION: Ensure plan tree structure exists for backward compatibility
     migrate_session_if_needed(session)
@@ -963,13 +1062,13 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     # FORCE REPLAN: If --force-replan is specified, clear all existing subtasks
     if force_replan:
         if verbose:
-            print(f"[VERBOSE] Force re-plan flag detected: clearing {len(session.subtasks)} existing subtasks")
+            print_debug(f"Force re-plan flag detected: clearing {len(session.subtasks)} existing subtasks", 4)
         session.subtasks.clear()  # Clear all existing subtasks
-        print("Cleared existing subtasks. Running fresh planning from scratch.", file=sys.stderr)
+        print_warning("Cleared existing subtasks. Running fresh planning from scratch.", 2)
 
     # Ensure root_task is set
     if not session.root_task or session.root_task.strip() == "":
-        print("Error: Session root_task is not set.", file=sys.stderr)
+        print_error("Session root_task is not set.", 2)
         session.status = "failed"
         session.updated_at = datetime.now().isoformat()
         save_session(session, session_path)
@@ -986,8 +1085,9 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
         {"role": "user", "content": f"Root task: {session.root_task}\n\nRules: {rules}\n\nCurrent plan: {len(session.subtasks)} existing subtasks"}
     ]
 
-    print("[planner] Ready to discuss the plan for this session.")
-    print("Type your message and press Enter. Use /done when you want to generate the plan.")
+    print_header("PLANNING DISCUSSION MODE")
+    print_info("Ready to discuss the plan for this session.", 4)
+    print_info("Type your message and press Enter. Use /done when you want to generate the plan.", 4)
 
     # Create conversations directory
     session_dir = os.path.dirname(os.path.abspath(session_path))
@@ -1002,7 +1102,7 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
             break
 
         if user_input == "/quit" or user_input == "/exit":
-            print("Exiting without generating plan.")
+            print_warning("Exiting without generating plan.", 2)
             return
 
         # Append user message to conversation
@@ -1044,7 +1144,7 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
                 raise Exception(f"All planners failed: {last_error}")
 
             # Print the natural language response from the AI
-            print(f"[planner]: {assistant_response}")
+            print_ai_response(assistant_response)
 
             # Append assistant's response to conversation
             planner_conversation.append({"role": "assistant", "content": assistant_response})
@@ -1094,7 +1194,7 @@ Make sure each subtask has a 'title' and 'description' field."""
             raise PlannerError(f"Planner returned invalid data type: {type(final_json_plan)}")
 
         # Show the plan to the user
-        print("Final plan generated:")
+        print_header("FINAL PLAN GENERATED")
         if "subtasks" in final_json_plan:
             subtasks = final_json_plan["subtasks"]
             # Ensure subtasks is a list
@@ -1118,13 +1218,14 @@ Make sure each subtask has a 'title' and 'description' field."""
                             break
                     else:
                         # If no title found, show the raw subtask data for debugging
-                        print(f"  WARNING: Subtask {i} missing 'title' field. Raw data: {str(subtask_data)[:200]}...")
+                        print_warning(f"Subtask {i} missing 'title' field. Raw data: {str(subtask_data)[:200]}...", 2)
                         title = f"Untitled Subtask {i}"
 
-                print(f"{i}. {title}")
-                print(f"   {description}")
+                styled_print(f"{i}. {title}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+                styled_print(f"   {description}", Colors.BRIGHT_CYAN, None, 4)
         else:
-            print("  WARNING: No 'subtasks' field found in final plan. Raw plan: ", str(final_json_plan)[:500])
+            print_warning("No 'subtasks' field found in final plan. Raw plan: ", 2)
+            styled_print(str(final_json_plan)[:500], Colors.RED, None, 4)
 
         # Save the conversation transcript
         plan_id = str(uuid.uuid4())
@@ -1135,7 +1236,7 @@ Make sure each subtask has a 'title' and 'description' field."""
             for msg in planner_conversation:
                 f.write(f"{msg['role'].upper()}: {msg['content']}\n\n")
 
-        print(f"Conversation saved to: {conversation_filename}")
+        print_success(f"Conversation saved to: {conversation_filename}", 2)
 
         # Create a new plan branch for this interactive planning session
         parent_plan_id = session.active_plan_id
@@ -1155,10 +1256,10 @@ Make sure each subtask has a 'title' and 'description' field."""
 
         save_session(session, session_path)
 
-        print("Plan accepted and saved to session.")
+        print_success("Plan accepted and saved to session.", 2)
 
     except Exception as e:
-        print(f"Error generating final plan: {e}", file=sys.stderr)
+        print_error(f"Error generating final plan: {e}", 2)
         sys.exit(1)
 
 
@@ -1484,13 +1585,13 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     Hard-coded plans are forbidden - only JSON-based planning is allowed.
     """
     if verbose:
-        print(f"[VERBOSE] Loading session from: {session_path}")
+        print_debug(f"Loading session from: {session_path}", 2)
 
     # Load the session
     try:
         session = load_session(session_path)
     except FileNotFoundError:
-        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        print_error(f"Session file '{session_path}' does not exist.", 2)
         # Create a failed session
         error_session = Session(
             id=str(uuid.uuid4()),
@@ -1504,7 +1605,7 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         save_session(error_session, session_path)
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
         # Try to update the session status to failed if possible
         try:
             session.status = "failed"
@@ -1516,10 +1617,10 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
 
     # MIGRATION CHECK: For --plan, if there are only legacy tasks, warn and recommend re-planning
     if has_legacy_plan(session.subtasks) and len(session.subtasks) == 3:
-        print(f"Warning: Session contains legacy hard-coded plan with tasks: {list(LEGACY_TITLES)}", file=sys.stderr)
-        print("The legacy plan will be replaced with a new JSON-based plan.", file=sys.stderr)
+        print_warning(f"Session contains legacy hard-coded plan with tasks: {list(LEGACY_TITLES)}", 2)
+        print_warning("The legacy plan will be replaced with a new JSON-based plan.", 2)
         if verbose:
-            print("[VERBOSE] Legacy plan detected during planning; will replace with new JSON plan")
+            print_debug("Legacy plan detected during planning; will replace with new JSON plan", 4)
 
     # MIGRATION: Ensure plan tree structure exists for backward compatibility
     migrate_session_if_needed(session)
@@ -1527,13 +1628,13 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     # FORCE REPLAN: If --force-replan is specified, clear all existing subtasks
     if force_replan:
         if verbose:
-            print(f"[VERBOSE] Force re-plan flag detected: clearing {len(session.subtasks)} existing subtasks")
+            print_debug(f"Force re-plan flag detected: clearing {len(session.subtasks)} existing subtasks", 4)
         session.subtasks.clear()  # Clear all existing subtasks
-        print("Cleared existing subtasks. Running fresh planning from scratch.", file=sys.stderr)
+        print_warning("Cleared existing subtasks. Running fresh planning from scratch.", 2)
 
     # Ensure root_task is set
     if not session.root_task or session.root_task.strip() == "":
-        print("Error: Session root_task is not set.", file=sys.stderr)
+        print_error("Session root_task is not set.", 2)
         # Update session status to failed
         session.status = "failed"
         session.updated_at = datetime.now().isoformat()
@@ -1543,7 +1644,7 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     # Load rules
     rules = load_rules(session)
     if verbose:
-        print(f"[VERBOSE] Loaded rules (length: {len(rules)} chars)")
+        print_debug(f"Loaded rules (length: {len(rules)} chars)", 4)
 
     # LEGACY PLANNER BANNED: Runtime guard to ensure no legacy planning is used
     # Ensure that we are using the JSON-based planner and not any legacy approach
@@ -1559,8 +1660,8 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     if not session.subtasks:
         # Initial planning phase: no existing subtasks
         if verbose:
-            print("[VERBOSE] Starting initial planning phase...")
-        print("Starting initial planning phase...")
+            print_debug("Starting initial planning phase...", 2)
+        print_info("Starting initial planning phase...", 2)
 
         # Use the new run_planner function with planner preference from CLI
         summaries = "(no summaries yet)"
@@ -1575,12 +1676,12 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
             assert_no_legacy_subtasks(planned_subtasks)
         except KeyboardInterrupt:
             # For planner interruptions, don't modify the session at all
-            print("\n[orchestrator] Planner interrupted by user - session unchanged", file=sys.stderr)
+            print_warning("\nPlanner interrupted by user - session unchanged", 2)
             if verbose:
-                print("[VERBOSE] Planner interrupted, exiting cleanly")
+                print_debug("Planner interrupted, exiting cleanly", 4)
             sys.exit(130)  # Standard exit code for Ctrl+C
         except PlannerError as e:
-            print(f"Error: Planner failed: {e}", file=sys.stderr)
+            print_error(f"Planner failed: {e}", 2)
             session.status = "failed"
             session.updated_at = datetime.now().isoformat()
             save_session(session, session_path)
@@ -1588,8 +1689,8 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     else:
         # Refinement phase: process existing subtasks and plan new ones based on summaries
         if verbose:
-            print("[VERBOSE] Starting refinement planning phase using worker summaries...")
-        print("Starting refinement planning phase using worker summaries...")
+            print_debug("Starting refinement planning phase using worker summaries...", 2)
+        print_info("Starting refinement planning phase using worker summaries...", 2)
 
         # LEGACY PLANNER BANNED: Runtime guard to ensure no legacy planning is used
         # Ensure that we are using the JSON-based planner and not any legacy approach
@@ -1604,7 +1705,7 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         # Collect existing subtask summaries
         summaries = collect_worker_summaries(session, session_path)
         if verbose:
-            print(f"[VERBOSE] Collected summaries (length: {len(summaries)} chars)")
+            print_debug(f"Collected summaries (length: {len(summaries)} chars)", 4)
 
         # Use the new run_planner function with planner preference from CLI
         planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
@@ -1618,29 +1719,28 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
             assert_no_legacy_subtasks(planned_subtasks)
         except KeyboardInterrupt:
             # For planner interruptions, don't modify the session at all
-            print("\n[orchestrator] Planner interrupted by user - session unchanged", file=sys.stderr)
+            print_warning("\nPlanner interrupted by user - session unchanged", 2)
             if verbose:
-                print("[VERBOSE] Planner interrupted, exiting cleanly")
+                print_debug("Planner interrupted, exiting cleanly", 4)
             sys.exit(130)  # Standard exit code for Ctrl+C
         except PlannerError as e:
-            print(f"Error: Planner failed: {e}", file=sys.stderr)
+            print_error(f"Planner failed: {e}", 2)
             session.status = "failed"
             session.updated_at = datetime.now().isoformat()
             save_session(session, session_path)
             sys.exit(1)
 
     # Show the plan to the user
-    if verbose:
-        print("[VERBOSE] Showing proposed subtask breakdown to user")
-    print("Proposed subtask breakdown:")
+    print_subheader("PROPOSED SUBTASK BREAKDOWN")
     for i, subtask_data in enumerate(json_plan.get("subtasks", []), 1):
         title = subtask_data.get("title", "Untitled")
         description = subtask_data.get("description", "")
-        print(f"{i}. {title}")
-        print(f"   {description}")
+        styled_print(f"{i}. {title}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+        styled_print(f"   {description}", Colors.BRIGHT_CYAN, None, 4)
 
     # Ask for confirmation
-    response = input("Is this subtask breakdown OK? [Y/n]: ").strip().lower()
+    print_info("Is this subtask breakdown OK? [Y/n]: ", 2)
+    response = input().strip().lower()
 
     if response in ['', 'y', 'yes']:
         # User accepted the plan
@@ -1669,13 +1769,13 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         # Save the updated session
         save_session(session, session_path)
         if verbose:
-            print(f"[VERBOSE] Session saved with status: {session.status}")
-        print("Plan accepted and saved to session.")
+            print_debug(f"Session saved with status: {session.status}")
+        print_success("Plan accepted and saved to session.", 2)
     else:
         # User rejected the plan
         if verbose:
-            print("[VERBOSE] User rejected the plan")
-        print("Please explain how to improve the plan (press Enter on an empty line to finish):")
+            print_debug("User rejected the plan")
+        print_warning("Please explain how to improve the plan (press Enter on an empty line to finish):", 2)
         # Read multi-line feedback until user presses Enter on an empty line
         feedback_lines = []
         line = input()
@@ -1687,7 +1787,7 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
 
         # For now, just print that the plan was rejected
         # In a real implementation, we would store this feedback in the session
-        print("Plan rejected; please re-run --plan when ready")
+        print_warning("Plan rejected; please re-run --plan when ready", 2)
 
 
 def apply_json_plan_to_session(session: Session, plan: dict) -> None:
@@ -1928,7 +2028,7 @@ def handle_refine_root(session_path, verbose=False, planner_order="codex,claude"
 
     # Ensure root_task is set
     if not session.root_task or session.root_task.strip() == "":
-        print("Error: Session root_task is not set.", file=sys.stderr)
+        print_error("Session root_task is not set.", 2)
         session.status = "failed"
         session.updated_at = datetime.now().isoformat()
         save_session(session, session_path)
