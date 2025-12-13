@@ -1898,6 +1898,9 @@ def main():
     session_details_parser = session_subparsers.add_parser('details', aliases=['d'], help='Show details of a session')
     session_details_parser.add_argument('name', nargs='?', help='Name of session to show details for (or list number)')
 
+    # Add help/h subcommands for session subparsers
+    session_subparsers.add_parser('help', aliases=['h'], help='Show help for session commands')
+
     # Rules command
     rules_parser = subparsers.add_parser('rules', aliases=['r'], help='Edit the session\'s rules file in $EDITOR')
     rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
@@ -1950,6 +1953,9 @@ def main():
     kill_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     kill_parser.add_argument('plan_id', help='Plan ID to mark as dead')
 
+    # Add help/h subcommands for plan subparsers
+    plan_subparsers.add_parser('help', aliases=['h'], help='Show help for plan commands')
+
     # Rules subcommands
     rules_subparsers = rules_parser.add_subparsers(dest='rules_subcommand', help='Rules subcommands')
 
@@ -1966,6 +1972,9 @@ def main():
     rules_disable_parser = rules_subparsers.add_parser('disable', aliases=['d'], help='Disable a specific rule')
     rules_disable_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     rules_disable_parser.add_argument('rule_id', help='Rule ID or number to disable')
+
+    # Add help/h subcommands for rules subparsers
+    rules_subparsers.add_parser('help', aliases=['h'], help='Show help for rules commands')
 
     # Task command
     task_parser = subparsers.add_parser('task', aliases=['t'], help='Task management commands')
@@ -1984,6 +1993,9 @@ def main():
     # task log (synonymous to "log task")
     task_log_parser = task_subparsers.add_parser('log', aliases=['l'], help='Show past tasks (limited to 10, -a shows all)')
     task_log_parser.add_argument('-a', '--all', action='store_true', help='Show all tasks instead of just the last 10')
+
+    # Add help/h subcommands for task subparsers
+    task_subparsers.add_parser('help', aliases=['h'], help='Show help for task commands')
 
     # Log command
     log_parser = subparsers.add_parser('log', aliases=['l'], help='Log management commands')
@@ -2062,6 +2074,9 @@ def main():
     build_fix_show_parser = build_fix_subparsers.add_parser('show', aliases=['sh'], help='Display rulebook details')
     build_fix_show_parser.add_argument('name_or_index', nargs='?', help='Rulebook name or index to show (default: current active)')
 
+    # Add help/h subcommands for build fix subparsers
+    build_fix_subparsers.add_parser('help', aliases=['h'], help='Show help for build fix commands')
+
     # build status
     build_status_parser = builder_subparsers.add_parser('status', aliases=['stat'], help='Show last pipeline run results (summary, top errors)')
     build_status_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
@@ -2101,6 +2116,9 @@ def main():
     build_show_parser = builder_subparsers.add_parser('show', aliases=['sh'], help='Show full details of build target')
     build_show_parser.add_argument('name', nargs='?', help='Build target name or index to show (default to active)')
 
+    # Add help/h subcommands for builder subparsers
+    builder_subparsers.add_parser('help', aliases=['h'], help='Show help for build commands')
+
     # build structure
     build_structure_parser = builder_subparsers.add_parser('structure', aliases=['str'], help='U++ project structure validation and fixing')
     build_structure_subparsers = build_structure_parser.add_subparsers(dest='structure_subcommand', help='Structure subcommands')
@@ -2138,6 +2156,9 @@ def main():
     structure_lint_parser.add_argument('--only', help='Comma-separated list of rules to apply: rule1,rule2,...')
     structure_lint_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
 
+    # Add help/h subcommands for build structure subparsers
+    build_structure_subparsers.add_parser('help', aliases=['h'], help='Show help for build structure commands')
+
     args = parser.parse_args()
 
     # Validate that command is specified
@@ -2160,20 +2181,40 @@ def main():
                 # If no session provided and no default exists, show error
                 if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
                     # For plan subcommands specifically, if no session, show error
-                    print_error("Session is required for plan commands", 2)
-                    sys.exit(1)
+                    # But make sure help subcommands don't require a session
+                    if args.plan_subcommand in ['help', 'h']:
+                        # For help subcommand, print help and exit without session
+                        plan_parser.print_help()
+                        return
+                    else:
+                        print_error("Session is required for plan commands", 2)
+                        sys.exit(1)
                 elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
                     # For rules subcommands specifically, if no session, show error
-                    print_error("Session is required for rules commands", 2)
-                    sys.exit(1)
+                    # But make sure help subcommands don't require a session
+                    if args.rules_subcommand in ['help', 'h']:
+                        # For help subcommand, print help and exit without session
+                        rules_parser.print_help()
+                        return
+                    else:
+                        print_error("Session is required for rules commands", 2)
+                        sys.exit(1)
                 elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
                     # For log subcommands specifically, if no session, show error
-                    print_error("Session is required for log commands", 2)
-                    sys.exit(1)
+                    # But make sure help subcommands don't require a session
+                    if args.log_subcommand in ['help', 'h']:
+                        # For help subcommand, print help and exit without session
+                        log_parser.print_help()
+                        return
+                    else:
+                        print_error("Session is required for log commands", 2)
+                        sys.exit(1)
                 elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
                     # For task subcommands specifically, if no session, show error
-                    print_error("Session is required for task commands", 2)
-                    sys.exit(1)
+                    # But help subcommand is already handled in task command logic
+                    if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
+                        print_error("Session is required for task commands", 2)
+                        sys.exit(1)
                 else:
                     # For other commands in this group, if no session, show error
                     print_error(f"Session is required for {args.command} command", 2)
@@ -2199,6 +2240,10 @@ def main():
             handle_session_remove(args.name, args.yes, args.verbose)
         elif args.session_subcommand == 'details':
             handle_session_details(args.name, None, args.verbose)
+        elif args.session_subcommand == 'help' or args.session_subcommand == 'h':
+            # Print help for session subcommands
+            session_parser.print_help()
+            return  # Exit after showing help
         else:
             print_error(f"Unknown session subcommand: {args.session_subcommand}", 2)
             sys.exit(1)
@@ -2210,13 +2255,21 @@ def main():
                 handle_rules_enable(args.session, args.rule_id, args.verbose)
             elif args.rules_subcommand == 'disable':
                 handle_rules_disable(args.session, args.rule_id, args.verbose)
+            elif args.rules_subcommand == 'help' or args.rules_subcommand == 'h':
+                # Print help for rules subcommands
+                rules_parser.print_help()
+                return  # Exit after showing help
             else:
                 handle_rules_file(args.session, args.verbose)  # Default to editing rules file
         else:
             handle_rules_file(args.session, args.verbose)
     elif args.command == 'plan':
         if hasattr(args, 'plan_subcommand') and args.plan_subcommand:
-            if args.plan_subcommand == 'tree':
+            if args.plan_subcommand == 'help' or args.plan_subcommand == 'h':
+                # Print help for plan subcommands without requiring a session
+                plan_parser.print_help()
+                return  # Exit after showing help
+            elif args.plan_subcommand == 'tree':
                 handle_show_plan_tree(args.session, args.verbose)
             elif args.plan_subcommand == 'list':
                 handle_plan_list(args.session, args.verbose)
@@ -2255,6 +2308,12 @@ def main():
         handle_refine_root(args.session, args.verbose, args.planner_order)
     elif args.command == 'task':
         # Handle the task command and its subcommands
+        # Check if it's a help subcommand first, before requiring a session
+        if hasattr(args, 'task_subcommand') and args.task_subcommand in ('help', 'h'):
+            # Print help for task subcommands without requiring a session
+            task_parser.print_help()
+            return  # Exit after showing help
+
         if not args.session:
             print_error("Session is required for task commands", 2)
             sys.exit(1)
@@ -2299,7 +2358,12 @@ def main():
     elif args.command == 'build':
         # For the build target management commands (new, list, set, get, plan, show),
         # always use the active session
-        if hasattr(args, 'builder_subcommand') and args.builder_subcommand and args.builder_subcommand in ['new', 'list', 'set', 'get', 'plan', 'show']:
+        # Check if it's a help subcommand first, before requiring an active session
+        if hasattr(args, 'builder_subcommand') and args.builder_subcommand in ['help', 'h']:
+            # Print help for build subcommands without requiring a session
+            builder_parser.print_help()
+            return  # Exit after showing help
+        elif hasattr(args, 'builder_subcommand') and args.builder_subcommand and args.builder_subcommand in ['new', 'list', 'set', 'get', 'plan', 'show']:
             # Get the active session
             active_session_name = get_active_session_name()
             if not active_session_name:
@@ -2366,6 +2430,10 @@ def main():
                 )
             elif args.builder_subcommand == 'show':
                 handle_build_show(session_path, args.name, args.verbose)
+            elif args.builder_subcommand == 'help' or args.builder_subcommand == 'h':
+                # Print help for build subcommands
+                builder_parser.print_help()
+                return  # Exit after showing help
             else:
                 print_error(f"Unknown build target subcommand: {args.builder_subcommand}", 2)
                 sys.exit(1)
@@ -2482,6 +2550,10 @@ def main():
                             )
                         elif args.fix_subcommand == 'show':
                             handle_build_fix_show(args.name_or_index, args.verbose)
+                        elif args.fix_subcommand == 'help' or args.fix_subcommand == 'h':
+                            # Print help for build fix subcommands
+                            build_fix_parser.print_help()
+                            return  # Exit after showing help
                         else:
                             print_error(f"Unknown build fix subcommand: {args.fix_subcommand}", 2)
                             sys.exit(1)
@@ -2603,6 +2675,10 @@ def main():
                                 only_rules=getattr(args, 'only', None),
                                 skip_rules=getattr(args, 'skip', None)
                             )
+                        elif args.structure_subcommand == 'help' or args.structure_subcommand == 'h':
+                            # Print help for build structure subcommands
+                            build_structure_parser.print_help()  # Fixed: should be build_structure_parser, not build_structure_subparsers
+                            return  # Exit after showing help
                         else:
                             print_error(f"Unknown build structure subcommand: {args.structure_subcommand}", 2)
                             sys.exit(1)
@@ -5478,8 +5554,8 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
                     print_error(f"Step '{step_name}' failed (command not found: {' '.join(cmd)})", 4)
 
             except Exception as e:
-            duration = time.time() - start_time
-            success = optional  # Optional steps succeed if error occurs
+                duration = time.time() - start_time
+                success = optional  # Optional steps succeed if error occurs
 
             step_result = StepResult(
                 step_name=step_name,
