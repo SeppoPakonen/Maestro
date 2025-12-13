@@ -2019,6 +2019,7 @@ def main():
     build_run_parser.add_argument('--stop-after-step', help='Stop pipeline after the specified step')
     build_run_parser.add_argument('--limit-steps', help='Limit pipeline to specified steps (comma-separated)')
     build_run_parser.add_argument('--follow', action='store_true', help='Stream build output live to the terminal')
+    build_run_parser.add_argument('--dry-run', action='store_true', help='Print resolved commands and cwd without executing')
 
     # build fix (with subcommands for rulebook management)
     build_fix_parser = builder_subparsers.add_parser('fix', aliases=['f'], help='Fix rulebook management and iterative AI-assisted fixes')
@@ -2412,7 +2413,8 @@ def main():
                         args.verbose,
                         stop_after_step=getattr(args, 'stop_after_step', None),
                         limit_steps=getattr(args, 'limit_steps', None),
-                        follow=getattr(args, 'follow', False)
+                        follow=getattr(args, 'follow', False),
+                        dry_run=getattr(args, 'dry_run', False)
                     )
                 elif args.builder_subcommand == 'fix':
                     # Handle fix subcommands (add, new, list, remove, plan, show, run)
@@ -5260,13 +5262,44 @@ def get_active_build_target(session_path: str) -> Optional[BuildTarget]:
     return None
 
 
-def run_pipeline_from_build_target(target: BuildTarget, session_path: str) -> PipelineRunResult:
+def find_repo_root(start_path: str) -> str:
+    """
+    Find the repository root which is the nearest directory containing .maestro/
+
+    Args:
+        start_path: Path to start searching from (can be file or directory)
+
+    Returns:
+        Path to the repository root directory containing .maestro/,
+        or the starting path if no .maestro directory is found upward
+    """
+    start_dir = os.path.abspath(os.path.dirname(start_path)) if os.path.isfile(start_path) else os.path.abspath(start_path)
+    current_dir = start_dir
+
+    # Walk up the directory tree
+    while True:
+        maestro_dir = os.path.join(current_dir, '.maestro')
+        if os.path.exists(maestro_dir) and os.path.isdir(maestro_dir):
+            return current_dir
+
+        parent_dir = os.path.dirname(current_dir)
+        # If we've reached the root of the filesystem, stop
+        if parent_dir == current_dir:
+            # If no .maestro directory found, return the start directory
+            return start_dir
+
+        current_dir = parent_dir
+
+
+def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_run: bool = False, verbose: bool = False) -> PipelineRunResult:
     """
     Run the pipeline based on the build target configuration.
 
     Args:
         target: BuildTarget object with the pipeline configuration
         session_path: Path to the session file
+        dry_run: If True, print commands without executing
+        verbose: If True, print detailed information
 
     Returns:
         PipelineRunResult object with results from all steps
@@ -5336,87 +5369,115 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str) -> Pi
             print_warning(f"No command configured for step '{step_name}'. Skipping.", 2)
             continue
 
-        print_info(f"Running step: {step_name}", 4)
+        # Get repo root
+        repo_root = find_repo_root(session_path)
 
-        start_time = time.time()
+        # Print verbose info if requested
+        if verbose:
+            print_info(f"Step: {step_name}", 4)
+            print_info(f"  Command: {' '.join(cmd) if isinstance(cmd, list) else cmd}", 4)
+            print_info(f"  CWD: {repo_root}", 4)
+            print_info(f"  Resolved paths: repo root = {repo_root}", 4)
 
-        try:
-            # Run the step command
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=os.path.dirname(session_path)  # Run in the session directory
-            )
-
-            duration = time.time() - start_time
-            exit_code = result.returncode
-
-            # Determine success based on exit code and whether step is optional
-            success = (exit_code == 0) or optional
-
-            # Create result object
+        if dry_run:
+            print_info(f"DRY RUN - Would execute: {step_name}", 4)
+            print_info(f"  Command: {' '.join(cmd) if isinstance(cmd, list) else cmd}", 4)
+            print_info(f"  CWD: {repo_root}", 4)
+            # Create a mock result for dry run
             step_result = StepResult(
                 step_name=step_name,
-                exit_code=exit_code,
-                stdout=result.stdout,
-                stderr=result.stderr,
-                duration=duration,
-                success=success
+                exit_code=0,  # Dry run always succeeds
+                stdout="DRY RUN - Command not executed",
+                stderr="",
+                duration=0.0,  # No duration in dry run
+                success=True  # Dry run steps are considered successful
             )
 
             step_results.append(step_result)
 
-            # Write step logs to files in the run directory
-            stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
-            stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+            # In dry run, print status without actual results
+            print_success(f"Step '{step_name}' would complete successfully in dry run", 4)
+        else:
+            start_time = time.time()
+            print_info(f"Running step: {step_name}", 4)
 
-            with open(stdout_log_path, 'w', encoding='utf-8') as f:
-                f.write(result.stdout)
+            try:
+                # Run the step command
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    cwd=repo_root  # Run in the repo root (nearest directory with .maestro/)
+                )
 
-            with open(stderr_log_path, 'w', encoding='utf-8') as f:
-                f.write(result.stderr)
+                duration = time.time() - start_time
+                exit_code = result.returncode
 
-            # Print status for this step
-            if success:
-                print_success(f"Step '{step_name}' completed successfully (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
-            else:
-                print_error(f"Step '{step_name}' failed (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
-                if result.stderr:
-                    print_error(f"  Error: {result.stderr[:200]}{'...' if len(result.stderr) > 200 else ''}", 4)
+                # Determine success based on exit code and whether step is optional
+                success = (exit_code == 0) or optional
 
-        except FileNotFoundError:
-            # Command not found, but if optional, note it and continue
-            duration = time.time() - start_time
-            success = optional  # Optional steps succeed if not found
+                # Create result object
+                step_result = StepResult(
+                    step_name=step_name,
+                    exit_code=exit_code,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                    duration=duration,
+                    success=success
+                )
 
-            step_result = StepResult(
-                step_name=step_name,
-                exit_code=127,  # Standard "command not found" exit code
-                stdout="",
-                stderr=f"Command not found: {' '.join(cmd)}",
-                duration=duration,
-                success=success
-            )
+                step_results.append(step_result)
 
-            step_results.append(step_result)
+                # Write step logs to files in the run directory
+                stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
+                stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
 
-            # Write step logs to files in the run directory
-            stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
-            stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+                with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                    f.write(result.stdout)
 
-            with open(stdout_log_path, 'w', encoding='utf-8') as f:
-                f.write("")
+                with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                    f.write(result.stderr)
 
-            with open(stderr_log_path, 'w', encoding='utf-8') as f:
-                f.write(f"Command not found: {' '.join(cmd)}")
+                # Print status for this step
+                if success:
+                    print_success(f"Step '{step_name}' completed successfully (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+                else:
+                    print_error(f"Step '{step_name}' failed (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+                    if result.stderr:
+                        print_error(f"  Error: {result.stderr[:200]}{'...' if len(result.stderr) > 200 else ''}", 4)
 
-            if success:
-                print_warning(f"Step '{step_name}' skipped (command not found, but optional)", 4)
-            else:
-                print_error(f"Step '{step_name}' failed (command not found: {' '.join(cmd)})", 4)
+            except FileNotFoundError:
+                # Command not found, but if optional, note it and continue
+                duration = time.time() - start_time
+                success = optional  # Optional steps succeed if not found
 
-        except Exception as e:
+                step_result = StepResult(
+                    step_name=step_name,
+                    exit_code=127,  # Standard "command not found" exit code
+                    stdout="",
+                    stderr=f"Command not found: {' '.join(cmd)}",
+                    duration=duration,
+                    success=success
+                )
+
+                step_results.append(step_result)
+
+                # Write step logs to files in the run directory
+                stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
+                stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+
+                with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                    f.write("")
+
+                with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                    f.write(f"Command not found: {' '.join(cmd)}")
+
+                if success:
+                    print_warning(f"Step '{step_name}' skipped (command not found, but optional)", 4)
+                else:
+                    print_error(f"Step '{step_name}' failed (command not found: {' '.join(cmd)})", 4)
+
+            except Exception as e:
             duration = time.time() - start_time
             success = optional  # Optional steps succeed if error occurs
 
@@ -6011,7 +6072,7 @@ cmd = ["valgrind", "--error-exitcode=99", "--leak-check=full", "./app"]
     print_info(f"Created default builder configuration at: {config_path}", 2)
 
 
-def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
+def run_pipeline(config: BuilderConfig, session_path: str, dry_run: bool = False, verbose: bool = False) -> PipelineRunResult:
     """
     Run the diagnostic pipeline based on the configuration.
 
@@ -6051,7 +6112,7 @@ def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
                 step_config.cmd,
                 capture_output=True,
                 text=True,
-                cwd=os.path.dirname(session_path)  # Run in the session directory
+                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             duration = time.time() - start_time
@@ -6162,7 +6223,7 @@ def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
                 config.valgrind.cmd,
                 capture_output=True,
                 text=True,
-                cwd=os.path.dirname(session_path)
+                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             duration = time.time() - start_time
@@ -6236,7 +6297,7 @@ def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
     )
 
 
-def run_pipeline_with_streaming(config: BuilderConfig, session_path: str, verbose: bool = False) -> PipelineRunResult:
+def run_pipeline_with_streaming(config: BuilderConfig, session_path: str, dry_run: bool = False, verbose: bool = False) -> PipelineRunResult:
     """
     Run the diagnostic pipeline with live output streaming.
 
@@ -6281,7 +6342,7 @@ def run_pipeline_with_streaming(config: BuilderConfig, session_path: str, verbos
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=os.path.dirname(session_path)  # Run in the session directory
+                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             # Stream output in real-time
@@ -6411,7 +6472,7 @@ def run_pipeline_with_streaming(config: BuilderConfig, session_path: str, verbos
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=os.path.dirname(session_path)
+                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             # Stream valgrind output
@@ -7014,7 +7075,7 @@ def generate_tags(message: str, tool: str) -> List[str]:
     return unique_tags
 
 
-def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_steps=None, follow=False):
+def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_steps=None, follow=False, dry_run=False):
     """
     Run configured build pipeline once and collect diagnostics from the active build target.
 
@@ -7080,7 +7141,11 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
             print_debug(f"Limited pipeline steps to: {filtered_step_names}", 2)
 
     # Run the pipeline using the active build target configuration
-    pipeline_result = run_pipeline_from_build_target(active_target, session_path)
+    pipeline_result = run_pipeline_from_build_target(active_target, session_path, dry_run, verbose)
+
+    if dry_run:
+        print_info("Dry run completed. Commands would have been executed in the repo root.", 2)
+        return
 
     # Extract diagnostics from the pipeline run
     diagnostics = extract_diagnostics(pipeline_result)
