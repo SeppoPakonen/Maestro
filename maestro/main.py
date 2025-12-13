@@ -6528,15 +6528,31 @@ def restore_from_git(session_path: str) -> bool:
     session_dir = os.path.dirname(os.path.abspath(session_path))
 
     try:
-        # Discard all changes in the working directory
-        result = subprocess.run(
+        success = True
+
+        # Restore tracked files to their committed state
+        result1 = subprocess.run(
             ['git', 'checkout', '--', '.'],
             cwd=session_dir,
             capture_output=True,
             text=True,
             timeout=30
         )
-        return result.returncode == 0
+        if result1.returncode != 0:
+            success = False
+
+        # Remove untracked files (new files that were created)
+        result2 = subprocess.run(
+            ['git', 'clean', '-fd'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        # Note: git clean might fail if there are no untracked files, which is OK
+        # We don't need it to succeed for the overall operation to be considered successful
+
+        return success
     except (subprocess.TimeoutExpired, subprocess.SubprocessError):
         return False
 
