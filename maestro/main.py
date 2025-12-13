@@ -440,6 +440,158 @@ def get_maestro_dir(session_path: str) -> str:
     return maestro_dir
 
 
+def get_maestro_sessions_dir(session_path: str = None) -> str:
+    """
+    Get the .maestro/sessions directory path.
+    If session_path is provided, uses that directory; otherwise, uses current working directory.
+
+    Args:
+        session_path: Optional path to session file (to determine directory)
+
+    Returns:
+        Path to the .maestro/sessions directory
+    """
+    if session_path:
+        base_dir = os.path.dirname(os.path.abspath(session_path))
+    else:
+        base_dir = os.getcwd()
+
+    # Check if MAESTRO_DIR environment variable is set
+    maestro_dir = os.environ.get('MAESTRO_DIR', os.path.join(base_dir, '.maestro'))
+
+    sessions_dir = os.path.join(maestro_dir, 'sessions')
+    os.makedirs(sessions_dir, exist_ok=True)
+    return sessions_dir
+
+
+def get_user_config_dir() -> str:
+    """
+    Get the user configuration directory for maestro (~/.config/maestro).
+
+    Returns:
+        Path to the user configuration directory
+    """
+    config_home = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+    user_config_dir = os.path.join(config_home, 'maestro')
+    os.makedirs(user_config_dir, exist_ok=True)
+    return user_config_dir
+
+
+def get_project_config_file(base_dir: str = None) -> str:
+    """
+    Get the path to the project-level configuration file.
+    This stores project-specific settings like the unique project ID.
+
+    Args:
+        base_dir: Base directory for the project (defaults to current directory)
+
+    Returns:
+        Path to the project configuration file
+    """
+    if base_dir is None:
+        base_dir = os.getcwd()
+
+    maestro_dir = os.environ.get('MAESTRO_DIR', os.path.join(base_dir, '.maestro'))
+    return os.path.join(maestro_dir, 'config.json')
+
+
+def get_user_session_config_file() -> str:
+    """
+    Get the path to the user-level session configuration file.
+    This stores which project session is currently active.
+
+    Returns:
+        Path to the user session configuration file
+    """
+    user_config_dir = get_user_config_dir()
+    return os.path.join(user_config_dir, 'sessions.json')
+
+
+def get_project_id(base_dir: str = None) -> str:
+    """
+    Get or create a unique project ID for the current project directory.
+    This ID links the project to the user's configuration.
+
+    Args:
+        base_dir: Base directory for the project (defaults to current directory)
+
+    Returns:
+        Unique project ID
+    """
+    if base_dir is None:
+        base_dir = os.getcwd()
+
+    config_file = get_project_config_file(base_dir)
+
+    if os.path.exists(config_file):
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            return config.get('project_id', str(uuid.uuid4()))
+    else:
+        # Create a new project ID
+        project_id = str(uuid.uuid4())
+        config = {
+            'project_id': project_id,
+            'created_at': datetime.now().isoformat(),
+            'base_dir': base_dir
+        }
+        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+        return project_id
+
+
+def get_active_session_name() -> Optional[str]:
+    """
+    Get the name of the currently active session from user configuration.
+
+    Returns:
+        Name of the active session, or None if not set
+    """
+    project_id = get_project_id()
+    config_file = get_user_session_config_file()
+
+    if os.path.exists(config_file):
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            return config.get(project_id, {}).get('active_session')
+    return None
+
+
+def set_active_session_name(session_name: str) -> bool:
+    """
+    Set the active session name in user configuration.
+
+    Args:
+        session_name: Name of the session to set as active
+
+    Returns:
+        True if successful, False otherwise
+    """
+    project_id = get_project_id()
+    config_file = get_user_session_config_file()
+
+    # Load existing config
+    if os.path.exists(config_file):
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+    else:
+        config = {}
+
+    # Create or update entry for this project
+    if project_id not in config:
+        config[project_id] = {}
+
+    config[project_id]['active_session'] = session_name
+
+    try:
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+        return True
+    except Exception:
+        return False
+
+
 def update_subtask_summary_paths(session: Session, session_path: str):
     """
     Update subtask summary paths to point to the .maestro directory for backward compatibility.
@@ -490,6 +642,139 @@ def update_subtask_summary_paths(session: Session, session_path: str):
 
             # Update the path in the session to point to the new location
             subtask.summary_file = new_path
+
+
+def get_session_path_by_name(session_name: str) -> str:
+    """
+    Get the full path to a session file by its name.
+
+    Args:
+        session_name: Name of the session
+
+    Returns:
+        Full path to the session file
+    """
+    sessions_dir = get_maestro_sessions_dir()
+    session_filename = f"{session_name}.json"
+    return os.path.join(sessions_dir, session_filename)
+
+
+def get_session_name_from_path(session_path: str) -> str:
+    """
+    Extract the session name from a session file path.
+
+    Args:
+        session_path: Full path to the session file
+
+    Returns:
+        Session name (without path and extension)
+    """
+    return os.path.splitext(os.path.basename(session_path))[0]
+
+
+def list_sessions() -> List[str]:
+    """
+    List all session files in the .maestro/sessions directory.
+
+    Returns:
+        List of session names
+    """
+    sessions_dir = get_maestro_sessions_dir()
+    sessions = []
+
+    if os.path.exists(sessions_dir):
+        for filename in os.listdir(sessions_dir):
+            if filename.endswith('.json'):
+                session_name = os.path.splitext(filename)[0]
+                sessions.append(session_name)
+
+    return sorted(sessions)
+
+
+def create_session(session_name: str, root_task: str = "") -> str:
+    """
+    Create a new session file in the .maestro/sessions directory.
+
+    Args:
+        session_name: Name of the session to create
+        root_task: Optional root task for the session
+
+    Returns:
+        Path to the created session file
+    """
+    session_path = get_session_path_by_name(session_name)
+
+    if os.path.exists(session_path):
+        raise FileExistsError(f"Session '{session_name}' already exists at {session_path}")
+
+    # Create a new session with status="new" and empty subtasks
+    session = Session(
+        id=str(uuid.uuid4()),
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+        root_task=root_task,
+        subtasks=[],
+        rules_path=None,  # Point to rules file if it exists
+        status="new"
+    )
+
+    # Save the session
+    save_session(session, session_path)
+    return session_path
+
+
+def remove_session(session_name: str) -> bool:
+    """
+    Remove a session file from the .maestro/sessions directory.
+
+    Args:
+        session_name: Name of the session to remove
+
+    Returns:
+        True if successful, False otherwise
+    """
+    session_path = get_session_path_by_name(session_name)
+
+    if not os.path.exists(session_path):
+        return False
+
+    try:
+        os.remove(session_path)
+        return True
+    except Exception:
+        return False
+
+
+def get_session_details(session_name: str) -> Optional[dict]:
+    """
+    Get details about a specific session.
+
+    Args:
+        session_name: Name of the session
+
+    Returns:
+        Dictionary with session details, or None if session doesn't exist
+    """
+    session_path = get_session_path_by_name(session_name)
+
+    if not os.path.exists(session_path):
+        return None
+
+    try:
+        session = load_session(session_path)
+        return {
+            'name': session_name,
+            'path': session_path,
+            'id': session.id,
+            'created_at': session.created_at,
+            'updated_at': session.updated_at,
+            'status': session.status,
+            'root_task': session.root_task[:100] + "..." if len(session.root_task) > 100 else session.root_task,
+            'subtasks_count': len(session.subtasks),
+            'active_plan_id': session.active_plan_id
+        }
+    except Exception:
+        return None
 
 
 def run_planner(session: Session, session_path: str, rules_text: str, summaries_text: str, planner_preference: list[str], verbose: bool = False, clean_task: bool = True) -> dict:
@@ -706,22 +991,41 @@ def main():
     # Create subparsers for command-based interface
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
-    # New session command
-    new_parser = subparsers.add_parser('new', help='Create a new session and read root task from stdin')
-    new_parser.add_argument('-s', '--session', help='Path to session JSON file (required for new command)')
-    new_parser.add_argument('-t', '--root-task', help='Inline root task instead of reading stdin')
+    # Init command - create .maestro directory structure
+    init_parser = subparsers.add_parser('init', help='Initialize the .maestro directory structure')
+    init_parser.add_argument('--dir', help='Directory to initialize (default: current directory)')
 
-    # Resume command
-    resume_parser = subparsers.add_parser('resume', help='Resume processing subtasks')
-    resume_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
-    resume_parser.add_argument('-d', '--dry-run', action='store_true',
-                              help='Simulate execution without modifying files')
-    resume_parser.add_argument('-o', '--stream-ai-output', action='store_true',
-                              help='Stream model stdout live to the terminal')
-    resume_parser.add_argument('-P', '--print-ai-prompts', action='store_true',
-                              help='Print constructed prompts before running them')
-    resume_parser.add_argument('--retry-interrupted', action='store_true',
-                              help='Automatically resume interrupted subtasks using partial output')
+    # Session command with subcommands
+    session_parser = subparsers.add_parser('session', help='Session management commands')
+    session_subparsers = session_parser.add_subparsers(dest='session_subcommand', help='Session subcommands')
+
+    # session new
+    session_new_parser = session_subparsers.add_parser('new', help='Create a new session')
+    session_new_parser.add_argument('name', nargs='?', help='Name for the new session')
+    session_new_parser.add_argument('-t', '--root-task', help='Inline root task instead of reading stdin')
+
+    # session list
+    session_list_parser = session_subparsers.add_parser('list', help='List all sessions')
+    session_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
+
+    # session set
+    session_set_parser = session_subparsers.add_parser('set', help='Set active session')
+    session_set_parser.add_argument('name', nargs='?', help='Name of session to set as active (or list number)')
+    session_set_parser.add_argument('list_number', nargs='?', type=int, help='List number of session to set as active')
+
+    # session get
+    session_get_parser = session_subparsers.add_parser('get', help='Get active session')
+    session_get_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
+
+    # session remove
+    session_remove_parser = session_subparsers.add_parser('remove', help='Remove a session')
+    session_remove_parser.add_argument('name', help='Name of session to remove')
+    session_remove_parser.add_argument('-y', '--yes', action='store_true', help='Skip confirmation prompts')
+
+    # session details
+    session_details_parser = session_subparsers.add_parser('details', help='Show details of a session')
+    session_details_parser.add_argument('name', nargs='?', help='Name of session to show details for (or list number)')
+    session_details_parser.add_argument('list_number', nargs='?', type=int, help='List number of session to show details for')
 
     # Rules command
     rules_parser = subparsers.add_parser('rules', help='Edit the session\'s rules file in $EDITOR')
@@ -904,14 +1208,29 @@ def main():
                     print_error(f"Session is required for {args.command} command", 2)
                     sys.exit(1)
 
-    # For 'new' command, session is always required
-    if args.command == 'new':
-        if not args.session:
-            print_error("Session file must be specified for 'new' command", 2)
+    if args.command == 'init':
+        # Initialize the .maestro directory structure
+        init_maestro_dir(args.dir or os.getcwd(), args.verbose)
+    elif args.command == 'session':
+        # Handle session management commands
+        if not hasattr(args, 'session_subcommand') or not args.session_subcommand:
+            # If no subcommand provided, default to list
+            handle_session_list(args.verbose)
+        elif args.session_subcommand == 'new':
+            handle_session_new(args.name, args.verbose, root_task_file=args.root_task)
+        elif args.session_subcommand == 'list':
+            handle_session_list(args.verbose)
+        elif args.session_subcommand == 'set':
+            handle_session_set(args.name, args.list_number, args.verbose)
+        elif args.session_subcommand == 'get':
+            handle_session_get(args.verbose)
+        elif args.session_subcommand == 'remove':
+            handle_session_remove(args.name, args.yes, args.verbose)
+        elif args.session_subcommand == 'details':
+            handle_session_details(args.name, args.list_number, args.verbose)
+        else:
+            print_error(f"Unknown session subcommand: {args.session_subcommand}", 2)
             sys.exit(1)
-        handle_new_session(args.session, args.verbose, root_task_file=args.root_task)
-    elif args.command == 'resume':
-        handle_resume_session(args.session, args.verbose, args.dry_run, args.stream_ai_output, args.print_ai_prompts, retry_interrupted=args.retry_interrupted)
     elif args.command == 'rules':
         if hasattr(args, 'rules_subcommand'):
             if args.rules_subcommand == 'list':
@@ -5455,6 +5774,342 @@ def handle_build_rules(session_path, verbose=False):
     except Exception as e:
         print_error(f"Could not open editor: {str(e)}", 2)
         sys.exit(1)
+
+
+def init_maestro_dir(target_dir: str, verbose: bool = False):
+    """
+    Initialize the .maestro directory structure in the specified directory.
+
+    Args:
+        target_dir: Directory to initialize
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_debug(f"Initializing maestro directory in: {target_dir}", 2)
+
+    # Check if MAESTRO_DIR environment variable is set to override
+    maestro_dir = os.environ.get('MAESTRO_DIR', os.path.join(target_dir, '.maestro'))
+
+    # Create the .maestro directory
+    os.makedirs(maestro_dir, exist_ok=True)
+
+    # Create subdirectories
+    sessions_dir = os.path.join(maestro_dir, 'sessions')
+    inputs_dir = os.path.join(maestro_dir, 'inputs')
+    outputs_dir = os.path.join(maestro_dir, 'outputs')
+    partials_dir = os.path.join(maestro_dir, 'partials')
+    conversations_dir = os.path.join(maestro_dir, 'conversations')
+
+    os.makedirs(sessions_dir, exist_ok=True)
+    os.makedirs(inputs_dir, exist_ok=True)
+    os.makedirs(outputs_dir, exist_ok=True)
+    os.makedirs(partials_dir, exist_ok=True)
+    os.makedirs(conversations_dir, exist_ok=True)
+
+    # Create a default configuration file
+    config_file = os.path.join(maestro_dir, 'config.json')
+    if not os.path.exists(config_file):
+        # Get a unique project ID to link this project to the user configuration
+        project_id = get_project_id(target_dir)
+        config = {
+            'project_id': project_id,
+            'created_at': datetime.now().isoformat(),
+            'maestro_version': __version__,
+            'base_dir': target_dir
+        }
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+
+    print_success(f"Initialized maestro directory at: {maestro_dir}", 2)
+    if verbose:
+        print_debug(f"Created directories: sessions, inputs, outputs, partials, conversations", 2)
+
+
+def handle_session_new(session_name: str, verbose: bool = False, root_task_file: str = None):
+    """
+    Handle creating a new session in the .maestro/sessions directory.
+    """
+    if verbose:
+        print_debug(f"Creating new session: {session_name}", 2)
+
+    if not session_name:
+        # Prompt for session name if not provided
+        session_name = input("Enter session name: ").strip()
+        if not session_name:
+            print_error("Session name is required", 2)
+            sys.exit(1)
+
+    # Get root task based on provided file or interactive editor
+    if root_task_file:
+        # Load from file
+        try:
+            with open(root_task_file, 'r', encoding='utf-8') as f:
+                root_task = f.read().strip()
+        except FileNotFoundError:
+            print_error(f"Root task file '{root_task_file}' not found.", 2)
+            sys.exit(1)
+        except Exception as e:
+            print_error(f"Could not read root task file '{root_task_file}': {e}", 2)
+            sys.exit(1)
+    else:
+        # Open editor for the root task
+        root_task = edit_root_task_in_editor()
+
+    try:
+        session_path = create_session(session_name, root_task)
+        print_success(f"Created new session: {session_path}", 2)
+        if verbose:
+            # Load the session to show details
+            session = load_session(session_path)
+            print_debug(f"Session ID: {session.id}", 4)
+            print_debug(f"Session created at: {session.created_at}", 4)
+
+        # Set this session as the active session
+        if set_active_session_name(session_name):
+            print_info(f"Session '{session_name}' is now active", 2)
+        else:
+            print_warning(f"Could not set '{session_name}' as active session", 2)
+
+    except FileExistsError as e:
+        print_error(str(e), 2)
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Error creating session: {str(e)}", 2)
+        sys.exit(1)
+
+
+def handle_session_list(verbose: bool = False):
+    """
+    Handle listing all sessions in the .maestro/sessions directory.
+    """
+    sessions = list_sessions()
+    active_session = get_active_session_name()
+
+    if not sessions:
+        print_info("No sessions found.", 2)
+        return
+
+    print_header("SESSIONS")
+
+    for i, session_name in enumerate(sessions, 1):
+        marker = "[*]" if session_name == active_session else "[ ]"
+        status_color = Colors.BRIGHT_GREEN if session_name == active_session else Colors.BRIGHT_WHITE
+        styled_print(f"{i:2d}. {marker} {session_name}", status_color, None, 0)
+
+        if verbose:
+            # Show details for each session
+            details = get_session_details(session_name)
+            if details:
+                styled_print(f"    ID: {details['id']}", Colors.BRIGHT_CYAN, None, 0)
+                styled_print(f"    Status: {details['status']}", Colors.BRIGHT_YELLOW, None, 0)
+                styled_print(f"    Subtasks: {details['subtasks_count']}", Colors.BRIGHT_MAGENTA, None, 0)
+                styled_print(f"    Created: {details['created_at']}", Colors.BRIGHT_GREEN, None, 0)
+
+
+def handle_session_set(session_name: str, list_number: int = None, verbose: bool = False):
+    """
+    Handle setting the active session.
+    """
+    if verbose:
+        print_debug(f"Setting active session: {session_name} (list number: {list_number})", 2)
+
+    # If no session_name provided, list sessions and prompt for selection
+    if not session_name and list_number is None:
+        sessions = list_sessions()
+        if not sessions:
+            print_error("No sessions available", 2)
+            return
+
+        print_info("Available sessions:", 2)
+        for i, name in enumerate(sessions, 1):
+            active_marker = " (ACTIVE)" if name == get_active_session_name() else ""
+            print_info(f"{i}. {name}{active_marker}", 2)
+
+        try:
+            selection = input("Enter session number or name: ").strip()
+            if selection.isdigit():
+                idx = int(selection) - 1
+                if 0 <= idx < len(sessions):
+                    session_name = sessions[idx]
+                else:
+                    print_error(f"Invalid session number: {selection}", 2)
+                    sys.exit(1)
+            else:
+                session_name = selection
+        except ValueError:
+            print_error("Invalid input", 2)
+            sys.exit(1)
+    elif list_number is not None:
+        # Use list number to get session name
+        sessions = list_sessions()
+        if 1 <= list_number <= len(sessions):
+            session_name = sessions[list_number - 1]
+        else:
+            print_error(f"Invalid session number: {list_number}", 2)
+            sys.exit(1)
+
+    if not session_name:
+        print_error("Session name is required", 2)
+        sys.exit(1)
+
+    # Verify session exists
+    session_path = get_session_path_by_name(session_name)
+    if not os.path.exists(session_path):
+        print_error(f"Session '{session_name}' does not exist", 2)
+        sys.exit(1)
+
+    # Set as active session
+    if set_active_session_name(session_name):
+        print_success(f"Session '{session_name}' is now active", 2)
+        if verbose:
+            print_debug(f"Active session configuration updated", 2)
+    else:
+        print_error(f"Failed to set '{session_name}' as active session", 2)
+        sys.exit(1)
+
+
+def handle_session_get(verbose: bool = False):
+    """
+    Handle getting the active session.
+    """
+    active_session = get_active_session_name()
+
+    if active_session:
+        print(active_session)
+        if verbose:
+            details = get_session_details(active_session)
+            if details:
+                print_info(f"Active session details:", 2)
+                print_info(f"  Path: {details['path']}", 2)
+                print_info(f"  ID: {details['id']}", 2)
+                print_info(f"  Status: {details['status']}", 2)
+                print_info(f"  Subtasks: {details['subtasks_count']}", 2)
+    else:
+        print_info("No active session set", 2)
+
+
+def handle_session_remove(session_name: str, skip_confirmation: bool = False, verbose: bool = False):
+    """
+    Handle removing a session.
+    """
+    if verbose:
+        print_debug(f"Removing session: {session_name}", 2)
+
+    if not session_name:
+        print_error("Session name is required", 2)
+        sys.exit(1)
+
+    # Verify session exists
+    session_path = get_session_path_by_name(session_name)
+    if not os.path.exists(session_path):
+        print_error(f"Session '{session_name}' does not exist", 2)
+        sys.exit(1)
+
+    # Confirm removal unless skip_confirmation is True
+    if not skip_confirmation:
+        active_session = get_active_session_name()
+        is_active = active_session == session_name
+
+        if is_active:
+            print_warning(f"Warning: '{session_name}' is the active session", 2)
+
+        confirm = input(f"Are you sure you want to remove session '{session_name}'? (y/N): ").strip().lower()
+        if confirm not in ['y', 'yes']:
+            print_info("Session removal cancelled", 2)
+            return
+
+    # Remove the session file
+    removed = remove_session(session_name)
+
+    if removed:
+        print_success(f"Removed session: {session_name}", 2)
+
+        # If this was the active session, clear the active session
+        active_session = get_active_session_name()
+        if active_session == session_name:
+            # Update user config to clear active session
+            project_id = get_project_id()
+            config_file = get_user_session_config_file()
+
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+
+                if project_id in config:
+                    del config[project_id]['active_session']
+                    if not config[project_id]:  # Remove project entry if empty
+                        del config[project_id]
+
+                with open(config_file, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=2)
+
+                print_info("Active session cleared", 2)
+    else:
+        print_error(f"Failed to remove session: {session_name}", 2)
+        sys.exit(1)
+
+
+def handle_session_details(session_name: str, list_number: int = None, verbose: bool = False):
+    """
+    Handle showing details of a specific session.
+    """
+    if list_number is not None:
+        # Use list number to get session name
+        sessions = list_sessions()
+        if 1 <= list_number <= len(sessions):
+            session_name = sessions[list_number - 1]
+        else:
+            print_error(f"Invalid session number: {list_number}", 2)
+            sys.exit(1)
+
+    if not session_name:
+        # List available sessions and prompt for selection
+        sessions = list_sessions()
+        if not sessions:
+            print_error("No sessions available", 2)
+            return
+
+        print_info("Available sessions:", 2)
+        for i, name in enumerate(sessions, 1):
+            print_info(f"{i}. {name}", 2)
+
+        try:
+            selection = input("Enter session number or name: ").strip()
+            if selection.isdigit():
+                idx = int(selection) - 1
+                if 0 <= idx < len(sessions):
+                    session_name = sessions[idx]
+                else:
+                    print_error(f"Invalid session number: {selection}", 2)
+                    sys.exit(1)
+            else:
+                session_name = selection
+        except ValueError:
+            print_error("Invalid input", 2)
+            sys.exit(1)
+
+    if not session_name:
+        print_error("Session name is required", 2)
+        sys.exit(1)
+
+    details = get_session_details(session_name)
+
+    if details is None:
+        print_error(f"Session '{session_name}' does not exist", 2)
+        sys.exit(1)
+
+    print_header(f"SESSION DETAILS: {session_name}")
+    styled_print(f"ID: {details['id']}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+    styled_print(f"Path: {details['path']}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Status: {details['status']}", Colors.BRIGHT_GREEN if details['status'] == 'done' else Colors.BRIGHT_YELLOW, None, 2)
+    styled_print(f"Created: {details['created_at']}", Colors.BRIGHT_WHITE, None, 2)
+    styled_print(f"Updated: {details['updated_at']}", Colors.BRIGHT_WHITE, None, 2)
+    styled_print(f"Subtasks: {details['subtasks_count']}", Colors.BRIGHT_MAGENTA, None, 2)
+
+    if details['active_plan_id']:
+        styled_print(f"Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 2)
+
+    styled_print(f"Root Task Preview: {details['root_task']}", Colors.BRIGHT_WHITE, None, 2)
 
 
 if __name__ == "__main__":
