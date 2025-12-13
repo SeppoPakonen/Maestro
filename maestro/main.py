@@ -1577,20 +1577,21 @@ def list_sessions() -> List[str]:
     return sorted(sessions)
 
 
-def create_session(session_name: str, root_task: str = "") -> str:
+def create_session(session_name: str, root_task: str = "", overwrite: bool = False) -> str:
     """
     Create a new session file in the .maestro/sessions directory.
 
     Args:
         session_name: Name of the session to create
         root_task: Optional root task for the session
+        overwrite: Whether to overwrite if session already exists
 
     Returns:
         Path to the created session file
     """
     session_path = get_session_path_by_name(session_name)
 
-    if os.path.exists(session_path):
+    if os.path.exists(session_path) and not overwrite:
         raise FileExistsError(f"Session '{session_name}' already exists at {session_path}")
 
     # Create a new session with status="new" and empty subtasks
@@ -2379,7 +2380,7 @@ def main():
 
     # Determine which action to take based on subcommands
     # For commands that require a session, look for active session first, then default if not provided
-    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'task']:
+    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'task', 'root', 'build']:
         # For these commands, if session is not provided, look for active session first, then default
         if not args.session:
             # Check for an active session first
@@ -3095,6 +3096,43 @@ def main():
                     print_error(f"Error checking build targets: {e}", 2)
                     sys.exit(1)
     elif args.command == 'convert':
+        # Check if session is required for convert command
+        # For convert commands that need sessions, try to find an active session first
+        session_path = args.session
+
+        if not session_path:
+            # Check for an active session first
+            active_session_name = get_active_session_name()
+            if active_session_name:
+                # Get the path for the active session
+                active_session_path = get_session_path_by_name(active_session_name)
+                if os.path.exists(active_session_path):
+                    session_path = active_session_path
+                    if args.verbose:
+                        print_info(f"Using active session: {active_session_path}", 2)
+                else:
+                    # Active session points to non-existent file, warn and fall back
+                    print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
+                    # Fall through to try default session files
+                    default_session = find_default_session_file()
+                    if default_session:
+                        session_path = default_session
+                        if args.verbose:
+                            print_info(f"Using default session file: {default_session}", 2)
+                    else:
+                        print_error("Session is required for convert commands", 2)
+                        sys.exit(1)
+            else:
+                # No active session, try default session files
+                default_session = find_default_session_file()
+                if default_session:
+                    session_path = default_session
+                    if args.verbose:
+                        print_info(f"Using default session file: {default_session}", 2)
+                else:
+                    print_error("Session is required for convert commands", 2)
+                    sys.exit(1)
+
         # Handle conversion pipeline commands
         if hasattr(args, 'convert_subcommand') and args.convert_subcommand:
             if args.convert_subcommand == 'new':
@@ -9256,6 +9294,15 @@ def handle_session_new(session_name: str, verbose: bool = False, root_task_file:
             print_error("Session name is required", 2)
             sys.exit(1)
 
+    # Check if session already exists and prompt for overwrite confirmation
+    session_path = get_session_path_by_name(session_name)
+    if os.path.exists(session_path):
+        print_warning(f"Session '{session_name}' already exists", 2)
+        confirm = input(f"Do you want to overwrite the existing session '{session_name}'? (y/N): ").strip().lower()
+        if confirm not in ['y', 'yes']:
+            print_info("Session creation cancelled", 2)
+            return
+
     # Get root task based on provided file or interactive editor
     if root_task_file:
         # Load from file
@@ -9273,8 +9320,11 @@ def handle_session_new(session_name: str, verbose: bool = False, root_task_file:
         root_task = edit_root_task_in_editor()
 
     try:
-        session_path = create_session(session_name, root_task)
-        print_success(f"Created new session: {session_path}", 2)
+        # Create session with overwrite=True since we already confirmed with user
+        session_path = create_session(session_name, root_task, overwrite=True)
+        print_success(f"Created new session: {session_name}", 2)
+        print_info(f"Session stored at: {session_path}", 2)
+
         if verbose:
             # Load the session to show details
             session = load_session(session_path)
@@ -9283,13 +9333,10 @@ def handle_session_new(session_name: str, verbose: bool = False, root_task_file:
 
         # Set this session as the active session
         if set_active_session_name(session_name):
-            print_info(f"Session '{session_name}' is now active", 2)
+            print_info(f"Session '{session_name}' is now the active session", 2)
         else:
             print_warning(f"Could not set '{session_name}' as active session", 2)
 
-    except FileExistsError as e:
-        print_error(str(e), 2)
-        sys.exit(1)
     except Exception as e:
         print_error(f"Error creating session: {str(e)}", 2)
         sys.exit(1)
@@ -9309,9 +9356,21 @@ def handle_session_list(verbose: bool = False):
     print_header("SESSIONS")
 
     for i, session_name in enumerate(sessions, 1):
+        session_path = get_session_path_by_name(session_name)
         marker = "[*]" if session_name == active_session else "[ ]"
         status_color = Colors.BRIGHT_GREEN if session_name == active_session else Colors.BRIGHT_WHITE
-        styled_print(f"{i:2d}. {marker} {session_name}", status_color, None, 0)
+
+        # Get last modified time
+        last_modified = ""
+        if os.path.exists(session_path):
+            try:
+                import time
+                mod_time = os.path.getmtime(session_path)
+                last_modified = f" (last modified: {time.strftime('%Y-%m-%d %H:%M', time.localtime(mod_time))})"
+            except:
+                pass  # If we can't get modification time, just continue without it
+
+        styled_print(f"{i:2d}. {marker} {session_name}{last_modified}", status_color, None, 0)
 
         if verbose:
             # Show details for each session
@@ -9321,6 +9380,10 @@ def handle_session_list(verbose: bool = False):
                 styled_print(f"    Status: {details['status']}", Colors.BRIGHT_YELLOW, None, 0)
                 styled_print(f"    Subtasks: {details['subtasks_count']}", Colors.BRIGHT_MAGENTA, None, 0)
                 styled_print(f"    Created: {details['created_at']}", Colors.BRIGHT_GREEN, None, 0)
+                if details.get('updated_at'):
+                    styled_print(f"    Updated: {details['updated_at']}", Colors.BRIGHT_GREEN, None, 0)
+                if details.get('active_plan_id'):
+                    styled_print(f"    Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 0)
 
 
 def handle_session_set(session_name: str, list_number: int = None, verbose: bool = False):
@@ -9403,17 +9466,30 @@ def handle_session_get(verbose: bool = False):
     active_session = get_active_session_name()
 
     if active_session:
-        print(active_session)
-        if verbose:
-            details = get_session_details(active_session)
-            if details:
-                print_info(f"Active session details:", 2)
-                print_info(f"  Path: {details['path']}", 2)
-                print_info(f"  ID: {details['id']}", 2)
-                print_info(f"  Status: {details['status']}", 2)
-                print_info(f"  Subtasks: {details['subtasks_count']}", 2)
+        active_session_path = get_session_path_by_name(active_session)
+
+        if os.path.exists(active_session_path):
+            print(active_session)
+            if verbose:
+                details = get_session_details(active_session)
+                if details:
+                    print_info(f"Active session details:", 2)
+                    print_info(f"  Name: {details['name']}", 2)
+                    print_info(f"  Path: {details['path']}", 2)
+                    print_info(f"  ID: {details['id']}", 2)
+                    print_info(f"  Status: {details['status']}", 2)
+                    print_info(f"  Subtasks: {details['subtasks_count']}", 2)
+                    if details.get('active_plan_id'):
+                        print_info(f"  Active Plan: {details['active_plan_id']}", 2)
+                    print_info(f"  Last updated: {details['updated_at']}", 2)
+        else:
+            print_error(f"Active session '{active_session}' points to missing file: {active_session_path}", 2)
+            print_info("Please set a valid active session using 'maestro session set'", 2)
     else:
         print_info("No active session set", 2)
+        if verbose:
+            print_info("Use 'maestro session list' to see available sessions", 2)
+            print_info("Use 'maestro session set <name>' to set an active session", 2)
 
 
 def handle_session_remove(session_name: str, skip_confirmation: bool = False, verbose: bool = False):
@@ -9452,7 +9528,7 @@ def handle_session_remove(session_name: str, skip_confirmation: bool = False, ve
     if removed:
         print_success(f"Removed session: {session_name}", 2)
 
-        # If this was the active session, clear the active session
+        # If this was the active session, clear the active session and optionally set another
         active_session = get_active_session_name()
         if active_session == session_name:
             # Update user config to clear active session
@@ -9465,13 +9541,41 @@ def handle_session_remove(session_name: str, skip_confirmation: bool = False, ve
 
                 if project_id in config:
                     del config[project_id]['active_session']
+
+                    # Check if there are other sessions available and ask if user wants to set one as active
+                    remaining_sessions = [s for s in list_sessions() if s != session_name]
+                    if remaining_sessions:
+                        print_info(f"Session '{session_name}' was the active session.", 2)
+                        choice = input(f"Do you want to set another session as active? Options: {', '.join(remaining_sessions)} or 'none': ").strip()
+                        if choice and choice.lower() != 'none':
+                            if choice in remaining_sessions:
+                                if set_active_session_name(choice):
+                                    print_success(f"Session '{choice}' is now active", 2)
+                                else:
+                                    print_warning(f"Could not set '{choice}' as active session", 2)
+                            else:
+                                # Treat as a number in case user entered a list number
+                                try:
+                                    idx = int(choice) - 1
+                                    if 0 <= idx < len(remaining_sessions):
+                                        new_active = remaining_sessions[idx]
+                                        if set_active_session_name(new_active):
+                                            print_success(f"Session '{new_active}' is now active", 2)
+                                        else:
+                                            print_warning(f"Could not set '{new_active}' as active session", 2)
+                                    else:
+                                        print_warning("Invalid session number, active session remains cleared", 2)
+                                except ValueError:
+                                    print_warning("Invalid session name, active session remains cleared", 2)
+
                     if not config[project_id]:  # Remove project entry if empty
                         del config[project_id]
 
                 with open(config_file, 'w', encoding='utf-8') as f:
                     json.dump(config, f, indent=2)
 
-                print_info("Active session cleared", 2)
+                if choice.lower() != 'none' if 'choice' in locals() else True:
+                    print_info("Active session cleared", 2)
     else:
         print_error(f"Failed to remove session: {session_name}", 2)
         sys.exit(1)
@@ -9543,8 +9647,35 @@ def handle_session_details(session_name: str, list_number: int = None, verbose: 
     styled_print(f"Updated: {details['updated_at']}", Colors.BRIGHT_WHITE, None, 2)
     styled_print(f"Subtasks: {details['subtasks_count']}", Colors.BRIGHT_MAGENTA, None, 2)
 
-    if details['active_plan_id']:
-        styled_print(f"Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 2)
+    # Try to load the session to get more detailed information
+    try:
+        session = load_session(details['path'])
+
+        # Count build targets if session file exists
+        build_targets_count = 0
+        try:
+            build_targets = list_build_targets(details['path'])
+            build_targets_count = len(build_targets) if build_targets else 0
+        except:
+            build_targets_count = 0  # If we can't list build targets, just show 0
+
+        styled_print(f"Build Targets: {build_targets_count}", Colors.BRIGHT_MAGENTA, None, 2)
+
+        # Show active plan details if available
+        if details['active_plan_id']:
+            styled_print(f"Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 2)
+
+        # Show plan count
+        plan_count = len(session.plans) if hasattr(session, 'plans') and session.plans else 0
+        styled_print(f"Total Plans: {plan_count}", Colors.BRIGHT_MAGENTA, None, 2)
+
+        # Show categories if available
+        if hasattr(session, 'root_task_categories') and session.root_task_categories:
+            categories_str = ', '.join(session.root_task_categories)
+            styled_print(f"Categories: {categories_str}", Colors.BRIGHT_GREEN, None, 2)
+
+    except Exception as e:
+        print_warning(f"Could not load additional session details: {e}", 2)
 
     styled_print(f"Root Task Preview: {details['root_task']}", Colors.BRIGHT_WHITE, None, 2)
 
