@@ -1858,6 +1858,8 @@ def main():
                        help='Path to session JSON file (required for most commands)')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Show detailed debug, engine commands, and file paths')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                       help='Suppress streaming AI output and extra messages')
 
     # Create subparsers for command-based interface
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -2354,6 +2356,7 @@ def main():
                     session_path,
                     target_name,
                     args.verbose,
+                    quiet=args.quiet,
                     stream_ai_output=getattr(args, 'stream_ai_output', False),
                     print_ai_prompts=getattr(args, 'print_ai_prompts', False),
                     planner_order=getattr(args, 'planner_order', 'codex,claude'),
@@ -5486,7 +5489,7 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str) -> Pi
     return result
 
 
-def plan_build_target_interactive(session_path: str, target_name: str, verbose: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude") -> Optional[BuildTarget]:
+def plan_build_target_interactive(session_path: str, target_name: str, verbose: bool = False, quiet: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude") -> Optional[BuildTarget]:
     """
     Interactive discussion to define target rules via AI for a build target.
 
@@ -5572,18 +5575,19 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
                 print(conversation_prompt)
                 print("===== AI PROMPT END =====")
 
+            # Print sending confirmation unless quiet
+            if not quiet:
+                print_info("sending message to planner…", 2)
+
             # Try each planner in preference order
             assistant_response = None
             last_error = None
             for engine_name in planner_preference:
                 try:
                     from engines import get_engine
-                    engine = get_engine(engine_name + "_planner")
-                    # Use streaming if enabled
-                    if stream_ai_output:
-                        assistant_response = engine.generate(conversation_prompt)
-                    else:
-                        assistant_response = engine.generate(conversation_prompt)
+                    # Pass the quiet flag as stream_output to engines
+                    engine = get_engine(engine_name + "_planner", stream_output=not quiet)
+                    assistant_response = engine.generate(conversation_prompt)
 
                     # If we get a response, break out of the loop
                     if assistant_response:
@@ -5596,8 +5600,12 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
             if assistant_response is None:
                 raise Exception(f"All planners failed: {last_error}")
 
-            # Print the AI's response
-            print_ai_response(assistant_response)
+            # Print response received message if not quiet
+            if not quiet:
+                print_info(f"planner responded ({len(assistant_response)} chars).", 2)
+                print_ai_response(assistant_response)
+            else:
+                print_ai_response(assistant_response)  # Still print response in quiet mode, just not the confirmation
 
             # Append assistant's response to conversation
             conversation.append({"role": "assistant", "content": assistant_response})
@@ -5731,7 +5739,7 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
         return None
 
 
-def plan_build_target_one_shot(session_path: str, target_name: str, verbose: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude", clean_target: bool = True) -> Optional[BuildTarget]:
+def plan_build_target_one_shot(session_path: str, target_name: str, verbose: bool = False, quiet: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude", clean_target: bool = True) -> Optional[BuildTarget]:
     """
     One-shot planning to define target rules via AI for a build target.
 
@@ -5812,17 +5820,19 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
     planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
     planner_preference = [item.strip() for item in planner_preference if item.strip()]
 
+    # Print sending confirmation unless quiet
+    if not quiet:
+        print_info("sending message to planner…", 2)
+
     # Try each planner in preference order
     assistant_response = None
     last_error = None
     for engine_name in planner_preference:
         try:
             from engines import get_engine
-            engine = get_engine(engine_name + "_planner")
-            if stream_ai_output:
-                assistant_response = engine.generate(prompt)
-            else:
-                assistant_response = engine.generate(prompt)
+            # Pass the quiet flag as stream_output to engines
+            engine = get_engine(engine_name + "_planner", stream_output=not quiet)
+            assistant_response = engine.generate(prompt)
 
             if assistant_response:
                 break
@@ -5830,6 +5840,10 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
             last_error = e
             print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
             continue
+
+    # Print response received message if not quiet
+    if not quiet and assistant_response:
+        print_info(f"planner responded ({len(assistant_response)} chars).", 2)
 
     if assistant_response is None:
         print_error(f"All planners failed: {last_error}", 2)
@@ -8151,7 +8165,7 @@ def handle_build_get(session_path, verbose=False):
         print_info("No active build target set", 2)
 
 
-def handle_build_plan(session_path, target_name, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", one_shot=False, discuss=False):
+def handle_build_plan(session_path, target_name, verbose=False, quiet=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", one_shot=False, discuss=False):
     """
     Interactive discussion to define target rules via AI.
 
@@ -8159,6 +8173,7 @@ def handle_build_plan(session_path, target_name, verbose=False, stream_ai_output
         session_path: Path to the session file
         target_name: Name of the build target to plan
         verbose: Verbose output flag
+        quiet: Suppress streaming AI output and extra messages
         stream_ai_output: Stream model stdout live to the terminal
         print_ai_prompts: Print constructed prompts before running them
         planner_order: Comma-separated order of planners
@@ -8185,6 +8200,7 @@ def handle_build_plan(session_path, target_name, verbose=False, stream_ai_output
             session_path,
             target_name,
             verbose=verbose,
+            quiet=quiet,
             stream_ai_output=stream_ai_output,
             print_ai_prompts=print_ai_prompts,
             planner_order=planner_order
@@ -8198,6 +8214,7 @@ def handle_build_plan(session_path, target_name, verbose=False, stream_ai_output
             session_path,
             target_name,
             verbose=verbose,
+            quiet=quiet,
             stream_ai_output=stream_ai_output,
             print_ai_prompts=print_ai_prompts,
             planner_order=planner_order,
