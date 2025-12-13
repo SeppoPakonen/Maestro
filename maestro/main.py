@@ -8252,7 +8252,7 @@ def handle_build_show(session_path, target_name, verbose=False):
             # Show active target
             target_to_show = get_active_build_target(session_path)
             if not target_to_show:
-                print_error("No active build target set", 2)
+                print_error("No active build target set. Use `maestro build new` or `maestro build set`.", 2)
                 sys.exit(1)
         else:
             # Check if target_name is a number (index)
@@ -8326,8 +8326,17 @@ def handle_build_show(session_path, target_name, verbose=False):
             if target_to_show.environment.get('cwd'):
                 styled_print(f"Working directory: {target_to_show.environment['cwd']}", Colors.BRIGHT_WHITE, None, 2)
 
+    except FileNotFoundError as e:
+        print_error(f"Build target file not found: {e}", 2)
+        print_info("Use `maestro build list` to see available targets.", 2)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print_error(f"Invalid JSON in build target file: {e}", 2)
+        print_info("The build target file may be corrupted. Check the file or recreate the target.", 2)
+        sys.exit(1)
     except Exception as e:
         print_error(f"Error showing build target details: {e}", 2)
+        print_info("Use `maestro build list` to see available targets.", 2)
         sys.exit(1)
 
 
