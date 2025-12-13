@@ -75,6 +75,19 @@ class PipelineRunResult:
     success: bool
 
 
+@dataclass
+class Diagnostic:
+    """Structured diagnostic with stable fingerprint."""
+    tool: str                    # e.g. "gcc", "clang", "msvc", "valgrind", "lint"
+    severity: str               # "error" | "warning" | "note"
+    file: Optional[str]         # File path where issue occurred
+    line: Optional[int]         # Line number where issue occurred
+    message: str                # Normalized message
+    raw: str                    # Original diagnostic line(s)
+    signature: str              # Computed fingerprint
+    tags: List[str]             # e.g. ["upp", "moveable", "template", "vector"]
+
+
 # ANSI color codes for styling
 class Colors:
     # Text colors
@@ -3654,6 +3667,224 @@ def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
     )
 
 
+def compute_signature(raw_message: str, file_path: Optional[str] = None) -> str:
+    """
+    Compute a stable signature for a diagnostic message.
+
+    Args:
+        raw_message: The raw diagnostic message
+        file_path: Optional file path for inclusion in signature
+
+    Returns:
+        A stable SHA1 hash signature
+    """
+    import hashlib
+    import re
+
+    # Extract filename from path if provided
+    file_part = ""
+    if file_path:
+        import os
+        file_part = os.path.basename(file_path) + ":"
+
+    # Normalize the message by:
+    # 1. Removing numeric IDs, addresses, line numbers
+    normalized = re.sub(r'\b0x[0-9a-fA-F]+\b', 'ADDR', raw_message)  # Memory addresses
+    normalized = re.sub(r'\b\d+\b', 'NUM', normalized)  # Numbers
+    normalized = re.sub(r'\s+', ' ', normalized)  # Normalize whitespace
+    normalized = normalized.strip()  # Trim leading/trailing spaces
+
+    # Create a signature from the normalized message and file info
+    signature_input = f"{file_part}{normalized}"
+
+    # Compute SHA1 hash
+    signature = hashlib.sha1(signature_input.encode('utf-8')).hexdigest()
+
+    return signature
+
+
+def extract_diagnostics(pipeline_run: PipelineRunResult) -> List[Diagnostic]:
+    """
+    Parse compiler/linter/analyzer outputs into structured diagnostics.
+
+    Args:
+        pipeline_run: PipelineRunResult object with step outputs
+
+    Returns:
+        List of Diagnostic objects
+    """
+    import re
+
+    diagnostics = []
+
+    for step_result in pipeline_run.step_results:
+        # Determine the tool based on the step name
+        tool = step_result.step_name.lower()
+
+        # Parse stdout and stderr for diagnostics
+        for output_type, output_content in [("stdout", step_result.stdout), ("stderr", step_result.stderr)]:
+            if not output_content.strip():
+                continue
+
+            # Split into lines for processing
+            lines = output_content.split('\n')
+
+            for line in lines:
+                if not line.strip():
+                    continue
+
+                # Try to detect common diagnostic patterns from various tools
+                diagnostic = parse_line_for_diagnostic(line, tool)
+                if diagnostic:
+                    diagnostics.append(diagnostic)
+
+    return diagnostics
+
+
+def parse_line_for_diagnostic(line: str, tool: str) -> Optional[Diagnostic]:
+    """
+    Parse a single line for diagnostic information.
+
+    Args:
+        line: A single line of output
+        tool: The tool that generated the output
+
+    Returns:
+        Diagnostic object if a diagnostic is found, None otherwise
+    """
+    import re
+
+    # Common regex patterns for different diagnostic formats
+    patterns = [
+        # GCC/Clang format: file:line:column: error|warning|note: message
+        r'^(?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+):\s*(?P<severity>error|warning|note):\s*(?P<message>.+)$',
+
+        # Alternative GCC/Clang format: file:line: error|warning|note: message
+        r'^(?P<file>[^:]+):(?P<line>\d+):\s*(?P<severity>error|warning|note):\s*(?P<message>.+)$',
+
+        # MSVC format: file(line): error|warning C####: message
+        r'^(?P<file>[^(\s]+)\((?P<line>\d+)\):\s*(?P<severity>error|warning)\s*\w*:?\s*(?P<message>.+)$',
+
+        # Valgrind format: ==PID== [error details]
+        r'^==\d+==\s*(?P<message>.*)$',
+
+        # General format: error|warning|note: message
+        r'^(?P<severity>error|warning|note):\s*(?P<message>[^(\n\r]+)',
+    ]
+
+    for pattern in patterns:
+        match = re.match(pattern, line.strip())
+        if match:
+            groups = match.groupdict()
+
+            severity = groups.get('severity', 'note').lower()
+            file_path = groups.get('file')
+            line_num = int(groups.get('line', 0)) if groups.get('line', '0').isdigit() else None
+            message = groups.get('message', line.strip())
+
+            # Determine severity if not captured by pattern
+            if not severity or severity not in ['error', 'warning', 'note']:
+                if 'error' in line.lower():
+                    severity = 'error'
+                elif 'warning' in line.lower():
+                    severity = 'warning'
+                else:
+                    severity = 'note'
+
+            # Normalize the file path
+            if file_path:
+                file_path = file_path.strip()
+                if file_path.startswith('"') and file_path.endswith('"'):
+                    file_path = file_path[1:-1]
+
+            # Generate tags based on the message content
+            tags = generate_tags(message, tool)
+
+            # Compute signature
+            signature = compute_signature(message, file_path)
+
+            return Diagnostic(
+                tool=tool,
+                severity=severity,
+                file=file_path,
+                line=line_num,
+                message=message,
+                raw=line.strip(),
+                signature=signature,
+                tags=tags
+            )
+
+    # If no specific pattern matched, create a general diagnostic
+    # for certain keywords that indicate problems
+    if any(keyword in line.lower() for keyword in ['error', 'warning', 'undefined', 'deprecated']):
+        severity = 'note'  # Default to note for unrecognized diagnostics
+
+        if 'error' in line.lower():
+            severity = 'error'
+        elif 'warning' in line.lower():
+            severity = 'warning'
+
+        tags = generate_tags(line, tool)
+        signature = compute_signature(line, None)
+
+        return Diagnostic(
+            tool=tool,
+            severity=severity,
+            file=None,
+            line=None,
+            message=line.strip(),
+            raw=line.strip(),
+            signature=signature,
+            tags=tags
+        )
+
+    return None
+
+
+def generate_tags(message: str, tool: str) -> List[str]:
+    """
+    Generate tags for a diagnostic message based on content.
+
+    Args:
+        message: The diagnostic message
+        tool: The tool that generated the diagnostic
+
+    Returns:
+        List of tags for the diagnostic
+    """
+    tags = []
+
+    # Add tool-based tags
+    if tool:
+        tags.append(tool.lower())
+
+    # Common tags based on message content
+    message_lower = message.lower()
+    if any(keyword in message_lower for keyword in ['moveable', 'movable', 'Moveable', 'Movable']):
+        tags.append('upp')  # Ultimate++ related
+        tags.append('moveable')
+    if any(keyword in message_lower for keyword in ['vector', 'array', 'container']):
+        tags.append('container')
+    if any(keyword in message_lower for keyword in ['template', 'instantiation']):
+        tags.append('template')
+    if any(keyword in message_lower for keyword in ['memory', 'leak', 'valgrind']):
+        tags.append('memory')
+    if any(keyword in message_lower for keyword in ['deprecated', 'deprecation']):
+        tags.append('deprecation')
+    if any(keyword in message_lower for keyword in ['thread', 'mutex', 'race']):
+        tags.append('threading')
+    if any(keyword in message_lower for keyword in ['null', 'pointer', 'dereference']):
+        tags.append('pointer')
+
+    # Remove duplicates while preserving order
+    unique_tags = []
+    for tag in tags:
+        if tag not in unique_tags:
+            unique_tags.append(tag)
+
+    return unique_tags
+
+
 def handle_build_run(session_path, verbose=False):
     """
     Run configured build pipeline once and collect diagnostics.
@@ -3678,6 +3909,9 @@ def handle_build_run(session_path, verbose=False):
 
     # Run the diagnostic pipeline
     pipeline_result = run_pipeline(builder_config, session_path)
+
+    # Extract diagnostics from the pipeline run
+    diagnostics = extract_diagnostics(pipeline_result)
 
     # Get the build directory
     build_dir = get_build_dir(session_path)
@@ -3706,13 +3940,24 @@ def handle_build_run(session_path, verbose=False):
     with open(last_run_path, 'w', encoding='utf-8') as f:
         json.dump(build_output, f, indent=2)
 
-    # Create a summary log file
+    # Create diagnostics directory if it doesn't exist
+    diagnostics_dir = os.path.join(build_dir, "diagnostics")
+    os.makedirs(diagnostics_dir, exist_ok=True)
+
+    # Save diagnostics to a timestamped file
     timestamp = int(pipeline_result.timestamp)
+    diagnostics_path = os.path.join(diagnostics_dir, f"{timestamp}.json")
+    diagnostics_data = [d.__dict__ for d in diagnostics]  # Convert to dict for JSON serialization
+    with open(diagnostics_path, 'w', encoding='utf-8') as f:
+        json.dump(diagnostics_data, f, indent=2)
+
+    # Create a summary log file
     log_filename = os.path.join(build_dir, "logs", f"pipeline_{timestamp}.log")
     with open(log_filename, 'w', encoding='utf-8') as f:
         f.write(f"Pipeline run at: {time.ctime(pipeline_result.timestamp)}\n")
         f.write(f"Overall success: {pipeline_result.success}\n")
-        f.write(f"Total steps: {len(pipeline_result.step_results)}\n\n")
+        f.write(f"Total steps: {len(pipeline_result.step_results)}\n")
+        f.write(f"Total diagnostics found: {len(diagnostics)}\n\n")
 
         for step_result in pipeline_result.step_results:
             f.write(f"Step: {step_result.step_name}\n")
@@ -3724,7 +3969,7 @@ def handle_build_run(session_path, verbose=False):
             f.write("\n")
 
     if pipeline_result.success:
-        print_success("Build pipeline completed successfully", 2)
+        print_success(f"Build pipeline completed successfully ({len(diagnostics)} diagnostics found)", 2)
     else:
         print_error("Build pipeline failed", 2)
         # Show failed steps
@@ -3862,14 +4107,107 @@ def handle_build_status(session_path, verbose=False):
 
     # Print summary information
     styled_print(f"Build Time: {time.ctime(build_results.get('timestamp', 0))}", Colors.BRIGHT_GREEN, Colors.BOLD, 2)
-    styled_print(f"Build Script: {build_results.get('build_script', 'N/A')}", Colors.BRIGHT_WHITE, None, 2)
     styled_print(f"Success: {'Yes' if build_results.get('success', False) else 'No'}",
                  Colors.BRIGHT_GREEN if build_results.get('success', False) else Colors.BRIGHT_RED,
                  Colors.BOLD if build_results.get('success', False) else Colors.BOLD, 2)
-    styled_print(f"Return Code: {build_results.get('return_code', 'N/A')}", Colors.BRIGHT_CYAN, None, 2)
 
-    if not build_results.get('success', False):
-        print_subheader("BUILD ERRORS")
+    # Try to load and display diagnostics
+    diagnostics_dir = os.path.join(build_dir, "diagnostics")
+    latest_diagnostics_path = None
+
+    # Find the most recent diagnostics file
+    if os.path.exists(diagnostics_dir):
+        diag_files = [f for f in os.listdir(diagnostics_dir) if f.endswith('.json')]
+        if diag_files:
+            # Sort by timestamp to get the most recent
+            diag_files.sort(key=lambda x: int(x.split('.')[0]) if x.split('.')[0].isdigit() else 0, reverse=True)
+            if diag_files:
+                latest_diagnostics_path = os.path.join(diagnostics_dir, diag_files[0])
+
+    if latest_diagnostics_path and os.path.exists(latest_diagnostics_path):
+        with open(latest_diagnostics_path, 'r', encoding='utf-8') as f:
+            diagnostics_data = json.load(f)
+
+        # Convert back to Diagnostic objects
+        diagnostics = [Diagnostic(
+            tool=d['tool'],
+            severity=d['severity'],
+            file=d['file'],
+            line=d['line'],
+            message=d['message'],
+            raw=d['raw'],
+            signature=d['signature'],
+            tags=d['tags']
+        ) for d in diagnostics_data]
+
+        # Group diagnostics by signature
+        signature_groups = {}
+        for diag in diagnostics:
+            if diag.signature not in signature_groups:
+                signature_groups[diag.signature] = []
+            signature_groups[diag.signature].append(diag)
+
+        print_subheader(f"DIAGNOSTICS SUMMARY ({len(diagnostics)} total)")
+
+        # Count diagnostics by severity
+        error_count = sum(1 for d in diagnostics if d.severity == 'error')
+        warning_count = sum(1 for d in diagnostics if d.severity == 'warning')
+        note_count = sum(1 for d in diagnostics if d.severity == 'note')
+
+        styled_print(f"Errors: {error_count}, Warnings: {warning_count}, Notes: {note_count}", Colors.BRIGHT_YELLOW, None, 2)
+
+        if signature_groups:
+            print_subheader("TOP DIAGNOSTICS GROUPED BY SIGNATURE")
+
+            # Sort by frequency (most common first)
+            sorted_groups = sorted(
+                signature_groups.items(),
+                key=lambda x: len(x[1]),
+                reverse=True
+            )
+
+            # Display top N diagnostic groups
+            top_n = min(10, len(sorted_groups))  # Show top 10 or all if less
+            for i, (signature, diag_list) in enumerate(sorted_groups[:top_n], 1):
+                first_diag = diag_list[0]  # Use first diagnostic in the group for display
+                count = len(diag_list)
+
+                severity_color = Colors.BRIGHT_RED if first_diag.severity == 'error' else \
+                                Colors.BRIGHT_YELLOW if first_diag.severity == 'warning' else \
+                                Colors.BRIGHT_CYAN
+
+                styled_print(f"{i:2d}. [{first_diag.severity.upper()}] x{count} - {first_diag.tool}",
+                           severity_color, Colors.BOLD, 2)
+
+                if first_diag.file or first_diag.line is not None:
+                    location = f"{first_diag.file}:{first_diag.line}" if first_diag.file and first_diag.line else \
+                              f"{first_diag.file}" if first_diag.file else \
+                              f"line {first_diag.line}" if first_diag.line else "unknown location"
+                    styled_print(f"    Location: {location}", Colors.BRIGHT_WHITE, None, 2)
+
+                styled_print(f"    Message: {first_diag.message[:100]}{'...' if len(first_diag.message) > 100 else ''}",
+                           Colors.BRIGHT_WHITE, None, 2)
+
+                if first_diag.tags:
+                    styled_print(f"    Tags: {', '.join(first_diag.tags)}", Colors.BRIGHT_MAGENTA, None, 2)
+
+    else:
+        print_warning("No diagnostics found. Run 'maestro build run' first.", 2)
+
+    # Show step results
+    print_subheader("STEP RESULTS")
+    if 'steps' in build_results:
+        for step in build_results['steps']:
+            step_name = step.get('step_name', 'unknown')
+            success = step.get('success', False)
+            exit_code = step.get('exit_code', 'unknown')
+
+            status_color = Colors.BRIGHT_GREEN if success else Colors.BRIGHT_RED
+            status_text = "SUCCESS" if success else "FAILED"
+
+            styled_print(f"{step_name}: {status_text} (exit: {exit_code})", status_color, None, 2)
+    else:
+        # Fallback to old format for compatibility
         stderr_content = build_results.get('stderr', '')
         if stderr_content:
             # Show top errors (first few lines)
