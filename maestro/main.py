@@ -845,6 +845,11 @@ def main():
     # build fix
     build_fix_parser = builder_subparsers.add_parser('fix', help='Run iterative AI-assisted fixes based on diagnostics')
     build_fix_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_fix_parser.add_argument('--max-iterations', type=int, default=5, help='Maximum number of fix iterations (default: 5)')
+    build_fix_parser.add_argument('--target', help='Target diagnostic: "top", "signature:<sig>", or "file:<path>"')
+    build_fix_parser.add_argument('--keep-going', action='store_true', help='Attempt next error even if one fails')
+    build_fix_parser.add_argument('--limit-steps', help='Restrict pipeline steps (comma-separated: build,lint,tests,...)')
+    build_fix_parser.add_argument('--build-after-each-fix', action='store_true', default=True, help='Rerun build after each fix (default: true)')
 
     # build status
     build_status_parser = builder_subparsers.add_parser('status', help='Show last pipeline run results (summary, top errors)')
@@ -1020,7 +1025,15 @@ def main():
             if args.builder_subcommand == 'run':
                 handle_build_run(args.session, args.verbose)
             elif args.builder_subcommand == 'fix':
-                handle_build_fix(args.session, args.verbose)
+                handle_build_fix(
+                    args.session,
+                    args.verbose,
+                    max_iterations=getattr(args, 'max_iterations', 5),
+                    target=getattr(args, 'target', None),
+                    keep_going=getattr(args, 'keep_going', False),
+                    limit_steps=getattr(args, 'limit_steps', None),
+                    build_after_each_fix=getattr(args, 'build_after_each_fix', True)
+                )
             elif args.builder_subcommand == 'status':
                 handle_build_status(args.session, args.verbose)
             elif args.builder_subcommand == 'rules':
@@ -3669,6 +3682,283 @@ def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
     )
 
 
+def is_git_repo(session_path: str) -> bool:
+    """
+    Check if the session directory is inside a git repository.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        True if in a git repo, False otherwise
+    """
+    import subprocess
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--git-dir'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+        return False
+
+
+def create_git_backup(session_path: str, patch_filename: str) -> bool:
+    """
+    Create a git diff backup of current state.
+
+    Args:
+        session_path: Path to the session file
+        patch_filename: Path where to save the patch file
+
+    Returns:
+        True if backup was successful, False otherwise
+    """
+    import subprocess
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        # Create directory for patch if it doesn't exist
+        patch_dir = os.path.dirname(patch_filename)
+        os.makedirs(patch_dir, exist_ok=True)
+
+        # Run git diff to get current changes and save to patch file
+        result = subprocess.run(
+            ['git', 'diff'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        with open(patch_filename, 'w', encoding='utf-8') as f:
+            f.write(result.stdout)
+
+        return True
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, IOError):
+        return False
+
+
+def restore_from_git(session_path: str) -> bool:
+    """
+    Restore files from git by discarding changes.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        True if restore was successful, False otherwise
+    """
+    import subprocess
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        # Discard all changes in the working directory
+        result = subprocess.run(
+            ['git', 'checkout', '--', '.'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+        return False
+
+
+def create_file_backup(session_path: str, backup_dir: str) -> bool:
+    """
+    Create a file-based backup of modified files.
+
+    Args:
+        session_path: Path to the session file
+        backup_dir: Directory to store backup files
+
+    Returns:
+        True if backup was successful, False otherwise
+    """
+    import shutil
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        # Create backup directory
+        os.makedirs(backup_dir, exist_ok=True)
+
+        # Track all Python and C++ related files that might have changed
+        import subprocess
+        import tempfile
+        import glob
+
+        # Find all source files in the project
+        extensions = ['*.py', '*.cpp', '*.cxx', '*.cc', '*.c', '*.h', '*.hpp', '*.hxx', '*.txt', '*.json', '*.toml']
+        source_files = []
+
+        for ext in extensions:
+            source_files.extend(glob.glob(os.path.join(session_dir, '**', ext), recursive=True))
+
+        # Make backup of each source file
+        for src_file in source_files:
+            # Get relative path from session directory
+            rel_path = os.path.relpath(src_file, session_dir)
+            backup_file = os.path.join(backup_dir, rel_path)
+
+            # Create subdirectories if needed
+            backup_file_dir = os.path.dirname(backup_file)
+            if backup_file_dir:
+                os.makedirs(backup_file_dir, exist_ok=True)
+
+            # Copy file to backup location
+            shutil.copy2(src_file, backup_file)
+
+        return True
+    except Exception:
+        return False
+
+
+def restore_from_file_backup(session_path: str, backup_dir: str) -> bool:
+    """
+    Restore files from the backup directory.
+
+    Args:
+        session_path: Path to the session file
+        backup_dir: Directory containing backup files
+
+    Returns:
+        True if restore was successful, False otherwise
+    """
+    import shutil
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        # Find all files in backup that need to be restored
+        import glob
+        import os
+
+        backup_files = glob.glob(os.path.join(backup_dir, '**', '*'), recursive=True)
+
+        # Only process files (not directories)
+        for backup_file in backup_files:
+            if os.path.isfile(backup_file):
+                # Get relative path from backup directory
+                rel_path = os.path.relpath(backup_file, backup_dir)
+                target_file = os.path.join(session_dir, rel_path)
+
+                # Create subdirectories if needed
+                target_dir = os.path.dirname(target_file)
+                if target_dir:
+                    os.makedirs(target_dir, exist_ok=True)
+
+                # Copy backup file to target location
+                shutil.copy2(backup_file, target_file)
+
+        return True
+    except Exception:
+        return False
+
+
+def select_target_diagnostics(diagnostics: List[Diagnostic], target_option: str = None) -> List[Diagnostic]:
+    """
+    Select target diagnostics based on the target option.
+
+    Args:
+        diagnostics: List of diagnostics to select from
+        target_option: Target option like "top", "signature:<sig>", or "file:<path>"
+
+    Returns:
+        List of selected diagnostic signatures
+    """
+    if not target_option or target_option == "top":
+        # Return top errors (by count within each signature group)
+        signature_groups = {}
+        for diag in diagnostics:
+            if diag.signature not in signature_groups:
+                signature_groups[diag.signature] = []
+            signature_groups[diag.signature].append(diag)
+
+        # Sort groups by number of occurrences and return top 1
+        sorted_groups = sorted(
+            signature_groups.items(),
+            key=lambda x: len(x[1]),
+            reverse=True
+        )
+
+        # Return diagnostics of the top signature group
+        if sorted_groups:
+            return sorted_groups[0][1]
+        else:
+            return []
+
+    elif target_option.startswith("signature:"):
+        # Return diagnostics with specific signature
+        target_sig = target_option[len("signature:"):]
+        return [d for d in diagnostics if d.signature == target_sig]
+
+    elif target_option.startswith("file:"):
+        # Return diagnostics from specific file
+        target_file = target_option[len("file:"):]
+        return [d for d in diagnostics if d.file and target_file in d.file]
+
+    else:
+        # If target option doesn't match any pattern, default to top
+        return select_target_diagnostics(diagnostics, "top")
+
+
+def get_target_signatures_before_fix(diagnostics: List[Diagnostic], target_option: str = None) -> set:
+    """
+    Get the set of target signature before applying a fix.
+
+    Args:
+        diagnostics: Current diagnostics
+        target_option: Target option like "top", "signature:<sig>", or "file:<path>"
+
+    Returns:
+        Set of target signatures to track
+    """
+    target_diags = select_target_diagnostics(diagnostics, target_option)
+    return {d.signature for d in target_diags}
+
+
+def check_fix_verification(diagnostics_after: List[Diagnostic], target_signatures_before: set) -> dict:
+    """
+    Check if the targeted signatures disappeared after the fix.
+
+    Args:
+        diagnostics_after: Diagnostics after applying the fix
+        target_signatures_before: Set of signatures that were targeted before the fix
+
+    Returns:
+        Dictionary with verification results:
+        - 'success': True if all target signatures disappeared
+        - 'new_signatures': Set of new signatures that appeared
+        - 'remaining_target_signatures': Set of target signatures that still exist
+    """
+    after_signatures = {d.signature for d in diagnostics_after}
+
+    # Signatures that disappeared
+    disappeared_signatures = target_signatures_before - after_signatures
+
+    # Signatures that still remain
+    remaining_target_signatures = target_signatures_before & after_signatures
+
+    # New signatures that appeared (not in original target)
+    all_original_signatures = target_signatures_before  # We only care about targeted ones
+    new_signatures = after_signatures - all_original_signatures
+
+    success = len(remaining_target_signatures) == 0
+
+    return {
+        'success': success,
+        'disappeared_signatures': disappeared_signatures,
+        'remaining_target_signatures': remaining_target_signatures,
+        'new_signatures': new_signatures
+    }
+
+
 def compute_signature(raw_message: str, file_path: Optional[str] = None) -> str:
     """
     Compute a stable signature for a diagnostic message.
@@ -4006,9 +4296,18 @@ def handle_build_run(session_path, verbose=False):
             print_error(f"Failed steps: {[step.step_name for step in failed_steps]}", 4)
 
 
-def handle_build_fix(session_path, verbose=False):
+def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None, keep_going=False, limit_steps=None, build_after_each_fix=True):
     """
     Run iterative AI-assisted fixes based on diagnostics.
+
+    Args:
+        session_path: Path to the session file
+        verbose: Verbose output flag
+        max_iterations: Maximum number of fix iterations (default 5)
+        target: Target diagnostic: "top", "signature:<sig>", or "file:<path>"
+        keep_going: Attempt next error even if one fails
+        limit_steps: Restrict pipeline steps (comma-separated: build,lint,tests,...)
+        build_after_each_fix: Rerun build after each fix (default: true)
     """
     if verbose:
         print_debug(f"Running AI-assisted fixes for session: {session_path}", 2)
@@ -4025,24 +4324,223 @@ def handle_build_fix(session_path, verbose=False):
         print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
         sys.exit(1)
 
-    # Get the build directory and last run results
+    # Load builder configuration
+    builder_config = load_builder_config(session_path)
+
+    # If limit_steps is specified, filter the pipeline steps
+    if limit_steps:
+        allowed_steps = [s.strip() for s in limit_steps.split(',')]
+        original_steps = builder_config.pipeline.steps[:]
+        builder_config.pipeline.steps = [s for s in original_steps if s in allowed_steps]
+        if verbose:
+            print_debug(f"Limited pipeline steps to: {builder_config.pipeline.steps}", 2)
+
+    # Get the build directory
     build_dir = get_build_dir(session_path)
-    last_run_path = os.path.join(build_dir, "last_run.json")
 
-    if not os.path.exists(last_run_path):
-        print_error(f"No build results found. Run 'maestro build run' first.", 2)
-        sys.exit(1)
+    # Run initial pipeline to get baseline diagnostics
+    print_info("Running initial pipeline to get baseline diagnostics...", 2)
 
-    # Load the last build results
-    with open(last_run_path, 'r', encoding='utf-8') as f:
-        build_results = json.load(f)
+    # First run the full pipeline to get current diagnostics
+    pipeline_result = run_pipeline(builder_config, session_path)
+    diagnostics = extract_diagnostics(pipeline_result)
 
-    if build_results.get("success", True):
-        print_info("Last build was successful. No fixes needed.", 2)
+    # Match diagnostics against known issues
+    known_issue_matches = match_known_issues(diagnostics)
+    for diagnostic in diagnostics:
+        if diagnostic.signature in known_issue_matches:
+            diagnostic.known_issues = known_issue_matches[diagnostic.signature]
+
+    if not diagnostics:
+        print_info("No diagnostics found. Build is successful.", 2)
         return
 
-    print_info("Analyzing build diagnostics for AI-assisted fixes...", 2)
+    print_info(f"Found {len(diagnostics)} diagnostics in initial run.", 2)
 
+    # Create fix history directory and file
+    fix_history_path = os.path.join(build_dir, "fix_history.json")
+    fix_history = {
+        "session": session_path,
+        "start_time": time.time(),
+        "iterations": []
+    }
+
+    # Main fix loop
+    iteration = 0
+    remaining_diagnostics = diagnostics
+
+    while iteration < max_iterations and remaining_diagnostics:
+        iteration += 1
+        print_info(f"\n--- FIX ITERATION {iteration}/{max_iterations} ---", 2)
+
+        # Select target diagnostics based on target option
+        target_diags = select_target_diagnostics(remaining_diagnostics, target)
+        if not target_diags:
+            print_info("No target diagnostics selected. Exiting fix loop.", 2)
+            break
+
+        target_signatures = {d.signature for d in target_diags}
+        print_info(f"Targeting {len(target_diags)} diagnostics with signatures: {target_signatures}", 2)
+
+        # Create backup before applying fix
+        if is_git_repo(session_path):
+            patch_filename = os.path.join(build_dir, "patches", f"{iteration}_before.patch")
+            if create_git_backup(session_path, patch_filename):
+                print_info(f"Created git backup patch: {patch_filename}", 2)
+                using_git = True
+            else:
+                print_warning("Failed to create git backup, using file backup", 2)
+                backup_dir = os.path.join(build_dir, "backups", f"iteration_{iteration}")
+                if create_file_backup(session_path, backup_dir):
+                    print_info(f"Created file backup: {backup_dir}", 2)
+                    using_git = False
+                    backup_location = backup_dir
+                else:
+                    print_error("Failed to create any backup. Exiting.", 2)
+                    break
+        else:
+            # Not in git repo, use file backup
+            backup_dir = os.path.join(build_dir, "backups", f"iteration_{iteration}")
+            if create_file_backup(session_path, backup_dir):
+                print_info(f"Created file backup: {backup_dir}", 2)
+                using_git = False
+                backup_location = backup_dir
+            else:
+                print_error("Failed to create file backup. Exiting.", 2)
+                break
+
+        # Get AI to propose a fix for the targeted diagnostics
+        fix_proposal = propose_fix_for_diagnostics(
+            session,
+            target_diags,
+            session_path,
+            verbose
+        )
+
+        if not fix_proposal:
+            print_warning("No fix proposal received from AI. Skipping this iteration.", 2)
+            # Restore from backup
+            if using_git:
+                if restore_from_git(session_path):
+                    print_info("Restored from git backup.", 2)
+                else:
+                    print_error("Failed to restore from git backup.", 2)
+            else:
+                if restore_from_file_backup(session_path, backup_location):
+                    print_info("Restored from file backup.", 2)
+                else:
+                    print_error("Failed to restore from file backup.", 2)
+            break
+
+        # Apply the fix (this function should apply the actual code changes)
+        # For now, we'll simulate applying the fix
+        apply_fix_result = apply_fix(fix_proposal, session_path, verbose)
+        if not apply_fix_result:
+            print_warning("Failed to apply fix. Restoring from backup.", 2)
+            # Restore from backup
+            if using_git:
+                restore_from_git(session_path)
+            else:
+                restore_from_file_backup(session_path, backup_location)
+            continue
+
+        # Rerun pipeline to check if fix worked
+        if build_after_each_fix:
+            print_info("Rerunning pipeline to verify fix...", 2)
+            pipeline_result_after = run_pipeline(builder_config, session_path)
+            diagnostics_after = extract_diagnostics(pipeline_result_after)
+
+            # Match diagnostics against known issues
+            known_issue_matches_after = match_known_issues(diagnostics_after)
+            for diagnostic in diagnostics_after:
+                if diagnostic.signature in known_issue_matches_after:
+                    diagnostic.known_issues = known_issue_matches_after[diagnostic.signature]
+        else:
+            # If not rerunning, assume diagnostics remain the same
+            diagnostics_after = remaining_diagnostics
+
+        # Check verification
+        verification_result = check_fix_verification(diagnostics_after, target_signatures)
+
+        # Record iteration results
+        iteration_record = {
+            "iteration": iteration,
+            "target_signatures": list(target_signatures),
+            "fix_proposal": fix_proposal,
+            "verification": {
+                "success": verification_result['success'],
+                "disappeared_signatures": list(verification_result['disappeared_signatures']),
+                "remaining_target_signatures": list(verification_result['remaining_target_signatures']),
+                "new_signatures": list(verification_result['new_signatures']),
+            },
+            "timestamp": time.time(),
+            "applied": True
+        }
+
+        fix_history["iterations"].append(iteration_record)
+
+        if verification_result['success']:
+            print_success(f"✓ Fix successful! All target signatures resolved.", 2)
+            remaining_diagnostics = diagnostics_after  # Update remaining diagnostics
+        else:
+            print_warning(f"✗ Fix did not resolve all target signatures. Restoring from backup...", 2)
+            # Restore from backup since fix didn't work
+            if using_git:
+                if restore_from_git(session_path):
+                    print_info("Restored from git backup.", 2)
+                    # Reload diagnostics after restore
+                    pipeline_result_after = run_pipeline(builder_config, session_path)
+                    remaining_diagnostics = extract_diagnostics(pipeline_result_after)
+                else:
+                    print_error("Failed to restore from git backup.", 2)
+            else:
+                if restore_from_file_backup(session_path, backup_location):
+                    print_info("Restored from file backup.", 2)
+                    # Reload diagnostics after restore
+                    pipeline_result_after = run_pipeline(builder_config, session_path)
+                    remaining_diagnostics = extract_diagnostics(pipeline_result_after)
+                else:
+                    print_error("Failed to restore from file backup.", 2)
+
+            # Update the iteration record to indicate the fix was reverted
+            fix_history["iterations"][-1]["applied"] = False
+            fix_history["iterations"][-1]["reverted"] = True
+
+        # Check if we should continue to next iteration
+        if not keep_going and not verification_result['success']:
+            print_info("Stopping fix loop (not keeping going after failed fix).", 2)
+            break
+
+        # Update target diagnostics for next iteration
+        target_diags = select_target_diagnostics(remaining_diagnostics, target)
+        if not target_diags:
+            print_info("No more target diagnostics to fix. Exiting fix loop.", 2)
+            break
+
+        print_info(f"Remaining diagnostics after iteration {iteration}: {len(remaining_diagnostics)}", 2)
+
+    # Save fix history
+    os.makedirs(os.path.dirname(fix_history_path), exist_ok=True)
+    with open(fix_history_path, 'w', encoding='utf-8') as f:
+        json.dump(fix_history, f, indent=2)
+
+    print_info(f"\nFix loop completed after {iteration} iterations.", 2)
+    print_info(f"Fix history saved to: {fix_history_path}", 2)
+
+
+def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbose=False):
+    """
+    Ask AI to propose a fix for the given target diagnostics.
+
+    Args:
+        session: The loaded session
+        target_diagnostics: List of diagnostics to fix
+        session_path: Path to the session file
+        verbose: Verbose output flag
+
+    Returns:
+        Fix proposal text from the AI, or None if failed
+    """
     # Load rules
     rules = load_rules(session)
     if verbose:
@@ -4054,50 +4552,84 @@ def handle_build_fix(session_path, verbose=False):
     os.makedirs(inputs_dir, exist_ok=True)
 
     # Build the prompt for the fix
-    fix_prompt = f"""[BUILD DIAGNOSTICS]\n"""
-    fix_prompt += f"Build script: {build_results.get('build_script', 'N/A')}\n"
-    fix_prompt += f"Return code: {build_results.get('return_code', 'N/A')}\n"
-    fix_prompt += f"Success: {build_results.get('success', False)}\n"
-    fix_prompt += f"STDOUT:\n{build_results.get('stdout', '')}\n"
-    fix_prompt += f"STDERR:\n{build_results.get('stderr', '')}\n\n"""
+    fix_prompt = f"""[TARGET DIAGNOSTICS]\n"""
+    for i, diag in enumerate(target_diagnostics):
+        fix_prompt += f"Diagnostic {i+1}:\n"
+        fix_prompt += f"  Tool: {diag.tool}\n"
+        fix_prompt += f"  Severity: {diag.severity}\n"
+        fix_prompt += f"  File: {diag.file}\n"
+        fix_prompt += f"  Line: {diag.line}\n"
+        fix_prompt += f"  Message: {diag.message}\n"
+        fix_prompt += f"  Raw: {diag.raw}\n"
+        if diag.known_issues:
+            fix_prompt += f"  Known Issues:\n"
+            for issue in diag.known_issues:
+                fix_prompt += f"    - {issue.description}\n"
+                fix_prompt += f"      Hint: {issue.fix_hint}\n"
+        fix_prompt += "\n"
 
     fix_prompt += f"""[INSTRUCTIONS]\n"""
-    fix_prompt += f"You are an expert build diagnostician. Analyze the build errors above and suggest fixes.\n"""
-    fix_prompt += f"- Identify the root cause of the build failure\n"""
-    fix_prompt += f"- Suggest specific code or configuration changes to fix the issue\n"""
-    fix_prompt += f"- If needed, suggest changes to build scripts or dependencies\n"""
-    fix_prompt += f"- Be specific and actionable in your recommendations\n"""
-    fix_prompt += f"- Consider the project context and existing codebase\n"""
-    fix_prompt += f"- Only suggest changes that would fix the identified build issues\n\n"""
+    fix_prompt += f"You are an expert debugger. Propose a specific code change to fix the above diagnostic(s).\n"""
+    fix_prompt += f"- Identify the root cause of the issue(s)\n"""
+    fix_prompt += f"- Suggest specific code changes to a particular file\n"""
+    fix_prompt += f"- Be precise about line numbers and the exact changes needed\n"""
+    fix_prompt += f"- Follow the style and conventions of the existing codebase\n"""
+    fix_prompt += f"- If possible, apply fixes that address the root cause rather than just symptoms\n\n"""
 
     if rules:
         fix_prompt += f"""[PROJECT RULES]\n{rules}\n\n"""
 
     # Save the fix prompt
     timestamp = int(time.time())
-    fix_prompt_filename = os.path.join(inputs_dir, f"build_fix_{timestamp}.txt")
+    fix_prompt_filename = os.path.join(inputs_dir, f"fix_iteration_{timestamp}.txt")
     with open(fix_prompt_filename, "w", encoding="utf-8") as f:
         f.write(fix_prompt)
 
-    # Let's use the qwen worker engine to analyze the build diagnostics
+    # Let's use the qwen worker engine to propose the fix
     from engines import get_engine
     try:
         engine = get_engine("qwen_worker")
-        fix_analysis = engine.generate(fix_prompt)
+        fix_proposal = engine.generate(fix_prompt)
 
-        # Save the fix analysis
+        # Save the fix proposal
         outputs_dir = os.path.join(maestro_dir, "outputs")
         os.makedirs(outputs_dir, exist_ok=True)
-        fix_analysis_filename = os.path.join(outputs_dir, f"build_fix_analysis_{timestamp}.txt")
-        with open(fix_analysis_filename, "w", encoding="utf-8") as f:
-            f.write(fix_analysis)
+        fix_proposal_filename = os.path.join(outputs_dir, f"fix_proposal_{timestamp}.txt")
+        with open(fix_proposal_filename, "w", encoding="utf-8") as f:
+            f.write(fix_proposal)
 
-        print_info("Fix analysis completed. AI recommendations:", 2)
-        print(fix_analysis)
+        if verbose:
+            print_info(f"Fix proposal generated and saved to: {fix_proposal_filename}", 2)
+
+        return fix_proposal
 
     except Exception as e:
-        print_error(f"Failed to get AI fix analysis: {e}", 2)
-        sys.exit(1)
+        print_error(f"Failed to get AI fix proposal: {e}", 2)
+        return None
+
+
+def apply_fix(fix_proposal, session_path, verbose=False):
+    """
+    Apply the fix proposal to the codebase.
+
+    Args:
+        fix_proposal: The fix proposal text from AI
+        session_path: Path to the session file
+        verbose: Verbose output flag
+
+    Returns:
+        True if fix was applied successfully, False otherwise
+    """
+    # For now, we'll print the proposal and return True to simulate applying it
+    # In a real implementation, this would actually apply the code changes
+    if verbose:
+        print_info("Fix proposal to be applied:", 2)
+        print_info(fix_proposal[:500], 2)  # Print first 500 chars of proposal
+        if len(fix_proposal) > 500:
+            print_info("... (truncated)", 2)
+
+    print_info("Applying fix proposal (simulated in this implementation)", 2)
+    return True  # Simulate successful application
 
 
 def handle_build_status(session_path, verbose=False):
