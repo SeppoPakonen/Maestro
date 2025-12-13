@@ -2015,8 +2015,37 @@ def main():
     # log list plan
     log_subparsers.add_parser('list-plan', aliases=['lp'], help='List all plan changes')
 
-    # Add --refine-root command
-    refine_parser = subparsers.add_parser('refine-root', help='Clean up and categorize the root task before planning')
+    # Root command group
+    root_parser = subparsers.add_parser('root', help='Root task management commands')
+    root_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    root_subparsers = root_parser.add_subparsers(dest='root_subcommand', help='Root subcommands')
+
+    # root set
+    root_set_parser = root_subparsers.add_parser('set', aliases=['s'], help='Set the raw root task (reads from stdin)')
+    root_set_parser.add_argument('--text', help='Inline text instead of reading from stdin')
+
+    # root get
+    root_get_parser = root_subparsers.add_parser('get', aliases=['g'], help='Print the raw root task')
+    root_get_parser.add_argument('--clean', action='store_true', help='Print clean version instead of raw')
+
+    # root refine
+    root_refine_parser = root_subparsers.add_parser('refine', aliases=['r'], help='Refine the root task (like the old refine-root)')
+    root_refine_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+
+    # root discuss
+    root_discuss_parser = root_subparsers.add_parser('discuss', aliases=['d'], help='Interactive conversation about the root task')
+    root_discuss_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+    root_discuss_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
+    root_discuss_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
+
+    # root show
+    root_show_parser = root_subparsers.add_parser('show', aliases=['sh'], help='Show all root fields (raw, clean, categories, summary)')
+
+    # Add help/h subcommands for root subparsers
+    root_subparsers.add_parser('help', aliases=['h'], help='Show help for root commands')
+
+    # Add --refine-root command (deprecated, kept as alias for backward compatibility)
+    refine_parser = subparsers.add_parser('refine-root', help=argparse.SUPPRESS)  # Hidden from help
     refine_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     refine_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
 
@@ -2304,7 +2333,48 @@ def main():
                     response = input("Do you want the planner to rewrite/clean the root task before planning? [Y/n]: ").strip().lower()
                     clean_task = response in ['', 'y', 'yes']
                     handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force, clean_task=clean_task)
+    elif args.command == 'root':
+        # Handle the root command and its subcommands
+        if not hasattr(args, 'root_subcommand') or not args.root_subcommand:
+            print_error("No root subcommand specified", 2)
+            root_parser.print_help()
+            sys.exit(1)
+
+        # Check for help subcommand first, before requiring a session
+        if args.root_subcommand in ['help', 'h']:
+            # Print help for root subcommands without requiring a session
+            root_parser.print_help()
+            return  # Exit after showing help
+
+        # For most root commands, a session is required
+        session_path = args.session
+
+        # Get the active session if not provided
+        if not session_path:
+            default_session = find_default_session_file()
+            if default_session:
+                session_path = default_session
+                if args.verbose:
+                    print_info(f"Using default session file: {default_session}", 2)
+            else:
+                print_error("Session is required for root commands", 2)
+                sys.exit(1)
+
+        if args.root_subcommand == 'set':
+            handle_root_set(session_path, args.text, args.verbose)
+        elif args.root_subcommand == 'get':
+            handle_root_get(session_path, args.clean, args.verbose)
+        elif args.root_subcommand == 'refine':
+            handle_root_refine(session_path, args.verbose, args.planner_order)
+        elif args.root_subcommand == 'discuss':
+            handle_root_discuss(session_path, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order)
+        elif args.root_subcommand == 'show':
+            handle_root_show(session_path, args.verbose)
+        else:
+            print_error(f"Unknown root subcommand: {args.root_subcommand}", 2)
+            sys.exit(1)
     elif args.command == 'refine-root':
+        print_warning("Deprecated: use 'maestro root refine' instead.")
         handle_refine_root(args.session, args.verbose, args.planner_order)
     elif args.command == 'task':
         # Handle the task command and its subcommands
@@ -4368,6 +4438,226 @@ def handle_refine_root(session_path, verbose=False, planner_order="codex,claude"
 
     if verbose:
         print(f"[VERBOSE] Session saved with status: {session.status}")
+
+
+def handle_root_set(session_path, text=None, verbose=False):
+    """
+    Set the raw root task in the session.
+    If text is provided via --text, use it. Otherwise, read from stdin.
+    """
+    if verbose:
+        print(f"[VERBOSE] Loading session from: {session_path}")
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        error_session = Session(
+            id=str(uuid.uuid4()),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+            root_task="",
+            subtasks=[],
+            rules_path=None,
+            status="failed"
+        )
+        save_session(error_session, session_path)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        try:
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+        except:
+            pass
+        sys.exit(1)
+
+    # Get the root task text
+    if text is not None:
+        root_task_text = text
+    else:
+        # Read from stdin
+        print_info("Enter the root task (press Ctrl+D or Ctrl+Z on a new line when done):", 2)
+        root_task_text = sys.stdin.read()
+
+    # Set the root task in the session
+    session.root_task = root_task_text.strip()
+    session.root_task_raw = root_task_text.strip()  # Also set raw for consistency
+    session.updated_at = datetime.now().isoformat()
+
+    # Save the updated session
+    save_session(session, session_path)
+
+    print_success(f"Root task set successfully (length: {len(root_task_text)} characters)")
+
+
+def handle_root_get(session_path, clean=False, verbose=False):
+    """
+    Print the raw root task or clean version if --clean is specified.
+    """
+    if verbose:
+        print(f"[VERBOSE] Loading session from: {session_path}")
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    # Print the requested field
+    if clean and session.root_task_clean:
+        print(session.root_task_clean)
+    else:
+        print(session.root_task_raw if session.root_task_raw else session.root_task)
+
+
+def handle_root_refine(session_path, verbose=False, planner_order="codex,claude"):
+    """
+    Refine the root task using the planner AI (same as the old refine-root functionality).
+    """
+    handle_refine_root(session_path, verbose, planner_order)
+
+
+def handle_root_discuss(session_path, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude"):
+    """
+    Interactive conversation about the root task.
+    """
+    if verbose:
+        print(f"[VERBOSE] Loading session from: {session_path}")
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    # Initialize conversation with the current root task
+    maestro_dir = get_maestro_dir(session_path)
+    conversations_dir = os.path.join(maestro_dir, "conversations")
+    os.makedirs(conversations_dir, exist_ok=True)
+
+    # Create initial conversation
+    root_task_text = session.root_task_raw if session.root_task_raw else session.root_task
+    conversation = [
+        {"role": "system", "content": f"You are helping refine and discuss the root task: {root_task_text}"},
+        {"role": "assistant", "content": f"Let's discuss your root task: {root_task_text}. How can I help you refine or improve it?"}
+    ]
+
+    print_header("ROOT TASK DISCUSSION MODE")
+    print_info("Ready to discuss the root task. Type 'quit' or 'exit' to finish.", 4)
+
+    # Print initial message from AI
+    print(f"\n[AI]: {conversation[-1]['content']}")
+
+    try:
+        while True:
+            # Get user input
+            user_input = input("\n[USER]: ").strip()
+
+            # Check for exit conditions
+            if user_input.lower() in ['quit', 'exit', 'done', 'finish']:
+                break
+
+            # Add user message to conversation
+            conversation.append({"role": "user", "content": user_input})
+
+            # Build a prompt from the conversation
+            conversation_prompt = "You are in a discussion about the root task. Here's the conversation so far:\n\n"
+            for msg in conversation:
+                conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+            conversation_prompt += "\nPlease respond to continue the discussion."
+
+            # Print prompt if requested
+            if print_ai_prompts:
+                print_debug(f"Prompt to AI:\n{conversation_prompt}", 2)
+
+            # Call the engine to get AI response
+            planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+            planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+            # Find the first available engine
+            engine = None
+            for model_name in planner_preference:
+                try:
+                    engine = create_engine_for_model(model_name, session_path)
+                    break
+                except Exception:
+                    continue
+
+            if not engine:
+                print_error("No available AI engine found", 2)
+                sys.exit(1)
+
+            # Get AI response
+            assistant_response = engine.generate(conversation_prompt)
+
+            # Print AI response if streaming
+            if stream_ai_output:
+                print(f"\n[AI]: {assistant_response}")
+            else:
+                print(f"\n[AI]: {assistant_response}")
+
+            # Add AI response to conversation
+            conversation.append({"role": "assistant", "content": assistant_response})
+
+    except KeyboardInterrupt:
+        print("\n[orchestrator] Conversation interrupted by user", file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:
+        print(f"Error in conversation: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # At this point, the conversation is complete
+    # We'll save the conversation but not necessarily update the session
+    conversation_filename = os.path.join(conversations_dir, f"root_discussion_{int(time.time())}.txt")
+    with open(conversation_filename, "w", encoding="utf-8") as f:
+        f.write(f"Root task discussion conversation\n\n")
+        for i, msg in enumerate(conversation):
+            f.write(f"{msg['role'].upper()}: {msg['content']}\n\n")
+
+    print_success(f"Conversation saved to: {conversation_filename}", 2)
+
+
+def handle_root_show(session_path, verbose=False):
+    """
+    Show all root fields (raw, clean, categories, summary).
+    """
+    if verbose:
+        print(f"[VERBOSE] Loading session from: {session_path}")
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print(f"Error: Session file '{session_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Could not load session from '{session_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+    print_header("ROOT TASK DETAILS")
+    print(f"Raw: {session.root_task_raw if session.root_task_raw else session.root_task}")
+    print(f"Clean: {session.root_task_clean if session.root_task_clean else '(not refined yet)'}")
+    print(f"Summary: {session.root_task_summary if session.root_task_summary else '(not refined yet)'}")
+    print(f"Categories: {session.root_task_categories if session.root_task_categories else ['(not refined yet)']}")
 
 
 def create_root_refinement_prompt(root_task_raw):
