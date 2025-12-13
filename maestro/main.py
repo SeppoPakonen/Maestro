@@ -148,6 +148,32 @@ class Rulebook:
     rules: List[Rule]
 
 @dataclass
+class ConversionStage:
+    """Represents a single stage in the conversion pipeline."""
+    name: str
+    status: str  # "pending", "running", "completed", "failed", "skipped"
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error: Optional[str] = None
+    details: Optional[Dict[str, Any]] = field(default_factory=dict)
+
+@dataclass
+class ConversionPipeline:
+    """Represents the conversion pipeline state."""
+    id: str
+    name: str
+    source: str
+    target: str
+    created_at: str
+    updated_at: str
+    status: str  # "new", "running", "completed", "failed", "paused"
+    stages: List[ConversionStage] = field(default_factory=list)
+    active_stage: Optional[str] = None
+    logs_dir: Optional[str] = None
+    inputs_dir: Optional[str] = None
+    outputs_dir: Optional[str] = None
+
+@dataclass
 class MatchedRule:
     """A rule that has been matched to a diagnostic."""
     rule: Rule
@@ -2036,6 +2062,32 @@ def main():
     # Add help/h subcommands for root subparsers
     root_subparsers.add_parser('help', aliases=['h'], help='Show help for root commands')
 
+    # Conversion pipeline command group
+    convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
+    convert_subparsers = convert_parser.add_subparsers(dest='convert_subcommand', help='Conversion pipeline subcommands')
+
+    # convert new
+    convert_new_parser = convert_subparsers.add_parser('new', aliases=['n'], help='Create a new conversion pipeline')
+    convert_new_parser.add_argument('source', help='Source repository or path')
+    convert_new_parser.add_argument('target', help='Target repository or path')
+    convert_new_parser.add_argument('--name', help='Name for the conversion pipeline')
+
+    # convert run
+    convert_run_parser = convert_subparsers.add_parser('run', aliases=['r'], help='Run the conversion pipeline')
+    convert_run_parser.add_argument('--stage', help='Run specific stage (overview|core_builds|grow_from_main|full_tree_check)')
+
+    # convert status
+    convert_status_parser = convert_subparsers.add_parser('status', aliases=['s'], help='Show conversion pipeline status')
+
+    # convert show
+    convert_show_parser = convert_subparsers.add_parser('show', aliases=['sh'], help='Show detailed conversion pipeline information')
+
+    # convert reset
+    convert_reset_parser = convert_subparsers.add_parser('reset', aliases=['rst'], help='Reset the conversion pipeline')
+
+    # Add help/h subcommands for convert subparsers
+    convert_subparsers.add_parser('help', aliases=['h'], help='Show help for conversion pipeline commands')
+
     # Add --refine-root command (deprecated, kept as alias for backward compatibility)
     refine_parser = subparsers.add_parser('refine-root', help=argparse.SUPPRESS)  # Hidden from help
     refine_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
@@ -2818,6 +2870,30 @@ def main():
                 except Exception as e:
                     print_error(f"Error checking build targets: {e}", 2)
                     sys.exit(1)
+    elif args.command == 'convert':
+        # Handle conversion pipeline commands
+        if hasattr(args, 'convert_subcommand') and args.convert_subcommand:
+            if args.convert_subcommand == 'new':
+                # For the 'new' command, we have source, target, and optional name
+                handle_convert_new_with_args(args.source, args.target, args.name, args.verbose)
+            elif args.convert_subcommand == 'run':
+                handle_convert_run(args.verbose)
+            elif args.convert_subcommand == 'status':
+                handle_convert_status(args.verbose)
+            elif args.convert_subcommand == 'show':
+                handle_convert_show(args.verbose)
+            elif args.convert_subcommand == 'reset':
+                handle_convert_reset(args.verbose)
+            elif args.convert_subcommand == 'help' or args.convert_subcommand == 'h':
+                # Print help for convert subcommands
+                convert_parser.print_help()
+                return  # Exit after showing help
+            else:
+                print_error(f"Unknown convert subcommand: {args.convert_subcommand}", 2)
+                sys.exit(1)
+        else:
+            # Default to status if no subcommand specified
+            handle_convert_status(args.verbose)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
@@ -12196,6 +12272,301 @@ def run_structure_fixes_from_rulebooks(session_path: str, verbose: bool = False)
 
 
 # Add the RuleAction type to the Rulebook schema conversion functions if needed
+
+
+def get_convert_dir() -> str:
+    """
+    Get the conversion pipeline directory path.
+
+    Returns:
+        Path to the .maestro/convert directory
+    """
+    # Use current working directory as base
+    base_dir = os.getcwd()
+    maestro_dir = os.environ.get('MAESTRO_DIR', os.path.join(base_dir, '.maestro'))
+    convert_dir = os.path.join(maestro_dir, 'convert')
+    os.makedirs(convert_dir, exist_ok=True)
+    return convert_dir
+
+
+def load_conversion_pipeline(pipeline_id: str) -> ConversionPipeline:
+    """
+    Load a conversion pipeline from its JSON file.
+
+    Args:
+        pipeline_id: ID of the pipeline to load
+
+    Returns:
+        ConversionPipeline object
+    """
+    convert_dir = get_convert_dir()
+    pipeline_file = os.path.join(convert_dir, f"{pipeline_id}.json")
+
+    if not os.path.exists(pipeline_file):
+        raise FileNotFoundError(f"Conversion pipeline file does not exist: {pipeline_file}")
+
+    with open(pipeline_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    # Convert the loaded data back to a ConversionPipeline object
+    stages = []
+    for stage_data in data.get('stages', []):
+        stage = ConversionStage(
+            name=stage_data['name'],
+            status=stage_data['status'],
+            started_at=stage_data.get('started_at'),
+            completed_at=stage_data.get('completed_at'),
+            error=stage_data.get('error'),
+            details=stage_data.get('details', {})
+        )
+        stages.append(stage)
+
+    pipeline = ConversionPipeline(
+        id=data['id'],
+        name=data['name'],
+        source=data['source'],
+        target=data['target'],
+        created_at=data['created_at'],
+        updated_at=data['updated_at'],
+        status=data['status'],
+        stages=stages,
+        active_stage=data.get('active_stage'),
+        logs_dir=data.get('logs_dir'),
+        inputs_dir=data.get('inputs_dir'),
+        outputs_dir=data.get('outputs_dir')
+    )
+
+    return pipeline
+
+
+def save_conversion_pipeline(pipeline: ConversionPipeline) -> None:
+    """
+    Save a conversion pipeline to its JSON file.
+
+    Args:
+        pipeline: ConversionPipeline object to save
+    """
+    convert_dir = get_convert_dir()
+    pipeline_file = os.path.join(convert_dir, f"{pipeline.id}.json")
+
+    # Convert the pipeline to a dictionary for JSON serialization
+    stages_data = [
+        {
+            'name': stage.name,
+            'status': stage.status,
+            'started_at': stage.started_at,
+            'completed_at': stage.completed_at,
+            'error': stage.error,
+            'details': stage.details
+        }
+        for stage in pipeline.stages
+    ]
+
+    pipeline_data = {
+        'id': pipeline.id,
+        'name': pipeline.name,
+        'source': pipeline.source,
+        'target': pipeline.target,
+        'created_at': pipeline.created_at,
+        'updated_at': pipeline.updated_at,
+        'status': pipeline.status,
+        'stages': stages_data,
+        'active_stage': pipeline.active_stage,
+        'logs_dir': pipeline.logs_dir,
+        'inputs_dir': pipeline.inputs_dir,
+        'outputs_dir': pipeline.outputs_dir
+    }
+
+    with open(pipeline_file, 'w', encoding='utf-8') as f:
+        json.dump(pipeline_data, f, indent=2)
+
+
+def create_conversion_pipeline(name: str, source: str, target: str) -> ConversionPipeline:
+    """
+    Create a new conversion pipeline with the defined stages.
+
+    Args:
+        name: Name for the pipeline
+        source: Source repository/path
+        target: Target repository/path
+
+    Returns:
+        Created ConversionPipeline object
+    """
+    pipeline_id = f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+
+    # Define the four required stages
+    stages = [
+        ConversionStage(name="overview", status="pending"),
+        ConversionStage(name="core_builds", status="pending"),
+        ConversionStage(name="grow_from_main", status="pending"),
+        ConversionStage(name="full_tree_check", status="pending")
+    ]
+
+    # Create directories for the pipeline
+    convert_dir = get_convert_dir()
+    pipeline_logs_dir = os.path.join(convert_dir, pipeline_id, "logs")
+    pipeline_inputs_dir = os.path.join(convert_dir, pipeline_id, "inputs")
+    pipeline_outputs_dir = os.path.join(convert_dir, pipeline_id, "outputs")
+
+    os.makedirs(pipeline_logs_dir, exist_ok=True)
+    os.makedirs(pipeline_inputs_dir, exist_ok=True)
+    os.makedirs(pipeline_outputs_dir, exist_ok=True)
+
+    pipeline = ConversionPipeline(
+        id=pipeline_id,
+        name=name,
+        source=source,
+        target=target,
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+        status="new",
+        stages=stages,
+        active_stage="overview",  # Start with the first stage
+        logs_dir=pipeline_logs_dir,
+        inputs_dir=pipeline_inputs_dir,
+        outputs_dir=pipeline_outputs_dir
+    )
+
+    save_conversion_pipeline(pipeline)
+    return pipeline
+
+
+def handle_convert_new(verbose: bool = False) -> None:
+    """
+    Handle creating a new conversion pipeline.
+
+    Args:
+        verbose: Whether to show verbose output
+    """
+    # This function is kept for backward compatibility but should not be used directly
+    # The actual implementation is in handle_convert_new_with_args which receives command line args
+    if verbose:
+        print_info("Creating new conversion pipeline...", 2)
+    print_error("handle_convert_new should not be called directly. Use handle_convert_new_with_args with proper arguments.", 2)
+
+
+def handle_convert_run(verbose: bool = False) -> None:
+    """
+    Handle running the conversion pipeline.
+
+    Args:
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info("Running conversion pipeline...", 2)
+    print_warning("Conversion pipeline run functionality not fully implemented yet.", 2)
+
+
+def handle_convert_status(verbose: bool = False) -> None:
+    """
+    Handle showing the status of conversion pipelines.
+
+    Args:
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info("Showing conversion pipeline status...", 2)
+
+    convert_dir = get_convert_dir()
+
+    # List all conversion pipeline files
+    pipeline_files = [f for f in os.listdir(convert_dir) if f.endswith('.json')]
+
+    if not pipeline_files:
+        print_info("No conversion pipelines found.", 2)
+        return
+
+    print_header("CONVERSION PIPELINES")
+    for filename in pipeline_files:
+        pipeline_id = os.path.splitext(filename)[0]
+        try:
+            pipeline = load_conversion_pipeline(pipeline_id)
+
+            # Print pipeline summary
+            status_color = Colors.BRIGHT_GREEN if pipeline.status == "completed" else \
+                          Colors.BRIGHT_YELLOW if pipeline.status in ["new", "running"] else \
+                          Colors.BRIGHT_RED
+            styled_print(f"Pipeline: {pipeline.name} (ID: {pipeline.id})", status_color, Colors.BOLD, 0)
+            styled_print(f"  Source: {pipeline.source}", Colors.BRIGHT_WHITE, None, 2)
+            styled_print(f"  Target: {pipeline.target}", Colors.BRIGHT_WHITE, None, 2)
+            styled_print(f"  Status: {pipeline.status}", status_color, None, 2)
+            styled_print(f"  Created: {pipeline.created_at}", Colors.BRIGHT_CYAN, None, 2)
+            styled_print(f"  Active Stage: {pipeline.active_stage or 'None'}", Colors.BRIGHT_MAGENTA, None, 2)
+
+            # Show stage progress
+            print_subheader(f"Stage Progress ({len([s for s in pipeline.stages if s.status == 'completed'])}/{len(pipeline.stages)} completed)")
+            for stage in pipeline.stages:
+                status_symbol = "✓" if stage.status == "completed" else \
+                               "○" if stage.status == "pending" else \
+                               "→" if stage.status == "running" else \
+                               "✗"
+                status_color = Colors.BRIGHT_GREEN if stage.status == "completed" else \
+                              Colors.BRIGHT_YELLOW if stage.status == "pending" else \
+                              Colors.BRIGHT_CYAN if stage.status == "running" else \
+                              Colors.BRIGHT_RED
+                styled_print(f"  {status_symbol} {stage.name}: {stage.status}", status_color, None, 4)
+
+                if stage.error and verbose:
+                    styled_print(f"     Error: {stage.error}", Colors.BRIGHT_RED, None, 6)
+
+            print()  # Empty line between pipelines
+        except Exception as e:
+            print_error(f"Error loading pipeline {pipeline_id}: {e}", 2)
+
+
+def handle_convert_show(verbose: bool = False) -> None:
+    """
+    Handle showing detailed information about a specific conversion pipeline.
+
+    Args:
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info("Showing detailed conversion pipeline information...", 2)
+    print_warning("Conversion pipeline show functionality not fully implemented yet.", 2)
+
+
+def handle_convert_reset(verbose: bool = False) -> None:
+    """
+    Handle resetting a conversion pipeline.
+
+    Args:
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info("Resetting conversion pipeline...", 2)
+    print_warning("Conversion pipeline reset functionality not fully implemented yet.", 2)
+
+
+def handle_convert_new_with_args(source: str, target: str, name: str = None, verbose: bool = False) -> None:
+    """
+    Handle creating a new conversion pipeline with the given arguments.
+
+    Args:
+        source: Source repository/path
+        target: Target repository/path
+        name: Name for the pipeline (optional, will generate if not provided)
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info(f"Creating new conversion pipeline from {source} to {target}", 2)
+
+    if not name:
+        name = f"Conversion from {os.path.basename(source)} to {os.path.basename(target)}"
+
+    try:
+        pipeline = create_conversion_pipeline(name, source, target)
+        print_success(f"Created conversion pipeline '{pipeline.name}' with ID: {pipeline.id}", 2)
+        print_info(f"Pipeline directory: {os.path.dirname(pipeline.logs_dir)}", 4)
+
+        if verbose:
+            print_info("Pipeline stages:", 2)
+            for stage in pipeline.stages:
+                styled_print(f"  - {stage.name} [{stage.status}]", Colors.BRIGHT_YELLOW, None, 4)
+    except Exception as e:
+        print_error(f"Error creating conversion pipeline: {e}", 2)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
