@@ -8164,67 +8164,244 @@ def handle_build_fix_plan(name: str = None, verbose: bool = False, stream_ai_out
     # Load the rulebook
     rulebook = load_rulebook(name)
 
-    print_header(f"EDITING RULEBOOK: {name}")
-    print_info("Enter your rulebook modifications. Type '/done' when finished.", 2)
-    print_info("The AI will generate JSON rule definitions.", 2)
+    print_header(f"INTERACTIVE RULEBOOK PLANNING: {name}")
+    print_info("Discuss your rulebook with the AI planner. Type '/done' to finalize JSON.", 2)
+    print_info("Type '/quit' to exit without saving.", 2)
 
-    # Start interactive session with AI
-    planner_preference = [p.strip() for p in planner_order.split(',')]
+    # Set up conversation directories
+    fix_dir = get_fix_rulebooks_dir()
+    conversations_dir = os.path.join(fix_dir, 'conversations')
+    outputs_dir = os.path.join(fix_dir, 'outputs')
+    os.makedirs(conversations_dir, exist_ok=True)
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    # Generate timestamp for this session
+    timestamp = int(time.time())
+    conversation_file = os.path.join(conversations_dir, f"rulebook_{name}_{timestamp}.txt")
+    output_file = os.path.join(outputs_dir, f"planner_output_{name}_{timestamp}.txt")
+
+    # Start conversation transcript
+    transcript = []
+    transcript.append(f"INTERACTIVE RULEBOOK PLANNING SESSION: {name}")
+    transcript.append(f"Started: {datetime.now().isoformat()}")
+    transcript.append("")
 
     # Build initial context for the AI
-    context = f"""
+    current_rulebook_json = json.dumps({
+        "version": rulebook.version,
+        "name": rulebook.name,
+        "description": rulebook.description,
+        "rules": [
+            {
+                "id": r.id,
+                "enabled": r.enabled,
+                "priority": r.priority,
+                "match": {
+                    "any": [
+                        {"contains": c.contains} if c.contains else {"regex": c.regex}
+                        for c in r.match.any
+                    ],
+                    "not": [
+                        {"contains": c.contains} if c.contains else {"regex": c.regex}
+                        for c in r.match.not_conditions
+                    ]
+                },
+                "confidence": r.confidence,
+                "explanation": r.explanation,
+                "actions": [
+                    {
+                        "type": a.type,
+                        "text": a.text,
+                        "model_preference": a.model_preference,
+                        "prompt_template": a.prompt_template
+                    }
+                    for a in r.actions
+                ],
+                "verify": {
+                    "expect_signature_gone": r.verify.expect_signature_gone
+                }
+            }
+            for r in rulebook.rules
+        ]
+    }, indent=2)
+
+    initial_context = f"""
+[REACTIVE FIX RULEBOOK SPECIFICATION]
+You are creating reactive fix rules for automated diagnostic fixing across repositories.
+The purpose is to match diagnostic patterns and suggest appropriate fixes automatically.
+
 [EXISTING RULEBOOK]
-Name: {rulebook.get('name', name)}
-Created: {rulebook.get('created_at', 'unknown')}
-Rules: {json.dumps(rulebook.get('rules', []), indent=2)}
+{current_rulebook_json}
+
+[DIAGNOSTIC EXAMPLES]
+Common diagnostic patterns to match include:
+- U++ Vector/Moveable issues: "static_assert.*Moveable", "Upp::Vector", "Pick()"
+- Memory errors: "segmentation fault", "heap-use-after-free"
+- Template errors: "template instantiation", "no matching function"
+- Compiler errors: specific error signatures from gcc/clang/msvc
 
 [INSTRUCTIONS]
-- You are helping the user modify a fix rulebook
-- The user will provide updates to the rules
-- When the user types '/done', return a complete JSON rule definition
-- The JSON should follow this structure:
-{{
-  "name": "rulebook_name",
-  "created_at": "timestamp",
-  "rules": [
-    {{
-      "id": "rule_id",
-      "pattern": "regex_pattern",
-      "replace": "replacement_text",
-      "description": "what this rule does",
-      "enabled": true
-    }}
-  ]
-}}
-- Only return the JSON when the user types '/done'
+- Help the user discuss and refine rule definitions for reactive fixes
+- Each rule should have an ID, match conditions (any/not), confidence, explanation, actions, and verification
+- When user types '/done', return ONLY the complete rulebook JSON in the specified schema
+- The JSON schema must match the reactive fix rulebook format
+- Do not add any text outside the JSON when '/done' is requested
+- Focus on patterns that match diagnostic text/signatures and suggest actionable fixes
 """
 
-    # We'll implement a simple interactive loop here
-    # For now, this is a placeholder - actual AI interaction would need to be implemented
-    user_input = ""
-    while True:
-        user_input = input(f"\n[Rulebook Editor] > ").strip()
+    # Save initial context to transcript
+    transcript.append(f"AI: {initial_context.strip()}")
+    print_ai_response(initial_context.strip())
 
-        if user_input == "/done":
-            # Generate a sample JSON structure as a placeholder
-            # In a real implementation, this would call AI to generate the rules
-            print_info("Rulebook edit session completed. In a full implementation, AI would generate the final JSON rules.", 2)
-            print_info("Sample rulebook JSON structure:", 2)
-            sample_json = {
-                "name": rulebook.get('name', name),
-                "created_at": rulebook.get('created_at', datetime.now().isoformat()),
-                "rules": rulebook.get('rules', [])
-            }
-            print(json.dumps(sample_json, indent=2))
+    # Get planner engine
+    planner_preference = [p.strip() for p in planner_order.split(',')]
+
+    # Import required modules
+    from .engines import get_engine, EngineError
+
+    # Interactive loop
+    while True:
+        try:
+            user_input = input(f"\n[Rulebook Planner] > ").strip()
+        except EOFError:
+            print_info("\nSession ended (EOF).", 2)
             break
-        elif user_input == "/quit":
-            print_info("Rulebook edit session cancelled.", 2)
+
+        if user_input == "/quit":
+            print_info("Rulebook planning session cancelled. No changes saved.", 2)
+            break
+        elif user_input == "/done":
+            print_info("Finalizing rulebook with AI...", 2)
+
+            # Ask the AI to generate the final JSON rulebook
+            final_prompt = f"""
+[FINAL REQUEST]
+Based on our discussion, please return ONLY the complete rulebook JSON with all the rules we discussed.
+Do not include any other text or explanations - only return the valid JSON.
+
+The JSON must follow the reactive fix rulebook schema:
+{{
+  "version": 1,
+  "name": "...",
+  "description": "...",
+  "rules": [
+    ...
+  ]
+}}
+
+Return only the JSON.
+"""
+            transcript.append(f"User: /done")
+            transcript.append(f"System: Requesting final rulebook JSON")
+            transcript.append(f"AI Prompt: {final_prompt}")
+
+            # Get final output from AI
+            try:
+                ai_engine = get_engine(f"{planner_preference[0]}_planner")
+                final_output = ai_engine.generate(final_prompt)
+
+                # Save the final planner output
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(final_output)
+
+                if print_ai_prompts:
+                    print_info(f"Final AI prompt: {final_prompt}", 4)
+
+                if verbose:
+                    print_info(f"Raw AI output saved to: {output_file}", 2)
+
+                # Try to extract JSON from the response
+                import re
+                json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', final_output, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    # Find JSON object directly
+                    start = final_output.find('{')
+                    end = final_output.rfind('}') + 1
+                    if start != -1 and end > start:
+                        json_str = final_output[start:end]
+                    else:
+                        json_str = final_output
+
+                try:
+                    final_rulebook_data = json.loads(json_str)
+
+                    # Ensure the rulebook has the correct structure
+                    if "name" not in final_rulebook_data:
+                        final_rulebook_data["name"] = name
+
+                    # Save final rulebook using our save function
+                    final_rulebook = Rulebook(
+                        version=final_rulebook_data.get("version", 1),
+                        name=final_rulebook_data.get("name", name),
+                        description=final_rulebook_data.get("description", f"Rulebook for {name}"),
+                        rules=[]  # Will be populated by save_rulebook if needed
+                    )
+
+                    # For now, save the raw JSON data directly
+                    save_rulebook(name, final_rulebook_data)  # This will accept dict too
+
+                    print_success(f"Rulebook '{name}' saved successfully!", 2)
+                    print_info(f"Rulebook saved to: {get_rulebook_file_path(name)}", 2)
+                    print_info(f"Planner output saved to: {output_file}", 2)
+                    print_info(f"Conversation saved to: {conversation_file}", 2)
+
+                except json.JSONDecodeError as e:
+                    print_error(f"Failed to parse AI's JSON response: {e}", 2)
+                    print_warning("The AI response was:", 2)
+                    print_warning(final_output, 4)
+                    print_info("You may need to manually correct the rulebook JSON.", 2)
+
+            except EngineError as e:
+                print_error(f"Engine error during finalization: {e}", 2)
+                print_info("Conversation transcript saved to: {conversation_file}", 2)
+            except Exception as e:
+                print_error(f"Error during finalization: {e}", 2)
+
+            # Write conversation transcript
+            transcript.append(f"Session completed. Final JSON output saved to rulebook.")
+            with open(conversation_file, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(transcript))
+
             break
         elif user_input.startswith('/'):
             print_info(f"Unknown command: {user_input}. Use '/done' to finish or '/quit' to exit.", 2)
         else:
-            # Process the input (in a real implementation, this would interact with AI)
-            print_info(f"Processing: {user_input} (in a full implementation, AI would process this input)", 2)
+            # Process regular user input with AI
+            transcript.append(f"User: {user_input}")
+
+            if verbose:
+                print_info(f"Sending to AI: {user_input}", 4)
+
+            try:
+                ai_engine = get_engine(f"{planner_preference[0]}_planner")
+                ai_response = ai_engine.generate(f"{initial_context}\n\nUser request: {user_input}")
+
+                if stream_ai_output:
+                    print_ai_response(ai_response)
+                else:
+                    print_ai_response(ai_response[:200] + "..." if len(ai_response) > 200 else ai_response)
+
+                transcript.append(f"AI: {ai_response}")
+
+                if print_ai_prompts:
+                    print_info(f"AI prompt: {initial_context}\n\nUser request: {user_input}", 4)
+
+            except EngineError as e:
+                print_error(f"Engine error: {e}", 2)
+                transcript.append(f"Error: {str(e)}")
+            except Exception as e:
+                print_error(f"Error in AI interaction: {e}", 2)
+                transcript.append(f"Error: {str(e)}")
+
+    # Always save transcript even if session was quit
+    if '/done' not in [line.split(':', 1)[1].strip() if ':' in line else line for line in transcript[-5:]] and not any('/done' in line for line in transcript):
+        transcript.append("Session ended without finalization.")
+        print_info(f"Conversation transcript saved to: {conversation_file}", 2)
+
+    with open(conversation_file, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(transcript))
 
 
 def handle_build_fix_show(name_or_index: str = None, verbose: bool = False):
