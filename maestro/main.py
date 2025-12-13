@@ -158,6 +158,26 @@ class BuildTarget:
     environment: Dict[str, Any] = field(default_factory=dict)
 
 
+# Dataclasses for U++ package discovery
+@dataclass
+class UppPackage:
+    """Represents a U++ package with its files and metadata."""
+    name: str
+    dir_path: str
+    upp_path: str
+    main_header_path: Optional[str]
+    source_files: List[str] = field(default_factory=list)
+    header_files: List[str] = field(default_factory=list)
+    is_dependency_library: bool = False
+
+
+@dataclass
+class UppRepoIndex:
+    """Index of U++ assemblies and packages in a repository."""
+    assemblies: List[str]
+    packages: List[UppPackage]
+
+
 # ANSI color codes for styling
 class Colors:
     # Text colors
@@ -710,6 +730,123 @@ def update_subtask_summary_paths(session: Session, session_path: str):
 
             # Update the path in the session to point to the new location
             subtask.summary_file = new_path
+
+
+def scan_upp_repo(root_dir: str) -> UppRepoIndex:
+    """
+    Scan a U++ repository and discover packages according to U++ structure rules:
+    - Assembly directories contain package folders
+    - Packages are directories containing <Name>/<Name>.upp (presence defines package)
+    - Package main header: <Name>/<Name>.h when used as dependency library
+
+    Args:
+        root_dir: Root directory of the U++ repository to scan
+
+    Returns:
+        UppRepoIndex: Index containing assemblies and discovered packages
+    """
+    import os
+    from pathlib import Path
+
+    assemblies = []
+    packages = []
+
+    # Define source file extensions commonly used in U++
+    source_extensions = {'.cpp', '.cppi', '.icpp', '.h', '.hpp', '.inl'}
+
+    # List all immediate subdirectories of root_dir to identify potential assemblies
+    for item in os.listdir(root_dir):
+        item_path = os.path.join(root_dir, item)
+        if os.path.isdir(item_path):
+            # This could be an assembly directory
+            assemblies.append(item_path)
+
+            # Check if the assembly directory itself is a package
+            # (has the same name as the directory and contains <dirname>.upp)
+            assembly_name = os.path.basename(item_path)
+            potential_assembly_package_upp = os.path.join(item_path, f"{assembly_name}.upp")
+
+            if os.path.exists(potential_assembly_package_upp):
+                # The assembly directory itself is a package
+                main_header_path = os.path.join(item_path, f"{assembly_name}.h")
+                if not os.path.exists(main_header_path):
+                    main_header_path = None
+
+                # Collect source and header files
+                source_files = []
+                header_files = []
+
+                for root, dirs, files in os.walk(item_path):
+                    for file in files:
+                        _, ext = os.path.splitext(file)
+                        file_path = os.path.join(root, file)
+
+                        if ext.lower() in source_extensions:
+                            if ext.lower() in {'.h', '.hpp', '.inl'}:
+                                header_files.append(file_path)
+                            else:
+                                source_files.append(file_path)
+
+                # Check if this is a dependency library (has .h file with same name as directory)
+                is_dependency_library = main_header_path is not None
+
+                package = UppPackage(
+                    name=assembly_name,
+                    dir_path=item_path,
+                    upp_path=potential_assembly_package_upp,
+                    main_header_path=main_header_path,
+                    source_files=sorted(source_files),
+                    header_files=sorted(header_files),
+                    is_dependency_library=is_dependency_library
+                )
+                packages.append(package)
+
+            # Also look for potential package subdirectories inside this assembly
+            # that might have different names than the assembly
+            for pkg_name in os.listdir(item_path):
+                pkg_path = os.path.join(item_path, pkg_name)
+                if os.path.isdir(pkg_path) and pkg_path != item_path:  # Don't reprocess the assembly itself
+                    # Check if this directory contains <pkg_name>/<pkg_name>.upp file
+                    upp_file_path = os.path.join(pkg_path, f"{pkg_name}.upp")
+                    if os.path.exists(upp_file_path):
+                        # This is a valid U++ package
+                        main_header_path = os.path.join(pkg_path, f"{pkg_name}.h")
+                        if not os.path.exists(main_header_path):
+                            main_header_path = None
+
+                        # Collect source and header files
+                        source_files = []
+                        header_files = []
+
+                        for root, dirs, files in os.walk(pkg_path):
+                            for file in files:
+                                _, ext = os.path.splitext(file)
+                                file_path = os.path.join(root, file)
+
+                                if ext.lower() in source_extensions:
+                                    if ext.lower() in {'.h', '.hpp', '.inl'}:
+                                        header_files.append(file_path)
+                                    else:
+                                        source_files.append(file_path)
+
+                        # Check if this is a dependency library (has .h file with same name as directory)
+                        is_dependency_library = main_header_path is not None
+
+                        package = UppPackage(
+                            name=pkg_name,
+                            dir_path=pkg_path,
+                            upp_path=upp_file_path,
+                            main_header_path=main_header_path,
+                            source_files=sorted(source_files),
+                            header_files=sorted(header_files),
+                            is_dependency_library=is_dependency_library
+                        )
+                        packages.append(package)
+
+    return UppRepoIndex(
+        assemblies=assemblies,
+        packages=packages
+    )
 
 
 def get_session_path_by_name(session_name: str) -> str:
