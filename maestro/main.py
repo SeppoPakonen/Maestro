@@ -1845,7 +1845,10 @@ class PlannedSubtask:
 
 def main():
     parser = StyledArgumentParser(
-        description="Maestro - AI Task Management & Orchestration",
+        description="Maestro - AI Task Management & Orchestration\n\n"
+                    "Short aliases are available for all commands and subcommands.\n"
+                    "Examples: 'maestro b p' (build plan), 'maestro s l' (session list),\n"
+                    "          'maestro p tr' (plan tree), 'maestro t r' (task run)",
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--version', action='version',
@@ -1864,41 +1867,41 @@ def main():
     init_parser.add_argument('--dir', help='Directory to initialize (default: current directory)')
 
     # Session command with subcommands
-    session_parser = subparsers.add_parser('session', help='Session management commands')
+    session_parser = subparsers.add_parser('session', aliases=['s'], help='Session management commands')
     session_subparsers = session_parser.add_subparsers(dest='session_subcommand', help='Session subcommands')
 
     # session new
-    session_new_parser = session_subparsers.add_parser('new', help='Create a new session')
+    session_new_parser = session_subparsers.add_parser('new', aliases=['n'], help='Create a new session')
     session_new_parser.add_argument('name', nargs='?', help='Name for the new session')
     session_new_parser.add_argument('-t', '--root-task', help='Inline root task instead of reading stdin')
 
     # session list
-    session_list_parser = session_subparsers.add_parser('list', help='List all sessions')
+    session_list_parser = session_subparsers.add_parser('list', aliases=['ls', 'l'], help='List all sessions')
     session_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
 
     # session set
-    session_set_parser = session_subparsers.add_parser('set', help='Set active session')
+    session_set_parser = session_subparsers.add_parser('set', aliases=['st'], help='Set active session')
     session_set_parser.add_argument('name', nargs='?', help='Name of session to set as active (or list number)')
 
     # session get
-    session_get_parser = session_subparsers.add_parser('get', help='Get active session')
+    session_get_parser = session_subparsers.add_parser('get', aliases=['g'], help='Get active session')
     session_get_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
 
     # session remove
-    session_remove_parser = session_subparsers.add_parser('remove', help='Remove a session')
+    session_remove_parser = session_subparsers.add_parser('remove', aliases=['rm'], help='Remove a session')
     session_remove_parser.add_argument('name', help='Name of session to remove')
     session_remove_parser.add_argument('-y', '--yes', action='store_true', help='Skip confirmation prompts')
 
     # session details
-    session_details_parser = session_subparsers.add_parser('details', help='Show details of a session')
+    session_details_parser = session_subparsers.add_parser('details', aliases=['d'], help='Show details of a session')
     session_details_parser.add_argument('name', nargs='?', help='Name of session to show details for (or list number)')
 
     # Rules command
-    rules_parser = subparsers.add_parser('rules', help='Edit the session\'s rules file in $EDITOR')
+    rules_parser = subparsers.add_parser('rules', aliases=['r'], help='Edit the session\'s rules file in $EDITOR')
     rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # Plan command
-    plan_parser = subparsers.add_parser('plan', help='Run planner and update subtask plan')
+    plan_parser = subparsers.add_parser('plan', aliases=['p'], help='Run planner and update subtask plan')
     plan_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_parser.add_argument('--one-shot', action='store_true', help='Run single planner call that rewrites root task and returns finalized JSON plan')
     plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
@@ -1911,20 +1914,20 @@ def main():
     plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands')
 
     # plan tree
-    plan_tree_parser = plan_subparsers.add_parser('tree', help='Show the plan tree with ASCII art')
+    plan_tree_parser = plan_subparsers.add_parser('tree', aliases=['tr'], help='Show the plan tree with ASCII art')
     plan_tree_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # plan list
-    plan_list_parser = plan_subparsers.add_parser('list', help='List plans as numbered list')
+    plan_list_parser = plan_subparsers.add_parser('list', aliases=['ls'], help='List plans as numbered list')
     plan_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # plan show
-    plan_show_parser = plan_subparsers.add_parser('show', help='Show details of a specific plan')
+    plan_show_parser = plan_subparsers.add_parser('show', aliases=['sh'], help='Show details of a specific plan')
     plan_show_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_show_parser.add_argument('plan_id', nargs='?', help='Plan ID, number, or name to show (if omitted, shows active plan)')
 
     # plan discuss (alternative to --discuss)
-    plan_discuss_parser = plan_subparsers.add_parser('discuss', help='Alternative to plan --discuss')
+    plan_discuss_parser = plan_subparsers.add_parser('discuss', aliases=['d'], help='Alternative to plan --discuss')
     plan_discuss_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_discuss_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
     plan_discuss_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
@@ -1932,95 +1935,95 @@ def main():
     plan_discuss_parser.add_argument('--force', action='store_true', help='Ignore existing subtasks and force new planning')
 
     # plan set
-    plan_set_parser = plan_subparsers.add_parser('set', help='Set active plan ID to switch focus')
+    plan_set_parser = plan_subparsers.add_parser('set', aliases=['st'], help='Set active plan ID to switch focus')
     plan_set_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_set_parser.add_argument('plan_id', help='Plan ID to switch focus to')
 
     # plan get
-    plan_get_parser = plan_subparsers.add_parser('get', help='Print active plan')
+    plan_get_parser = plan_subparsers.add_parser('get', aliases=['g'], help='Print active plan')
     plan_get_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
+    # Add --kill-plan command (as a plan subcommand)
+    kill_parser = plan_subparsers.add_parser('kill', aliases=['k'], help='Mark a plan branch as dead')
+    kill_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    kill_parser.add_argument('plan_id', help='Plan ID to mark as dead')
 
     # Rules subcommands
     rules_subparsers = rules_parser.add_subparsers(dest='rules_subcommand', help='Rules subcommands')
 
     # rules list
-    rules_list_parser = rules_subparsers.add_parser('list', help='List all rules in JSON format')
+    rules_list_parser = rules_subparsers.add_parser('list', aliases=['ls'], help='List all rules in JSON format')
     rules_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # rules enable
-    rules_enable_parser = rules_subparsers.add_parser('enable', help='Enable a specific rule')
+    rules_enable_parser = rules_subparsers.add_parser('enable', aliases=['e'], help='Enable a specific rule')
     rules_enable_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     rules_enable_parser.add_argument('rule_id', help='Rule ID or number to enable')
 
     # rules disable
-    rules_disable_parser = rules_subparsers.add_parser('disable', help='Disable a specific rule')
+    rules_disable_parser = rules_subparsers.add_parser('disable', aliases=['d'], help='Disable a specific rule')
     rules_disable_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     rules_disable_parser.add_argument('rule_id', help='Rule ID or number to disable')
 
     # Task command
-    task_parser = subparsers.add_parser('task', help='Task management commands')
+    task_parser = subparsers.add_parser('task', aliases=['t'], help='Task management commands')
     task_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     task_subparsers = task_parser.add_subparsers(dest='task_subcommand', help='Task subcommands')
 
     # task list
-    task_list_parser = task_subparsers.add_parser('list', help='List tasks in the current plan')
+    task_list_parser = task_subparsers.add_parser('list', aliases=['ls'], help='List tasks in the current plan')
     task_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show rule-based tasks too')
 
     # task run (runs tasks, similar to resume)
-    task_run_parser = task_subparsers.add_parser('run', help='Run tasks (similar to resume)')
+    task_run_parser = task_subparsers.add_parser('run', aliases=['r'], help='Run tasks (similar to resume)')
     task_run_parser.add_argument('num_tasks', nargs='?', type=int, help='Number of tasks to run (if omitted, runs all pending tasks)')
     task_run_parser.add_argument('-q', '--quiet', action='store_true', help='Suppress streaming AI output')
 
     # task log (synonymous to "log task")
-    task_log_parser = task_subparsers.add_parser('log', help='Show past tasks (limited to 10, -a shows all)')
+    task_log_parser = task_subparsers.add_parser('log', aliases=['l'], help='Show past tasks (limited to 10, -a shows all)')
     task_log_parser.add_argument('-a', '--all', action='store_true', help='Show all tasks instead of just the last 10')
 
     # Log command
-    log_parser = subparsers.add_parser('log', help='Log management commands')
+    log_parser = subparsers.add_parser('log', aliases=['l'], help='Log management commands')
     log_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     log_subparsers = log_parser.add_subparsers(dest='log_subcommand', help='Log subcommands')
 
     # log help
-    log_subparsers.add_parser('help', help='Show help for log commands')
+    log_subparsers.add_parser('help', aliases=['h'], help='Show help for log commands')
 
     # log list
-    log_list_parser = log_subparsers.add_parser('list', help='List all past modifications')
+    log_list_parser = log_subparsers.add_parser('list', aliases=['ls'], help='List all past modifications')
     log_list_parser.add_argument('log_type', nargs='?', default='all', help='Type of logs to show: all, work, plan')
 
     # log list work
-    log_subparsers.add_parser('list-work', help='List all working sessions of tasks')
+    log_subparsers.add_parser('list-work', aliases=['lw'], help='List all working sessions of tasks')
 
     # log list plan
-    log_subparsers.add_parser('list-plan', help='List all plan changes')
+    log_subparsers.add_parser('list-plan', aliases=['lp'], help='List all plan changes')
 
     # Add --refine-root command
     refine_parser = subparsers.add_parser('refine-root', help='Clean up and categorize the root task before planning')
     refine_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     refine_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
 
-    # Add --kill-plan command (as a plan subcommand)
-    kill_parser = plan_subparsers.add_parser('kill', help='Mark a plan branch as dead')
-    kill_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
-    kill_parser.add_argument('plan_id', help='Plan ID to mark as dead')
-
     # Builder command group
-    builder_parser = subparsers.add_parser('build', help='Debug-only build workflows')
+    builder_parser = subparsers.add_parser('build', aliases=['b'], help='Debug-only build workflows')
     builder_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     builder_subparsers = builder_parser.add_subparsers(dest='builder_subcommand', help='Builder subcommands')
 
     # build run
-    build_run_parser = builder_subparsers.add_parser('run', help='Run configured build pipeline once and collect diagnostics')
+    build_run_parser = builder_subparsers.add_parser('run', aliases=['ru'], help='Run configured build pipeline once and collect diagnostics')
     build_run_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_run_parser.add_argument('--stop-after-step', help='Stop pipeline after the specified step')
     build_run_parser.add_argument('--limit-steps', help='Limit pipeline to specified steps (comma-separated)')
     build_run_parser.add_argument('--follow', action='store_true', help='Stream build output live to the terminal')
 
     # build fix (with subcommands for rulebook management)
-    build_fix_parser = builder_subparsers.add_parser('fix', help='Fix rulebook management and iterative AI-assisted fixes')
+    build_fix_parser = builder_subparsers.add_parser('fix', aliases=['f'], help='Fix rulebook management and iterative AI-assisted fixes')
     build_fix_subparsers = build_fix_parser.add_subparsers(dest='fix_subcommand', help='Fix subcommands')
 
     # build fix run (existing functionality)
-    build_fix_run_parser = build_fix_subparsers.add_parser('run', help='Run iterative AI-assisted fixes based on diagnostics')
+    build_fix_run_parser = build_fix_subparsers.add_parser('run', aliases=['r'], help='Run iterative AI-assisted fixes based on diagnostics')
     build_fix_run_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_fix_run_parser.add_argument('--max-iterations', type=int, default=5, help='Maximum number of fix iterations (default: 5)')
     build_fix_run_parser.add_argument('--limit-fixes', type=int, dest='max_iterations', help='Maximum number of fix attempts (alias for --max-iterations)')
@@ -2030,60 +2033,60 @@ def main():
     build_fix_run_parser.add_argument('--build-after-each-fix', action='store_true', default=True, help='Rerun build after each fix (default: true)')
 
     # build fix add
-    build_fix_add_parser = build_fix_subparsers.add_parser('add', help='Register a repository with a fix rulebook name')
+    build_fix_add_parser = build_fix_subparsers.add_parser('add', aliases=['a'], help='Register a repository with a fix rulebook name')
     build_fix_add_parser.add_argument('repo_path', help='Path to repository that contains .maestro/')
     build_fix_add_parser.add_argument('name', help='Name to link the rulebook to')
 
     # build fix new
-    build_fix_new_parser = build_fix_subparsers.add_parser('new', help='Create a new empty rulebook')
+    build_fix_new_parser = build_fix_subparsers.add_parser('new', aliases=['n'], help='Create a new empty rulebook')
     build_fix_new_parser.add_argument('name', help='Name for the new rulebook')
 
     # build fix list
-    build_fix_list_parser = build_fix_subparsers.add_parser('list', help='List all rulebooks')
+    build_fix_list_parser = build_fix_subparsers.add_parser('list', aliases=['ls'], help='List all rulebooks')
 
     # build fix remove
-    build_fix_remove_parser = build_fix_subparsers.add_parser('remove', help='Delete a rulebook from the registry')
+    build_fix_remove_parser = build_fix_subparsers.add_parser('remove', aliases=['rm'], help='Delete a rulebook from the registry')
     build_fix_remove_parser.add_argument('name_or_index', help='Rulebook name or index to remove')
 
     # build fix plan
-    build_fix_plan_parser = build_fix_subparsers.add_parser('plan', help='Discuss/edit a rulebook with planner AI')
+    build_fix_plan_parser = build_fix_subparsers.add_parser('plan', aliases=['p'], help='Discuss/edit a rulebook with planner AI')
     build_fix_plan_parser.add_argument('name', nargs='?', help='Rulebook name to edit (default: current active)')
     build_fix_plan_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
     build_fix_plan_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
     build_fix_plan_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
 
     # build fix show
-    build_fix_show_parser = build_fix_subparsers.add_parser('show', help='Display rulebook details')
+    build_fix_show_parser = build_fix_subparsers.add_parser('show', aliases=['sh'], help='Display rulebook details')
     build_fix_show_parser.add_argument('name_or_index', nargs='?', help='Rulebook name or index to show (default: current active)')
 
     # build status
-    build_status_parser = builder_subparsers.add_parser('status', help='Show last pipeline run results (summary, top errors)')
+    build_status_parser = builder_subparsers.add_parser('status', aliases=['stat'], help='Show last pipeline run results (summary, top errors)')
     build_status_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # build rules
-    build_rules_parser = builder_subparsers.add_parser('rules', help='Edit builder rules/config (separate from normal rules.txt)')
+    build_rules_parser = builder_subparsers.add_parser('rules', aliases=['r'], help='Edit builder rules/config (separate from normal rules.txt)')
     build_rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # build new
-    build_new_parser = builder_subparsers.add_parser('new', help='Create a new build target')
+    build_new_parser = builder_subparsers.add_parser('new', aliases=['n'], help='Create a new build target')
     build_new_parser.add_argument('name', help='Name for the new build target')
     build_new_parser.add_argument('--description', help='Description for the build target')
     build_new_parser.add_argument('--categories', help='Comma-separated categories (e.g., build,lint,static,valgrind)')
     build_new_parser.add_argument('--steps', help='Comma-separated pipeline steps (e.g., configure,build,lint)')
 
     # build list
-    build_list_parser = builder_subparsers.add_parser('list', help='List build targets')
+    build_list_parser = builder_subparsers.add_parser('list', aliases=['ls'], help='List build targets')
     build_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
 
     # build set
-    build_set_parser = builder_subparsers.add_parser('set', help='Set active build target')
+    build_set_parser = builder_subparsers.add_parser('set', aliases=['se'], help='Set active build target')
     build_set_parser.add_argument('name', help='Build target name or index to set as active')
 
     # build get
-    build_get_parser = builder_subparsers.add_parser('get', help='Print active build target')
+    build_get_parser = builder_subparsers.add_parser('get', aliases=['g'], help='Print active build target')
 
     # build plan
-    build_plan_parser = builder_subparsers.add_parser('plan', help='Interactive discussion to define target rules via AI')
+    build_plan_parser = builder_subparsers.add_parser('plan', aliases=['p'], help='Interactive discussion to define target rules via AI')
     build_plan_parser.add_argument('name', help='Build target name to plan')
     build_plan_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
     build_plan_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
@@ -2092,25 +2095,25 @@ def main():
     build_plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
 
     # build show
-    build_show_parser = builder_subparsers.add_parser('show', help='Show full details of build target')
+    build_show_parser = builder_subparsers.add_parser('show', aliases=['sh'], help='Show full details of build target')
     build_show_parser.add_argument('name', nargs='?', help='Build target name or index to show (default to active)')
 
     # build structure
-    build_structure_parser = builder_subparsers.add_parser('structure', help='U++ project structure validation and fixing')
+    build_structure_parser = builder_subparsers.add_parser('structure', aliases=['str'], help='U++ project structure validation and fixing')
     build_structure_subparsers = build_structure_parser.add_subparsers(dest='structure_subcommand', help='Structure subcommands')
 
     # build structure scan
-    structure_scan_parser = build_structure_subparsers.add_parser('scan', help='Analyze repository and produce a structured report (no changes)')
+    structure_scan_parser = build_structure_subparsers.add_parser('scan', aliases=['sc'], help='Analyze repository and produce a structured report (no changes)')
     structure_scan_parser.add_argument('--target', help='Use active build target if relevant; optional')
     structure_scan_parser.add_argument('--only', help='Comma-separated list of rules to apply: rule1,rule2,...')
     structure_scan_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
 
     # build structure show
-    structure_show_parser = build_structure_subparsers.add_parser('show', help='Print the last scan report (or scan if missing)')
+    structure_show_parser = build_structure_subparsers.add_parser('show', aliases=['sh'], help='Print the last scan report (or scan if missing)')
     structure_show_parser.add_argument('--target', help='Use active build target if relevant; optional')
 
     # build structure fix
-    structure_fix_parser = build_structure_subparsers.add_parser('fix', help='Propose fixes and write a fix plan JSON (no changes unless --apply)')
+    structure_fix_parser = build_structure_subparsers.add_parser('fix', aliases=['f'], help='Propose fixes and write a fix plan JSON (no changes unless --apply)')
     structure_fix_parser.add_argument('--apply', action='store_true', help='Apply fixes directly')
     structure_fix_parser.add_argument('--dry-run', action='store_true', help='Print what would change')
     structure_fix_parser.add_argument('--limit', type=int, help='Perform at most N file operations / fixes this run')
@@ -2119,7 +2122,7 @@ def main():
     structure_fix_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
 
     # build structure apply
-    structure_apply_parser = build_structure_subparsers.add_parser('apply', help='Apply the last fix plan')
+    structure_apply_parser = build_structure_subparsers.add_parser('apply', aliases=['a'], help='Apply the last fix plan')
     structure_apply_parser.add_argument('--dry-run', action='store_true', help='Print what would change')
     structure_apply_parser.add_argument('--limit', type=int, help='Perform at most N file operations / fixes this run')
     structure_apply_parser.add_argument('--target', help='Use active build target if relevant; optional')
@@ -2127,7 +2130,7 @@ def main():
     structure_apply_parser.add_argument('--no-revert-on-fail', dest='revert_on_fail', action='store_false', help='Disable revert on failure')
 
     # build structure lint
-    structure_lint_parser = build_structure_subparsers.add_parser('lint', help='Quick rules-only checks (fast, minimal I/O)')
+    structure_lint_parser = build_structure_subparsers.add_parser('lint', aliases=['l'], help='Quick rules-only checks (fast, minimal I/O)')
     structure_lint_parser.add_argument('--target', help='Use active build target if relevant; optional')
     structure_lint_parser.add_argument('--only', help='Comma-separated list of rules to apply: rule1,rule2,...')
     structure_lint_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
