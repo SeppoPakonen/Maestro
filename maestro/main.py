@@ -25,6 +25,7 @@ from typing import List, Dict, Optional, Any
 # Import the session model and engines from the package
 from .session_model import Session, Subtask, PlanNode, load_session, save_session
 from .engines import EngineError
+from .known_issues import match_known_issues, KnownIssue
 
 
 # Dataclasses for builder configuration
@@ -86,6 +87,7 @@ class Diagnostic:
     raw: str                    # Original diagnostic line(s)
     signature: str              # Computed fingerprint
     tags: List[str]             # e.g. ["upp", "moveable", "template", "vector"]
+    known_issues: List[KnownIssue] = field(default_factory=list)  # Matched known issues
 
 
 # ANSI color codes for styling
@@ -3913,6 +3915,14 @@ def handle_build_run(session_path, verbose=False):
     # Extract diagnostics from the pipeline run
     diagnostics = extract_diagnostics(pipeline_result)
 
+    # Match diagnostics against known issues
+    known_issue_matches = match_known_issues(diagnostics)
+
+    # Attach known issues to each diagnostic
+    for diagnostic in diagnostics:
+        if diagnostic.signature in known_issue_matches:
+            diagnostic.known_issues = known_issue_matches[diagnostic.signature]
+
     # Get the build directory
     build_dir = get_build_dir(session_path)
 
@@ -3947,7 +3957,24 @@ def handle_build_run(session_path, verbose=False):
     # Save diagnostics to a timestamped file
     timestamp = int(pipeline_result.timestamp)
     diagnostics_path = os.path.join(diagnostics_dir, f"{timestamp}.json")
-    diagnostics_data = [d.__dict__ for d in diagnostics]  # Convert to dict for JSON serialization
+    # Convert diagnostics to dict for JSON serialization, handling KnownIssue objects
+    diagnostics_data = []
+    for d in diagnostics:
+        d_dict = d.__dict__.copy()
+        # Convert KnownIssue objects to dict as well
+        known_issues_list = []
+        for issue in d.known_issues:
+            known_issues_list.append({
+                'id': issue.id,
+                'description': issue.description,
+                'patterns': issue.patterns,
+                'tags': issue.tags,
+                'fix_hint': issue.fix_hint,
+                'confidence': issue.confidence
+            })
+        d_dict['known_issues'] = known_issues_list
+        diagnostics_data.append(d_dict)
+
     with open(diagnostics_path, 'w', encoding='utf-8') as f:
         json.dump(diagnostics_data, f, indent=2)
 
@@ -3957,7 +3984,8 @@ def handle_build_run(session_path, verbose=False):
         f.write(f"Pipeline run at: {time.ctime(pipeline_result.timestamp)}\n")
         f.write(f"Overall success: {pipeline_result.success}\n")
         f.write(f"Total steps: {len(pipeline_result.step_results)}\n")
-        f.write(f"Total diagnostics found: {len(diagnostics)}\n\n")
+        f.write(f"Total diagnostics found: {len(diagnostics)}\n")
+        f.write(f"Known issue matches: {sum(len(d.known_issues) for d in diagnostics)}\n\n")
 
         for step_result in pipeline_result.step_results:
             f.write(f"Step: {step_result.step_name}\n")
@@ -3969,7 +3997,7 @@ def handle_build_run(session_path, verbose=False):
             f.write("\n")
 
     if pipeline_result.success:
-        print_success(f"Build pipeline completed successfully ({len(diagnostics)} diagnostics found)", 2)
+        print_success(f"Build pipeline completed successfully ({len(diagnostics)} diagnostics found, {sum(len(d.known_issues) for d in diagnostics)} known issue matches)", 2)
     else:
         print_error("Build pipeline failed", 2)
         # Show failed steps
@@ -4129,16 +4157,33 @@ def handle_build_status(session_path, verbose=False):
             diagnostics_data = json.load(f)
 
         # Convert back to Diagnostic objects
-        diagnostics = [Diagnostic(
-            tool=d['tool'],
-            severity=d['severity'],
-            file=d['file'],
-            line=d['line'],
-            message=d['message'],
-            raw=d['raw'],
-            signature=d['signature'],
-            tags=d['tags']
-        ) for d in diagnostics_data]
+        diagnostics = []
+        for d in diagnostics_data:
+            # Handle the known_issues field
+            known_issues = []
+            if 'known_issues' in d and d['known_issues']:
+                for issue_data in d['known_issues']:
+                    known_issues.append(KnownIssue(
+                        id=issue_data['id'],
+                        description=issue_data['description'],
+                        patterns=issue_data['patterns'],
+                        tags=issue_data['tags'],
+                        fix_hint=issue_data['fix_hint'],
+                        confidence=issue_data['confidence']
+                    ))
+
+            diagnostic = Diagnostic(
+                tool=d['tool'],
+                severity=d['severity'],
+                file=d['file'],
+                line=d['line'],
+                message=d['message'],
+                raw=d['raw'],
+                signature=d['signature'],
+                tags=d['tags'],
+                known_issues=known_issues
+            )
+            diagnostics.append(diagnostic)
 
         # Group diagnostics by signature
         signature_groups = {}
@@ -4190,6 +4235,15 @@ def handle_build_status(session_path, verbose=False):
 
                 if first_diag.tags:
                     styled_print(f"    Tags: {', '.join(first_diag.tags)}", Colors.BRIGHT_MAGENTA, None, 2)
+
+                # Show known issue information if available
+                if first_diag.known_issues:
+                    for issue in first_diag.known_issues:
+                        confidence_str = f"({issue.confidence*100:.0f}% confidence)"
+                        styled_print(f"    Known Issue {confidence_str}: {issue.description[:80]}{'...' if len(issue.description) > 80 else ''}",
+                                   Colors.BRIGHT_MAGENTA, Colors.BOLD, 2)
+                        styled_print(f"    Fix Hint: {issue.fix_hint[:100]}{'...' if len(issue.fix_hint) > 100 else ''}",
+                                   Colors.BRIGHT_YELLOW, None, 2)
 
     else:
         print_warning("No diagnostics found. Run 'maestro build run' first.", 2)
