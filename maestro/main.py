@@ -843,6 +843,7 @@ def main():
     build_run_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_run_parser.add_argument('--stop-after-step', help='Stop pipeline after the specified step')
     build_run_parser.add_argument('--limit-steps', help='Limit pipeline to specified steps (comma-separated)')
+    build_run_parser.add_argument('--follow', action='store_true', help='Stream build output live to the terminal')
 
     # build fix
     build_fix_parser = builder_subparsers.add_parser('fix', help='Run iterative AI-assisted fixes based on diagnostics')
@@ -1030,7 +1031,8 @@ def main():
                     args.session,
                     args.verbose,
                     stop_after_step=getattr(args, 'stop_after_step', None),
-                    limit_steps=getattr(args, 'limit_steps', None)
+                    limit_steps=getattr(args, 'limit_steps', None),
+                    follow=getattr(args, 'follow', False)
                 )
             elif args.builder_subcommand == 'fix':
                 handle_build_fix(
@@ -3690,6 +3692,273 @@ def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
     )
 
 
+def run_pipeline_with_streaming(config: BuilderConfig, session_path: str, verbose: bool = False) -> PipelineRunResult:
+    """
+    Run the diagnostic pipeline with live output streaming.
+
+    Args:
+        config: BuilderConfig object with pipeline configuration
+        session_path: Path to the session file
+        verbose: Verbose output flag
+
+    Returns:
+        PipelineRunResult object with results from all steps
+    """
+    import time
+    import subprocess
+
+    print_info("Running diagnostic pipeline with live output...", 2)
+
+    build_dir = get_build_dir(session_path)
+    logs_dir = os.path.join(build_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    timestamp = int(time.time())
+    step_results = []
+
+    # Run each step in the pipeline
+    for step_name in config.pipeline.steps:
+        if step_name not in config.step:
+            print_warning(f"Step '{step_name}' defined in pipeline but not configured. Skipping.", 2)
+            continue
+
+        step_config = config.step[step_name]
+        print_info(f"Running step: {step_name}", 4)
+
+        start_time = time.time()
+
+        try:
+            # Run the step command with streaming
+            print_info(f"Streaming output for step '{step_name}'...", 2)
+
+            # Create a process with real-time output streaming
+            result = subprocess.Popen(
+                step_config.cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=os.path.dirname(session_path)  # Run in the session directory
+            )
+
+            # Stream output in real-time
+            stdout_lines = []
+            stderr_lines = []
+
+            # Stream stdout
+            for line in result.stdout:
+                print(line, end='')  # Print to terminal in real-time
+                stdout_lines.append(line)
+
+            # Stream stderr
+            for line in result.stderr:
+                print(line, end='')  # Print to terminal in real-time
+                stderr_lines.append(line)
+
+            # Wait for process to complete
+            return_code = result.wait()
+
+            duration = time.time() - start_time
+            stdout = ''.join(stdout_lines)
+            stderr = ''.join(stderr_lines)
+
+            # Determine success based on exit code and whether step is optional
+            success = (return_code == 0) or step_config.optional
+
+            # Create result object
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=return_code,
+                stdout=stdout,
+                stderr=stderr,
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write raw logs to files (still persist for later viewing)
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write(stdout)
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(stderr)
+
+            # Print status for this step
+            if success:
+                print_success(f"Step '{step_name}' completed successfully (exit code: {return_code}, duration: {duration:.2f}s)", 4)
+            else:
+                print_error(f"Step '{step_name}' failed (exit code: {return_code}, duration: {duration:.2f}s)", 4)
+                if stderr:
+                    print_error(f"  Error: {stderr.split(chr(10))[0] if stderr else ''}", 4)
+
+        except FileNotFoundError:
+            # Command not found, but if optional, note it and continue
+            duration = time.time() - start_time
+            success = step_config.optional  # Optional steps succeed if not found
+
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=127,  # Standard "command not found" exit code
+                stdout="",
+                stderr=f"Command not found: {' '.join(step_config.cmd)}",
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write raw logs to files
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(f"Command not found: {' '.join(step_config.cmd)}")
+
+            if success:
+                print_warning(f"Step '{step_name}' skipped (command not found, but optional)", 4)
+            else:
+                print_error(f"Step '{step_name}' failed (command not found: {' '.join(step_config.cmd)})", 4)
+
+        except Exception as e:
+            duration = time.time() - start_time
+            success = step_config.optional  # Optional steps succeed if error occurs
+
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=1,
+                stdout="",
+                stderr=str(e),
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write raw logs to files
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(str(e))
+
+            if success:
+                print_warning(f"Step '{step_name}' skipped due to error (but optional): {e}", 4)
+            else:
+                print_error(f"Step '{step_name}' failed with error: {e}", 4)
+
+    # Check if valgrind should run
+    if config.valgrind.enabled and config.valgrind.cmd:
+        print_info("Running valgrind analysis...", 4)
+
+        start_time = time.time()
+
+        try:
+            result = subprocess.Popen(
+                config.valgrind.cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=os.path.dirname(session_path)
+            )
+
+            # Stream valgrind output
+            stdout_lines = []
+            stderr_lines = []
+
+            # Stream stdout
+            for line in result.stdout:
+                print(line, end='')  # Print to terminal in real-time
+                stdout_lines.append(line)
+
+            # Stream stderr
+            for line in result.stderr:
+                print(line, end='')  # Print to terminal in real-time
+                stderr_lines.append(line)
+
+            # Wait for process to complete
+            return_code = result.wait()
+
+            duration = time.time() - start_time
+            stdout = ''.join(stdout_lines)
+            stderr = ''.join(stderr_lines)
+
+            # Valgrind typically returns 0 for no issues, > 0 for issues found
+            success = return_code == 0
+
+            step_result = StepResult(
+                step_name="valgrind",
+                exit_code=return_code,
+                stdout=stdout,
+                stderr=stderr,
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write valgrind logs
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write(stdout)
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(stderr)
+
+            if success:
+                print_success(f"Valgrind completed successfully (exit code: {return_code}, duration: {duration:.2f}s)", 4)
+            else:
+                print_error(f"Valgrind found issues (exit code: {return_code}, duration: {duration:.2f}s)", 4)
+
+        except Exception as e:
+            duration = time.time() - start_time
+
+            step_result = StepResult(
+                step_name="valgrind",
+                exit_code=1,
+                stdout="",
+                stderr=str(e),
+                duration=duration,
+                success=False
+            )
+
+            step_results.append(step_result)
+
+            # Write valgrind logs
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(str(e))
+
+            print_error(f"Valgrind failed with error: {e}", 4)
+
+    # Overall success is true if all non-optional steps succeeded
+    overall_success = all(result.success or config.step.get(result.step_name, StepConfig([])).optional
+                         for result in step_results if result.step_name != "valgrind") and \
+                     (not config.valgrind.enabled or step_results[-1].step_name != "valgrind" or
+                      step_results[-1].success if step_results and step_results[-1].step_name == "valgrind" else True)
+
+    return PipelineRunResult(
+        timestamp=time.time(),
+        step_results=step_results,
+        success=overall_success
+    )
+
+
 def is_git_repo(session_path: str) -> bool:
     """
     Check if the session directory is inside a git repository.
@@ -4185,7 +4454,7 @@ def generate_tags(message: str, tool: str) -> List[str]:
     return unique_tags
 
 
-def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_steps=None):
+def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_steps=None, follow=False):
     """
     Run configured build pipeline once and collect diagnostics.
 
@@ -4194,6 +4463,7 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         verbose: Verbose output flag
         stop_after_step: Stop pipeline after the specified step
         limit_steps: Limit pipeline to specified steps
+        follow: Stream output live to terminal
     """
     if verbose:
         print_debug(f"Running build pipeline for session: {session_path}", 2)
@@ -4231,11 +4501,28 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         print_error(f"Step '{stop_after_step}' not found in pipeline steps: {builder_config.pipeline.steps}", 2)
         sys.exit(1)
 
+    # Always print paths for visibility
+    build_dir = get_build_dir(session_path)
+    logs_dir = os.path.join(build_dir, "logs")
+    diagnostics_dir = os.path.join(build_dir, "diagnostics")
+    fix_history_path = os.path.join(build_dir, "fix_history.json")
+    last_run_path = os.path.join(build_dir, "last_run.json")
+
+    if verbose or follow:
+        print_info(f"Build logs: {logs_dir}/", 2)
+        print_info(f"Diagnostics: {diagnostics_dir}/", 2)
+        print_info(f"Last run: {last_run_path}", 2)
+        print_info(f"Fix history: {fix_history_path}", 2)
+
     # Run the diagnostic pipeline
     if verbose and builder_config.pipeline.steps:
         print_info(f"Pipeline will run these steps: {builder_config.pipeline.steps}", 2)
 
-    pipeline_result = run_pipeline(builder_config, session_path)
+    # Use streaming if --follow is enabled
+    if follow:
+        pipeline_result = run_pipeline_with_streaming(builder_config, session_path, verbose)
+    else:
+        pipeline_result = run_pipeline(builder_config, session_path)
 
     # Extract diagnostics from the pipeline run
     diagnostics = extract_diagnostics(pipeline_result)
@@ -5033,6 +5320,37 @@ def handle_build_status(session_path, verbose=False):
     else:
         print_warning("No diagnostics found. Run 'maestro build run' first.", 2)
 
+    # Show last fix iteration results if available
+    fix_history_path = os.path.join(build_dir, "fix_history.json")
+    if os.path.exists(fix_history_path):
+        with open(fix_history_path, 'r', encoding='utf-8') as f:
+            fix_history = json.load(f)
+
+        if 'iterations' in fix_history and fix_history['iterations']:
+            last_iteration = fix_history['iterations'][-1]
+            print_subheader("LAST FIX ITERATION")
+
+            iter_num = last_iteration.get('iteration', 0)
+            success = last_iteration.get('applied', False)
+            reverted = last_iteration.get('reverted', False)
+
+            status_color = Colors.BRIGHT_GREEN if success and not reverted else Colors.BRIGHT_RED
+            status_text = "KEPT" if success and not reverted else "REVERTED" if reverted else "FAILED"
+            styled_print(f"Iteration #{iter_num}: {status_text}", status_color, Colors.BOLD, 2)
+
+            if 'target_signatures' in last_iteration:
+                styled_print(f"Target Signatures: {len(last_iteration['target_signatures'])} targeted", Colors.BRIGHT_WHITE, None, 2)
+
+            if 'verification' in last_iteration:
+                verification = last_iteration['verification']
+                styled_print(f"Success: {'Yes' if verification.get('success', False) else 'No'}",
+                           Colors.BRIGHT_GREEN if verification.get('success', False) else Colors.BRIGHT_RED,
+                           None, 2)
+
+                if verification.get('remaining_target_signatures'):
+                    styled_print(f"Signatures remaining: {len(verification['remaining_target_signatures'])}",
+                               Colors.BRIGHT_RED, None, 2)
+
     # Show step results
     print_subheader("STEP RESULTS")
     if 'steps' in build_results:
@@ -5068,6 +5386,18 @@ def handle_build_status(session_path, verbose=False):
 
                 if len(output_lines) > 5:
                     styled_print(f"... and {len(output_lines) - 5} more lines", Colors.BRIGHT_YELLOW, None, 2)
+
+    # Always print paths for visibility
+    logs_dir = os.path.join(build_dir, "logs")
+    diagnostics_dir = os.path.join(build_dir, "diagnostics")
+    fix_history_path = os.path.join(build_dir, "fix_history.json")
+    last_run_path = os.path.join(build_dir, "last_run.json")
+
+    print_subheader("BUILD ARTIFACTS")
+    styled_print(f"Build logs: {logs_dir}/", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Diagnostics: {diagnostics_dir}/", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Last run: {last_run_path}", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Fix history: {fix_history_path}", Colors.BRIGHT_GREEN, None, 2)
 
 
 def handle_build_rules(session_path, verbose=False):
