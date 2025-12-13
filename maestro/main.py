@@ -6457,14 +6457,36 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
         fix_prompt += f"  - {sig}\n"
     fix_prompt += "\n"
 
+    # Match diagnostics against active rulebooks and add matched rules to prompt
+    matched_rules = match_rulebooks_to_diagnostics(target_diagnostics, session_dir)
+    if matched_rules:
+        fix_prompt += "[MATCHED REACTIVE RULES]\n"
+        for matched_rule in matched_rules:
+            rule = matched_rule.rule
+            diagnostic = matched_rule.diagnostic
+            fix_prompt += f"Matched Rule ID: {rule.id}\n"
+            fix_prompt += f"  Explanation: {rule.explanation}\n"
+            fix_prompt += f"  Confidence: {matched_rule.confidence}\n"
+            fix_prompt += f"  Diagnostic: {diagnostic.message[:100]}...\n"
+
+            # Add rule actions to the prompt
+            for action in rule.actions:
+                if action.type == "hint":
+                    fix_prompt += f"  Hint Action: {action.text}\n"
+                elif action.type == "prompt_patch":
+                    fix_prompt += f"  Patch Action Template: {action.prompt_template}\n"
+            fix_prompt += "\n"
+        fix_prompt += "\n"
+
     # Add project rules if available
     if rules:
         fix_prompt += f"[PROJECT RULES]\n{rules}\n\n"
 
     # Add the specific instructions for JSON format
     fix_prompt += """[INSTRUCTIONS]\n"""
-    fix_prompt += """You are a pragmatic debugger. You must analyze the above diagnostics and known issues,\n"""
-    fix_prompt += """then return a structured JSON plan with specific, actionable changes.\n\n"""
+    fix_prompt += """You are a pragmatic debugger. You must analyze the above diagnostics, known issues, and matched rules.\n"""
+    fix_prompt += """Use matched rule explanations and hints to guide your fix strategy when appropriate.\n"""
+    fix_prompt += """Return a structured JSON plan with specific, actionable changes.\n\n"""
     fix_prompt += """Your response MUST be valid JSON in the following format:\n"""
     fix_prompt += """{\n"""
     fix_prompt += """  "summary": "what you plan to change and why",\n"""
@@ -6475,10 +6497,57 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
     fix_prompt += """  "risk": "low|medium|high",\n"""
     fix_prompt += """  "expected_effect": "which signatures should disappear"\n"""
     fix_prompt += """}\n\n"""
-    fix_prompt += """Your analysis should be based on the actual diagnostics and known issue hints provided.\n"""
-    fix_prompt += """Do not speculate or make assumptions beyond the provided information.\n"""
+    fix_prompt += """Your analysis should be based on the actual diagnostics, known issue hints, and matched rule suggestions provided.\n"""
+    fix_prompt += """Focus on implementing minimal patches that address the diagnostic signature effectively.\n"""
 
     return fix_prompt
+
+
+def match_rulebooks_to_diagnostics(diagnostics: List[Diagnostic], session_dir: str):
+    """
+    Match diagnostics against active rulebooks based on session directory mapping.
+
+    Args:
+        diagnostics: List of diagnostics to match
+        session_dir: Directory of the current session
+
+    Returns:
+        List of MatchedRule objects
+    """
+    # Load the registry to find rulebooks associated with this repository
+    registry = load_registry()
+
+    # Find rulebooks that are mapped to this session directory
+    matched_rulebook_names = []
+    abs_session_dir = os.path.abspath(session_dir)
+
+    for repo in registry.get('repos', []):
+        abs_repo_path = repo.get('abs_path', '')
+        if os.path.abspath(abs_repo_path) == abs_session_dir:
+            matched_rulebook_names.append(repo.get('rulebook', ''))
+
+    # Also check if there's an active rulebook
+    active_rulebook = registry.get('active_rulebook')
+    if active_rulebook and active_rulebook not in matched_rulebook_names:
+        matched_rulebook_names.append(active_rulebook)
+
+    if not matched_rulebook_names:
+        # If no specific rulebook is mapped to this repo, try the active one
+        if active_rulebook:
+            matched_rulebook_names.append(active_rulebook)
+
+    all_matched_rules = []
+
+    # Match diagnostics against all relevant rulebooks
+    for rulebook_name in matched_rulebook_names:
+        try:
+            rulebook = load_rulebook(rulebook_name)
+            matched_rules = match_rules(diagnostics, rulebook)
+            all_matched_rules.extend(matched_rules)
+        except Exception as e:
+            print_warning(f"Failed to load or match rulebook '{rulebook_name}': {e}", 2)
+
+    return all_matched_rules
 
 
 def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbose=False, iteration_count=None, failed_signatures=None):
