@@ -8,16 +8,71 @@ import os
 import subprocess
 import uuid
 import json
+try:
+    import toml
+    HAS_TOML = True
+except ImportError:
+    HAS_TOML = False
 
 # Version information
 __version__ = "1.2.0"
 
 import time
 from datetime import datetime
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Any
 
 # Import the session model and engines from the package
 from .session_model import Session, Subtask, PlanNode, load_session, save_session
 from .engines import EngineError
+
+
+# Dataclasses for builder configuration
+@dataclass
+class StepConfig:
+    """Configuration for a single pipeline step."""
+    cmd: List[str]
+    optional: bool = False
+
+
+@dataclass
+class ValgrindConfig:
+    """Configuration for valgrind analysis."""
+    enabled: bool = False
+    cmd: List[str] = field(default_factory=list)
+
+
+@dataclass
+class PipelineConfig:
+    """Configuration for the entire pipeline."""
+    steps: List[str] = field(default_factory=list)
+
+
+@dataclass
+class BuilderConfig:
+    """Main builder configuration."""
+    pipeline: PipelineConfig = field(default_factory=PipelineConfig)
+    step: Dict[str, StepConfig] = field(default_factory=dict)
+    valgrind: ValgrindConfig = field(default_factory=ValgrindConfig)
+
+
+@dataclass
+class StepResult:
+    """Result data for a single pipeline step."""
+    step_name: str
+    exit_code: int
+    stdout: str
+    stderr: str
+    duration: float
+    success: bool
+
+
+@dataclass
+class PipelineRunResult:
+    """Result data for the entire pipeline run."""
+    timestamp: float
+    step_results: List[StepResult]
+    success: bool
 
 
 # ANSI color codes for styling
@@ -3260,6 +3315,345 @@ def get_build_dir(session_path: str) -> str:
     return build_dir
 
 
+def get_builder_config_path(session_path: str) -> str:
+    """
+    Get the path to the builder configuration file.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the builder.toml file
+    """
+    build_dir = get_build_dir(session_path)
+    return os.path.join(build_dir, "builder.toml")
+
+
+def load_builder_config(session_path: str) -> BuilderConfig:
+    """
+    Load the builder configuration from builder.toml file.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        BuilderConfig object with the loaded configuration
+    """
+    config_path = get_builder_config_path(session_path)
+
+    # If the config file doesn't exist, create a default one
+    if not os.path.exists(config_path):
+        create_default_builder_config(config_path)
+
+    if not HAS_TOML:
+        print_error("TOML module not available. Please install it with 'pip install toml'", 2)
+        # Return a default configuration
+        return BuilderConfig()
+
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = toml.load(f)
+
+        # Parse the pipeline section
+        pipeline_data = config_data.get('pipeline', {})
+        pipeline_config = PipelineConfig(
+            steps=pipeline_data.get('steps', [])
+        )
+
+        # Parse the step configurations
+        step_configs = {}
+        step_data = config_data.get('step', {})
+        for step_name, step_info in step_data.items():
+            step_configs[step_name] = StepConfig(
+                cmd=step_info.get('cmd', []),
+                optional=step_info.get('optional', False)
+            )
+
+        # Parse the valgrind configuration
+        valgrind_data = config_data.get('valgrind', {})
+        valgrind_config = ValgrindConfig(
+            enabled=valgrind_data.get('enabled', False),
+            cmd=valgrind_data.get('cmd', [])
+        )
+
+        return BuilderConfig(
+            pipeline=pipeline_config,
+            step=step_configs,
+            valgrind=valgrind_config
+        )
+    except Exception as e:
+        print_error(f"Error loading builder config from {config_path}: {e}", 2)
+        return BuilderConfig()
+
+
+def create_default_builder_config(config_path: str):
+    """
+    Create a default builder.toml configuration file.
+
+    Args:
+        config_path: Path where the configuration file should be created
+    """
+    default_config = """[pipeline]
+steps = ["configure", "build", "lint", "static", "tests"]
+
+[step.configure]
+cmd = ["bash", "configure.sh"]
+
+[step.build]
+cmd = ["bash", "build.sh"]
+
+[step.lint]
+cmd = ["bash", "lint.sh"]
+optional = true
+
+[step.static]
+cmd = ["bash", "analyze.sh"]
+optional = true
+
+[step.tests]
+cmd = ["bash", "run_tests.sh"]
+optional = true
+
+[valgrind]
+enabled = false
+cmd = ["valgrind", "--error-exitcode=99", "--leak-check=full", "./app"]
+"""
+
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+    # Write the default configuration
+    with open(config_path, 'w', encoding='utf-8') as f:
+        f.write(default_config)
+
+    print_info(f"Created default builder configuration at: {config_path}", 2)
+
+
+def run_pipeline(config: BuilderConfig, session_path: str) -> PipelineRunResult:
+    """
+    Run the diagnostic pipeline based on the configuration.
+
+    Args:
+        config: BuilderConfig object with pipeline configuration
+        session_path: Path to the session file
+
+    Returns:
+        PipelineRunResult object with results from all steps
+    """
+    import time
+    import subprocess
+
+    print_info("Running diagnostic pipeline...", 2)
+
+    build_dir = get_build_dir(session_path)
+    logs_dir = os.path.join(build_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    timestamp = int(time.time())
+    step_results = []
+
+    # Run each step in the pipeline
+    for step_name in config.pipeline.steps:
+        if step_name not in config.step:
+            print_warning(f"Step '{step_name}' defined in pipeline but not configured. Skipping.", 2)
+            continue
+
+        step_config = config.step[step_name]
+        print_info(f"Running step: {step_name}", 4)
+
+        start_time = time.time()
+
+        try:
+            # Run the step command
+            result = subprocess.run(
+                step_config.cmd,
+                capture_output=True,
+                text=True,
+                cwd=os.path.dirname(session_path)  # Run in the session directory
+            )
+
+            duration = time.time() - start_time
+            exit_code = result.returncode
+
+            # Determine success based on exit code and whether step is optional
+            success = (exit_code == 0) or step_config.optional
+
+            # Create result object
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=exit_code,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write raw logs to files
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write(result.stdout)
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(result.stderr)
+
+            # Print status for this step
+            if success:
+                print_success(f"Step '{step_name}' completed successfully (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+            else:
+                print_error(f"Step '{step_name}' failed (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+                if result.stderr:
+                    print_error(f"  Error: {result.stderr[:200]}{'...' if len(result.stderr) > 200 else ''}", 4)
+
+        except FileNotFoundError:
+            # Command not found, but if optional, note it and continue
+            duration = time.time() - start_time
+            success = step_config.optional  # Optional steps succeed if not found
+
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=127,  # Standard "command not found" exit code
+                stdout="",
+                stderr=f"Command not found: {' '.join(step_config.cmd)}",
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write raw logs to files
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(f"Command not found: {' '.join(step_config.cmd)}")
+
+            if success:
+                print_warning(f"Step '{step_name}' skipped (command not found, but optional)", 4)
+            else:
+                print_error(f"Step '{step_name}' failed (command not found: {' '.join(step_config.cmd)})", 4)
+
+        except Exception as e:
+            duration = time.time() - start_time
+            success = step_config.optional  # Optional steps succeed if error occurs
+
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=1,
+                stdout="",
+                stderr=str(e),
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write raw logs to files
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(str(e))
+
+            if success:
+                print_warning(f"Step '{step_name}' skipped due to error (but optional): {e}", 4)
+            else:
+                print_error(f"Step '{step_name}' failed with error: {e}", 4)
+
+    # Check if valgrind should run
+    if config.valgrind.enabled and config.valgrind.cmd:
+        print_info("Running valgrind analysis...", 4)
+
+        start_time = time.time()
+
+        try:
+            result = subprocess.run(
+                config.valgrind.cmd,
+                capture_output=True,
+                text=True,
+                cwd=os.path.dirname(session_path)
+            )
+
+            duration = time.time() - start_time
+            exit_code = result.returncode
+
+            # Valgrind typically returns 0 for no issues, > 0 for issues found
+            success = exit_code == 0
+
+            step_result = StepResult(
+                step_name="valgrind",
+                exit_code=exit_code,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write valgrind logs
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write(result.stdout)
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(result.stderr)
+
+            if success:
+                print_success(f"Valgrind completed successfully (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+            else:
+                print_error(f"Valgrind found issues (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+
+        except Exception as e:
+            duration = time.time() - start_time
+
+            step_result = StepResult(
+                step_name="valgrind",
+                exit_code=1,
+                stdout="",
+                stderr=str(e),
+                duration=duration,
+                success=False
+            )
+
+            step_results.append(step_result)
+
+            # Write valgrind logs
+            stdout_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stdout.txt")
+            stderr_log_path = os.path.join(logs_dir, f"{timestamp}_valgrind.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(str(e))
+
+            print_error(f"Valgrind failed with error: {e}", 4)
+
+    # Overall success is true if all non-optional steps succeeded
+    overall_success = all(result.success or config.step.get(result.step_name, StepConfig([])).optional
+                         for result in step_results if result.step_name != "valgrind") and \
+                     (not config.valgrind.enabled or step_results[-1].step_name != "valgrind" or
+                      step_results[-1].success if step_results and step_results[-1].step_name == "valgrind" else True)
+
+    return PipelineRunResult(
+        timestamp=time.time(),
+        step_results=step_results,
+        success=overall_success
+    )
+
+
 def handle_build_run(session_path, verbose=False):
     """
     Run configured build pipeline once and collect diagnostics.
@@ -3279,80 +3673,64 @@ def handle_build_run(session_path, verbose=False):
         print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
         sys.exit(1)
 
+    # Load builder configuration
+    builder_config = load_builder_config(session_path)
+
+    # Run the diagnostic pipeline
+    pipeline_result = run_pipeline(builder_config, session_path)
+
     # Get the build directory
     build_dir = get_build_dir(session_path)
 
-    # Create logs directory
-    logs_dir = os.path.join(build_dir, "logs")
-    os.makedirs(logs_dir, exist_ok=True)
+    # Convert pipeline result to the expected format for storage
+    build_output = {
+        "timestamp": pipeline_result.timestamp,
+        "success": pipeline_result.success,
+        "steps": []
+    }
 
-    # Run the actual build process
-    print_info("Running build pipeline...", 2)
-
-    # For now, we'll simulate a build process by running 'make' or 'npm run build' if available
-    # In a real implementation, this would read a build configuration
-    import subprocess
-    import time
-
-    # Create a simple build script if it doesn't exist
-    build_script_path = os.path.join(os.path.dirname(session_path), "build.sh")
-    if os.path.exists(build_script_path):
-        # Run the build script
-        try:
-            result = subprocess.run(['bash', build_script_path],
-                                  capture_output=True, text=True,
-                                  cwd=os.path.dirname(session_path))
-
-            # Capture the output and errors
-            build_output = {
-                "timestamp": time.time(),
-                "build_script": build_script_path,
-                "return_code": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "success": result.returncode == 0
-            }
-        except Exception as e:
-            build_output = {
-                "timestamp": time.time(),
-                "build_script": build_script_path,
-                "return_code": -1,
-                "stdout": "",
-                "stderr": str(e),
-                "success": False
-            }
-    else:
-        # Simulate a build process for testing purposes
-        build_output = {
-            "timestamp": time.time(),
-            "build_script": "default_build",
-            "return_code": 0,
-            "stdout": "Build successful\nAll targets built successfully",
-            "stderr": "",
-            "success": True
+    # Add step details to the output
+    for step_result in pipeline_result.step_results:
+        step_output = {
+            "step_name": step_result.step_name,
+            "exit_code": step_result.exit_code,
+            "stdout": step_result.stdout,
+            "stderr": step_result.stderr,
+            "duration": step_result.duration,
+            "success": step_result.success
         }
-        print_warning("No build.sh found, simulating build process", 2)
+        build_output["steps"].append(step_output)
 
     # Save the build result to last_run.json
     last_run_path = os.path.join(build_dir, "last_run.json")
     with open(last_run_path, 'w', encoding='utf-8') as f:
         json.dump(build_output, f, indent=2)
 
-    # Create a log file with timestamp
-    timestamp = int(time.time())
-    log_filename = os.path.join(logs_dir, f"build_{timestamp}.log")
+    # Create a summary log file
+    timestamp = int(pipeline_result.timestamp)
+    log_filename = os.path.join(build_dir, "logs", f"pipeline_{timestamp}.log")
     with open(log_filename, 'w', encoding='utf-8') as f:
-        f.write(f"Build run at: {time.ctime(build_output['timestamp'])}\n")
-        f.write(f"Return code: {build_output['return_code']}\n")
-        f.write(f"Success: {build_output['success']}\n")
-        f.write(f"Stdout:\n{build_output['stdout']}\n")
-        f.write(f"Stderr:\n{build_output['stderr']}\n")
+        f.write(f"Pipeline run at: {time.ctime(pipeline_result.timestamp)}\n")
+        f.write(f"Overall success: {pipeline_result.success}\n")
+        f.write(f"Total steps: {len(pipeline_result.step_results)}\n\n")
 
-    if build_output['success']:
+        for step_result in pipeline_result.step_results:
+            f.write(f"Step: {step_result.step_name}\n")
+            f.write(f"  Exit code: {step_result.exit_code}\n")
+            f.write(f"  Success: {step_result.success}\n")
+            f.write(f"  Duration: {step_result.duration:.2f}s\n")
+            f.write(f"  Stdout: {step_result.stdout[:500] if step_result.stdout else '(none)'}\n")
+            f.write(f"  Stderr: {step_result.stderr[:500] if step_result.stderr else '(none)'}\n")
+            f.write("\n")
+
+    if pipeline_result.success:
         print_success("Build pipeline completed successfully", 2)
     else:
         print_error("Build pipeline failed", 2)
-        print_error(f"Error: {build_output['stderr']}", 4)
+        # Show failed steps
+        failed_steps = [sr for sr in pipeline_result.step_results if not sr.success]
+        if failed_steps:
+            print_error(f"Failed steps: {[step.step_name for step in failed_steps]}", 4)
 
 
 def handle_build_fix(session_path, verbose=False):
