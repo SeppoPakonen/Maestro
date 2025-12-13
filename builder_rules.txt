@@ -1,0 +1,8 @@
+# Builder Rules for Debug-Only Workflows
+# Add build-specific rules and configurations here
+# These are separate from the normal task rules
+
+# Example build rules:
+# - Always run tests after a build
+# - Check for compilation errors first
+# - Clean build artifacts before running

@@ -1,0 +1,4 @@
+uses "Core", "Ctrl", "Draw";
+mainconfig "PLATFORM_POSIX" = "value";
+description "U++ IDE\377B128,0,0";
+file "Core.cpp", "Ctrl.cpp", "Draw.cpp";

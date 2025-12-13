@@ -1,0 +1,3 @@
+uses ;
+description "Core library\377B0,128,0";
+file "Core.cpp", "Core.h";
