@@ -1783,21 +1783,24 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             print_warning(f"Engine {engine_name}_planner not found, skipping: {e}", 2)
             continue
 
+        # Add engine role to the prompt context for clarity
+        enhanced_prompt = f"{prompt}\n\n[ENGINE ROLE]\nPlanner engine: {engine_name}_planner\nPurpose: Generate structured JSON plan based on the requirements above\n\n"
+
+        # Save the final prompt for traceability
+        prompt_file_path = save_prompt_for_traceability(enhanced_prompt, session_path, "planner", engine_name)
+        if verbose:
+            print(f"[VERBOSE] Planner prompt saved to: {prompt_file_path}")
+
         # Call engine.generate(prompt) with interruption handling
         try:
-            stdout = engine.generate(prompt)
+            stdout = engine.generate(enhanced_prompt)
         except KeyboardInterrupt:
             # For planner interruptions, don't modify the session
             print_warning("\norchestrator: Planner interrupted by user", 2)
             # Save partial output for debugging, but don't modify session
-            maestro_dir = get_maestro_dir(session_path)
-            partial_dir = os.path.join(maestro_dir, "partials")
-            os.makedirs(partial_dir, exist_ok=True)
-            partial_filename = os.path.join(partial_dir, f"planner_{engine_name}_{int(time.time())}.partial.txt")
-            with open(partial_filename, 'w', encoding='utf-8') as f:
-                f.write(stdout if stdout else "")
+            output_file_path = save_ai_output(stdout if stdout else "", session_path, "planner", engine_name)
             if verbose:
-                print(f"[VERBOSE] Partial planner output saved to: {partial_filename}")
+                print(f"[VERBOSE] Partial planner output saved to: {output_file_path}")
 
             # Re-raise to allow main thread to handle properly
             raise KeyboardInterrupt
@@ -1805,10 +1808,10 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
             continue
 
-        # Create outputs directory if it doesn't exist
-        maestro_dir = get_maestro_dir(session_path)
-        outputs_dir = os.path.join(maestro_dir, "outputs")
-        os.makedirs(outputs_dir, exist_ok=True)
+        # Save the raw planner output for traceability
+        output_file_path = save_ai_output(stdout, session_path, "planner", engine_name)
+        if verbose:
+            print(f"[VERBOSE] Planner output saved to: {output_file_path}")
 
         # Save the raw planner stdout to outputs directory
         timestamp = int(time.time())
@@ -3355,35 +3358,32 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 goal_parts.append("Continue work from a previous partial attempt")
             goal = "\n".join(goal_parts)
 
-            requirements_parts = [f"ROOT TASK (CLEANED):\n{root_task_to_use}"]
-            requirements_parts.append(f"RELEVANT CATEGORIES:\n{categories_str}")
-            requirements_parts.append(f"RELEVANT ROOT EXCERPT:\n{root_excerpt}")
+            # Prepare context for the worker prompt
+            context_parts = [f"ROOT TASK (CLEANED):\n{root_task_to_use}"]
+            context_parts.append(f"RELEVANT CATEGORIES:\n{categories_str}")
+            context_parts.append(f"RELEVANT ROOT EXCERPT:\n{root_excerpt}")
             if partial_output:
-                requirements_parts.append(f"PARTIAL RESULT FROM PREVIOUS ATTEMPT:\n{partial_output}")
-            requirements_parts.append(f"SUBTASK DETAILS:\nid: {subtask.id}\ntitle: {subtask.title}\ndescription:\n{subtask.description}")
+                context_parts.append(f"PARTIAL RESULT FROM PREVIOUS ATTEMPT:\n{partial_output}")
+            context = "\n\n".join(context_parts)
+
+            requirements_parts = [f"SUBTASK DETAILS:\nid: {subtask.id}\ntitle: {subtask.title}\ndescription:\n{subtask.description}"]
             requirements_parts.append(f"CURRENT RULES:\n{rules}")
+            if partial_output:
+                requirements_parts.append(f"You must continue the work from the partial output above.\nDo not repeat already completed steps.")
+            requirements_parts.append(f"You are an autonomous coding agent working in this repository.")
+            requirements_parts.append(f"Perform ONLY the work needed for this subtask.")
+            requirements_parts.append(f"Use your normal tools and workflows.")
             requirements = "\n\n".join(requirements_parts)
 
-            acceptance_criteria = "The work should be completed according to the subtask requirements. The work should be properly integrated with existing codebase. If continuing from partial work, build upon what was already done without repeating completed steps."
+            acceptance_criteria = "The work should be completed according to the subtask requirements. The work should be properly integrated with existing codebase. If continuing from partial work, build upon what was already done without repeating completed steps. When done, write a short summary to the specified file."
 
-            deliverables_parts = [f"Completed work for subtask '{subtask.title}'"]
-            deliverables_parts.append(f"Write a summary to file: {subtask.summary_file}")
-            deliverables = "\n".join(deliverables_parts)
+            deliverables = f"Completed work for subtask '{subtask.title}'\nWrite a summary to file: {subtask.summary_file}"
 
-            prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
+            # Build the structured prompt using the new centralized function
+            prompt = build_prompt(goal, context, requirements, acceptance_criteria, deliverables)
 
-            # Add additional instructions that were in the original prompt
-            prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
-            if partial_output:
-                prompt += f"[CURRENT INSTRUCTIONS]\n"
-                prompt += f"You must continue the work from the partial output above.\n"
-                prompt += f"Do not repeat already completed steps.\n\n"
-            prompt += f"You are an autonomous coding agent working in this repository.\n"
-            prompt += f"- Perform ONLY the work needed for this subtask.\n"
-            prompt += f"- Use your normal tools and workflows.\n"
-            prompt += f"- When you are done, write a short plain-text summary of what you did\n"
-            prompt += f"  into the file: {subtask.summary_file}\n\n"
-            prompt += f"The summary MUST be written to that file before you consider the task complete."
+            # Add engine role declaration
+            prompt += f"[ENGINE ROLE]\nWorker engine: {subtask.worker_model}_worker\nPurpose: Execute the specified subtask and generate appropriate work output\n\n"
 
             if verbose:
                 print(f"[VERBOSE] Using worker model: {subtask.worker_model}")
@@ -3406,10 +3406,10 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
             if verbose:
                 print(f"[VERBOSE] Generated prompt for engine (length: {len(prompt)} chars)")
 
-            # Save the worker prompt to the inputs directory
-            worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{subtask.worker_model}.txt")
-            with open(worker_prompt_filename, "w", encoding="utf-8") as f:
-                f.write(prompt)
+            # Save the worker prompt for traceability
+            prompt_file_path = save_prompt_for_traceability(prompt, session_path, "worker", f"{subtask.worker_model}_worker")
+            if verbose:
+                print(f"[VERBOSE] Worker prompt saved to: {prompt_file_path}")
 
             # Print AI prompt if requested
             if print_ai_prompts:
@@ -3419,7 +3419,7 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
 
             # Log verbose information
             log_verbose(verbose, f"Engine={subtask.worker_model} subtask={subtask.id}")
-            log_verbose(verbose, f"Prompt file: {worker_prompt_filename}")
+            log_verbose(verbose, f"Prompt file: {prompt_file_path}")
             log_verbose(verbose, f"Output file: {os.path.join(outputs_dir, f'{subtask.id}.txt')}")
 
             # Call engine.generate(prompt) with interruption handling
@@ -3432,6 +3432,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 session.status = "interrupted"
                 session.updated_at = datetime.now().isoformat()
                 save_session(session, session_path)
+
+                # Save AI output and partial result for traceability
+                output_file_path = save_ai_output(output if output else "", session_path, "worker", f"{subtask.worker_model}_worker")
+                if verbose:
+                    print(f"[VERBOSE] Partial worker output saved to: {output_file_path}")
 
                 # Save partial output if available
                 partial_dir = os.path.join(maestro_dir, "partials")
@@ -3458,6 +3463,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 # Log stderr for engine errors
                 print(f"Engine error stderr: {e.stderr}", file=sys.stderr)
 
+                # Save the engine error output for traceability
+                output_file_path = save_ai_output(f"Engine error: {e.stderr}", session_path, "worker_error", f"{subtask.worker_model}_worker")
+                if verbose:
+                    print(f"[VERBOSE] Worker error output saved to: {output_file_path}")
+
                 print(f"Error: Engine failed with exit code {e.exit_code}: {e.name}", file=sys.stderr)
                 subtask.status = "error"
                 session.status = "failed"
@@ -3465,6 +3475,11 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 save_session(session, session_path)
                 sys.exit(1)
             except Exception as e:
+                # Save any exception output for traceability
+                output_file_path = save_ai_output(f"Exception: {str(e)}", session_path, "worker_exception", f"{subtask.worker_model}_worker")
+                if verbose:
+                    print(f"[VERBOSE] Worker exception output saved to: {output_file_path}")
+
                 print(f"Error: Failed to generate output from engine: {str(e)}", file=sys.stderr)
                 subtask.status = "error"
                 session.status = "failed"
@@ -4657,10 +4672,89 @@ def collect_worker_summaries(session: Session, session_path: str) -> str:
     return summaries_text
 
 
+def build_prompt(
+    goal: str,
+    context: str | None,
+    requirements: str | None,
+    acceptance: str | None,
+    deliverables: str | None,
+) -> str:
+    """
+    Centralized prompt builder with strict validation. All sections are mandatory.
+    If a section is not applicable, use the literal text "None".
+
+    Args:
+        goal: The main goal/task objective
+        context: Background context and current state
+        requirements: Specific requirements that must be met
+        acceptance: Acceptance criteria for completion
+        deliverables: Expected deliverables from the task
+
+    Returns:
+        The complete structured prompt string
+    """
+    # Validate inputs and set defaults if needed
+    goal = goal if goal is not None else "None"
+    context = context if context is not None else "None"
+    requirements = requirements if requirements is not None else "None"
+    acceptance = acceptance if acceptance is not None else "None"
+    deliverables = deliverables if deliverables is not None else "None"
+
+    # Construct the prompt with required sections
+    prompt = f"[GOAL]\n{goal}\n\n"
+    prompt += f"[CONTEXT]\n{context}\n\n"
+    prompt += f"[REQUIREMENTS]\n{requirements}\n\n"
+    prompt += f"[ACCEPTANCE CRITERIA]\n{acceptance}\n\n"
+    prompt += f"[DELIVERABLES]\n{deliverables}\n\n"
+
+    # Validate that all required sections exist
+    missing_sections = []
+    if "[GOAL]" not in prompt:
+        missing_sections.append("[GOAL]")
+    if "[CONTEXT]" not in prompt:
+        missing_sections.append("[CONTEXT]")
+    if "[REQUIREMENTS]" not in prompt:
+        missing_sections.append("[REQUIREMENTS]")
+    if "[ACCEPTANCE CRITERIA]" not in prompt:
+        missing_sections.append("[ACCEPTANCE CRITERIA]")
+    if "[DELIVERABLES]" not in prompt:
+        missing_sections.append("[DELIVERABLES]")
+
+    if missing_sections:
+        raise ValueError(f"Prompt validation failed: Missing required sections: {', '.join(missing_sections)}")
+
+    # Validate that each section has content (not empty after the header)
+    sections = prompt.split('\n\n')
+    for i, section in enumerate(sections):
+        if section.startswith('[GOAL]'):
+            content = section[len('[GOAL]\n'):].strip()
+            if not content:
+                raise ValueError("GOAL section cannot be empty")
+        elif section.startswith('[CONTEXT]'):
+            content = section[len('[CONTEXT]\n'):].strip()
+            if not content:
+                raise ValueError("CONTEXT section cannot be empty")
+        elif section.startswith('[REQUIREMENTS]'):
+            content = section[len('[REQUIREMENTS]\n'):].strip()
+            if not content:
+                raise ValueError("REQUIREMENTS section cannot be empty")
+        elif section.startswith('[ACCEPTANCE CRITERIA]'):
+            content = section[len('[ACCEPTANCE CRITERIA]\n'):].strip()
+            if not content:
+                raise ValueError("ACCEPTANCE CRITERIA section cannot be empty")
+        elif section.startswith('[DELIVERABLES]'):
+            content = section[len('[DELIVERABLES]\n'):].strip()
+            if not content:
+                raise ValueError("DELIVERABLES section cannot be empty")
+
+    return prompt
+
+
 def build_structured_prompt(goal: str = "None", requirements: str = "None", acceptance_criteria: str = "None", deliverables: str = "None") -> str:
     """
     Build a structured prompt with required sections.
     If a section is irrelevant, use "None" as the value.
+    This function is maintained for backward compatibility.
 
     Args:
         goal: The main goal of the task
@@ -4671,23 +4765,244 @@ def build_structured_prompt(goal: str = "None", requirements: str = "None", acce
     Returns:
         The structured prompt string with all required sections
     """
-    prompt = f"[GOAL]\n{goal}\n\n"
-    prompt += f"[REQUIREMENTS]\n{requirements}\n\n"
-    prompt += f"[ACCEPTANCE CRITERIA]\n{acceptance_criteria}\n\n"
-    prompt += f"[DELIVERABLES]\n{deliverables}\n\n"
+    # For backward compatibility, map the old format to the new one
+    context = "None"  # Using context as a placeholder since old format doesn't have it
+    return build_prompt(
+        goal=goal,
+        context=context,
+        requirements=requirements,
+        acceptance=acceptance_criteria,
+        deliverables=deliverables
+    )
 
-    # Validation check to ensure all sections exist
-    assert "[GOAL]" in prompt, "Structured prompt must contain [GOAL] section"
-    assert "[REQUIREMENTS]" in prompt, "Structured prompt must contain [REQUIREMENTS] section"
-    assert "[ACCEPTANCE CRITERIA]" in prompt, "Structured prompt must contain [ACCEPTANCE CRITERIA] section"
-    assert "[DELIVERABLES]" in prompt, "Structured prompt must contain [DELIVERABLES] section"
 
-    return prompt
+def build_build_target_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: list) -> str:
+    """
+    Build target planner template that returns machine-parseable JSON describing build steps, diagnostics commands, categories, verification strategy.
+
+    Args:
+        root_task: The main task
+        summaries: Concatenated worker summaries
+        rules: Current rules
+        subtasks: Current list of subtasks
+
+    Returns:
+        The complete build target planner prompt string
+    """
+    # Build current plan string with subtasks and statuses
+    current_plan_parts = []
+    for i, subtask in enumerate(subtasks, 1):
+        current_plan_parts.append(f"{i}. {subtask.title} [{subtask.status}]")
+        current_plan_parts.append(f"   {subtask.description}")
+    current_plan = "\n".join(current_plan_parts) if subtasks else "(no current plan)"
+
+    goal = f"Propose an updated subtask plan for building the target based on the root task: {root_task}"
+    context = f"CURRENT RULES:\n{rules}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
+    requirements = (
+        "Return a JSON object with a 'subtasks' field containing an array of subtask objects.\n"
+        "- Each subtask object should have 'title', 'description', 'categories', and 'root_excerpt' fields.\n"
+        "- Include 'root' field with 'raw_summary', 'clean_text', and 'categories'.\n"
+        "- Use the cleaned root task and categories to guide subtask creation.\n"
+        "- Consider previous subtask summaries when planning new tasks.\n"
+        "- The root.clean_text should be a cleaned-up, well-structured description.\n"
+        "- The root.raw_summary should be 1-3 sentences summarizing the intent.\n"
+        "- The root.categories should be high-level categories from the root task.\n"
+        "- For each subtask, select which categories apply and provide an optional root_excerpt.\n"
+        "- You may add new subtasks if strictly necessary.\n"
+        "- Keep the number of subtasks manageable.\n"
+        "- Explicitly return valid JSON with no additional text or explanations outside the JSON.\n"
+        "- The JSON should include fields for build steps, diagnostics commands, categories, and verification strategy."
+    )
+    acceptance = (
+        "The response is valid JSON with required subtasks array\n"
+        "Each subtask has title, description, categories, and root_excerpt\n"
+        "JSON has root information with clean_text, raw_summary, and categories\n"
+        "Response contains no additional text outside JSON structure"
+    )
+    deliverables = (
+        "JSON object with subtasks array containing properly structured subtask objects\n"
+        "Root information with clean_text, raw_summary, and categories\n"
+        "Build steps, diagnostics commands, categories, and verification strategy specified"
+    )
+
+    return build_prompt(goal, context, requirements, acceptance, deliverables)
+
+
+def build_fix_rulebook_planner_prompt(root_task: str, summaries: str, rules: str, diagnostics: str, subtasks: list) -> str:
+    """
+    Fix rulebook planner template that returns JSON describing trigger patterns, proposed fixes, verification steps, escalation conditions.
+
+    Args:
+        root_task: The main task
+        summaries: Concatenated worker summaries
+        rules: Current rules
+        diagnostics: Current diagnostic information
+        subtasks: Current list of subtasks
+
+    Returns:
+        The complete fix rulebook planner prompt string
+    """
+    # Build current plan string with subtasks and statuses
+    current_plan_parts = []
+    for i, subtask in enumerate(subtasks, 1):
+        current_plan_parts.append(f"{i}. {subtask.title} [{subtask.status}]")
+        current_plan_parts.append(f"   {subtask.description}")
+    current_plan = "\n".join(current_plan_parts) if subtasks else "(no current plan)"
+
+    goal = f"Propose fix rules based on diagnostic information and the root task: {root_task}"
+    context = f"CURRENT RULES:\n{rules}\n\nCURRENT DIAGNOSTICS:\n{diagnostics}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
+    requirements = (
+        "Return a JSON object with a 'rules' field containing an array of rule objects.\n"
+        "- Each rule object should have 'id', 'enabled', 'priority', 'match', 'confidence', 'explanation', 'actions', and 'verify' fields.\n"
+        "- The 'match' field should contain patterns for trigger detection (error strings, symbols, file patterns).\n"
+        "- The 'actions' field should describe proposed fixes with type and implementation details.\n"
+        "- The 'verify' field should specify verification steps.\n"
+        "- Include 'escalation_conditions' for when fixes should be escalated.\n"
+        "- Return only valid JSON with no additional text or explanations outside the JSON.\n"
+        "- Focus on reactive rules that match diagnostic patterns and provide automated fixes."
+    )
+    acceptance = (
+        "The response is valid JSON with required rules array\n"
+        "Each rule has proper structure with id, enabled, priority, match, confidence, explanation, actions, verify\n"
+        "Match conditions include error strings, symbols, file patterns\n"
+        "Actions describe proposed fixes\n"
+        "Verification steps are specified\n"
+        "Escalation conditions are defined\n"
+        "Response contains no additional text outside JSON structure"
+    )
+    deliverables = (
+        "JSON object with rules array containing properly structured rule objects\n"
+        "Trigger patterns (error strings, symbols, file patterns) specified\n"
+        "Proposed fixes with implementation details\n"
+        "Verification steps and escalation conditions defined"
+    )
+
+    return build_prompt(goal, context, requirements, acceptance, deliverables)
+
+
+def build_conversion_pipeline_planner_prompt(root_task: str, summaries: str, current_stage: str, artifacts: str, subtasks: list) -> str:
+    """
+    Conversion pipeline planner template that returns JSON describing stages, entry/exit criteria, expected artifacts, failure handling.
+
+    Args:
+        root_task: The main task
+        summaries: Concatenated worker summaries
+        current_stage: Current stage of conversion
+        artifacts: Current artifacts available
+        subtasks: Current list of subtasks
+
+    Returns:
+        The complete conversion pipeline planner prompt string
+    """
+    # Build current plan string with subtasks and statuses
+    current_plan_parts = []
+    for i, subtask in enumerate(subtasks, 1):
+        current_plan_parts.append(f"{i}. {subtask.title} [{subtask.status}]")
+        current_plan_parts.append(f"   {subtask.description}")
+    current_plan = "\n".join(current_plan_parts) if subtasks else "(no current plan)"
+
+    goal = f"Propose an updated conversion pipeline plan based on the root task: {root_task} and current stage: {current_stage}"
+    context = f"CURRENT ARTIFACTS:\n{artifacts}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
+    requirements = (
+        "Return a JSON object with a 'stages' field containing an array of stage objects.\n"
+        "- Each stage object should have 'name', 'status', 'entry_criteria', 'exit_criteria', 'expected_artifacts', 'failure_handling', and 'details' fields.\n"
+        "- Include 'pipeline' field with overall pipeline configuration.\n"
+        "- Define clear entry and exit criteria for each stage.\n"
+        "- Specify expected artifacts for each stage.\n"
+        "- Define failure handling strategies.\n"
+        "- Return only valid JSON with no additional text or explanations outside the JSON.\n"
+        "- The conversion pipeline should be structured with proper progression from source to target."
+    )
+    acceptance = (
+        "The response is valid JSON with required stages array\n"
+        "Each stage has proper structure with name, status, entry/exit criteria, artifacts, failure handling\n"
+        "Entry and exit criteria are clearly defined\n"
+        "Expected artifacts are specified\n"
+        "Failure handling strategies are defined\n"
+        "Response contains no additional text outside JSON structure"
+    )
+    deliverables = (
+        "JSON object with stages array containing properly structured stage objects\n"
+        "Entry and exit criteria for each stage\n"
+        "Expected artifacts specified\n"
+        "Failure handling strategies defined\n"
+        "Overall pipeline configuration provided"
+    )
+
+    return build_prompt(goal, context, requirements, acceptance, deliverables)
+
+
+def save_prompt_for_traceability(prompt: str, session_path: str, prompt_type: str, engine_name: str = "unknown") -> str:
+    """
+    Save the constructed prompt to enable traceability and debugging.
+
+    Args:
+        prompt: The constructed prompt string
+        session_path: Path to the session directory
+        prompt_type: Type of prompt (e.g., 'planner', 'worker', 'build_target_planner', etc.)
+        engine_name: Name of the engine that will process this prompt
+
+    Returns:
+        Path to the saved prompt file
+    """
+    import time
+    import os
+
+    # Create inputs directory if it doesn't exist
+    maestro_dir = get_maestro_dir(session_path)
+    inputs_dir = os.path.join(maestro_dir, "inputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+
+    # Create timestamp
+    timestamp = int(time.time())
+
+    # Create filename with type, engine, and timestamp
+    prompt_filename = os.path.join(inputs_dir, f"{prompt_type}_{engine_name}_{timestamp}.txt")
+
+    # Write the prompt to the file
+    with open(prompt_filename, "w", encoding="utf-8") as f:
+        f.write(prompt)
+
+    return prompt_filename
+
+
+def save_ai_output(output: str, session_path: str, output_type: str, engine_name: str = "unknown") -> str:
+    """
+    Save the AI output to enable traceability and debugging.
+
+    Args:
+        output: The AI output string
+        session_path: Path to the session directory
+        output_type: Type of output (e.g., 'planner', 'worker', etc.)
+        engine_name: Name of the engine that generated this output
+
+    Returns:
+        Path to the saved output file
+    """
+    import time
+    import os
+
+    # Create outputs directory if it doesn't exist
+    maestro_dir = get_maestro_dir(session_path)
+    outputs_dir = os.path.join(maestro_dir, "outputs")
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    # Create timestamp
+    timestamp = int(time.time())
+
+    # Create filename with type, engine, and timestamp
+    output_filename = os.path.join(outputs_dir, f"{output_type}_{engine_name}_{timestamp}.txt")
+
+    # Write the output to the file
+    with open(output_filename, "w", encoding="utf-8") as f:
+        f.write(output)
+
+    return output_filename
 
 
 def build_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: list) -> str:
     """
-    Build the planner prompt with all required sections.
+    Build the planner prompt with all required sections. Kept for backward compatibility.
 
     Args:
         root_task: The main task
@@ -5165,11 +5480,22 @@ def create_root_refinement_prompt(root_task_raw):
     Create the prompt for root task refinement.
     """
     goal = "Rewrite, summarize, and categorize the user's original project description."
-    requirements = f"ORIGINAL PROJECT DESCRIPTION:\n{root_task_raw}"
+    context = f"ORIGINAL PROJECT DESCRIPTION:\n{root_task_raw}"
+    requirements = (
+        "Return valid JSON with fields: version, clean_text (clear, structured, well-written restatement), "
+        "raw_summary (1-3 sentences summarizing the intent), and categories (list of high-level conceptual categories). "
+        "Respond ONLY with valid JSON in the following format:\n"
+        "{\n"
+        '  "version": 1,\n'
+        '  "clean_text": "...",\n'
+        '  "raw_summary": "...",\n'
+        '  "categories": []\n'
+        "}"
+    )
     acceptance_criteria = "Return valid JSON with fields: version, clean_text (clear, structured, well-written restatement), raw_summary (1-3 sentences summarizing the intent), and categories (list of high-level conceptual categories)."
     deliverables = "JSON object with fields: version=1, clean_text, raw_summary, and categories (list of high-level conceptual categories like: architecture, backend, frontend, api, deployment, research, ui/ux, testing, refactoring, docs, etc.)"
 
-    prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
+    prompt = build_prompt(goal, context, requirements, acceptance_criteria, deliverables)
 
     # Add specific format requirements
     prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
@@ -8453,13 +8779,116 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
     if rules:
         requirements_parts.append(f"[PROJECT RULES]\n{rules}")
 
+    context_parts = []
+    # Add repo context
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    context_parts.append("[REPO CONTEXT]")
+
+    # Add tree structure (first few levels)
+    try:
+        import glob
+        dirs = [d for d in glob.glob(os.path.join(session_dir, "*")) if os.path.isdir(d)]
+        files = [f for f in glob.glob(os.path.join(session_dir, "*")) if os.path.isfile(f)]
+
+        context_parts.append("Directory structure:")
+        context_parts.append(f"  Directories: {', '.join([os.path.basename(d) for d in dirs[:10]])}")
+        context_parts.append(f"  Files: {', '.join([os.path.basename(f) for f in files[:10]])}")
+    except:
+        context_parts.append("Could not retrieve directory structure.")
+
+    # Add pipeline step outputs (focused excerpts)
+    build_dir = get_build_dir(session_path)
+    logs_dir = os.path.join(build_dir, "logs")
+
+    if os.path.exists(logs_dir):
+        import glob
+        log_files = glob.glob(os.path.join(logs_dir, "*.log"))
+        if log_files:
+            # Get the most recent log
+            latest_log = max(log_files, key=os.path.getctime)
+            try:
+                with open(latest_log, 'r', encoding='utf-8') as f:
+                    log_content = f.read()
+                    # Take first 1000 characters to avoid huge prompts
+                    log_excerpt = log_content[:1000] if len(log_content) > 1000 else log_content
+                    context_parts.append(f"[PIPELINE OUTPUT EXCERPT]\n{log_excerpt}")
+            except:
+                context_parts.append("[PIPELINE OUTPUT EXCERPT]\nCould not read pipeline logs.")
+        else:
+            context_parts.append("[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.")
+    else:
+        context_parts.append("[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.")
+
+    # Add iteration count and failed signatures for escalation logic
+    if iteration_count is not None:
+        context_parts.append(f"[ITERATION COUNT]\nCurrent iteration: {iteration_count}")
+    if failed_signatures:
+        context_parts.append(f"[FAILED SIGNATURES]\nSignatures that failed to resolve: {list(failed_signatures.keys())}")
+
+    context = "\n".join(context_parts)
+
+    requirements_parts = []
+
+    # Add extracted diagnostics (top N)
+    requirements_parts.append("[TARGET DIAGNOSTICS]")
+    for i, diag in enumerate(target_diagnostics):
+        diag_info = f"Diagnostic #{i+1}:"
+        diag_info += f"  Tool: {diag.tool}"
+        diag_info += f"  Severity: {diag.severity}"
+        diag_info += f"  File: {diag.file}"
+        diag_info += f"  Line: {diag.line}"
+        diag_info += f"  Message: {diag.message}"
+        diag_info += f"  Signature: {diag.signature}"
+        diag_info += f"  Raw: {diag.raw}"
+        requirements_parts.append(diag_info)
+
+        if diag.known_issues:
+            diag_info = "  Known Issues:"
+            for issue in diag.known_issues:
+                diag_info += f"    - ID: {issue.id}"
+                diag_info += f"      Description: {issue.description}"
+                diag_info += f"      Fix Hint: {issue.fix_hint}"
+                diag_info += f"      Confidence: {issue.confidence}"
+            requirements_parts.append(diag_info)
+
+    # Add target signature(s) to eliminate
+    target_signatures = {d.signature for d in target_diagnostics}
+    requirements_parts.append(f"[TARGET SIGNATURES TO ELIMINATE]")
+    for sig in target_signatures:
+        requirements_parts.append(f"  - {sig}")
+
+    # Match diagnostics against active rulebooks and add matched rules to prompt
+    matched_rules = match_rulebooks_to_diagnostics(target_diagnostics, session_dir)
+    if matched_rules:
+        requirements_parts.append("[MATCHED REACTIVE RULES]")
+        for matched_rule in matched_rules:
+            rule = matched_rule.rule
+            diagnostic = matched_rule.diagnostic
+            rule_info = f"Matched Rule ID: {rule.id}"
+            rule_info += f"  Explanation: {rule.explanation}"
+            rule_info += f"  Confidence: {matched_rule.confidence}"
+            rule_info += f"  Diagnostic: {diagnostic.message[:100]}..."
+
+            # Add rule actions to the requirements
+            for action in rule.actions:
+                if action.type == "hint":
+                    rule_info += f"  Hint Action: {action.text}"
+                elif action.type == "prompt_patch":
+                    rule_info += f"  Patch Action Template: {action.prompt_template}"
+            requirements_parts.append(rule_info)
+
+    # Add project rules if available
+    if rules:
+        requirements_parts.append(f"[PROJECT RULES]\n{rules}")
+
     requirements = "\n".join(requirements_parts)
 
     acceptance_criteria = "Return valid JSON with fields: summary (what to change and why), files_to_modify (list of file paths), patch_plan (array of file modification plans), risk (low|medium|high), expected_effect (which signatures should disappear)"
 
     deliverables = "JSON object with fields: summary, files_to_modify, patch_plan (with file, action, notes), risk, expected_effect"
 
-    fix_prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
+    # Use the new centralized prompt builder
+    fix_prompt = build_prompt(goal, context, requirements, acceptance_criteria, deliverables)
 
     # Add the specific instructions for JSON format
     fix_prompt += """[ADDITIONAL INSTRUCTIONS]\n"""
@@ -8478,6 +8907,9 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
     fix_prompt += """}\n\n"""
     fix_prompt += """Your analysis should be based on the actual diagnostics, known issue hints, and matched rule suggestions provided.\n"""
     fix_prompt += """Focus on implementing minimal patches that address the diagnostic signature effectively.\n"""
+
+    # Add engine role declaration
+    fix_prompt += f"[ENGINE ROLE]\nDebugger engine: claude_planner\nPurpose: Analyze diagnostics and create a structured fix plan to resolve them\n\n"""
 
     return fix_prompt
 

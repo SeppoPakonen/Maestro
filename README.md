@@ -205,6 +205,46 @@ Maestro exists to ensure your composition — technical or artistic — can unfo
 
 ---
 
+## Prompt Contract Enforcement
+
+Maestro enforces a **strict, auditable prompt contract** for all AI invocations to ensure:
+
+* Every AI invocation is structurally predictable
+* Missing context is explicit, not accidental
+* Prompt drift is prevented across refactors
+* Debugging becomes mechanical instead of interpretive
+
+### Required Structure
+
+Every AI prompt must include 5 required sections in exact order:
+
+```
+[GOAL]
+[CONTEXT]
+[REQUIREMENTS]
+[ACCEPTANCE CRITERIA]
+[DELIVERABLES]
+```
+
+### Validation
+
+All prompts undergo validation before AI invocation:
+* All required sections must exist
+* Sections must be in correct order
+* No section may be empty
+* If validation fails, operation is aborted
+
+### Persistence
+
+All AI interactions are logged:
+* Input prompts saved to: `sessions/<session>/inputs/`
+* AI outputs saved to: `sessions/<session>/outputs/`
+* Includes complete structured prompts and raw responses
+
+For full technical details, see `docs/prompt_contract.md`.
+
+---
+
 ## License
 
 New BSD
