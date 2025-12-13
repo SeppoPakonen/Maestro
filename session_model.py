@@ -141,6 +141,7 @@ class Session:
         root_task_clean: Optional[str] = None,
         root_task_summary: Optional[str] = None,
         root_task_categories: Optional[List[str]] = None,
+        root_history: Optional[List[Dict[str, Any]]] = None,
         plans: Optional[List[PlanNode]] = None,
         active_plan_id: Optional[str] = None
     ):
@@ -155,6 +156,7 @@ class Session:
         self.root_task_clean = root_task_clean
         self.root_task_summary = root_task_summary
         self.root_task_categories = root_task_categories or []
+        self.root_history = root_history or []
         self.plans = plans or []
         self.active_plan_id = active_plan_id
 
@@ -172,6 +174,7 @@ class Session:
             "root_task_clean": self.root_task_clean,
             "root_task_summary": self.root_task_summary,
             "root_task_categories": self.root_task_categories,
+            "root_history": self.root_history,
             "plans": [plan.to_dict() for plan in self.plans] if self.plans else [],
             "active_plan_id": self.active_plan_id
         }
@@ -198,6 +201,8 @@ class Session:
         if root_task_categories is None:
             root_task_categories = []
 
+        root_history = data.get("root_history", [])
+
         plans = data.get("plans", [])
         active_plan_id = data.get("active_plan_id")
 
@@ -213,6 +218,7 @@ class Session:
             root_task_clean=root_task_clean,
             root_task_summary=root_task_summary,
             root_task_categories=root_task_categories,
+            root_history=root_history,
             plans=[PlanNode.from_dict(plan_data) for plan_data in plans] if plans else [],
             active_plan_id=active_plan_id
         )

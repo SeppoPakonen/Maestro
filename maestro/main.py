@@ -3740,6 +3740,18 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
         save_session(session, session_path)
         sys.exit(1)
 
+    # Check if we have refined root task data, warn if only raw task exists
+    if not session.root_task_clean and session.root_task_raw:
+        print_warning("Root task has not been refined yet. Planner may perform better with refined data.", 2)
+        response = input("Would you like to refine the root task now? [Y/n]: ").strip().lower()
+        if response in ['', 'y', 'yes']:
+            handle_root_refine(session_path, verbose, planner_order)
+        else:
+            response2 = input("Continue with raw root task? [Y/n]: ").strip().lower()
+            if response2 not in ['', 'y', 'yes']:
+                print_info("Aborting planning session.", 2)
+                return
+
     # Load rules
     rules = load_rules(session)
     if verbose:
@@ -4315,6 +4327,18 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         save_session(session, session_path)
         sys.exit(1)
 
+    # Check if we have refined root task data, warn if only raw task exists
+    if not session.root_task_clean and session.root_task_raw:
+        print_warning("Root task has not been refined yet. Planner may perform better with refined data.", 2)
+        response = input("Would you like to refine the root task now? [Y/n]: ").strip().lower()
+        if response in ['', 'y', 'yes']:
+            handle_root_refine(session_path, verbose, planner_order)
+        else:
+            response2 = input("Continue with raw root task? [Y/n]: ").strip().lower()
+            if response2 not in ['', 'y', 'yes']:
+                print_info("Aborting planning session.", 2)
+                return
+
     # Load rules
     rules = load_rules(session)
     if verbose:
@@ -4873,12 +4897,16 @@ def handle_root_set(session_path, text=None, verbose=False):
     # Set the root task in the session
     session.root_task = root_task_text.strip()
     session.root_task_raw = root_task_text.strip()  # Also set raw for consistency
+    # Clear the refined fields since we now have a new raw input
+    session.root_task_clean = None
+    session.root_task_summary = None
+    session.root_task_categories = []
     session.updated_at = datetime.now().isoformat()
 
     # Save the updated session
     save_session(session, session_path)
 
-    print_success(f"Root task set successfully (length: {len(root_task_text)} characters)")
+    print_success(f"Root task set successfully (length: {len(root_task_text)} characters), refined fields cleared")
 
 
 def handle_root_get(session_path, clean=False, verbose=False):
@@ -4946,7 +4974,7 @@ def handle_root_discuss(session_path, verbose=False, stream_ai_output=False, pri
     ]
 
     print_header("ROOT TASK DISCUSSION MODE")
-    print_info("Ready to discuss the root task. Type 'quit' or 'exit' to finish.", 4)
+    print_info("Ready to discuss the root task. Type '/done' to finalize, '/abort' to discard changes.", 4)
 
     # Print initial message from AI
     print(f"\n[AI]: {conversation[-1]['content']}")
@@ -4957,8 +4985,12 @@ def handle_root_discuss(session_path, verbose=False, stream_ai_output=False, pri
             user_input = input("\n[USER]: ").strip()
 
             # Check for exit conditions
-            if user_input.lower() in ['quit', 'exit', 'done', 'finish']:
+            if user_input.lower() == '/done':
+                print_info("Finalizing root task discussion...", 2)
                 break
+            elif user_input.lower() == '/abort':
+                print_info("Aborting conversation, changes will be discarded.", 2)
+                return
 
             # Add user message to conversation
             conversation.append({"role": "user", "content": user_input})
@@ -5013,7 +5045,85 @@ def handle_root_discuss(session_path, verbose=False, stream_ai_output=False, pri
         sys.exit(1)
 
     # At this point, the conversation is complete
-    # We'll save the conversation but not necessarily update the session
+    # Ask the AI to generate final JSON with refined root, summary, and categories
+    final_prompt = f"Based on our conversation about the root task, please return ONLY valid JSON with the following fields:\n"
+    final_prompt += f"{{\n"
+    final_prompt += f'  "version": 1,\n'
+    final_prompt += f'  "clean_text": "refined version of the root task",\n'
+    final_prompt += f'  "raw_summary": "1-3 sentences summarizing the intent",\n'
+    final_prompt += f'  "categories": ["list", "of", "relevant", "categories"]\n'
+    final_prompt += f"}}\n\n"
+    final_prompt += f"Conversation transcript:\n"
+    for msg in conversation:
+        final_prompt += f"{msg['role'].upper()}: {msg['content']}\n"
+
+    # Get AI to format the final result as JSON
+    try:
+        # Find the first available engine
+        engine = None
+        for model_name in planner_preference:
+            try:
+                from .engines import get_engine
+                engine = get_engine(model_name + "_planner", debug=verbose, stream_output=False)
+                break
+            except Exception as e:
+                if verbose:
+                    print_debug(f"Failed to get engine {model_name}_planner: {e}", 2)
+                continue
+
+        if not engine:
+            print_error("No available AI engine found for finalizing", 2)
+            sys.exit(1)
+
+        final_json_response = engine.generate(final_prompt)
+
+        # Try to extract JSON from the response
+        import re
+        json_match = re.search(r'\{.*\}', final_json_response, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+            import json as json_module
+            try:
+                final_result = json_module.loads(json_str)
+
+                # Update session with the refined fields
+                session.root_task_clean = final_result.get("clean_text", session.root_task_clean)
+                session.root_task_summary = final_result.get("raw_summary", session.root_task_summary)
+                session.root_task_categories = final_result.get("categories", session.root_task_categories)
+
+                # Update the session with conversation history
+                timestamp = datetime.now().isoformat()
+                history_entry = {
+                    "type": "discussion",
+                    "timestamp": timestamp,
+                    "initial_raw": session.root_task_raw if session.root_task_raw else session.root_task,
+                    "final_clean": session.root_task_clean,
+                    "final_summary": session.root_task_summary,
+                    "final_categories": session.root_task_categories,
+                    "conversation": conversation
+                }
+                session.root_history.append(history_entry)
+
+                # Save the updated session
+                save_session(session, session_path)
+
+                print_success("Root task discussion finalized successfully", 2)
+                print_info(f"Cleaned text: {session.root_task_clean[:100]}..." if session.root_task_clean and len(session.root_task_clean) > 100 else f"Cleaned text: {session.root_task_clean}", 2)
+                print_info(f"Categories: {session.root_task_categories}", 2)
+
+            except json_module.JSONDecodeError:
+                print_error("Could not parse JSON from AI response", 2)
+                print_info(f"Raw AI response: {final_json_response}", 2)
+        else:
+            print_error("Could not extract JSON from AI response", 2)
+            print_info(f"Raw AI response: {final_json_response}", 2)
+
+    except Exception as e:
+        print_error(f"Error finalizing root task discussion: {e}", 2)
+        # Still save the conversation even if finalization fails
+        print_info("Conversation was saved but root task was not updated", 2)
+
+    # Save the conversation as a separate file
     conversation_filename = os.path.join(conversations_dir, f"root_discussion_{int(time.time())}.txt")
     with open(conversation_filename, "w", encoding="utf-8") as f:
         f.write(f"Root task discussion conversation\n\n")
@@ -5043,10 +5153,11 @@ def handle_root_show(session_path, verbose=False):
         sys.exit(1)
 
     print_header("ROOT TASK DETAILS")
-    print(f"Raw: {session.root_task_raw if session.root_task_raw else session.root_task}")
+    print(f"Raw: {session.root_task_raw if session.root_task_raw else (session.root_task if session.root_task else '(empty)')}")
     print(f"Clean: {session.root_task_clean if session.root_task_clean else '(not refined yet)'}")
     print(f"Summary: {session.root_task_summary if session.root_task_summary else '(not refined yet)'}")
     print(f"Categories: {session.root_task_categories if session.root_task_categories else ['(not refined yet)']}")
+    print(f"History entries: {len(session.root_history) if hasattr(session, 'root_history') else 0}")
 
 
 def create_root_refinement_prompt(root_task_raw):
