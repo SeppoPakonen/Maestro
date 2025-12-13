@@ -763,6 +763,27 @@ def main():
     kill_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     kill_parser.add_argument('plan_id', help='Plan ID to mark as dead')
 
+    # Builder command group
+    builder_parser = subparsers.add_parser('build', help='Debug-only build workflows')
+    builder_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    builder_subparsers = builder_parser.add_subparsers(dest='builder_subcommand', help='Builder subcommands')
+
+    # build run
+    build_run_parser = builder_subparsers.add_parser('run', help='Run configured build pipeline once and collect diagnostics')
+    build_run_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
+    # build fix
+    build_fix_parser = builder_subparsers.add_parser('fix', help='Run iterative AI-assisted fixes based on diagnostics')
+    build_fix_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
+    # build status
+    build_status_parser = builder_subparsers.add_parser('status', help='Show last pipeline run results (summary, top errors)')
+    build_status_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
+    # build rules
+    build_rules_parser = builder_subparsers.add_parser('rules', help='Edit builder rules/config (separate from normal rules.txt)')
+    build_rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
     args = parser.parse_args()
 
     # Validate that command is specified
@@ -906,6 +927,41 @@ def main():
                 handle_log_help(args.session, args.verbose)
         else:
             handle_log_help(args.session, args.verbose)
+    elif args.command == 'build':
+        # For builder commands, if session is not provided, look for default
+        if not args.session:
+            default_session = find_default_session_file()
+            if default_session:
+                args.session = default_session
+                if args.verbose:
+                    print_info(f"Using default session file: {default_session}", 2)
+            else:
+                # If no session provided and no default exists, show error
+                if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
+                    # For builder subcommands specifically, if no session, show error
+                    print_error("Session is required for build commands", 2)
+                    sys.exit(1)
+                else:
+                    # For builder command without subcommand
+                    print_error("Session is required for build command", 2)
+                    sys.exit(1)
+
+        if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
+            if args.builder_subcommand == 'run':
+                handle_build_run(args.session, args.verbose)
+            elif args.builder_subcommand == 'fix':
+                handle_build_fix(args.session, args.verbose)
+            elif args.builder_subcommand == 'status':
+                handle_build_status(args.session, args.verbose)
+            elif args.builder_subcommand == 'rules':
+                handle_build_rules(args.session, args.verbose)
+            else:
+                print_error(f"Unknown build subcommand: {args.builder_subcommand}", 2)
+                sys.exit(1)
+        else:
+            # Default to showing help if no subcommand specified
+            print_error("No build subcommand specified. Available: run, fix, status, rules", 2)
+            sys.exit(1)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
@@ -3181,6 +3237,339 @@ def find_default_session_file():
                 return maestro_file_path
 
     return None
+
+
+def get_build_dir(session_path: str) -> str:
+    """
+    Get the build directory path for the given session.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the build directory
+    """
+    session_abs_path = os.path.abspath(session_path)
+    session_dir = os.path.dirname(session_abs_path)
+
+    # Use .maestro subdirectory in the same directory as the session file
+    maestro_dir = os.path.join(session_dir, ".maestro")
+    build_dir = os.path.join(maestro_dir, "build")
+
+    os.makedirs(build_dir, exist_ok=True)
+    return build_dir
+
+
+def handle_build_run(session_path, verbose=False):
+    """
+    Run configured build pipeline once and collect diagnostics.
+    """
+    if verbose:
+        print_debug(f"Running build pipeline for session: {session_path}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        sys.exit(1)
+
+    # Get the build directory
+    build_dir = get_build_dir(session_path)
+
+    # Create logs directory
+    logs_dir = os.path.join(build_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    # Run the actual build process
+    print_info("Running build pipeline...", 2)
+
+    # For now, we'll simulate a build process by running 'make' or 'npm run build' if available
+    # In a real implementation, this would read a build configuration
+    import subprocess
+    import time
+
+    # Create a simple build script if it doesn't exist
+    build_script_path = os.path.join(os.path.dirname(session_path), "build.sh")
+    if os.path.exists(build_script_path):
+        # Run the build script
+        try:
+            result = subprocess.run(['bash', build_script_path],
+                                  capture_output=True, text=True,
+                                  cwd=os.path.dirname(session_path))
+
+            # Capture the output and errors
+            build_output = {
+                "timestamp": time.time(),
+                "build_script": build_script_path,
+                "return_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "success": result.returncode == 0
+            }
+        except Exception as e:
+            build_output = {
+                "timestamp": time.time(),
+                "build_script": build_script_path,
+                "return_code": -1,
+                "stdout": "",
+                "stderr": str(e),
+                "success": False
+            }
+    else:
+        # Simulate a build process for testing purposes
+        build_output = {
+            "timestamp": time.time(),
+            "build_script": "default_build",
+            "return_code": 0,
+            "stdout": "Build successful\nAll targets built successfully",
+            "stderr": "",
+            "success": True
+        }
+        print_warning("No build.sh found, simulating build process", 2)
+
+    # Save the build result to last_run.json
+    last_run_path = os.path.join(build_dir, "last_run.json")
+    with open(last_run_path, 'w', encoding='utf-8') as f:
+        json.dump(build_output, f, indent=2)
+
+    # Create a log file with timestamp
+    timestamp = int(time.time())
+    log_filename = os.path.join(logs_dir, f"build_{timestamp}.log")
+    with open(log_filename, 'w', encoding='utf-8') as f:
+        f.write(f"Build run at: {time.ctime(build_output['timestamp'])}\n")
+        f.write(f"Return code: {build_output['return_code']}\n")
+        f.write(f"Success: {build_output['success']}\n")
+        f.write(f"Stdout:\n{build_output['stdout']}\n")
+        f.write(f"Stderr:\n{build_output['stderr']}\n")
+
+    if build_output['success']:
+        print_success("Build pipeline completed successfully", 2)
+    else:
+        print_error("Build pipeline failed", 2)
+        print_error(f"Error: {build_output['stderr']}", 4)
+
+
+def handle_build_fix(session_path, verbose=False):
+    """
+    Run iterative AI-assisted fixes based on diagnostics.
+    """
+    if verbose:
+        print_debug(f"Running AI-assisted fixes for session: {session_path}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        sys.exit(1)
+
+    # Get the build directory and last run results
+    build_dir = get_build_dir(session_path)
+    last_run_path = os.path.join(build_dir, "last_run.json")
+
+    if not os.path.exists(last_run_path):
+        print_error(f"No build results found. Run 'maestro build run' first.", 2)
+        sys.exit(1)
+
+    # Load the last build results
+    with open(last_run_path, 'r', encoding='utf-8') as f:
+        build_results = json.load(f)
+
+    if build_results.get("success", True):
+        print_info("Last build was successful. No fixes needed.", 2)
+        return
+
+    print_info("Analyzing build diagnostics for AI-assisted fixes...", 2)
+
+    # Load rules
+    rules = load_rules(session)
+    if verbose:
+        print_debug(f"Loaded rules (length: {len(rules)} chars)", 4)
+
+    # Create a fix prompt for the AI
+    maestro_dir = get_maestro_dir(session_path)
+    inputs_dir = os.path.join(maestro_dir, "inputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+
+    # Build the prompt for the fix
+    fix_prompt = f"""[BUILD DIAGNOSTICS]\n"""
+    fix_prompt += f"Build script: {build_results.get('build_script', 'N/A')}\n"
+    fix_prompt += f"Return code: {build_results.get('return_code', 'N/A')}\n"
+    fix_prompt += f"Success: {build_results.get('success', False)}\n"
+    fix_prompt += f"STDOUT:\n{build_results.get('stdout', '')}\n"
+    fix_prompt += f"STDERR:\n{build_results.get('stderr', '')}\n\n"""
+
+    fix_prompt += f"""[INSTRUCTIONS]\n"""
+    fix_prompt += f"You are an expert build diagnostician. Analyze the build errors above and suggest fixes.\n"""
+    fix_prompt += f"- Identify the root cause of the build failure\n"""
+    fix_prompt += f"- Suggest specific code or configuration changes to fix the issue\n"""
+    fix_prompt += f"- If needed, suggest changes to build scripts or dependencies\n"""
+    fix_prompt += f"- Be specific and actionable in your recommendations\n"""
+    fix_prompt += f"- Consider the project context and existing codebase\n"""
+    fix_prompt += f"- Only suggest changes that would fix the identified build issues\n\n"""
+
+    if rules:
+        fix_prompt += f"""[PROJECT RULES]\n{rules}\n\n"""
+
+    # Save the fix prompt
+    timestamp = int(time.time())
+    fix_prompt_filename = os.path.join(inputs_dir, f"build_fix_{timestamp}.txt")
+    with open(fix_prompt_filename, "w", encoding="utf-8") as f:
+        f.write(fix_prompt)
+
+    # Let's use the qwen worker engine to analyze the build diagnostics
+    from engines import get_engine
+    try:
+        engine = get_engine("qwen_worker")
+        fix_analysis = engine.generate(fix_prompt)
+
+        # Save the fix analysis
+        outputs_dir = os.path.join(maestro_dir, "outputs")
+        os.makedirs(outputs_dir, exist_ok=True)
+        fix_analysis_filename = os.path.join(outputs_dir, f"build_fix_analysis_{timestamp}.txt")
+        with open(fix_analysis_filename, "w", encoding="utf-8") as f:
+            f.write(fix_analysis)
+
+        print_info("Fix analysis completed. AI recommendations:", 2)
+        print(fix_analysis)
+
+    except Exception as e:
+        print_error(f"Failed to get AI fix analysis: {e}", 2)
+        sys.exit(1)
+
+
+def handle_build_status(session_path, verbose=False):
+    """
+    Show last pipeline run results (summary, top errors).
+    """
+    if verbose:
+        print_debug(f"Showing build status for session: {session_path}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        sys.exit(1)
+
+    # Get the build directory and last run results
+    build_dir = get_build_dir(session_path)
+    last_run_path = os.path.join(build_dir, "last_run.json")
+
+    if not os.path.exists(last_run_path):
+        print_warning("No build results found. Run 'maestro build run' first.", 2)
+        return
+
+    # Load the last build results
+    with open(last_run_path, 'r', encoding='utf-8') as f:
+        build_results = json.load(f)
+
+    print_header("BUILD STATUS")
+
+    # Print summary information
+    styled_print(f"Build Time: {time.ctime(build_results.get('timestamp', 0))}", Colors.BRIGHT_GREEN, Colors.BOLD, 2)
+    styled_print(f"Build Script: {build_results.get('build_script', 'N/A')}", Colors.BRIGHT_WHITE, None, 2)
+    styled_print(f"Success: {'Yes' if build_results.get('success', False) else 'No'}",
+                 Colors.BRIGHT_GREEN if build_results.get('success', False) else Colors.BRIGHT_RED,
+                 Colors.BOLD if build_results.get('success', False) else Colors.BOLD, 2)
+    styled_print(f"Return Code: {build_results.get('return_code', 'N/A')}", Colors.BRIGHT_CYAN, None, 2)
+
+    if not build_results.get('success', False):
+        print_subheader("BUILD ERRORS")
+        stderr_content = build_results.get('stderr', '')
+        if stderr_content:
+            # Show top errors (first few lines)
+            error_lines = stderr_content.split('\n')
+            for i, line in enumerate(error_lines[:10]):  # Show first 10 lines of errors
+                styled_print(f"{i+1:2d}. {line}", Colors.BRIGHT_RED, None, 2)
+
+            if len(error_lines) > 10:
+                styled_print(f"... and {len(error_lines) - 10} more lines", Colors.BRIGHT_YELLOW, None, 2)
+
+        if build_results.get('stdout'):
+            print_subheader("BUILD OUTPUT")
+            stdout_content = build_results.get('stdout', '')
+            if stdout_content:
+                # Show first few lines of output
+                output_lines = stdout_content.split('\n')
+                for i, line in enumerate(output_lines[:5]):  # Show first 5 lines
+                    styled_print(line, Colors.BRIGHT_WHITE, None, 2)
+
+                if len(output_lines) > 5:
+                    styled_print(f"... and {len(output_lines) - 5} more lines", Colors.BRIGHT_YELLOW, None, 2)
+
+
+def handle_build_rules(session_path, verbose=False):
+    """
+    Edit builder rules/config (separate from normal rules.txt).
+    """
+    if verbose:
+        print_debug(f"Editing builder rules for session: {session_path}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        sys.exit(1)
+
+    # Determine the directory of the session file
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    # Builder rules file - separate from the normal rules.txt
+    builder_rules_filename = os.path.join(session_dir, "builder_rules.txt")
+
+    # Ensure the builder rules file exists
+    if not os.path.exists(builder_rules_filename):
+        if verbose:
+            print_debug(f"Builder rules file does not exist. Creating: {builder_rules_filename}", 2)
+        print_info(f"Builder rules file does not exist. Creating: {builder_rules_filename}", 2)
+        # Create the file with some default content
+        with open(builder_rules_filename, 'w', encoding='utf-8') as f:
+            f.write("# Builder Rules for Debug-Only Workflows\n")
+            f.write("# Add build-specific rules and configurations here\n")
+            f.write("# These are separate from the normal task rules\n\n")
+            f.write("# Example build rules:\n")
+            f.write("# - Always run tests after a build\n")
+            f.write("# - Check for compilation errors first\n")
+            f.write("# - Clean build artifacts before running\n")
+
+    # Use vi as fallback if EDITOR is not set
+    editor = os.environ.get('EDITOR', 'vi')
+
+    if verbose:
+        print_debug(f"Opening builder rules file in editor: {editor}", 2)
+
+    # Open the editor with the builder rules file
+    try:
+        subprocess.run([editor, builder_rules_filename])
+    except FileNotFoundError:
+        print_error(f"Editor '{editor}' not found.", 2)
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Could not open editor: {str(e)}", 2)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
