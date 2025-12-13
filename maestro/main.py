@@ -2006,7 +2006,6 @@ def main():
     # task run (runs tasks, similar to resume)
     task_run_parser = task_subparsers.add_parser('run', aliases=['r'], help='Run tasks (similar to resume)')
     task_run_parser.add_argument('num_tasks', nargs='?', type=int, help='Number of tasks to run (if omitted, runs all pending tasks)')
-    task_run_parser.add_argument('-q', '--quiet', action='store_true', help='Suppress streaming AI output')
 
     # task log (synonymous to "log task")
     task_log_parser = task_subparsers.add_parser('log', aliases=['l'], help='Show past tasks (limited to 10, -a shows all)')
@@ -2565,6 +2564,11 @@ def main():
                     handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force, clean_task=clean_task)
         else:
             # Handle main plan command without subcommands
+            # First check if session is available
+            if not args.session:
+                print_error("Session is required for plan command", 2)
+                sys.exit(1)
+
             if hasattr(args, 'discuss') and args.discuss:
                 handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force)
             else:
@@ -2672,8 +2676,10 @@ def main():
             handle_task_list(args.session, args.verbose)
     elif args.command == 'log':
         if hasattr(args, 'log_subcommand') and args.log_subcommand:
-            if args.log_subcommand == 'help':
-                handle_log_help(args.session, args.verbose)
+            if args.log_subcommand == 'help' or args.log_subcommand == 'h':
+                # Print help for log subcommands without requiring a session
+                log_parser.print_help()
+                return  # Exit after showing help
             elif args.log_subcommand == 'list':
                 if hasattr(args, 'log_type'):
                     if args.log_type == 'work':
