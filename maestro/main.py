@@ -104,12 +104,23 @@ class RuleMatch:
     not_conditions: List[MatchCondition] = field(default_factory=list, repr=False)  # None of these conditions should match
 
 @dataclass
+class StructureFixAction:
+    """Structure fix action configuration."""
+    type: str  # Always "structure_fix"
+    apply_rules: List[str]  # List of structure rule names to apply
+    limit: Optional[int] = None  # Optional limit on number of operations
+
+
+@dataclass
 class RuleAction:
     """Action to take when a rule matches."""
-    type: str  # "hint" | "prompt_patch"
+    type: str  # "hint" | "prompt_patch" | "structure_fix"
     text: Optional[str] = None
     model_preference: List[str] = field(default_factory=list)
     prompt_template: Optional[str] = None
+    # For structure_fix type, we'll have additional fields in the JSON
+    apply_rules: List[str] = field(default_factory=list)  # For "structure_fix" type
+    limit: Optional[int] = None  # For "structure_fix" type
 
 @dataclass
 class RuleVerify:
@@ -7109,6 +7120,12 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
         print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
         sys.exit(1)
 
+    # First, run any structure fixes from rulebooks before diagnostics-based fixes
+    print_info("Checking for structure fixes in active rulebooks...", 2)
+    structure_fix_success = run_structure_fixes_from_rulebooks(session_path, verbose)
+    if not structure_fix_success:
+        print_warning("Some structure fixes failed, continuing with diagnostics-based fixes...", 2)
+
     # Load builder configuration
     builder_config = load_builder_config(session_path)
 
@@ -8821,7 +8838,9 @@ def load_rulebook(name: str) -> Rulebook:
                     type=action_data["type"],
                     text=action_data.get("text"),
                     model_preference=action_data.get("model_preference", []),
-                    prompt_template=action_data.get("prompt_template")
+                    prompt_template=action_data.get("prompt_template"),
+                    apply_rules=action_data.get("apply_rules", []),
+                    limit=action_data.get("limit")
                 )
                 actions.append(action)
 
@@ -8917,6 +8936,13 @@ def save_rulebook(name: str, rulebook_data):
                     action_dict["model_preference"] = action.model_preference
                 if action.prompt_template:
                     action_dict["prompt_template"] = action.prompt_template
+
+                # Handle structure_fix specific fields
+                if action.type == "structure_fix":
+                    if action.apply_rules:
+                        action_dict["apply_rules"] = action.apply_rules
+                    if action.limit is not None:
+                        action_dict["limit"] = action.limit
 
                 rule_dict["actions"].append(action_dict)
 
@@ -11175,6 +11201,230 @@ def reduce_secondary_header_includes(package: UppPackage) -> List[FixOperation]:
             print_error(f"Error processing secondary header {hdr_file}: {e}", 2)
 
     return operations
+
+
+def execute_structure_fix_action(session_path: str, action: RuleAction, verbose: bool = False) -> bool:
+    """
+    Execute a structure fix action by applying the specified structure rules.
+
+    Args:
+        session_path: Path to the session file
+        action: RuleAction with type "structure_fix" and apply_rules/limit fields
+        verbose: Verbose output flag
+
+    Returns:
+        True if the structure fix was applied successfully, False otherwise
+    """
+    try:
+        if action.type != "structure_fix":
+            print_error(f"Invalid action type for structure fix: {action.type}", 2)
+            return False
+
+        # Get the repo directory from session path
+        repo_root = os.path.dirname(session_path)
+
+        # Scan the U++ repository structure to get current state
+        repo_index = scan_upp_repo(repo_root)
+
+        # Create a fix plan by applying the specified structure rules
+        fix_plan = apply_structure_fix_rules(
+            repo_index=repo_index,
+            repo_root=repo_root,
+            only_list=action.apply_rules,
+            skip_list=[],
+            verbose=verbose
+        )
+
+        if verbose:
+            print_info(f"Generated structure fix plan with {len(fix_plan.operations)} operations", 2)
+            for i, op in enumerate(fix_plan.operations):
+                print_info(f"  Operation {i+1}: {op.op} - {op.reason}", 4)
+
+        # Apply the fix plan, respecting the limit if specified
+        applied_count = apply_fix_plan_operations(
+            fix_plan=fix_plan,
+            limit=action.limit,
+            dry_run=False,
+            verbose=verbose
+        )
+
+        print_success(f"Applied {applied_count} structure fix operations", 2)
+        return True
+
+    except Exception as e:
+        print_error(f"Error executing structure fix action: {e}", 2)
+        return False
+
+
+def process_matched_structure_rules(session_path: str, matched_rules: List[MatchedRule], verbose: bool = False) -> bool:
+    """
+    Process matched rules that contain structure fix actions.
+
+    Args:
+        session_path: Path to the session file
+        matched_rules: List of MatchedRule objects
+        verbose: Verbose output flag
+
+    Returns:
+        True if all structure fixes were applied successfully, False otherwise
+    """
+    success = True
+
+    for matched_rule in matched_rules:
+        for action in matched_rule.rule.actions:
+            if action.type == "structure_fix":
+                if verbose:
+                    print_info(f"Executing structure fix action for rule: {matched_rule.rule.id}", 2)
+                    print_info(f"  Rules to apply: {action.apply_rules}", 4)
+                    if action.limit:
+                        print_info(f"  Limit: {action.limit}", 4)
+
+                action_success = execute_structure_fix_action(session_path, action, verbose)
+                if not action_success:
+                    print_warning(f"Structure fix action failed for rule: {matched_rule.rule.id}", 2)
+                    success = False
+            elif action.type == "hint":
+                if verbose:
+                    print_info(f"Hint action for rule {matched_rule.rule.id}: {action.text}", 2)
+            elif action.type == "prompt_patch":
+                if verbose:
+                    print_info(f"Prompt patch action for rule {matched_rule.rule.id}", 2)
+            else:
+                print_warning(f"Unknown action type: {action.type}", 2)
+
+    return success
+
+
+def match_structure_rulebooks_to_scan_results(scan_results: dict, session_dir: str) -> List[MatchedRule]:
+    """
+    Match structure rulebooks against scan results to find applicable fixes.
+
+    Args:
+        scan_results: Results from structure scan
+        session_dir: Directory of the current session
+
+    Returns:
+        List of MatchedRule objects
+    """
+    # Load the registry to find rulebooks associated with this repository
+    registry = load_registry()
+
+    # Find rulebooks that are mapped to this session directory
+    matched_rulebook_names = []
+    abs_session_dir = os.path.abspath(session_dir)
+
+    for repo in registry.get('repos', []):
+        abs_repo_path = repo.get('abs_path', '')
+        if os.path.abspath(abs_repo_path) == abs_session_dir:
+            matched_rulebook_names.append(repo.get('rulebook', ''))
+
+    # Also check if there's an active rulebook
+    active_rulebook = registry.get('active_rulebook')
+    if active_rulebook and active_rulebook not in matched_rulebook_names:
+        matched_rulebook_names.append(active_rulebook)
+
+    if not matched_rulebook_names:
+        # If no specific rulebook is mapped to this repo, try the active one
+        if active_rulebook:
+            matched_rulebook_names.append(active_rulebook)
+
+    all_matched_rules = []
+
+    # Match scan results against all relevant rulebooks
+    for rulebook_name in matched_rulebook_names:
+        try:
+            rulebook = load_rulebook(rulebook_name)
+            # In a more sophisticated implementation, we'd match scan results to rules,
+            # but for now we'll apply all structure_fix rules in the rulebook
+            for rule in rulebook.rules:
+                # Check if this rule has structure_fix actions
+                structure_fix_actions = [a for a in rule.actions if a.type == "structure_fix"]
+                if structure_fix_actions:
+                    # Create a MatchedRule for each structure fix action
+                    for action in structure_fix_actions:
+                        matched_rule = MatchedRule(
+                            rule=rule,
+                            diagnostic=None,  # No diagnostic for structure rules
+                            confidence=rule.confidence
+                        )
+                        all_matched_rules.append(matched_rule)
+        except Exception as e:
+            print_warning(f"Failed to load or match rulebook '{rulebook_name}': {e}", 2)
+
+    return all_matched_rules
+
+
+def run_structure_fixes_from_rulebooks(session_path: str, verbose: bool = False) -> bool:
+    """
+    Run structure fixes based on rulebooks (for when 'build fix' encounters structure_fix actions).
+
+    Args:
+        session_path: Path to the session file
+        verbose: Verbose output flag
+
+    Returns:
+        True if structure fixes were applied successfully, False otherwise
+    """
+    # This would need to do a structure scan to get scan results
+    # In a real implementation, we would scan the repository and match rules based on that
+    # For now, let's get the session directory and find applicable rulebooks
+
+    session_dir = os.path.dirname(session_path)
+
+    # Load rulebooks and find ones with structure_fix actions
+    registry = load_registry()
+    matched_rulebook_names = []
+    abs_session_dir = os.path.abspath(session_dir)
+
+    for repo in registry.get('repos', []):
+        abs_repo_path = repo.get('abs_path', '')
+        if os.path.abspath(abs_repo_path) == abs_session_dir:
+            matched_rulebook_names.append(repo.get('rulebook', ''))
+
+    # Also check if there's an active rulebook
+    active_rulebook = registry.get('active_rulebook')
+    if active_rulebook and active_rulebook not in matched_rulebook_names:
+        matched_rulebook_names.append(active_rulebook)
+
+    if not matched_rulebook_names:
+        # If no specific rulebook is mapped to this repo, try the active one
+        if active_rulebook:
+            matched_rulebook_names.append(active_rulebook)
+
+    # Process structure fixes from each matching rulebook
+    success = True
+    for rulebook_name in matched_rulebook_names:
+        try:
+            rulebook = load_rulebook(rulebook_name)
+
+            # Find rules with structure_fix actions
+            structure_fix_rules = []
+            for rule in rulebook.rules:
+                if any(action.type == "structure_fix" for action in rule.actions):
+                    structure_fix_rules.append(rule)
+
+            if structure_fix_rules and verbose:
+                print_info(f"Found {len(structure_fix_rules)} rules with structure_fix actions in rulebook '{rulebook_name}'", 2)
+
+            # Process each rule with structure_fix action
+            for rule in structure_fix_rules:
+                for action in rule.actions:
+                    if action.type == "structure_fix":
+                        if verbose:
+                            print_info(f"Executing structure fix action from rulebook '{rulebook_name}', rule '{rule.id}'", 2)
+
+                        action_success = execute_structure_fix_action(session_path, action, verbose)
+                        if not action_success:
+                            print_warning(f"Structure fix action failed for rulebook '{rulebook_name}', rule '{rule.id}'", 2)
+                            success = False
+        except Exception as e:
+            print_warning(f"Failed to process structure fixes from rulebook '{rulebook_name}': {e}", 2)
+            success = False
+
+    return success
+
+
+# Add the RuleAction type to the Rulebook schema conversion functions if needed
 
 
 if __name__ == "__main__":
