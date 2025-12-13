@@ -1201,6 +1201,11 @@ def main():
     # build plan
     build_plan_parser = builder_subparsers.add_parser('plan', help='Interactive discussion to define target rules via AI')
     build_plan_parser.add_argument('name', help='Build target name to plan')
+    build_plan_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
+    build_plan_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
+    build_plan_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+    build_plan_parser.add_argument('--one-shot', action='store_true', help='Run single planner call that returns finalized JSON plan')
+    build_plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
 
     # build show
     build_show_parser = builder_subparsers.add_parser('show', help='Show full details of build target')
@@ -1398,7 +1403,16 @@ def main():
             elif args.builder_subcommand == 'get':
                 handle_build_get(session_path, args.verbose)
             elif args.builder_subcommand == 'plan':
-                handle_build_plan(session_path, args.name, args.verbose)
+                handle_build_plan(
+                    session_path,
+                    args.name,
+                    args.verbose,
+                    stream_ai_output=getattr(args, 'stream_ai_output', False),
+                    print_ai_prompts=getattr(args, 'print_ai_prompts', False),
+                    planner_order=getattr(args, 'planner_order', 'codex,claude'),
+                    one_shot=getattr(args, 'one_shot', False),
+                    discuss=getattr(args, 'discuss', False)
+                )
             elif args.builder_subcommand == 'show':
                 handle_build_show(session_path, args.name, args.verbose)
             else:
@@ -4056,7 +4070,7 @@ def get_active_build_target(session_path: str) -> Optional[BuildTarget]:
     return None
 
 
-def plan_build_target_interactive(session_path: str, target_name: str, verbose: bool = False) -> Optional[BuildTarget]:
+def plan_build_target_interactive(session_path: str, target_name: str, verbose: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude") -> Optional[BuildTarget]:
     """
     Interactive discussion to define target rules via AI for a build target.
 
@@ -4064,6 +4078,9 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
         session_path: Path to the session file
         target_name: Name for the build target
         verbose: Verbose output flag
+        stream_ai_output: Stream model stdout live to the terminal
+        print_ai_prompts: Print constructed prompts before running them
+        planner_order: Comma-separated order of planners
 
     Returns:
         Created BuildTarget object or None if cancelled
@@ -4091,6 +4108,7 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
     print_info("- Environment variables", 4)
     print_info("- Error pattern matching", 4)
     print_info("Type your message and press Enter. Use /done when you want to generate the target.", 4)
+    print_info("Commands: /done (finish), /quit (exit)", 4)
 
     # Initialize conversation with system prompt
     conversation = [
@@ -4098,14 +4116,21 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
         {"role": "user", "content": f"Help me create a build target configuration for '{target_name}' for this project: {session.root_task}"}
     ]
 
-    while True:
-        # Get user input
-        user_input = get_multiline_input("> ")
+    # Create directories for conversation transcripts and outputs
+    build_dir = get_build_dir(session_path)
+    conversations_dir = os.path.join(build_dir, "conversations")
+    outputs_dir = os.path.join(build_dir, "outputs")
+    os.makedirs(conversations_dir, exist_ok=True)
+    os.makedirs(outputs_dir, exist_ok=True)
 
-        if user_input == "/done" or user_input == "/finish":
+    while True:
+        # Get user input with support for commands
+        user_input = input("> ").strip()
+
+        if user_input.lower() == "/done":
             break
 
-        if user_input == "/quit" or user_input == "/exit":
+        if user_input.lower() == "/quit":
             print_warning("Exiting without creating build target.", 2)
             return None
 
@@ -4121,17 +4146,28 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
 
             conversation_prompt += "\nPlease respond to continue discussing and refining the build target configuration."
 
-            # Use the planner engine to continue the discussion
-            planner_preference = ["codex", "claude"]  # default order
-            from engines import get_engine
+            # Parse planner preference from CLI argument
+            planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+            planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+            # Print prompt if requested
+            if print_ai_prompts:
+                print("===== AI PROMPT BEGIN =====")
+                print(conversation_prompt)
+                print("===== AI PROMPT END =====")
 
             # Try each planner in preference order
             assistant_response = None
             last_error = None
             for engine_name in planner_preference:
                 try:
+                    from engines import get_engine
                     engine = get_engine(engine_name + "_planner")
-                    assistant_response = engine.generate(conversation_prompt)
+                    # Use streaming if enabled
+                    if stream_ai_output:
+                        assistant_response = engine.generate(conversation_prompt)
+                    else:
+                        assistant_response = engine.generate(conversation_prompt)
 
                     # If we get a response, break out of the loop
                     if assistant_response:
@@ -4161,15 +4197,30 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
     # Now we need to generate the final build target configuration based on the conversation.
     print_info("Generating build target configuration from discussion...", 4)
 
+    # Save the conversation transcript
+    timestamp = int(time.time())
+    conversation_filename = os.path.join(conversations_dir, f"{timestamp}_{target_name}.txt")
+    with open(conversation_filename, "w", encoding="utf-8") as f:
+        f.write(f"Build target planning conversation for '{target_name}'\n")
+        f.write(f"Started: {datetime.now().isoformat()}\n")
+        f.write(f"Session: {session_path}\n\n")
+        for msg in conversation:
+            f.write(f"{msg['role'].upper()}: {msg['content']}\n\n")
+
+    print_info(f"Conversation saved to: {conversation_filename}", 2)
+
     final_conversation_prompt = f"Based on our discussion, please generate the final build target configuration for '{target_name}'.\n\n"
     for msg in conversation:
         final_conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
 
-    final_conversation_prompt += """Return ONLY a JSON object with these fields:
+    final_conversation_prompt += """Return ONLY the complete JSON build target configuration with these fields:
 {
+  "target_id": "string",
+  "name": "string",
+  "created_at": "ISO8601 datetime",
+  "categories": ["category1", "category2"],
   "description": "Human readable description",
   "why": "Planner rationale/intent",
-  "categories": ["category1", "category2"],
   "pipeline": {
     "steps": [
       {"id":"step_name","cmd":["command","arg1"],"optional":true/false}
@@ -4185,6 +4236,12 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
   }
 }"""
 
+    # Print final prompt if requested
+    if print_ai_prompts:
+        print("===== FINAL AI PROMPT BEGIN =====")
+        print(final_conversation_prompt)
+        print("===== FINAL AI PROMPT END =====")
+
     # Use the planner to generate the final configuration
     try:
         # Try to get the final JSON configuration
@@ -4192,6 +4249,7 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
         last_error = None
         for engine_name in planner_preference:
             try:
+                from engines import get_engine
                 engine = get_engine(engine_name + "_planner")
                 assistant_response = engine.generate(final_conversation_prompt)
 
@@ -4204,6 +4262,12 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
 
         if assistant_response is None:
             raise Exception(f"All planners failed: {last_error}")
+
+        # Save the raw planner output
+        raw_output_filename = os.path.join(outputs_dir, f"{timestamp}_planner_raw.txt")
+        with open(raw_output_filename, "w", encoding="utf-8") as f:
+            f.write(assistant_response)
+        print_info(f"Raw planner output saved to: {raw_output_filename}", 2)
 
         # Clean up the JSON response
         cleaned_response = clean_json_response(assistant_response)
@@ -4230,7 +4294,7 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
             print_error("AI response was not a JSON object", 2)
             return None
 
-        # Create the build target
+        # Create the build target with the AI-provided configuration
         build_target = create_build_target(
             session_path=session_path,
             name=target_name,
@@ -4239,7 +4303,8 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
             categories=target_config.get("categories", []),
             pipeline=target_config.get("pipeline", {"steps": []}),
             patterns=target_config.get("patterns", {"error_extract": [], "ignore": []}),
-            environment=target_config.get("environment", {"vars": {}, "cwd": "."})
+            environment=target_config.get("environment", {"vars": {}, "cwd": "."}),
+            target_id=target_config.get("target_id")  # Use target_id if provided by AI, otherwise auto-generate
         )
 
         print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
@@ -4248,6 +4313,158 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
     except Exception as e:
         print_error(f"Error generating build target configuration: {e}", 2)
         return None
+
+
+def plan_build_target_one_shot(session_path: str, target_name: str, verbose: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude", clean_target: bool = True) -> Optional[BuildTarget]:
+    """
+    One-shot planning to define target rules via AI for a build target.
+
+    Args:
+        session_path: Path to the session file
+        target_name: Name for the build target
+        verbose: Verbose output flag
+        stream_ai_output: Stream model stdout live to the terminal
+        print_ai_prompts: Print constructed prompts before running them
+        planner_order: Comma-separated order of planners
+        clean_target: Whether to clean/rewrite the target spec before planning
+
+    Returns:
+        Created BuildTarget object or None if failed
+    """
+    if verbose:
+        print_debug(f"Starting one-shot build target planning for: {target_name}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        return None
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        return None
+
+    # Create directories for outputs
+    build_dir = get_build_dir(session_path)
+    outputs_dir = os.path.join(build_dir, "outputs")
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    # Build the planner prompt
+    timestamp = int(time.time())
+    target_spec = f"Build target name: {target_name}\nSession root task: {session.root_task}"
+
+    if clean_target:
+        prompt = f"You are a build configuration expert. The user wants to create a clean, well-structured build target configuration.\n\n"
+        prompt += f"Original request:\n{target_spec}\n\n"
+        prompt += f"Please provide a refined, cleaned-up version of this build target specification that is appropriate for the project context.\n\n"
+        prompt += "Return ONLY the complete JSON build target configuration with these fields:\n"
+    else:
+        prompt = f"You are a build configuration expert. Create a build target configuration for:\n{target_spec}\n\n"
+        prompt += "Return ONLY the complete JSON build target configuration with these fields:\n"
+
+    prompt += """{
+  "target_id": "string",
+  "name": "string",
+  "created_at": "ISO8601 datetime",
+  "categories": ["category1", "category2"],
+  "description": "Human readable description",
+  "why": "Planner rationale/intent",
+  "pipeline": {
+    "steps": [
+      {"id":"step_name","cmd":["command","arg1"],"optional":true/false}
+    ]
+  },
+  "patterns": {
+    "error_extract": ["regex1", "regex2"],
+    "ignore": ["regex3"]
+  },
+  "environment": {
+    "vars": {"VAR_NAME":"value"},
+    "cwd": "."
+  }
+}"""
+
+    # Print prompt if requested
+    if print_ai_prompts:
+        print("===== AI PROMPT BEGIN =====")
+        print(prompt)
+        print("===== AI PROMPT END =====")
+
+    # Parse planner preference from CLI argument
+    planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+    planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+    # Try each planner in preference order
+    assistant_response = None
+    last_error = None
+    for engine_name in planner_preference:
+        try:
+            from engines import get_engine
+            engine = get_engine(engine_name + "_planner")
+            if stream_ai_output:
+                assistant_response = engine.generate(prompt)
+            else:
+                assistant_response = engine.generate(prompt)
+
+            if assistant_response:
+                break
+        except Exception as e:
+            last_error = e
+            print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+            continue
+
+    if assistant_response is None:
+        print_error(f"All planners failed: {last_error}", 2)
+        return None
+
+    # Save the raw planner output
+    raw_output_filename = os.path.join(outputs_dir, f"{timestamp}_planner_raw.txt")
+    with open(raw_output_filename, "w", encoding="utf-8") as f:
+        f.write(assistant_response)
+    print_info(f"Raw planner output saved to: {raw_output_filename}", 2)
+
+    # Clean up the JSON response
+    cleaned_response = clean_json_response(assistant_response)
+
+    # Parse the JSON
+    try:
+        target_config = json.loads(cleaned_response)
+    except json.JSONDecodeError:
+        # If direct parsing fails, try to extract JSON from the response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
+        if json_match:
+            try:
+                target_config = json.loads(json_match.group(0))
+            except json.JSONDecodeError:
+                print_error(f"Could not parse AI response as JSON: {cleaned_response[:200]}...", 2)
+                return None
+        else:
+            print_error(f"Could not find JSON in AI response: {cleaned_response[:200]}...", 2)
+            return None
+
+    # Validate required fields
+    if not isinstance(target_config, dict):
+        print_error("AI response was not a JSON object", 2)
+        return None
+
+    # Create the build target
+    build_target = create_build_target(
+        session_path=session_path,
+        name=target_name,
+        description=target_config.get("description", ""),
+        why=target_config.get("why", ""),
+        categories=target_config.get("categories", []),
+        pipeline=target_config.get("pipeline", {"steps": []}),
+        patterns=target_config.get("patterns", {"error_extract": [], "ignore": []}),
+        environment=target_config.get("environment", {"vars": {}, "cwd": "."}),
+        target_id=target_config.get("target_id")  # Use target_id if provided by AI, otherwise auto-generate
+    )
+
+    print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
+    return build_target
 
 
 def get_builder_config_path(session_path: str) -> str:
@@ -6467,7 +6684,7 @@ def handle_build_get(session_path, verbose=False):
         print_info("No active build target set", 2)
 
 
-def handle_build_plan(session_path, target_name, verbose=False):
+def handle_build_plan(session_path, target_name, verbose=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", one_shot=False, discuss=False):
     """
     Interactive discussion to define target rules via AI.
 
@@ -6475,11 +6692,50 @@ def handle_build_plan(session_path, target_name, verbose=False):
         session_path: Path to the session file
         target_name: Name of the build target to plan
         verbose: Verbose output flag
+        stream_ai_output: Stream model stdout live to the terminal
+        print_ai_prompts: Print constructed prompts before running them
+        planner_order: Comma-separated order of planners
+        one_shot: Run single planner call that returns finalized JSON plan
+        discuss: Enter interactive planning mode for back-and-forth discussion
     """
     if verbose:
-        print_debug(f"Starting interactive build target planning: {target_name}", 2)
+        print_debug(f"Starting build target planning: {target_name}", 2)
 
-    build_target = plan_build_target_interactive(session_path, target_name, verbose)
+    # Determine mode: if neither --one-shot nor --discuss, prompt the user
+    if not one_shot and not discuss:
+        # Ask user which mode to use
+        response = input("Do you want to discuss the build target with the planner AI first? [Y/n]: ").strip().lower()
+        if response in ['', 'y', 'yes']:
+            discuss_mode = True
+        else:
+            discuss_mode = False
+    else:
+        discuss_mode = discuss
+
+    if discuss_mode:
+        # Interactive discussion mode
+        build_target = plan_build_target_interactive(
+            session_path,
+            target_name,
+            verbose=verbose,
+            stream_ai_output=stream_ai_output,
+            print_ai_prompts=print_ai_prompts,
+            planner_order=planner_order
+        )
+    else:
+        # One-shot mode - ask whether to rewrite/clean the target spec
+        response = input("Do you want the planner to rewrite/clean the target specification before planning? [Y/n]: ").strip().lower()
+        clean_target = response in ['', 'y', 'yes']
+
+        build_target = plan_build_target_one_shot(
+            session_path,
+            target_name,
+            verbose=verbose,
+            stream_ai_output=stream_ai_output,
+            print_ai_prompts=print_ai_prompts,
+            planner_order=planner_order,
+            clean_target=clean_target
+        )
 
     if build_target:
         print_success(f"Build target '{build_target.name}' created successfully via AI planning", 2)
