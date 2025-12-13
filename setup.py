@@ -36,5 +36,6 @@ setup(
         # Add any dependencies here if needed
         # For now, no external dependencies beyond standard library
         "toml>=0.10.0",
+        "pyfiglet>=0.8.0",
     ],
 )

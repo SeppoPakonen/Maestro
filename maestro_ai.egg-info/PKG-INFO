@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maestro-ai
-Version: 1.2.0
+Version: 1.2.1
 Summary: Maestro - AI Task Management & Orchestration CLI
 Home-page: https://github.com/yourusername/maestro
 Author: Seppo Pakonen
@@ -18,6 +18,8 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: toml>=0.10.0
+Requires-Dist: pyfiglet>=0.8.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -25,12 +27,15 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
 ![Banner](docs/banner.jpg)
 
-# **README.md — Maestro**
+# **Maestro — AI Task Orchestrator**
+
+Copyright 2025 Seppo Pakonen
 
 ### *AI–Driven Project Composition & Branching Workflow Conductor*
 
