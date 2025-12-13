@@ -1011,7 +1011,6 @@ def main():
     # session set
     session_set_parser = session_subparsers.add_parser('set', help='Set active session')
     session_set_parser.add_argument('name', nargs='?', help='Name of session to set as active (or list number)')
-    session_set_parser.add_argument('list_number', nargs='?', type=int, help='List number of session to set as active')
 
     # session get
     session_get_parser = session_subparsers.add_parser('get', help='Get active session')
@@ -1025,7 +1024,6 @@ def main():
     # session details
     session_details_parser = session_subparsers.add_parser('details', help='Show details of a session')
     session_details_parser.add_argument('name', nargs='?', help='Name of session to show details for (or list number)')
-    session_details_parser.add_argument('list_number', nargs='?', type=int, help='List number of session to show details for')
 
     # Rules command
     rules_parser = subparsers.add_parser('rules', help='Edit the session\'s rules file in $EDITOR')
@@ -1221,13 +1219,13 @@ def main():
         elif args.session_subcommand == 'list':
             handle_session_list(args.verbose)
         elif args.session_subcommand == 'set':
-            handle_session_set(args.name, args.list_number, args.verbose)
+            handle_session_set(args.name, None, args.verbose)
         elif args.session_subcommand == 'get':
             handle_session_get(args.verbose)
         elif args.session_subcommand == 'remove':
             handle_session_remove(args.name, args.yes, args.verbose)
         elif args.session_subcommand == 'details':
-            handle_session_details(args.name, args.list_number, args.verbose)
+            handle_session_details(args.name, None, args.verbose)
         else:
             print_error(f"Unknown session subcommand: {args.session_subcommand}", 2)
             sys.exit(1)
@@ -5929,6 +5927,7 @@ def handle_session_set(session_name: str, list_number: int = None, verbose: bool
             selection = input("Enter session number or name: ").strip()
             if selection.isdigit():
                 idx = int(selection) - 1
+                sessions = list_sessions()  # Get again in case it changed since last call
                 if 0 <= idx < len(sessions):
                     session_name = sessions[idx]
                 else:
@@ -5947,6 +5946,16 @@ def handle_session_set(session_name: str, list_number: int = None, verbose: bool
         else:
             print_error(f"Invalid session number: {list_number}", 2)
             sys.exit(1)
+    else:
+        # Handle the case where session_name is a number (user typed "1" instead of passing as list_number)
+        if session_name.isdigit():
+            sessions = list_sessions()
+            list_num = int(session_name)
+            if 1 <= list_num <= len(sessions):
+                session_name = sessions[list_num - 1]
+            else:
+                print_error(f"Invalid session number: {session_name}", 2)
+                sys.exit(1)
 
     if not session_name:
         print_error("Session name is required", 2)
@@ -6060,6 +6069,15 @@ def handle_session_details(session_name: str, list_number: int = None, verbose: 
             session_name = sessions[list_number - 1]
         else:
             print_error(f"Invalid session number: {list_number}", 2)
+            sys.exit(1)
+    elif session_name and session_name.isdigit():
+        # Handle the case where session_name is a number (user typed "1" instead of passing as list_number)
+        sessions = list_sessions()
+        list_num = int(session_name)
+        if 1 <= list_num <= len(sessions):
+            session_name = sessions[list_num - 1]
+        else:
+            print_error(f"Invalid session number: {session_name}", 2)
             sys.exit(1)
 
     if not session_name:
