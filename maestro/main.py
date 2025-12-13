@@ -172,10 +172,600 @@ class UppPackage:
 
 
 @dataclass
+class UppFile:
+    """Represents a file entry within a UppProject."""
+    path: str = ""
+    separator: bool = False
+    readonly: bool = False
+    pch: bool = False
+    nopch: bool = False
+    noblitz: bool = False
+    charset: str = ""
+    tabsize: int = 0
+    font: int = 0
+    highlight: str = ""
+    spellcheck_comments: str = ""
+    options: List[str] = field(default_factory=list)
+    depends: List[str] = field(default_factory=list)
+
+
+@dataclass
+class UppConfig:
+    """Represents a mainconfig entry."""
+    name: str = ""
+    param: str = ""
+
+
+@dataclass
+class UppProject:
+    """Represents a U++ project configuration from an .upp file."""
+    uses: List[str] = field(default_factory=list)
+    mainconfig: List[UppConfig] = field(default_factory=list)  # List of config name/value pairs
+    files: List[UppFile] = field(default_factory=list)  # List of file entries
+    description: str = ""
+    description_ink: Optional[tuple] = None  # RGB tuple for color (r, g, b)
+    description_bold: bool = False
+    description_italic: bool = False
+    options: List[str] = field(default_factory=list)
+    flags: List[str] = field(default_factory=list)
+    target: List[str] = field(default_factory=list)
+    library: List[str] = field(default_factory=list)
+    static_library: List[str] = field(default_factory=list)
+    link: List[str] = field(default_factory=list)
+    include: List[str] = field(default_factory=list)
+    pkg_config: List[str] = field(default_factory=list)
+    accepts: List[str] = field(default_factory=list)
+    charset: str = ""
+    tabsize: Optional[int] = None
+    noblitz: bool = False
+    nowarnings: bool = False
+    spellcheck_comments: str = ""
+    custom_steps: List[Dict] = field(default_factory=list)
+    unknown_blocks: List[str] = field(default_factory=list)  # Preserve unknown content
+    file_separators: List[str] = field(default_factory=list)  # Preserve file separators for compatibility
+    sections: List[Dict] = field(default_factory=list)  # List of sections with their content - for compatibility
+    raw_content: str = ""  # Preserve original content for reference
+
+
+@dataclass
 class UppRepoIndex:
     """Index of U++ assemblies and packages in a repository."""
     assemblies: List[str]
     packages: List[UppPackage]
+
+
+# ANSI color codes for styling
+class Colors:
+    # Text colors
+    RED = '\033[31m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    BLUE = '\033[34m'
+    MAGENTA = '\033[35m'
+    CYAN = '\033[36m'
+    WHITE = '\033[37m'
+
+    # Bright colors
+    BRIGHT_RED = '\033[91m'
+    BRIGHT_GREEN = '\033[92m'
+    BRIGHT_YELLOW = '\033[93m'
+    BRIGHT_BLUE = '\033[94m'
+    BRIGHT_MAGENTA = '\033[95m'
+    BRIGHT_CYAN = '\033[96m'
+    BRIGHT_WHITE = '\033[97m'
+
+    # Formatting
+    BOLD = '\033[1m'
+    DIM = '\033[2m'
+    ITALIC = '\033[3m'
+
+
+def parse_upp(text: str) -> UppProject:
+    """
+    Parse a .upp file content into a UppProject object.
+    Based on the reference parser from U++ source code.
+
+    Args:
+        text: Content of the .upp file as a string
+
+    Returns:
+        UppProject: Parsed project structure
+    """
+    import re
+    import shlex
+
+    project = UppProject()
+    project.raw_content = text
+
+    # The U++ .upp format uses semicolon-separated statements
+    # Split by semicolons to get statements
+    text = text.replace('\r\n', '\n')  # Normalize line endings
+    statements = []
+    current_stmt = ""
+    in_string = False
+    string_char = None
+    i = 0
+
+    # Manually parse to handle strings properly (to avoid splitting inside strings)
+    while i < len(text):
+        c = text[i]
+
+        if c in ('"', "'") and not in_string:
+            in_string = True
+            string_char = c
+            current_stmt += c
+        elif c == string_char and in_string:
+            # Check if it's escaped
+            if i > 0 and text[i-1] == '\\':
+                current_stmt += c
+            else:
+                in_string = False
+                string_char = None
+                current_stmt += c
+        elif c == ';' and not in_string:
+            statements.append(current_stmt.strip())
+            current_stmt = ""
+        else:
+            current_stmt += c
+        i += 1
+
+    if current_stmt.strip():
+        statements.append(current_stmt.strip())
+
+    # Process each statement
+    for stmt in statements:
+        if not stmt.strip():
+            continue
+
+        # Try to parse as keyword followed by arguments
+        parts = stmt.split(None, 1)
+        if not parts:
+            continue
+
+        keyword = parts[0].lower()
+
+        # Get the rest of the statement
+        args = parts[1] if len(parts) > 1 else ""
+
+        if keyword == "uses":
+            # Parse uses: flag1, flag2, etc.
+            # Extract values properly, handling quotes
+            values = parse_upp_list(args)
+            project.uses.extend(values)
+        elif keyword == "mainconfig":
+            # Parse mainconfig pairs
+            # Format: mainconfig "name" = "value", "name2" = "value2"
+            configs = parse_mainconfig_list(args)
+            project.mainconfig.extend(configs)
+        elif keyword == "description":
+            # Parse description with potential color encoding
+            # The reference handles special character 255 (0xFF, or \377 in octal)
+            desc_text = args.strip().strip('"\'')
+
+            # Handle the case where the \377 is literal text in the file
+            # and needs to be converted to the actual character 255
+            # First, we'll try to find the literal sequence \377 in the text
+            # The actual separator is character 255 (0xFF)
+            import codecs
+            # Replace literal \377 with the actual character 255
+            processed_text = desc_text.replace('\\377', chr(255))
+
+            # Find the 255 (0xFF) character that separates text from formatting
+            ff_pos = processed_text.find(chr(255))
+
+            if ff_pos != -1:
+                # Extract the main description text
+                main_text = processed_text[:ff_pos]
+                project.description = main_text
+
+                # Process the formatting after the separator
+                formatting_part = processed_text[ff_pos+1:]
+
+                # Parse: B128,0,0 where B indicates bold, followed by R,G,B values
+                bold = formatting_part.startswith('B')
+                if bold:
+                    formatting_part = formatting_part[1:]
+
+                italic = formatting_part.startswith('I')
+                if italic:
+                    formatting_part = formatting_part[1:]
+
+                project.description_bold = bold
+                project.description_italic = italic
+
+                # Parse RGB values if present
+                rgb_match = re.match(r'^(\d+),(\d+),(\d+)', formatting_part)
+                if rgb_match:
+                    r, g, b = map(int, rgb_match.groups())
+                    project.description_ink = (r, g, b)
+            else:
+                # No color encoding
+                project.description = desc_text
+        elif keyword == "file":
+            # Parse file list with options
+            files = parse_file_list(args)
+            project.files.extend(files)
+        elif keyword == "flags":
+            values = parse_upp_list(args)
+            project.flags.extend(values)
+        elif keyword == "target":
+            values = parse_upp_list(args)
+            project.target.extend(values)
+        elif keyword == "options":
+            values = parse_upp_list(args)
+            project.options.extend(values)
+        elif keyword == "library":
+            values = parse_upp_list(args)
+            project.library.extend(values)
+        elif keyword == "static_library":
+            values = parse_upp_list(args)
+            project.static_library.extend(values)
+        elif keyword == "link":
+            values = parse_upp_list(args)
+            project.link.extend(values)
+        elif keyword == "include":
+            values = parse_upp_list(args)
+            project.include.extend(values)
+        elif keyword == "pkg_config":
+            values = parse_upp_list(args)
+            project.pkg_config.extend(values)
+        elif keyword == "acceptflags":
+            values = parse_upp_list(args)
+            project.accepts.extend(values)
+        elif keyword == "charset":
+            project.charset = args.strip().strip('"\'')
+        elif keyword == "tabsize":
+            try:
+                project.tabsize = int(args.strip())
+            except ValueError:
+                pass
+        elif keyword == "noblitz":
+            project.noblitz = True
+        elif keyword.startswith("options") and "NOWARNINGS" in stmt:
+            project.nowarnings = True
+        else:
+            # Store unknown blocks
+            project.unknown_blocks.append(stmt)
+
+    return project
+
+
+def parse_upp_list(text: str) -> List[str]:
+    """
+    Parse a comma-separated list of values from UPP format.
+    Handles quoted strings properly.
+    """
+    if not text.strip():
+        return []
+
+    # Split by comma, but respect quotes
+    values = []
+    current = ""
+    in_quotes = False
+    quote_char = None
+    i = 0
+
+    while i < len(text):
+        c = text[i]
+
+        if c in ('"', "'") and not in_quotes:
+            in_quotes = True
+            quote_char = c
+            current += c
+        elif c == quote_char and in_quotes:
+            # Check if it's escaped
+            if i > 0 and text[i-1] == '\\':
+                current += c
+            else:
+                in_quotes = False
+                quote_char = None
+                current += c
+        elif c == ',' and not in_quotes:
+            values.append(current.strip())
+            current = ""
+        else:
+            current += c
+        i += 1
+
+    if current.strip():
+        values.append(current.strip())
+
+    # Clean up the values (remove quotes, extra whitespace)
+    clean_values = []
+    for val in values:
+        val = val.strip()
+        if len(val) >= 2 and val[0] in ('"', "'") and val[-1] == val[0]:
+            val = val[1:-1]  # Remove surrounding quotes
+        if val:
+            clean_values.append(val)
+
+    return clean_values
+
+
+def parse_mainconfig_list(text: str) -> List[UppConfig]:
+    """
+    Parse mainconfig list of format: "name1" = "value1", "name2" = "value2"
+    """
+    configs = []
+
+    if not text.strip():
+        return configs
+
+    # Find each name=value pair by tracking quotes and equal signs
+    i = 0
+    while i < len(text):
+        # Skip whitespace
+        while i < len(text) and text[i].isspace():
+            i += 1
+
+        if i >= len(text):
+            break
+
+        # Parse name (expected to be in quotes)
+        name = ""
+        if text[i] in ('"', "'"):
+            quote = text[i]
+            i += 1
+            while i < len(text) and text[i] != quote:
+                name += text[i]
+                i += 1
+            if i < len(text):  # Skip closing quote
+                i += 1
+        else:
+            # Name not in quotes, consume until = or whitespace
+            while i < len(text) and text[i] != '=' and not text[i].isspace():
+                name += text[i]
+                i += 1
+
+        # Skip whitespace after name
+        while i < len(text) and text[i].isspace():
+            i += 1
+
+        # Expect '=' sign
+        if i < len(text) and text[i] == '=':
+            i += 1  # Skip '='
+        else:
+            # Malformed, skip this config
+            break
+
+        # Skip whitespace after '='
+        while i < len(text) and text[i].isspace():
+            i += 1
+
+        # Parse value (expected to be in quotes)
+        value = ""
+        if i < len(text) and text[i] in ('"', "'"):
+            quote = text[i]
+            i += 1
+            while i < len(text) and text[i] != quote:
+                value += text[i]
+                i += 1
+            if i < len(text):  # Skip closing quote
+                i += 1
+        else:
+            # Value not in quotes, consume until comma or end
+            while i < len(text) and text[i] != ',':
+                value += text[i]
+                i += 1
+
+        configs.append(UppConfig(name=name.strip(), param=value.strip()))
+
+        # Skip whitespace after value
+        while i < len(text) and text[i].isspace():
+            i += 1
+
+        # Expect comma or end
+        if i < len(text) and text[i] == ',':
+            i += 1  # Skip comma
+
+    return configs
+
+
+def parse_file_list(text: str) -> List[UppFile]:
+    """
+    Parse file list with options like: "file1.cpp", "file2.cpp" readonly
+    """
+    files = []
+
+    if not text.strip():
+        return files
+
+    # This is a simplified parsing - in the real U++ parser, file parsing is more complex
+    # For now, split by comma and handle basic options
+    items = parse_upp_list(text)
+
+    for item_text in items:
+        # Each item may have options attached
+        parts = item_text.split()
+        file_path = parts[0] if parts else ""
+
+        # Create file object
+        upp_file = UppFile(path=file_path)
+
+        # Check for options in the remaining parts
+        for part in parts[1:]:
+            if part.lower() == "readonly":
+                upp_file.readonly = True
+            elif part.lower() == "separator":
+                upp_file.separator = True
+            elif part.lower() == "pch":
+                upp_file.pch = True
+            elif part.lower() == "nopch":
+                upp_file.nopch = True
+            elif part.lower() == "noblitz":
+                upp_file.noblitz = True
+            # Add more option parsing as needed
+
+        files.append(upp_file)
+
+    return files
+
+
+def render_upp(project: UppProject) -> str:
+    """
+    Render a UppProject object back to .upp file format.
+    Preserves original formatting and structure as much as possible.
+
+    Args:
+        project: UppProject to render
+
+    Returns:
+        str: Rendered .upp file content
+    """
+    lines = []
+
+    # Add description with color encoding if present
+    if project.description or project.description_bold or project.description_italic or project.description_ink:
+        desc_str = project.description
+        # Add color/formatting information if present
+        if project.description_ink or project.description_bold or project.description_italic:
+            desc_str += '\377'  # Character 255 separator
+            if project.description_bold:
+                desc_str += 'B'
+            if project.description_italic:
+                desc_str += 'I'
+            if project.description_ink:
+                r, g, b = project.description_ink
+                desc_str += f"{r},{g},{b}"
+
+        if desc_str:
+            # Use quotes for description to handle special characters
+            lines.append(f'description "{desc_str}";')
+
+    # Add charset if present
+    if project.charset:
+        lines.append(f'charset "{project.charset}";')
+
+    # Add tabsize if present
+    if project.tabsize is not None:
+        lines.append(f'tabsize {project.tabsize};')
+
+    # Add noblitz if True
+    if project.noblitz:
+        lines.append('noblitz;')
+
+    # Add nowarnings option if True
+    if project.nowarnings:
+        lines.append('options(BUILDER_OPTION) NOWARNINGS;')
+
+    # Add accepts flags if present
+    if project.accepts:
+        accepts_quoted = ['"' + val + '"' for val in project.accepts]
+        accepts_str = ', '.join(accepts_quoted)
+        lines.append(f'acceptflags {accepts_str};')
+
+    # Add flags if present
+    if project.flags:
+        flags_quoted = ['"' + val + '"' for val in project.flags]
+        flags_str = ', '.join(flags_quoted)
+        lines.append(f'flags {flags_str};')
+
+    # Add uses if present
+    if project.uses:
+        uses_quoted = ['"' + val + '"' for val in project.uses]
+        uses_str = ', '.join(uses_quoted)
+        lines.append(f'uses {uses_str};')
+
+    # Add target if present
+    if project.target:
+        target_quoted = ['"' + val + '"' for val in project.target]
+        target_str = ', '.join(target_quoted)
+        lines.append(f'target {target_str};')
+
+    # Add library if present
+    if project.library:
+        library_quoted = ['"' + val + '"' for val in project.library]
+        library_str = ', '.join(library_quoted)
+        lines.append(f'library {library_str};')
+
+    # Add static_library if present
+    if project.static_library:
+        static_library_quoted = ['"' + val + '"' for val in project.static_library]
+        static_library_str = ', '.join(static_library_quoted)
+        lines.append(f'static_library {static_library_str};')
+
+    # Add options if present
+    if project.options:
+        options_quoted = ['"' + val + '"' for val in project.options]
+        options_str = ', '.join(options_quoted)
+        lines.append(f'options {options_str};')
+
+    # Add link if present
+    if project.link:
+        link_quoted = ['"' + val + '"' for val in project.link]
+        link_str = ', '.join(link_quoted)
+        lines.append(f'link {link_str};')
+
+    # Add include if present
+    if project.include:
+        include_quoted = ['"' + val + '"' for val in project.include]
+        include_str = ', '.join(include_quoted)
+        lines.append(f'include {include_str};')
+
+    # Add pkg_config if present
+    if project.pkg_config:
+        pkg_config_quoted = ['"' + val + '"' for val in project.pkg_config]
+        pkg_config_str = ', '.join(pkg_config_quoted)
+        lines.append(f'pkg_config {pkg_config_str};')
+
+    # Add files if present
+    if project.files:
+        file_parts = []
+        for upp_file in project.files:
+            part = f'"{upp_file.path}"'
+            if upp_file.readonly:
+                part += " readonly"
+            if upp_file.separator:
+                part += " separator"
+            if upp_file.pch:
+                part += " pch"
+            if upp_file.nopch:
+                part += " nopch"
+            if upp_file.noblitz:
+                part += " noblitz"
+            if upp_file.charset:
+                part += f' charset "{upp_file.charset}"'
+            if upp_file.tabsize > 0:
+                part += f" tabsize {upp_file.tabsize}"
+            if upp_file.font > 0:
+                part += f" font {upp_file.font}"
+            if upp_file.highlight:
+                part += f' highlight "{upp_file.highlight}"'
+            file_parts.append(part)
+
+        if file_parts:
+            files_str = ',\n\t'.join(file_parts)
+            lines.append(f"file\n\t{files_str};")
+
+    # Add mainconfig if present
+    if project.mainconfig:
+        config_parts = []
+        for config in project.mainconfig:
+            config_parts.append(f'"{config.name}" = "{config.param}"')
+
+        if config_parts:
+            configs_str = ',\n\t'.join(config_parts)
+            lines.append(f"mainconfig\n\t{configs_str};")
+
+    # Add spellcheck_comments if present
+    if project.spellcheck_comments:
+        lines.append(f' spellcheck_comments "{project.spellcheck_comments}"')
+
+    # Add custom steps if present (simplified)
+    for custom_step in project.custom_steps:
+        # This is a simplified representation - actual custom steps have more complex format
+        pass
+
+    # Add unknown blocks if present
+    for unknown_block in project.unknown_blocks:
+        lines.append(unknown_block)
+
+    # Join lines with double newline between major sections
+    result = ';\n\n'.join(lines) + ';' if lines else ''
+
+    # Normalize to original line endings if needed
+    # Note: For round-trip compatibility, we might want to maintain original format
+    return result
 
 
 # ANSI color codes for styling
