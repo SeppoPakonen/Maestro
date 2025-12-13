@@ -4071,6 +4071,235 @@ def get_active_build_target(session_path: str) -> Optional[BuildTarget]:
     return None
 
 
+def run_pipeline_from_build_target(target: BuildTarget, session_path: str) -> PipelineRunResult:
+    """
+    Run the pipeline based on the build target configuration.
+
+    Args:
+        target: BuildTarget object with the pipeline configuration
+        session_path: Path to the session file
+
+    Returns:
+        PipelineRunResult object with results from all steps
+    """
+    import time
+    import subprocess
+
+    print_info(f"Running build pipeline for target: {target.name}", 2)
+
+    build_dir = get_build_dir(session_path)
+    run_dir = os.path.join(build_dir, "runs")
+    os.makedirs(run_dir, exist_ok=True)
+
+    # Create a unique run directory
+    timestamp = int(time.time())
+    run_id = f"run_{timestamp}"
+    run_path = os.path.join(run_dir, run_id)
+    os.makedirs(run_path, exist_ok=True)
+
+    # Save run metadata
+    run_metadata = {
+        "target_id": target.target_id,
+        "target_name": target.name,
+        "run_id": run_id,
+        "timestamp": timestamp,
+        "run_start": datetime.now().isoformat()
+    }
+
+    metadata_path = os.path.join(run_path, "metadata.json")
+    with open(metadata_path, 'w', encoding='utf-8') as f:
+        json.dump(run_metadata, f, indent=2)
+
+    step_results = []
+
+    # Get the pipeline steps from the target configuration
+    pipeline_config = target.pipeline.get("steps", [])
+
+    if not pipeline_config:
+        print_warning(f"No steps configured in target {target.name}", 2)
+        return PipelineRunResult(timestamp=time.time(), step_results=[], success=True)
+
+    # Run each step in the pipeline
+    for step_def in pipeline_config:
+        if isinstance(step_def, dict):
+            # This is a step definition with id and cmd
+            step_name = step_def.get("id")
+            cmd = step_def.get("cmd", [])
+            optional = step_def.get("optional", False)
+        elif isinstance(step_def, str):
+            # This is just a step name - get it from the target's step definitions if available
+            step_name = step_def
+            # Try to get command from target's step definitions (if they exist)
+            step_definitions = target.pipeline.get("step_definitions", {})
+            if step_name in step_definitions:
+                step_info = step_definitions[step_name]
+                cmd = step_info.get("cmd", [])
+                optional = step_info.get("optional", False)
+            else:
+                # Default command for simple step names
+                cmd = ["bash", f"{step_name}.sh"]
+                optional = True
+        else:
+            print_warning(f"Invalid step configuration: {step_def}. Skipping.", 2)
+            continue
+
+        if not cmd:
+            print_warning(f"No command configured for step '{step_name}'. Skipping.", 2)
+            continue
+
+        print_info(f"Running step: {step_name}", 4)
+
+        start_time = time.time()
+
+        try:
+            # Run the step command
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=os.path.dirname(session_path)  # Run in the session directory
+            )
+
+            duration = time.time() - start_time
+            exit_code = result.returncode
+
+            # Determine success based on exit code and whether step is optional
+            success = (exit_code == 0) or optional
+
+            # Create result object
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=exit_code,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write step logs to files in the run directory
+            stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write(result.stdout)
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(result.stderr)
+
+            # Print status for this step
+            if success:
+                print_success(f"Step '{step_name}' completed successfully (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+            else:
+                print_error(f"Step '{step_name}' failed (exit code: {exit_code}, duration: {duration:.2f}s)", 4)
+                if result.stderr:
+                    print_error(f"  Error: {result.stderr[:200]}{'...' if len(result.stderr) > 200 else ''}", 4)
+
+        except FileNotFoundError:
+            # Command not found, but if optional, note it and continue
+            duration = time.time() - start_time
+            success = optional  # Optional steps succeed if not found
+
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=127,  # Standard "command not found" exit code
+                stdout="",
+                stderr=f"Command not found: {' '.join(cmd)}",
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write step logs to files in the run directory
+            stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(f"Command not found: {' '.join(cmd)}")
+
+            if success:
+                print_warning(f"Step '{step_name}' skipped (command not found, but optional)", 4)
+            else:
+                print_error(f"Step '{step_name}' failed (command not found: {' '.join(cmd)})", 4)
+
+        except Exception as e:
+            duration = time.time() - start_time
+            success = optional  # Optional steps succeed if error occurs
+
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=1,
+                stdout="",
+                stderr=str(e),
+                duration=duration,
+                success=success
+            )
+
+            step_results.append(step_result)
+
+            # Write step logs to files in the run directory
+            stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(str(e))
+
+            if success:
+                print_warning(f"Step '{step_name}' skipped due to error (but optional): {e}", 4)
+            else:
+                print_error(f"Step '{step_name}' failed with error: {e}", 4)
+
+    # Create and return the overall result
+    overall_success = all(sr.success for sr in step_results)
+    result = PipelineRunResult(
+        timestamp=time.time(),
+        step_results=step_results,
+        success=overall_success
+    )
+
+    # Write structured run summary (run.json)
+    run_summary = {
+        "run_id": run_id,
+        "target_id": target.target_id,
+        "target_name": target.name,
+        "timestamp": timestamp,
+        "run_start": run_metadata["run_start"],
+        "run_end": datetime.now().isoformat(),
+        "duration": time.time() - start_time if 'start_time' in locals() else 0,
+        "success": overall_success,
+        "step_count": len(step_results),
+        "successful_steps": len([sr for sr in step_results if sr.success]),
+        "failed_steps": len([sr for sr in step_results if not sr.success]),
+        "steps": []
+    }
+
+    # Add individual step details
+    for step_result in step_results:
+        step_summary = {
+            "step_name": step_result.step_name,
+            "exit_code": step_result.exit_code,
+            "duration": step_result.duration,
+            "success": step_result.success,
+            "stdout_file": f"step_{step_result.step_name}.stdout.txt",
+            "stderr_file": f"step_{step_result.step_name}.stderr.txt"
+        }
+        run_summary["steps"].append(step_summary)
+
+    run_summary_path = os.path.join(run_path, "run.json")
+    with open(run_summary_path, 'w', encoding='utf-8') as f:
+        json.dump(run_summary, f, indent=2)
+
+    return result
+
+
 def plan_build_target_interactive(session_path: str, target_name: str, verbose: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude") -> Optional[BuildTarget]:
     """
     Interactive discussion to define target rules via AI for a build target.
@@ -5571,14 +5800,14 @@ def generate_tags(message: str, tool: str) -> List[str]:
 
 def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_steps=None, follow=False):
     """
-    Run configured build pipeline once and collect diagnostics.
+    Run configured build pipeline once and collect diagnostics from the active build target.
 
     Args:
         session_path: Path to the session file
         verbose: Verbose output flag
         stop_after_step: Stop pipeline after the specified step
         limit_steps: Limit pipeline to specified steps
-        follow: Stream output live to terminal
+        follow: Stream output live to terminal (not implemented for build target runs)
     """
     if verbose:
         print_debug(f"Running build pipeline for session: {session_path}", 2)
@@ -5595,49 +5824,47 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
         sys.exit(1)
 
-    # Load builder configuration
-    builder_config = load_builder_config(session_path)
-
-    # Apply step limiting if specified
-    if limit_steps:
-        allowed_steps = [s.strip() for s in limit_steps.split(',')]
-        original_steps = builder_config.pipeline.steps[:]
-        builder_config.pipeline.steps = [s for s in original_steps if s in allowed_steps]
-        if verbose:
-            print_debug(f"Limited pipeline steps to: {builder_config.pipeline.steps}", 2)
-
-    # Apply stop-after-step limiting if specified
-    if stop_after_step and stop_after_step in builder_config.pipeline.steps:
-        stop_idx = builder_config.pipeline.steps.index(stop_after_step)
-        builder_config.pipeline.steps = builder_config.pipeline.steps[:stop_idx + 1]
-        if verbose:
-            print_debug(f"Stopping after step '{stop_after_step}', running steps: {builder_config.pipeline.steps}", 2)
-    elif stop_after_step and stop_after_step not in builder_config.pipeline.steps:
-        print_error(f"Step '{stop_after_step}' not found in pipeline steps: {builder_config.pipeline.steps}", 2)
+    # Load the active build target
+    active_target = get_active_build_target(session_path)
+    if not active_target:
+        print_error("No active build target set. Use 'maestro build set <target>' to set an active target.", 2)
         sys.exit(1)
 
-    # Always print paths for visibility
-    build_dir = get_build_dir(session_path)
-    logs_dir = os.path.join(build_dir, "logs")
-    diagnostics_dir = os.path.join(build_dir, "diagnostics")
-    fix_history_path = os.path.join(build_dir, "fix_history.json")
-    last_run_path = os.path.join(build_dir, "last_run.json")
+    print_info(f"Running build pipeline for target: {active_target.name} [{active_target.target_id}]", 2)
 
-    if verbose or follow:
-        print_info(f"Build logs: {logs_dir}/", 2)
-        print_info(f"Diagnostics: {diagnostics_dir}/", 2)
-        print_info(f"Last run: {last_run_path}", 2)
-        print_info(f"Fix history: {fix_history_path}", 2)
+    # Apply step limiting if specified
+    if limit_steps or stop_after_step:
+        # Filter the steps based on the provided limits
+        original_steps = active_target.pipeline.get("steps", [])
+        filtered_steps = []
 
-    # Run the diagnostic pipeline
-    if verbose and builder_config.pipeline.steps:
-        print_info(f"Pipeline will run these steps: {builder_config.pipeline.steps}", 2)
+        for step in original_steps:
+            step_name = step if isinstance(step, str) else step.get("id", "")
 
-    # Use streaming if --follow is enabled
-    if follow:
-        pipeline_result = run_pipeline_with_streaming(builder_config, session_path, verbose)
-    else:
-        pipeline_result = run_pipeline(builder_config, session_path)
+            # If limit_steps is specified, only include allowed steps
+            if limit_steps:
+                allowed_steps = [s.strip() for s in limit_steps.split(',')]
+                if step_name in allowed_steps:
+                    filtered_steps.append(step)
+            # If stop_after_step is specified and we've reached that step, include it and stop
+            elif stop_after_step:
+                filtered_steps.append(step)
+                if step_name == stop_after_step:
+                    break
+            else:
+                # If no limits, include all steps
+                filtered_steps.append(step)
+
+        # Update the target's pipeline temporarily for this run
+        original_pipeline = active_target.pipeline.copy()
+        active_target.pipeline["steps"] = filtered_steps
+
+        if verbose:
+            filtered_step_names = [s if isinstance(s, str) else s.get("id", "") for s in filtered_steps]
+            print_debug(f"Limited pipeline steps to: {filtered_step_names}", 2)
+
+    # Run the pipeline using the active build target configuration
+    pipeline_result = run_pipeline_from_build_target(active_target, session_path)
 
     # Extract diagnostics from the pipeline run
     diagnostics = extract_diagnostics(pipeline_result)
@@ -5650,34 +5877,8 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         if diagnostic.signature in known_issue_matches:
             diagnostic.known_issues = known_issue_matches[diagnostic.signature]
 
-    # Get the build directory
-    build_dir = get_build_dir(session_path)
-
-    # Convert pipeline result to the expected format for storage
-    build_output = {
-        "timestamp": pipeline_result.timestamp,
-        "success": pipeline_result.success,
-        "steps": []
-    }
-
-    # Add step details to the output
-    for step_result in pipeline_result.step_results:
-        step_output = {
-            "step_name": step_result.step_name,
-            "exit_code": step_result.exit_code,
-            "stdout": step_result.stdout,
-            "stderr": step_result.stderr,
-            "duration": step_result.duration,
-            "success": step_result.success
-        }
-        build_output["steps"].append(step_output)
-
-    # Save the build result to last_run.json
-    last_run_path = os.path.join(build_dir, "last_run.json")
-    with open(last_run_path, 'w', encoding='utf-8') as f:
-        json.dump(build_output, f, indent=2)
-
     # Create diagnostics directory if it doesn't exist
+    build_dir = get_build_dir(session_path)
     diagnostics_dir = os.path.join(build_dir, "diagnostics")
     os.makedirs(diagnostics_dir, exist_ok=True)
 
@@ -5704,24 +5905,6 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
 
     with open(diagnostics_path, 'w', encoding='utf-8') as f:
         json.dump(diagnostics_data, f, indent=2)
-
-    # Create a summary log file
-    log_filename = os.path.join(build_dir, "logs", f"pipeline_{timestamp}.log")
-    with open(log_filename, 'w', encoding='utf-8') as f:
-        f.write(f"Pipeline run at: {time.ctime(pipeline_result.timestamp)}\n")
-        f.write(f"Overall success: {pipeline_result.success}\n")
-        f.write(f"Total steps: {len(pipeline_result.step_results)}\n")
-        f.write(f"Total diagnostics found: {len(diagnostics)}\n")
-        f.write(f"Known issue matches: {sum(len(d.known_issues) for d in diagnostics)}\n\n")
-
-        for step_result in pipeline_result.step_results:
-            f.write(f"Step: {step_result.step_name}\n")
-            f.write(f"  Exit code: {step_result.exit_code}\n")
-            f.write(f"  Success: {step_result.success}\n")
-            f.write(f"  Duration: {step_result.duration:.2f}s\n")
-            f.write(f"  Stdout: {step_result.stdout[:500] if step_result.stdout else '(none)'}\n")
-            f.write(f"  Stderr: {step_result.stderr[:500] if step_result.stderr else '(none)'}\n")
-            f.write("\n")
 
     if pipeline_result.success:
         print_success(f"Build pipeline completed successfully ({len(diagnostics)} diagnostics found, {sum(len(d.known_issues) for d in diagnostics)} known issue matches)", 2)
@@ -6289,7 +6472,7 @@ def apply_fix(fix_proposal, session_path, verbose=False):
 
 def handle_build_status(session_path, verbose=False):
     """
-    Show last pipeline run results (summary, top errors).
+    Show last pipeline run results for the active build target (summary, top errors).
     """
     if verbose:
         print_debug(f"Showing build status for session: {session_path}", 2)
@@ -6306,41 +6489,71 @@ def handle_build_status(session_path, verbose=False):
         print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
         sys.exit(1)
 
-    # Get the build directory and last run results
-    build_dir = get_build_dir(session_path)
-    last_run_path = os.path.join(build_dir, "last_run.json")
-
-    if not os.path.exists(last_run_path):
-        print_warning("No build results found. Run 'maestro build run' first.", 2)
-        return
-
-    # Load the last build results
-    with open(last_run_path, 'r', encoding='utf-8') as f:
-        build_results = json.load(f)
+    # Load the active build target
+    active_target = get_active_build_target(session_path)
+    if not active_target:
+        print_error("No active build target set. Use 'maestro build set <target>' to set an active target.", 2)
+        sys.exit(1)
 
     print_header("BUILD STATUS")
 
-    # Print summary information
-    styled_print(f"Build Time: {time.ctime(build_results.get('timestamp', 0))}", Colors.BRIGHT_GREEN, Colors.BOLD, 2)
-    styled_print(f"Success: {'Yes' if build_results.get('success', False) else 'No'}",
-                 Colors.BRIGHT_GREEN if build_results.get('success', False) else Colors.BRIGHT_RED,
-                 Colors.BOLD if build_results.get('success', False) else Colors.BOLD, 2)
+    # Print active target information
+    styled_print(f"Active Target: {active_target.name}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+    styled_print(f"Target ID: {active_target.target_id}", Colors.BRIGHT_CYAN, None, 2)
 
-    # Try to load and display diagnostics
+    # Get the build directory and runs
+    build_dir = get_build_dir(session_path)
+    runs_dir = os.path.join(build_dir, "runs")
+
+    if not os.path.exists(runs_dir):
+        print_warning("No build runs found. Run 'maestro build run' first.", 2)
+        return
+
+    # Find the most recent run directory
+    run_dirs = []
+    for item in os.listdir(runs_dir):
+        item_path = os.path.join(runs_dir, item)
+        if os.path.isdir(item_path) and item.startswith("run_"):
+            try:
+                # Extract timestamp from directory name (run_timestamp)
+                timestamp_str = item.split("_")[1] if "_" in item else None
+                if timestamp_str and timestamp_str.isdigit():
+                    run_dirs.append((int(timestamp_str), item_path))
+            except:
+                continue  # Skip invalid run directories
+
+    if not run_dirs:
+        print_warning("No valid build runs found in runs directory.", 2)
+        return
+
+    # Sort by timestamp to get the most recent
+    run_dirs.sort(key=lambda x: x[0], reverse=True)
+    latest_run_timestamp, latest_run_path = run_dirs[0]
+
+    # Load the run summary from run.json
+    run_summary_path = os.path.join(latest_run_path, "run.json")
+    if not os.path.exists(run_summary_path):
+        print_warning(f"Run summary not found in {latest_run_path}", 2)
+        return
+
+    with open(run_summary_path, 'r', encoding='utf-8') as f:
+        run_summary = json.load(f)
+
+    # Print run information
+    styled_print(f"Last Run ID: {run_summary.get('run_id', 'unknown')}", Colors.BRIGHT_GREEN, Colors.BOLD, 2)
+    styled_print(f"Run Time: {time.ctime(run_summary.get('timestamp', 0))}", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Target: {run_summary.get('target_name', 'unknown')}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Success: {'Yes' if run_summary.get('success', False) else 'No'}",
+                 Colors.BRIGHT_GREEN if run_summary.get('success', False) else Colors.BRIGHT_RED,
+                 Colors.BOLD if run_summary.get('success', False) else Colors.BOLD, 2)
+    styled_print(f"Steps: {run_summary.get('successful_steps', 0)}/{run_summary.get('step_count', 0)} succeeded", Colors.BRIGHT_CYAN, None, 2)
+
+    # Try to load and display diagnostics from the same timestamp as the run
     diagnostics_dir = os.path.join(build_dir, "diagnostics")
-    latest_diagnostics_path = None
+    target_diagnostics_path = os.path.join(diagnostics_dir, f"{latest_run_timestamp}.json")
 
-    # Find the most recent diagnostics file
-    if os.path.exists(diagnostics_dir):
-        diag_files = [f for f in os.listdir(diagnostics_dir) if f.endswith('.json')]
-        if diag_files:
-            # Sort by timestamp to get the most recent
-            diag_files.sort(key=lambda x: int(x.split('.')[0]) if x.split('.')[0].isdigit() else 0, reverse=True)
-            if diag_files:
-                latest_diagnostics_path = os.path.join(diagnostics_dir, diag_files[0])
-
-    if latest_diagnostics_path and os.path.exists(latest_diagnostics_path):
-        with open(latest_diagnostics_path, 'r', encoding='utf-8') as f:
+    if os.path.exists(target_diagnostics_path):
+        with open(target_diagnostics_path, 'r', encoding='utf-8') as f:
             diagnostics_data = json.load(f)
 
         # Convert back to Diagnostic objects
@@ -6433,7 +6646,23 @@ def handle_build_status(session_path, verbose=False):
                                    Colors.BRIGHT_YELLOW, None, 2)
 
     else:
-        print_warning("No diagnostics found. Run 'maestro build run' first.", 2)
+        print_warning("No diagnostics found for latest run. Run 'maestro build run' to generate diagnostics.", 2)
+
+    # Show step results from the run summary
+    print_subheader("STEP RESULTS")
+    steps = run_summary.get('steps', [])
+    if steps:
+        for step in steps:
+            step_name = step.get('step_name', 'unknown')
+            success = step.get('success', False)
+            exit_code = step.get('exit_code', 'unknown')
+
+            status_color = Colors.BRIGHT_GREEN if success else Colors.BRIGHT_RED
+            status_text = "SUCCESS" if success else "FAILED"
+
+            styled_print(f"{step_name}: {status_text} (exit: {exit_code})", status_color, None, 2)
+    else:
+        styled_print("No step results available in run summary.", Colors.BRIGHT_YELLOW, None, 2)
 
     # Show last fix iteration results if available
     fix_history_path = os.path.join(build_dir, "fix_history.json")
@@ -6466,55 +6695,12 @@ def handle_build_status(session_path, verbose=False):
                     styled_print(f"Signatures remaining: {len(verification['remaining_target_signatures'])}",
                                Colors.BRIGHT_RED, None, 2)
 
-    # Show step results
-    print_subheader("STEP RESULTS")
-    if 'steps' in build_results:
-        for step in build_results['steps']:
-            step_name = step.get('step_name', 'unknown')
-            success = step.get('success', False)
-            exit_code = step.get('exit_code', 'unknown')
-
-            status_color = Colors.BRIGHT_GREEN if success else Colors.BRIGHT_RED
-            status_text = "SUCCESS" if success else "FAILED"
-
-            styled_print(f"{step_name}: {status_text} (exit: {exit_code})", status_color, None, 2)
-    else:
-        # Fallback to old format for compatibility
-        stderr_content = build_results.get('stderr', '')
-        if stderr_content:
-            # Show top errors (first few lines)
-            error_lines = stderr_content.split('\n')
-            for i, line in enumerate(error_lines[:10]):  # Show first 10 lines of errors
-                styled_print(f"{i+1:2d}. {line}", Colors.BRIGHT_RED, None, 2)
-
-            if len(error_lines) > 10:
-                styled_print(f"... and {len(error_lines) - 10} more lines", Colors.BRIGHT_YELLOW, None, 2)
-
-        if build_results.get('stdout'):
-            print_subheader("BUILD OUTPUT")
-            stdout_content = build_results.get('stdout', '')
-            if stdout_content:
-                # Show first few lines of output
-                output_lines = stdout_content.split('\n')
-                for i, line in enumerate(output_lines[:5]):  # Show first 5 lines
-                    styled_print(line, Colors.BRIGHT_WHITE, None, 2)
-
-                if len(output_lines) > 5:
-                    styled_print(f"... and {len(output_lines) - 5} more lines", Colors.BRIGHT_YELLOW, None, 2)
-
     # Always print paths for visibility
-    logs_dir = os.path.join(build_dir, "logs")
-    diagnostics_dir = os.path.join(build_dir, "diagnostics")
-    fix_history_path = os.path.join(build_dir, "fix_history.json")
-    last_run_path = os.path.join(build_dir, "last_run.json")
-
     print_subheader("BUILD ARTIFACTS")
-    styled_print(f"Build logs: {logs_dir}/", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Build runs: {runs_dir}/", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Run {run_summary.get('run_id', 'unknown')}: {latest_run_path}/", Colors.BRIGHT_GREEN, None, 2)
     styled_print(f"Diagnostics: {diagnostics_dir}/", Colors.BRIGHT_GREEN, None, 2)
-    styled_print(f"Last run: {last_run_path}", Colors.BRIGHT_GREEN, None, 2)
     styled_print(f"Fix history: {fix_history_path}", Colors.BRIGHT_GREEN, None, 2)
-
-
 def handle_build_new(session_path, target_name, verbose=False, description=None, categories=None, steps=None):
     """
     Create a new build target.
