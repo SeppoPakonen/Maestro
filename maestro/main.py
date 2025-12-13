@@ -1162,15 +1162,46 @@ def main():
     build_run_parser.add_argument('--limit-steps', help='Limit pipeline to specified steps (comma-separated)')
     build_run_parser.add_argument('--follow', action='store_true', help='Stream build output live to the terminal')
 
-    # build fix
-    build_fix_parser = builder_subparsers.add_parser('fix', help='Run iterative AI-assisted fixes based on diagnostics')
-    build_fix_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
-    build_fix_parser.add_argument('--max-iterations', type=int, default=5, help='Maximum number of fix iterations (default: 5)')
-    build_fix_parser.add_argument('--limit-fixes', type=int, dest='max_iterations', help='Maximum number of fix attempts (alias for --max-iterations)')
-    build_fix_parser.add_argument('--target', help='Target diagnostic: "top", "signature:<sig>", or "file:<path>"')
-    build_fix_parser.add_argument('--keep-going', action='store_true', help='Attempt next error even if one fails')
-    build_fix_parser.add_argument('--limit-steps', help='Restrict pipeline steps (comma-separated: build,lint,tests,...)')
-    build_fix_parser.add_argument('--build-after-each-fix', action='store_true', default=True, help='Rerun build after each fix (default: true)')
+    # build fix (with subcommands for rulebook management)
+    build_fix_parser = builder_subparsers.add_parser('fix', help='Fix rulebook management and iterative AI-assisted fixes')
+    build_fix_subparsers = build_fix_parser.add_subparsers(dest='fix_subcommand', help='Fix subcommands')
+
+    # build fix run (existing functionality)
+    build_fix_run_parser = build_fix_subparsers.add_parser('run', help='Run iterative AI-assisted fixes based on diagnostics')
+    build_fix_run_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_fix_run_parser.add_argument('--max-iterations', type=int, default=5, help='Maximum number of fix iterations (default: 5)')
+    build_fix_run_parser.add_argument('--limit-fixes', type=int, dest='max_iterations', help='Maximum number of fix attempts (alias for --max-iterations)')
+    build_fix_run_parser.add_argument('--target', help='Target diagnostic: "top", "signature:<sig>", or "file:<path>"')
+    build_fix_run_parser.add_argument('--keep-going', action='store_true', help='Attempt next error even if one fails')
+    build_fix_run_parser.add_argument('--limit-steps', help='Restrict pipeline steps (comma-separated: build,lint,tests,...)')
+    build_fix_run_parser.add_argument('--build-after-each-fix', action='store_true', default=True, help='Rerun build after each fix (default: true)')
+
+    # build fix add
+    build_fix_add_parser = build_fix_subparsers.add_parser('add', help='Register a repository with a fix rulebook name')
+    build_fix_add_parser.add_argument('repo_path', help='Path to repository that contains .maestro/')
+    build_fix_add_parser.add_argument('name', help='Name to link the rulebook to')
+
+    # build fix new
+    build_fix_new_parser = build_fix_subparsers.add_parser('new', help='Create a new empty rulebook')
+    build_fix_new_parser.add_argument('name', help='Name for the new rulebook')
+
+    # build fix list
+    build_fix_list_parser = build_fix_subparsers.add_parser('list', help='List all rulebooks')
+
+    # build fix remove
+    build_fix_remove_parser = build_fix_subparsers.add_parser('remove', help='Delete a rulebook from the registry')
+    build_fix_remove_parser.add_argument('name_or_index', help='Rulebook name or index to remove')
+
+    # build fix plan
+    build_fix_plan_parser = build_fix_subparsers.add_parser('plan', help='Discuss/edit a rulebook with planner AI')
+    build_fix_plan_parser.add_argument('name', nargs='?', help='Rulebook name to edit (default: current active)')
+    build_fix_plan_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+    build_fix_plan_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
+    build_fix_plan_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
+
+    # build fix show
+    build_fix_show_parser = build_fix_subparsers.add_parser('show', help='Display rulebook details')
+    build_fix_show_parser.add_argument('name_or_index', nargs='?', help='Rulebook name or index to show (default: current active)')
 
     # build status
     build_status_parser = builder_subparsers.add_parser('status', help='Show last pipeline run results (summary, top errors)')
@@ -1419,43 +1450,44 @@ def main():
                 print_error(f"Unknown build target subcommand: {args.builder_subcommand}", 2)
                 sys.exit(1)
         else:
-            # For other build commands (run, fix, status, rules) that still require explicit session handling
-            # First check if session was provided directly
-            if not args.session:
-                # Check for an active session first
-                active_session_name = get_active_session_name()
-                if active_session_name:
-                    # Get the path for the active session
-                    active_session_path = get_session_path_by_name(active_session_name)
-                    if os.path.exists(active_session_path):
-                        args.session = active_session_path
-                        if args.verbose:
-                            print_info(f"Using active session: {active_session_path}", 2)
-                    else:
-                        # Active session points to non-existent file, warn and fall back
-                        print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
-                        # Fall through to try default session files
-                        default_session = find_default_session_file()
-                        if default_session:
-                            args.session = default_session
-                            if args.verbose:
-                                print_info(f"Using default session file: {default_session}", 2)
-                        else:
-                            print_error("Session is required for build commands", 2)
-                            sys.exit(1)
-                else:
-                    # No active session, try default session files
-                    default_session = find_default_session_file()
-                    if default_session:
-                        args.session = default_session
-                        if args.verbose:
-                            print_info(f"Using default session file: {default_session}", 2)
-                    else:
-                        print_error("Session is required for build commands", 2)
-                        sys.exit(1)
-
+            # For other build commands (run, status, rules) that still require explicit session handling
+            # The fix subcommands (add, new, list, remove, plan, show) don't require a session
             if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
                 if args.builder_subcommand == 'run':
+                    # First check if session was provided directly for run command
+                    if not args.session:
+                        # Check for an active session first
+                        active_session_name = get_active_session_name()
+                        if active_session_name:
+                            # Get the path for the active session
+                            active_session_path = get_session_path_by_name(active_session_name)
+                            if os.path.exists(active_session_path):
+                                args.session = active_session_path
+                                if args.verbose:
+                                    print_info(f"Using active session: {active_session_path}", 2)
+                            else:
+                                # Active session points to non-existent file, warn and fall back
+                                print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
+                                # Fall through to try default session files
+                                default_session = find_default_session_file()
+                                if default_session:
+                                    args.session = default_session
+                                    if args.verbose:
+                                        print_info(f"Using default session file: {default_session}", 2)
+                                else:
+                                    print_error("Session is required for build commands", 2)
+                                    sys.exit(1)
+                        else:
+                            # No active session, try default session files
+                            default_session = find_default_session_file()
+                            if default_session:
+                                args.session = default_session
+                                if args.verbose:
+                                    print_info(f"Using default session file: {default_session}", 2)
+                            else:
+                                print_error("Session is required for build commands", 2)
+                                sys.exit(1)
+
                     handle_build_run(
                         args.session,
                         args.verbose,
@@ -1464,15 +1496,118 @@ def main():
                         follow=getattr(args, 'follow', False)
                     )
                 elif args.builder_subcommand == 'fix':
-                    handle_build_fix(
-                        args.session,
-                        args.verbose,
-                        max_iterations=getattr(args, 'max_iterations', 5),
-                        target=getattr(args, 'target', None),
-                        keep_going=getattr(args, 'keep_going', False),
-                        limit_steps=getattr(args, 'limit_steps', None),
-                        build_after_each_fix=getattr(args, 'build_after_each_fix', True)
-                    )
+                    # Handle fix subcommands (add, new, list, remove, plan, show, run)
+                    # Some fix subcommands need a session (run), others don't (add, new, list, remove, plan, show)
+                    if hasattr(args, 'fix_subcommand') and args.fix_subcommand:
+                        if args.fix_subcommand == 'run':
+                            # The 'run' fix subcommand needs a session
+                            if not args.session:
+                                # Check for an active session first
+                                active_session_name = get_active_session_name()
+                                if active_session_name:
+                                    # Get the path for the active session
+                                    active_session_path = get_session_path_by_name(active_session_name)
+                                    if os.path.exists(active_session_path):
+                                        args.session = active_session_path
+                                        if args.verbose:
+                                            print_info(f"Using active session: {active_session_path}", 2)
+                                    else:
+                                        # Active session points to non-existent file, warn and fall back
+                                        print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
+                                        # Fall through to try default session files
+                                        default_session = find_default_session_file()
+                                        if default_session:
+                                            args.session = default_session
+                                            if args.verbose:
+                                                print_info(f"Using default session file: {default_session}", 2)
+                                        else:
+                                            print_error("Session is required for build fix run command", 2)
+                                            sys.exit(1)
+                                else:
+                                    # No active session, try default session files
+                                    default_session = find_default_session_file()
+                                    if default_session:
+                                        args.session = default_session
+                                        if args.verbose:
+                                            print_info(f"Using default session file: {default_session}", 2)
+                                    else:
+                                        print_error("Session is required for build fix run command", 2)
+                                        sys.exit(1)
+
+                            handle_build_fix(
+                                args.session,
+                                args.verbose,
+                                max_iterations=getattr(args, 'max_iterations', 5),
+                                target=getattr(args, 'target', None),
+                                keep_going=getattr(args, 'keep_going', False),
+                                limit_steps=getattr(args, 'limit_steps', None),
+                                build_after_each_fix=getattr(args, 'build_after_each_fix', True)
+                            )
+                        elif args.fix_subcommand == 'add':
+                            handle_build_fix_add(args.repo_path, args.name, args.verbose)
+                        elif args.fix_subcommand == 'new':
+                            handle_build_fix_new(args.name, args.verbose)
+                        elif args.fix_subcommand == 'list':
+                            handle_build_fix_list(args.verbose)
+                        elif args.fix_subcommand == 'remove':
+                            handle_build_fix_remove(args.name_or_index, args.verbose)
+                        elif args.fix_subcommand == 'plan':
+                            handle_build_fix_plan(
+                                args.name,
+                                args.verbose,
+                                stream_ai_output=getattr(args, 'stream_ai_output', False),
+                                print_ai_prompts=getattr(args, 'print_ai_prompts', False),
+                                planner_order=getattr(args, 'planner_order', 'codex,claude')
+                            )
+                        elif args.fix_subcommand == 'show':
+                            handle_build_fix_show(args.name_or_index, args.verbose)
+                        else:
+                            print_error(f"Unknown build fix subcommand: {args.fix_subcommand}", 2)
+                            sys.exit(1)
+                    else:
+                        # If no fix subcommand specified, default to run (which needs session)
+                        if not args.session:
+                            # Check for an active session first
+                            active_session_name = get_active_session_name()
+                            if active_session_name:
+                                # Get the path for the active session
+                                active_session_path = get_session_path_by_name(active_session_name)
+                                if os.path.exists(active_session_path):
+                                    args.session = active_session_path
+                                    if args.verbose:
+                                        print_info(f"Using active session: {active_session_path}", 2)
+                                else:
+                                    # Active session points to non-existent file, warn and fall back
+                                    print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
+                                    # Fall through to try default session files
+                                    default_session = find_default_session_file()
+                                    if default_session:
+                                        args.session = default_session
+                                        if args.verbose:
+                                            print_info(f"Using default session file: {default_session}", 2)
+                                    else:
+                                        print_error("Session is required for build fix run command", 2)
+                                        sys.exit(1)
+                            else:
+                                # No active session, try default session files
+                                default_session = find_default_session_file()
+                                if default_session:
+                                    args.session = default_session
+                                    if args.verbose:
+                                        print_info(f"Using default session file: {default_session}", 2)
+                                else:
+                                    print_error("Session is required for build fix run command", 2)
+                                    sys.exit(1)
+
+                        handle_build_fix(
+                            args.session,
+                            args.verbose,
+                            max_iterations=getattr(args, 'max_iterations', 5),
+                            target=getattr(args, 'target', None),
+                            keep_going=getattr(args, 'keep_going', False),
+                            limit_steps=getattr(args, 'limit_steps', None),
+                            build_after_each_fix=getattr(args, 'build_after_each_fix', True)
+                        )
                 elif args.builder_subcommand == 'status':
                     handle_build_status(args.session, args.verbose)
                 elif args.builder_subcommand == 'rules':
@@ -1482,7 +1617,7 @@ def main():
                     sys.exit(1)
             else:
                 # Default to showing help if no subcommand specified
-                print_error("No build subcommand specified. Available: run, fix, status, rules, new, list, set, get, plan, show", 2)
+                print_error("No build subcommand specified. Available: run, fix {add,new,list,remove,plan,show}, status, rules, new, list, set, get, plan, show", 2)
                 sys.exit(1)
     else:
         print_error(f"Unknown command: {args.command}", 2)
@@ -7434,6 +7569,467 @@ def handle_session_details(session_name: str, list_number: int = None, verbose: 
         styled_print(f"Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 2)
 
     styled_print(f"Root Task Preview: {details['root_task']}", Colors.BRIGHT_WHITE, None, 2)
+
+
+def get_fix_rulebooks_dir() -> str:
+    """
+    Get the directory for storing fix rulebooks (~/.config/maestro/fix/).
+
+    Returns:
+        Path to the fix rulebooks directory
+    """
+    user_config_dir = get_user_config_dir()
+    fix_dir = os.path.join(user_config_dir, 'fix')
+    os.makedirs(fix_dir, exist_ok=True)
+
+    # Create subdirectories
+    rulebooks_dir = os.path.join(fix_dir, 'rulebooks')
+    os.makedirs(rulebooks_dir, exist_ok=True)
+
+    return fix_dir
+
+
+def get_registry_file_path() -> str:
+    """
+    Get the path to the registry file for fix rulebooks.
+
+    Returns:
+        Path to the registry file
+    """
+    fix_dir = get_fix_rulebooks_dir()
+    return os.path.join(fix_dir, 'registry.json')
+
+
+def get_rulebook_file_path(name: str) -> str:
+    """
+    Get the path to a specific rulebook file.
+
+    Args:
+        name: Rulebook name
+
+    Returns:
+        Path to the rulebook file
+    """
+    fix_dir = get_fix_rulebooks_dir()
+    rulebooks_dir = os.path.join(fix_dir, 'rulebooks')
+    return os.path.join(rulebooks_dir, f'{name}.json')
+
+
+def load_registry() -> dict:
+    """
+    Load the registry containing repo mappings and active rulebook information.
+
+    Returns:
+        Registry data as a dictionary
+    """
+    registry_path = get_registry_file_path()
+
+    if os.path.exists(registry_path):
+        with open(registry_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    else:
+        # Return default registry structure
+        return {
+            "repos": [],
+            "active_rulebook": None
+        }
+
+
+def save_registry(registry: dict):
+    """
+    Save the registry to file.
+
+    Args:
+        registry: Registry data to save
+    """
+    registry_path = get_registry_file_path()
+    os.makedirs(os.path.dirname(registry_path), exist_ok=True)
+
+    with open(registry_path, 'w', encoding='utf-8') as f:
+        json.dump(registry, f, indent=2)
+
+
+def load_rulebook(name: str) -> dict:
+    """
+    Load a specific rulebook by name.
+
+    Args:
+        name: Name of the rulebook to load
+
+    Returns:
+        Rulebook data as a dictionary
+    """
+    rulebook_path = get_rulebook_file_path(name)
+
+    if os.path.exists(rulebook_path):
+        with open(rulebook_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    else:
+        # Return empty rulebook structure
+        return {
+            "name": name,
+            "created_at": datetime.now().isoformat(),
+            "rules": []
+        }
+
+
+def save_rulebook(name: str, rulebook: dict):
+    """
+    Save a rulebook to file.
+
+    Args:
+        name: Name of the rulebook
+        rulebook: Rulebook data to save
+    """
+    rulebook_path = get_rulebook_file_path(name)
+    os.makedirs(os.path.dirname(rulebook_path), exist_ok=True)
+
+    with open(rulebook_path, 'w', encoding='utf-8') as f:
+        json.dump(rulebook, f, indent=2)
+
+
+def list_rulebooks() -> list:
+    """
+    List all available rulebooks.
+
+    Returns:
+        List of rulebook names
+    """
+    fix_dir = get_fix_rulebooks_dir()
+    rulebooks_dir = os.path.join(fix_dir, 'rulebooks')
+
+    if not os.path.exists(rulebooks_dir):
+        return []
+
+    rulebooks = []
+    for filename in os.listdir(rulebooks_dir):
+        if filename.endswith('.json'):
+            rulebooks.append(os.path.splitext(filename)[0])
+
+    return sorted(rulebooks)
+
+
+def handle_build_fix_add(repo_path: str, name: str, verbose: bool = False):
+    """
+    Handle adding a repository mapping to a fix rulebook.
+
+    Args:
+        repo_path: Path to the repository containing .maestro/
+        name: Name of the rulebook to link to
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_info(f"Adding repo {repo_path} to rulebook {name}", 2)
+
+    repo_path = os.path.abspath(repo_path)
+
+    # Check if the repository contains .maestro/ directory
+    maestro_dir = os.path.join(repo_path, '.maestro')
+    if not os.path.exists(maestro_dir):
+        print_error(f"Repository {repo_path} does not contain .maestro/ directory", 2)
+        sys.exit(1)
+
+    # Load the registry
+    registry = load_registry()
+
+    # Generate a stable repo_id from the folder name or create a UUID
+    repo_id = os.path.basename(repo_path)
+
+    # Check if repo is already registered
+    for repo in registry['repos']:
+        if repo['abs_path'] == repo_path:
+            print_warning(f"Repository {repo_path} is already registered with rulebook {repo['rulebook']}", 2)
+            return
+
+    # Create relative hint from $HOME for portability
+    home_dir = os.path.expanduser('~')
+    relative_hint = None
+    if repo_path.startswith(home_dir):
+        relative_hint = os.path.relpath(repo_path, home_dir)
+
+    # Add the repository mapping to the registry
+    repo_entry = {
+        "repo_id": repo_id,
+        "relative_hint": relative_hint,
+        "abs_path": repo_path,
+        "rulebook": name
+    }
+
+    registry['repos'].append(repo_entry)
+    save_registry(registry)
+
+    print_success(f"Registered repository {repo_path} with rulebook {name}", 2)
+
+
+def handle_build_fix_new(name: str, verbose: bool = False):
+    """
+    Handle creating a new empty rulebook.
+
+    Args:
+        name: Name for the new rulebook
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_info(f"Creating new rulebook: {name}", 2)
+
+    # Check if rulebook already exists
+    rulebook_path = get_rulebook_file_path(name)
+    if os.path.exists(rulebook_path):
+        print_error(f"Rulebook '{name}' already exists at {rulebook_path}", 2)
+        sys.exit(1)
+
+    # Create a new empty rulebook
+    rulebook = {
+        "name": name,
+        "created_at": datetime.now().isoformat(),
+        "rules": []
+    }
+
+    # Save the rulebook
+    save_rulebook(name, rulebook)
+
+    print_success(f"Created new rulebook: {name}", 2)
+
+
+def handle_build_fix_list(verbose: bool = False):
+    """
+    Handle listing all available rulebooks.
+
+    Args:
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_info("Listing all rulebooks", 2)
+
+    rulebook_names = list_rulebooks()
+    registry = load_registry()
+    active_rulebook = registry.get('active_rulebook')
+
+    if not rulebook_names:
+        print_info("No rulebooks found", 2)
+        return
+
+    print_header("FIX RULEBOOKS")
+    for i, name in enumerate(rulebook_names, 1):
+        is_active = name == active_rulebook
+        marker = " [ACTIVE]" if is_active else ""
+        indicator = "*" if is_active else " "
+        print_info(f"{indicator} {i}. {name}{marker}", 2)
+
+        # In verbose mode, show more details
+        if verbose:
+            rulebook = load_rulebook(name)
+            print_info(f"     Created: {rulebook.get('created_at', 'unknown')}", 4)
+            print_info(f"     Rules: {len(rulebook.get('rules', []))}", 4)
+
+
+def handle_build_fix_remove(name_or_index: str, verbose: bool = False):
+    """
+    Handle removing a rulebook from the registry.
+
+    Args:
+        name_or_index: Rulebook name or index to remove
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_info(f"Removing rulebook: {name_or_index}", 2)
+
+    rulebook_names = list_rulebooks()
+
+    # Check if name_or_index is an index
+    if name_or_index.isdigit():
+        index = int(name_or_index) - 1
+        if 0 <= index < len(rulebook_names):
+            name = rulebook_names[index]
+        else:
+            print_error(f"Invalid rulebook index: {name_or_index}", 2)
+            sys.exit(1)
+    else:
+        name = name_or_index
+
+    # Confirm removal
+    response = input(f"Are you sure you want to remove rulebook '{name}'? [y/N]: ").strip().lower()
+    if response not in ['y', 'yes']:
+        print_info("Operation cancelled", 2)
+        return
+
+    # Remove the rulebook file
+    rulebook_path = get_rulebook_file_path(name)
+    if os.path.exists(rulebook_path):
+        os.remove(rulebook_path)
+    else:
+        print_warning(f"Rulebook file does not exist: {rulebook_path}", 2)
+
+    # Update registry to remove any references to this rulebook
+    registry = load_registry()
+    registry['repos'] = [repo for repo in registry['repos'] if repo['rulebook'] != name]
+
+    # Update active rulebook if it was this one
+    if registry.get('active_rulebook') == name:
+        registry['active_rulebook'] = None
+
+    save_registry(registry)
+
+    print_success(f"Removed rulebook: {name}", 2)
+
+
+def handle_build_fix_plan(name: str = None, verbose: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude"):
+    """
+    Handle discussing/editing a rulebook with planner AI.
+
+    Args:
+        name: Rulebook name to edit (default: current active)
+        verbose: Verbose output flag
+        stream_ai_output: Stream AI output flag
+        print_ai_prompts: Print AI prompts flag
+        planner_order: Planner order string
+    """
+    if verbose:
+        print_info(f"Editing rulebook: {name or 'active'}", 2)
+
+    # Determine which rulebook to use
+    registry = load_registry()
+    if not name:
+        name = registry.get('active_rulebook')
+
+    if not name:
+        print_error("No rulebook specified and no active rulebook set", 2)
+        sys.exit(1)
+
+    # Load the rulebook
+    rulebook = load_rulebook(name)
+
+    print_header(f"EDITING RULEBOOK: {name}")
+    print_info("Enter your rulebook modifications. Type '/done' when finished.", 2)
+    print_info("The AI will generate JSON rule definitions.", 2)
+
+    # Start interactive session with AI
+    planner_preference = [p.strip() for p in planner_order.split(',')]
+
+    # Build initial context for the AI
+    context = f"""
+[EXISTING RULEBOOK]
+Name: {rulebook.get('name', name)}
+Created: {rulebook.get('created_at', 'unknown')}
+Rules: {json.dumps(rulebook.get('rules', []), indent=2)}
+
+[INSTRUCTIONS]
+- You are helping the user modify a fix rulebook
+- The user will provide updates to the rules
+- When the user types '/done', return a complete JSON rule definition
+- The JSON should follow this structure:
+{{
+  "name": "rulebook_name",
+  "created_at": "timestamp",
+  "rules": [
+    {{
+      "id": "rule_id",
+      "pattern": "regex_pattern",
+      "replace": "replacement_text",
+      "description": "what this rule does",
+      "enabled": true
+    }}
+  ]
+}}
+- Only return the JSON when the user types '/done'
+"""
+
+    # We'll implement a simple interactive loop here
+    # For now, this is a placeholder - actual AI interaction would need to be implemented
+    user_input = ""
+    while True:
+        user_input = input(f"\n[Rulebook Editor] > ").strip()
+
+        if user_input == "/done":
+            # Generate a sample JSON structure as a placeholder
+            # In a real implementation, this would call AI to generate the rules
+            print_info("Rulebook edit session completed. In a full implementation, AI would generate the final JSON rules.", 2)
+            print_info("Sample rulebook JSON structure:", 2)
+            sample_json = {
+                "name": rulebook.get('name', name),
+                "created_at": rulebook.get('created_at', datetime.now().isoformat()),
+                "rules": rulebook.get('rules', [])
+            }
+            print(json.dumps(sample_json, indent=2))
+            break
+        elif user_input == "/quit":
+            print_info("Rulebook edit session cancelled.", 2)
+            break
+        elif user_input.startswith('/'):
+            print_info(f"Unknown command: {user_input}. Use '/done' to finish or '/quit' to exit.", 2)
+        else:
+            # Process the input (in a real implementation, this would interact with AI)
+            print_info(f"Processing: {user_input} (in a full implementation, AI would process this input)", 2)
+
+
+def handle_build_fix_show(name_or_index: str = None, verbose: bool = False):
+    """
+    Handle showing details of a specific rulebook.
+
+    Args:
+        name_or_index: Rulebook name or index to show (default: current active)
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_info(f"Showing rulebook: {name_or_index or 'active'}", 2)
+
+    # Get the registry to find active rulebook if needed
+    registry = load_registry()
+
+    if not name_or_index:
+        name_or_index = registry.get('active_rulebook')
+        if not name_or_index:
+            print_error("No rulebook specified and no active rulebook set", 2)
+            sys.exit(1)
+
+    rulebook_names = list_rulebooks()
+
+    # Check if name_or_index is an index
+    if name_or_index and name_or_index.isdigit():
+        index = int(name_or_index) - 1
+        if 0 <= index < len(rulebook_names):
+            name = rulebook_names[index]
+        else:
+            print_error(f"Invalid rulebook index: {name_or_index}", 2)
+            sys.exit(1)
+    else:
+        name = name_or_index
+
+    # Check if rulebook exists
+    rulebook_path = get_rulebook_file_path(name)
+    if not os.path.exists(rulebook_path):
+        print_error(f"Rulebook '{name}' does not exist", 2)
+        sys.exit(1)
+
+    # Load and display the rulebook
+    rulebook = load_rulebook(name)
+
+    print_header(f"RULEBOOK DETAILS: {name}")
+    styled_print(f"Name: {rulebook.get('name', name)}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+    styled_print(f"Created: {rulebook.get('created_at', 'unknown')}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Rules Count: {len(rulebook.get('rules', []))}", Colors.BRIGHT_GREEN, None, 2)
+
+    # Show any repositories linked to this rulebook
+    linked_repos = [repo for repo in registry['repos'] if repo['rulebook'] == name]
+    if linked_repos:
+        styled_print("Linked Repositories:", Colors.BRIGHT_MAGENTA, Colors.BOLD, 2)
+        for repo in linked_repos:
+            print_info(f"  - {repo['abs_path']} (ID: {repo['repo_id']})", 2)
+
+    # Show rules if any
+    rules = rulebook.get('rules', [])
+    if rules:
+        styled_print("Rules:", Colors.BRIGHT_MAGENTA, Colors.BOLD, 2)
+        for i, rule in enumerate(rules, 1):
+            rule_id = rule.get('id', f'rule_{i}')
+            enabled = rule.get('enabled', True)
+            enabled_str = "✓" if enabled else "✗"
+            print_info(f"  {enabled_str} {i}. {rule_id}: {rule.get('description', 'No description')}", 2)
+            if verbose:
+                print_info(f"      Pattern: {rule.get('pattern', 'N/A')}", 4)
+                print_info(f"      Replace: {rule.get('replace', 'N/A')}", 4)
+    else:
+        print_info("No rules defined in this rulebook", 2)
 
 
 if __name__ == "__main__":
