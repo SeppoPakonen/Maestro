@@ -9989,6 +9989,10 @@ def apply_structure_fix_rules(repo_index: UppRepoIndex, repo_root: str, only_lis
         StructureRule(id="ensure_main_header", enabled=True, description="Ensure <Name>/<Name>.h exists"),
         StructureRule(id="cpp_includes_only_main_header", enabled=True, description="For .cpp files, enforce first include is only <Name>.h"),
         StructureRule(id="no_includes_in_secondary_headers", enabled=True, description="Secondary headers should not include other headers except inline inclusions"),
+        StructureRule(id="fix_header_guards", enabled=True, description="Fix header guards to use #ifndef/#define/#endif pattern instead of #pragma once"),
+        StructureRule(id="ensure_main_header_content", enabled=True, description="Ensure main header content follows U++ conventions"),
+        StructureRule(id="normalize_cpp_includes", enabled=True, description="Normalize C++ includes to follow U++ convention"),
+        StructureRule(id="reduce_secondary_header_includes", enabled=True, description="Reduce includes in secondary headers (conservative)"),
     ]
 
     # Filter rules based on --only and --skip
@@ -10029,6 +10033,18 @@ def apply_structure_fix_rules(repo_index: UppRepoIndex, repo_root: str, only_lis
             fix_plan.operations.extend(operations)
         elif rule.id == "no_includes_in_secondary_headers":
             operations = rule_no_includes_in_secondary_headers(repo_index, repo_root, verbose)
+            fix_plan.operations.extend(operations)
+        elif rule.id == "fix_header_guards":
+            operations = rule_fix_header_guards(repo_index, repo_root, verbose)
+            fix_plan.operations.extend(operations)
+        elif rule.id == "ensure_main_header_content":
+            operations = rule_ensure_main_header_content(repo_index, repo_root, verbose)
+            fix_plan.operations.extend(operations)
+        elif rule.id == "normalize_cpp_includes":
+            operations = rule_normalize_cpp_includes(repo_index, repo_root, verbose)
+            fix_plan.operations.extend(operations)
+        elif rule.id == "reduce_secondary_header_includes":
+            operations = rule_reduce_secondary_header_includes(repo_index, repo_root, verbose)
             fix_plan.operations.extend(operations)
 
     return fix_plan
@@ -10303,6 +10319,72 @@ def rule_no_includes_in_secondary_headers(repo_index: UppRepoIndex, repo_root: s
                 if verbose:
                     print_warning(f"Could not process header {hdr_file}: {e}", 2)
                 continue
+
+    return operations
+
+
+def rule_fix_header_guards(repo_index: UppRepoIndex, repo_root: str, verbose: bool = False) -> List[FixOperation]:
+    """Rule: Fix header guards to use #ifndef/#define/#endif pattern and add AI hints."""
+    operations = []
+
+    for pkg in repo_index.packages:
+        # Check all header files in the package
+        all_header_files = [f for f in pkg.source_files + pkg.header_files if f.endswith(('.h', '.hpp', '.hxx'))]
+
+        for hdr_file in all_header_files:
+            try:
+                # Call the fix_header_guards function that updates the file directly
+                if fix_header_guards(hdr_file, pkg.name):
+                    if verbose:
+                        print_info(f"Fixed header guards for {hdr_file}", 2)
+                    # Since the function modifies the file directly, we don't need WriteFileOperation
+                    # But we could add a log operation to track the change
+                    operations.append(EditFileOperation(
+                        op="edit_file",
+                        reason=f"Fixed header guards in {hdr_file} to use #ifndef/#define/#endif",
+                        path=hdr_file,
+                        patch="Header guards fixed"
+                    ))
+            except Exception as e:
+                if verbose:
+                    print_warning(f"Could not fix header guards for {hdr_file}: {e}", 2)
+                continue
+
+    return operations
+
+
+def rule_ensure_main_header_content(repo_index: UppRepoIndex, repo_root: str, verbose: bool = False) -> List[FixOperation]:
+    """Rule: Ensure main header content follows U++ conventions."""
+    operations = []
+
+    for pkg in repo_index.packages:
+        # Get operations for ensuring proper main header content
+        pkg_operations = ensure_main_header_content(pkg)
+        operations.extend(pkg_operations)
+
+    return operations
+
+
+def rule_normalize_cpp_includes(repo_index: UppRepoIndex, repo_root: str, verbose: bool = False) -> List[FixOperation]:
+    """Rule: Normalize C++ includes to follow U++ convention (main header first)."""
+    operations = []
+
+    for pkg in repo_index.packages:
+        # Get operations for normalizing C++ includes
+        pkg_operations = normalize_cpp_includes(pkg)
+        operations.extend(pkg_operations)
+
+    return operations
+
+
+def rule_reduce_secondary_header_includes(repo_index: UppRepoIndex, repo_root: str, verbose: bool = False) -> List[FixOperation]:
+    """Rule: Reduce includes in secondary headers (conservative approach)."""
+    operations = []
+
+    for pkg in repo_index.packages:
+        # Get operations for reducing secondary header includes
+        pkg_operations = reduce_secondary_header_includes(pkg)
+        operations.extend(pkg_operations)
 
     return operations
 
@@ -10702,6 +10784,397 @@ def handle_structure_lint(session_path: str, verbose: bool = False, target: str 
 
         if 'message' in result:
             styled_print(f"    Message: {result['message']}", Colors.BRIGHT_WHITE, None, 2)
+
+
+def fix_header_guards(path: str, package_name: str) -> bool:
+    """
+    Fix header guards to use #ifndef / #define / #endif pattern instead of #pragma once.
+
+    Args:
+        path: Path to the header file
+        package_name: Name of the package for generating guard macro
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import re  # Import inside function to avoid name conflicts
+
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        original_content = content
+
+        # Check if file ends with .h, .hpp, .hxx
+        if not any(path.lower().endswith(ext) for ext in ['.h', '.hpp', '.hxx']):
+            return False  # Not a header file
+
+        # Look for existing #pragma once
+        pragma_pattern = r'^\s*#pragma\s+once\s*$'
+        pragma_match = None
+        lines = content.splitlines(keepends=True)
+
+        # Find pragma once lines to remove
+        pragma_indices = []
+        for i, line in enumerate(lines):
+            if re.match(pragma_pattern, line, re.IGNORECASE):
+                pragma_indices.append(i)
+
+        # Remove pragma once lines
+        for i in reversed(pragma_indices):
+            del lines[i]
+
+        # Generate guard macro name based on package and filename
+        filename = os.path.basename(path)
+        guard_macro = f"{package_name.upper()}_{filename.replace('.', '_').replace('-', '_').upper()}"
+
+        # Check if we already have ifndef guards
+        ifndef_pattern = r'^\s*#ifndef\s+'
+        has_guard = any(re.match(ifndef_pattern, line) for line in lines)
+
+        if not has_guard:
+            # Add header guards at the beginning
+            guard_lines = [
+                f"#ifndef {guard_macro}\n",
+                f"#define {guard_macro}\n",
+                "\n",
+                "// NOTE: This header is normally included inside namespace Upp (or project namespace).\n",
+                "// Common prerequisites are included before this file by <Package>.h.\n",
+                "\n"
+            ]
+
+            # Find first significant content line after comments
+            first_content_idx = 0
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                if not (stripped.startswith('//') or
+                       stripped.startswith('/*') or
+                       stripped.startswith('*') or
+                       stripped.startswith('*/') or
+                       stripped == ''):
+                    first_content_idx = i
+                    break
+
+            # Insert header guards before first content
+            lines = guard_lines + lines[first_content_idx:]
+
+            # Add endif at the end
+            lines.append(f"\n#endif // {guard_macro}\n")
+
+        # Join the lines back into content
+        new_content = ''.join(lines)
+
+        # Only write if content changed
+        if new_content != original_content:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            return True
+        else:
+            return False
+
+    except Exception as e:
+        print_error(f"Error fixing header guards for {path}: {e}", 2)
+        return False
+
+
+def ensure_main_header_content(package: UppPackage) -> List[FixOperation]:
+    """
+    Ensure the main header content follows U++ conventions.
+
+    Args:
+        package: UppPackage object representing the package
+
+    Returns:
+        List of operations to fix the main header
+    """
+    import re  # Import inside function to avoid name conflicts
+
+    operations = []
+
+    if not package.main_header_path or not os.path.exists(package.main_header_path):
+        return operations
+
+    try:
+        with open(package.main_header_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check if the header has proper structure
+        has_guard = '#ifndef' in content and '#define' in content and '#endif' in content
+        package_name = os.path.basename(package.dir_path)
+
+        if not has_guard:
+            # We need to add proper header guards for main header
+            guard_macro = f"{package_name.upper()}_H"
+
+            new_content = f'''#ifndef {guard_macro}
+#define {guard_macro}
+
+/* {package_name} main header - namespace include */
+/* Include this file to access all public interfaces of the {package_name} package */
+
+// Include public headers here
+// #include "PublicClass.h"
+
+// NOTE: This header is normally included inside namespace Upp (or project namespace).
+// Common prerequisites are included before this file by <Package>.h.
+
+/*
+ * Namespace include pattern:
+ * All public interfaces of this package should be accessible through this header.
+ * This provides a single point of access for users of the package.
+ */
+
+#endif // {guard_macro}
+'''
+
+            operations.append(WriteFileOperation(
+                op="write_file",
+                reason=f"Create main header with proper U++ conventions for package '{package_name}'",
+                path=package.main_header_path,
+                content=new_content
+            ))
+        else:
+            # Check if AI hint comment exists
+            if "// NOTE: This header is normally included inside namespace Upp" not in content:
+                # Add hint comment in the appropriate place
+                lines = content.splitlines(keepends=True)
+                # Find position after the guard definition and include comments
+                insert_pos = 0
+                for i, line in enumerate(lines):
+                    if line.strip().startswith('#define') or '#define' in line:
+                        insert_pos = i + 1
+                        # Look for next blank line to add comment
+                        while insert_pos < len(lines) and lines[insert_pos].strip() != '':
+                            insert_pos += 1
+                        break
+
+                # Add the AI hint comment
+                lines.insert(insert_pos, "\n")
+                lines.insert(insert_pos + 1, "// NOTE: This header is normally included inside namespace Upp (or project namespace).\n")
+                lines.insert(insert_pos + 2, "// Common prerequisites are included before this file by <Package>.h.\n")
+                lines.insert(insert_pos + 3, "\n")
+
+                updated_content = ''.join(lines)
+
+                operations.append(WriteFileOperation(
+                    op="write_file",
+                    reason=f"Add AI hint comment to main header for package '{package_name}'",
+                    path=package.main_header_path,
+                    content=updated_content
+                ))
+
+    except Exception as e:
+        print_error(f"Error ensuring main header content for package {package.name}: {e}", 2)
+
+    return operations
+
+
+def normalize_cpp_includes(package: UppPackage) -> List[FixOperation]:
+    """
+    Normalize C++ includes to follow U++ convention: only main header included in .cpp files.
+
+    Args:
+        package: UppPackage object
+
+    Returns:
+        List of operations to fix includes
+    """
+    import re  # Import inside function to avoid name conflicts
+
+    operations = []
+
+    # Get all .cpp, .cppi, .icpp files in the package
+    cpp_extensions = ('.cpp', '.cppi', '.icpp')
+    cpp_files = [f for f in package.source_files if f.lower().endswith(cpp_extensions)]
+
+    for cpp_file in cpp_files:
+        try:
+            with open(cpp_file, 'r', encoding='utf-8') as f:
+                original_content = f.read()
+
+            lines = original_content.splitlines(keepends=True)
+            package_name = os.path.basename(package.dir_path)
+            main_header = f"{package_name}.h"
+            main_header_alt = f"{package_name}/{package_name}.h"
+
+            # Find all include directives
+            include_pattern = re.compile(r'^\s*#include\s+["<]([^">]+)[">]')
+            include_lines_indices = []
+            first_non_include = None
+
+            for i, line in enumerate(lines):
+                if include_pattern.search(line):
+                    include_lines_indices.append(i)
+                elif line.strip() and not line.strip().startswith('//') and not line.strip().startswith('/*'):
+                    if first_non_include is None:
+                        first_non_include = i
+
+            if not include_lines_indices:
+                continue  # No includes to fix
+
+            # Check if main header is already included first
+            main_header_includes = []
+            other_includes = []
+
+            for idx in include_lines_indices:
+                line = lines[idx]
+                match = include_pattern.search(line)
+                if match:
+                    included_file = match.group(1)
+                    if included_file == main_header or included_file == main_header_alt:
+                        main_header_includes.append((idx, line))
+                    else:
+                        other_includes.append((idx, line))
+
+            # If main header is not the first include, we need to fix it
+            if include_lines_indices and main_header_includes:
+                first_include_idx = include_lines_indices[0]
+                first_include_line = lines[first_include_idx]
+                first_match = include_pattern.search(first_include_line)
+
+                if first_match:
+                    first_included_file = first_match.group(1)
+                    if first_included_file != main_header and first_included_file != main_header_alt:
+                        # Main header is not first, need to fix
+                        # Remove other includes from the file temporarily
+                        content_without_other_includes = []
+                        for i, line in enumerate(lines):
+                            if i in [idx for idx, _ in other_includes]:
+                                continue  # Skip other includes
+                            content_without_other_includes.append(line)
+
+                        # Insert main header at the beginning of the include section
+                        new_lines = []
+                        for i, line in enumerate(content_without_other_includes):
+                            if i == include_lines_indices[0]:  # First include position
+                                new_lines.append(f'#include "{main_header}"\n')
+                                # Add other includes after main header
+                                for idx, incl_line in other_includes:
+                                    if incl_line not in new_lines:
+                                        new_lines.append(incl_line)
+                            new_lines.append(line)
+
+                        # Only add if changes were made
+                        new_content = ''.join(new_lines)
+                        if new_content != original_content:
+                            operations.append(WriteFileOperation(
+                                op="write_file",
+                                reason=f"Normalize includes in {cpp_file} to include main header first",
+                                path=cpp_file,
+                                content=new_content
+                            ))
+            elif not main_header_includes and include_lines_indices:
+                # Main header is not included at all, add it as first include
+                new_lines = []
+                added_main_header = False
+
+                for i, line in enumerate(lines):
+                    if i == include_lines_indices[0] and not added_main_header:
+                        new_lines.append(f'#include "{main_header}"\n')
+                        added_main_header = True
+                    new_lines.append(line)
+
+                new_content = ''.join(new_lines)
+                if new_content != original_content:
+                    operations.append(WriteFileOperation(
+                        op="write_file",
+                        reason=f"Add main header include to {cpp_file}",
+                        path=cpp_file,
+                        content=new_content
+                    ))
+
+        except Exception as e:
+            print_error(f"Error normalizing includes for {cpp_file}: {e}", 2)
+
+    return operations
+
+
+def reduce_secondary_header_includes(package: UppPackage) -> List[FixOperation]:
+    """
+    Reduce includes in secondary headers (conservative: warn/plan only if risky).
+
+    Args:
+        package: UppPackage object
+
+    Returns:
+        List of operations to improve secondary header includes
+    """
+    import re  # Import inside function to avoid name conflicts
+
+    operations = []
+
+    # Get all header files except main header
+    main_header_name = os.path.basename(package.main_header_path) if package.main_header_path else None
+    secondary_headers = [f for f in package.header_files
+                        if f.endswith(('.h', '.hpp', '.hxx'))
+                        and os.path.basename(f) != main_header_name
+                        and not f.endswith(('.inl', '.icpp', '.cppi'))]  # Exclude inline files
+
+    for hdr_file in secondary_headers:
+        try:
+            with open(hdr_file, 'r', encoding='utf-8') as f:
+                original_content = f.read()
+
+            # Find all include statements
+            include_pattern = r'#include\s+["<]([^\s">]+)[">]'
+            includes = re.findall(include_pattern, original_content)
+
+            # Filter out expected includes (inlines, system headers, main header)
+            problematic_includes = []
+            for inc in includes:
+                is_inline = any(inc.endswith(ext) for ext in ['.inl', '.icpp', '.cppi'])
+                is_system = inc.startswith('<') or any(sys in inc.lower() for sys in ['stdio', 'stdlib', 'string', 'vector', 'map', 'list', 'iostream'])
+
+                if not is_inline and not is_system:
+                    # Check if it's the main package header - that's generally OK
+                    package_name = os.path.basename(package.dir_path)
+                    is_main_header = inc == f"{package_name}.h" or inc == f"{package_name}/{package_name}.h"
+
+                    if not is_main_header:
+                        problematic_includes.append(inc)
+
+            if problematic_includes:
+                # For now, just warn about problematic includes - conservative approach
+                # In a real implementation, we might want to suggest forward declarations
+                print_warning(f"Secondary header {hdr_file} includes non-inline headers that could be forward-declared: {problematic_includes}", 2)
+
+                # For now, only create operations for simple cases like suggesting AI hints
+                # More complex fixes would require deeper analysis
+                lines = original_content.splitlines(keepends=True)
+
+                # Check if AI hint comment exists
+                if not any("// NOTE: This header is normally included inside namespace Upp" in line for line in lines):
+                    # Add AI hint comment to secondary header
+                    updated_lines = []
+
+                    # Add comment after any existing guard or include directives
+                    added_comment = False
+                    for line in lines:
+                        updated_lines.append(line)
+                        if not added_comment and ('#ifndef' in line or '#include' in line):
+                            if not any("// NOTE: This header is normally included inside namespace Upp" in l for l in lines):
+                                updated_lines.extend([
+                                    "// NOTE: This header is normally included inside namespace Upp (or project namespace).\n",
+                                    "// For performance, prefer forward declarations over includes in secondary headers.\n",
+                                    "// Include only when absolutely necessary for full type definitions.\n",
+                                    "\n"
+                                ])
+                                added_comment = True
+
+                    if added_comment:
+                        new_content = ''.join(updated_lines)
+                        if new_content != original_content:
+                            operations.append(WriteFileOperation(
+                                op="write_file",
+                                reason=f"Add AI hint comment to secondary header {hdr_file}",
+                                path=hdr_file,
+                                content=new_content
+                            ))
+
+        except Exception as e:
+            print_error(f"Error processing secondary header {hdr_file}: {e}", 2)
+
+    return operations
 
 
 if __name__ == "__main__":
