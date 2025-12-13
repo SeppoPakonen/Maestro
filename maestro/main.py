@@ -1182,7 +1182,6 @@ def main():
 
     # build new
     build_new_parser = builder_subparsers.add_parser('new', help='Create a new build target')
-    build_new_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_new_parser.add_argument('name', help='Name for the new build target')
     build_new_parser.add_argument('--description', help='Description for the build target')
     build_new_parser.add_argument('--categories', help='Comma-separated categories (e.g., build,lint,static,valgrind)')
@@ -1190,26 +1189,21 @@ def main():
 
     # build list
     build_list_parser = builder_subparsers.add_parser('list', help='List build targets')
-    build_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
 
     # build set
     build_set_parser = builder_subparsers.add_parser('set', help='Set active build target')
-    build_set_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_set_parser.add_argument('name', help='Build target name or index to set as active')
 
     # build get
     build_get_parser = builder_subparsers.add_parser('get', help='Print active build target')
-    build_get_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # build plan
     build_plan_parser = builder_subparsers.add_parser('plan', help='Interactive discussion to define target rules via AI')
-    build_plan_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_plan_parser.add_argument('name', help='Build target name to plan')
 
     # build show
     build_show_parser = builder_subparsers.add_parser('show', help='Show full details of build target')
-    build_show_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_show_parser.add_argument('name', nargs='?', help='Build target name or index to show (default to active)')
 
     args = parser.parse_args()
@@ -1371,74 +1365,26 @@ def main():
         else:
             handle_log_help(args.session, args.verbose)
     elif args.command == 'build':
-        # For builder commands, if session is not provided, look for active session first, then default
-        if not args.session:
-            # First check if there's an active session
+        # For the build target management commands (new, list, set, get, plan, show),
+        # always use the active session
+        if hasattr(args, 'builder_subcommand') and args.builder_subcommand and args.builder_subcommand in ['new', 'list', 'set', 'get', 'plan', 'show']:
+            # Get the active session
             active_session_name = get_active_session_name()
-            if active_session_name:
-                # Get the path for the active session
-                active_session_path = get_session_path_by_name(active_session_name)
-                if os.path.exists(active_session_path):
-                    args.session = active_session_path
-                    if args.verbose:
-                        print_info(f"Using active session: {active_session_path}", 2)
-                else:
-                    # Active session points to non-existent file, warn and fall back
-                    print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
-                    # Fall through to try default session files
-                    default_session = find_default_session_file()
-                    if default_session:
-                        args.session = default_session
-                        if args.verbose:
-                            print_info(f"Using default session file: {default_session}", 2)
-                    else:
-                        if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
-                            print_error("Session is required for build commands", 2)
-                            sys.exit(1)
-                        else:
-                            print_error("Session is required for build command", 2)
-                            sys.exit(1)
-            else:
-                # No active session, try default session files
-                default_session = find_default_session_file()
-                if default_session:
-                    args.session = default_session
-                    if args.verbose:
-                        print_info(f"Using default session file: {default_session}", 2)
-                else:
-                    if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
-                        print_error("Session is required for build commands", 2)
-                        sys.exit(1)
-                    else:
-                        print_error("Session is required for build command", 2)
-                        sys.exit(1)
+            if not active_session_name:
+                print_error("No active session set. Use 'maestro session set <name>' to set an active session.", 2)
+                sys.exit(1)
 
-        if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
-            if args.builder_subcommand == 'run':
-                handle_build_run(
-                    args.session,
-                    args.verbose,
-                    stop_after_step=getattr(args, 'stop_after_step', None),
-                    limit_steps=getattr(args, 'limit_steps', None),
-                    follow=getattr(args, 'follow', False)
-                )
-            elif args.builder_subcommand == 'fix':
-                handle_build_fix(
-                    args.session,
-                    args.verbose,
-                    max_iterations=getattr(args, 'max_iterations', 5),
-                    target=getattr(args, 'target', None),
-                    keep_going=getattr(args, 'keep_going', False),
-                    limit_steps=getattr(args, 'limit_steps', None),
-                    build_after_each_fix=getattr(args, 'build_after_each_fix', True)
-                )
-            elif args.builder_subcommand == 'status':
-                handle_build_status(args.session, args.verbose)
-            elif args.builder_subcommand == 'rules':
-                handle_build_rules(args.session, args.verbose)
-            elif args.builder_subcommand == 'new':
+            # Get the path for the active session
+            active_session_path = get_session_path_by_name(active_session_name)
+            if not os.path.exists(active_session_path):
+                print_error(f"Active session '{active_session_name}' points to missing file: {active_session_path}", 2)
+                sys.exit(1)
+
+            session_path = active_session_path
+
+            if args.builder_subcommand == 'new':
                 handle_build_new(
-                    args.session,
+                    session_path,
                     args.name,
                     args.verbose,
                     description=getattr(args, 'description', None),
@@ -1446,22 +1392,84 @@ def main():
                     steps=getattr(args, 'steps', None)
                 )
             elif args.builder_subcommand == 'list':
-                handle_build_list(args.session, args.verbose)
+                handle_build_list(session_path, args.verbose)
             elif args.builder_subcommand == 'set':
-                handle_build_set(args.session, args.name, args.verbose)
+                handle_build_set(session_path, args.name, args.verbose)
             elif args.builder_subcommand == 'get':
-                handle_build_get(args.session, args.verbose)
+                handle_build_get(session_path, args.verbose)
             elif args.builder_subcommand == 'plan':
-                handle_build_plan(args.session, args.name, args.verbose)
+                handle_build_plan(session_path, args.name, args.verbose)
             elif args.builder_subcommand == 'show':
-                handle_build_show(args.session, args.name, args.verbose)
+                handle_build_show(session_path, args.name, args.verbose)
             else:
-                print_error(f"Unknown build subcommand: {args.builder_subcommand}", 2)
+                print_error(f"Unknown build target subcommand: {args.builder_subcommand}", 2)
                 sys.exit(1)
         else:
-            # Default to showing help if no subcommand specified
-            print_error("No build subcommand specified. Available: run, fix, status, rules, new, list, set, get, plan, show", 2)
-            sys.exit(1)
+            # For other build commands (run, fix, status, rules) that still require explicit session handling
+            # First check if session was provided directly
+            if not args.session:
+                # Check for an active session first
+                active_session_name = get_active_session_name()
+                if active_session_name:
+                    # Get the path for the active session
+                    active_session_path = get_session_path_by_name(active_session_name)
+                    if os.path.exists(active_session_path):
+                        args.session = active_session_path
+                        if args.verbose:
+                            print_info(f"Using active session: {active_session_path}", 2)
+                    else:
+                        # Active session points to non-existent file, warn and fall back
+                        print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
+                        # Fall through to try default session files
+                        default_session = find_default_session_file()
+                        if default_session:
+                            args.session = default_session
+                            if args.verbose:
+                                print_info(f"Using default session file: {default_session}", 2)
+                        else:
+                            print_error("Session is required for build commands", 2)
+                            sys.exit(1)
+                else:
+                    # No active session, try default session files
+                    default_session = find_default_session_file()
+                    if default_session:
+                        args.session = default_session
+                        if args.verbose:
+                            print_info(f"Using default session file: {default_session}", 2)
+                    else:
+                        print_error("Session is required for build commands", 2)
+                        sys.exit(1)
+
+            if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
+                if args.builder_subcommand == 'run':
+                    handle_build_run(
+                        args.session,
+                        args.verbose,
+                        stop_after_step=getattr(args, 'stop_after_step', None),
+                        limit_steps=getattr(args, 'limit_steps', None),
+                        follow=getattr(args, 'follow', False)
+                    )
+                elif args.builder_subcommand == 'fix':
+                    handle_build_fix(
+                        args.session,
+                        args.verbose,
+                        max_iterations=getattr(args, 'max_iterations', 5),
+                        target=getattr(args, 'target', None),
+                        keep_going=getattr(args, 'keep_going', False),
+                        limit_steps=getattr(args, 'limit_steps', None),
+                        build_after_each_fix=getattr(args, 'build_after_each_fix', True)
+                    )
+                elif args.builder_subcommand == 'status':
+                    handle_build_status(args.session, args.verbose)
+                elif args.builder_subcommand == 'rules':
+                    handle_build_rules(args.session, args.verbose)
+                else:
+                    print_error(f"Unknown build subcommand: {args.builder_subcommand}", 2)
+                    sys.exit(1)
+            else:
+                # Default to showing help if no subcommand specified
+                print_error("No build subcommand specified. Available: run, fix, status, rules, new, list, set, get, plan, show", 2)
+                sys.exit(1)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
