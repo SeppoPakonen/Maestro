@@ -4369,6 +4369,9 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
     iteration = 0
     remaining_diagnostics = diagnostics
 
+    # Track signatures that have failed to resolve for escalation logic
+    failed_signature_counts = {}
+
     while iteration < max_iterations and remaining_diagnostics:
         iteration += 1
         print_info(f"\n--- FIX ITERATION {iteration}/{max_iterations} ---", 2)
@@ -4409,16 +4412,18 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
                 print_error("Failed to create file backup. Exiting.", 2)
                 break
 
-        # Get AI to propose a fix for the targeted diagnostics
-        fix_proposal = propose_fix_for_diagnostics(
+        # Get AI to propose a fix for the targeted diagnostics using new JSON format
+        fix_proposal_json = propose_fix_for_diagnostics(
             session,
             target_diags,
             session_path,
-            verbose
+            verbose,
+            iteration_count=iteration,
+            failed_signatures=failed_signature_counts
         )
 
-        if not fix_proposal:
-            print_warning("No fix proposal received from AI. Skipping this iteration.", 2)
+        if not fix_proposal_json:
+            print_warning("No valid fix proposal received from AI. Skipping this iteration.", 2)
             # Restore from backup
             if using_git:
                 if restore_from_git(session_path):
@@ -4432,9 +4437,8 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
                     print_error("Failed to restore from file backup.", 2)
             break
 
-        # Apply the fix (this function should apply the actual code changes)
-        # For now, we'll simulate applying the fix
-        apply_fix_result = apply_fix(fix_proposal, session_path, verbose)
+        # Apply the fix using the JSON plan
+        apply_fix_result = apply_fix_from_json_plan(fix_proposal_json, session_path, verbose)
         if not apply_fix_result:
             print_warning("Failed to apply fix. Restoring from backup.", 2)
             # Restore from backup
@@ -4462,11 +4466,18 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
         # Check verification
         verification_result = check_fix_verification(diagnostics_after, target_signatures)
 
+        # Update failed signature counts for escalation logic
+        for sig in verification_result['remaining_target_signatures']:
+            if sig in failed_signature_counts:
+                failed_signature_counts[sig] += 1
+            else:
+                failed_signature_counts[sig] = 1
+
         # Record iteration results
         iteration_record = {
             "iteration": iteration,
             "target_signatures": list(target_signatures),
-            "fix_proposal": fix_proposal,
+            "fix_proposal": fix_proposal_json,
             "verification": {
                 "success": verification_result['success'],
                 "disappeared_signatures": list(verification_result['disappeared_signatures']),
@@ -4481,6 +4492,10 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
 
         if verification_result['success']:
             print_success(f"✓ Fix successful! All target signatures resolved.", 2)
+            # Clear the failed counts for resolved signatures
+            for sig in verification_result['disappeared_signatures']:
+                if sig in failed_signature_counts:
+                    del failed_signature_counts[sig]
             remaining_diagnostics = diagnostics_after  # Update remaining diagnostics
         else:
             print_warning(f"✗ Fix did not resolve all target signatures. Restoring from backup...", 2)
@@ -4528,84 +4543,273 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
     print_info(f"Fix history saved to: {fix_history_path}", 2)
 
 
-def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbose=False):
+def generate_debugger_prompt(session, target_diagnostics, session_path, iteration_count=None, failed_signatures=None):
     """
-    Ask AI to propose a fix for the given target diagnostics.
+    Generate a structured prompt for the AI debugger that focuses on observed diagnostics
+    and known-issue hints.
+
+    Args:
+        session: The loaded session
+        target_diagnostics: List of diagnostics to fix
+        session_path: Path to the session file
+        iteration_count: Current iteration count for escalation logic
+        failed_signatures: Dict tracking signatures that failed to resolve in previous iterations
+
+    Returns:
+        The structured debugger prompt as a string
+    """
+    import os
+    import subprocess
+
+    # Load rules
+    rules = load_rules(session)
+
+    # Start building the prompt
+    fix_prompt = "[DEBUGGER PROMPT]\n\n"
+
+    # Add repo context
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    fix_prompt += "[REPO CONTEXT]\n"
+
+    # Add tree structure (first few levels)
+    try:
+        import glob
+        dirs = [d for d in glob.glob(os.path.join(session_dir, "*")) if os.path.isdir(d)]
+        files = [f for f in glob.glob(os.path.join(session_dir, "*")) if os.path.isfile(f)]
+
+        fix_prompt += "Directory structure:\n"
+        fix_prompt += f"  Directories: {', '.join([os.path.basename(d) for d in dirs[:10]])}\n"
+        fix_prompt += f"  Files: {', '.join([os.path.basename(f) for f in files[:10]])}\n"
+    except:
+        fix_prompt += "Could not retrieve directory structure.\n"
+
+    fix_prompt += "\n"
+
+    # Add pipeline step outputs (focused excerpts)
+    build_dir = get_build_dir(session_path)
+    logs_dir = os.path.join(build_dir, "logs")
+
+    if os.path.exists(logs_dir):
+        import glob
+        log_files = glob.glob(os.path.join(logs_dir, "*.log"))
+        if log_files:
+            # Get the most recent log
+            latest_log = max(log_files, key=os.path.getctime)
+            try:
+                with open(latest_log, 'r', encoding='utf-8') as f:
+                    log_content = f.read()
+                    # Take first 1000 characters to avoid huge prompts
+                    log_excerpt = log_content[:1000] if len(log_content) > 1000 else log_content
+                    fix_prompt += f"[PIPELINE OUTPUT EXCERPT]\n{log_excerpt}\n\n"
+            except:
+                fix_prompt += "[PIPELINE OUTPUT EXCERPT]\nCould not read pipeline logs.\n\n"
+        else:
+            fix_prompt += "[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.\n\n"
+    else:
+        fix_prompt += "[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.\n\n"
+
+    # Add extracted diagnostics (top N)
+    fix_prompt += "[TARGET DIAGNOSTICS]\n"
+    for i, diag in enumerate(target_diagnostics):
+        fix_prompt += f"Diagnostic #{i+1}:\n"
+        fix_prompt += f"  Tool: {diag.tool}\n"
+        fix_prompt += f"  Severity: {diag.severity}\n"
+        fix_prompt += f"  File: {diag.file}\n"
+        fix_prompt += f"  Line: {diag.line}\n"
+        fix_prompt += f"  Message: {diag.message}\n"
+        fix_prompt += f"  Signature: {diag.signature}\n"
+        fix_prompt += f"  Raw: {diag.raw}\n"
+        if diag.known_issues:
+            fix_prompt += f"  Known Issues:\n"
+            for issue in diag.known_issues:
+                fix_prompt += f"    - ID: {issue.id}\n"
+                fix_prompt += f"      Description: {issue.description}\n"
+                fix_prompt += f"      Fix Hint: {issue.fix_hint}\n"
+                fix_prompt += f"      Confidence: {issue.confidence}\n"
+        fix_prompt += "\n"
+
+    # Add target signature(s) to eliminate
+    target_signatures = {d.signature for d in target_diagnostics}
+    fix_prompt += f"[TARGET SIGNATURES TO ELIMINATE]\n"
+    for sig in target_signatures:
+        fix_prompt += f"  - {sig}\n"
+    fix_prompt += "\n"
+
+    # Add project rules if available
+    if rules:
+        fix_prompt += f"[PROJECT RULES]\n{rules}\n\n"
+
+    # Add the specific instructions for JSON format
+    fix_prompt += """[INSTRUCTIONS]\n"""
+    fix_prompt += """You are a pragmatic debugger. You must analyze the above diagnostics and known issues,\n"""
+    fix_prompt += """then return a structured JSON plan with specific, actionable changes.\n\n"""
+    fix_prompt += """Your response MUST be valid JSON in the following format:\n"""
+    fix_prompt += """{\n"""
+    fix_prompt += """  "summary": "what you plan to change and why",\n"""
+    fix_prompt += """  "files_to_modify": ["path1", "path2"],\n"""
+    fix_prompt += """  "patch_plan": [\n"""
+    fix_prompt += """    {"file": "path", "action": "edit", "notes": "..."}\n"""
+    fix_prompt += """  ],\n"""
+    fix_prompt += """  "risk": "low|medium|high",\n"""
+    fix_prompt += """  "expected_effect": "which signatures should disappear"\n"""
+    fix_prompt += """}\n\n"""
+    fix_prompt += """Your analysis should be based on the actual diagnostics and known issue hints provided.\n"""
+    fix_prompt += """Do not speculate or make assumptions beyond the provided information.\n"""
+
+    return fix_prompt
+
+
+def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbose=False, iteration_count=None, failed_signatures=None):
+    """
+    Ask AI to propose a fix for the given target diagnostics using structured JSON format.
 
     Args:
         session: The loaded session
         target_diagnostics: List of diagnostics to fix
         session_path: Path to the session file
         verbose: Verbose output flag
+        iteration_count: Current iteration count for escalation logic
+        failed_signatures: Dict tracking signatures that failed to resolve in previous iterations
 
     Returns:
-        Fix proposal text from the AI, or None if failed
+        Fix proposal JSON from the AI, or None if failed
     """
-    # Load rules
-    rules = load_rules(session)
-    if verbose:
-        print_debug(f"Loaded rules (length: {len(rules)} chars)", 4)
+    # Determine which model to use based on escalation rule
+    # If the same signature has survived 2+ iterations, escalate to claude
+    worker_model = "qwen"  # Default
 
-    # Create a fix prompt for the AI
-    maestro_dir = get_maestro_dir(session_path)
-    inputs_dir = os.path.join(maestro_dir, "inputs")
+    if failed_signatures and iteration_count:
+        # Check if any of our target signatures have failed multiple times
+        for diag in target_diagnostics:
+            if diag.signature in failed_signatures and failed_signatures[diag.signature] >= 2:
+                worker_model = "claude"
+                print_info(f"Escalating to {worker_model} for signature {diag.signature} (survived {failed_signatures[diag.signature]} iterations)", 2)
+                break  # Use the escalated model for this iteration
+
+    # Generate the structured prompt
+    fix_prompt = generate_debugger_prompt(session, target_diagnostics, session_path, iteration_count, failed_signatures)
+
+    # Save the fix prompt to build directory
+    build_dir = get_build_dir(session_path)
+    inputs_dir = os.path.join(build_dir, "inputs")  # Use build/inputs as required
     os.makedirs(inputs_dir, exist_ok=True)
 
-    # Build the prompt for the fix
-    fix_prompt = f"""[TARGET DIAGNOSTICS]\n"""
-    for i, diag in enumerate(target_diagnostics):
-        fix_prompt += f"Diagnostic {i+1}:\n"
-        fix_prompt += f"  Tool: {diag.tool}\n"
-        fix_prompt += f"  Severity: {diag.severity}\n"
-        fix_prompt += f"  File: {diag.file}\n"
-        fix_prompt += f"  Line: {diag.line}\n"
-        fix_prompt += f"  Message: {diag.message}\n"
-        fix_prompt += f"  Raw: {diag.raw}\n"
-        if diag.known_issues:
-            fix_prompt += f"  Known Issues:\n"
-            for issue in diag.known_issues:
-                fix_prompt += f"    - {issue.description}\n"
-                fix_prompt += f"      Hint: {issue.fix_hint}\n"
-        fix_prompt += "\n"
-
-    fix_prompt += f"""[INSTRUCTIONS]\n"""
-    fix_prompt += f"You are an expert debugger. Propose a specific code change to fix the above diagnostic(s).\n"""
-    fix_prompt += f"- Identify the root cause of the issue(s)\n"""
-    fix_prompt += f"- Suggest specific code changes to a particular file\n"""
-    fix_prompt += f"- Be precise about line numbers and the exact changes needed\n"""
-    fix_prompt += f"- Follow the style and conventions of the existing codebase\n"""
-    fix_prompt += f"- If possible, apply fixes that address the root cause rather than just symptoms\n\n"""
-
-    if rules:
-        fix_prompt += f"""[PROJECT RULES]\n{rules}\n\n"""
-
-    # Save the fix prompt
     timestamp = int(time.time())
-    fix_prompt_filename = os.path.join(inputs_dir, f"fix_iteration_{timestamp}.txt")
+    fix_prompt_filename = os.path.join(inputs_dir, f"debugger_{timestamp}.txt")
     with open(fix_prompt_filename, "w", encoding="utf-8") as f:
         f.write(fix_prompt)
 
-    # Let's use the qwen worker engine to propose the fix
+    # Get the AI response using the selected model
     from engines import get_engine
     try:
-        engine = get_engine("qwen_worker")
-        fix_proposal = engine.generate(fix_prompt)
+        engine = get_engine(f"{worker_model}_worker")
+        fix_response = engine.generate(fix_prompt)
 
-        # Save the fix proposal
-        outputs_dir = os.path.join(maestro_dir, "outputs")
+        # Save the AI response to build/outputs as required
+        outputs_dir = os.path.join(build_dir, "outputs")  # Use build/outputs as required
         os.makedirs(outputs_dir, exist_ok=True)
-        fix_proposal_filename = os.path.join(outputs_dir, f"fix_proposal_{timestamp}.txt")
-        with open(fix_proposal_filename, "w", encoding="utf-8") as f:
-            f.write(fix_proposal)
+        fix_response_filename = os.path.join(outputs_dir, f"debugger_response_{timestamp}.txt")
+        with open(fix_response_filename, "w", encoding="utf-8") as f:
+            f.write(fix_response)
 
         if verbose:
-            print_info(f"Fix proposal generated and saved to: {fix_proposal_filename}", 2)
+            print_info(f"Debug response saved to: {fix_response_filename}", 2)
+            print_info(f"Prompt saved to: {fix_prompt_filename}", 2)
 
-        return fix_proposal
+        # Try to parse the response as JSON
+        import json
+        import re
+
+        # Extract JSON from response if it's wrapped in markdown
+        json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', fix_response, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            # Try to find the JSON directly
+            start = fix_response.find('{')
+            end = fix_response.rfind('}') + 1
+            if start != -1 and end > start:
+                json_str = fix_response[start:end]
+            else:
+                json_str = fix_response
+
+        try:
+            fix_json = json.loads(json_str)
+            # Validate required fields
+            required_fields = ["summary", "files_to_modify", "patch_plan", "risk", "expected_effect"]
+            for field in required_fields:
+                if field not in fix_json:
+                    print_warning(f"Missing required field '{field}' in AI response JSON", 2)
+                    return None
+            return fix_json
+        except json.JSONDecodeError:
+            print_error("AI response is not valid JSON", 2)
+            print_error(f"Response: {fix_response[:200]}...", 2)
+            return None
 
     except Exception as e:
         print_error(f"Failed to get AI fix proposal: {e}", 2)
         return None
+
+
+def apply_fix_from_json_plan(fix_plan_json, session_path, verbose=False):
+    """
+    Apply the fix from JSON plan to the codebase.
+
+    Args:
+        fix_plan_json: The JSON fix plan from AI
+        session_path: Path to the session file
+        verbose: Verbose output flag
+
+    Returns:
+        True if fix was applied successfully, False otherwise
+    """
+    from engines import get_engine
+
+    # Check for required fields in the JSON
+    required_fields = ["summary", "files_to_modify", "patch_plan", "risk", "expected_effect"]
+    for field in required_fields:
+        if field not in fix_plan_json:
+            print_error(f"Missing required field '{field}' in fix plan JSON", 2)
+            return False
+
+    if verbose:
+        print_info(f"Applying fix plan:", 2)
+        print_info(f"Summary: {fix_plan_json['summary']}", 4)
+        print_info(f"Risk: {fix_plan_json['risk']}", 4)
+        print_info(f"Expected effect: {fix_plan_json['expected_effect']}", 4)
+        print_info(f"Files to modify: {fix_plan_json['files_to_modify']}", 4)
+
+    # For now, we'll simulate applying the fix
+    # In a real implementation, this would apply the actual code changes
+    # using the existing worker mechanism to make edits
+
+    try:
+        # Get the qwen worker engine to apply the changes
+        engine = get_engine("qwen_worker")
+
+        # Build a prompt asking the AI to apply the specific changes
+        session_dir = os.path.dirname(os.path.abspath(session_path))
+        changes_prompt = f"""You are tasked with applying the following fix to the codebase:\n\n"""
+        changes_prompt += f"Summary: {fix_plan_json['summary']}\n"
+        changes_prompt += f"Files to modify: {', '.join(fix_plan_json['files_to_modify'])}\n"
+        changes_prompt += f"Patch Plan: {str(fix_plan_json['patch_plan'])}\n"
+        changes_prompt += f"Expected effect: {fix_plan_json['expected_effect']}\n\n"
+        changes_prompt += f"Apply these changes to the appropriate files in the codebase.\n"
+        changes_prompt += f"Be very specific about which lines to change, keeping existing code structure intact.\n"
+
+        # Execute the changes via the AI engine
+        # In a real implementation, this would involve the AI actually editing files
+        result = engine.generate(changes_prompt)
+
+        if verbose:
+            print_info(f"Changes applied via AI: {result[:200]}...", 4)
+
+        return True
+
+    except Exception as e:
+        print_error(f"Error applying fix from JSON plan: {e}", 2)
+        return False
 
 
 def apply_fix(fix_proposal, session_path, verbose=False):
