@@ -7299,38 +7299,52 @@ def handle_build_show(session_path, target_name, verbose=False):
         print_header(f"BUILD TARGET: {target_to_show.name}")
         styled_print(f"Target ID: {target_to_show.target_id}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
         styled_print(f"Created: {target_to_show.created_at}", Colors.BRIGHT_GREEN, None, 2)
-        styled_print(f"Description: {target_to_show.description}", Colors.BRIGHT_WHITE, None, 2)
-        styled_print(f"Why: {target_to_show.why}", Colors.BRIGHT_WHITE, None, 2)
+
+        if target_to_show.description:
+            styled_print(f"Description: {target_to_show.description}", Colors.BRIGHT_WHITE, None, 2)
+        if target_to_show.why:
+            styled_print(f"Why: {target_to_show.why}", Colors.BRIGHT_WHITE, None, 2)
 
         if target_to_show.categories:
             styled_print(f"Categories: {', '.join(target_to_show.categories)}", Colors.BRIGHT_CYAN, None, 2)
 
+        if verbose:
+            # Show JSON path in verbose mode
+            target_json_path = get_build_targets_path(session_path, target_to_show.target_id)
+            styled_print(f"JSON Path: {target_json_path}", Colors.BRIGHT_MAGENTA, Colors.DIM, 2)
+
         if target_to_show.pipeline:
             print_subheader("PIPELINE")
             if target_to_show.pipeline.get('steps'):
-                styled_print(f"Steps: {', '.join(target_to_show.pipeline['steps'])}", Colors.BRIGHT_WHITE, None, 2)
-            if target_to_show.pipeline.get('steps'):
-                if 'step_definitions' in target_to_show.pipeline:
-                    for step_name in target_to_show.pipeline['steps']:
+                styled_print(f"Steps ({len(target_to_show.pipeline['steps'])}):", Colors.BRIGHT_CYAN, Colors.BOLD, 2)
+                for i, step_name in enumerate(target_to_show.pipeline['steps'], 1):
+                    styled_print(f"  {i}. {step_name}", Colors.BRIGHT_WHITE, None, 2)
+
+                    # If step definitions exist, show detailed info for each step
+                    if 'step_definitions' in target_to_show.pipeline:
                         if step_name in target_to_show.pipeline['step_definitions']:
                             step_config = target_to_show.pipeline['step_definitions'][step_name]
-                            styled_print(f"  {step_name}: {' '.join(step_config['cmd'])} (optional: {step_config.get('optional', False)})", Colors.BRIGHT_WHITE, None, 2)
-                else:
-                    # Show basic steps without detailed configs
-                    for step_name in target_to_show.pipeline['steps']:
-                        styled_print(f"  {step_name}", Colors.BRIGHT_WHITE, None, 2)
+                            cmd_str = ' '.join(step_config['cmd']) if isinstance(step_config['cmd'], list) else str(step_config['cmd'])
+                            optional_str = f" (optional: {step_config.get('optional', False)})"
+                            styled_print(f"     Command: {cmd_str}{optional_str}", Colors.BRIGHT_GREEN, None, 2)
 
         if target_to_show.patterns:
             print_subheader("PATTERNS")
             if target_to_show.patterns.get('error_extract'):
-                styled_print(f"Error extract patterns: {target_to_show.patterns['error_extract']}", Colors.BRIGHT_WHITE, None, 2)
+                styled_print("Error extract patterns:", Colors.BRIGHT_CYAN, Colors.BOLD, 2)
+                for i, pattern in enumerate(target_to_show.patterns['error_extract'], 1):
+                    styled_print(f"  • {pattern}", Colors.BRIGHT_WHITE, None, 2)
             if target_to_show.patterns.get('ignore'):
-                styled_print(f"Ignore patterns: {target_to_show.patterns['ignore']}", Colors.BRIGHT_WHITE, None, 2)
+                styled_print("Ignore patterns:", Colors.BRIGHT_CYAN, Colors.BOLD, 2)
+                for i, pattern in enumerate(target_to_show.patterns['ignore'], 1):
+                    styled_print(f"  • {pattern}", Colors.BRIGHT_WHITE, None, 2)
 
         if target_to_show.environment:
             print_subheader("ENVIRONMENT")
             if target_to_show.environment.get('vars'):
-                styled_print(f"Variables: {target_to_show.environment['vars']}", Colors.BRIGHT_WHITE, None, 2)
+                styled_print("Environment Variables:", Colors.BRIGHT_CYAN, Colors.BOLD, 2)
+                for key, value in target_to_show.environment['vars'].items():
+                    styled_print(f"  {key}: {value}", Colors.BRIGHT_YELLOW, None, 2)
             if target_to_show.environment.get('cwd'):
                 styled_print(f"Working directory: {target_to_show.environment['cwd']}", Colors.BRIGHT_WHITE, None, 2)
 
@@ -8577,27 +8591,57 @@ def handle_build_fix_show(name_or_index: str = None, verbose: bool = False):
     print_header(f"RULEBOOK DETAILS: {name}")
     styled_print(f"Name: {rulebook.name}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
     styled_print(f"Version: {rulebook.version}", Colors.BRIGHT_CYAN, None, 2)
-    styled_print(f"Description: {rulebook.description}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Description: {rulebook.description}", Colors.BRIGHT_WHITE, None, 2)
+
+    if verbose:
+        # Show rulebook JSON path in verbose mode
+        rulebook_path = get_rulebook_file_path(name)
+        styled_print(f"JSON Path: {rulebook_path}", Colors.BRIGHT_MAGENTA, Colors.DIM, 2)
+
     styled_print(f"Rules Count: {len(rulebook.rules)}", Colors.BRIGHT_GREEN, None, 2)
 
     # Show any repositories linked to this rulebook
     linked_repos = [repo for repo in registry['repos'] if repo['rulebook'] == name]
     if linked_repos:
-        styled_print("Linked Repositories:", Colors.BRIGHT_MAGENTA, Colors.BOLD, 2)
-        for repo in linked_repos:
-            print_info(f"  - {repo['abs_path']} (ID: {repo['repo_id']})", 2)
+        print_subheader("LINKED REPOSITORIES")
+        for i, repo in enumerate(linked_repos, 1):
+            styled_print(f"  {i}. {repo['abs_path']}", Colors.BRIGHT_WHITE, None, 2)
+            styled_print(f"     ID: {repo['repo_id']}", Colors.BRIGHT_GREEN, None, 2)
 
     # Show rules if any
     if rulebook.rules:
-        styled_print("Rules:", Colors.BRIGHT_MAGENTA, Colors.BOLD, 2)
+        print_subheader("RULES")
         for i, rule in enumerate(rulebook.rules, 1):
             enabled_str = "✓" if rule.enabled else "✗"
-            print_info(f"  {enabled_str} {i}. {rule.id}: {rule.explanation}", 2)
+            status_color = Colors.BRIGHT_GREEN if rule.enabled else Colors.RED
+            styled_print(f"  {enabled_str} {i}. {rule.id}", status_color, Colors.BOLD, 2)
+            styled_print(f"     Explanation: {rule.explanation}", Colors.BRIGHT_WHITE, None, 2)
+            styled_print(f"     Priority: {rule.priority}", Colors.BRIGHT_CYAN, None, 2)
+            styled_print(f"     Confidence: {rule.confidence:.2f}", Colors.BRIGHT_CYAN, None, 2)
+
+            # Show match conditions
+            if rule.match.any:
+                styled_print(f"     Match conditions:", Colors.BRIGHT_YELLOW, None, 2)
+                for j, condition in enumerate(rule.match.any, 1):
+                    condition_str = f"contains: {condition.contains}" if condition.contains else f"regex: {condition.regex}"
+                    styled_print(f"       • {condition_str}", Colors.BRIGHT_WHITE, None, 2)
+
+            # Show not conditions
+            if rule.match.not_conditions:
+                styled_print(f"     Not conditions:", Colors.BRIGHT_YELLOW, None, 2)
+                for j, condition in enumerate(rule.match.not_conditions, 1):
+                    condition_str = f"contains: {condition.contains}" if condition.contains else f"regex: {condition.regex}"
+                    styled_print(f"       • {condition_str}", Colors.BRIGHT_WHITE, None, 2)
+
+            # Show actions
+            styled_print(f"     Actions ({len(rule.actions)}):", Colors.BRIGHT_YELLOW, None, 2)
+            for j, action in enumerate(rule.actions, 1):
+                styled_print(f"       {j}. Type: {action.type}", Colors.BRIGHT_WHITE, None, 2)
+                if action.text:
+                    styled_print(f"          Text: {action.text[:60]}{'...' if len(action.text) > 60 else ''}", Colors.BRIGHT_GREEN, None, 2)
+
             if verbose:
-                print_info(f"      Priority: {rule.priority}", 4)
-                print_info(f"      Confidence: {rule.confidence}", 4)
-                print_info(f"      Actions: {len(rule.actions)}", 4)
-                print_info(f"      Match conditions: {len(rule.match.any)} 'any', {len(rule.match.not_conditions)} 'not'", 4)
+                styled_print(f"       Verification: expect_signature_gone={rule.verify.expect_signature_gone}", Colors.BRIGHT_MAGENTA, Colors.DIM, 2)
     else:
         print_info("No rules defined in this rulebook", 2)
 
