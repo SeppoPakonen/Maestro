@@ -90,6 +90,59 @@ class Diagnostic:
     known_issues: List[KnownIssue] = field(default_factory=list)  # Matched known issues
 
 
+# Dataclasses for reactive fix rules
+@dataclass
+class MatchCondition:
+    """Condition for matching diagnostics to rules."""
+    contains: Optional[str] = None
+    regex: Optional[str] = None
+
+@dataclass
+class RuleMatch:
+    """Configuration for matching diagnostics."""
+    any: List[MatchCondition] = field(default_factory=list)  # At least one condition must match
+    not_conditions: List[MatchCondition] = field(default_factory=list, repr=False)  # None of these conditions should match
+
+@dataclass
+class RuleAction:
+    """Action to take when a rule matches."""
+    type: str  # "hint" | "prompt_patch"
+    text: Optional[str] = None
+    model_preference: List[str] = field(default_factory=list)
+    prompt_template: Optional[str] = None
+
+@dataclass
+class RuleVerify:
+    """Verification configuration for the rule."""
+    expect_signature_gone: bool = True
+
+@dataclass
+class Rule:
+    """A single rule in a rulebook."""
+    id: str
+    enabled: bool
+    priority: int
+    match: RuleMatch
+    confidence: float
+    explanation: str
+    actions: List[RuleAction]
+    verify: RuleVerify
+
+@dataclass
+class Rulebook:
+    """A collection of fix rules."""
+    version: int
+    name: str
+    description: str
+    rules: List[Rule]
+
+@dataclass
+class MatchedRule:
+    """A rule that has been matched to a diagnostic."""
+    rule: Rule
+    diagnostic: Diagnostic
+    confidence: float
+
 # Dataclass for build target configuration
 @dataclass
 class BuildTarget:
@@ -7649,43 +7702,254 @@ def save_registry(registry: dict):
         json.dump(registry, f, indent=2)
 
 
-def load_rulebook(name: str) -> dict:
+def load_rulebook(name: str) -> Rulebook:
     """
-    Load a specific rulebook by name.
+    Load a specific rulebook by name and return a Rulebook object.
 
     Args:
         name: Name of the rulebook to load
 
     Returns:
-        Rulebook data as a dictionary
+        Rulebook object with parsed rules
     """
     rulebook_path = get_rulebook_file_path(name)
 
     if os.path.exists(rulebook_path):
         with open(rulebook_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
     else:
-        # Return empty rulebook structure
-        return {
+        # Return a basic rulebook structure
+        data = {
+            "version": 1,
             "name": name,
-            "created_at": datetime.now().isoformat(),
+            "description": f"Rulebook for {name}",
             "rules": []
         }
 
+    # Convert the loaded JSON data to a Rulebook object with proper structure
+    rules = []
 
-def save_rulebook(name: str, rulebook: dict):
+    # Process the rules from the JSON
+    raw_rules = data.get("rules", [])
+    for rule_data in raw_rules:
+        # Create MatchCondition objects for 'any' conditions
+        any_conditions = []
+        if "match" in rule_data and "any" in rule_data["match"]:
+            for condition_data in rule_data["match"]["any"]:
+                if "contains" in condition_data:
+                    any_conditions.append(MatchCondition(contains=condition_data["contains"]))
+                elif "regex" in condition_data:
+                    any_conditions.append(MatchCondition(regex=condition_data["regex"]))
+
+        # Create MatchCondition objects for 'not' conditions
+        not_conditions = []
+        if "match" in rule_data and "not" in rule_data["match"]:
+            for condition_data in rule_data["match"]["not"]:
+                if "contains" in condition_data:
+                    not_conditions.append(MatchCondition(contains=condition_data["contains"]))
+                elif "regex" in condition_data:
+                    not_conditions.append(MatchCondition(regex=condition_data["regex"]))
+
+        # Create RuleMatch object
+        rule_match = RuleMatch(any=any_conditions, not_conditions=not_conditions)
+
+        # Create RuleAction objects
+        actions = []
+        if "actions" in rule_data:
+            for action_data in rule_data["actions"]:
+                action = RuleAction(
+                    type=action_data["type"],
+                    text=action_data.get("text"),
+                    model_preference=action_data.get("model_preference", []),
+                    prompt_template=action_data.get("prompt_template")
+                )
+                actions.append(action)
+
+        # Create RuleVerify object
+        verify_data = rule_data.get("verify", {})
+        verify = RuleVerify(
+            expect_signature_gone=verify_data.get("expect_signature_gone", True)
+        )
+
+        # Create the Rule object
+        rule = Rule(
+            id=rule_data["id"],
+            enabled=rule_data.get("enabled", True),
+            priority=rule_data.get("priority", 50),
+            match=rule_match,
+            confidence=rule_data.get("confidence", 0.5),
+            explanation=rule_data.get("explanation", ""),
+            actions=actions,
+            verify=verify
+        )
+        rules.append(rule)
+
+    # Create and return the Rulebook object
+    rulebook = Rulebook(
+        version=data.get("version", 1),
+        name=data.get("name", name),
+        description=data.get("description", f"Rulebook for {name}"),
+        rules=rules
+    )
+
+    return rulebook
+
+
+def save_rulebook(name: str, rulebook_data):
     """
     Save a rulebook to file.
 
     Args:
         name: Name of the rulebook
-        rulebook: Rulebook data to save
+        rulebook_data: Rulebook data to save (either dict or Rulebook object)
     """
     rulebook_path = get_rulebook_file_path(name)
     os.makedirs(os.path.dirname(rulebook_path), exist_ok=True)
 
+    # Convert Rulebook object to dictionary if needed
+    if isinstance(rulebook_data, Rulebook):
+        # Convert the Rulebook object to a dictionary for JSON serialization
+        rulebook_dict = {
+            "version": rulebook_data.version,
+            "name": rulebook_data.name,
+            "description": rulebook_data.description,
+            "rules": []
+        }
+
+        for rule in rulebook_data.rules:
+            rule_dict = {
+                "id": rule.id,
+                "enabled": rule.enabled,
+                "priority": rule.priority,
+                "confidence": rule.confidence,
+                "explanation": rule.explanation,
+                "match": {
+                    "any": [],
+                    "not": []
+                },
+                "actions": [],
+                "verify": {
+                    "expect_signature_gone": rule.verify.expect_signature_gone
+                }
+            }
+
+            # Convert match conditions
+            for condition in rule.match.any:
+                if condition.contains:
+                    rule_dict["match"]["any"].append({"contains": condition.contains})
+                elif condition.regex:
+                    rule_dict["match"]["any"].append({"regex": condition.regex})
+
+            for condition in rule.match.not_conditions:
+                if condition.contains:
+                    rule_dict["match"]["not"].append({"contains": condition.contains})
+                elif condition.regex:
+                    rule_dict["match"]["not"].append({"regex": condition.regex})
+
+            # Convert actions
+            for action in rule.actions:
+                action_dict = {
+                    "type": action.type
+                }
+                if action.text:
+                    action_dict["text"] = action.text
+                if action.model_preference:
+                    action_dict["model_preference"] = action.model_preference
+                if action.prompt_template:
+                    action_dict["prompt_template"] = action.prompt_template
+
+                rule_dict["actions"].append(action_dict)
+
+            rulebook_dict["rules"].append(rule_dict)
+
+        rulebook_data = rulebook_dict
+
     with open(rulebook_path, 'w', encoding='utf-8') as f:
-        json.dump(rulebook, f, indent=2)
+        json.dump(rulebook_data, f, indent=2)
+
+
+def match_rules(diagnostics: List[Diagnostic], rulebook: Rulebook) -> List[MatchedRule]:
+    """
+    Match diagnostics to rules in the rulebook.
+
+    Args:
+        diagnostics: List of diagnostics to match against rules
+        rulebook: Rulebook containing rules to match against
+
+    Returns:
+        List of matched rules with their confidence scores, ranked by priority/confidence
+    """
+    import re
+
+    matched_rules = []
+
+    for diagnostic in diagnostics:
+        diagnostic_text = f"{diagnostic.message} {diagnostic.raw}".lower()
+
+        for rule in rulebook.rules:
+            if not rule.enabled:
+                continue
+
+            # Check if the rule matches the diagnostic
+            match_found = False
+
+            # Check 'any' conditions - at least one must match
+            if rule.match.any:
+                any_condition_matched = False
+                for condition in rule.match.any:
+                    if condition.contains and condition.contains.lower() in diagnostic_text:
+                        any_condition_matched = True
+                        break
+                    elif condition.regex:
+                        try:
+                            if re.search(condition.regex, diagnostic.raw + " " + diagnostic.message, re.IGNORECASE):
+                                any_condition_matched = True
+                                break
+                        except re.error:
+                            # If regex is invalid, skip this condition
+                            continue
+
+                if not any_condition_matched:
+                    continue
+
+            # Check 'not' conditions - none should match
+            should_skip = False
+            for condition in rule.match.not_conditions:
+                if condition.contains and condition.contains.lower() in diagnostic_text:
+                    should_skip = True
+                    break
+                elif condition.regex:
+                    try:
+                        if re.search(condition.regex, diagnostic.raw + " " + diagnostic.message, re.IGNORECASE):
+                            should_skip = True
+                            break
+                    except re.error:
+                        # If regex is invalid, skip this condition
+                        continue
+
+            if should_skip:
+                continue
+
+            # If we get here, the rule matches the diagnostic
+            match_found = True
+
+            if match_found:
+                # Calculate the final confidence (could be modified based on other factors)
+                final_confidence = rule.confidence
+
+                matched_rule = MatchedRule(
+                    rule=rule,
+                    diagnostic=diagnostic,
+                    confidence=final_confidence
+                )
+
+                matched_rules.append(matched_rule)
+
+    # Rank the matched rules by priority and confidence
+    # Sort by priority (descending) then confidence (descending)
+    matched_rules.sort(key=lambda x: (x.rule.priority, x.confidence), reverse=True)
+
+    return matched_rules
 
 
 def list_rulebooks() -> list:
@@ -7778,10 +8042,11 @@ def handle_build_fix_new(name: str, verbose: bool = False):
         print_error(f"Rulebook '{name}' already exists at {rulebook_path}", 2)
         sys.exit(1)
 
-    # Create a new empty rulebook
+    # Create a new empty rulebook with the new schema
     rulebook = {
+        "version": 1,
         "name": name,
-        "created_at": datetime.now().isoformat(),
+        "description": f"Rulebook for {name}",
         "rules": []
     }
 
@@ -8005,9 +8270,10 @@ def handle_build_fix_show(name_or_index: str = None, verbose: bool = False):
     rulebook = load_rulebook(name)
 
     print_header(f"RULEBOOK DETAILS: {name}")
-    styled_print(f"Name: {rulebook.get('name', name)}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
-    styled_print(f"Created: {rulebook.get('created_at', 'unknown')}", Colors.BRIGHT_CYAN, None, 2)
-    styled_print(f"Rules Count: {len(rulebook.get('rules', []))}", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Name: {rulebook.name}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+    styled_print(f"Version: {rulebook.version}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Description: {rulebook.description}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Rules Count: {len(rulebook.rules)}", Colors.BRIGHT_GREEN, None, 2)
 
     # Show any repositories linked to this rulebook
     linked_repos = [repo for repo in registry['repos'] if repo['rulebook'] == name]
@@ -8017,17 +8283,16 @@ def handle_build_fix_show(name_or_index: str = None, verbose: bool = False):
             print_info(f"  - {repo['abs_path']} (ID: {repo['repo_id']})", 2)
 
     # Show rules if any
-    rules = rulebook.get('rules', [])
-    if rules:
+    if rulebook.rules:
         styled_print("Rules:", Colors.BRIGHT_MAGENTA, Colors.BOLD, 2)
-        for i, rule in enumerate(rules, 1):
-            rule_id = rule.get('id', f'rule_{i}')
-            enabled = rule.get('enabled', True)
-            enabled_str = "✓" if enabled else "✗"
-            print_info(f"  {enabled_str} {i}. {rule_id}: {rule.get('description', 'No description')}", 2)
+        for i, rule in enumerate(rulebook.rules, 1):
+            enabled_str = "✓" if rule.enabled else "✗"
+            print_info(f"  {enabled_str} {i}. {rule.id}: {rule.explanation}", 2)
             if verbose:
-                print_info(f"      Pattern: {rule.get('pattern', 'N/A')}", 4)
-                print_info(f"      Replace: {rule.get('replace', 'N/A')}", 4)
+                print_info(f"      Priority: {rule.priority}", 4)
+                print_info(f"      Confidence: {rule.confidence}", 4)
+                print_info(f"      Actions: {len(rule.actions)}", 4)
+                print_info(f"      Match conditions: {len(rule.match.any)} 'any', {len(rule.match.not_conditions)} 'not'", 4)
     else:
         print_info("No rules defined in this rulebook", 2)
 
