@@ -3866,7 +3866,7 @@ def get_active_target_path(session_path: str) -> str:
 
 def create_build_target(session_path: str, name: str, description: str = "", categories: List[str] = None,
                        pipeline: Dict[str, Any] = None, patterns: Dict[str, Any] = None,
-                       environment: Dict[str, Any] = None, target_id: str = None) -> BuildTarget:
+                       environment: Dict[str, Any] = None, target_id: str = None, why: str = "") -> BuildTarget:
     """
     Create a new build target.
 
@@ -3879,6 +3879,7 @@ def create_build_target(session_path: str, name: str, description: str = "", cat
         patterns: Patterns for error extraction and ignoring
         environment: Environment variables
         target_id: Optional target ID (auto-generated if not provided)
+        why: Planner rationale/intent
 
     Returns:
         Created BuildTarget object
@@ -3910,7 +3911,7 @@ def create_build_target(session_path: str, name: str, description: str = "", cat
         created_at=datetime.now().isoformat(),
         categories=categories,
         description=description,
-        why="",
+        why=why,
         pipeline=pipeline,
         patterns=patterns,
         environment=environment
@@ -6557,7 +6558,10 @@ def handle_build_new(session_path, target_name, verbose=False, description=None,
             name=target_name,
             description=description or "",
             categories=categories_list,
-            pipeline=pipeline
+            pipeline=pipeline,
+            why="",  # No specific rationale when creating manually
+            patterns={"error_extract": [], "ignore": []},  # Default empty patterns
+            environment={"vars": {}, "cwd": "."}  # Default environment
         )
 
         print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
