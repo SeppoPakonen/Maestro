@@ -3014,24 +3014,35 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
             categories_str = ", ".join(subtask.categories) if subtask.categories else "No specific categories"
             root_excerpt = subtask.root_excerpt if subtask.root_excerpt else "No specific excerpt, see categories."
 
-            prompt = f"[ROOT TASK (CLEANED)]\n{root_task_to_use}\n\n"
-            prompt += f"[RELEVANT CATEGORIES]\n{categories_str}\n\n"
-            prompt += f"[RELEVANT ROOT EXCERPT]\n{root_excerpt}\n\n"
-
-            # Include partial result if available
+            # Build structured prompt
+            goal_parts = [f"Complete the subtask: {subtask.title}", f"Description: {subtask.description}"]
             if partial_output:
-                prompt += f"[PARTIAL RESULT FROM PREVIOUS ATTEMPT]\n{partial_output}\n\n"
+                goal_parts.append("Continue work from a previous partial attempt")
+            goal = "\n".join(goal_parts)
+
+            requirements_parts = [f"ROOT TASK (CLEANED):\n{root_task_to_use}"]
+            requirements_parts.append(f"RELEVANT CATEGORIES:\n{categories_str}")
+            requirements_parts.append(f"RELEVANT ROOT EXCERPT:\n{root_excerpt}")
+            if partial_output:
+                requirements_parts.append(f"PARTIAL RESULT FROM PREVIOUS ATTEMPT:\n{partial_output}")
+            requirements_parts.append(f"SUBTASK DETAILS:\nid: {subtask.id}\ntitle: {subtask.title}\ndescription:\n{subtask.description}")
+            requirements_parts.append(f"CURRENT RULES:\n{rules}")
+            requirements = "\n\n".join(requirements_parts)
+
+            acceptance_criteria = "The work should be completed according to the subtask requirements. The work should be properly integrated with existing codebase. If continuing from partial work, build upon what was already done without repeating completed steps."
+
+            deliverables_parts = [f"Completed work for subtask '{subtask.title}'"]
+            deliverables_parts.append(f"Write a summary to file: {subtask.summary_file}")
+            deliverables = "\n".join(deliverables_parts)
+
+            prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
+
+            # Add additional instructions that were in the original prompt
+            prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
+            if partial_output:
                 prompt += f"[CURRENT INSTRUCTIONS]\n"
                 prompt += f"You must continue the work from the partial output above.\n"
                 prompt += f"Do not repeat already completed steps.\n\n"
-            else:
-                prompt += f"[SUBTASK]\n"
-                prompt += f"id: {subtask.id}\n"
-                prompt += f"title: {subtask.title}\n"
-                prompt += f"description:\n{subtask.description}\n\n"
-
-            prompt += f"[RULES]\n{rules}\n\n"
-            prompt += f"[INSTRUCTIONS]\n"
             prompt += f"You are an autonomous coding agent working in this repository.\n"
             prompt += f"- Perform ONLY the work needed for this subtask.\n"
             prompt += f"- Use your normal tools and workflows.\n"
@@ -4287,6 +4298,34 @@ def collect_worker_summaries(session: Session, session_path: str) -> str:
     return summaries_text
 
 
+def build_structured_prompt(goal: str = "None", requirements: str = "None", acceptance_criteria: str = "None", deliverables: str = "None") -> str:
+    """
+    Build a structured prompt with required sections.
+    If a section is irrelevant, use "None" as the value.
+
+    Args:
+        goal: The main goal of the task
+        requirements: Requirements for the task
+        acceptance_criteria: Acceptance criteria for the task
+        deliverables: Expected deliverables from the task
+
+    Returns:
+        The structured prompt string with all required sections
+    """
+    prompt = f"[GOAL]\n{goal}\n\n"
+    prompt += f"[REQUIREMENTS]\n{requirements}\n\n"
+    prompt += f"[ACCEPTANCE CRITERIA]\n{acceptance_criteria}\n\n"
+    prompt += f"[DELIVERABLES]\n{deliverables}\n\n"
+
+    # Validation check to ensure all sections exist
+    assert "[GOAL]" in prompt, "Structured prompt must contain [GOAL] section"
+    assert "[REQUIREMENTS]" in prompt, "Structured prompt must contain [REQUIREMENTS] section"
+    assert "[ACCEPTANCE CRITERIA]" in prompt, "Structured prompt must contain [ACCEPTANCE CRITERIA] section"
+    assert "[DELIVERABLES]" in prompt, "Structured prompt must contain [DELIVERABLES] section"
+
+    return prompt
+
+
 def build_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: list) -> str:
     """
     Build the planner prompt with all required sections.
@@ -4307,15 +4346,27 @@ def build_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: l
         current_plan_parts.append(f"   {subtask.description}")
     current_plan = "\n".join(current_plan_parts)
 
-    prompt = f"[ROOT TASK]\n{root_task}\n\n"
-    prompt += f"[CURRENT RULES]\n{rules}\n\n"
-    prompt += f"[CURRENT SUMMARIES FROM WORKERS]\n{summaries}\n\n"
-    prompt += f"[CURRENT PLAN]\n{current_plan}\n\n"
-    prompt += f"[INSTRUCTIONS]\n"
+    # Use structured prompt format
+    goal = f"Propose an updated subtask plan based on the root task: {root_task}"
+    requirements = f"CURRENT RULES:\n{rules}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
+    acceptance_criteria = "Return a valid JSON object with 'subtasks' array and 'root' object containing 'clean_text', 'raw_summary', and 'categories'. Each subtask should have 'title', 'description', 'categories', and 'root_excerpt' fields."
+    deliverables = "JSON object with 'subtasks' field containing an array of subtask objects and 'root' field with clean_text, raw_summary, and categories."
+
+    prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
+
+    # Add additional instructions that were in the original prompt
+    prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
     prompt += f"You are a planning AI. Propose an updated subtask plan.\n"
     prompt += f"- You may add new subtasks if strictly necessary.\n"
     prompt += f"- Keep the number of subtasks manageable.\n"
-    prompt += f"- Clearly mark each subtask with an id, title and description."
+    prompt += f"- Clearly mark each subtask with an id, title and description.\n"
+    prompt += f"- Use the cleaned root task and categories to guide subtask creation.\n"
+    prompt += f"- Consider previous subtask summaries when planning new tasks.\n"
+    prompt += f"- The root.clean_text should be a cleaned-up, well-structured description.\n"
+    prompt += f"- The root.raw_summary should be 1-3 sentences summarizing the intent.\n"
+    prompt += f"- The root.categories should be high-level categories from the root task.\n"
+    prompt += f"- For each subtask, select which categories apply and provide an optional root_excerpt.\n"
+    prompt += f"- Only return valid JSON with no additional text or explanations outside the JSON."
 
     return prompt
 
@@ -4664,27 +4715,24 @@ def create_root_refinement_prompt(root_task_raw):
     """
     Create the prompt for root task refinement.
     """
-    return f"""You are an expert editor and project architect.
-Your task is ONLY to rewrite, summarize, and categorize the user's original project description.
+    goal = "Rewrite, summarize, and categorize the user's original project description."
+    requirements = f"ORIGINAL PROJECT DESCRIPTION:\n{root_task_raw}"
+    acceptance_criteria = "Return valid JSON with fields: version, clean_text (clear, structured, well-written restatement), raw_summary (1-3 sentences summarizing the intent), and categories (list of high-level conceptual categories)."
+    deliverables = "JSON object with fields: version=1, clean_text, raw_summary, and categories (list of high-level conceptual categories like: architecture, backend, frontend, api, deployment, research, ui/ux, testing, refactoring, docs, etc.)"
 
-<ROOT_TASK_RAW>
-{root_task_raw}
-</ROOT_TASK_RAW>
+    prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
 
-Please produce:
-1. "clean_text" — a clear, structured, well-written restatement.
-2. "raw_summary" — 1–3 sentences summarizing the intent.
-3. "categories" — a list of high-level conceptual categories, such as:
-   architecture, backend, frontend, api, deployment, research, ui/ux, testing, refactoring, docs, etc.
+    # Add specific format requirements
+    prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
+    prompt += f"Respond ONLY with valid JSON in the following format:\n\n"
+    prompt += f"{{\n"
+    prompt += f'  "version": 1,\n'
+    prompt += f'  "clean_text": "...",\n'
+    prompt += f'  "raw_summary": "...",\n'
+    prompt += f'  "categories": []\n'
+    prompt += f"}}"
 
-Respond ONLY with valid JSON in the following format:
-
-{{
-  "version": 1,
-  "clean_text": "...",
-  "raw_summary": "...",
-  "categories": []
-}}"""
+    return prompt
 
 
 def handle_plan_list(session_path, verbose=False):
@@ -5071,21 +5119,30 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
             if not subtask.summary_file:
                 subtask.summary_file = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
 
-            # Build the full worker prompt with structured format using flexible root task handling
-            # Use the clean root task and relevant categories/excerpt for this subtask
-            root_task_to_use = session.root_task_clean or session.root_task_raw or session.root_task
-            categories_str = ", ".join(subtask.categories) if subtask.categories else "No specific categories"
-            root_excerpt = subtask.root_excerpt if subtask.root_excerpt else "No specific excerpt, see categories."
+            # Build structured prompt
+            goal = f"Complete the subtask: {subtask.title}\nDescription: {subtask.description}"
 
-            prompt = f"[ROOT TASK (CLEANED)]\n{root_task_to_use}\n\n"
-            prompt += f"[RELEVANT CATEGORIES]\n{categories_str}\n\n"
-            prompt += f"[RELEVANT ROOT EXCERPT]\n{root_excerpt}\n\n"
+            requirements_parts = [f"ROOT TASK (CLEANED):\n{root_task_to_use}"]
+            requirements_parts.append(f"RELEVANT CATEGORIES:\n{categories_str}")
+            requirements_parts.append(f"RELEVANT ROOT EXCERPT:\n{root_excerpt}")
+            requirements_parts.append(f"SUBTASK DETAILS:\nid: {subtask.id}\ntitle: {subtask.title}\ndescription:\n{subtask.description}")
+            requirements_parts.append(f"CURRENT RULES:\n{rules}")
+            requirements = "\n\n".join(requirements_parts)
+
+            acceptance_criteria = "The work should be completed according to the subtask requirements. The work should be properly integrated with existing codebase."
+
+            deliverables_parts = [f"Completed work for subtask '{subtask.title}'"]
+            deliverables_parts.append(f"Write a summary to file: {subtask.summary_file}")
+            deliverables = "\n".join(deliverables_parts)
+
+            prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
+
+            # Add additional instructions that were in the original prompt
+            prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
             prompt += f"[SUBTASK]\n"
             prompt += f"id: {subtask.id}\n"
             prompt += f"title: {subtask.title}\n"
             prompt += f"description:\n{subtask.description}\n\n"
-            prompt += f"[RULES]\n{rules}\n\n"
-            prompt += f"[INSTRUCTIONS]\n"
             prompt += f"You are an autonomous coding agent working in this repository.\n"
             prompt += f"- Perform ONLY the work needed for this subtask.\n"
             prompt += f"- Use your normal tools and workflows.\n"
@@ -7851,12 +7908,14 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
     # Load rules
     rules = load_rules(session)
 
-    # Start building the prompt
-    fix_prompt = "[DEBUGGER PROMPT]\n\n"
+    # Build structured prompt components
+    goal = "Analyze the provided diagnostics and create a structured fix plan to resolve them"
+
+    requirements_parts = []
 
     # Add repo context
     session_dir = os.path.dirname(os.path.abspath(session_path))
-    fix_prompt += "[REPO CONTEXT]\n"
+    requirements_parts.append("[REPO CONTEXT]")
 
     # Add tree structure (first few levels)
     try:
@@ -7864,13 +7923,11 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
         dirs = [d for d in glob.glob(os.path.join(session_dir, "*")) if os.path.isdir(d)]
         files = [f for f in glob.glob(os.path.join(session_dir, "*")) if os.path.isfile(f)]
 
-        fix_prompt += "Directory structure:\n"
-        fix_prompt += f"  Directories: {', '.join([os.path.basename(d) for d in dirs[:10]])}\n"
-        fix_prompt += f"  Files: {', '.join([os.path.basename(f) for f in files[:10]])}\n"
+        requirements_parts.append("Directory structure:")
+        requirements_parts.append(f"  Directories: {', '.join([os.path.basename(d) for d in dirs[:10]])}")
+        requirements_parts.append(f"  Files: {', '.join([os.path.basename(f) for f in files[:10]])}")
     except:
-        fix_prompt += "Could not retrieve directory structure.\n"
-
-    fix_prompt += "\n"
+        requirements_parts.append("Could not retrieve directory structure.")
 
     # Add pipeline step outputs (focused excerpts)
     build_dir = get_build_dir(session_path)
@@ -7887,68 +7944,76 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
                     log_content = f.read()
                     # Take first 1000 characters to avoid huge prompts
                     log_excerpt = log_content[:1000] if len(log_content) > 1000 else log_content
-                    fix_prompt += f"[PIPELINE OUTPUT EXCERPT]\n{log_excerpt}\n\n"
+                    requirements_parts.append(f"[PIPELINE OUTPUT EXCERPT]\n{log_excerpt}")
             except:
-                fix_prompt += "[PIPELINE OUTPUT EXCERPT]\nCould not read pipeline logs.\n\n"
+                requirements_parts.append("[PIPELINE OUTPUT EXCERPT]\nCould not read pipeline logs.")
         else:
-            fix_prompt += "[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.\n\n"
+            requirements_parts.append("[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.")
     else:
-        fix_prompt += "[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.\n\n"
+        requirements_parts.append("[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.")
 
     # Add extracted diagnostics (top N)
-    fix_prompt += "[TARGET DIAGNOSTICS]\n"
+    requirements_parts.append("[TARGET DIAGNOSTICS]")
     for i, diag in enumerate(target_diagnostics):
-        fix_prompt += f"Diagnostic #{i+1}:\n"
-        fix_prompt += f"  Tool: {diag.tool}\n"
-        fix_prompt += f"  Severity: {diag.severity}\n"
-        fix_prompt += f"  File: {diag.file}\n"
-        fix_prompt += f"  Line: {diag.line}\n"
-        fix_prompt += f"  Message: {diag.message}\n"
-        fix_prompt += f"  Signature: {diag.signature}\n"
-        fix_prompt += f"  Raw: {diag.raw}\n"
+        diag_info = f"Diagnostic #{i+1}:"
+        diag_info += f"  Tool: {diag.tool}"
+        diag_info += f"  Severity: {diag.severity}"
+        diag_info += f"  File: {diag.file}"
+        diag_info += f"  Line: {diag.line}"
+        diag_info += f"  Message: {diag.message}"
+        diag_info += f"  Signature: {diag.signature}"
+        diag_info += f"  Raw: {diag.raw}"
+        requirements_parts.append(diag_info)
+
         if diag.known_issues:
-            fix_prompt += f"  Known Issues:\n"
+            diag_info = "  Known Issues:"
             for issue in diag.known_issues:
-                fix_prompt += f"    - ID: {issue.id}\n"
-                fix_prompt += f"      Description: {issue.description}\n"
-                fix_prompt += f"      Fix Hint: {issue.fix_hint}\n"
-                fix_prompt += f"      Confidence: {issue.confidence}\n"
-        fix_prompt += "\n"
+                diag_info += f"    - ID: {issue.id}"
+                diag_info += f"      Description: {issue.description}"
+                diag_info += f"      Fix Hint: {issue.fix_hint}"
+                diag_info += f"      Confidence: {issue.confidence}"
+            requirements_parts.append(diag_info)
 
     # Add target signature(s) to eliminate
     target_signatures = {d.signature for d in target_diagnostics}
-    fix_prompt += f"[TARGET SIGNATURES TO ELIMINATE]\n"
+    requirements_parts.append(f"[TARGET SIGNATURES TO ELIMINATE]")
     for sig in target_signatures:
-        fix_prompt += f"  - {sig}\n"
-    fix_prompt += "\n"
+        requirements_parts.append(f"  - {sig}")
 
     # Match diagnostics against active rulebooks and add matched rules to prompt
     matched_rules = match_rulebooks_to_diagnostics(target_diagnostics, session_dir)
     if matched_rules:
-        fix_prompt += "[MATCHED REACTIVE RULES]\n"
+        requirements_parts.append("[MATCHED REACTIVE RULES]")
         for matched_rule in matched_rules:
             rule = matched_rule.rule
             diagnostic = matched_rule.diagnostic
-            fix_prompt += f"Matched Rule ID: {rule.id}\n"
-            fix_prompt += f"  Explanation: {rule.explanation}\n"
-            fix_prompt += f"  Confidence: {matched_rule.confidence}\n"
-            fix_prompt += f"  Diagnostic: {diagnostic.message[:100]}...\n"
+            rule_info = f"Matched Rule ID: {rule.id}"
+            rule_info += f"  Explanation: {rule.explanation}"
+            rule_info += f"  Confidence: {matched_rule.confidence}"
+            rule_info += f"  Diagnostic: {diagnostic.message[:100]}..."
 
-            # Add rule actions to the prompt
+            # Add rule actions to the requirements
             for action in rule.actions:
                 if action.type == "hint":
-                    fix_prompt += f"  Hint Action: {action.text}\n"
+                    rule_info += f"  Hint Action: {action.text}"
                 elif action.type == "prompt_patch":
-                    fix_prompt += f"  Patch Action Template: {action.prompt_template}\n"
-            fix_prompt += "\n"
-        fix_prompt += "\n"
+                    rule_info += f"  Patch Action Template: {action.prompt_template}"
+            requirements_parts.append(rule_info)
 
     # Add project rules if available
     if rules:
-        fix_prompt += f"[PROJECT RULES]\n{rules}\n\n"
+        requirements_parts.append(f"[PROJECT RULES]\n{rules}")
+
+    requirements = "\n".join(requirements_parts)
+
+    acceptance_criteria = "Return valid JSON with fields: summary (what to change and why), files_to_modify (list of file paths), patch_plan (array of file modification plans), risk (low|medium|high), expected_effect (which signatures should disappear)"
+
+    deliverables = "JSON object with fields: summary, files_to_modify, patch_plan (with file, action, notes), risk, expected_effect"
+
+    fix_prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
 
     # Add the specific instructions for JSON format
-    fix_prompt += """[INSTRUCTIONS]\n"""
+    fix_prompt += """[ADDITIONAL INSTRUCTIONS]\n"""
     fix_prompt += """You are a pragmatic debugger. You must analyze the above diagnostics, known issues, and matched rules.\n"""
     fix_prompt += """Use matched rule explanations and hints to guide your fix strategy when appropriate.\n"""
     fix_prompt += """Return a structured JSON plan with specific, actionable changes.\n\n"""
