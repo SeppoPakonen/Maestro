@@ -90,6 +90,21 @@ class Diagnostic:
     known_issues: List[KnownIssue] = field(default_factory=list)  # Matched known issues
 
 
+# Dataclass for build target configuration
+@dataclass
+class BuildTarget:
+    """Configuration for a build target."""
+    target_id: str
+    name: str
+    created_at: str
+    categories: List[str] = field(default_factory=list)
+    description: str = ""
+    why: str = ""  # Planner rationale / intent
+    pipeline: Dict[str, Any] = field(default_factory=dict)
+    patterns: Dict[str, Any] = field(default_factory=dict)
+    environment: Dict[str, Any] = field(default_factory=dict)
+
+
 # ANSI color codes for styling
 class Colors:
     # Text colors
@@ -1165,6 +1180,38 @@ def main():
     build_rules_parser = builder_subparsers.add_parser('rules', help='Edit builder rules/config (separate from normal rules.txt)')
     build_rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
+    # build new
+    build_new_parser = builder_subparsers.add_parser('new', help='Create a new build target')
+    build_new_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_new_parser.add_argument('name', help='Name for the new build target')
+    build_new_parser.add_argument('--description', help='Description for the build target')
+    build_new_parser.add_argument('--categories', help='Comma-separated categories (e.g., build,lint,static,valgrind)')
+    build_new_parser.add_argument('--steps', help='Comma-separated pipeline steps (e.g., configure,build,lint)')
+
+    # build list
+    build_list_parser = builder_subparsers.add_parser('list', help='List build targets')
+    build_list_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
+
+    # build set
+    build_set_parser = builder_subparsers.add_parser('set', help='Set active build target')
+    build_set_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_set_parser.add_argument('name', help='Build target name or index to set as active')
+
+    # build get
+    build_get_parser = builder_subparsers.add_parser('get', help='Print active build target')
+    build_get_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+
+    # build plan
+    build_plan_parser = builder_subparsers.add_parser('plan', help='Interactive discussion to define target rules via AI')
+    build_plan_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_plan_parser.add_argument('name', help='Build target name to plan')
+
+    # build show
+    build_show_parser = builder_subparsers.add_parser('show', help='Show full details of build target')
+    build_show_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_show_parser.add_argument('name', nargs='?', help='Build target name or index to show (default to active)')
+
     args = parser.parse_args()
 
     # Validate that command is specified
@@ -1365,12 +1412,31 @@ def main():
                 handle_build_status(args.session, args.verbose)
             elif args.builder_subcommand == 'rules':
                 handle_build_rules(args.session, args.verbose)
+            elif args.builder_subcommand == 'new':
+                handle_build_new(
+                    args.session,
+                    args.name,
+                    args.verbose,
+                    description=getattr(args, 'description', None),
+                    categories=getattr(args, 'categories', None),
+                    steps=getattr(args, 'steps', None)
+                )
+            elif args.builder_subcommand == 'list':
+                handle_build_list(args.session, args.verbose)
+            elif args.builder_subcommand == 'set':
+                handle_build_set(args.session, args.name, args.verbose)
+            elif args.builder_subcommand == 'get':
+                handle_build_get(args.session, args.verbose)
+            elif args.builder_subcommand == 'plan':
+                handle_build_plan(args.session, args.name, args.verbose)
+            elif args.builder_subcommand == 'show':
+                handle_build_show(args.session, args.name, args.verbose)
             else:
                 print_error(f"Unknown build subcommand: {args.builder_subcommand}", 2)
                 sys.exit(1)
         else:
             # Default to showing help if no subcommand specified
-            print_error("No build subcommand specified. Available: run, fix, status, rules", 2)
+            print_error("No build subcommand specified. Available: run, fix, status, rules, new, list, set, get, plan, show", 2)
             sys.exit(1)
     else:
         print_error(f"Unknown command: {args.command}", 2)
@@ -3649,6 +3715,47 @@ def find_default_session_file():
     return None
 
 
+def get_project_maestro_dir(session_path: str) -> str:
+    """
+    Get the main project .maestro directory path (not the session-specific one).
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the main .maestro directory
+    """
+    session_abs_path = os.path.abspath(session_path)
+    session_dir = os.path.dirname(session_abs_path)
+
+    # If the session is in a .maestro/sessions subdirectory, we need to go up to the main .maestro
+    current_dir = session_dir
+
+    while current_dir != '/':
+        parent_dir = os.path.dirname(current_dir)
+        if os.path.basename(parent_dir) == '.maestro':
+            # Current dir is likely "sessions", parent is ".maestro"
+            if os.path.basename(current_dir) == 'sessions':
+                # We found the main .maestro directory
+                return parent_dir
+        elif os.path.basename(current_dir) == '.maestro':
+            # This is the main .maestro directory
+            return current_dir
+        else:
+            # Keep going up the directory tree
+            current_dir = parent_dir
+            continue
+        break
+
+    # If we didn't find it, use the get_maestro_dir function which might return the session dir
+    maestro_dir = get_maestro_dir(session_path)
+
+    # If the maestro_dir contains "sessions", go up one level to get the main .maestro
+    if os.path.basename(os.path.dirname(maestro_dir)) == 'sessions':
+        return os.path.dirname(os.path.dirname(maestro_dir))
+    else:
+        return maestro_dir
+
 def get_build_dir(session_path: str) -> str:
     """
     Get the build directory path for the given session.
@@ -3659,15 +3766,456 @@ def get_build_dir(session_path: str) -> str:
     Returns:
         Path to the build directory
     """
-    session_abs_path = os.path.abspath(session_path)
-    session_dir = os.path.dirname(session_abs_path)
-
-    # Use .maestro subdirectory in the same directory as the session file
-    maestro_dir = os.path.join(session_dir, ".maestro")
+    maestro_dir = get_project_maestro_dir(session_path)
     build_dir = os.path.join(maestro_dir, "build")
 
     os.makedirs(build_dir, exist_ok=True)
     return build_dir
+
+
+def get_build_target_dir(session_path: str) -> str:
+    """
+    Get the build targets directory path for the given session.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the build targets directory
+    """
+    build_dir = get_build_dir(session_path)
+    target_dir = os.path.join(build_dir, "targets")
+    os.makedirs(target_dir, exist_ok=True)
+    return target_dir
+
+
+def get_build_targets_path(session_path: str, target_id: str) -> str:
+    """
+    Get the path to a specific build target file.
+
+    Args:
+        session_path: Path to the session file
+        target_id: Target ID
+
+    Returns:
+        Path to the build target JSON file
+    """
+    target_dir = get_build_target_dir(session_path)
+    return os.path.join(target_dir, f"{target_id}.json")
+
+
+def get_active_target_path(session_path: str) -> str:
+    """
+    Get the path to the active target file.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the active target file
+    """
+    build_dir = get_build_dir(session_path)
+    return os.path.join(build_dir, "active_target.txt")
+
+
+def create_build_target(session_path: str, name: str, description: str = "", categories: List[str] = None,
+                       pipeline: Dict[str, Any] = None, patterns: Dict[str, Any] = None,
+                       environment: Dict[str, Any] = None, target_id: str = None) -> BuildTarget:
+    """
+    Create a new build target.
+
+    Args:
+        session_path: Path to the session file
+        name: Name of the build target
+        description: Description of the build target
+        categories: List of categories
+        pipeline: Pipeline configuration
+        patterns: Patterns for error extraction and ignoring
+        environment: Environment variables
+        target_id: Optional target ID (auto-generated if not provided)
+
+    Returns:
+        Created BuildTarget object
+    """
+    if target_id is None:
+        timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
+        idx = 1
+        target_id = f"bt_{timestamp}_{idx:03d}"
+
+        # Check if target ID already exists, increment if it does
+        target_file = get_build_targets_path(session_path, target_id)
+        while os.path.exists(target_file):
+            idx += 1
+            target_id = f"bt_{timestamp}_{idx:03d}"
+            target_file = get_build_targets_path(session_path, target_id)
+
+    if categories is None:
+        categories = []
+    if pipeline is None:
+        pipeline = {"steps": []}
+    if patterns is None:
+        patterns = {"error_extract": [], "ignore": []}
+    if environment is None:
+        environment = {"vars": {}, "cwd": "."}
+
+    build_target = BuildTarget(
+        target_id=target_id,
+        name=name,
+        created_at=datetime.now().isoformat(),
+        categories=categories,
+        description=description,
+        why="",
+        pipeline=pipeline,
+        patterns=patterns,
+        environment=environment
+    )
+
+    # Save the build target to file
+    save_build_target(session_path, build_target)
+
+    return build_target
+
+
+def save_build_target(session_path: str, build_target: BuildTarget):
+    """
+    Save a build target to the appropriate file.
+
+    Args:
+        session_path: Path to the session file
+        build_target: BuildTarget object to save
+    """
+    target_file = get_build_targets_path(session_path, build_target.target_id)
+    target_data = {
+        "target_id": build_target.target_id,
+        "name": build_target.name,
+        "created_at": build_target.created_at,
+        "categories": build_target.categories,
+        "description": build_target.description,
+        "why": build_target.why,
+        "pipeline": build_target.pipeline,
+        "patterns": build_target.patterns,
+        "environment": build_target.environment
+    }
+
+    with open(target_file, 'w', encoding='utf-8') as f:
+        json.dump(target_data, f, indent=2)
+
+
+def load_build_target(session_path: str, target_id: str) -> BuildTarget:
+    """
+    Load a build target from file.
+
+    Args:
+        session_path: Path to the session file
+        target_id: Target ID to load
+
+    Returns:
+        BuildTarget object
+    """
+    target_file = get_build_targets_path(session_path, target_id)
+
+    if not os.path.exists(target_file):
+        raise FileNotFoundError(f"Build target file does not exist: {target_file}")
+
+    with open(target_file, 'r', encoding='utf-8') as f:
+        target_data = json.load(f)
+
+    return BuildTarget(
+        target_id=target_data["target_id"],
+        name=target_data["name"],
+        created_at=target_data["created_at"],
+        categories=target_data.get("categories", []),
+        description=target_data.get("description", ""),
+        why=target_data.get("why", ""),
+        pipeline=target_data.get("pipeline", {"steps": []}),
+        patterns=target_data.get("patterns", {"error_extract": [], "ignore": []}),
+        environment=target_data.get("environment", {"vars": {}, "cwd": "."})
+    )
+
+
+def list_build_targets(session_path: str) -> List[BuildTarget]:
+    """
+    List all available build targets for the session.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        List of BuildTarget objects
+    """
+    target_dir = get_build_target_dir(session_path)
+    targets = []
+
+    for filename in os.listdir(target_dir):
+        if filename.endswith('.json'):
+            target_id = os.path.splitext(filename)[0]
+            try:
+                target = load_build_target(session_path, target_id)
+                targets.append(target)
+            except Exception as e:
+                print_warning(f"Could not load build target {target_id}: {e}", 2)
+
+    return targets
+
+
+def set_active_build_target(session_path: str, target_id: str) -> bool:
+    """
+    Set the active build target.
+
+    Args:
+        session_path: Path to the session file
+        target_id: Target ID to set as active
+
+    Returns:
+        True if successful, False otherwise
+    """
+    active_target_file = get_active_target_path(session_path)
+
+    try:
+        with open(active_target_file, 'w', encoding='utf-8') as f:
+            f.write(target_id)
+        return True
+    except Exception as e:
+        print_error(f"Could not set active build target: {e}", 2)
+        return False
+
+
+def get_active_build_target_id(session_path: str) -> Optional[str]:
+    """
+    Get the active build target ID.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Active target ID or None if not set
+    """
+    active_target_file = get_active_target_path(session_path)
+
+    if os.path.exists(active_target_file):
+        try:
+            with open(active_target_file, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        except Exception:
+            return None
+
+    return None
+
+
+def get_active_build_target(session_path: str) -> Optional[BuildTarget]:
+    """
+    Get the active build target.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Active BuildTarget object or None if not set
+    """
+    target_id = get_active_build_target_id(session_path)
+
+    if target_id:
+        try:
+            return load_build_target(session_path, target_id)
+        except FileNotFoundError:
+            # Active target file exists but target file doesn't, probably deleted
+            return None
+
+    return None
+
+
+def plan_build_target_interactive(session_path: str, target_name: str, verbose: bool = False) -> Optional[BuildTarget]:
+    """
+    Interactive discussion to define target rules via AI for a build target.
+
+    Args:
+        session_path: Path to the session file
+        target_name: Name for the build target
+        verbose: Verbose output flag
+
+    Returns:
+        Created BuildTarget object or None if cancelled
+    """
+    if verbose:
+        print_debug(f"Starting interactive build target planning for: {target_name}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        return None
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        return None
+
+    print_header("BUILD TARGET PLANNING DISCUSSION")
+    print_info(f"Planning build target: {target_name}", 4)
+    print_info("Describe the build target you want to create, or suggest features like:", 4)
+    print_info("- Categories (build, lint, static, valgrind, etc.)", 4)
+    print_info("- Pipeline steps (configure, build, lint, tests)", 4)
+    print_info("- Environment variables", 4)
+    print_info("- Error pattern matching", 4)
+    print_info("Type your message and press Enter. Use /done when you want to generate the target.", 4)
+
+    # Initialize conversation with system prompt
+    conversation = [
+        {"role": "system", "content": f"You are a build configuration expert. The user wants to create a build target configuration with name '{target_name}'. The session root task is: {session.root_task}"},
+        {"role": "user", "content": f"Help me create a build target configuration for '{target_name}' for this project: {session.root_task}"}
+    ]
+
+    while True:
+        # Get user input
+        user_input = get_multiline_input("> ")
+
+        if user_input == "/done" or user_input == "/finish":
+            break
+
+        if user_input == "/quit" or user_input == "/exit":
+            print_warning("Exiting without creating build target.", 2)
+            return None
+
+        # Append user message to conversation
+        conversation.append({"role": "user", "content": user_input})
+
+        # Use the AI to generate a response
+        try:
+            # Build a prompt from the conversation
+            conversation_prompt = "You are helping configure a build target. Here's the conversation so far:\n\n"
+            for msg in conversation:
+                conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+
+            conversation_prompt += "\nPlease respond to continue discussing and refining the build target configuration."
+
+            # Use the planner engine to continue the discussion
+            planner_preference = ["codex", "claude"]  # default order
+            from engines import get_engine
+
+            # Try each planner in preference order
+            assistant_response = None
+            last_error = None
+            for engine_name in planner_preference:
+                try:
+                    engine = get_engine(engine_name + "_planner")
+                    assistant_response = engine.generate(conversation_prompt)
+
+                    # If we get a response, break out of the loop
+                    if assistant_response:
+                        break
+                except Exception as e:
+                    last_error = e
+                    print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+                    continue
+
+            if assistant_response is None:
+                raise Exception(f"All planners failed: {last_error}")
+
+            # Print the AI's response
+            print_ai_response(assistant_response)
+
+            # Append assistant's response to conversation
+            conversation.append({"role": "assistant", "content": assistant_response})
+
+        except KeyboardInterrupt:
+            print("\n[orchestrator] Conversation interrupted by user", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"Error in conversation: {e}", file=sys.stderr)
+            continue
+
+    # At this point, the user has finished the conversation.
+    # Now we need to generate the final build target configuration based on the conversation.
+    print_info("Generating build target configuration from discussion...", 4)
+
+    final_conversation_prompt = f"Based on our discussion, please generate the final build target configuration for '{target_name}'.\n\n"
+    for msg in conversation:
+        final_conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+
+    final_conversation_prompt += """Return ONLY a JSON object with these fields:
+{
+  "description": "Human readable description",
+  "why": "Planner rationale/intent",
+  "categories": ["category1", "category2"],
+  "pipeline": {
+    "steps": [
+      {"id":"step_name","cmd":["command","arg1"],"optional":true/false}
+    ]
+  },
+  "patterns": {
+    "error_extract": ["regex1", "regex2"],
+    "ignore": ["regex3"]
+  },
+  "environment": {
+    "vars": {"VAR_NAME":"value"},
+    "cwd": "."
+  }
+}"""
+
+    # Use the planner to generate the final configuration
+    try:
+        # Try to get the final JSON configuration
+        assistant_response = None
+        last_error = None
+        for engine_name in planner_preference:
+            try:
+                engine = get_engine(engine_name + "_planner")
+                assistant_response = engine.generate(final_conversation_prompt)
+
+                if assistant_response:
+                    break
+            except Exception as e:
+                last_error = e
+                print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+                continue
+
+        if assistant_response is None:
+            raise Exception(f"All planners failed: {last_error}")
+
+        # Clean up the JSON response
+        cleaned_response = clean_json_response(assistant_response)
+
+        # Parse the JSON
+        try:
+            target_config = json.loads(cleaned_response)
+        except json.JSONDecodeError:
+            # If direct parsing fails, try to extract JSON from the response
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
+            if json_match:
+                try:
+                    target_config = json.loads(json_match.group(0))
+                except json.JSONDecodeError:
+                    print_error(f"Could not parse AI response as JSON: {cleaned_response[:200]}...", 2)
+                    return None
+            else:
+                print_error(f"Could not find JSON in AI response: {cleaned_response[:200]}...", 2)
+                return None
+
+        # Validate required fields
+        if not isinstance(target_config, dict):
+            print_error("AI response was not a JSON object", 2)
+            return None
+
+        # Create the build target
+        build_target = create_build_target(
+            session_path=session_path,
+            name=target_name,
+            description=target_config.get("description", ""),
+            why=target_config.get("why", ""),
+            categories=target_config.get("categories", []),
+            pipeline=target_config.get("pipeline", {"steps": []}),
+            patterns=target_config.get("patterns", {"error_extract": [], "ignore": []}),
+            environment=target_config.get("environment", {"vars": {}, "cwd": "."})
+        )
+
+        print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
+        return build_target
+
+    except Exception as e:
+        print_error(f"Error generating build target configuration: {e}", 2)
+        return None
 
 
 def get_builder_config_path(session_path: str) -> str:
@@ -5715,6 +6263,286 @@ def handle_build_status(session_path, verbose=False):
     styled_print(f"Diagnostics: {diagnostics_dir}/", Colors.BRIGHT_GREEN, None, 2)
     styled_print(f"Last run: {last_run_path}", Colors.BRIGHT_GREEN, None, 2)
     styled_print(f"Fix history: {fix_history_path}", Colors.BRIGHT_GREEN, None, 2)
+
+
+def handle_build_new(session_path, target_name, verbose=False, description=None, categories=None, steps=None):
+    """
+    Create a new build target.
+
+    Args:
+        session_path: Path to the session file
+        target_name: Name for the new build target
+        verbose: Verbose output flag
+        description: Description for the build target
+        categories: Comma-separated categories
+        steps: Comma-separated pipeline steps
+    """
+    if verbose:
+        print_debug(f"Creating new build target: {target_name}", 2)
+
+    # Parse categories and steps if provided
+    categories_list = []
+    if categories:
+        categories_list = [cat.strip() for cat in categories.split(',')]
+
+    # Create the pipeline steps if steps are provided
+    pipeline = {"steps": []}
+    if steps:
+        steps_list = [step.strip() for step in steps.split(',')]
+        # Create step definitions for the basic steps
+        step_definitions = {}
+        for step in steps_list:
+            # For now, create basic step configuration
+            step_definitions[step] = {
+                "cmd": ["bash", f"{step}.sh"],  # Default command
+                "optional": True  # Default to optional
+            }
+        pipeline = {
+            "steps": steps_list,
+            "step_definitions": step_definitions
+        }
+
+    try:
+        build_target = create_build_target(
+            session_path=session_path,
+            name=target_name,
+            description=description or "",
+            categories=categories_list,
+            pipeline=pipeline
+        )
+
+        print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
+
+        # Set this as the active target
+        if set_active_build_target(session_path, build_target.target_id):
+            print_info(f"Target '{build_target.name}' is now the active build target", 2)
+        else:
+            print_warning(f"Could not set '{build_target.name}' as active build target", 2)
+
+    except Exception as e:
+        print_error(f"Error creating build target: {e}", 2)
+        sys.exit(1)
+
+
+def handle_build_list(session_path, verbose=False):
+    """
+    List all build targets.
+
+    Args:
+        session_path: Path to the session file
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_debug(f"Listing build targets for session: {session_path}", 2)
+
+    try:
+        targets = list_build_targets(session_path)
+        active_target_id = get_active_build_target_id(session_path)
+
+        if not targets:
+            print_info("No build targets found.", 2)
+            return
+
+        print_header("BUILD TARGETS")
+
+        for i, target in enumerate(targets, 1):
+            marker = "[*]" if target.target_id == active_target_id else "[ ]"
+            status_color = Colors.BRIGHT_GREEN if target.target_id == active_target_id else Colors.BRIGHT_WHITE
+            styled_print(f"{i:2d}. {marker} {target.name} [{target.target_id}]", status_color, None, 0)
+
+            if verbose or target.description:
+                styled_print(f"    Description: {target.description}", Colors.BRIGHT_CYAN, None, 0)
+            if verbose and target.categories:
+                styled_print(f"    Categories: {', '.join(target.categories)}", Colors.BRIGHT_YELLOW, None, 0)
+            if verbose and target.pipeline.get('steps'):
+                styled_print(f"    Steps: {', '.join(target.pipeline['steps'])}", Colors.BRIGHT_MAGENTA, None, 0)
+
+    except Exception as e:
+        print_error(f"Error listing build targets: {e}", 2)
+        sys.exit(1)
+
+
+def handle_build_set(session_path, target_name, verbose=False):
+    """
+    Set the active build target.
+
+    Args:
+        session_path: Path to the session file
+        target_name: Build target name or index to set as active
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_debug(f"Setting active build target: {target_name}", 2)
+
+    try:
+        targets = list_build_targets(session_path)
+
+        # Check if target_name is a number (index)
+        target_to_set = None
+        if target_name.isdigit():
+            index = int(target_name) - 1
+            if 0 <= index < len(targets):
+                target_to_set = targets[index]
+            else:
+                print_error(f"Invalid target number: {target_name}", 2)
+                sys.exit(1)
+        else:
+            # Find target by name
+            for target in targets:
+                if target.name == target_name:
+                    target_to_set = target
+                    break
+            if not target_to_set:
+                print_error(f"Build target '{target_name}' not found", 2)
+                sys.exit(1)
+
+        if target_to_set:
+            if set_active_build_target(session_path, target_to_set.target_id):
+                print_success(f"Build target '{target_to_set.name}' is now active", 2)
+                if verbose:
+                    print_debug(f"Set active target to: {target_to_set.target_id}", 2)
+            else:
+                print_error(f"Failed to set active build target", 2)
+                sys.exit(1)
+
+    except Exception as e:
+        print_error(f"Error setting active build target: {e}", 2)
+        sys.exit(1)
+
+
+def handle_build_get(session_path, verbose=False):
+    """
+    Print the active build target.
+
+    Args:
+        session_path: Path to the session file
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_debug(f"Getting active build target for session: {session_path}", 2)
+
+    active_target = get_active_build_target(session_path)
+
+    if active_target:
+        print(active_target.name)
+        if verbose:
+            print_info(f"Active build target details:", 2)
+            print_info(f"  Name: {active_target.name}", 2)
+            print_info(f"  ID: {active_target.target_id}", 2)
+            print_info(f"  Description: {active_target.description}", 2)
+            print_info(f"  Categories: {active_target.categories}", 2)
+    else:
+        print_info("No active build target set", 2)
+
+
+def handle_build_plan(session_path, target_name, verbose=False):
+    """
+    Interactive discussion to define target rules via AI.
+
+    Args:
+        session_path: Path to the session file
+        target_name: Name of the build target to plan
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_debug(f"Starting interactive build target planning: {target_name}", 2)
+
+    build_target = plan_build_target_interactive(session_path, target_name, verbose)
+
+    if build_target:
+        print_success(f"Build target '{build_target.name}' created successfully via AI planning", 2)
+        # Set as active target
+        if set_active_build_target(session_path, build_target.target_id):
+            print_info(f"Target '{build_target.name}' is now the active build target", 2)
+        else:
+            print_warning(f"Could not set '{build_target.name}' as active build target", 2)
+    else:
+        print_warning("Build target planning was cancelled or failed", 2)
+
+
+def handle_build_show(session_path, target_name, verbose=False):
+    """
+    Show full details of a build target.
+
+    Args:
+        session_path: Path to the session file
+        target_name: Build target name or index to show (default to active)
+        verbose: Verbose output flag
+    """
+    if verbose:
+        print_debug(f"Showing build target details for: {target_name or 'active'}", 2)
+
+    try:
+        targets = list_build_targets(session_path)
+        target_to_show = None
+
+        if not target_name:
+            # Show active target
+            target_to_show = get_active_build_target(session_path)
+            if not target_to_show:
+                print_error("No active build target set", 2)
+                sys.exit(1)
+        else:
+            # Check if target_name is a number (index)
+            if target_name.isdigit():
+                index = int(target_name) - 1
+                if 0 <= index < len(targets):
+                    target_to_show = targets[index]
+                else:
+                    print_error(f"Invalid target number: {target_name}", 2)
+                    sys.exit(1)
+            else:
+                # Find target by name
+                for target in targets:
+                    if target.name == target_name:
+                        target_to_show = target
+                        break
+                if not target_to_show:
+                    print_error(f"Build target '{target_name}' not found", 2)
+                    sys.exit(1)
+
+        # Print detailed information
+        print_header(f"BUILD TARGET: {target_to_show.name}")
+        styled_print(f"Target ID: {target_to_show.target_id}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
+        styled_print(f"Created: {target_to_show.created_at}", Colors.BRIGHT_GREEN, None, 2)
+        styled_print(f"Description: {target_to_show.description}", Colors.BRIGHT_WHITE, None, 2)
+        styled_print(f"Why: {target_to_show.why}", Colors.BRIGHT_WHITE, None, 2)
+
+        if target_to_show.categories:
+            styled_print(f"Categories: {', '.join(target_to_show.categories)}", Colors.BRIGHT_CYAN, None, 2)
+
+        if target_to_show.pipeline:
+            print_subheader("PIPELINE")
+            if target_to_show.pipeline.get('steps'):
+                styled_print(f"Steps: {', '.join(target_to_show.pipeline['steps'])}", Colors.BRIGHT_WHITE, None, 2)
+            if target_to_show.pipeline.get('steps'):
+                if 'step_definitions' in target_to_show.pipeline:
+                    for step_name in target_to_show.pipeline['steps']:
+                        if step_name in target_to_show.pipeline['step_definitions']:
+                            step_config = target_to_show.pipeline['step_definitions'][step_name]
+                            styled_print(f"  {step_name}: {' '.join(step_config['cmd'])} (optional: {step_config.get('optional', False)})", Colors.BRIGHT_WHITE, None, 2)
+                else:
+                    # Show basic steps without detailed configs
+                    for step_name in target_to_show.pipeline['steps']:
+                        styled_print(f"  {step_name}", Colors.BRIGHT_WHITE, None, 2)
+
+        if target_to_show.patterns:
+            print_subheader("PATTERNS")
+            if target_to_show.patterns.get('error_extract'):
+                styled_print(f"Error extract patterns: {target_to_show.patterns['error_extract']}", Colors.BRIGHT_WHITE, None, 2)
+            if target_to_show.patterns.get('ignore'):
+                styled_print(f"Ignore patterns: {target_to_show.patterns['ignore']}", Colors.BRIGHT_WHITE, None, 2)
+
+        if target_to_show.environment:
+            print_subheader("ENVIRONMENT")
+            if target_to_show.environment.get('vars'):
+                styled_print(f"Variables: {target_to_show.environment['vars']}", Colors.BRIGHT_WHITE, None, 2)
+            if target_to_show.environment.get('cwd'):
+                styled_print(f"Working directory: {target_to_show.environment['cwd']}", Colors.BRIGHT_WHITE, None, 2)
+
+    except Exception as e:
+        print_error(f"Error showing build target details: {e}", 2)
+        sys.exit(1)
 
 
 def handle_build_rules(session_path, verbose=False):
