@@ -841,11 +841,14 @@ def main():
     # build run
     build_run_parser = builder_subparsers.add_parser('run', help='Run configured build pipeline once and collect diagnostics')
     build_run_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
+    build_run_parser.add_argument('--stop-after-step', help='Stop pipeline after the specified step')
+    build_run_parser.add_argument('--limit-steps', help='Limit pipeline to specified steps (comma-separated)')
 
     # build fix
     build_fix_parser = builder_subparsers.add_parser('fix', help='Run iterative AI-assisted fixes based on diagnostics')
     build_fix_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     build_fix_parser.add_argument('--max-iterations', type=int, default=5, help='Maximum number of fix iterations (default: 5)')
+    build_fix_parser.add_argument('--limit-fixes', type=int, dest='max_iterations', help='Maximum number of fix attempts (alias for --max-iterations)')
     build_fix_parser.add_argument('--target', help='Target diagnostic: "top", "signature:<sig>", or "file:<path>"')
     build_fix_parser.add_argument('--keep-going', action='store_true', help='Attempt next error even if one fails')
     build_fix_parser.add_argument('--limit-steps', help='Restrict pipeline steps (comma-separated: build,lint,tests,...)')
@@ -1023,7 +1026,12 @@ def main():
 
         if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
             if args.builder_subcommand == 'run':
-                handle_build_run(args.session, args.verbose)
+                handle_build_run(
+                    args.session,
+                    args.verbose,
+                    stop_after_step=getattr(args, 'stop_after_step', None),
+                    limit_steps=getattr(args, 'limit_steps', None)
+                )
             elif args.builder_subcommand == 'fix':
                 handle_build_fix(
                     args.session,
@@ -4177,9 +4185,15 @@ def generate_tags(message: str, tool: str) -> List[str]:
     return unique_tags
 
 
-def handle_build_run(session_path, verbose=False):
+def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_steps=None):
     """
     Run configured build pipeline once and collect diagnostics.
+
+    Args:
+        session_path: Path to the session file
+        verbose: Verbose output flag
+        stop_after_step: Stop pipeline after the specified step
+        limit_steps: Limit pipeline to specified steps
     """
     if verbose:
         print_debug(f"Running build pipeline for session: {session_path}", 2)
@@ -4199,7 +4213,28 @@ def handle_build_run(session_path, verbose=False):
     # Load builder configuration
     builder_config = load_builder_config(session_path)
 
+    # Apply step limiting if specified
+    if limit_steps:
+        allowed_steps = [s.strip() for s in limit_steps.split(',')]
+        original_steps = builder_config.pipeline.steps[:]
+        builder_config.pipeline.steps = [s for s in original_steps if s in allowed_steps]
+        if verbose:
+            print_debug(f"Limited pipeline steps to: {builder_config.pipeline.steps}", 2)
+
+    # Apply stop-after-step limiting if specified
+    if stop_after_step and stop_after_step in builder_config.pipeline.steps:
+        stop_idx = builder_config.pipeline.steps.index(stop_after_step)
+        builder_config.pipeline.steps = builder_config.pipeline.steps[:stop_idx + 1]
+        if verbose:
+            print_debug(f"Stopping after step '{stop_after_step}', running steps: {builder_config.pipeline.steps}", 2)
+    elif stop_after_step and stop_after_step not in builder_config.pipeline.steps:
+        print_error(f"Step '{stop_after_step}' not found in pipeline steps: {builder_config.pipeline.steps}", 2)
+        sys.exit(1)
+
     # Run the diagnostic pipeline
+    if verbose and builder_config.pipeline.steps:
+        print_info(f"Pipeline will run these steps: {builder_config.pipeline.steps}", 2)
+
     pipeline_result = run_pipeline(builder_config, session_path)
 
     # Extract diagnostics from the pipeline run
@@ -4372,6 +4407,12 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
     # Track signatures that have failed to resolve for escalation logic
     failed_signature_counts = {}
 
+    if verbose:
+        print_info(f"Fix loop will run up to {max_iterations} iterations", 2)
+        print_info(f"Target option: {target or 'top'}", 2)
+        print_info(f"Keep going: {keep_going}", 2)
+        print_info(f"Build after each fix: {build_after_each_fix}", 2)
+
     while iteration < max_iterations and remaining_diagnostics:
         iteration += 1
         print_info(f"\n--- FIX ITERATION {iteration}/{max_iterations} ---", 2)
@@ -4384,6 +4425,14 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
 
         target_signatures = {d.signature for d in target_diags}
         print_info(f"Targeting {len(target_diags)} diagnostics with signatures: {target_signatures}", 2)
+
+        if verbose:
+            print_info(f"Will attempt fix for {len(target_diags)} diagnostics", 4)
+            for diag in target_diags:
+                print_info(f"  - {diag.tool}:{diag.severity} in {diag.file or 'unknown'}:{diag.line or '?'} - {diag.message[:50]}...", 4)
+                if diag.known_issues:
+                    for issue in diag.known_issues:
+                        print_info(f"    Known Issue: {issue.description[:60]}... (confidence: {issue.confidence:.2f})", 4)
 
         # Create backup before applying fix
         if is_git_repo(session_path):
