@@ -1395,15 +1395,18 @@ def update_subtask_summary_paths(session: Session, session_path: str):
             subtask.summary_file = new_path
 
 
-def scan_upp_repo(root_dir: str) -> UppRepoIndex:
+def scan_upp_repo(root_dir: str, verbose: bool = False) -> UppRepoIndex:
     """
-    Scan a U++ repository and discover packages according to U++ structure rules:
-    - Assembly directories contain package folders
+    Scan a U++ repository and discover packages according to U++ Core reference implementation.
+    Aligns with U++ Core/Package.cpp behavior:
+    - Assembly directories (nests) contain package folders
     - Packages are directories containing <Name>/<Name>.upp (presence defines package)
+    - Recursive search through subdirectories to maximum depth
     - Package main header: <Name>/<Name>.h when used as dependency library
 
     Args:
         root_dir: Root directory of the U++ repository to scan
+        verbose: If True, print verbose scan information
 
     Returns:
         UppRepoIndex: Index containing assemblies and discovered packages
@@ -1413,98 +1416,87 @@ def scan_upp_repo(root_dir: str) -> UppRepoIndex:
 
     assemblies = []
     packages = []
+    scanned_paths = []  # Track what we've scanned for verbose output
 
     # Define source file extensions commonly used in U++
-    source_extensions = {'.cpp', '.cppi', '.icpp', '.h', '.hpp', '.inl'}
+    source_extensions = {'.cpp', '.cppi', '.icpp', '.h', '.hpp', '.inl', '.c', '.cc', '.cxx'}
 
-    # List all immediate subdirectories of root_dir to identify potential assemblies
-    for item in os.listdir(root_dir):
-        item_path = os.path.join(root_dir, item)
-        if os.path.isdir(item_path):
-            # This could be an assembly directory
-            assemblies.append(item_path)
+    # In U++ reference implementation:
+    # - The root directory represents a nest (assembly)
+    # - We scan recursively to find all packages that match the <Name>/<Name>.upp pattern
+    # - Assemblies are collections of paths where packages are found
 
-            # Check if the assembly directory itself is a package
-            # (has the same name as the directory and contains <dirname>.upp)
-            assembly_name = os.path.basename(item_path)
-            potential_assembly_package_upp = os.path.join(item_path, f"{assembly_name}.upp")
+    if verbose:
+        print(f"[VERBOSE] Starting U++ package discovery in: {root_dir}")
 
-            if os.path.exists(potential_assembly_package_upp):
-                # The assembly directory itself is a package
-                main_header_path = os.path.join(item_path, f"{assembly_name}.h")
-                if not os.path.exists(main_header_path):
+    # For U++ compatibility, treat the root directory as an assembly/nest
+    # and scan it recursively for packages
+    assemblies = [root_dir]
+
+    if verbose:
+        print(f"[VERBOSE] Identified assembly/nest: {root_dir}")
+
+    # Walk through the directory tree recursively to find packages
+    for root, dirs, files in os.walk(root_dir):
+        current_path = os.path.abspath(root)
+
+        # Extract the package name from the directory name
+        pkg_name = os.path.basename(root)
+
+        # Check if this directory contains a .upp file with the same name as the directory
+        upp_file_path = os.path.join(root, f"{pkg_name}.upp")
+
+        if os.path.exists(upp_file_path):
+            # This directory is a valid U++ package
+            if verbose:
+                print(f"[VERBOSE] Found package: {pkg_name} at {root}")
+                scanned_paths.append(f"Package: {pkg_name} at {root}")
+
+            # Look for main header file (dependency library indicator)
+            main_header_path = os.path.join(root, f"{pkg_name}.h")
+            if not os.path.exists(main_header_path):
+                # Try other common header extensions
+                for h_ext in ['.h', '.hpp', '.inl']:
+                    test_header = os.path.join(root, f"{pkg_name}{h_ext}")
+                    if os.path.exists(test_header):
+                        main_header_path = test_header
+                        break
+                else:
                     main_header_path = None
 
-                # Collect source and header files
-                source_files = []
-                header_files = []
+            # Collect source and header files for this package
+            pkg_source_files = []
+            pkg_header_files = []
 
-                for root, dirs, files in os.walk(item_path):
-                    for file in files:
-                        _, ext = os.path.splitext(file)
-                        file_path = os.path.join(root, file)
+            for pkg_root, pkg_dirs, pkg_files in os.walk(root):
+                for file in pkg_files:
+                    _, ext = os.path.splitext(file)
+                    file_path = os.path.join(pkg_root, file)
 
-                        if ext.lower() in source_extensions:
-                            if ext.lower() in {'.h', '.hpp', '.inl'}:
-                                header_files.append(file_path)
-                            else:
-                                source_files.append(file_path)
+                    if ext.lower() in source_extensions:
+                        if ext.lower() in {'.h', '.hpp', '.inl'}:
+                            pkg_header_files.append(file_path)
+                        else:
+                            pkg_source_files.append(file_path)
 
-                # Check if this is a dependency library (has .h file with same name as directory)
-                is_dependency_library = main_header_path is not None
+            # Check if this is a dependency library (has corresponding header file)
+            is_dependency_library = main_header_path is not None and os.path.exists(main_header_path)
 
-                package = UppPackage(
-                    name=assembly_name,
-                    dir_path=item_path,
-                    upp_path=potential_assembly_package_upp,
-                    main_header_path=main_header_path,
-                    source_files=sorted(source_files),
-                    header_files=sorted(header_files),
-                    is_dependency_library=is_dependency_library
-                )
-                packages.append(package)
+            package = UppPackage(
+                name=pkg_name,
+                dir_path=root,
+                upp_path=upp_file_path,
+                main_header_path=main_header_path,
+                source_files=sorted(pkg_source_files),
+                header_files=sorted(pkg_header_files),
+                is_dependency_library=is_dependency_library
+            )
+            packages.append(package)
 
-            # Also look for potential package subdirectories inside this assembly
-            # that might have different names than the assembly
-            for pkg_name in os.listdir(item_path):
-                pkg_path = os.path.join(item_path, pkg_name)
-                if os.path.isdir(pkg_path) and pkg_path != item_path:  # Don't reprocess the assembly itself
-                    # Check if this directory contains <pkg_name>/<pkg_name>.upp file
-                    upp_file_path = os.path.join(pkg_path, f"{pkg_name}.upp")
-                    if os.path.exists(upp_file_path):
-                        # This is a valid U++ package
-                        main_header_path = os.path.join(pkg_path, f"{pkg_name}.h")
-                        if not os.path.exists(main_header_path):
-                            main_header_path = None
-
-                        # Collect source and header files
-                        source_files = []
-                        header_files = []
-
-                        for root, dirs, files in os.walk(pkg_path):
-                            for file in files:
-                                _, ext = os.path.splitext(file)
-                                file_path = os.path.join(root, file)
-
-                                if ext.lower() in source_extensions:
-                                    if ext.lower() in {'.h', '.hpp', '.inl'}:
-                                        header_files.append(file_path)
-                                    else:
-                                        source_files.append(file_path)
-
-                        # Check if this is a dependency library (has .h file with same name as directory)
-                        is_dependency_library = main_header_path is not None
-
-                        package = UppPackage(
-                            name=pkg_name,
-                            dir_path=pkg_path,
-                            upp_path=upp_file_path,
-                            main_header_path=main_header_path,
-                            source_files=sorted(source_files),
-                            header_files=sorted(header_files),
-                            is_dependency_library=is_dependency_library
-                        )
-                        packages.append(package)
+    if verbose:
+        print(f"[VERBOSE] Discovered {len(packages)} packages in {len(assemblies)} assembly/nest")
+        for package in packages:
+            print(f"  - {package.name} at {package.dir_path}")
 
     return UppRepoIndex(
         assemblies=assemblies,
@@ -2157,10 +2149,12 @@ def main():
     structure_scan_parser.add_argument('--target', help='Use active build target if relevant; optional')
     structure_scan_parser.add_argument('--only', help='Comma-separated list of rules to apply: rule1,rule2,...')
     structure_scan_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
+    structure_scan_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information including assemblies and package folders searched')
 
     # build structure show
     structure_show_parser = build_structure_subparsers.add_parser('show', aliases=['sh'], help='Print the last scan report (or scan if missing)')
     structure_show_parser.add_argument('--target', help='Use active build target if relevant; optional')
+    structure_show_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information including assemblies and package folders searched')
 
     # build structure fix
     structure_fix_parser = build_structure_subparsers.add_parser('fix', aliases=['f'], help='Propose fixes and write a fix plan JSON (no changes unless --apply)')
@@ -2170,6 +2164,7 @@ def main():
     structure_fix_parser.add_argument('--target', help='Use active build target if relevant; optional')
     structure_fix_parser.add_argument('--only', help='Comma-separated list of rules to apply: rule1,rule2,...')
     structure_fix_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
+    structure_fix_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information including assemblies and package folders searched')
 
     # build structure apply
     structure_apply_parser = build_structure_subparsers.add_parser('apply', aliases=['a'], help='Apply the last fix plan')
@@ -2178,12 +2173,14 @@ def main():
     structure_apply_parser.add_argument('--target', help='Use active build target if relevant; optional')
     structure_apply_parser.add_argument('--revert-on-fail', action='store_true', default=True, help='Revert changes if build gets worse (default: true)')
     structure_apply_parser.add_argument('--no-revert-on-fail', dest='revert_on_fail', action='store_false', help='Disable revert on failure')
+    structure_apply_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information including assemblies and package folders searched')
 
     # build structure lint
     structure_lint_parser = build_structure_subparsers.add_parser('lint', aliases=['l'], help='Quick rules-only checks (fast, minimal I/O)')
     structure_lint_parser.add_argument('--target', help='Use active build target if relevant; optional')
     structure_lint_parser.add_argument('--only', help='Comma-separated list of rules to apply: rule1,rule2,...')
     structure_lint_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
+    structure_lint_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information including assemblies and package folders searched')
 
     # Add help/h subcommands for build structure subparsers
     build_structure_subparsers.add_parser('help', aliases=['h'], help='Show help for build structure commands')
@@ -10199,7 +10196,7 @@ def handle_structure_scan(session_path: str, verbose: bool = False, target: str 
     repo_root = os.path.dirname(session_path) or os.getcwd()
 
     try:
-        repo_index = scan_upp_repo(repo_root)
+        repo_index = scan_upp_repo(repo_root, verbose=verbose)
 
         # Create a realistic scan report based on actual repository analysis
         scan_report = {
@@ -10340,7 +10337,7 @@ def handle_structure_show(session_path: str, verbose: bool = False, target: str 
     # Get the scan report enhanced with package statistics
     repo_root = os.path.dirname(session_path) or os.getcwd()
     try:
-        repo_index = scan_upp_repo(repo_root)
+        repo_index = scan_upp_repo(repo_root, verbose=verbose)
 
         # Count packages found
         packages_found = len(repo_index.packages)
@@ -10542,7 +10539,7 @@ def handle_structure_fix(session_path: str, verbose: bool = False, apply_directl
 
     # Scan U++ packages to get the current state
     try:
-        repo_index = scan_upp_repo(repo_root)
+        repo_index = scan_upp_repo(repo_root, verbose=verbose)
     except Exception as e:
         print_error(f"Failed to scan U++ repository: {e}", 2)
         return
@@ -11998,7 +11995,7 @@ def execute_structure_fix_action(session_path: str, action: RuleAction, verbose:
         repo_root = os.path.dirname(session_path)
 
         # Scan the U++ repository structure to get current state
-        repo_index = scan_upp_repo(repo_root)
+        repo_index = scan_upp_repo(repo_root, verbose=verbose)
 
         # Create a fix plan by applying the specified structure rules
         fix_plan = apply_structure_fix_rules(
