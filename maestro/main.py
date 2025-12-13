@@ -2379,57 +2379,119 @@ def main():
         sys.exit(1)
 
     # Determine which action to take based on subcommands
-    # For commands that require a session, look for default if not provided
+    # For commands that require a session, look for active session first, then default if not provided
     if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'task']:
-        # For these commands, if session is not provided, look for default
+        # For these commands, if session is not provided, look for active session first, then default
         if not args.session:
-            default_session = find_default_session_file()
-            if default_session:
-                args.session = default_session
-                if args.verbose:
-                    print_info(f"Using default session file: {default_session}", 2)
-            else:
-                # If no session provided and no default exists, show error
-                if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
-                    # For plan subcommands specifically, if no session, show error
-                    # But make sure help subcommands don't require a session
-                    if args.plan_subcommand in ['help', 'h']:
-                        # For help subcommand, print help and exit without session
-                        plan_parser.print_help()
-                        return
-                    else:
-                        print_error("Session is required for plan commands", 2)
-                        sys.exit(1)
-                elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
-                    # For rules subcommands specifically, if no session, show error
-                    # But make sure help subcommands don't require a session
-                    if args.rules_subcommand in ['help', 'h']:
-                        # For help subcommand, print help and exit without session
-                        rules_parser.print_help()
-                        return
-                    else:
-                        print_error("Session is required for rules commands", 2)
-                        sys.exit(1)
-                elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
-                    # For log subcommands specifically, if no session, show error
-                    # But make sure help subcommands don't require a session
-                    if args.log_subcommand in ['help', 'h']:
-                        # For help subcommand, print help and exit without session
-                        log_parser.print_help()
-                        return
-                    else:
-                        print_error("Session is required for log commands", 2)
-                        sys.exit(1)
-                elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
-                    # For task subcommands specifically, if no session, show error
-                    # But help subcommand is already handled in task command logic
-                    if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
-                        print_error("Session is required for task commands", 2)
-                        sys.exit(1)
+            # Check for an active session first
+            active_session_name = get_active_session_name()
+            if active_session_name:
+                # Get the path for the active session
+                active_session_path = get_session_path_by_name(active_session_name)
+                if os.path.exists(active_session_path):
+                    args.session = active_session_path
+                    if args.verbose:
+                        print_info(f"Using active session: {active_session_path}", 2)
                 else:
-                    # For other commands in this group, if no session, show error
-                    print_error(f"Session is required for {args.command} command", 2)
-                    sys.exit(1)
+                    # Active session points to non-existent file, warn and fall back
+                    print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
+                    # Fall through to try default session files
+                    default_session = find_default_session_file()
+                    if default_session:
+                        args.session = default_session
+                        if args.verbose:
+                            print_info(f"Using default session file: {default_session}", 2)
+                    else:
+                        # If no session provided and no default exists, show error
+                        if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+                            # For plan subcommands specifically, if no session, show error
+                            # But make sure help subcommands don't require a session
+                            if args.plan_subcommand in ['help', 'h']:
+                                # For help subcommand, print help and exit without session
+                                plan_parser.print_help()
+                                return
+                            else:
+                                print_error("Session is required for plan commands", 2)
+                                sys.exit(1)
+                        elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
+                            # For rules subcommands specifically, if no session, show error
+                            # But make sure help subcommands don't require a session
+                            if args.rules_subcommand in ['help', 'h']:
+                                # For help subcommand, print help and exit without session
+                                rules_parser.print_help()
+                                return
+                            else:
+                                print_error("Session is required for rules commands", 2)
+                                sys.exit(1)
+                        elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
+                            # For log subcommands specifically, if no session, show error
+                            # But make sure help subcommands don't require a session
+                            if args.log_subcommand in ['help', 'h']:
+                                # For help subcommand, print help and exit without session
+                                log_parser.print_help()
+                                return
+                            else:
+                                print_error("Session is required for log commands", 2)
+                                sys.exit(1)
+                        elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
+                            # For task subcommands specifically, if no session, show error
+                            # But help subcommand is already handled in task command logic
+                            if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
+                                print_error("Session is required for task commands", 2)
+                                sys.exit(1)
+                        else:
+                            # For other commands in this group, if no session, show error
+                            print_error(f"Session is required for {args.command} command", 2)
+                            sys.exit(1)
+            else:
+                # No active session, try default session files
+                default_session = find_default_session_file()
+                if default_session:
+                    args.session = default_session
+                    if args.verbose:
+                        print_info(f"Using default session file: {default_session}", 2)
+                else:
+                    # If no session provided and no default exists, show error
+                    if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+                        # For plan subcommands specifically, if no session, show error
+                        # But make sure help subcommands don't require a session
+                        if args.plan_subcommand in ['help', 'h']:
+                            # For help subcommand, print help and exit without session
+                            plan_parser.print_help()
+                            return
+                        else:
+                            print_error("Session is required for plan commands", 2)
+                            sys.exit(1)
+                    elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
+                        # For rules subcommands specifically, if no session, show error
+                        # But make sure help subcommands don't require a session
+                        if args.rules_subcommand in ['help', 'h']:
+                            # For help subcommand, print help and exit without session
+                            rules_parser.print_help()
+                            return
+                        else:
+                            print_error("Session is required for rules commands", 2)
+                            sys.exit(1)
+                    elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
+                        # For log subcommands specifically, if no session, show error
+                        # But make sure help subcommands don't require a session
+                        if args.log_subcommand in ['help', 'h']:
+                            # For help subcommand, print help and exit without session
+                            log_parser.print_help()
+                            return
+                        else:
+                            print_error("Session is required for log commands", 2)
+                            sys.exit(1)
+                    elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
+                        # For task subcommands specifically, if no session, show error
+                        # But help subcommand is already handled in task command logic
+                        if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
+                            print_error("Session is required for task commands", 2)
+                            sys.exit(1)
+                    else:
+                        # For other commands in this group, if no session, show error
+                        print_error(f"Session is required for {args.command} command", 2)
+                        sys.exit(1)
 
     if args.command == 'init':
         # Initialize the .maestro directory structure
@@ -6136,31 +6198,31 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
                 duration = time.time() - start_time
                 success = optional  # Optional steps succeed if error occurs
 
-            step_result = StepResult(
-                step_name=step_name,
-                exit_code=1,
-                stdout="",
-                stderr=str(e),
-                duration=duration,
-                success=success
-            )
+                step_result = StepResult(
+                    step_name=step_name,
+                    exit_code=1,
+                    stdout="",
+                    stderr=str(e),
+                    duration=duration,
+                    success=success
+                )
 
-            step_results.append(step_result)
+                step_results.append(step_result)
 
-            # Write step logs to files in the run directory
-            stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
-            stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+                # Write step logs to files in the run directory
+                stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
+                stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
 
-            with open(stdout_log_path, 'w', encoding='utf-8') as f:
-                f.write("")
+                with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                    f.write("")
 
-            with open(stderr_log_path, 'w', encoding='utf-8') as f:
-                f.write(str(e))
+                with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                    f.write(str(e))
 
-            if success:
-                print_warning(f"Step '{step_name}' skipped due to error (but optional): {e}", 4)
-            else:
-                print_error(f"Step '{step_name}' failed with error: {e}", 4)
+                if success:
+                    print_warning(f"Step '{step_name}' skipped due to error (but optional): {e}", 4)
+                else:
+                    print_error(f"Step '{step_name}' failed with error: {e}", 4)
 
     # Create and return the overall result
     overall_success = all(sr.success for sr in step_results)
@@ -12736,7 +12798,7 @@ def run_core_builds_stage(pipeline: ConversionPipeline, stage_obj: ConversionSta
         # Extract diagnostics from build result - get from the first step result
         first_step = build_result.step_results[0] if build_result.step_results else None
         build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
-        diagnostics = extract_diagnostics(build_output)
+        diagnostics = extract_diagnostics_from_build_output(build_output)
         if verbose:
             print_info(f"Found {len(diagnostics)} diagnostic(s)", 4)
 
@@ -12954,7 +13016,7 @@ def run_build_with_target(build_target_path: str, verbose: bool = False) -> Pipe
         os.chdir(original_dir)
 
 
-def extract_diagnostics(build_output: str) -> List[Diagnostic]:
+def extract_diagnostics_from_build_output(build_output: str) -> List[Diagnostic]:
     """
     Extract diagnostics from build output.
 
@@ -13255,7 +13317,7 @@ def run_grow_from_main_stage(pipeline: ConversionPipeline, stage_obj: Conversion
             # Extract diagnostics from build result
             first_step = build_result.step_results[0] if build_result.step_results else None
             build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
-            diagnostics = extract_diagnostics(build_output)
+            diagnostics = extract_diagnostics_from_build_output(build_output)
 
             # Apply fixes to resolve build errors
             for diag in diagnostics:
@@ -13568,7 +13630,7 @@ def run_full_tree_check_stage(pipeline: ConversionPipeline, stage_obj: Conversio
     # Extract any remaining diagnostics
     first_step = final_build_result.step_results[0] if final_build_result.step_results else None
     build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
-    final_diagnostics = extract_diagnostics(build_output)
+    final_diagnostics = extract_diagnostics_from_build_output(build_output)
 
     # Collect any errors from previous stages that may still exist
     all_pipeline_diagnostics = []
