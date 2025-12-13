@@ -1371,23 +1371,47 @@ def main():
         else:
             handle_log_help(args.session, args.verbose)
     elif args.command == 'build':
-        # For builder commands, if session is not provided, look for default
+        # For builder commands, if session is not provided, look for active session first, then default
         if not args.session:
-            default_session = find_default_session_file()
-            if default_session:
-                args.session = default_session
-                if args.verbose:
-                    print_info(f"Using default session file: {default_session}", 2)
-            else:
-                # If no session provided and no default exists, show error
-                if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
-                    # For builder subcommands specifically, if no session, show error
-                    print_error("Session is required for build commands", 2)
-                    sys.exit(1)
+            # First check if there's an active session
+            active_session_name = get_active_session_name()
+            if active_session_name:
+                # Get the path for the active session
+                active_session_path = get_session_path_by_name(active_session_name)
+                if os.path.exists(active_session_path):
+                    args.session = active_session_path
+                    if args.verbose:
+                        print_info(f"Using active session: {active_session_path}", 2)
                 else:
-                    # For builder command without subcommand
-                    print_error("Session is required for build command", 2)
-                    sys.exit(1)
+                    # Active session points to non-existent file, warn and fall back
+                    print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
+                    # Fall through to try default session files
+                    default_session = find_default_session_file()
+                    if default_session:
+                        args.session = default_session
+                        if args.verbose:
+                            print_info(f"Using default session file: {default_session}", 2)
+                    else:
+                        if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
+                            print_error("Session is required for build commands", 2)
+                            sys.exit(1)
+                        else:
+                            print_error("Session is required for build command", 2)
+                            sys.exit(1)
+            else:
+                # No active session, try default session files
+                default_session = find_default_session_file()
+                if default_session:
+                    args.session = default_session
+                    if args.verbose:
+                        print_info(f"Using default session file: {default_session}", 2)
+                else:
+                    if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
+                        print_error("Session is required for build commands", 2)
+                        sys.exit(1)
+                    else:
+                        print_error("Session is required for build command", 2)
+                        sys.exit(1)
 
         if hasattr(args, 'builder_subcommand') and args.builder_subcommand:
             if args.builder_subcommand == 'run':
