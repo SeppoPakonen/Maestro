@@ -2087,7 +2087,7 @@ def main():
 
     # build plan
     build_plan_parser = builder_subparsers.add_parser('plan', aliases=['p'], help='Interactive discussion to define target rules via AI')
-    build_plan_parser.add_argument('name', help='Build target name to plan')
+    build_plan_parser.add_argument('name', nargs='?', help='Build target name to plan (if omitted, uses active target or prompts to create new)')
     build_plan_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
     build_plan_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
     build_plan_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
@@ -2327,9 +2327,32 @@ def main():
             elif args.builder_subcommand == 'get':
                 handle_build_get(session_path, args.verbose)
             elif args.builder_subcommand == 'plan':
+                target_name = args.name
+                if not target_name:
+                    # If no name provided, try to get the active build target
+                    active_target = get_active_build_target(session_path)
+                    if active_target:
+                        # Use the active target
+                        target_name = active_target.name
+                        if args.verbose:
+                            print_info(f"Using active build target: {target_name}", 2)
+                    else:
+                        # No active target, ask user if they want to create one
+                        response = input("No active build target. Create one now? [Y/n]: ").strip().lower()
+                        if response in ['', 'y', 'yes']:
+                            # Prompt for a name for the new build target
+                            target_name = input("Enter a name for the new build target: ").strip()
+                            if not target_name:
+                                print_error("No target name provided, exiting.", 2)
+                                sys.exit(1)
+                        else:
+                            # User said no, exit
+                            print_info("To create a build target later, use: maestro build new <name>", 2)
+                            sys.exit(1)
+
                 handle_build_plan(
                     session_path,
-                    args.name,
+                    target_name,
                     args.verbose,
                     stream_ai_output=getattr(args, 'stream_ai_output', False),
                     print_ai_prompts=getattr(args, 'print_ai_prompts', False),
