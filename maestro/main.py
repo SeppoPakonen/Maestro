@@ -1669,9 +1669,68 @@ def main():
                     print_error(f"Unknown build subcommand: {args.builder_subcommand}", 2)
                     sys.exit(1)
             else:
-                # Default to showing help if no subcommand specified
-                print_error("No build subcommand specified. Available: run, fix {add,new,list,remove,plan,show}, status, rules, new, list, set, get, plan, show", 2)
-                sys.exit(1)
+                # Default behavior when no subcommand is specified
+                # First check for an active session
+                active_session_name = get_active_session_name()
+                if not active_session_name:
+                    print_error("No active session set. Use 'maestro session set <name>' to set an active session.", 2)
+                    sys.exit(1)
+
+                # Get the path for the active session
+                active_session_path = get_session_path_by_name(active_session_name)
+                if not os.path.exists(active_session_path):
+                    print_error(f"Active session '{active_session_name}' points to missing file: {active_session_path}", 2)
+                    sys.exit(1)
+
+                session_path = active_session_path
+
+                # Check if there are any build targets
+                try:
+                    targets = list_build_targets(session_path)
+                    active_target = get_active_build_target(session_path)
+
+                    if active_target:
+                        # Active target exists, print its name and suggested commands
+                        print_info(f"Active build target: {active_target.name}", 2)
+                        print_info("Suggested commands:", 2)
+                        print_info("  maestro build run     - Run the build pipeline", 4)
+                        print_info("  maestro build plan    - Plan the build target", 4)
+                        print_info("  maestro build show    - Show build target details", 4)
+                        print_info("  maestro build status  - Show build status", 4)
+                    else:
+                        # No active target, but check if any targets exist at all
+                        if targets:
+                            # There are targets but none is active, suggest setting one
+                            print_info("Available build targets:", 2)
+                            for i, target in enumerate(targets, 1):
+                                print_info(f"  {i}. {target.name}", 4)
+                            print_info("Set an active target with: maestro build set <name|number>", 2)
+                            print_info("Suggested commands:", 2)
+                            print_info("  maestro build list    - List all build targets", 4)
+                            print_info("  maestro build set     - Set active build target", 4)
+                            print_info("  maestro build new     - Create new build target", 4)
+                        else:
+                            # No targets exist, prompt user to create one
+                            response = input("No build targets. Create one now? [Y/n] ").strip().lower()
+                            if response == '' or response == 'y' or response == 'yes':
+                                # Run build plan to create a new target
+                                print_info("Let's create a new build target.", 2)
+                                # We'll need to get the target name from the user
+                                target_name = input("Enter a name for the new build target: ").strip()
+                                if target_name:
+                                    # Call the build plan handler to create the new target
+                                    handle_build_plan(session_path, target_name, verbose=False)
+                                else:
+                                    print_warning("No target name provided, exiting.", 2)
+                                    sys.exit(1)
+                            else:
+                                # User said no, just show help
+                                print_info("To create a build target:", 2)
+                                print_info("  maestro build new <name>  - Create a new build target", 4)
+                                print_info("  maestro build plan <name> - Plan a new build target with AI", 4)
+                except Exception as e:
+                    print_error(f"Error checking build targets: {e}", 2)
+                    sys.exit(1)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
