@@ -246,19 +246,19 @@ def test_acceptance_criteria():
         # Load the registry and add mappings for both repos to the same rulebook
         registry_path = get_registry_file_path()
         os.makedirs(os.path.dirname(registry_path), exist_ok=True)
-        
-        # Initialize registry if it doesn't exist
-        registry = load_registry()
-        
+
+        # Create a fresh registry just for this test to avoid conflicts with existing entries
+        registry = {
+            "repos": [],
+            "active_rulebook": None
+        }
+
         # Map both repos to the same rulebook
-        if 'repos' not in registry:
-            registry['repos'] = []
-        
         registry['repos'].append({
             "abs_path": os.path.abspath(repo1_path),
             "rulebook": "universal_structure_fix"
         })
-        
+
         registry['repos'].append({
             "abs_path": os.path.abspath(repo2_path),
             "rulebook": "universal_structure_fix"
