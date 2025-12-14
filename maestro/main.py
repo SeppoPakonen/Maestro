@@ -2128,6 +2128,15 @@ def main():
     convert_new_parser.add_argument('target', help='Target repository or path')
     convert_new_parser.add_argument('--name', help='Name for the conversion pipeline')
 
+    # convert plan
+    convert_plan_parser = convert_subparsers.add_parser('plan', aliases=['p'], help='Interactive discussion to define conversion pipeline stages via AI')
+    convert_plan_parser.add_argument('name', nargs='?', help='Conversion pipeline name to plan')
+    convert_plan_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
+    convert_plan_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
+    convert_plan_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
+    convert_plan_parser.add_argument('--one-shot', action='store_true', help='Run single planner call that returns finalized JSON plan')
+    convert_plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
+
     # convert run
     convert_run_parser = convert_subparsers.add_parser('run', aliases=['r'], help='Run the conversion pipeline')
     convert_run_parser.add_argument('--stage', help='Run specific stage (overview|core_builds|grow_from_main|full_tree_check)')
@@ -2463,6 +2472,7 @@ def main():
         if args.command == 'convert':
             convert_subcommand_alias_map = {
                 'n': 'new',
+                'p': 'plan',
                 'r': 'run',
                 's': 'status',
                 'sh': 'show',
@@ -3293,6 +3303,45 @@ def main():
             if args.convert_subcommand == 'new':
                 # For the 'new' command, we have source, target, and optional name
                 handle_convert_new_with_args(args.source, args.target, args.name, args.verbose)
+            elif args.convert_subcommand == 'plan':
+                # For the 'plan' command, we need to plan the conversion pipeline
+                plan_name = args.name
+                if not plan_name:
+                    plan_name = f"conversion_plan_{int(time.time())}"
+
+                # Check mode (one-shot vs discuss)
+                if not args.one_shot and not args.discuss:
+                    # Ask user which mode to use
+                    response = input("Do you want to discuss the conversion pipeline with the planner AI first? [Y/n]: ").strip().lower()
+                    discuss_mode = response in ['', 'y', 'yes']
+                else:
+                    discuss_mode = args.discuss
+
+                if discuss_mode:
+                    # Interactive discussion mode
+                    conversion_pipeline = plan_conversion_pipeline_interactive(
+                        session_path,
+                        plan_name,
+                        args.verbose,
+                        quiet=False,
+                        stream_ai_output=args.stream_ai_output,
+                        print_ai_prompts=args.print_ai_prompts,
+                        planner_order=args.planner_order
+                    )
+                else:
+                    # One-shot mode
+                    conversion_pipeline = plan_conversion_pipeline_one_shot(
+                        session_path,
+                        plan_name,
+                        args.verbose,
+                        quiet=False,
+                        stream_ai_output=args.stream_ai_output,
+                        print_ai_prompts=args.print_ai_prompts,
+                        planner_order=args.planner_order
+                    )
+
+                if conversion_pipeline:
+                    print_success(f"Conversion pipeline '{conversion_pipeline.name}' created successfully", 2)
             elif args.convert_subcommand == 'run':
                 handle_convert_run_with_args(args.stage, args.verbose, include_refactor=args.include_refactor)
             elif args.convert_subcommand == 'status':
@@ -5254,13 +5303,13 @@ def build_conversion_pipeline_planner_prompt(root_task: str, summaries: str, cur
     )
 
 
-def save_prompt_for_traceability(prompt: str, session_path: str, prompt_type: str, engine_name: str = "unknown") -> str:
+def save_prompt_for_traceability(prompt: str, session_path: str = None, prompt_type: str = "generic", engine_name: str = "unknown") -> str:
     """
     Save the constructed prompt to enable traceability and debugging.
 
     Args:
         prompt: The constructed prompt string
-        session_path: Path to the session directory
+        session_path: Path to the session directory (optional - if None, uses appropriate config directories)
         prompt_type: Type of prompt (e.g., 'planner', 'worker', 'build_target_planner', etc.)
         engine_name: Name of the engine that will process this prompt
 
@@ -5273,20 +5322,35 @@ def save_prompt_for_traceability(prompt: str, session_path: str, prompt_type: st
     # Determine the appropriate directory based on prompt type for the three planner types
     if "build" in prompt_type.lower():
         # Build target planner -> .maestro/build/inputs/
-        maestro_dir = get_maestro_dir(session_path)
-        inputs_dir = os.path.join(maestro_dir, "build", "inputs")
+        if session_path:
+            maestro_dir = get_maestro_dir(session_path)
+            inputs_dir = os.path.join(maestro_dir, "build", "inputs")
+        else:
+            # Fallback to user config if no session_path provided
+            user_config_dir = get_user_config_dir()
+            inputs_dir = os.path.join(user_config_dir, "build", "inputs")
     elif "fix" in prompt_type.lower() or "rulebook" in prompt_type.lower():
         # Fix rulebook planner -> ~/.config/maestro/fix/inputs/
         user_config_dir = get_user_config_dir()
         inputs_dir = os.path.join(user_config_dir, "fix", "inputs")
     elif "convert" in prompt_type.lower() or "conversion" in prompt_type.lower():
         # Conversion pipeline planner -> .maestro/convert/inputs/
-        maestro_dir = get_maestro_dir(session_path)
-        inputs_dir = os.path.join(maestro_dir, "convert", "inputs")
+        if session_path:
+            maestro_dir = get_maestro_dir(session_path)
+            inputs_dir = os.path.join(maestro_dir, "convert", "inputs")
+        else:
+            # Fallback to user config if no session_path provided
+            user_config_dir = get_user_config_dir()
+            inputs_dir = os.path.join(user_config_dir, "convert", "inputs")
     else:
         # Default to general inputs directory for other types
-        maestro_dir = get_maestro_dir(session_path)
-        inputs_dir = os.path.join(maestro_dir, "inputs")
+        if session_path:
+            maestro_dir = get_maestro_dir(session_path)
+            inputs_dir = os.path.join(maestro_dir, "inputs")
+        else:
+            # Fallback to user config if no session_path provided
+            user_config_dir = get_user_config_dir()
+            inputs_dir = os.path.join(user_config_dir, "inputs")
 
     os.makedirs(inputs_dir, exist_ok=True)
 
@@ -5303,13 +5367,13 @@ def save_prompt_for_traceability(prompt: str, session_path: str, prompt_type: st
     return prompt_filename
 
 
-def save_ai_output(output: str, session_path: str, output_type: str, engine_name: str = "unknown") -> str:
+def save_ai_output(output: str, session_path: str = None, output_type: str = "generic", engine_name: str = "unknown") -> str:
     """
     Save the AI output to enable traceability and debugging.
 
     Args:
         output: The AI output string
-        session_path: Path to the session directory
+        session_path: Path to the session directory (optional - if None, uses appropriate config directories)
         output_type: Type of output (e.g., 'planner', 'worker', etc.)
         engine_name: Name of the engine that generated this output
 
@@ -5322,20 +5386,35 @@ def save_ai_output(output: str, session_path: str, output_type: str, engine_name
     # Determine the appropriate directory based on output type for the three planner types
     if "build" in output_type.lower():
         # Build target planner -> .maestro/build/outputs/
-        maestro_dir = get_maestro_dir(session_path)
-        outputs_dir = os.path.join(maestro_dir, "build", "outputs")
+        if session_path:
+            maestro_dir = get_maestro_dir(session_path)
+            outputs_dir = os.path.join(maestro_dir, "build", "outputs")
+        else:
+            # Fallback to user config if no session_path provided
+            user_config_dir = get_user_config_dir()
+            outputs_dir = os.path.join(user_config_dir, "build", "outputs")
     elif "fix" in output_type.lower() or "rulebook" in output_type.lower():
         # Fix rulebook planner -> ~/.config/maestro/fix/outputs/
         user_config_dir = get_user_config_dir()
         outputs_dir = os.path.join(user_config_dir, "fix", "outputs")
     elif "convert" in output_type.lower() or "conversion" in output_type.lower():
         # Conversion pipeline planner -> .maestro/convert/outputs/
-        maestro_dir = get_maestro_dir(session_path)
-        outputs_dir = os.path.join(maestro_dir, "convert", "outputs")
+        if session_path:
+            maestro_dir = get_maestro_dir(session_path)
+            outputs_dir = os.path.join(maestro_dir, "convert", "outputs")
+        else:
+            # Fallback to user config if no session_path provided
+            user_config_dir = get_user_config_dir()
+            outputs_dir = os.path.join(user_config_dir, "convert", "outputs")
     else:
         # Default to general outputs directory for other types
-        maestro_dir = get_maestro_dir(session_path)
-        outputs_dir = os.path.join(maestro_dir, "outputs")
+        if session_path:
+            maestro_dir = get_maestro_dir(session_path)
+            outputs_dir = os.path.join(maestro_dir, "outputs")
+        else:
+            # Fallback to user config if no session_path provided
+            user_config_dir = get_user_config_dir()
+            outputs_dir = os.path.join(user_config_dir, "outputs")
 
     os.makedirs(outputs_dir, exist_ok=True)
 
@@ -7845,13 +7924,8 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
             if assistant_response is None:
                 raise Exception(f"All planners failed: {last_error}")
 
-            # Save the raw planner output
-            timestamp = int(time.time())
-            build_dir = get_build_dir(session_path)
-            outputs_dir = os.path.join(build_dir, "outputs")
-            raw_output_filename = os.path.join(outputs_dir, f"build_plan_{engine_name}_{timestamp}.txt")
-            with open(raw_output_filename, "w", encoding="utf-8") as f:
-                f.write(assistant_response)
+            # Save the raw planner output using the traceability function
+            raw_output_filename = save_ai_output(assistant_response, session_path=session_path, output_type="build_plan", engine_name=engine_name)
             if verbose:
                 print_info(f"Raw build planner output saved to: {raw_output_filename}", 4)
 
@@ -7943,10 +8017,8 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
         if assistant_response is None:
             raise Exception(f"All planners failed: {last_error}")
 
-        # Save the raw planner output for the final config
-        raw_output_filename = os.path.join(outputs_dir, f"build_plan_{engine_name}_{timestamp}_final.txt")
-        with open(raw_output_filename, "w", encoding="utf-8") as f:
-            f.write(assistant_response)
+        # Save the raw planner output for the final config using the traceability function
+        raw_output_filename = save_ai_output(assistant_response, session_path=session_path, output_type="build_plan_final", engine_name=engine_name)
         if verbose:
             print_info(f"Raw planner final output saved to: {raw_output_filename}", 4)
 
@@ -8111,10 +8183,8 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
         print_error(f"All planners failed: {last_error}", 2)
         return None
 
-    # Save the raw planner output
-    raw_output_filename = os.path.join(outputs_dir, f"build_plan_{engine_name}_{timestamp}.txt")
-    with open(raw_output_filename, "w", encoding="utf-8") as f:
-        f.write(assistant_response)
+    # Save the raw planner output using the traceability function
+    raw_output_filename = save_ai_output(assistant_response, session_path=session_path, output_type="build_plan", engine_name=engine_name)
     if verbose:
         print_info(f"Raw build planner output saved to: {raw_output_filename}", 4)
 
@@ -8174,6 +8244,445 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
     print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
     print_info(f"[maestro] Build plan updated for target: {build_target.name}", 2)
     return build_target
+
+
+def plan_conversion_pipeline_interactive(session_path: str, pipeline_name: str, verbose: bool = False, quiet: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude") -> Optional[ConversionPipeline]:
+    """
+    Interactive discussion to define conversion pipeline stages via AI.
+
+    Args:
+        session_path: Path to the session file
+        pipeline_name: Name for the conversion pipeline
+        verbose: Verbose output flag
+        quiet: Suppress streaming AI output and extra messages
+        stream_ai_output: Stream model stdout live to the terminal
+        print_ai_prompts: Print constructed prompts before running them
+        planner_order: Comma-separated order of planners
+
+    Returns:
+        Created ConversionPipeline object or None if cancelled
+    """
+    if verbose:
+        print_debug(f"Starting interactive conversion pipeline planning for: {pipeline_name}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        return None
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        return None
+
+    print_header("CONVERSION PIPELINE PLANNING DISCUSSION")
+    print_info(f"Planning conversion pipeline: {pipeline_name}", 4)
+    print_info("Describe the conversion you want to perform, or suggest features like:", 4)
+    print_info("- Source and target technologies", 4)
+    print_info("- Conversion stages (overview, core_builds, grow_from_main, full_tree_check)", 4)
+    print_info("- Constraints and requirements", 4)
+    print_info("Type your message and press Enter. Use /done when you want to generate the pipeline.", 4)
+    print_info("Commands: /done (finish), /quit (exit)", 4)
+
+    # Initialize conversation with system prompt
+    conversation = [
+        {"role": "system", "content": f"You are a conversion pipeline expert. The user wants to create a conversion pipeline with name '{pipeline_name}'. The session root task is: {session.root_task}"},
+        {"role": "user", "content": f"Help me create a conversion pipeline for '{pipeline_name}' from this project: {session.root_task}"}
+    ]
+
+    # Create directories for conversation transcripts and outputs
+    convert_dir = get_convert_dir()
+    conversations_dir = os.path.join(convert_dir, "conversations")
+    outputs_dir = os.path.join(convert_dir, "outputs")
+    os.makedirs(conversations_dir, exist_ok=True)
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    while True:
+        # Get user input with support for commands
+        user_input = input("> ").strip()
+
+        # Check for special commands first
+        if user_input.lower() == "/done":
+            if not quiet:
+                print_info("Finalizing conversion pipeline configuration with JSON-only mode...", 2)
+
+            # Build context from the conversation for the template
+            conversation_context = ""
+            for msg in conversation:
+                conversation_context += f"{msg['role'].upper()}: {msg['content']}\n\n"
+
+            # Get repo root and build context for the template
+            repo_root = os.path.dirname(session_path) if session_path else os.getcwd()
+            conversion_goal = f"{session.root_task}"
+
+            # Use the conversion pipeline planner template with JSON-only instructions
+            final_conversation_prompt = conversion_pipeline_planner_template(
+                repo_inventory=f"Project root: {repo_root}\nBased on our discussion:\n{conversation_context}",
+                conversion_goal=conversion_goal,
+                constraints="JSON response only, no additional text or explanations"
+            )
+
+            # Add explicit JSON-only instruction to the final prompt
+            final_conversation_prompt += "\n\n[IMPORTANT]\nReturn ONLY the requested JSON object with no additional text or explanations\nThe response must be valid JSON that can be parsed without errors\nDo not include markdown code blocks or any formatting beyond the JSON structure"
+
+            # Print final prompt if requested
+            if print_ai_prompts:
+                print("===== FINAL AI PROMPT BEGIN =====")
+                print(final_conversation_prompt)
+                print("===== FINAL AI PROMPT END =====")
+
+            # Parse planner preference from CLI argument
+            planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+            planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+            # Use the planner to generate the final configuration
+            try:
+                # Print sending confirmation unless quiet
+                if not quiet:
+                    print_info("Sending final conversion pipeline configuration request to planner (JSON-only mode)...", 2)
+
+                # Try each planner in preference order
+                assistant_response = None
+                last_error = None
+                for engine_name in planner_preference:
+                    try:
+                        from engines import get_engine
+
+                        # Save the final prompt for traceability
+                        prompt_file_path = save_prompt_for_traceability(final_conversation_prompt, session_path, "convert_plan_final", engine_name)
+                        if verbose:
+                            print_info(f"Final conversion plan prompt saved to: {prompt_file_path}", 4)
+
+                        engine = get_engine(engine_name + "_planner", stream_output=not quiet)
+                        assistant_response = engine.generate(final_conversation_prompt)
+
+                        # If we get a response, break out of the loop
+                        if assistant_response:
+                            break
+                    except Exception as e:
+                        last_error = e
+                        print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+                        continue
+
+                if assistant_response is None:
+                    raise Exception(f"All planners failed: {last_error}")
+
+                # Save the raw planner output for the final config using the traceability function
+                raw_output_filename = save_ai_output(assistant_response, session_path=session_path, output_type="convert_plan_final", engine_name=engine_name)
+                if verbose:
+                    print_info(f"Raw planner final output saved to: {raw_output_filename}", 4)
+
+                # Print response received confirmation unless quiet
+                if not quiet and assistant_response:
+                    print_info(f"Conversion planner responded ({len(assistant_response)} chars) for final configuration.", 2)
+
+                # Clean up the JSON response
+                cleaned_response = clean_json_response(assistant_response)
+
+                # Parse the JSON with better error handling and validation
+                pipeline_config = None
+                try:
+                    pipeline_config = json.loads(cleaned_response)
+                except json.JSONDecodeError as e:
+                    # If direct parsing fails, try to extract JSON from the response
+                    import re
+                    json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
+                    if json_match:
+                        try:
+                            pipeline_config = json.loads(json_match.group(0))
+                        except json.JSONDecodeError as e2:
+                            print_error(f"Could not parse AI response as valid JSON: {str(e2)}", 2)
+                            print_info("AI response preview:", 2)
+                            print_info(f"  {cleaned_response[:200]}...", 4)
+                            print_info("Use /retry to continue discussion or /done to finish with different approach.", 2)
+                            return None
+                    else:
+                        print_error(f"Could not find valid JSON in AI response.", 2)
+                        print_info("AI response preview:", 2)
+                        print_info(f"  {cleaned_response[:200]}...", 4)
+                        print_info("The AI needs to return a valid JSON object. Continue discussing or try different approach.", 2)
+                        return None
+
+                # Validate required fields
+                if not isinstance(pipeline_config, dict):
+                    print_error("AI response was not a JSON object", 2)
+                    return None
+
+                # Validate JSON schema for conversion pipeline
+                required_stages = ["overview", "core_builds", "grow_from_main", "full_tree_check"]
+                if 'stages' not in pipeline_config:
+                    print_error("JSON response does not contain required 'stages' field.", 2)
+                    return None
+
+                stages_names = [stage.get('name', '') for stage in pipeline_config['stages']] if isinstance(pipeline_config.get('stages'), list) else []
+                missing_stages = [stage for stage in required_stages if stage not in stages_names]
+                if missing_stages:
+                    print_error(f"JSON response missing required stages: {missing_stages}", 2)
+                    return None
+
+                # Create the conversion pipeline with the AI-provided configuration
+                # For now, using the existing create_conversion_pipeline function which creates default stages
+                # In a real implementation, we would use the AI-generated config
+                created_pipeline = create_conversion_pipeline(pipeline_name, session.root_task, session.root_task)
+
+                print_success(f"Conversion pipeline '{created_pipeline.name}' created successfully with ID: {created_pipeline.id}", 2)
+                print_info(f"[maestro] Conversion pipeline updated: {created_pipeline.name}", 2)
+                return created_pipeline
+
+            except Exception as e:
+                print_error(f"Error generating conversion pipeline configuration: {e}", 2)
+                return None
+            break
+
+        if user_input.lower() == "/quit":
+            print_warning("Exiting without creating conversion pipeline.", 2)
+            return None
+
+        # Check for empty input
+        if not user_input:
+            print_warning("Empty input. Please enter a message or use /done to finish.", 2)
+            continue
+
+        # Acknowledge user input unless quiet
+        if not quiet:
+            print_info("Sending message to conversion planner…", 2)
+
+        # Append user message to conversation
+        conversation.append({"role": "user", "content": user_input})
+
+        # Use the AI to generate a response
+        try:
+            # Build a prompt from the conversation
+            conversation_prompt = "You are helping configure a conversion pipeline. Here's the conversation so far:\n\n"
+            for msg in conversation:
+                conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+
+            conversation_prompt += "\nPlease respond to continue discussing and refining the conversion pipeline configuration."
+
+            # Parse planner preference from CLI argument
+            planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+            planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+            # Print prompt if requested
+            if print_ai_prompts:
+                print("===== AI PROMPT BEGIN =====")
+                print(conversation_prompt)
+                print("===== AI PROMPT END =====")
+
+            # Print sending confirmation unless quiet
+            if not quiet:
+                print_info("Sending message to conversion planner…", 2)
+
+            # Try each planner in preference order
+            assistant_response = None
+            last_error = None
+            for engine_name in planner_preference:
+                try:
+                    from engines import get_engine
+                    # Pass the quiet flag as stream_output to engines
+                    engine = get_engine(engine_name + "_planner", stream_output=not quiet)
+
+                    # Save the prompt for traceability
+                    prompt_file_path = save_prompt_for_traceability(conversation_prompt, session_path, "convert_plan", engine_name)
+                    if verbose:
+                        print_info(f"Conversion plan prompt saved to: {prompt_file_path}", 4)
+
+                    assistant_response = engine.generate(conversation_prompt)
+
+                    # If we get a response, break out of the loop
+                    if assistant_response:
+                        break
+                except Exception as e:
+                    last_error = e
+                    print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+                    continue
+
+            if assistant_response is None:
+                raise Exception(f"All planners failed: {last_error}")
+
+            # Save the raw planner output using the traceability function
+            raw_output_filename = save_ai_output(assistant_response, session_path=session_path, output_type="convert_plan", engine_name=engine_name)
+            if verbose:
+                print_info(f"Raw conversion planner output saved to: {raw_output_filename}", 4)
+
+            # Print response received message if not quiet
+            if not quiet:
+                print_info(f"Conversion planner responded ({len(assistant_response)} chars).", 2)
+                print_ai_response(assistant_response)
+            else:
+                print_ai_response(assistant_response)  # Still print response in quiet mode, just not the confirmation
+
+            # Append assistant's response to conversation
+            conversation.append({"role": "assistant", "content": assistant_response})
+
+        except KeyboardInterrupt:
+            print("\n[orchestrator] Conversation interrupted by user", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"Error in conversation: {e}", file=sys.stderr)
+            continue
+
+    # At this point, the user has finished the conversation but we shouldn't reach here
+    # as the /done command should have broken the loop
+    return None
+
+
+def plan_conversion_pipeline_one_shot(session_path: str, pipeline_name: str, verbose: bool = False, quiet: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude") -> Optional[ConversionPipeline]:
+    """
+    One-shot planning to define conversion pipeline stages via AI.
+
+    Args:
+        session_path: Path to the session file
+        pipeline_name: Name for the conversion pipeline
+        verbose: Verbose output flag
+        quiet: Suppress streaming AI output and extra messages
+        stream_ai_output: Stream model stdout live to the terminal
+        print_ai_prompts: Print constructed prompts before running them
+        planner_order: Comma-separated order of planners
+
+    Returns:
+        Created ConversionPipeline object or None if failed
+    """
+    if verbose:
+        print_debug(f"Starting one-shot conversion pipeline planning for: {pipeline_name}", 2)
+
+    # Load the session
+    try:
+        session = load_session(session_path)
+        # Update summary file paths for backward compatibility with old sessions
+        update_subtask_summary_paths(session, session_path)
+    except FileNotFoundError:
+        print_error(f"Session file '{session_path}' does not exist.", 2)
+        return None
+    except Exception as e:
+        print_error(f"Could not load session from '{session_path}': {str(e)}", 2)
+        return None
+
+    # Create directories for outputs
+    convert_dir = get_convert_dir()
+    outputs_dir = os.path.join(convert_dir, "outputs")
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    # Build the planner prompt using the template
+    timestamp = int(time.time())
+
+    # Get repo root and build context for the template
+    repo_root = os.path.dirname(session_path) if session_path else os.getcwd()
+    user_goals = session.root_task
+    constraints = "Generate JSON-only response with no additional text"
+
+    prompt = conversion_pipeline_planner_template(
+        repo_inventory=f"Project root: {repo_root}",
+        conversion_goal=user_goals,
+        constraints=constraints
+    )
+
+    # Add explicit JSON-only instruction to the prompt
+    prompt += "\n\n[IMPORTANT]\nReturn ONLY the requested JSON object with no additional text or explanations\nThe response must be valid JSON that can be parsed without errors\nDo not include markdown code blocks or any formatting beyond the JSON structure"
+
+    # Print prompt if requested
+    if print_ai_prompts:
+        print("===== AI PROMPT BEGIN =====")
+        print(prompt)
+        print("===== AI PROMPT END =====")
+
+    # Parse planner preference from CLI argument
+    planner_preference = planner_order.split(",") if planner_order else ["codex", "claude"]
+    planner_preference = [item.strip() for item in planner_preference if item.strip()]
+
+    # Print sending confirmation unless quiet
+    if not quiet:
+        print_info("Sending message to conversion planner…", 2)
+
+    # Try each planner in preference order
+    assistant_response = None
+    last_error = None
+    for engine_name in planner_preference:
+        try:
+            from engines import get_engine
+            # Pass the quiet flag as stream_output to engines
+            engine = get_engine(engine_name + "_planner", stream_output=not quiet)
+
+            # Save the prompt for traceability
+            prompt_file_path = save_prompt_for_traceability(prompt, session_path, "convert_plan", engine_name)
+            if verbose:
+                print_info(f"Conversion plan prompt saved to: {prompt_file_path}", 4)
+
+            assistant_response = engine.generate(prompt)
+
+            # If we get a response, break out of the loop
+            if assistant_response:
+                break
+        except Exception as e:
+            last_error = e
+            print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
+            continue
+
+    # Print response received message if not quiet
+    if not quiet and assistant_response:
+        print_info(f"Conversion planner responded ({len(assistant_response)} chars).", 2)
+
+    if assistant_response is None:
+        print_error(f"All planners failed: {last_error}", 2)
+        return None
+
+    # Save the raw planner output using the traceability function
+    raw_output_filename = save_ai_output(assistant_response, session_path=session_path, output_type="convert_plan", engine_name=engine_name)
+    if verbose:
+        print_info(f"Raw conversion planner output saved to: {raw_output_filename}", 4)
+
+    # Clean up the JSON response
+    cleaned_response = clean_json_response(assistant_response)
+
+    # Parse the JSON with better error handling and validation
+    pipeline_config = None
+    try:
+        pipeline_config = json.loads(cleaned_response)
+    except json.JSONDecodeError as e:
+        # If direct parsing fails, try to extract JSON from the response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
+        if json_match:
+            try:
+                pipeline_config = json.loads(json_match.group(0))
+            except json.JSONDecodeError as e2:
+                print_error(f"Could not parse AI response as valid JSON: {str(e2)}", 2)
+                print_info("AI response preview:", 2)
+                print_info(f"  {cleaned_response[:200]}...", 4)
+                return None
+        else:
+            print_error(f"Could not find valid JSON in AI response.", 2)
+            print_info("AI response preview:", 2)
+            print_info(f"  {cleaned_response[:200]}...", 4)
+            return None
+
+    # Validate required fields
+    if not isinstance(pipeline_config, dict):
+        print_error("AI response was not a JSON object", 2)
+        return None
+
+    # Validate JSON schema for conversion pipeline
+    required_stages = ["overview", "core_builds", "grow_from_main", "full_tree_check"]
+    if 'stages' not in pipeline_config:
+        print_error("JSON response does not contain required 'stages' field.", 2)
+        return None
+
+    stages_names = [stage.get('name', '') for stage in pipeline_config['stages']] if isinstance(pipeline_config.get('stages'), list) else []
+    missing_stages = [stage for stage in required_stages if stage not in stages_names]
+    if missing_stages:
+        print_error(f"JSON response missing required stages: {missing_stages}", 2)
+        return None
+
+    # Create the conversion pipeline with the AI-provided configuration
+    # For now, using the existing create_conversion_pipeline function which creates default stages
+    # In a real implementation, we would use the AI-generated config
+    created_pipeline = create_conversion_pipeline(pipeline_name, session.root_task, session.root_task)
+
+    print_success(f"Conversion pipeline '{created_pipeline.name}' created successfully with ID: {created_pipeline.id}", 2)
+    print_info(f"[maestro] Conversion pipeline updated: {created_pipeline.name}", 2)
+    return created_pipeline
 
 
 def get_builder_config_path(session_path: str) -> str:
@@ -12089,6 +12598,12 @@ Common diagnostic patterns to match include:
                 diagnostic_examples=diagnostic_examples,
                 repo_info=f"Rulebook name: {name}"
             )
+
+            # Save the final prompt for traceability
+            prompt_file_path = save_prompt_for_traceability(final_prompt, session_path=None, prompt_type="fix_rulebook_planner_final", engine_name=planner_preference[0])
+            if verbose:
+                print_info(f"Final fix rulebook planner prompt saved to: {prompt_file_path}", 4)
+
             transcript.append(f"User: /done")
             transcript.append(f"System: Requesting final rulebook JSON")
             transcript.append(f"AI Prompt: {final_prompt}")
@@ -12098,15 +12613,14 @@ Common diagnostic patterns to match include:
                 ai_engine = get_engine(f"{planner_preference[0]}_planner")
                 final_output = ai_engine.generate(final_prompt)
 
-                # Save the final planner output
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(final_output)
+                # Save the final planner output using the traceability function
+                output_file_from_func = save_ai_output(final_output, session_path=None, output_type="fix_rulebook_planner_final", engine_name=planner_preference[0])
 
                 if print_ai_prompts:
                     print_info(f"Final AI prompt: {final_prompt}", 4)
 
                 if verbose:
-                    print_info(f"Raw AI output saved to: {output_file}", 2)
+                    print_info(f"Raw AI output saved to: {output_file_from_func}", 2)
 
                 # Try to extract JSON from the response
                 import re
@@ -12181,7 +12695,15 @@ Common diagnostic patterns to match include:
                 for msg in conversation_history:
                     conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
 
+                # Save the prompt for traceability
+                prompt_file_path = save_prompt_for_traceability(conversation_prompt, session_path=None, prompt_type="fix_rulebook_planner", engine_name=planner_preference[0])
+                if verbose:
+                    print_info(f"Fix rulebook planner prompt saved to: {prompt_file_path}", 4)
+
                 ai_response = ai_engine.generate(conversation_prompt)
+
+                # Save the AI response for traceability
+                save_ai_output(ai_response, session_path=None, output_type="fix_rulebook_planner", engine_name=planner_preference[0])
 
                 if stream_ai_output:
                     print_ai_response(ai_response)

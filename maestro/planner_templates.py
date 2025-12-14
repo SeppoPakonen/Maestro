@@ -15,14 +15,14 @@ from typing import List, Dict, Any, Optional
 def build_prompt_template(goal: str, context: str, requirements: str, acceptance: str, deliverables: str) -> str:
     """
     Generic prompt builder that follows the Task 4 contract.
-    
+
     Args:
         goal: The specific goal of the prompt
         context: All relevant context information
         requirements: Specific requirements for the response
         acceptance: Acceptance criteria for the response
         deliverables: Expected deliverables from the response
-        
+
     Returns:
         Formatted prompt string
     """
@@ -55,16 +55,16 @@ BUILD_TARGET_PLANNER_TEMPLATE = """
 Produce or modify a build target JSON definition that specifies how to build the software, including pipeline steps, patterns to match errors, and execution environment.
 
 [CONTEXT]
-Repo root: {{repo_root}}
-Current active build target JSON (if exists): {{current_target_json}}
-User builder goals (from root summary/categories if available): {{user_goals}}
-Any existing pipeline run summary (optional): {{pipeline_summary}}
+Repo root: {repo_root}
+Current active build target JSON (if exists): {current_target_json}
+User builder goals (from root summary/categories if available): {user_goals}
+Any existing pipeline run summary (optional): {pipeline_summary}
 
 [REQUIREMENTS]
 - Strict JSON output only with no additional text
 - Schema fields required: name, target_id, categories, description, why, pipeline steps with id/cmd/optional, patterns section if used, environment (optional)
 - Each pipeline step must have: id (string), cmd (array of strings), optional (boolean)
-- Pattern section may include: error_extract (array of regex strings), ignore (array of regex strings)  
+- Pattern section may include: error_extract (array of regex strings), ignore (array of regex strings)
 - Environment may include: vars (object with key-value pairs), cwd (string)
 - Must not invent file paths that don't exist (propose placeholders clearly if needed)
 - Return only the complete JSON object with no markdown ```json ``` wrappers
@@ -90,9 +90,9 @@ FIX_RULEBOOK_PLANNER_TEMPLATE = """
 Produce or modify a fix rulebook JSON definition that contains reactive rules for automatically fixing diagnostic issues.
 
 [CONTEXT]
-Current rulebook JSON (if exists): {{current_rulebook_json}}
-Examples of diagnostic signatures/messages (if available): {{diagnostic_examples}}
-Repo mapping info (which repos will use it): {{repo_info}}
+Current rulebook JSON (if exists): {current_rulebook_json}
+Examples of diagnostic signatures/messages (if available): {diagnostic_examples}
+Repo mapping info (which repos will use it): {repo_info}
 
 [REQUIREMENTS]
 - Strict JSON output only with no additional text
@@ -125,9 +125,9 @@ CONVERSION_PIPELINE_PLANNER_TEMPLATE = """
 Produce a conversion pipeline plan with stages and success criteria for converting from source technology to target technology.
 
 [CONTEXT]
-Repo inventory summary (if available): {{repo_inventory}}
-Target conversion goal A→B: {{conversion_goal}}
-Constraints (build system, language, minimal compile requirements): {{constraints}}
+Repo inventory summary (if available): {repo_inventory}
+Target conversion goal A→B: {conversion_goal}
+Constraints (build system, language, minimal compile requirements): {constraints}
 
 [REQUIREMENTS]
 - Strict JSON output only with no additional text
@@ -155,13 +155,13 @@ Constraints (build system, language, minimal compile requirements): {{constraint
 def format_build_target_template(repo_root: str = "", current_target_json: str = "{}", user_goals: str = "", pipeline_summary: str = "") -> str:
     """
     Format the build target planner template with specific context values.
-    
+
     Args:
         repo_root: Repository root path
-        current_target_json: Current build target JSON (if exists)  
+        current_target_json: Current build target JSON (if exists)
         user_goals: User builder goals from root summary/categories
         pipeline_summary: Existing pipeline run summary (if any)
-        
+
     Returns:
         Formatted prompt string
     """
@@ -176,12 +176,12 @@ def format_build_target_template(repo_root: str = "", current_target_json: str =
 def format_fix_rulebook_template(current_rulebook_json: str = "{}", diagnostic_examples: str = "", repo_info: str = "") -> str:
     """
     Format the fix rulebook planner template with specific context values.
-    
+
     Args:
         current_rulebook_json: Current rulebook JSON (if exists)
         diagnostic_examples: Examples of diagnostic signatures/messages
         repo_info: Information about which repos will use the rulebook
-        
+
     Returns:
         Formatted prompt string
     """
@@ -195,12 +195,12 @@ def format_fix_rulebook_template(current_rulebook_json: str = "{}", diagnostic_e
 def format_conversion_pipeline_template(repo_inventory: str = "", conversion_goal: str = "", constraints: str = "") -> str:
     """
     Format the conversion pipeline planner template with specific context values.
-    
+
     Args:
         repo_inventory: Repository inventory summary
         conversion_goal: Target conversion goal A→B
         constraints: Constraints (build system, language, requirements)
-        
+
     Returns:
         Formatted prompt string
     """
@@ -209,3 +209,49 @@ def format_conversion_pipeline_template(repo_inventory: str = "", conversion_goa
         conversion_goal=conversion_goal or "(not specified)",
         constraints=constraints or "(no constraints specified)"
     )
+
+
+def build_target_planner_template(repo_root: str = "", current_target_json: str = "{}", user_goals: str = "", pipeline_summary: str = "") -> str:
+    """
+    Build target planner template that returns JSON build target specification.
+
+    Args:
+        repo_root: Repository root path
+        current_target_json: Current build target JSON (if exists)
+        user_goals: User builder goals from root summary/categories
+        pipeline_summary: Existing pipeline run summary (if any)
+
+    Returns:
+        Formatted prompt string for build target planning
+    """
+    return format_build_target_template(repo_root, current_target_json, user_goals, pipeline_summary)
+
+
+def fix_rulebook_planner_template(current_rulebook_json: str = "{}", diagnostic_examples: str = "", repo_info: str = "") -> str:
+    """
+    Fix rulebook planner template that returns JSON reactive rules.
+
+    Args:
+        current_rulebook_json: Current rulebook JSON (if exists)
+        diagnostic_examples: Examples of diagnostic signatures/messages
+        repo_info: Information about which repos will use the rulebook
+
+    Returns:
+        Formatted prompt string for fix rulebook planning
+    """
+    return format_fix_rulebook_template(current_rulebook_json, diagnostic_examples, repo_info)
+
+
+def conversion_pipeline_planner_template(repo_inventory: str = "", conversion_goal: str = "", constraints: str = "") -> str:
+    """
+    Conversion pipeline planner template that returns JSON stages and criteria.
+
+    Args:
+        repo_inventory: Repository inventory summary
+        conversion_goal: Target conversion goal A→B
+        constraints: Constraints (build system, language, requirements)
+
+    Returns:
+        Formatted prompt string for conversion pipeline planning
+    """
+    return format_conversion_pipeline_template(repo_inventory, conversion_goal, constraints)
