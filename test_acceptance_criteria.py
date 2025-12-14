@@ -154,17 +154,16 @@ def test_plan_nodes():
         label="Initial plan",
         status="active",
         notes="Created from initial planning",
-        root_task_snapshot="Raw task input",
-        root_clean_snapshot="Cleaned task",
+        root_snapshot="Cleaned task",
         categories_snapshot=["backend", "api"],
         subtask_ids=["S1", "S2"]
     )
-    
+
     # Verify all fields exist
     assert plan_node.plan_id == "P1"
     assert plan_node.parent_plan_id is None
     assert plan_node.status == "active"
-    assert plan_node.root_task_snapshot == "Raw task input"
+    assert plan_node.root_snapshot == "Cleaned task"
     assert plan_node.categories_snapshot == ["backend", "api"]
     assert plan_node.subtask_ids == ["S1", "S2"]
     
@@ -172,9 +171,9 @@ def test_plan_nodes():
     plan_dict = plan_node.to_dict()
     assert "plan_id" in plan_dict
     assert "parent_plan_id" in plan_dict
-    assert "root_task_snapshot" in plan_dict
+    assert "root_snapshot" in plan_dict
     assert "categories_snapshot" in plan_dict
-    
+
     # Test deserialization
     plan_reconstructed = PlanNode.from_dict(plan_dict)
     assert plan_reconstructed.plan_id == "P1"
@@ -209,12 +208,11 @@ def test_plan_branching():
         label="Original approach",
         status="inactive",
         notes="Original plan",
-        root_task_snapshot="Raw main task",
-        root_clean_snapshot="Cleaned main task",
+        root_snapshot="Cleaned main task",
         categories_snapshot=["backend", "frontend"],
         subtask_ids=["S1", "S2"]
     )
-    
+
     # Create child plan (branch)
     child_plan = PlanNode(
         plan_id="P2",
@@ -223,8 +221,7 @@ def test_plan_branching():
         label="Alternative approach",
         status="active",
         notes="Branch from original",
-        root_task_snapshot="Raw main task",
-        root_clean_snapshot="Alternative approach cleaned",
+        root_snapshot="Alternative approach cleaned",
         categories_snapshot=["frontend", "ui"],
         subtask_ids=["S3", "S4"]
     )

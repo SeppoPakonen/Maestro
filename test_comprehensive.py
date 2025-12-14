@@ -119,8 +119,7 @@ def test_plan_branching():
         label="Initial plan",
         status="active",
         notes="Original plan",
-        root_task_snapshot="Raw main project task",
-        root_clean_snapshot="Cleaned main project task",
+        root_snapshot="Cleaned main project task",
         categories_snapshot=["backend", "frontend"],
         subtask_ids=["S1", "S2"]
     )
@@ -136,8 +135,7 @@ def test_plan_branching():
         label="Alternative approach",
         status="active",
         notes="Branch for different approach",
-        root_task_snapshot="Raw main project task",
-        root_clean_snapshot="Alternative cleaned task",
+        root_snapshot="Alternative cleaned task",
         categories_snapshot=["frontend", "ui"],
         subtask_ids=["S3", "S4"]
     )
@@ -260,12 +258,11 @@ def test_plan_tree_visualization():
         label="Initial plan",
         status="active",
         notes="Initial plan",
-        root_task_snapshot="Raw main project",
-        root_clean_snapshot="Cleaned main project",
+        root_snapshot="Cleaned main project",
         categories_snapshot=["backend", "frontend"],
         subtask_ids=["S1"]
     )
-    
+
     plan2 = PlanNode(
         plan_id="P2",
         parent_plan_id="P1",
@@ -273,12 +270,11 @@ def test_plan_tree_visualization():
         label="Refinement plan",
         status="active",
         notes="Refinement",
-        root_task_snapshot="Raw main project",
-        root_clean_snapshot="Cleaned main project",
+        root_snapshot="Cleaned main project",
         categories_snapshot=["backend"],
         subtask_ids=["S2"]
     )
-    
+
     plan3 = PlanNode(
         plan_id="P3",
         parent_plan_id="P2",
@@ -286,8 +282,7 @@ def test_plan_tree_visualization():
         label="Branch plan",
         status="dead",  # Mark as dead to test visualization
         notes="Alternative approach",
-        root_task_snapshot="Raw main project",
-        root_clean_snapshot="Alternative cleaned version",
+        root_snapshot="Alternative cleaned version",
         categories_snapshot=["frontend"],
         subtask_ids=["S3"]
     )

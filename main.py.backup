@@ -1577,21 +1577,20 @@ def list_sessions() -> List[str]:
     return sorted(sessions)
 
 
-def create_session(session_name: str, root_task: str = "", overwrite: bool = False) -> str:
+def create_session(session_name: str, root_task: str = "") -> str:
     """
     Create a new session file in the .maestro/sessions directory.
 
     Args:
         session_name: Name of the session to create
         root_task: Optional root task for the session
-        overwrite: Whether to overwrite if session already exists
 
     Returns:
         Path to the created session file
     """
     session_path = get_session_path_by_name(session_name)
 
-    if os.path.exists(session_path) and not overwrite:
+    if os.path.exists(session_path):
         raise FileExistsError(f"Session '{session_name}' already exists at {session_path}")
 
     # Create a new session with status="new" and empty subtasks
@@ -1783,24 +1782,21 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             print_warning(f"Engine {engine_name}_planner not found, skipping: {e}", 2)
             continue
 
-        # Add engine role to the prompt context for clarity
-        enhanced_prompt = f"{prompt}\n\n[ENGINE ROLE]\nPlanner engine: {engine_name}_planner\nPurpose: Generate structured JSON plan based on the requirements above\n\n"
-
-        # Save the final prompt for traceability
-        prompt_file_path = save_prompt_for_traceability(enhanced_prompt, session_path, "planner", engine_name)
-        if verbose:
-            print(f"[VERBOSE] Planner prompt saved to: {prompt_file_path}")
-
         # Call engine.generate(prompt) with interruption handling
         try:
-            stdout = engine.generate(enhanced_prompt)
+            stdout = engine.generate(prompt)
         except KeyboardInterrupt:
             # For planner interruptions, don't modify the session
             print_warning("\norchestrator: Planner interrupted by user", 2)
             # Save partial output for debugging, but don't modify session
-            output_file_path = save_ai_output(stdout if stdout else "", session_path, "planner", engine_name)
+            maestro_dir = get_maestro_dir(session_path)
+            partial_dir = os.path.join(maestro_dir, "partials")
+            os.makedirs(partial_dir, exist_ok=True)
+            partial_filename = os.path.join(partial_dir, f"planner_{engine_name}_{int(time.time())}.partial.txt")
+            with open(partial_filename, 'w', encoding='utf-8') as f:
+                f.write(stdout if stdout else "")
             if verbose:
-                print(f"[VERBOSE] Partial planner output saved to: {output_file_path}")
+                print(f"[VERBOSE] Partial planner output saved to: {partial_filename}")
 
             # Re-raise to allow main thread to handle properly
             raise KeyboardInterrupt
@@ -1808,10 +1804,10 @@ def run_planner_with_prompt(prompt: str, planner_preference: list[str], session_
             print(f"Warning: Engine {engine_name} failed: {e}", file=sys.stderr)
             continue
 
-        # Save the raw planner output for traceability
-        output_file_path = save_ai_output(stdout, session_path, "planner", engine_name)
-        if verbose:
-            print(f"[VERBOSE] Planner output saved to: {output_file_path}")
+        # Create outputs directory if it doesn't exist
+        maestro_dir = get_maestro_dir(session_path)
+        outputs_dir = os.path.join(maestro_dir, "outputs")
+        os.makedirs(outputs_dir, exist_ok=True)
 
         # Save the raw planner stdout to outputs directory
         timestamp = int(time.time())
@@ -2010,6 +2006,7 @@ def main():
     # task run (runs tasks, similar to resume)
     task_run_parser = task_subparsers.add_parser('run', aliases=['r'], help='Run tasks (similar to resume)')
     task_run_parser.add_argument('num_tasks', nargs='?', type=int, help='Number of tasks to run (if omitted, runs all pending tasks)')
+    task_run_parser.add_argument('-q', '--quiet', action='store_true', help='Suppress streaming AI output')
 
     # task log (synonymous to "log task")
     task_log_parser = task_subparsers.add_parser('log', aliases=['l'], help='Show past tasks (limited to 10, -a shows all)')
@@ -2382,119 +2379,57 @@ def main():
         sys.exit(1)
 
     # Determine which action to take based on subcommands
-    # For commands that require a session, look for active session first, then default if not provided
-    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'task', 'root', 'build']:
-        # For these commands, if session is not provided, look for active session first, then default
+    # For commands that require a session, look for default if not provided
+    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'task']:
+        # For these commands, if session is not provided, look for default
         if not args.session:
-            # Check for an active session first
-            active_session_name = get_active_session_name()
-            if active_session_name:
-                # Get the path for the active session
-                active_session_path = get_session_path_by_name(active_session_name)
-                if os.path.exists(active_session_path):
-                    args.session = active_session_path
-                    if args.verbose:
-                        print_info(f"Using active session: {active_session_path}", 2)
-                else:
-                    # Active session points to non-existent file, warn and fall back
-                    print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
-                    # Fall through to try default session files
-                    default_session = find_default_session_file()
-                    if default_session:
-                        args.session = default_session
-                        if args.verbose:
-                            print_info(f"Using default session file: {default_session}", 2)
-                    else:
-                        # If no session provided and no default exists, show error
-                        if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
-                            # For plan subcommands specifically, if no session, show error
-                            # But make sure help subcommands don't require a session
-                            if args.plan_subcommand in ['help', 'h']:
-                                # For help subcommand, print help and exit without session
-                                plan_parser.print_help()
-                                return
-                            else:
-                                print_error("Session is required for plan commands", 2)
-                                sys.exit(1)
-                        elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
-                            # For rules subcommands specifically, if no session, show error
-                            # But make sure help subcommands don't require a session
-                            if args.rules_subcommand in ['help', 'h']:
-                                # For help subcommand, print help and exit without session
-                                rules_parser.print_help()
-                                return
-                            else:
-                                print_error("Session is required for rules commands", 2)
-                                sys.exit(1)
-                        elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
-                            # For log subcommands specifically, if no session, show error
-                            # But make sure help subcommands don't require a session
-                            if args.log_subcommand in ['help', 'h']:
-                                # For help subcommand, print help and exit without session
-                                log_parser.print_help()
-                                return
-                            else:
-                                print_error("Session is required for log commands", 2)
-                                sys.exit(1)
-                        elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
-                            # For task subcommands specifically, if no session, show error
-                            # But help subcommand is already handled in task command logic
-                            if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
-                                print_error("Session is required for task commands", 2)
-                                sys.exit(1)
-                        else:
-                            # For other commands in this group, if no session, show error
-                            print_error(f"Session is required for {args.command} command", 2)
-                            sys.exit(1)
+            default_session = find_default_session_file()
+            if default_session:
+                args.session = default_session
+                if args.verbose:
+                    print_info(f"Using default session file: {default_session}", 2)
             else:
-                # No active session, try default session files
-                default_session = find_default_session_file()
-                if default_session:
-                    args.session = default_session
-                    if args.verbose:
-                        print_info(f"Using default session file: {default_session}", 2)
-                else:
-                    # If no session provided and no default exists, show error
-                    if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
-                        # For plan subcommands specifically, if no session, show error
-                        # But make sure help subcommands don't require a session
-                        if args.plan_subcommand in ['help', 'h']:
-                            # For help subcommand, print help and exit without session
-                            plan_parser.print_help()
-                            return
-                        else:
-                            print_error("Session is required for plan commands", 2)
-                            sys.exit(1)
-                    elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
-                        # For rules subcommands specifically, if no session, show error
-                        # But make sure help subcommands don't require a session
-                        if args.rules_subcommand in ['help', 'h']:
-                            # For help subcommand, print help and exit without session
-                            rules_parser.print_help()
-                            return
-                        else:
-                            print_error("Session is required for rules commands", 2)
-                            sys.exit(1)
-                    elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
-                        # For log subcommands specifically, if no session, show error
-                        # But make sure help subcommands don't require a session
-                        if args.log_subcommand in ['help', 'h']:
-                            # For help subcommand, print help and exit without session
-                            log_parser.print_help()
-                            return
-                        else:
-                            print_error("Session is required for log commands", 2)
-                            sys.exit(1)
-                    elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
-                        # For task subcommands specifically, if no session, show error
-                        # But help subcommand is already handled in task command logic
-                        if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
-                            print_error("Session is required for task commands", 2)
-                            sys.exit(1)
+                # If no session provided and no default exists, show error
+                if args.command == 'plan' and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+                    # For plan subcommands specifically, if no session, show error
+                    # But make sure help subcommands don't require a session
+                    if args.plan_subcommand in ['help', 'h']:
+                        # For help subcommand, print help and exit without session
+                        plan_parser.print_help()
+                        return
                     else:
-                        # For other commands in this group, if no session, show error
-                        print_error(f"Session is required for {args.command} command", 2)
+                        print_error("Session is required for plan commands", 2)
                         sys.exit(1)
+                elif args.command == 'rules' and hasattr(args, 'rules_subcommand') and args.rules_subcommand:
+                    # For rules subcommands specifically, if no session, show error
+                    # But make sure help subcommands don't require a session
+                    if args.rules_subcommand in ['help', 'h']:
+                        # For help subcommand, print help and exit without session
+                        rules_parser.print_help()
+                        return
+                    else:
+                        print_error("Session is required for rules commands", 2)
+                        sys.exit(1)
+                elif args.command == 'log' and hasattr(args, 'log_subcommand') and args.log_subcommand:
+                    # For log subcommands specifically, if no session, show error
+                    # But make sure help subcommands don't require a session
+                    if args.log_subcommand in ['help', 'h']:
+                        # For help subcommand, print help and exit without session
+                        log_parser.print_help()
+                        return
+                    else:
+                        print_error("Session is required for log commands", 2)
+                        sys.exit(1)
+                elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
+                    # For task subcommands specifically, if no session, show error
+                    # But help subcommand is already handled in task command logic
+                    if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
+                        print_error("Session is required for task commands", 2)
+                        sys.exit(1)
+                else:
+                    # For other commands in this group, if no session, show error
+                    print_error(f"Session is required for {args.command} command", 2)
+                    sys.exit(1)
 
     if args.command == 'init':
         # Initialize the .maestro directory structure
@@ -2568,11 +2503,6 @@ def main():
                     handle_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force, clean_task=clean_task)
         else:
             # Handle main plan command without subcommands
-            # First check if session is available
-            if not args.session:
-                print_error("Session is required for plan command", 2)
-                sys.exit(1)
-
             if hasattr(args, 'discuss') and args.discuss:
                 handle_interactive_plan_session(args.session, args.verbose, args.stream_ai_output, args.print_ai_prompts, args.planner_order, force_replan=args.force)
             else:
@@ -2680,10 +2610,8 @@ def main():
             handle_task_list(args.session, args.verbose)
     elif args.command == 'log':
         if hasattr(args, 'log_subcommand') and args.log_subcommand:
-            if args.log_subcommand == 'help' or args.log_subcommand == 'h':
-                # Print help for log subcommands without requiring a session
-                log_parser.print_help()
-                return  # Exit after showing help
+            if args.log_subcommand == 'help':
+                handle_log_help(args.session, args.verbose)
             elif args.log_subcommand == 'list':
                 if hasattr(args, 'log_type'):
                     if args.log_type == 'work':
@@ -3099,43 +3027,6 @@ def main():
                     print_error(f"Error checking build targets: {e}", 2)
                     sys.exit(1)
     elif args.command == 'convert':
-        # Check if session is required for convert command
-        # For convert commands that need sessions, try to find an active session first
-        session_path = args.session
-
-        if not session_path:
-            # Check for an active session first
-            active_session_name = get_active_session_name()
-            if active_session_name:
-                # Get the path for the active session
-                active_session_path = get_session_path_by_name(active_session_name)
-                if os.path.exists(active_session_path):
-                    session_path = active_session_path
-                    if args.verbose:
-                        print_info(f"Using active session: {active_session_path}", 2)
-                else:
-                    # Active session points to non-existent file, warn and fall back
-                    print_warning(f"Active session '{active_session_name}' points to missing file. Trying default session files...", 2)
-                    # Fall through to try default session files
-                    default_session = find_default_session_file()
-                    if default_session:
-                        session_path = default_session
-                        if args.verbose:
-                            print_info(f"Using default session file: {default_session}", 2)
-                    else:
-                        print_error("Session is required for convert commands", 2)
-                        sys.exit(1)
-            else:
-                # No active session, try default session files
-                default_session = find_default_session_file()
-                if default_session:
-                    session_path = default_session
-                    if args.verbose:
-                        print_info(f"Using default session file: {default_session}", 2)
-                else:
-                    print_error("Session is required for convert commands", 2)
-                    sys.exit(1)
-
         # Handle conversion pipeline commands
         if hasattr(args, 'convert_subcommand') and args.convert_subcommand:
             if args.convert_subcommand == 'new':
@@ -3282,19 +3173,6 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
     # Only include subtasks that belong to the active plan (if plan tree exists)
     active_plan_id = session.active_plan_id
 
-    # Check if active plan is dead before proceeding
-    if active_plan_id:
-        active_plan = None
-        for plan in session.plans:
-            if plan.plan_id == active_plan_id:
-                active_plan = plan
-                break
-
-        if active_plan and active_plan.status == "dead":
-            print_error(f"Cannot resume: Active plan '{active_plan_id}' is marked as dead.", 2)
-            print_info("Use 'maestro plan list' to see available plans, or 'maestro plan set <plan_id>' to switch to an active plan.", 2)
-            sys.exit(1)
-
     if retry_interrupted:
         target_subtasks = [
             subtask for subtask in session.subtasks
@@ -3371,32 +3249,35 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 goal_parts.append("Continue work from a previous partial attempt")
             goal = "\n".join(goal_parts)
 
-            # Prepare context for the worker prompt
-            context_parts = [f"ROOT TASK (CLEANED):\n{root_task_to_use}"]
-            context_parts.append(f"RELEVANT CATEGORIES:\n{categories_str}")
-            context_parts.append(f"RELEVANT ROOT EXCERPT:\n{root_excerpt}")
+            requirements_parts = [f"ROOT TASK (CLEANED):\n{root_task_to_use}"]
+            requirements_parts.append(f"RELEVANT CATEGORIES:\n{categories_str}")
+            requirements_parts.append(f"RELEVANT ROOT EXCERPT:\n{root_excerpt}")
             if partial_output:
-                context_parts.append(f"PARTIAL RESULT FROM PREVIOUS ATTEMPT:\n{partial_output}")
-            context = "\n\n".join(context_parts)
-
-            requirements_parts = [f"SUBTASK DETAILS:\nid: {subtask.id}\ntitle: {subtask.title}\ndescription:\n{subtask.description}"]
+                requirements_parts.append(f"PARTIAL RESULT FROM PREVIOUS ATTEMPT:\n{partial_output}")
+            requirements_parts.append(f"SUBTASK DETAILS:\nid: {subtask.id}\ntitle: {subtask.title}\ndescription:\n{subtask.description}")
             requirements_parts.append(f"CURRENT RULES:\n{rules}")
-            if partial_output:
-                requirements_parts.append(f"You must continue the work from the partial output above.\nDo not repeat already completed steps.")
-            requirements_parts.append(f"You are an autonomous coding agent working in this repository.")
-            requirements_parts.append(f"Perform ONLY the work needed for this subtask.")
-            requirements_parts.append(f"Use your normal tools and workflows.")
             requirements = "\n\n".join(requirements_parts)
 
-            acceptance_criteria = "The work should be completed according to the subtask requirements. The work should be properly integrated with existing codebase. If continuing from partial work, build upon what was already done without repeating completed steps. When done, write a short summary to the specified file."
+            acceptance_criteria = "The work should be completed according to the subtask requirements. The work should be properly integrated with existing codebase. If continuing from partial work, build upon what was already done without repeating completed steps."
 
-            deliverables = f"Completed work for subtask '{subtask.title}'\nWrite a summary to file: {subtask.summary_file}"
+            deliverables_parts = [f"Completed work for subtask '{subtask.title}'"]
+            deliverables_parts.append(f"Write a summary to file: {subtask.summary_file}")
+            deliverables = "\n".join(deliverables_parts)
 
-            # Build the structured prompt using the new centralized function
-            prompt = build_prompt(goal, context, requirements, acceptance_criteria, deliverables)
+            prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
 
-            # Add engine role declaration
-            prompt += f"[ENGINE ROLE]\nWorker engine: {subtask.worker_model}_worker\nPurpose: Execute the specified subtask and generate appropriate work output\n\n"
+            # Add additional instructions that were in the original prompt
+            prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
+            if partial_output:
+                prompt += f"[CURRENT INSTRUCTIONS]\n"
+                prompt += f"You must continue the work from the partial output above.\n"
+                prompt += f"Do not repeat already completed steps.\n\n"
+            prompt += f"You are an autonomous coding agent working in this repository.\n"
+            prompt += f"- Perform ONLY the work needed for this subtask.\n"
+            prompt += f"- Use your normal tools and workflows.\n"
+            prompt += f"- When you are done, write a short plain-text summary of what you did\n"
+            prompt += f"  into the file: {subtask.summary_file}\n\n"
+            prompt += f"The summary MUST be written to that file before you consider the task complete."
 
             if verbose:
                 print(f"[VERBOSE] Using worker model: {subtask.worker_model}")
@@ -3419,10 +3300,10 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
             if verbose:
                 print(f"[VERBOSE] Generated prompt for engine (length: {len(prompt)} chars)")
 
-            # Save the worker prompt for traceability
-            prompt_file_path = save_prompt_for_traceability(prompt, session_path, "worker", f"{subtask.worker_model}_worker")
-            if verbose:
-                print(f"[VERBOSE] Worker prompt saved to: {prompt_file_path}")
+            # Save the worker prompt to the inputs directory
+            worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{subtask.worker_model}.txt")
+            with open(worker_prompt_filename, "w", encoding="utf-8") as f:
+                f.write(prompt)
 
             # Print AI prompt if requested
             if print_ai_prompts:
@@ -3432,7 +3313,7 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
 
             # Log verbose information
             log_verbose(verbose, f"Engine={subtask.worker_model} subtask={subtask.id}")
-            log_verbose(verbose, f"Prompt file: {prompt_file_path}")
+            log_verbose(verbose, f"Prompt file: {worker_prompt_filename}")
             log_verbose(verbose, f"Output file: {os.path.join(outputs_dir, f'{subtask.id}.txt')}")
 
             # Call engine.generate(prompt) with interruption handling
@@ -3445,11 +3326,6 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 session.status = "interrupted"
                 session.updated_at = datetime.now().isoformat()
                 save_session(session, session_path)
-
-                # Save AI output and partial result for traceability
-                output_file_path = save_ai_output(output if output else "", session_path, "worker", f"{subtask.worker_model}_worker")
-                if verbose:
-                    print(f"[VERBOSE] Partial worker output saved to: {output_file_path}")
 
                 # Save partial output if available
                 partial_dir = os.path.join(maestro_dir, "partials")
@@ -3476,11 +3352,6 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 # Log stderr for engine errors
                 print(f"Engine error stderr: {e.stderr}", file=sys.stderr)
 
-                # Save the engine error output for traceability
-                output_file_path = save_ai_output(f"Engine error: {e.stderr}", session_path, "worker_error", f"{subtask.worker_model}_worker")
-                if verbose:
-                    print(f"[VERBOSE] Worker error output saved to: {output_file_path}")
-
                 print(f"Error: Engine failed with exit code {e.exit_code}: {e.name}", file=sys.stderr)
                 subtask.status = "error"
                 session.status = "failed"
@@ -3488,11 +3359,6 @@ def handle_resume_session(session_path, verbose=False, dry_run=False, stream_ai_
                 save_session(session, session_path)
                 sys.exit(1)
             except Exception as e:
-                # Save any exception output for traceability
-                output_file_path = save_ai_output(f"Exception: {str(e)}", session_path, "worker_exception", f"{subtask.worker_model}_worker")
-                if verbose:
-                    print(f"[VERBOSE] Worker exception output saved to: {output_file_path}")
-
                 print(f"Error: Failed to generate output from engine: {str(e)}", file=sys.stderr)
                 subtask.status = "error"
                 session.status = "failed"
@@ -3753,25 +3619,6 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
     # MIGRATION: Ensure plan tree structure exists for backward compatibility
     migrate_session_if_needed(session)
 
-    # Check if we have an existing active plan and ask if user wants to branch
-    if session.active_plan_id and not force_replan and session.subtasks:
-        print_info(f"Active plan exists: {session.active_plan_id}", 2)
-        response = input("Create a new branch from active plan? [Y/n]: ").strip().lower()
-        if response in ['', 'y', 'yes']:
-            # Create a new plan branch from the active plan
-            parent_plan_id = session.active_plan_id
-            # Get the label from the active plan to use as a basis
-            parent_plan_label = ""
-            for plan in session.plans:
-                if plan.plan_id == parent_plan_id:
-                    parent_plan_label = plan.label
-                    break
-            new_plan_label = f"Branch from {parent_plan_label}" if parent_plan_label else f"Branch from {parent_plan_id[:8]}"
-            new_plan = create_plan_branch(session, parent_plan_id, new_plan_label)
-            print_info(f"Created new plan branch: {new_plan.plan_id} as active plan", 2)
-            # Clear subtasks for the new plan so it can be replanned
-            session.subtasks.clear()
-
     # FORCE REPLAN: If --force-replan is specified, clear all existing subtasks
     if force_replan:
         if verbose:
@@ -3786,18 +3633,6 @@ def handle_interactive_plan_session(session_path, verbose=False, stream_ai_outpu
         session.updated_at = datetime.now().isoformat()
         save_session(session, session_path)
         sys.exit(1)
-
-    # Check if we have refined root task data, warn if only raw task exists
-    if not session.root_task_clean and session.root_task_raw:
-        print_warning("Root task has not been refined yet. Planner may perform better with refined data.", 2)
-        response = input("Would you like to refine the root task now? [Y/n]: ").strip().lower()
-        if response in ['', 'y', 'yes']:
-            handle_root_refine(session_path, verbose, planner_order)
-        else:
-            response2 = input("Continue with raw root task? [Y/n]: ").strip().lower()
-            if response2 not in ['', 'y', 'yes']:
-                print_info("Aborting planning session.", 2)
-                return
 
     # Load rules
     rules = load_rules(session)
@@ -4122,16 +3957,13 @@ def render_plan_tree(plans, active_plan_id):
             GREEN = '\033[32m'   # Active plans
             YELLOW = '\033[33m'  # Inactive plans
             RED = '\033[31m'     # Dead plans
-            BRIGHT_GREEN = '\033[92m'  # Active plans (bright)
-            BRIGHT_RED = '\033[91m'    # Dead plans (bright)
-            BRIGHT_YELLOW = '\033[93m' # Inactive plans (bright)
             RESET = '\033[0m'    # Reset color
         else:
             # No colors for terminals that don't support them
-            GREEN = YELLOW = RED = BRIGHT_GREEN = BRIGHT_RED = BRIGHT_YELLOW = RESET = ''
+            GREEN = YELLOW = RED = RESET = ''
     except:
         # Default to no colors if there's any error
-        GREEN = YELLOW = RED = BRIGHT_GREEN = BRIGHT_RED = BRIGHT_YELLOW = RESET = ''
+        GREEN = YELLOW = RED = RESET = ''
 
     def get_status_marker(plan):
         """Get the status marker for a plan."""
@@ -4145,17 +3977,13 @@ def render_plan_tree(plans, active_plan_id):
     def get_status_color(plan):
         """Get the color code for a plan based on its status."""
         if plan.plan_id == active_plan_id:
-            return BRIGHT_GREEN if plan.status == "active" else GREEN
+            return GREEN
         elif plan.status == "dead":
-            return BRIGHT_RED if plan.status == "dead" else RED
+            return RED
         else:  # inactive
-            return BRIGHT_YELLOW if plan.status == "active" else YELLOW
+            return YELLOW
 
     result_lines = []  # Define result_lines before inner function
-
-    # Add header
-    result_lines.append("Plan Tree Visualization")
-    result_lines.append("=======================")
 
     # Use a helper that tracks which columns have vertical bars
     def draw_recursive(plan, level=0, is_last_child_list=None, prefix=""):
@@ -4171,16 +3999,7 @@ def render_plan_tree(plans, active_plan_id):
         marker = get_status_marker(plan)
         color = get_status_color(plan)
 
-        # Format plan info with additional details like creation time and short label
-        from datetime import datetime
-        try:
-            # Parse the datetime string to make it more readable
-            created_time = datetime.fromisoformat(plan.created_at.replace('Z', '+00:00'))
-            formatted_time = created_time.strftime("%Y-%m-%d %H:%M:%S")
-        except:
-            formatted_time = plan.created_at  # Fallback if parsing fails
-
-        plan_info = f"{color}{marker}{RESET} {plan.plan_id}  {plan.label} [{plan.status}] (created {formatted_time})"
+        plan_info = f"{color}{marker}{RESET} {plan.plan_id}  {plan.label} ({plan.status})"
 
         result_lines.append(f"{prefix}{plan_info}")
 
@@ -4252,70 +4071,25 @@ def handle_kill_plan(session_path, plan_id, verbose=False):
         print(f"Error: Plan with ID '{plan_id}' not found.", file=sys.stderr)
         sys.exit(1)
 
-    # Check if this is the active plan and warn user
-    if plan_id == session.active_plan_id:
-        print_warning(f"WARNING: You are about to kill the active plan '{plan_id}'.", 2)
-        print_info("After killing this plan, you must choose a new active plan from the remaining plans.", 2)
-
-        # List all available non-dead plans for the user to choose from
-        alive_plans = [p for p in session.plans if p.plan_id != plan_id and p.status != "dead"]
-        if not alive_plans:
-            print_error("ERROR: This is the last active plan. Killing it would leave no active plan.", 2)
-            print_info("You cannot kill the last active plan without another plan to switch to.", 2)
-            sys.exit(1)
-        else:
-            print_info(f"Available plans to switch to: {[p.plan_id for p in alive_plans]}", 2)
-            response = input("Do you still want to kill this active plan? [y/N]: ").strip().lower()
-            if response not in ['y', 'yes']:
-                print_info("Kill plan operation cancelled.", 2)
-                return
-
     # Ask for confirmation before marking as dead
     subtasks_for_plan = [st for st in session.subtasks if st.plan_id == plan_id]
     subtask_count = len(subtasks_for_plan)
 
-    print_info(f"Marking plan '{plan_id}' as dead will affect {subtask_count} subtasks.", 2)
+    print(f"Marking plan '{plan_id}' as dead will affect {subtask_count} subtasks.")
     if subtask_count > 0:
-        print_info(f"Affected subtasks: {[st.title for st in subtasks_for_plan][:5]}{'...' if subtask_count > 5 else ''}", 2)
+        print(f"Subtasks: {[st.title for st in subtasks_for_plan][:5]}{'...' if subtask_count > 5 else ''}")
 
     response = input(f"Are you sure you want to mark PLAN_ID={plan_id} as dead? [y/N]: ").strip().lower()
     if response not in ['y', 'yes']:
-        print_info("Kill plan operation cancelled.", 2)
+        print("Kill plan operation cancelled.")
         return
 
     # Mark the plan as dead
     target_plan.status = "dead"
 
-    # If this was the active plan, force the user to select a new active plan
-    if plan_id == session.active_plan_id:
-        alive_plans = [p for p in session.plans if p.status != "dead"]
-
-        if alive_plans:
-            print_header("SELECT NEW ACTIVE PLAN")
-            for i, p in enumerate(alive_plans, 1):
-                marker = "[*]" if p.plan_id == session.active_plan_id else "[ ]"
-                print(f"  {i}. {marker} {p.plan_id} - {p.label} ({p.status})")
-
-            while True:
-                try:
-                    choice_input = input(f"Enter the number of the plan to make active (1-{len(alive_plans)}): ").strip()
-                    choice_idx = int(choice_input) - 1
-                    if 0 <= choice_idx < len(alive_plans):
-                        new_active_plan_id = alive_plans[choice_idx].plan_id
-                        session.active_plan_id = new_active_plan_id
-                        print_info(f"Switched active plan to: {new_active_plan_id}", 2)
-                        break
-                    else:
-                        print_error(f"Invalid choice. Please enter a number between 1 and {len(alive_plans)}.", 2)
-                except ValueError:
-                    print_error("Invalid input. Please enter a number.", 2)
-
-        else:
-            print_warning("No active plans remain after killing this plan.", 2)
-
     # Optionally, we could also mark subtasks as cancelled, but for now just update the plan status
     save_session(session, session_path)
-    print_success(f"Plan {plan_id} has been marked as dead.", 2)
+    print(f"Plan {plan_id} has been marked as dead.")
 
 
 def handle_focus_plan(session_path, plan_id, verbose=False):
@@ -4344,16 +4118,6 @@ def handle_focus_plan(session_path, plan_id, verbose=False):
         print(f"Error: Plan with ID '{plan_id}' not found.", file=sys.stderr)
         sys.exit(1)
 
-    # Check if the plan is dead - refuse to switch to dead plans
-    if target_plan.status == "dead":
-        print(f"Error: Cannot switch to plan '{plan_id}' because it is marked as dead.", file=sys.stderr)
-        print(f"Plan '{plan_id}' status is: {target_plan.status}")
-        # List dead plans for the user
-        dead_plans = [p for p in session.plans if p.status == "dead"]
-        if dead_plans:
-            print(f"Dead plans: {[p.plan_id for p in dead_plans]}")
-        sys.exit(1)
-
     # Check if switching focus would affect subtasks
     current_active_plan = None
     if session.active_plan_id:
@@ -4367,22 +4131,16 @@ def handle_focus_plan(session_path, plan_id, verbose=False):
     current_plan_subtasks = [st for st in session.subtasks if st.plan_id == session.active_plan_id] if session.active_plan_id else []
 
     if new_plan_subtasks and current_plan_subtasks and new_plan_subtasks != current_plan_subtasks:
-        print_warning(f"This plan branch has {len(new_plan_subtasks)} subtasks that may need to be re-run or ignored.", 2)
+        print(f"This plan branch has {len(new_plan_subtasks)} subtasks that may need to be re-run or ignored.")
         response = input(f"Are you sure you want to switch focus to PLAN_ID={plan_id}? [y/N]: ").strip().lower()
         if response not in ['y', 'yes']:
-            print_info("Plan focus switch cancelled.", 2)
+            print("Plan focus switch cancelled.")
             return
-
-    # Check if there's an active plan that is dead and warn user
-    if session.active_plan_id:
-        current_plan = next((p for p in session.plans if p.plan_id == session.active_plan_id), None)
-        if current_plan and current_plan.status == "dead":
-            print_warning(f"Warning: Current active plan '{session.active_plan_id}' is dead. Switching to '{plan_id}' is recommended.", 2)
 
     # Set the new active plan
     session.active_plan_id = plan_id
     save_session(session, session_path)
-    print_success(f"Plan focus switched to: {plan_id} ({target_plan.label})", 2)
+    print(f"Plan focus switched to: {plan_id}")
 
 
 
@@ -4435,25 +4193,6 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
     # MIGRATION: Ensure plan tree structure exists for backward compatibility
     migrate_session_if_needed(session)
 
-    # Check if we have an existing active plan and ask if user wants to branch
-    if session.active_plan_id and not force_replan and session.subtasks:
-        print_info(f"Active plan exists: {session.active_plan_id}", 2)
-        response = input("Create a new branch from active plan? [Y/n]: ").strip().lower()
-        if response in ['', 'y', 'yes']:
-            # Create a new plan branch from the active plan
-            parent_plan_id = session.active_plan_id
-            # Get the label from the active plan to use as a basis
-            parent_plan_label = ""
-            for plan in session.plans:
-                if plan.plan_id == parent_plan_id:
-                    parent_plan_label = plan.label
-                    break
-            new_plan_label = f"Branch from {parent_plan_label}" if parent_plan_label else f"Branch from {parent_plan_id[:8]}"
-            new_plan = create_plan_branch(session, parent_plan_id, new_plan_label)
-            print_info(f"Created new plan branch: {new_plan.plan_id} as active plan", 2)
-            # Clear subtasks for the new plan so it can be replanned
-            session.subtasks.clear()
-
     # FORCE REPLAN: If --force-replan is specified, clear all existing subtasks
     if force_replan:
         if verbose:
@@ -4469,18 +4208,6 @@ def handle_plan_session(session_path, verbose=False, stream_ai_output=False, pri
         session.updated_at = datetime.now().isoformat()
         save_session(session, session_path)
         sys.exit(1)
-
-    # Check if we have refined root task data, warn if only raw task exists
-    if not session.root_task_clean and session.root_task_raw:
-        print_warning("Root task has not been refined yet. Planner may perform better with refined data.", 2)
-        response = input("Would you like to refine the root task now? [Y/n]: ").strip().lower()
-        if response in ['', 'y', 'yes']:
-            handle_root_refine(session_path, verbose, planner_order)
-        else:
-            response2 = input("Continue with raw root task? [Y/n]: ").strip().lower()
-            if response2 not in ['', 'y', 'yes']:
-                print_info("Aborting planning session.", 2)
-                return
 
     # Load rules
     rules = load_rules(session)
@@ -4800,89 +4527,10 @@ def collect_worker_summaries(session: Session, session_path: str) -> str:
     return summaries_text
 
 
-def build_prompt(
-    goal: str,
-    context: str | None,
-    requirements: str | None,
-    acceptance: str | None,
-    deliverables: str | None,
-) -> str:
-    """
-    Centralized prompt builder with strict validation. All sections are mandatory.
-    If a section is not applicable, use the literal text "None".
-
-    Args:
-        goal: The main goal/task objective
-        context: Background context and current state
-        requirements: Specific requirements that must be met
-        acceptance: Acceptance criteria for completion
-        deliverables: Expected deliverables from the task
-
-    Returns:
-        The complete structured prompt string
-    """
-    # Validate inputs and set defaults if needed
-    goal = goal if goal is not None else "None"
-    context = context if context is not None else "None"
-    requirements = requirements if requirements is not None else "None"
-    acceptance = acceptance if acceptance is not None else "None"
-    deliverables = deliverables if deliverables is not None else "None"
-
-    # Construct the prompt with required sections
-    prompt = f"[GOAL]\n{goal}\n\n"
-    prompt += f"[CONTEXT]\n{context}\n\n"
-    prompt += f"[REQUIREMENTS]\n{requirements}\n\n"
-    prompt += f"[ACCEPTANCE CRITERIA]\n{acceptance}\n\n"
-    prompt += f"[DELIVERABLES]\n{deliverables}\n\n"
-
-    # Validate that all required sections exist
-    missing_sections = []
-    if "[GOAL]" not in prompt:
-        missing_sections.append("[GOAL]")
-    if "[CONTEXT]" not in prompt:
-        missing_sections.append("[CONTEXT]")
-    if "[REQUIREMENTS]" not in prompt:
-        missing_sections.append("[REQUIREMENTS]")
-    if "[ACCEPTANCE CRITERIA]" not in prompt:
-        missing_sections.append("[ACCEPTANCE CRITERIA]")
-    if "[DELIVERABLES]" not in prompt:
-        missing_sections.append("[DELIVERABLES]")
-
-    if missing_sections:
-        raise ValueError(f"Prompt validation failed: Missing required sections: {', '.join(missing_sections)}")
-
-    # Validate that each section has content (not empty after the header)
-    sections = prompt.split('\n\n')
-    for i, section in enumerate(sections):
-        if section.startswith('[GOAL]'):
-            content = section[len('[GOAL]\n'):].strip()
-            if not content:
-                raise ValueError("GOAL section cannot be empty")
-        elif section.startswith('[CONTEXT]'):
-            content = section[len('[CONTEXT]\n'):].strip()
-            if not content:
-                raise ValueError("CONTEXT section cannot be empty")
-        elif section.startswith('[REQUIREMENTS]'):
-            content = section[len('[REQUIREMENTS]\n'):].strip()
-            if not content:
-                raise ValueError("REQUIREMENTS section cannot be empty")
-        elif section.startswith('[ACCEPTANCE CRITERIA]'):
-            content = section[len('[ACCEPTANCE CRITERIA]\n'):].strip()
-            if not content:
-                raise ValueError("ACCEPTANCE CRITERIA section cannot be empty")
-        elif section.startswith('[DELIVERABLES]'):
-            content = section[len('[DELIVERABLES]\n'):].strip()
-            if not content:
-                raise ValueError("DELIVERABLES section cannot be empty")
-
-    return prompt
-
-
 def build_structured_prompt(goal: str = "None", requirements: str = "None", acceptance_criteria: str = "None", deliverables: str = "None") -> str:
     """
     Build a structured prompt with required sections.
     If a section is irrelevant, use "None" as the value.
-    This function is maintained for backward compatibility.
 
     Args:
         goal: The main goal of the task
@@ -4893,244 +4541,23 @@ def build_structured_prompt(goal: str = "None", requirements: str = "None", acce
     Returns:
         The structured prompt string with all required sections
     """
-    # For backward compatibility, map the old format to the new one
-    context = "None"  # Using context as a placeholder since old format doesn't have it
-    return build_prompt(
-        goal=goal,
-        context=context,
-        requirements=requirements,
-        acceptance=acceptance_criteria,
-        deliverables=deliverables
-    )
+    prompt = f"[GOAL]\n{goal}\n\n"
+    prompt += f"[REQUIREMENTS]\n{requirements}\n\n"
+    prompt += f"[ACCEPTANCE CRITERIA]\n{acceptance_criteria}\n\n"
+    prompt += f"[DELIVERABLES]\n{deliverables}\n\n"
 
+    # Validation check to ensure all sections exist
+    assert "[GOAL]" in prompt, "Structured prompt must contain [GOAL] section"
+    assert "[REQUIREMENTS]" in prompt, "Structured prompt must contain [REQUIREMENTS] section"
+    assert "[ACCEPTANCE CRITERIA]" in prompt, "Structured prompt must contain [ACCEPTANCE CRITERIA] section"
+    assert "[DELIVERABLES]" in prompt, "Structured prompt must contain [DELIVERABLES] section"
 
-def build_build_target_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: list) -> str:
-    """
-    Build target planner template that returns machine-parseable JSON describing build steps, diagnostics commands, categories, verification strategy.
-
-    Args:
-        root_task: The main task
-        summaries: Concatenated worker summaries
-        rules: Current rules
-        subtasks: Current list of subtasks
-
-    Returns:
-        The complete build target planner prompt string
-    """
-    # Build current plan string with subtasks and statuses
-    current_plan_parts = []
-    for i, subtask in enumerate(subtasks, 1):
-        current_plan_parts.append(f"{i}. {subtask.title} [{subtask.status}]")
-        current_plan_parts.append(f"   {subtask.description}")
-    current_plan = "\n".join(current_plan_parts) if subtasks else "(no current plan)"
-
-    goal = f"Propose an updated subtask plan for building the target based on the root task: {root_task}"
-    context = f"CURRENT RULES:\n{rules}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
-    requirements = (
-        "Return a JSON object with a 'subtasks' field containing an array of subtask objects.\n"
-        "- Each subtask object should have 'title', 'description', 'categories', and 'root_excerpt' fields.\n"
-        "- Include 'root' field with 'raw_summary', 'clean_text', and 'categories'.\n"
-        "- Use the cleaned root task and categories to guide subtask creation.\n"
-        "- Consider previous subtask summaries when planning new tasks.\n"
-        "- The root.clean_text should be a cleaned-up, well-structured description.\n"
-        "- The root.raw_summary should be 1-3 sentences summarizing the intent.\n"
-        "- The root.categories should be high-level categories from the root task.\n"
-        "- For each subtask, select which categories apply and provide an optional root_excerpt.\n"
-        "- You may add new subtasks if strictly necessary.\n"
-        "- Keep the number of subtasks manageable.\n"
-        "- Explicitly return valid JSON with no additional text or explanations outside the JSON.\n"
-        "- The JSON should include fields for build steps, diagnostics commands, categories, and verification strategy."
-    )
-    acceptance = (
-        "The response is valid JSON with required subtasks array\n"
-        "Each subtask has title, description, categories, and root_excerpt\n"
-        "JSON has root information with clean_text, raw_summary, and categories\n"
-        "Response contains no additional text outside JSON structure"
-    )
-    deliverables = (
-        "JSON object with subtasks array containing properly structured subtask objects\n"
-        "Root information with clean_text, raw_summary, and categories\n"
-        "Build steps, diagnostics commands, categories, and verification strategy specified"
-    )
-
-    return build_prompt(goal, context, requirements, acceptance, deliverables)
-
-
-def build_fix_rulebook_planner_prompt(root_task: str, summaries: str, rules: str, diagnostics: str, subtasks: list) -> str:
-    """
-    Fix rulebook planner template that returns JSON describing trigger patterns, proposed fixes, verification steps, escalation conditions.
-
-    Args:
-        root_task: The main task
-        summaries: Concatenated worker summaries
-        rules: Current rules
-        diagnostics: Current diagnostic information
-        subtasks: Current list of subtasks
-
-    Returns:
-        The complete fix rulebook planner prompt string
-    """
-    # Build current plan string with subtasks and statuses
-    current_plan_parts = []
-    for i, subtask in enumerate(subtasks, 1):
-        current_plan_parts.append(f"{i}. {subtask.title} [{subtask.status}]")
-        current_plan_parts.append(f"   {subtask.description}")
-    current_plan = "\n".join(current_plan_parts) if subtasks else "(no current plan)"
-
-    goal = f"Propose fix rules based on diagnostic information and the root task: {root_task}"
-    context = f"CURRENT RULES:\n{rules}\n\nCURRENT DIAGNOSTICS:\n{diagnostics}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
-    requirements = (
-        "Return a JSON object with a 'rules' field containing an array of rule objects.\n"
-        "- Each rule object should have 'id', 'enabled', 'priority', 'match', 'confidence', 'explanation', 'actions', and 'verify' fields.\n"
-        "- The 'match' field should contain patterns for trigger detection (error strings, symbols, file patterns).\n"
-        "- The 'actions' field should describe proposed fixes with type and implementation details.\n"
-        "- The 'verify' field should specify verification steps.\n"
-        "- Include 'escalation_conditions' for when fixes should be escalated.\n"
-        "- Return only valid JSON with no additional text or explanations outside the JSON.\n"
-        "- Focus on reactive rules that match diagnostic patterns and provide automated fixes."
-    )
-    acceptance = (
-        "The response is valid JSON with required rules array\n"
-        "Each rule has proper structure with id, enabled, priority, match, confidence, explanation, actions, verify\n"
-        "Match conditions include error strings, symbols, file patterns\n"
-        "Actions describe proposed fixes\n"
-        "Verification steps are specified\n"
-        "Escalation conditions are defined\n"
-        "Response contains no additional text outside JSON structure"
-    )
-    deliverables = (
-        "JSON object with rules array containing properly structured rule objects\n"
-        "Trigger patterns (error strings, symbols, file patterns) specified\n"
-        "Proposed fixes with implementation details\n"
-        "Verification steps and escalation conditions defined"
-    )
-
-    return build_prompt(goal, context, requirements, acceptance, deliverables)
-
-
-def build_conversion_pipeline_planner_prompt(root_task: str, summaries: str, current_stage: str, artifacts: str, subtasks: list) -> str:
-    """
-    Conversion pipeline planner template that returns JSON describing stages, entry/exit criteria, expected artifacts, failure handling.
-
-    Args:
-        root_task: The main task
-        summaries: Concatenated worker summaries
-        current_stage: Current stage of conversion
-        artifacts: Current artifacts available
-        subtasks: Current list of subtasks
-
-    Returns:
-        The complete conversion pipeline planner prompt string
-    """
-    # Build current plan string with subtasks and statuses
-    current_plan_parts = []
-    for i, subtask in enumerate(subtasks, 1):
-        current_plan_parts.append(f"{i}. {subtask.title} [{subtask.status}]")
-        current_plan_parts.append(f"   {subtask.description}")
-    current_plan = "\n".join(current_plan_parts) if subtasks else "(no current plan)"
-
-    goal = f"Propose an updated conversion pipeline plan based on the root task: {root_task} and current stage: {current_stage}"
-    context = f"CURRENT ARTIFACTS:\n{artifacts}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
-    requirements = (
-        "Return a JSON object with a 'stages' field containing an array of stage objects.\n"
-        "- Each stage object should have 'name', 'status', 'entry_criteria', 'exit_criteria', 'expected_artifacts', 'failure_handling', and 'details' fields.\n"
-        "- Include 'pipeline' field with overall pipeline configuration.\n"
-        "- Define clear entry and exit criteria for each stage.\n"
-        "- Specify expected artifacts for each stage.\n"
-        "- Define failure handling strategies.\n"
-        "- Return only valid JSON with no additional text or explanations outside the JSON.\n"
-        "- The conversion pipeline should be structured with proper progression from source to target."
-    )
-    acceptance = (
-        "The response is valid JSON with required stages array\n"
-        "Each stage has proper structure with name, status, entry/exit criteria, artifacts, failure handling\n"
-        "Entry and exit criteria are clearly defined\n"
-        "Expected artifacts are specified\n"
-        "Failure handling strategies are defined\n"
-        "Response contains no additional text outside JSON structure"
-    )
-    deliverables = (
-        "JSON object with stages array containing properly structured stage objects\n"
-        "Entry and exit criteria for each stage\n"
-        "Expected artifacts specified\n"
-        "Failure handling strategies defined\n"
-        "Overall pipeline configuration provided"
-    )
-
-    return build_prompt(goal, context, requirements, acceptance, deliverables)
-
-
-def save_prompt_for_traceability(prompt: str, session_path: str, prompt_type: str, engine_name: str = "unknown") -> str:
-    """
-    Save the constructed prompt to enable traceability and debugging.
-
-    Args:
-        prompt: The constructed prompt string
-        session_path: Path to the session directory
-        prompt_type: Type of prompt (e.g., 'planner', 'worker', 'build_target_planner', etc.)
-        engine_name: Name of the engine that will process this prompt
-
-    Returns:
-        Path to the saved prompt file
-    """
-    import time
-    import os
-
-    # Create inputs directory if it doesn't exist
-    maestro_dir = get_maestro_dir(session_path)
-    inputs_dir = os.path.join(maestro_dir, "inputs")
-    os.makedirs(inputs_dir, exist_ok=True)
-
-    # Create timestamp
-    timestamp = int(time.time())
-
-    # Create filename with type, engine, and timestamp
-    prompt_filename = os.path.join(inputs_dir, f"{prompt_type}_{engine_name}_{timestamp}.txt")
-
-    # Write the prompt to the file
-    with open(prompt_filename, "w", encoding="utf-8") as f:
-        f.write(prompt)
-
-    return prompt_filename
-
-
-def save_ai_output(output: str, session_path: str, output_type: str, engine_name: str = "unknown") -> str:
-    """
-    Save the AI output to enable traceability and debugging.
-
-    Args:
-        output: The AI output string
-        session_path: Path to the session directory
-        output_type: Type of output (e.g., 'planner', 'worker', etc.)
-        engine_name: Name of the engine that generated this output
-
-    Returns:
-        Path to the saved output file
-    """
-    import time
-    import os
-
-    # Create outputs directory if it doesn't exist
-    maestro_dir = get_maestro_dir(session_path)
-    outputs_dir = os.path.join(maestro_dir, "outputs")
-    os.makedirs(outputs_dir, exist_ok=True)
-
-    # Create timestamp
-    timestamp = int(time.time())
-
-    # Create filename with type, engine, and timestamp
-    output_filename = os.path.join(outputs_dir, f"{output_type}_{engine_name}_{timestamp}.txt")
-
-    # Write the output to the file
-    with open(output_filename, "w", encoding="utf-8") as f:
-        f.write(output)
-
-    return output_filename
+    return prompt
 
 
 def build_planner_prompt(root_task: str, summaries: str, rules: str, subtasks: list) -> str:
     """
-    Build the planner prompt with all required sections. Kept for backward compatibility.
+    Build the planner prompt with all required sections.
 
     Args:
         root_task: The main task
@@ -5340,16 +4767,12 @@ def handle_root_set(session_path, text=None, verbose=False):
     # Set the root task in the session
     session.root_task = root_task_text.strip()
     session.root_task_raw = root_task_text.strip()  # Also set raw for consistency
-    # Clear the refined fields since we now have a new raw input
-    session.root_task_clean = None
-    session.root_task_summary = None
-    session.root_task_categories = []
     session.updated_at = datetime.now().isoformat()
 
     # Save the updated session
     save_session(session, session_path)
 
-    print_success(f"Root task set successfully (length: {len(root_task_text)} characters), refined fields cleared")
+    print_success(f"Root task set successfully (length: {len(root_task_text)} characters)")
 
 
 def handle_root_get(session_path, clean=False, verbose=False):
@@ -5417,7 +4840,7 @@ def handle_root_discuss(session_path, verbose=False, stream_ai_output=False, pri
     ]
 
     print_header("ROOT TASK DISCUSSION MODE")
-    print_info("Ready to discuss the root task. Type '/done' to finalize, '/abort' to discard changes.", 4)
+    print_info("Ready to discuss the root task. Type 'quit' or 'exit' to finish.", 4)
 
     # Print initial message from AI
     print(f"\n[AI]: {conversation[-1]['content']}")
@@ -5428,12 +4851,8 @@ def handle_root_discuss(session_path, verbose=False, stream_ai_output=False, pri
             user_input = input("\n[USER]: ").strip()
 
             # Check for exit conditions
-            if user_input.lower() == '/done':
-                print_info("Finalizing root task discussion...", 2)
+            if user_input.lower() in ['quit', 'exit', 'done', 'finish']:
                 break
-            elif user_input.lower() == '/abort':
-                print_info("Aborting conversation, changes will be discarded.", 2)
-                return
 
             # Add user message to conversation
             conversation.append({"role": "user", "content": user_input})
@@ -5488,85 +4907,7 @@ def handle_root_discuss(session_path, verbose=False, stream_ai_output=False, pri
         sys.exit(1)
 
     # At this point, the conversation is complete
-    # Ask the AI to generate final JSON with refined root, summary, and categories
-    final_prompt = f"Based on our conversation about the root task, please return ONLY valid JSON with the following fields:\n"
-    final_prompt += f"{{\n"
-    final_prompt += f'  "version": 1,\n'
-    final_prompt += f'  "clean_text": "refined version of the root task",\n'
-    final_prompt += f'  "raw_summary": "1-3 sentences summarizing the intent",\n'
-    final_prompt += f'  "categories": ["list", "of", "relevant", "categories"]\n'
-    final_prompt += f"}}\n\n"
-    final_prompt += f"Conversation transcript:\n"
-    for msg in conversation:
-        final_prompt += f"{msg['role'].upper()}: {msg['content']}\n"
-
-    # Get AI to format the final result as JSON
-    try:
-        # Find the first available engine
-        engine = None
-        for model_name in planner_preference:
-            try:
-                from .engines import get_engine
-                engine = get_engine(model_name + "_planner", debug=verbose, stream_output=False)
-                break
-            except Exception as e:
-                if verbose:
-                    print_debug(f"Failed to get engine {model_name}_planner: {e}", 2)
-                continue
-
-        if not engine:
-            print_error("No available AI engine found for finalizing", 2)
-            sys.exit(1)
-
-        final_json_response = engine.generate(final_prompt)
-
-        # Try to extract JSON from the response
-        import re
-        json_match = re.search(r'\{.*\}', final_json_response, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(0)
-            import json as json_module
-            try:
-                final_result = json_module.loads(json_str)
-
-                # Update session with the refined fields
-                session.root_task_clean = final_result.get("clean_text", session.root_task_clean)
-                session.root_task_summary = final_result.get("raw_summary", session.root_task_summary)
-                session.root_task_categories = final_result.get("categories", session.root_task_categories)
-
-                # Update the session with conversation history
-                timestamp = datetime.now().isoformat()
-                history_entry = {
-                    "type": "discussion",
-                    "timestamp": timestamp,
-                    "initial_raw": session.root_task_raw if session.root_task_raw else session.root_task,
-                    "final_clean": session.root_task_clean,
-                    "final_summary": session.root_task_summary,
-                    "final_categories": session.root_task_categories,
-                    "conversation": conversation
-                }
-                session.root_history.append(history_entry)
-
-                # Save the updated session
-                save_session(session, session_path)
-
-                print_success("Root task discussion finalized successfully", 2)
-                print_info(f"Cleaned text: {session.root_task_clean[:100]}..." if session.root_task_clean and len(session.root_task_clean) > 100 else f"Cleaned text: {session.root_task_clean}", 2)
-                print_info(f"Categories: {session.root_task_categories}", 2)
-
-            except json_module.JSONDecodeError:
-                print_error("Could not parse JSON from AI response", 2)
-                print_info(f"Raw AI response: {final_json_response}", 2)
-        else:
-            print_error("Could not extract JSON from AI response", 2)
-            print_info(f"Raw AI response: {final_json_response}", 2)
-
-    except Exception as e:
-        print_error(f"Error finalizing root task discussion: {e}", 2)
-        # Still save the conversation even if finalization fails
-        print_info("Conversation was saved but root task was not updated", 2)
-
-    # Save the conversation as a separate file
+    # We'll save the conversation but not necessarily update the session
     conversation_filename = os.path.join(conversations_dir, f"root_discussion_{int(time.time())}.txt")
     with open(conversation_filename, "w", encoding="utf-8") as f:
         f.write(f"Root task discussion conversation\n\n")
@@ -5596,11 +4937,10 @@ def handle_root_show(session_path, verbose=False):
         sys.exit(1)
 
     print_header("ROOT TASK DETAILS")
-    print(f"Raw: {session.root_task_raw if session.root_task_raw else (session.root_task if session.root_task else '(empty)')}")
+    print(f"Raw: {session.root_task_raw if session.root_task_raw else session.root_task}")
     print(f"Clean: {session.root_task_clean if session.root_task_clean else '(not refined yet)'}")
     print(f"Summary: {session.root_task_summary if session.root_task_summary else '(not refined yet)'}")
     print(f"Categories: {session.root_task_categories if session.root_task_categories else ['(not refined yet)']}")
-    print(f"History entries: {len(session.root_history) if hasattr(session, 'root_history') else 0}")
 
 
 def create_root_refinement_prompt(root_task_raw):
@@ -5608,22 +4948,11 @@ def create_root_refinement_prompt(root_task_raw):
     Create the prompt for root task refinement.
     """
     goal = "Rewrite, summarize, and categorize the user's original project description."
-    context = f"ORIGINAL PROJECT DESCRIPTION:\n{root_task_raw}"
-    requirements = (
-        "Return valid JSON with fields: version, clean_text (clear, structured, well-written restatement), "
-        "raw_summary (1-3 sentences summarizing the intent), and categories (list of high-level conceptual categories). "
-        "Respond ONLY with valid JSON in the following format:\n"
-        "{\n"
-        '  "version": 1,\n'
-        '  "clean_text": "...",\n'
-        '  "raw_summary": "...",\n'
-        '  "categories": []\n'
-        "}"
-    )
+    requirements = f"ORIGINAL PROJECT DESCRIPTION:\n{root_task_raw}"
     acceptance_criteria = "Return valid JSON with fields: version, clean_text (clear, structured, well-written restatement), raw_summary (1-3 sentences summarizing the intent), and categories (list of high-level conceptual categories)."
     deliverables = "JSON object with fields: version=1, clean_text, raw_summary, and categories (list of high-level conceptual categories like: architecture, backend, frontend, api, deployment, research, ui/ux, testing, refactoring, docs, etc.)"
 
-    prompt = build_prompt(goal, context, requirements, acceptance_criteria, deliverables)
+    prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
 
     # Add specific format requirements
     prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
@@ -5974,13 +5303,8 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
                 active_plan = plan
                 break
 
-    # Validate that the active plan is not dead
+    # Determine target subtasks based on active plan or all pending tasks
     if active_plan:
-        if active_plan.status == "dead":
-            print_error(f"Cannot execute tasks: Active plan '{active_plan_id}' is marked as dead.", 2)
-            print_info("Use 'maestro plan list' to see available plans, or 'maestro plan set <plan_id>' to switch to an active plan.", 2)
-            sys.exit(1)
-
         # Only consider subtasks from the active plan
         target_subtasks = [
             subtask for subtask in session.subtasks
@@ -5989,7 +5313,6 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
         ]
     else:
         # Consider all pending subtasks if no active plan
-        print_warning("No active plan set. Consider setting an active plan using 'maestro plan set'.", 2)
         target_subtasks = [
             subtask for subtask in session.subtasks
             if subtask.status == "pending"
@@ -6813,31 +6136,31 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
                 duration = time.time() - start_time
                 success = optional  # Optional steps succeed if error occurs
 
-                step_result = StepResult(
-                    step_name=step_name,
-                    exit_code=1,
-                    stdout="",
-                    stderr=str(e),
-                    duration=duration,
-                    success=success
-                )
+            step_result = StepResult(
+                step_name=step_name,
+                exit_code=1,
+                stdout="",
+                stderr=str(e),
+                duration=duration,
+                success=success
+            )
 
-                step_results.append(step_result)
+            step_results.append(step_result)
 
-                # Write step logs to files in the run directory
-                stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
-                stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
+            # Write step logs to files in the run directory
+            stdout_log_path = os.path.join(run_path, f"step_{step_name}.stdout.txt")
+            stderr_log_path = os.path.join(run_path, f"step_{step_name}.stderr.txt")
 
-                with open(stdout_log_path, 'w', encoding='utf-8') as f:
-                    f.write("")
+            with open(stdout_log_path, 'w', encoding='utf-8') as f:
+                f.write("")
 
-                with open(stderr_log_path, 'w', encoding='utf-8') as f:
-                    f.write(str(e))
+            with open(stderr_log_path, 'w', encoding='utf-8') as f:
+                f.write(str(e))
 
-                if success:
-                    print_warning(f"Step '{step_name}' skipped due to error (but optional): {e}", 4)
-                else:
-                    print_error(f"Step '{step_name}' failed with error: {e}", 4)
+            if success:
+                print_warning(f"Step '{step_name}' skipped due to error (but optional): {e}", 4)
+            else:
+                print_error(f"Step '{step_name}' failed with error: {e}", 4)
 
     # Create and return the overall result
     overall_success = all(sr.success for sr in step_results)
@@ -8913,116 +8236,13 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
     if rules:
         requirements_parts.append(f"[PROJECT RULES]\n{rules}")
 
-    context_parts = []
-    # Add repo context
-    session_dir = os.path.dirname(os.path.abspath(session_path))
-    context_parts.append("[REPO CONTEXT]")
-
-    # Add tree structure (first few levels)
-    try:
-        import glob
-        dirs = [d for d in glob.glob(os.path.join(session_dir, "*")) if os.path.isdir(d)]
-        files = [f for f in glob.glob(os.path.join(session_dir, "*")) if os.path.isfile(f)]
-
-        context_parts.append("Directory structure:")
-        context_parts.append(f"  Directories: {', '.join([os.path.basename(d) for d in dirs[:10]])}")
-        context_parts.append(f"  Files: {', '.join([os.path.basename(f) for f in files[:10]])}")
-    except:
-        context_parts.append("Could not retrieve directory structure.")
-
-    # Add pipeline step outputs (focused excerpts)
-    build_dir = get_build_dir(session_path)
-    logs_dir = os.path.join(build_dir, "logs")
-
-    if os.path.exists(logs_dir):
-        import glob
-        log_files = glob.glob(os.path.join(logs_dir, "*.log"))
-        if log_files:
-            # Get the most recent log
-            latest_log = max(log_files, key=os.path.getctime)
-            try:
-                with open(latest_log, 'r', encoding='utf-8') as f:
-                    log_content = f.read()
-                    # Take first 1000 characters to avoid huge prompts
-                    log_excerpt = log_content[:1000] if len(log_content) > 1000 else log_content
-                    context_parts.append(f"[PIPELINE OUTPUT EXCERPT]\n{log_excerpt}")
-            except:
-                context_parts.append("[PIPELINE OUTPUT EXCERPT]\nCould not read pipeline logs.")
-        else:
-            context_parts.append("[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.")
-    else:
-        context_parts.append("[PIPELINE OUTPUT EXCERPT]\nNo pipeline logs available.")
-
-    # Add iteration count and failed signatures for escalation logic
-    if iteration_count is not None:
-        context_parts.append(f"[ITERATION COUNT]\nCurrent iteration: {iteration_count}")
-    if failed_signatures:
-        context_parts.append(f"[FAILED SIGNATURES]\nSignatures that failed to resolve: {list(failed_signatures.keys())}")
-
-    context = "\n".join(context_parts)
-
-    requirements_parts = []
-
-    # Add extracted diagnostics (top N)
-    requirements_parts.append("[TARGET DIAGNOSTICS]")
-    for i, diag in enumerate(target_diagnostics):
-        diag_info = f"Diagnostic #{i+1}:"
-        diag_info += f"  Tool: {diag.tool}"
-        diag_info += f"  Severity: {diag.severity}"
-        diag_info += f"  File: {diag.file}"
-        diag_info += f"  Line: {diag.line}"
-        diag_info += f"  Message: {diag.message}"
-        diag_info += f"  Signature: {diag.signature}"
-        diag_info += f"  Raw: {diag.raw}"
-        requirements_parts.append(diag_info)
-
-        if diag.known_issues:
-            diag_info = "  Known Issues:"
-            for issue in diag.known_issues:
-                diag_info += f"    - ID: {issue.id}"
-                diag_info += f"      Description: {issue.description}"
-                diag_info += f"      Fix Hint: {issue.fix_hint}"
-                diag_info += f"      Confidence: {issue.confidence}"
-            requirements_parts.append(diag_info)
-
-    # Add target signature(s) to eliminate
-    target_signatures = {d.signature for d in target_diagnostics}
-    requirements_parts.append(f"[TARGET SIGNATURES TO ELIMINATE]")
-    for sig in target_signatures:
-        requirements_parts.append(f"  - {sig}")
-
-    # Match diagnostics against active rulebooks and add matched rules to prompt
-    matched_rules = match_rulebooks_to_diagnostics(target_diagnostics, session_dir)
-    if matched_rules:
-        requirements_parts.append("[MATCHED REACTIVE RULES]")
-        for matched_rule in matched_rules:
-            rule = matched_rule.rule
-            diagnostic = matched_rule.diagnostic
-            rule_info = f"Matched Rule ID: {rule.id}"
-            rule_info += f"  Explanation: {rule.explanation}"
-            rule_info += f"  Confidence: {matched_rule.confidence}"
-            rule_info += f"  Diagnostic: {diagnostic.message[:100]}..."
-
-            # Add rule actions to the requirements
-            for action in rule.actions:
-                if action.type == "hint":
-                    rule_info += f"  Hint Action: {action.text}"
-                elif action.type == "prompt_patch":
-                    rule_info += f"  Patch Action Template: {action.prompt_template}"
-            requirements_parts.append(rule_info)
-
-    # Add project rules if available
-    if rules:
-        requirements_parts.append(f"[PROJECT RULES]\n{rules}")
-
     requirements = "\n".join(requirements_parts)
 
     acceptance_criteria = "Return valid JSON with fields: summary (what to change and why), files_to_modify (list of file paths), patch_plan (array of file modification plans), risk (low|medium|high), expected_effect (which signatures should disappear)"
 
     deliverables = "JSON object with fields: summary, files_to_modify, patch_plan (with file, action, notes), risk, expected_effect"
 
-    # Use the new centralized prompt builder
-    fix_prompt = build_prompt(goal, context, requirements, acceptance_criteria, deliverables)
+    fix_prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
 
     # Add the specific instructions for JSON format
     fix_prompt += """[ADDITIONAL INSTRUCTIONS]\n"""
@@ -9041,9 +8261,6 @@ def generate_debugger_prompt(session, target_diagnostics, session_path, iteratio
     fix_prompt += """}\n\n"""
     fix_prompt += """Your analysis should be based on the actual diagnostics, known issue hints, and matched rule suggestions provided.\n"""
     fix_prompt += """Focus on implementing minimal patches that address the diagnostic signature effectively.\n"""
-
-    # Add engine role declaration
-    fix_prompt += f"[ENGINE ROLE]\nDebugger engine: claude_planner\nPurpose: Analyze diagnostics and create a structured fix plan to resolve them\n\n"""
 
     return fix_prompt
 
@@ -9971,15 +9188,6 @@ def handle_session_new(session_name: str, verbose: bool = False, root_task_file:
             print_error("Session name is required", 2)
             sys.exit(1)
 
-    # Check if session already exists and prompt for overwrite confirmation
-    session_path = get_session_path_by_name(session_name)
-    if os.path.exists(session_path):
-        print_warning(f"Session '{session_name}' already exists", 2)
-        confirm = input(f"Do you want to overwrite the existing session '{session_name}'? (y/N): ").strip().lower()
-        if confirm not in ['y', 'yes']:
-            print_info("Session creation cancelled", 2)
-            return
-
     # Get root task based on provided file or interactive editor
     if root_task_file:
         # Load from file
@@ -9997,11 +9205,8 @@ def handle_session_new(session_name: str, verbose: bool = False, root_task_file:
         root_task = edit_root_task_in_editor()
 
     try:
-        # Create session with overwrite=True since we already confirmed with user
-        session_path = create_session(session_name, root_task, overwrite=True)
-        print_success(f"Created new session: {session_name}", 2)
-        print_info(f"Session stored at: {session_path}", 2)
-
+        session_path = create_session(session_name, root_task)
+        print_success(f"Created new session: {session_path}", 2)
         if verbose:
             # Load the session to show details
             session = load_session(session_path)
@@ -10010,10 +9215,13 @@ def handle_session_new(session_name: str, verbose: bool = False, root_task_file:
 
         # Set this session as the active session
         if set_active_session_name(session_name):
-            print_info(f"Session '{session_name}' is now the active session", 2)
+            print_info(f"Session '{session_name}' is now active", 2)
         else:
             print_warning(f"Could not set '{session_name}' as active session", 2)
 
+    except FileExistsError as e:
+        print_error(str(e), 2)
+        sys.exit(1)
     except Exception as e:
         print_error(f"Error creating session: {str(e)}", 2)
         sys.exit(1)
@@ -10033,21 +9241,9 @@ def handle_session_list(verbose: bool = False):
     print_header("SESSIONS")
 
     for i, session_name in enumerate(sessions, 1):
-        session_path = get_session_path_by_name(session_name)
         marker = "[*]" if session_name == active_session else "[ ]"
         status_color = Colors.BRIGHT_GREEN if session_name == active_session else Colors.BRIGHT_WHITE
-
-        # Get last modified time
-        last_modified = ""
-        if os.path.exists(session_path):
-            try:
-                import time
-                mod_time = os.path.getmtime(session_path)
-                last_modified = f" (last modified: {time.strftime('%Y-%m-%d %H:%M', time.localtime(mod_time))})"
-            except:
-                pass  # If we can't get modification time, just continue without it
-
-        styled_print(f"{i:2d}. {marker} {session_name}{last_modified}", status_color, None, 0)
+        styled_print(f"{i:2d}. {marker} {session_name}", status_color, None, 0)
 
         if verbose:
             # Show details for each session
@@ -10057,10 +9253,6 @@ def handle_session_list(verbose: bool = False):
                 styled_print(f"    Status: {details['status']}", Colors.BRIGHT_YELLOW, None, 0)
                 styled_print(f"    Subtasks: {details['subtasks_count']}", Colors.BRIGHT_MAGENTA, None, 0)
                 styled_print(f"    Created: {details['created_at']}", Colors.BRIGHT_GREEN, None, 0)
-                if details.get('updated_at'):
-                    styled_print(f"    Updated: {details['updated_at']}", Colors.BRIGHT_GREEN, None, 0)
-                if details.get('active_plan_id'):
-                    styled_print(f"    Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 0)
 
 
 def handle_session_set(session_name: str, list_number: int = None, verbose: bool = False):
@@ -10143,30 +9335,17 @@ def handle_session_get(verbose: bool = False):
     active_session = get_active_session_name()
 
     if active_session:
-        active_session_path = get_session_path_by_name(active_session)
-
-        if os.path.exists(active_session_path):
-            print(active_session)
-            if verbose:
-                details = get_session_details(active_session)
-                if details:
-                    print_info(f"Active session details:", 2)
-                    print_info(f"  Name: {details['name']}", 2)
-                    print_info(f"  Path: {details['path']}", 2)
-                    print_info(f"  ID: {details['id']}", 2)
-                    print_info(f"  Status: {details['status']}", 2)
-                    print_info(f"  Subtasks: {details['subtasks_count']}", 2)
-                    if details.get('active_plan_id'):
-                        print_info(f"  Active Plan: {details['active_plan_id']}", 2)
-                    print_info(f"  Last updated: {details['updated_at']}", 2)
-        else:
-            print_error(f"Active session '{active_session}' points to missing file: {active_session_path}", 2)
-            print_info("Please set a valid active session using 'maestro session set'", 2)
+        print(active_session)
+        if verbose:
+            details = get_session_details(active_session)
+            if details:
+                print_info(f"Active session details:", 2)
+                print_info(f"  Path: {details['path']}", 2)
+                print_info(f"  ID: {details['id']}", 2)
+                print_info(f"  Status: {details['status']}", 2)
+                print_info(f"  Subtasks: {details['subtasks_count']}", 2)
     else:
         print_info("No active session set", 2)
-        if verbose:
-            print_info("Use 'maestro session list' to see available sessions", 2)
-            print_info("Use 'maestro session set <name>' to set an active session", 2)
 
 
 def handle_session_remove(session_name: str, skip_confirmation: bool = False, verbose: bool = False):
@@ -10205,7 +9384,7 @@ def handle_session_remove(session_name: str, skip_confirmation: bool = False, ve
     if removed:
         print_success(f"Removed session: {session_name}", 2)
 
-        # If this was the active session, clear the active session and optionally set another
+        # If this was the active session, clear the active session
         active_session = get_active_session_name()
         if active_session == session_name:
             # Update user config to clear active session
@@ -10218,41 +9397,13 @@ def handle_session_remove(session_name: str, skip_confirmation: bool = False, ve
 
                 if project_id in config:
                     del config[project_id]['active_session']
-
-                    # Check if there are other sessions available and ask if user wants to set one as active
-                    remaining_sessions = [s for s in list_sessions() if s != session_name]
-                    if remaining_sessions:
-                        print_info(f"Session '{session_name}' was the active session.", 2)
-                        choice = input(f"Do you want to set another session as active? Options: {', '.join(remaining_sessions)} or 'none': ").strip()
-                        if choice and choice.lower() != 'none':
-                            if choice in remaining_sessions:
-                                if set_active_session_name(choice):
-                                    print_success(f"Session '{choice}' is now active", 2)
-                                else:
-                                    print_warning(f"Could not set '{choice}' as active session", 2)
-                            else:
-                                # Treat as a number in case user entered a list number
-                                try:
-                                    idx = int(choice) - 1
-                                    if 0 <= idx < len(remaining_sessions):
-                                        new_active = remaining_sessions[idx]
-                                        if set_active_session_name(new_active):
-                                            print_success(f"Session '{new_active}' is now active", 2)
-                                        else:
-                                            print_warning(f"Could not set '{new_active}' as active session", 2)
-                                    else:
-                                        print_warning("Invalid session number, active session remains cleared", 2)
-                                except ValueError:
-                                    print_warning("Invalid session name, active session remains cleared", 2)
-
                     if not config[project_id]:  # Remove project entry if empty
                         del config[project_id]
 
                 with open(config_file, 'w', encoding='utf-8') as f:
                     json.dump(config, f, indent=2)
 
-                if choice.lower() != 'none' if 'choice' in locals() else True:
-                    print_info("Active session cleared", 2)
+                print_info("Active session cleared", 2)
     else:
         print_error(f"Failed to remove session: {session_name}", 2)
         sys.exit(1)
@@ -10324,35 +9475,8 @@ def handle_session_details(session_name: str, list_number: int = None, verbose: 
     styled_print(f"Updated: {details['updated_at']}", Colors.BRIGHT_WHITE, None, 2)
     styled_print(f"Subtasks: {details['subtasks_count']}", Colors.BRIGHT_MAGENTA, None, 2)
 
-    # Try to load the session to get more detailed information
-    try:
-        session = load_session(details['path'])
-
-        # Count build targets if session file exists
-        build_targets_count = 0
-        try:
-            build_targets = list_build_targets(details['path'])
-            build_targets_count = len(build_targets) if build_targets else 0
-        except:
-            build_targets_count = 0  # If we can't list build targets, just show 0
-
-        styled_print(f"Build Targets: {build_targets_count}", Colors.BRIGHT_MAGENTA, None, 2)
-
-        # Show active plan details if available
-        if details['active_plan_id']:
-            styled_print(f"Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 2)
-
-        # Show plan count
-        plan_count = len(session.plans) if hasattr(session, 'plans') and session.plans else 0
-        styled_print(f"Total Plans: {plan_count}", Colors.BRIGHT_MAGENTA, None, 2)
-
-        # Show categories if available
-        if hasattr(session, 'root_task_categories') and session.root_task_categories:
-            categories_str = ', '.join(session.root_task_categories)
-            styled_print(f"Categories: {categories_str}", Colors.BRIGHT_GREEN, None, 2)
-
-    except Exception as e:
-        print_warning(f"Could not load additional session details: {e}", 2)
+    if details['active_plan_id']:
+        styled_print(f"Active Plan: {details['active_plan_id']}", Colors.BRIGHT_WHITE, None, 2)
 
     styled_print(f"Root Task Preview: {details['root_task']}", Colors.BRIGHT_WHITE, None, 2)
 
@@ -13612,7 +12736,7 @@ def run_core_builds_stage(pipeline: ConversionPipeline, stage_obj: ConversionSta
         # Extract diagnostics from build result - get from the first step result
         first_step = build_result.step_results[0] if build_result.step_results else None
         build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
-        diagnostics = extract_diagnostics_from_build_output(build_output)
+        diagnostics = extract_diagnostics(build_output)
         if verbose:
             print_info(f"Found {len(diagnostics)} diagnostic(s)", 4)
 
@@ -13830,7 +12954,7 @@ def run_build_with_target(build_target_path: str, verbose: bool = False) -> Pipe
         os.chdir(original_dir)
 
 
-def extract_diagnostics_from_build_output(build_output: str) -> List[Diagnostic]:
+def extract_diagnostics(build_output: str) -> List[Diagnostic]:
     """
     Extract diagnostics from build output.
 
@@ -14131,7 +13255,7 @@ def run_grow_from_main_stage(pipeline: ConversionPipeline, stage_obj: Conversion
             # Extract diagnostics from build result
             first_step = build_result.step_results[0] if build_result.step_results else None
             build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
-            diagnostics = extract_diagnostics_from_build_output(build_output)
+            diagnostics = extract_diagnostics(build_output)
 
             # Apply fixes to resolve build errors
             for diag in diagnostics:
@@ -14444,7 +13568,7 @@ def run_full_tree_check_stage(pipeline: ConversionPipeline, stage_obj: Conversio
     # Extract any remaining diagnostics
     first_step = final_build_result.step_results[0] if final_build_result.step_results else None
     build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
-    final_diagnostics = extract_diagnostics_from_build_output(build_output)
+    final_diagnostics = extract_diagnostics(build_output)
 
     # Collect any errors from previous stages that may still exist
     all_pipeline_diagnostics = []
