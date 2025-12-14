@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AI-Driven Conversion Plan",
+  "description": "Schema for AI-driven conversion plans that map source files to target files",
+  "type": "object",
+  "required": [
+    "plan_version",
+    "pipeline_id",
+    "intent",
+    "created_at",
+    "source",
+    "target",
+    "scaffold_tasks",
+    "file_tasks",
+    "final_sweep_tasks"
+  ],
+  "properties": {
+    "plan_version": {
+      "type": "string",
+      "description": "Version of the plan schema",
+      "default": "1.0"
+    },
+    "pipeline_id": {
+      "type": "string",
+      "description": "Unique identifier for the conversion pipeline"
+    },
+    "intent": {
+      "type": "string",
+      "description": "Description of the conversion intent"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp when the plan was created"
+    },
+    "source": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the source repository"
+        },
+        "revision": {
+          "type": "string",
+          "description": "Revision or hash of the source"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the target repository"
+        },
+        "revision": {
+          "type": "string",
+          "description": "Revision or hash of the target"
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes about the plan"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional assumptions made in the plan"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional risks identified in the plan"
+    },
+    "scaffold_tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/task"
+      }
+    },
+    "file_tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/task"
+      }
+    },
+    "final_sweep_tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/task"
+      }
+    },
+    "coverage_map": {
+      "type": "object",
+      "description": "Map of source files to their policies and tasks",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["policy", "task_id"],
+        "properties": {
+          "policy": {
+            "type": "string",
+            "enum": ["convert", "copy", "skip", "merge"]
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "target_path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "task": {
+      "type": "object",
+      "required": [
+        "task_id",
+        "phase",
+        "title",
+        "engine",
+        "status",
+        "prompt_ref",
+        "depends_on",
+        "acceptance_criteria",
+        "deliverables"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "Unique identifier for the task"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["scaffold", "file", "sweep"],
+          "description": "Phase of the conversion process"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the task",
+          "minLength": 1
+        },
+        "engine": {
+          "type": "string",
+          "enum": ["qwen", "gemini", "claude", "codex"],
+          "description": "AI engine to use for this task"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "completed", "failed", "interrupted", "skipped"],
+          "default": "pending"
+        },
+        "prompt_ref": {
+          "type": "string",
+          "pattern": "^inputs\\/.*$",
+          "description": "Reference to the prompt file under inputs/"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of task IDs this task depends on"
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Criteria to determine if the task was successful"
+        },
+        "deliverables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "List of expected deliverables from this task"
+        },
+        "source_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of source files involved in this task"
+        },
+        "target_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of target files to be created/modified by this task"
+        },
+        "file_policy": {
+          "type": "string",
+          "enum": ["convert", "copy", "skip", "merge"],
+          "description": "Policy for handling files in file tasks"
+        },
+        "merge_into": {
+          "type": "string",
+          "description": "Target file to merge into when policy is merge"
+        },
+        "skip_reason": {
+          "type": "string",
+          "description": "Reason for skipping when policy is skip"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "phase": { "const": "file" } }
+          },
+          "then": {
+            "required": ["source_files"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "phase": { "enum": ["file", "scaffold"] } }
+          },
+          "then": {
+            "required": ["target_files"]
+          }
+        }
+      ]
+    }
+  }
+}
