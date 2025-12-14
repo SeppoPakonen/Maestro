@@ -2482,6 +2482,42 @@ def main():
     confidence_gate_parser.add_argument('--run-id', help='Specific run ID to check (default: most recent)')
     confidence_gate_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
 
+    # Add subparsers for runs and replay commands
+    convert_runs_parser = convert_subparsers.add_parser('runs', aliases=['rn'], help='Manage conversion runs')
+    convert_runs_subparsers = convert_runs_parser.add_subparsers(dest='runs_subcommand', help='Runs subcommands')
+
+    # runs list
+    runs_list_parser = convert_runs_subparsers.add_parser('list', aliases=['l'], help='List all conversion runs')
+
+    # runs show
+    runs_show_parser = convert_runs_subparsers.add_parser('show', aliases=['s'], help='Show details of a conversion run')
+    runs_show_parser.add_argument('run_id', help='Run ID to show')
+
+    # runs diff
+    runs_diff_parser = convert_runs_subparsers.add_parser('diff', aliases=['d'], help='Compare two runs')
+    runs_diff_parser.add_argument('run_id', help='Run ID to compare')
+    runs_diff_parser.add_argument('--against', help='Run ID or baseline ID to compare against')
+
+    # Add replay command
+    convert_replay_parser = convert_subparsers.add_parser('replay', aliases=['rep'], help='Replay a previous conversion run')
+    convert_replay_parser.add_argument('run_id', help='Run ID to replay')
+    convert_replay_parser.add_argument('source', help='Source repository or path')
+    convert_replay_parser.add_argument('target', help='Target repository or path')
+    convert_replay_parser.add_argument('--dry', action='store_true', help='Dry run only (default)')
+    convert_replay_parser.add_argument('--apply', action='store_true', help='Apply changes to target')
+    convert_replay_parser.add_argument('--limit', type=int, help='Limit number of tasks to execute')
+    convert_replay_parser.add_argument('--only', help='Run only specific task or phase (format: task:id or phase:name)')
+    convert_replay_parser.add_argument('--use-recorded-engines', action='store_true', default=True, help='Use engines from the original run (default)')
+    convert_replay_parser.add_argument('--allow-engine-change', action='store_true', help='Allow using different engines than recorded')
+    convert_replay_parser.add_argument('--max-replay-rounds', type=int, default=2, help='Maximum replay rounds for convergence (default: 2)')
+    convert_replay_parser.add_argument('--fail-on-any-drift', action='store_true', help='Fail if any drift is detected')
+
+    # Add baseline subcommand to replay
+    convert_replay_subparsers = convert_replay_parser.add_subparsers(dest='replay_subcommand', help='Replay subcommands')
+    baseline_parser = convert_replay_subparsers.add_parser('baseline', help='Create baseline from a run')
+    baseline_parser.add_argument('run_id', help='Run ID to create baseline from')
+    baseline_parser.add_argument('baseline_id', nargs='?', help='Baseline ID (optional, auto-generated if not provided)')
+
     # Add help/h subcommands for convert subparsers
     convert_subparsers.add_parser('help', aliases=['h'], help='Show help for conversion pipeline commands')
 
@@ -3670,6 +3706,68 @@ def main():
                 else:
                     convert_confidence_parser.print_help()
                     return  # Exit after showing help
+            elif args.convert_subcommand == 'runs':
+                # Handle runs subcommands
+                if hasattr(args, 'runs_subcommand') and args.runs_subcommand:
+                    if args.runs_subcommand == 'list':
+                        # Use subprocess to call the convert orchestrator
+                        import subprocess
+                        import sys
+                        result = subprocess.run([
+                            sys.executable, "convert_orchestrator.py", "runs", "list"
+                        ])
+                        sys.exit(result.returncode)
+                    elif args.runs_subcommand == 'show':
+                        import subprocess
+                        import sys
+                        result = subprocess.run([
+                            sys.executable, "convert_orchestrator.py", "runs", "show", args.run_id
+                        ])
+                        sys.exit(result.returncode)
+                    elif args.runs_subcommand == 'diff':
+                        import subprocess
+                        import sys
+                        cmd = [sys.executable, "convert_orchestrator.py", "runs", "diff", args.run_id]
+                        if args.against:
+                            cmd.extend(["--against", args.against])
+                        result = subprocess.run(cmd)
+                        sys.exit(result.returncode)
+                    else:
+                        print_error(f"Unknown runs subcommand: {args.runs_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    # If no subcommand, show help
+                    convert_runs_parser.print_help()
+                    sys.exit(1)
+            elif args.convert_subcommand == 'replay':
+                # Handle replay command
+                import subprocess
+                import sys
+                cmd = [
+                    sys.executable, "convert_orchestrator.py", "replay",
+                    args.run_id, args.source, args.target
+                ]
+
+                # Add optional arguments
+                if hasattr(args, 'dry') and args.dry:
+                    cmd.append('--dry')
+                if hasattr(args, 'apply') and args.apply:
+                    cmd.append('--apply')
+                if hasattr(args, 'limit') and args.limit:
+                    cmd.extend(['--limit', str(args.limit)])
+                if hasattr(args, 'only') and args.only:
+                    cmd.extend(['--only', args.only])
+                if hasattr(args, 'use_recorded_engines') and args.use_recorded_engines:
+                    cmd.append('--use-recorded-engines')
+                if hasattr(args, 'allow_engine_change') and args.allow_engine_change:
+                    cmd.append('--allow-engine-change')
+                if hasattr(args, 'max_replay_rounds') and args.max_replay_rounds != 2:
+                    cmd.extend(['--max-replay-rounds', str(args.max_replay_rounds)])
+                if hasattr(args, 'fail_on_any_drift') and args.fail_on_any_drift:
+                    cmd.append('--fail-on-any-drift')
+
+                result = subprocess.run(cmd)
+                sys.exit(result.returncode)
             elif args.convert_subcommand == 'help' or args.convert_subcommand == 'h':
                 # Print help for convert subcommands
                 convert_parser.print_help()

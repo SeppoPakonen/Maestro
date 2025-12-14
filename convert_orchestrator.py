@@ -1300,6 +1300,32 @@ def cmd_run(args):
 
     print("✓ Plan validation passed - proceeding with execution")
 
+    # Import and create run manifest
+    from regression_replay import capture_run_manifest, save_run_artifacts, update_run_manifest_after_completion
+    engines_used = {
+        'worker': args.arbitrate_engines.split(',')[0] if args.arbitrate_engines else 'qwen',
+        'judge': args.judge_engine
+    }
+    flags_used = []
+    if args.limit: flags_used.append(f"--limit {args.limit}")
+    if args.resume: flags_used.append("--resume")
+    if args.auto_replan: flags_used.append("--auto-replan")
+    if args.ignore_decision_drift: flags_used.append("--ignore-decision-drift")
+    if args.accept_semantic_risk: flags_used.append("--accept-semantic-risk")
+    if args.arbitrate: flags_used.append("--arbitrate")
+
+    # Create run manifest
+    run_manifest = capture_run_manifest(
+        args.source,
+        args.target,
+        plan_path,
+        memory,
+        flags_used,
+        engines_used
+    )
+    run_dir = save_run_artifacts(run_manifest, args.source, args.target, plan_path, memory)
+    print(f"✓ Created run manifest: {run_manifest.run_id}")
+
     success = execute_conversion(
         args.source,
         args.target,
@@ -1312,6 +1338,10 @@ def cmd_run(args):
         max_candidates=args.max_candidates,
         use_judge=not args.no_judge
     )
+
+    # Update manifest with final status
+    status = "completed" if success else "failed"
+    update_run_manifest_after_completion(run_dir, args.target, status)
 
     if success:
         print("✓ Conversion execution completed successfully")
@@ -1326,6 +1356,252 @@ def cmd_run(args):
         return 0
     else:
         print("✗ Conversion execution failed or was interrupted")
+        return 1
+
+
+def cmd_runs_list(args):
+    """List all conversion runs."""
+    from regression_replay import get_all_runs
+
+    runs = get_all_runs()
+
+    if not runs:
+        print("No conversion runs found.")
+        return 0
+
+    print(f"{'Run ID':<36} {'Status':<12} {'Timestamp':<20} {'Source → Target'}")
+    print("-" * 100)
+
+    # Show the last 10 runs
+    for run in runs[:10]:
+        run_id = run.get('run_id', 'unknown')
+        status = run.get('status', 'unknown')
+        timestamp = run.get('timestamp', '')[:19] if run.get('timestamp') else ''
+        source = run.get('source_path', '')
+        target = run.get('target_path', '')
+        path_info = f"{os.path.basename(source)} → {os.path.basename(target)}"
+
+        print(f"{run_id:<36} {status:<12} {timestamp:<20} {path_info}")
+
+    if len(runs) > 10:
+        print(f"\n... and {len(runs) - 10} more runs")
+
+    return 0
+
+
+def cmd_runs_show(args):
+    """Show details of a specific conversion run."""
+    from regression_replay import load_run_manifest
+    import os
+
+    run_id = args.run_id
+    manifest = load_run_manifest(run_id)
+
+    if not manifest:
+        print(f"Run {run_id} not found.")
+        return 1
+
+    print(f"Run ID: {manifest.get('run_id')}")
+    print(f"Timestamp: {manifest.get('timestamp')}")
+    print(f"Status: {manifest.get('status')}")
+    print(f"Pipeline ID: {manifest.get('pipeline_id')}")
+    print()
+
+    print("Source:")
+    print(f"  Path: {manifest.get('source_path')}")
+    print(f"  Revision: {manifest.get('source_revision')}")
+    print()
+
+    print("Target:")
+    print(f"  Path: {manifest.get('target_path')}")
+    print(f"  Revision (before): {manifest.get('target_revision_before')}")
+    print(f"  Revision (after): {manifest.get('target_revision_after')}")
+    print()
+
+    print("Plan & Decisions:")
+    print(f"  Plan revision: {manifest.get('plan_revision', '')[:12]}...")
+    print(f"  Decision fingerprint: {manifest.get('decision_fingerprint', '')[:12]}...")
+    print()
+
+    print("Engines used:")
+    engines = manifest.get('engines_used', {})
+    for engine_type, engine_name in engines.items():
+        print(f"  {engine_type}: {engine_name}")
+    print()
+
+    print(f"Flags used: {', '.join(manifest.get('flags_used', []))}")
+    print()
+
+    # Check for drift report
+    drift_report_path = f".maestro/convert/runs/{run_id}/replay/drift_report.json"
+    if os.path.exists(drift_report_path):
+        print("Drift Report: Available")
+        print(f"  Path: {drift_report_path}")
+    else:
+        print("Drift Report: Not available")
+
+    return 0
+
+
+def cmd_runs_diff(args):
+    """Compare two runs or a run against a baseline."""
+    from regression_replay import load_run_manifest, get_baseline
+    import os
+
+    run_id = args.run_id
+    against = args.against
+
+    run_manifest = load_run_manifest(run_id)
+    if not run_manifest:
+        print(f"Run {run_id} not found.")
+        return 1
+
+    if not against:
+        print("Please specify a run or baseline to compare against using --against")
+        return 1
+
+    # Check if 'against' refers to a baseline or another run
+    baseline = get_baseline(against)
+    other_manifest = load_run_manifest(against) if not baseline else None
+
+    print(f"Comparing run: {run_id}")
+    if baseline:
+        print(f"Against baseline: {against}")
+        print(f"Baseline created: {baseline.get('timestamp')}")
+
+        print(f"\nTarget file hash differences:")
+        print(f"  Files in baseline: {len(baseline.get('target_file_hashes', {}))}")
+
+        # For now, just show basic comparison info
+        run_target_path = run_manifest.get('target_path')
+        if run_target_path and os.path.exists(run_target_path):
+            import hashlib
+            current_hashes = {}
+            for root, dirs, files in os.walk(run_target_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, run_target_path)
+                    with open(file_path, 'rb') as f:
+                        content = f.read()
+                        file_hash = hashlib.sha256(content).hexdigest()
+                        current_hashes[rel_path] = file_hash
+
+            print(f"  Files in current target: {len(current_hashes)}")
+
+            baseline_hashes = baseline.get('target_file_hashes', {})
+            added = set(current_hashes.keys()) - set(baseline_hashes.keys())
+            removed = set(baseline_hashes.keys()) - set(current_hashes.keys())
+            modified = set()
+
+            for path in set(current_hashes.keys()) & set(baseline_hashes.keys()):
+                if current_hashes[path] != baseline_hashes[path]:
+                    modified.add(path)
+
+            print(f"  Added files: {len(added)}")
+            print(f"  Removed files: {len(removed)}")
+            print(f"  Modified files: {len(modified)}")
+
+            if added:
+                print(f"\n  Added files:")
+                for f in list(added)[:5]:  # Show first 5
+                    print(f"    - {f}")
+                if len(added) > 5:
+                    print(f"    ... and {len(added) - 5} more")
+
+            if modified:
+                print(f"\n  Modified files:")
+                for f in list(modified)[:5]:  # Show first 5
+                    print(f"    - {f}")
+                if len(modified) > 5:
+                    print(f"    ... and {len(modified) - 5} more")
+
+    elif other_manifest:
+        print(f"Against run: {against}")
+        print(f"Run1 timestamp: {run_manifest.get('timestamp')}")
+        print(f"Run2 timestamp: {other_manifest.get('timestamp')}")
+
+        # Compare basic info between runs
+        print(f"\nRun Comparison:")
+        print(f"  Source path same: {run_manifest.get('source_path') == other_manifest.get('source_path')}")
+        print(f"  Target path same: {run_manifest.get('target_path') == other_manifest.get('target_path')}")
+        print(f"  Plan revisions same: {run_manifest.get('plan_revision') == other_manifest.get('plan_revision')}")
+        print(f"  Decision fingerprints same: {run_manifest.get('decision_fingerprint') == other_manifest.get('decision_fingerprint')}")
+
+    else:
+        print(f"Baseline or run '{against}' not found.")
+        return 1
+
+    return 0
+
+
+def cmd_replay(args):
+    """Replay a previous conversion run."""
+    from regression_replay import run_replay, run_convergent_replay
+    from conversion_memory import ConversionMemory
+
+    memory = ConversionMemory()
+
+    # Handle baseline creation
+    if args.subcommand == "baseline":
+        from regression_replay import create_replay_baseline
+        baseline_path = create_replay_baseline(args.run_id, args.baseline_id)
+        print(f"Created baseline from run {args.run_id}: {baseline_path}")
+        return 0
+
+    # Determine replay mode
+    dry = args.dry or not args.apply
+    limit = args.limit
+    only_task = args.only_task
+    only_phase = args.only_phase
+    use_recorded_engines = not args.allow_engine_change
+
+    # Parse the --only filter
+    only_phase = None
+    only_task = None
+    if args.only:
+        if args.only.startswith('task:'):
+            only_task = args.only[5:]  # Remove 'task:' prefix
+        elif args.only.startswith('phase:'):
+            only_phase = args.only[6:]  # Remove 'phase:' prefix
+
+    # Run convergent replay if max rounds > 1
+    if args.max_replay_rounds > 1:
+        result = run_convergent_replay(
+            run_id=args.run_id,
+            source_path=args.source,
+            target_path=args.target,
+            memory=memory,
+            max_replay_rounds=args.max_replay_rounds,
+            fail_on_any_drift=args.fail_on_any_drift,
+            dry=dry,
+            limit=limit,
+            only_task=only_task,
+            only_phase=only_phase,
+            use_recorded_engines=use_recorded_engines,
+            allow_engine_change=args.allow_engine_change
+        )
+    else:
+        result = run_replay(
+            run_id=args.run_id,
+            source_path=args.source,
+            target_path=args.target,
+            memory=memory,
+            dry=dry,
+            limit=limit,
+            only_task=only_task,
+            only_phase=only_phase,
+            use_recorded_engines=use_recorded_engines,
+            allow_engine_change=args.allow_engine_change
+        )
+
+    if result.get("success"):
+        print("✓ Replay completed successfully")
+        if "convergence_analysis" in result:
+            analysis = result["convergence_analysis"]
+            print(f"  Convergence: {analysis.get('message')}")
+        return 0
+    else:
+        print(f"✗ Replay failed: {result.get('error')}")
         return 1
 
 
@@ -1387,6 +1663,49 @@ Examples:
     run_parser.add_argument('--no-judge', action='store_true', help='Use heuristic scoring only, no judge pass')
 
     run_parser.set_defaults(func=cmd_run)
+
+    # Runs subcommands
+    runs_parser = subparsers.add_parser('runs', help='Manage conversion runs')
+    runs_subparsers = runs_parser.add_subparsers(dest='runs_subcommand', help='Runs subcommands')
+
+    # runs list
+    runs_list_parser = runs_subparsers.add_parser('list', aliases=['l'], help='List all conversion runs')
+    runs_list_parser.set_defaults(func=cmd_runs_list)
+
+    # runs show
+    runs_show_parser = runs_subparsers.add_parser('show', aliases=['s'], help='Show details of a conversion run')
+    runs_show_parser.add_argument('run_id', help='Run ID to show')
+    runs_show_parser.set_defaults(func=cmd_runs_show)
+
+    # runs diff
+    runs_diff_parser = runs_subparsers.add_parser('diff', aliases=['d'], help='Compare two runs')
+    runs_diff_parser.add_argument('run_id', help='Run ID to compare')
+    runs_diff_parser.add_argument('--against', help='Run ID or baseline ID to compare against')
+    runs_diff_parser.set_defaults(func=cmd_runs_diff)
+
+    # Replay command
+    replay_parser = subparsers.add_parser('replay', help='Replay a previous conversion run')
+    replay_subparsers = replay_parser.add_subparsers(dest='subcommand', help='Replay subcommands')
+
+    # replay baseline command
+    baseline_parser = replay_subparsers.add_parser('baseline', help='Create baseline from a run')
+    baseline_parser.add_argument('run_id', help='Run ID to create baseline from')
+    baseline_parser.add_argument('baseline_id', nargs='?', help='Baseline ID (optional, auto-generated if not provided)')
+    baseline_parser.set_defaults(func=cmd_replay)
+
+    # Main replay command
+    replay_parser.add_argument('run_id', help='Run ID to replay')
+    replay_parser.add_argument('source', help='Source repository or path')
+    replay_parser.add_argument('target', help='Target repository or path')
+    replay_parser.add_argument('--dry', action='store_true', help='Dry run only (default)')
+    replay_parser.add_argument('--apply', action='store_true', help='Apply changes to target')
+    replay_parser.add_argument('--limit', type=int, help='Limit number of tasks to execute')
+    replay_parser.add_argument('--only', help='Run only specific task or phase (format: task:id or phase:name)')
+    replay_parser.add_argument('--use-recorded-engines', action='store_true', default=True, help='Use engines from the original run (default)')
+    replay_parser.add_argument('--allow-engine-change', action='store_true', help='Allow using different engines than recorded')
+    replay_parser.add_argument('--max-replay-rounds', type=int, default=2, help='Maximum replay rounds for convergence (default: 2)')
+    replay_parser.add_argument('--fail-on-any-drift', action='store_true', help='Fail if any drift is detected')
+    replay_parser.set_defaults(func=cmd_replay)
 
     # Memory command
     memory_parser = subparsers.add_parser('memory', help='Manage conversion memory')
