@@ -15983,7 +15983,7 @@ def run_overview_stage(pipeline: ConversionPipeline, stage_obj: ConversionStage,
     if verbose:
         print_info("Scanning source repository for overview...", 2)
 
-    # Scan the source repository
+    # Scan the source repository to create inventory
     source_path = pipeline.source
     if not os.path.exists(source_path):
         raise ValueError(f"Source path does not exist: {source_path}")
@@ -15991,41 +15991,161 @@ def run_overview_stage(pipeline: ConversionPipeline, stage_obj: ConversionStage,
     # Get file inventory
     file_inventory = scan_directory(source_path, verbose)
 
-    # Identify build files
-    build_files = identify_build_files(file_inventory)
+    # Create stages directory if it doesn't exist
+    convert_dir = get_convert_dir()
+    stages_dir = os.path.join(convert_dir, "stages")
+    os.makedirs(stages_dir, exist_ok=True)
 
-    # Identify entrypoints (main files, entry point functions)
-    entrypoints = identify_entrypoints(file_inventory)
+    # Create the inventory file in the expected location
+    overview_inventory_file = os.path.join(stages_dir, "overview_inventory.json")
 
-    # Create the overview report as JSON
-    overview_report = {
-        "source_repo": pipeline.source,
-        "target_repo": pipeline.target,
-        "scanned_at": datetime.now().isoformat(),
-        "modules": extract_modules(file_inventory),
-        "dependencies": extract_dependencies(file_inventory),
-        "risks": identify_risks(file_inventory),
-        "build_files": build_files,
-        "entrypoints": entrypoints,
-        "proposed_mapping": generate_proposed_mapping(file_inventory)
+    # Add additional git information to the inventory
+    import subprocess
+    git_info = {}
+    try:
+        # Get current branch
+        result = subprocess.run(['git', 'branch', '--show-current'],
+                               capture_output=True, text=True, cwd=source_path, check=True)
+        git_info['current_branch'] = result.stdout.strip()
+
+        # Get clean/dirty status
+        result = subprocess.run(['git', 'status', '--porcelain'],
+                               capture_output=True, text=True, cwd=source_path, check=True)
+        git_info['is_dirty'] = bool(result.stdout.strip())
+
+        # Get last commit hash
+        result = subprocess.run(['git', 'rev-parse', 'HEAD'],
+                               capture_output=True, text=True, cwd=source_path, check=True)
+        git_info['last_commit_hash'] = result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If not a git repo or git not available, skip git info
+        git_info['current_branch'] = 'unknown'
+        git_info['is_dirty'] = 'unknown'
+        git_info['last_commit_hash'] = 'unknown'
+
+    # Create the inventory report with git info
+    inventory_report = {
+        "repository_root": source_path,
+        "top_level_directories": [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))],
+        "file_counts_by_extension": file_inventory.get('file_types', {}),
+        "build_files": identify_build_files(file_inventory),
+        "entrypoints": identify_entrypoints(file_inventory),
+        "git_info": git_info,
+        "total_files": len(file_inventory.get('files', [])),
+        "total_directories": len(file_inventory.get('directories', [])),
+        "total_size": file_inventory.get('total_size', 0),
+        "scanned_at": datetime.now().isoformat()
     }
 
-    # Save the overview report to the pipeline's inputs directory
-    inputs_dir = pipeline.inputs_dir
-    overview_file = os.path.join(inputs_dir, f"overview_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-
-    with open(overview_file, 'w', encoding='utf-8') as f:
-        json.dump(overview_report, f, indent=2)
+    # Save the inventory report to the required location
+    with open(overview_inventory_file, 'w', encoding='utf-8') as f:
+        json.dump(inventory_report, f, indent=2)
 
     if verbose:
-        print_info(f"Overview report saved to: {overview_file}", 2)
+        print_info(f"Inventory report saved to: {overview_inventory_file}", 2)
 
-    # Save a reference to the report in the stage details
+    # Now create the AI planner call with the inventory
+    conversion_goal = f"{pipeline.source} -> {pipeline.target}"
+
+    # Format the conversion pipeline template using the inventory and goal
+    from .planner_templates import conversion_pipeline_planner_template
+    prompt = conversion_pipeline_planner_template(
+        repo_inventory=json.dumps(inventory_report, indent=2),
+        conversion_goal=conversion_goal,
+        constraints=""  # Could add additional constraints here if needed
+    )
+
+    # Prepare for AI call
+    convert_dir = get_convert_dir()
+    inputs_dir = os.path.join(convert_dir, "inputs")
+    outputs_dir = os.path.join(convert_dir, "outputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    # Save the prompt for traceability
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    prompt_filename = os.path.join(inputs_dir, f"overview_{timestamp}.txt")
+    with open(prompt_filename, 'w', encoding='utf-8') as f:
+        f.write(prompt)
+
+    if verbose:
+        print_info(f"Prompt saved to: {prompt_filename}", 2)
+
+    # Call the AI planner using the configured engines
+    from .engines import get_configured_engines
+    engines = get_configured_engines()
+
+    # Try each engine in order until one succeeds
+    response = None
+    engine_used = None
+    for engine in engines:
+        try:
+            if verbose:
+                print_info(f"Calling {engine.name} for overview planning...", 2)
+            response = engine.generate(prompt)
+            engine_used = engine.name
+            break
+        except Exception as e:
+            print_warning(f"Engine {engine.name} failed: {e}", 2)
+            continue
+
+    if response is None:
+        raise Exception("All configured engines failed to generate a response")
+
+    # Save the raw AI output
+    raw_output_filename = os.path.join(outputs_dir, f"overview_{engine_used}_{timestamp}.txt")
+    with open(raw_output_filename, 'w', encoding='utf-8') as f:
+        f.write(response)
+
+    if verbose:
+        print_info(f"Raw AI output saved to: {raw_output_filename}", 2)
+
+    # Save the processed overview (extract JSON if needed) to the expected location
+    overview_file = os.path.join(stages_dir, "overview.json")
+
+    # Extract JSON from AI response - it should be valid JSON according to template
+    # First try to parse the entire response as JSON
+    import re
+    json_match = None
+
+    # Look for JSON between markers or just try to parse the whole response as JSON
+    try:
+        overview_data = json.loads(response.strip())
+        json_match = response.strip()
+    except json.JSONDecodeError:
+        # Try to find JSON within the response
+        # Look for content between curly braces that looks like JSON
+        pattern = r'(\{(?:[^{}]|{[^{}]*})*\})'
+        matches = re.findall(pattern, response, re.DOTALL)
+        if matches:
+            # Try to parse each match as JSON to find the most complete one
+            for match in matches:
+                try:
+                    overview_data = json.loads(match)
+                    json_match = match
+                    break
+                except json.JSONDecodeError:
+                    continue
+
+        if json_match is None:
+            raise Exception("Could not extract valid JSON from AI response")
+
+    # Save the overview JSON
+    with open(overview_file, 'w', encoding='utf-8') as f:
+        json.dump(overview_data, f, indent=2)
+
+    if verbose:
+        print_info(f"Overview JSON saved to: {overview_file}", 2)
+
+    # Update stage details with references to the created files
     stage_obj.details = {
-        "report_file": overview_file,
-        "file_count": len(file_inventory),
-        "build_file_count": len(build_files),
-        "entrypoint_count": len(entrypoints)
+        "inventory_file": overview_inventory_file,
+        "overview_file": overview_file,
+        "prompt_file": prompt_filename,
+        "output_file": raw_output_filename,
+        "engine_used": engine_used,
+        "file_count": len(file_inventory.get('files', [])),
+        "scanned_at": datetime.now().isoformat()
     }
     stage_obj.status = "completed"
     stage_obj.completed_at = datetime.now().isoformat()
@@ -17903,6 +18023,23 @@ def handle_convert_status(verbose: bool = False) -> None:
                 if stage.error and verbose:
                     styled_print(f"     Error: {stage.error}", Colors.BRIGHT_RED, None, 6)
 
+            # Show important file locations for this pipeline
+            convert_dir = get_convert_dir()
+            stages_dir = os.path.join(convert_dir, "stages")
+            overview_inventory_path = os.path.join(stages_dir, "overview_inventory.json")
+            overview_path = os.path.join(stages_dir, "overview.json")
+
+            styled_print("  Key Files:", Colors.BRIGHT_CYAN, None, 4)
+            styled_print(f"    Inventory: {overview_inventory_path if os.path.exists(overview_inventory_path) else 'Not created yet'}", Colors.BRIGHT_WHITE, None, 6)
+            styled_print(f"    Overview:  {overview_path if os.path.exists(overview_path) else 'Not created yet'}", Colors.BRIGHT_WHITE, None, 6)
+
+            # Show where logs, inputs, and outputs are stored
+            if pipeline.logs_dir:
+                styled_print(f"  Storage:", Colors.BRIGHT_CYAN, None, 4)
+                styled_print(f"    Logs:    {pipeline.logs_dir}", Colors.BRIGHT_WHITE, None, 6)
+                styled_print(f"    Inputs:  {pipeline.inputs_dir}", Colors.BRIGHT_WHITE, None, 6)
+                styled_print(f"    Outputs: {pipeline.outputs_dir}", Colors.BRIGHT_WHITE, None, 6)
+
             print()  # Empty line between pipelines
         except Exception as e:
             print_error(f"Error loading pipeline {pipeline_id}: {e}", 2)
@@ -17917,7 +18054,154 @@ def handle_convert_show(verbose: bool = False) -> None:
     """
     if verbose:
         print_info("Showing detailed conversion pipeline information...", 2)
-    print_warning("Conversion pipeline show functionality not fully implemented yet.", 2)
+
+    convert_dir = get_convert_dir()
+
+    # List all conversion pipeline files
+    pipeline_files = [f for f in os.listdir(convert_dir) if f.endswith('.json')]
+
+    if not pipeline_files:
+        print_info("No conversion pipelines found.", 2)
+        return
+
+    print_header("DETAILED CONVERSION PIPELINE INFORMATION")
+    for filename in pipeline_files:
+        pipeline_id = os.path.splitext(filename)[0]
+        try:
+            pipeline = load_conversion_pipeline(pipeline_id)
+
+            print_header(f"Pipeline: {pipeline.name} (ID: {pipeline.id})")
+            styled_print(f"Source: {pipeline.source}", Colors.BRIGHT_WHITE, None, 0)
+            styled_print(f"Target: {pipeline.target}", Colors.BRIGHT_WHITE, None, 0)
+            styled_print(f"Status: {pipeline.status}", Colors.BRIGHT_YELLOW, None, 0)
+            styled_print(f"Created: {pipeline.created_at}", Colors.BRIGHT_CYAN, None, 0)
+            styled_print(f"Active Stage: {pipeline.active_stage or 'None'}", Colors.BRIGHT_MAGENTA, None, 0)
+
+            # Show detailed stage information
+            print_subheader("Stage Details:")
+            for stage in pipeline.stages:
+                status_color = Colors.BRIGHT_GREEN if stage.status == "completed" else \
+                              Colors.BRIGHT_YELLOW if stage.status == "pending" else \
+                              Colors.BRIGHT_CYAN if stage.status == "running" else \
+                              Colors.BRIGHT_RED
+                styled_print(f"  {stage.name}:", Colors.BOLD, status_color, 2)
+                styled_print(f"    Status: {stage.status}", Colors.BRIGHT_WHITE, None, 4)
+                if stage.started_at:
+                    styled_print(f"    Started: {stage.started_at}", Colors.BRIGHT_CYAN, None, 4)
+                if stage.completed_at:
+                    styled_print(f"    Completed: {stage.completed_at}", Colors.BRIGHT_CYAN, None, 4)
+                if stage.error:
+                    styled_print(f"    Error: {stage.error}", Colors.BRIGHT_RED, None, 4)
+                if stage.details:
+                    styled_print(f"    Details: {json.dumps(stage.details, indent=6, default=str)[6:]}", Colors.BRIGHT_WHITE, None, 4)
+                    # Print details on separate lines with proper indentation
+                    if 'inventory_file' in stage.details:
+                        styled_print(f"    Inventory File: {stage.details['inventory_file']}", Colors.BRIGHT_WHITE, None, 4)
+                    if 'overview_file' in stage.details:
+                        styled_print(f"    Overview File: {stage.details['overview_file']}", Colors.BRIGHT_WHITE, None, 4)
+                    if 'file_count' in stage.details:
+                        styled_print(f"    File Count: {stage.details['file_count']}", Colors.BRIGHT_WHITE, None, 4)
+
+            # If the overview stage is completed, display the overview contents
+            if any(s.name == 'overview' and s.status == 'completed' for s in pipeline.stages):
+                convert_dir = get_convert_dir()
+                overview_file = os.path.join(convert_dir, "stages", "overview.json")
+
+                if os.path.exists(overview_file):
+                    try:
+                        with open(overview_file, 'r', encoding='utf-8') as f:
+                            overview_data = json.load(f)
+
+                        print_subheader("Overview Plan Details:")
+                        styled_print("  Repository Summary:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        if 'repo_summary' in overview_data:
+                            styled_print(f"    {overview_data['repo_summary']}", Colors.BRIGHT_WHITE, None, 4)
+
+                        styled_print("  Risks:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        if 'risks' in overview_data:
+                            for i, risk in enumerate(overview_data['risks']):
+                                if isinstance(risk, dict):
+                                    risk_desc = risk.get('description', risk.get('risk', str(risk)))
+                                else:
+                                    risk_desc = str(risk)
+                                styled_print(f"    {i+1}. {risk_desc}", Colors.BRIGHT_WHITE, None, 4)
+
+                        styled_print("  Mapping Plan:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        if 'mapping_plan' in overview_data:
+                            mapping_plan = overview_data['mapping_plan']
+                            if isinstance(mapping_plan, dict):
+                                for key, value in mapping_plan.items():
+                                    styled_print(f"    {key}: {value}", Colors.BRIGHT_WHITE, None, 4)
+                            else:
+                                styled_print(f"    {mapping_plan}", Colors.BRIGHT_WHITE, None, 4)
+
+                        styled_print("  Stages with Entry/Exit Criteria:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        if 'stages' in overview_data:
+                            for stage_info in overview_data['stages']:
+                                stage_name = stage_info.get('name', 'Unknown Stage')
+                                styled_print(f"    {stage_name}:", Colors.BRIGHT_CYAN, None, 4)
+                                if 'entry_criteria' in stage_info:
+                                    styled_print("      Entry Criteria:", Colors.BOLD, Colors.BRIGHT_WHITE, 6)
+                                    for criteria in stage_info['entry_criteria']:
+                                        styled_print(f"        - {criteria}", Colors.BRIGHT_WHITE, None, 8)
+                                if 'exit_criteria' in stage_info:
+                                    styled_print("      Exit Criteria:", Colors.BOLD, Colors.BRIGHT_WHITE, 6)
+                                    for criteria in stage_info['exit_criteria']:
+                                        styled_print(f"        - {criteria}", Colors.BRIGHT_WHITE, None, 8)
+
+                    except Exception as e:
+                        styled_print(f"    Error reading overview.json: {e}", Colors.BRIGHT_RED, None, 4)
+                else:
+                    styled_print("  Overview file not found.", Colors.BRIGHT_YELLOW, None, 2)
+
+            # Show inventory details if available
+            inventory_file = os.path.join(convert_dir, "stages", "overview_inventory.json")
+            if os.path.exists(inventory_file):
+                try:
+                    with open(inventory_file, 'r', encoding='utf-8') as f:
+                        inventory_data = json.load(f)
+
+                    print_subheader("Repository Inventory:")
+                    styled_print(f"  Root: {inventory_data['repository_root']}", Colors.BRIGHT_WHITE, None, 2)
+                    styled_print(f"  Total Files: {inventory_data.get('total_files', 'Unknown')}", Colors.BRIGHT_WHITE, None, 2)
+                    styled_print(f"  Total Directories: {inventory_data.get('total_directories', 'Unknown')}", Colors.BRIGHT_WHITE, None, 2)
+
+                    # Show file counts by extension
+                    if 'file_counts_by_extension' in inventory_data:
+                        styled_print("  File Counts by Extension:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        ext_counts = inventory_data['file_counts_by_extension']
+                        for ext, count in sorted(ext_counts.items(), key=lambda x: x[1], reverse=True):
+                            styled_print(f"    {ext or 'no_ext'}: {count}", Colors.BRIGHT_WHITE, None, 4)
+
+                    # Show build files
+                    if 'build_files' in inventory_data and inventory_data['build_files']:
+                        styled_print("  Build Files Found:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        for build_file in inventory_data['build_files']:
+                            styled_print(f"    - {build_file}", Colors.BRIGHT_WHITE, None, 4)
+
+                    # Show entrypoints
+                    if 'entrypoints' in inventory_data and inventory_data['entrypoints']:
+                        styled_print("  Entrypoints Found:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        for entrypoint in inventory_data['entrypoints']:
+                            styled_print(f"    - {entrypoint}", Colors.BRIGHT_WHITE, None, 4)
+
+                    # Show git info
+                    if 'git_info' in inventory_data:
+                        git_info = inventory_data['git_info']
+                        styled_print("  Git Information:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        styled_print(f"    Branch: {git_info.get('current_branch', 'Unknown')}", Colors.BRIGHT_WHITE, None, 4)
+                        styled_print(f"    Dirty: {git_info.get('is_dirty', 'Unknown')}", Colors.BRIGHT_WHITE, None, 4)
+                        styled_print(f"    Last Commit: {git_info.get('last_commit_hash', 'Unknown')}", Colors.BRIGHT_WHITE, None, 4)
+
+                except Exception as e:
+                    styled_print(f"  Error reading overview_inventory.json: {e}", Colors.BRIGHT_RED, None, 2)
+            else:
+                styled_print("  Inventory file not found.", Colors.BRIGHT_YELLOW, None, 2)
+
+            print()  # Empty line between pipelines
+
+        except Exception as e:
+            print_error(f"Error loading pipeline {pipeline_id}: {e}", 2)
 
 
 def handle_convert_reset(verbose: bool = False) -> None:
