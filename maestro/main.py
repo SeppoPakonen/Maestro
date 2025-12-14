@@ -227,6 +227,33 @@ class MatchedRule:
     diagnostic: Diagnostic
     confidence: float
 
+
+@dataclass
+class FixIteration:
+    """Data for a single fix iteration in the fix run."""
+    iteration: int
+    selected_target_signatures: List[str]
+    matched_rule_ids: List[str]
+    model_used: str
+    patch_kept: bool
+    patch_reason: Optional[str] = None
+    verification_result: bool = False
+    new_signatures_introduced: List[str] = field(default_factory=list)
+    errors_before: int = 0
+    errors_after: int = 0
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
+class FixRun:
+    """Data for a complete fix run with all iterations."""
+    fix_run_id: str
+    session_path: str
+    start_time: float
+    iterations: List[FixIteration] = field(default_factory=list)
+    end_time: Optional[float] = None
+    completed: bool = False
+
 # Dataclass for build target configuration
 @dataclass
 class BuildTarget:
@@ -1468,7 +1495,7 @@ def update_subtask_summary_paths(session: Session, session_path: str):
             subtask.summary_file = new_path
 
 
-def scan_upp_repo(root_dir: str, verbose: bool = False) -> UppRepoIndex:
+def scan_upp_repo(root_dir: str, verbose: bool = False, assemblies: List[str] = None) -> UppRepoIndex:
     """
     Scan a U++ repository and discover packages according to U++ Core reference implementation.
     Aligns with U++ Core/Package.cpp behavior:
@@ -1480,6 +1507,7 @@ def scan_upp_repo(root_dir: str, verbose: bool = False) -> UppRepoIndex:
     Args:
         root_dir: Root directory of the U++ repository to scan
         verbose: If True, print verbose scan information
+        assemblies: Optional list of assembly paths to scan (if None, use root_dir as single assembly)
 
     Returns:
         UppRepoIndex: Index containing assemblies and discovered packages
@@ -1487,94 +1515,307 @@ def scan_upp_repo(root_dir: str, verbose: bool = False) -> UppRepoIndex:
     import os
     from pathlib import Path
 
-    assemblies = []
+    discovered_assemblies = []
     packages = []
     scanned_paths = []  # Track what we've scanned for verbose output
 
     # Define source file extensions commonly used in U++
     source_extensions = {'.cpp', '.cppi', '.icpp', '.h', '.hpp', '.inl', '.c', '.cc', '.cxx'}
 
-    # In U++ reference implementation:
-    # - The root directory represents a nest (assembly)
-    # - We scan recursively to find all packages that match the <Name>/<Name>.upp pattern
-    # - Assemblies are collections of paths where packages are found
+    # Use provided assemblies or default to root directory
+    if assemblies is None:
+        discovered_assemblies = [os.path.abspath(root_dir)]
+    else:
+        # Normalize assembly paths to absolute paths and sort for deterministic order
+        discovered_assemblies = sorted([os.path.abspath(asm) for asm in assemblies])
 
     if verbose:
-        print(f"[VERBOSE] Starting U++ package discovery in: {root_dir}")
+        print(f"[maestro] assemblies ({len(discovered_assemblies)}):")
+        for i, asm in enumerate(discovered_assemblies, 1):
+            print(f"  {i}) {asm}")
 
-    # For U++ compatibility, treat the root directory as an assembly/nest
-    # and scan it recursively for packages
-    assemblies = [root_dir]
+    # Process assemblies in deterministic order
+    for asm_idx, assembly_path in enumerate(discovered_assemblies):
+        if verbose:
+            print(f"\n[maestro] scanning assembly: {os.path.basename(assembly_path)}")
+
+        # Track packages found in this assembly for verbose output
+        asm_packages_found = []
+
+        # Walk through the assembly directory tree recursively to find packages
+        # Sort directories for deterministic traversal
+        for root, dirs, files in os.walk(assembly_path):
+            # Sort directories and files for deterministic order
+            dirs.sort()
+            files.sort()
+
+            current_path = os.path.abspath(root)
+
+            # Extract the package name from the directory name
+            pkg_name = os.path.basename(root)
+
+            # Check if this directory contains a .upp file with the same name as the directory
+            upp_file_path = os.path.join(root, f"{pkg_name}.upp")
+
+            if os.path.exists(upp_file_path):
+                # This directory is a valid U++ package
+                if verbose:
+                    print(f"  package folders: {pkg_name}")
+                    print(f"    {pkg_name}/{pkg_name}.upp -> FOUND (package: {pkg_name})")
+                    scanned_paths.append(f"Package: {pkg_name} at {root}")
+
+                # Look for main header file (dependency library indicator)
+                main_header_path = os.path.join(root, f"{pkg_name}.h")
+                if not os.path.exists(main_header_path):
+                    # Try other common header extensions
+                    for h_ext in ['.h', '.hpp', '.inl']:
+                        test_header = os.path.join(root, f"{pkg_name}{h_ext}")
+                        if os.path.exists(test_header):
+                            main_header_path = test_header
+                            break
+                    else:
+                        main_header_path = None
+
+                # Collect source and header files for this package
+                pkg_source_files = []
+                pkg_header_files = []
+
+                for pkg_root, pkg_dirs, pkg_files in os.walk(root):
+                    # Sort for deterministic order
+                    pkg_dirs.sort()
+                    pkg_files.sort()
+
+                    for file in pkg_files:
+                        _, ext = os.path.splitext(file)
+                        file_path = os.path.join(pkg_root, file)
+
+                        if ext.lower() in source_extensions:
+                            if ext.lower() in {'.h', '.hpp', '.inl'}:
+                                pkg_header_files.append(file_path)
+                            else:
+                                pkg_source_files.append(file_path)
+
+                # Check if this is a dependency library (has corresponding header file)
+                is_dependency_library = main_header_path is not None and os.path.exists(main_header_path)
+
+                package = UppPackage(
+                    name=pkg_name,
+                    dir_path=root,
+                    upp_path=upp_file_path,
+                    main_header_path=main_header_path,
+                    source_files=sorted(pkg_source_files),
+                    header_files=sorted(pkg_header_files),
+                    is_dependency_library=is_dependency_library
+                )
+                packages.append(package)
+                asm_packages_found.append(pkg_name)
+
+        if verbose and not asm_packages_found:
+            print(f"  package folders: (none found)")
+
+    # Ensure packages are sorted deterministically by name and path
+    packages.sort(key=lambda p: (p.name, p.dir_path))
 
     if verbose:
-        print(f"[VERBOSE] Identified assembly/nest: {root_dir}")
-
-    # Walk through the directory tree recursively to find packages
-    for root, dirs, files in os.walk(root_dir):
-        current_path = os.path.abspath(root)
-
-        # Extract the package name from the directory name
-        pkg_name = os.path.basename(root)
-
-        # Check if this directory contains a .upp file with the same name as the directory
-        upp_file_path = os.path.join(root, f"{pkg_name}.upp")
-
-        if os.path.exists(upp_file_path):
-            # This directory is a valid U++ package
-            if verbose:
-                print(f"[VERBOSE] Found package: {pkg_name} at {root}")
-                scanned_paths.append(f"Package: {pkg_name} at {root}")
-
-            # Look for main header file (dependency library indicator)
-            main_header_path = os.path.join(root, f"{pkg_name}.h")
-            if not os.path.exists(main_header_path):
-                # Try other common header extensions
-                for h_ext in ['.h', '.hpp', '.inl']:
-                    test_header = os.path.join(root, f"{pkg_name}{h_ext}")
-                    if os.path.exists(test_header):
-                        main_header_path = test_header
-                        break
-                else:
-                    main_header_path = None
-
-            # Collect source and header files for this package
-            pkg_source_files = []
-            pkg_header_files = []
-
-            for pkg_root, pkg_dirs, pkg_files in os.walk(root):
-                for file in pkg_files:
-                    _, ext = os.path.splitext(file)
-                    file_path = os.path.join(pkg_root, file)
-
-                    if ext.lower() in source_extensions:
-                        if ext.lower() in {'.h', '.hpp', '.inl'}:
-                            pkg_header_files.append(file_path)
-                        else:
-                            pkg_source_files.append(file_path)
-
-            # Check if this is a dependency library (has corresponding header file)
-            is_dependency_library = main_header_path is not None and os.path.exists(main_header_path)
-
-            package = UppPackage(
-                name=pkg_name,
-                dir_path=root,
-                upp_path=upp_file_path,
-                main_header_path=main_header_path,
-                source_files=sorted(pkg_source_files),
-                header_files=sorted(pkg_header_files),
-                is_dependency_library=is_dependency_library
-            )
-            packages.append(package)
-
-    if verbose:
-        print(f"[VERBOSE] Discovered {len(packages)} packages in {len(assemblies)} assembly/nest")
+        print(f"\n[maestro] Discovered {len(packages)} packages in {len(discovered_assemblies)} assemblies")
         for package in packages:
             print(f"  - {package.name} at {package.dir_path}")
 
     return UppRepoIndex(
-        assemblies=assemblies,
+        assemblies=discovered_assemblies,
         packages=packages
     )
+
+
+def resolve_upp_dependencies(repo_index: UppRepoIndex, main_package_name: str, verbose: bool = False) -> Dict[str, Optional[UppPackage]]:
+    """
+    Resolve U++ package dependencies using deterministic search order.
+
+    Args:
+        repo_index: UppRepoIndex containing assemblies and packages
+        main_package_name: Name of the main package to resolve dependencies for
+        verbose: If True, print verbose trace information
+
+    Returns:
+        Dictionary mapping dependency names to their resolved UppPackage objects (or None if not found)
+    """
+    # Find the main package first
+    main_package = None
+    for pkg in repo_index.packages:
+        if pkg.name == main_package_name:
+            main_package = pkg
+            break
+
+    if main_package is None:
+        if verbose:
+            print(f"  - main package '{main_package_name}' not found")
+        return {}
+
+    # Parse the main package's .upp file to get dependency list
+    try:
+        with open(main_package.upp_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        upp_project = parse_upp(content)
+        dependencies = upp_project.uses  # List of dependency package names
+    except Exception as e:
+        if verbose:
+            print(f"  - could not parse main package .upp file: {e}")
+        return {}
+
+    if verbose:
+        print(f"\n[maestro] resolve dependency: {main_package_name}")
+        if dependencies:
+            print(f"  - uses: {', '.join(dependencies)}")
+        else:
+            print(f"  - uses: (no dependencies)")
+
+    # Resolve each dependency using first-match-wins strategy
+    resolved_deps = {}
+
+    for dep_name in dependencies:
+        if verbose:
+            print(f"\n[maestro] resolve dependency: {dep_name}")
+
+        resolved_package = None
+
+        # Search assemblies in order
+        for asm_idx, assembly_path in enumerate(repo_index.assemblies):
+            if verbose:
+                print(f"  check assembly: {os.path.basename(assembly_path)}")
+
+            # Search for package folder in this assembly
+            for pkg in repo_index.packages:
+                # Only check packages from the current assembly
+                if pkg.dir_path.startswith(assembly_path) and pkg.name == dep_name:
+                    resolved_package = pkg
+                    if verbose:
+                        print(f"    {pkg.dir_path}/{pkg.name}.upp -> FOUND")
+                    break
+
+            if resolved_package is not None:
+                # First match wins - stop searching
+                break
+
+        if resolved_package is None and verbose:
+            print(f"    -> NOT FOUND in any assembly")
+
+        resolved_deps[dep_name] = resolved_package
+
+    return resolved_deps
+
+
+def handle_structure_conformance(session_path: str, verbose: bool = False) -> int:
+    """
+    Handle conformance check mode that compares Maestro discovery output against expected fixture outputs.
+
+    Args:
+        session_path: Path to the session file
+        verbose: If True, print detailed conformance info
+
+    Returns:
+        Exit code (0 for success, 1 for conformance failures)
+    """
+    import json
+
+    print_header("U++ DISCOVERY CONFORMANCE CHECK")
+
+    # Define expected results for fixture
+    fixtures_dir = os.path.join(os.path.dirname(__file__), '..', 'tests', 'fixtures', 'upp_workspace')
+
+    if not os.path.exists(fixtures_dir):
+        print_error(f"Fixture directory not found: {fixtures_dir}", 2)
+        return 1
+
+    print_info(f"Testing against fixture: {fixtures_dir}", 2)
+
+    # Expected assemblies (assemblyA, assemblyB)
+    expected_assemblies = {
+        os.path.abspath(os.path.join(fixtures_dir, 'assemblyA')),
+        os.path.abspath(os.path.join(fixtures_dir, 'assemblyB'))
+    }
+
+    # Expected packages
+    expected_packages = {
+        'PkgX',  # In assemblyA
+        'PkgY',  # In assemblyB
+        'PkgX2'  # In assemblyB (different from PkgX)
+    }
+
+    # Scan the fixture directory
+    assemblies = [os.path.abspath(os.path.join(fixtures_dir, 'assemblyA')), os.path.abspath(os.path.join(fixtures_dir, 'assemblyB'))]
+    repo_index = scan_upp_repo(fixtures_dir, verbose=verbose, assemblies=assemblies)
+
+    # Evaluate actual results
+    actual_assemblies = {os.path.abspath(path) for path in repo_index.assemblies}
+    actual_packages = {pkg.name for pkg in repo_index.packages}
+
+    # Check assemblies
+    assemblies_match = expected_assemblies == actual_assemblies
+    packages_match = expected_packages == actual_packages
+
+    if verbose:
+        print_info(f"Expected assemblies: {sorted(expected_assemblies)}", 2)
+        print_info(f"Actual assemblies: {sorted(actual_assemblies)}", 2)
+        print_info(f"Expected packages: {sorted(expected_packages)}", 2)
+        print_info(f"Actual packages: {sorted(actual_packages)}", 2)
+
+    # Show assembly check results
+    print_subheader("ASSEMBLY DISCOVERY")
+    if assemblies_match:
+        print_success("✓ Assemblies discovered correctly", 2)
+    else:
+        print_error("✗ Assembly discovery mismatch", 2)
+        missing_assemblies = expected_assemblies - actual_assemblies
+        extra_assemblies = actual_assemblies - expected_assemblies
+        if missing_assemblies:
+            print_error(f"  Missing assemblies: {sorted(missing_assemblies)}", 4)
+        if extra_assemblies:
+            print_error(f"  Extra assemblies: {sorted(extra_assemblies)}", 4)
+
+    # Show package check results
+    print_subheader("PACKAGE DISCOVERY")
+    if packages_match:
+        print_success("✓ Packages discovered correctly", 2)
+    else:
+        print_error("✗ Package discovery mismatch", 2)
+        missing_packages = expected_packages - actual_packages
+        extra_packages = actual_packages - expected_packages
+        if missing_packages:
+            print_error(f"  Missing packages: {sorted(missing_packages)}", 4)
+        if extra_packages:
+            print_error(f"  Extra packages: {sorted(extra_packages)}", 4)
+
+    # Test dependency resolution for PkgY which depends on PkgX
+    print_subheader("DEPENDENCY RESOLUTION")
+    pkg_y_found = any(pkg.name == 'PkgY' for pkg in repo_index.packages)
+    if pkg_y_found:
+        resolved_deps = resolve_upp_dependencies(repo_index, 'PkgY', verbose=verbose)
+
+        # Check if PkgX dependency is resolved
+        if 'PkgX' in resolved_deps and resolved_deps['PkgX'] is not None:
+            # Verify it's the PkgX from assemblyA (first in search order)
+            pkg_x_path = os.path.abspath(resolved_deps['PkgX'].dir_path)
+            is_from_first_assembly = pkg_x_path.startswith(os.path.abspath(assemblies[0]))
+
+            if is_from_first_assembly:
+                print_success("✓ Dependency resolution follows first-match-wins", 2)
+            else:
+                print_error("✗ Dependency resolution does not follow first-match-wins", 2)
+                print_error(f"  Expected PkgX from: {assemblies[0]}", 4)
+                print_error(f"  Got PkgX from: {pkg_x_path}", 4)
+        else:
+            print_error("✗ Could not resolve PkgX dependency for PkgY", 2)
+    else:
+        print_error("✗ Could not find PkgY for dependency testing", 2)
+
+    # Overall result
+    print_subheader("CONFORMANCE RESULT")
+    if assemblies_match and packages_match:
+        print_success("✓ All conformance checks PASSED", 2)
+        return 0
+    else:
+        print_error("✗ Conformance checks FAILED", 2)
+        return 1
 
 
 def get_session_path_by_name(session_name: str) -> str:
@@ -2268,6 +2509,10 @@ def main():
     build_fix_run_parser.add_argument('--keep-going', action='store_true', help='Attempt next error even if one fails')
     build_fix_run_parser.add_argument('--limit-steps', help='Restrict pipeline steps (comma-separated: build,lint,tests,...)')
     build_fix_run_parser.add_argument('--build-after-each-fix', action='store_true', default=True, help='Rerun build after each fix (default: true)')
+    build_fix_run_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream model stdout live to the terminal')
+    build_fix_run_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print constructed prompts before running them')
+    build_fix_run_parser.add_argument('-q', '--quiet', action='store_true', help='Suppress output except errors')
+    build_fix_run_parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
     # build fix add
     build_fix_add_parser = build_fix_subparsers.add_parser('add', aliases=['a'], help='Register a repository with a fix rulebook name')
@@ -2351,6 +2596,7 @@ def main():
     structure_scan_parser.add_argument('--only', help='Comma-separated list of rules to apply: rule1,rule2,...')
     structure_scan_parser.add_argument('--skip', help='Comma-separated list of rules to skip: rule1,rule2,...')
     structure_scan_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information including assemblies and package folders searched')
+    structure_scan_parser.add_argument('--conformance', action='store_true', help='Run conformance check mode comparing against expected fixture outputs')
 
     # build structure show
     structure_show_parser = build_structure_subparsers.add_parser('show', aliases=['sh'], help='Print the last scan report (or scan if missing)')
@@ -3034,12 +3280,15 @@ def main():
 
                             handle_build_fix(
                                 args.session,
-                                args.verbose,
+                                verbose=getattr(args, 'verbose', False),
                                 max_iterations=getattr(args, 'max_iterations', 5),
                                 target=getattr(args, 'target', None),
                                 keep_going=getattr(args, 'keep_going', False),
                                 limit_steps=getattr(args, 'limit_steps', None),
-                                build_after_each_fix=getattr(args, 'build_after_each_fix', True)
+                                build_after_each_fix=getattr(args, 'build_after_each_fix', True),
+                                stream_ai_output=getattr(args, 'stream_ai_output', False),
+                                print_ai_prompts=getattr(args, 'print_ai_prompts', False),
+                                quiet=getattr(args, 'quiet', False)
                             )
                         elif args.fix_subcommand == 'add':
                             handle_build_fix_add(args.repo_path, args.name, args.verbose)
@@ -3103,12 +3352,15 @@ def main():
 
                         handle_build_fix(
                             args.session,
-                            args.verbose,
+                            verbose=getattr(args, 'verbose', False),
                             max_iterations=getattr(args, 'max_iterations', 5),
                             target=getattr(args, 'target', None),
                             keep_going=getattr(args, 'keep_going', False),
                             limit_steps=getattr(args, 'limit_steps', None),
-                            build_after_each_fix=getattr(args, 'build_after_each_fix', True)
+                            build_after_each_fix=getattr(args, 'build_after_each_fix', True),
+                            stream_ai_output=getattr(args, 'stream_ai_output', False),
+                            print_ai_prompts=getattr(args, 'print_ai_prompts', False),
+                            quiet=getattr(args, 'quiet', False)
                         )
                 elif args.builder_subcommand == 'status':
                     handle_build_status(args.session, args.verbose)
@@ -3145,10 +3397,11 @@ def main():
                         if args.structure_subcommand == 'scan':
                             handle_structure_scan(
                                 session_path,
-                                args.verbose,
+                                verbose=args.verbose,
                                 target=getattr(args, 'target', None),
                                 only_rules=getattr(args, 'only', None),
-                                skip_rules=getattr(args, 'skip', None)
+                                skip_rules=getattr(args, 'skip', None),
+                                conformance=getattr(args, 'conformance', False)
                             )
                         elif args.structure_subcommand == 'show':
                             handle_structure_show(
@@ -9317,6 +9570,161 @@ def is_git_repo(session_path: str) -> bool:
         return False
 
 
+def create_git_checkpoint(session_path: str, fix_run_id: str, iteration_num: int) -> tuple:
+    """
+    Create a git checkpoint before applying changes, storing git ref and patch file.
+
+    Args:
+        session_path: Path to the session file
+        fix_run_id: ID of the fix run
+        iteration_num: Current iteration number
+
+    Returns:
+        Tuple of (checkpoint_ref, patch_path) if successful, (None, None) otherwise
+    """
+    import subprocess
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        # Get the current git commit hash
+        result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            return None, None
+
+        checkpoint_ref = result.stdout.strip()
+
+        # Create patches directory in the fix run directory
+        runs_dir = get_fix_runs_dir(session_path)
+        run_dir = os.path.join(runs_dir, fix_run_id)
+        patches_dir = os.path.join(run_dir, "patches")
+        os.makedirs(patches_dir, exist_ok=True)
+
+        # Save current diff to before patch file with naming convention: iter_<n>_before.patch
+        before_patch_path = os.path.join(patches_dir, f"iter_{iteration_num}_before.patch")
+        result = subprocess.run(
+            ['git', 'diff'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        with open(before_patch_path, 'w', encoding='utf-8') as f:
+            f.write(result.stdout)
+
+        return checkpoint_ref, before_patch_path
+
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, IOError):
+        return None, None
+
+
+def save_after_patch(session_path: str, fix_run_id: str, iteration_num: int, verbose: bool = False) -> str:
+    """
+    Save the current diff after applying changes.
+
+    Args:
+        session_path: Path to the session file
+        fix_run_id: ID of the fix run
+        iteration_num: Current iteration number
+        verbose: Verbose output flag
+
+    Returns:
+        Path to the after patch file
+    """
+    import subprocess
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        # Create patches directory in the fix run directory
+        runs_dir = get_fix_runs_dir(session_path)
+        run_dir = os.path.join(runs_dir, fix_run_id)
+        patches_dir = os.path.join(run_dir, "patches")
+        os.makedirs(patches_dir, exist_ok=True)
+
+        # Save current diff to after patch file with naming convention: iter_<n>_after.patch
+        after_patch_path = os.path.join(patches_dir, f"iter_{iteration_num}_after.patch")
+        result = subprocess.run(
+            ['git', 'diff'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        with open(after_patch_path, 'w', encoding='utf-8') as f:
+            f.write(result.stdout)
+
+        if verbose:
+            print_info(f"Saved after patch to: {after_patch_path}", 2)
+
+        return after_patch_path
+
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, IOError):
+        return ""
+
+
+def revert_git_changes_to_checkpoint(session_path: str, checkpoint_ref: str, verbose: bool = False) -> bool:
+    """
+    Revert git changes to a specific commit checkpoint.
+
+    Args:
+        session_path: Path to the session file
+        checkpoint_ref: Git commit hash to revert to
+        verbose: Verbose output flag
+
+    Returns:
+        True if revert was successful, False otherwise
+    """
+    import subprocess
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+
+    try:
+        # Discard all changes since the checkpoint
+        # First, checkout the specific commit
+        result1 = subprocess.run(
+            ['git', 'checkout', checkpoint_ref, '--', '.'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        # Then reset to that commit to make it the current HEAD
+        result2 = subprocess.run(
+            ['git', 'reset', '--hard', checkpoint_ref],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        # Clean up any untracked files
+        result3 = subprocess.run(
+            ['git', 'clean', '-fd'],
+            cwd=session_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        success = result2.returncode == 0 and result3.returncode == 0
+        if verbose and success:
+            print_info(f"Successfully reverted to commit {checkpoint_ref[:8]}", 2)
+        elif verbose:
+            print_warning(f"Revert may have failed. Git status: Return codes {result1.returncode}, {result2.returncode}, {result3.returncode}", 2)
+
+        return success
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+        return False
+
+
 def create_git_backup(session_path: str, patch_filename: str) -> bool:
     """
     Create a git diff backup of current state.
@@ -9533,6 +9941,63 @@ def select_target_diagnostics(diagnostics: List[Diagnostic], target_option: str 
         return select_target_diagnostics(diagnostics, "top")
 
 
+def select_best_rules_by_priority_and_confidence(matched_rules: List[MatchedRule]) -> List[MatchedRule]:
+    """
+    Select the best rules by priority (descending) and confidence (descending).
+
+    Args:
+        matched_rules: List of matched rules
+
+    Returns:
+        List of rules sorted by priority and confidence (descending)
+    """
+    # Sort by priority descending, then by confidence descending
+    sorted_rules = sorted(matched_rules, key=lambda x: (x.rule.priority, x.confidence), reverse=True)
+    return sorted_rules
+
+
+def get_rule_actions_for_diagnostics(diagnostics: List[Diagnostic], session_dir: str) -> List[MatchedRule]:
+    """
+    Get rule actions for the given diagnostics by matching against active rulebooks.
+
+    Args:
+        diagnostics: List of diagnostics to match
+        session_dir: Directory of the current session
+
+    Returns:
+        List of matched rules with their actions
+    """
+    matched_rules = match_rulebooks_to_diagnostics(diagnostics, session_dir)
+    return select_best_rules_by_priority_and_confidence(matched_rules)
+
+
+def print_target_selection_info(target_diags: List[Diagnostic], target_option: str = None):
+    """
+    Print information about chosen targets in verbose mode.
+
+    Args:
+        target_diags: List of selected target diagnostics
+        target_option: Target option used for selection
+    """
+    if not target_diags:
+        print_info("No target diagnostics selected.", 2)
+        return
+
+    print_info(f"Targeting {len(target_diags)} diagnostics with signatures: {[d.signature for d in target_diags[:3]]}{'...' if len(target_diags) > 3 else ''}", 2)
+
+    # Show representative diagnostic message per signature
+    signature_groups = {}
+    for diag in target_diags:
+        if diag.signature not in signature_groups:
+            signature_groups[diag.signature] = []
+        signature_groups[diag.signature].append(diag)
+
+    for sig, diags in list(signature_groups.items())[:3]:  # Show first 3 signatures
+        representative_diag = diags[0]  # Use first diagnostic in group as representative
+        print_info(f"  - Signature: {sig[:12]}... ({len(diags)} occurrence{'s' if len(diags) > 1 else ''})", 4)
+        print_info(f"    Representative: {representative_diag.tool}:{representative_diag.severity} in {representative_diag.file or 'unknown'}:{representative_diag.line or '?'} - {representative_diag.message[:60]}{'...' if len(representative_diag.message) > 60 else ''}", 4)
+
+
 def get_target_signatures_before_fix(diagnostics: List[Diagnostic], target_option: str = None) -> set:
     """
     Get the set of target signature before applying a fix.
@@ -9546,6 +10011,106 @@ def get_target_signatures_before_fix(diagnostics: List[Diagnostic], target_optio
     """
     target_diags = select_target_diagnostics(diagnostics, target_option)
     return {d.signature for d in target_diags}
+
+
+def get_fix_runs_dir(session_path: str) -> str:
+    """
+    Get the directory for fix run data.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the fix runs directory
+    """
+    build_dir = get_build_dir(session_path)
+    return os.path.join(build_dir, "fix", "runs")
+
+
+def save_fix_run(fix_run: FixRun, session_path: str) -> str:
+    """
+    Save a fix run to persistent storage.
+
+    Args:
+        fix_run: The fix run data to save
+        session_path: Path to the session file
+
+    Returns:
+        Path to the saved fix_run.json file
+    """
+    runs_dir = get_fix_runs_dir(session_path)
+    run_dir = os.path.join(runs_dir, fix_run.fix_run_id)
+    os.makedirs(run_dir, exist_ok=True)
+
+    fix_run_path = os.path.join(run_dir, "fix_run.json")
+    fix_run_dict = {
+        "fix_run_id": fix_run.fix_run_id,
+        "session_path": fix_run.session_path,
+        "start_time": fix_run.start_time,
+        "end_time": fix_run.end_time,
+        "completed": fix_run.completed,
+        "iterations": []
+    }
+
+    for iter_data in fix_run.iterations:
+        iter_dict = {
+            "iteration": iter_data.iteration,
+            "selected_target_signatures": iter_data.selected_target_signatures,
+            "matched_rule_ids": iter_data.matched_rule_ids,
+            "model_used": iter_data.model_used,
+            "patch_kept": iter_data.patch_kept,
+            "patch_reason": iter_data.patch_reason,
+            "verification_result": iter_data.verification_result,
+            "new_signatures_introduced": iter_data.new_signatures_introduced,
+            "errors_before": iter_data.errors_before,
+            "errors_after": iter_data.errors_after,
+            "timestamp": iter_data.timestamp
+        }
+        fix_run_dict["iterations"].append(iter_dict)
+
+    with open(fix_run_path, 'w', encoding='utf-8') as f:
+        json.dump(fix_run_dict, f, indent=2)
+
+    return fix_run_path
+
+
+def save_diagnostics_for_fix_run(diagnostics: List[Diagnostic], fix_run_id: str, session_path: str, phase: str):
+    """
+    Save diagnostics to the fix run directory.
+
+    Args:
+        diagnostics: List of diagnostics to save
+        fix_run_id: ID of the fix run
+        session_path: Path to the session file
+        phase: Either 'before' or 'after' the fix
+    """
+    runs_dir = get_fix_runs_dir(session_path)
+    run_dir = os.path.join(runs_dir, fix_run_id)
+    os.makedirs(run_dir, exist_ok=True)
+
+    # Convert diagnostics to dict for JSON serialization
+    diagnostics_data = []
+    for d in diagnostics:
+        d_dict = d.__dict__.copy()
+        # Convert KnownIssue objects to dict
+        known_issues_list = []
+        for issue in d.known_issues:
+            known_issues_list.append({
+                'id': issue.id,
+                'description': issue.description,
+                'patterns': issue.patterns,
+                'tags': issue.tags,
+                'fix_hint': issue.fix_hint,
+                'confidence': issue.confidence
+            })
+        d_dict['known_issues'] = known_issues_list
+        diagnostics_data.append(d_dict)
+
+    filename = f"diagnostics_{phase}.json"
+    filepath = os.path.join(run_dir, filename)
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(diagnostics_data, f, indent=2)
 
 
 def check_fix_verification(diagnostics_after: List[Diagnostic], target_signatures_before: set) -> dict:
@@ -9981,9 +10546,11 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
             print_error(f"Failed steps: {[step.step_name for step in failed_steps]}", 4)
 
 
-def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None, keep_going=False, limit_steps=None, build_after_each_fix=True):
+def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None, keep_going=False,
+                     limit_steps=None, build_after_each_fix=True, stream_ai_output=False,
+                     print_ai_prompts=False, quiet=False):
     """
-    Run iterative AI-assisted fixes based on diagnostics.
+    Run iterative AI-assisted fixes based on diagnostics with verification loop.
 
     Args:
         session_path: Path to the session file
@@ -9993,8 +10560,11 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
         keep_going: Attempt next error even if one fails
         limit_steps: Restrict pipeline steps (comma-separated: build,lint,tests,...)
         build_after_each_fix: Rerun build after each fix (default: true)
+        stream_ai_output: Stream model output to terminal
+        print_ai_prompts: Print AI prompts before running them
+        quiet: Suppress output except errors
     """
-    if verbose:
+    if verbose and not quiet:
         print_debug(f"Running AI-assisted fixes for session: {session_path}", 2)
 
     # Load the session
@@ -10010,9 +10580,10 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
         sys.exit(1)
 
     # First, run any structure fixes from rulebooks before diagnostics-based fixes
-    print_info("Checking for structure fixes in active rulebooks...", 2)
+    if not quiet:
+        print_info("Checking for structure fixes in active rulebooks...", 2)
     structure_fix_success = run_structure_fixes_from_rulebooks(session_path, verbose)
-    if not structure_fix_success:
+    if not structure_fix_success and not quiet:
         print_warning("Some structure fixes failed, continuing with diagnostics-based fixes...", 2)
 
     # Load builder configuration
@@ -10026,11 +10597,19 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
         if verbose:
             print_debug(f"Limited pipeline steps to: {builder_config.pipeline.steps}", 2)
 
-    # Get the build directory
-    build_dir = get_build_dir(session_path)
+    # Create a new fix run with a unique ID
+    fix_run_id = f"fix_run_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+
+    # Create the FixRun object
+    fix_run = FixRun(
+        fix_run_id=fix_run_id,
+        session_path=session_path,
+        start_time=time.time()
+    )
 
     # Run initial pipeline to get baseline diagnostics
-    print_info("Running initial pipeline to get baseline diagnostics...", 2)
+    if not quiet:
+        print_info("Running initial pipeline to get baseline diagnostics...", 2)
 
     # First run the full pipeline to get current diagnostics
     pipeline_result = run_pipeline(builder_config, session_path)
@@ -10043,18 +10622,15 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
             diagnostic.known_issues = known_issue_matches[diagnostic.signature]
 
     if not diagnostics:
-        print_info("No diagnostics found. Build is successful.", 2)
+        if not quiet:
+            print_info("No diagnostics found. Build is successful.", 2)
         return
 
-    print_info(f"Found {len(diagnostics)} diagnostics in initial run.", 2)
+    if not quiet:
+        print_info(f"Found {len(diagnostics)} diagnostics in initial run.", 2)
 
-    # Create fix history directory and file
-    fix_history_path = os.path.join(build_dir, "fix_history.json")
-    fix_history = {
-        "session": session_path,
-        "start_time": time.time(),
-        "iterations": []
-    }
+    # Save initial diagnostics
+    save_diagnostics_for_fix_run(diagnostics, fix_run_id, session_path, "before")
 
     # Main fix loop
     iteration = 0
@@ -10063,7 +10639,7 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
     # Track signatures that have failed to resolve for escalation logic
     failed_signature_counts = {}
 
-    if verbose:
+    if verbose and not quiet:
         print_info(f"Fix loop will run up to {max_iterations} iterations", 2)
         print_info(f"Target option: {target or 'top'}", 2)
         print_info(f"Keep going: {keep_going}", 2)
@@ -10071,91 +10647,97 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
 
     while iteration < max_iterations and remaining_diagnostics:
         iteration += 1
-        print_info(f"\n--- FIX ITERATION {iteration}/{max_iterations} ---", 2)
+
+        if not quiet:
+            print_info(f"\n--- FIX ITERATION {iteration}/{max_iterations} ---", 2)
 
         # Select target diagnostics based on target option
         target_diags = select_target_diagnostics(remaining_diagnostics, target)
         if not target_diags:
-            print_info("No target diagnostics selected. Exiting fix loop.", 2)
+            if not quiet:
+                print_info("No target diagnostics selected. Exiting fix loop.", 2)
             break
 
         target_signatures = {d.signature for d in target_diags}
-        print_info(f"Targeting {len(target_diags)} diagnostics with signatures: {target_signatures}", 2)
 
-        if verbose:
-            print_info(f"Will attempt fix for {len(target_diags)} diagnostics", 4)
-            for diag in target_diags:
-                print_info(f"  - {diag.tool}:{diag.severity} in {diag.file or 'unknown'}:{diag.line or '?'} - {diag.message[:50]}...", 4)
-                if diag.known_issues:
-                    for issue in diag.known_issues:
-                        print_info(f"    Known Issue: {issue.description[:60]}... (confidence: {issue.confidence:.2f})", 4)
+        if verbose and not quiet:
+            print_target_selection_info(target_diags, target)
+        elif not quiet:
+            print_info(f"Targeting {len(target_diags)} diagnostics with signatures: {list(target_signatures)[:3]}{'...' if len(target_signatures) > 3 else ''}", 2)
 
-        # Create backup before applying fix
+        # Match rules against target diagnostics to get context for the AI
+        session_dir = os.path.dirname(os.path.abspath(session_path))
+        matched_rules = get_rule_actions_for_diagnostics(target_diags, session_dir)
+
+        # Print matched rule information if available
+        if matched_rules and verbose and not quiet:
+            print_info(f"Matched {len(matched_rules)} rules to diagnostics:", 4)
+            for rule_match in matched_rules[:3]:  # Show first 3 matched rules
+                print_info(f"  - Rule {rule_match.rule.id} (confidence: {rule_match.confidence:.2f}, priority: {rule_match.rule.priority})", 4)
+                if rule_match.rule.actions:
+                    for action in rule_match.rule.actions[:2]:  # Show first 2 actions
+                        print_info(f"    Action: {action.type} - {action.text[:50]}{'...' if len(action.text or '') > 50 else ''}", 4)
+
+        # Create git checkpoint before applying fix
         if is_git_repo(session_path):
-            patch_filename = os.path.join(build_dir, "patches", f"{iteration}_before.patch")
-            if create_git_backup(session_path, patch_filename):
-                print_info(f"Created git backup patch: {patch_filename}", 2)
+            checkpoint_ref, checkpoint_patch_path = create_git_checkpoint(session_path, fix_run_id, iteration)
+            if checkpoint_ref:
+                if not quiet:
+                    print_info(f"Created git checkpoint {checkpoint_ref[:8]}", 2)
                 using_git = True
+                checkpoint_data = (checkpoint_ref, checkpoint_patch_path)
             else:
-                print_warning("Failed to create git backup, using file backup", 2)
-                backup_dir = os.path.join(build_dir, "backups", f"iteration_{iteration}")
-                if create_file_backup(session_path, backup_dir):
-                    print_info(f"Created file backup: {backup_dir}", 2)
-                    using_git = False
-                    backup_location = backup_dir
-                else:
-                    print_error("Failed to create any backup. Exiting.", 2)
-                    break
+                if not quiet:
+                    print_warning("Failed to create git checkpoint", 2)
+                break  # If we can't create a checkpoint, we should stop for safety
         else:
-            # Not in git repo, use file backup
-            backup_dir = os.path.join(build_dir, "backups", f"iteration_{iteration}")
-            if create_file_backup(session_path, backup_dir):
-                print_info(f"Created file backup: {backup_dir}", 2)
-                using_git = False
-                backup_location = backup_dir
-            else:
-                print_error("Failed to create file backup. Exiting.", 2)
-                break
+            if not quiet:
+                print_warning("Not in a git repository. This operation requires a git repo for safe revert.", 2)
+            break
 
         # Get AI to propose a fix for the targeted diagnostics using new JSON format
         fix_proposal_json = propose_fix_for_diagnostics(
             session,
             target_diags,
             session_path,
-            verbose,
+            fix_run_id,
+            iteration,
+            matched_rules=matched_rules,
+            verbose=verbose,
             iteration_count=iteration,
-            failed_signatures=failed_signature_counts
+            failed_signatures=failed_signature_counts,
+            stream_ai_output=stream_ai_output
         )
 
         if not fix_proposal_json:
-            print_warning("No valid fix proposal received from AI. Skipping this iteration.", 2)
-            # Restore from backup
-            if using_git:
-                if restore_from_git(session_path):
-                    print_info("Restored from git backup.", 2)
-                else:
-                    print_error("Failed to restore from git backup.", 2)
-            else:
-                if restore_from_file_backup(session_path, backup_location):
-                    print_info("Restored from file backup.", 2)
-                else:
-                    print_error("Failed to restore from file backup.", 2)
+            if not quiet:
+                print_warning("No valid fix proposal received from AI. Skipping this iteration.", 2)
+            # Revert to checkpoint
+            if using_git and checkpoint_data:
+                revert_git_changes_to_checkpoint(session_path, checkpoint_data[0], verbose)
+                if not quiet:
+                    print_info(f"Changes reverted to checkpoint {checkpoint_data[0][:8]}", 2)
             break
 
         # Apply the fix using the JSON plan
         apply_fix_result = apply_fix_from_json_plan(fix_proposal_json, session_path, verbose)
         if not apply_fix_result:
-            print_warning("Failed to apply fix. Restoring from backup.", 2)
-            # Restore from backup
-            if using_git:
-                restore_from_git(session_path)
-            else:
-                restore_from_file_backup(session_path, backup_location)
+            if not quiet:
+                print_warning("Failed to apply fix. Reverting to checkpoint...", 2)
+            # Revert to checkpoint
+            if using_git and checkpoint_data:
+                revert_git_changes_to_checkpoint(session_path, checkpoint_data[0], verbose)
+                if not quiet:
+                    print_info(f"Changes reverted to checkpoint {checkpoint_data[0][:8]}", 2)
             continue
+
+        # Save after patch
+        save_after_patch(session_path, fix_run_id, iteration, verbose)
 
         # Rerun pipeline to check if fix worked
         if build_after_each_fix:
-            print_info("Rerunning pipeline to verify fix...", 2)
+            if not quiet:
+                print_info("Rerunning pipeline to verify fix...", 2)
             pipeline_result_after = run_pipeline(builder_config, session_path)
             diagnostics_after = extract_diagnostics(pipeline_result_after)
 
@@ -10171,6 +10753,9 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
         # Check verification
         verification_result = check_fix_verification(diagnostics_after, target_signatures)
 
+        # Save diagnostics after fix
+        save_diagnostics_for_fix_run(diagnostics_after, fix_run_id, session_path, "after")
+
         # Update failed signature counts for escalation logic
         for sig in verification_result['remaining_target_signatures']:
             if sig in failed_signature_counts:
@@ -10178,74 +10763,84 @@ def handle_build_fix(session_path, verbose=False, max_iterations=5, target=None,
             else:
                 failed_signature_counts[sig] = 1
 
-        # Record iteration results
-        iteration_record = {
-            "iteration": iteration,
-            "target_signatures": list(target_signatures),
-            "fix_proposal": fix_proposal_json,
-            "verification": {
-                "success": verification_result['success'],
-                "disappeared_signatures": list(verification_result['disappeared_signatures']),
-                "remaining_target_signatures": list(verification_result['remaining_target_signatures']),
-                "new_signatures": list(verification_result['new_signatures']),
-            },
-            "timestamp": time.time(),
-            "applied": True
-        }
-
-        fix_history["iterations"].append(iteration_record)
-
-        if verification_result['success']:
-            print_success(f"✓ Fix successful! All target signatures resolved.", 2)
-            # Clear the failed counts for resolved signatures
-            for sig in verification_result['disappeared_signatures']:
-                if sig in failed_signature_counts:
-                    del failed_signature_counts[sig]
-            remaining_diagnostics = diagnostics_after  # Update remaining diagnostics
+        # Determine if patch was kept based on verification result
+        patch_kept = verification_result['success']
+        if patch_kept:
+            reason = "target signatures eliminated"
         else:
-            print_warning(f"✗ Fix did not resolve all target signatures. Restoring from backup...", 2)
-            # Restore from backup since fix didn't work
-            if using_git:
-                if restore_from_git(session_path):
-                    print_info("Restored from git backup.", 2)
-                    # Reload diagnostics after restore
-                    pipeline_result_after = run_pipeline(builder_config, session_path)
-                    remaining_diagnostics = extract_diagnostics(pipeline_result_after)
-                else:
-                    print_error("Failed to restore from git backup.", 2)
-            else:
-                if restore_from_file_backup(session_path, backup_location):
-                    print_info("Restored from file backup.", 2)
-                    # Reload diagnostics after restore
-                    pipeline_result_after = run_pipeline(builder_config, session_path)
-                    remaining_diagnostics = extract_diagnostics(pipeline_result_after)
-                else:
-                    print_error("Failed to restore from file backup.", 2)
+            reason = "signature still present"
+            # Revert the changes since verification failed
+            if using_git and checkpoint_data:
+                revert_git_changes_to_checkpoint(session_path, checkpoint_data[0], verbose)
+                if not quiet:
+                    print_info(f"Changes reverted to checkpoint {checkpoint_data[0][:8]} (verification failed)", 2)
+                # Reload diagnostics after revert
+                pipeline_result_after = run_pipeline(builder_config, session_path)
+                diagnostics_after = extract_diagnostics(pipeline_result_after)
 
-            # Update the iteration record to indicate the fix was reverted
-            fix_history["iterations"][-1]["applied"] = False
-            fix_history["iterations"][-1]["reverted"] = True
+        # Record matched rule IDs for the fix run
+        matched_rule_ids = [rule_match.rule.id for rule_match in matched_rules]
+
+        # Create FixIteration record
+        fix_iteration = FixIteration(
+            iteration=iteration,
+            selected_target_signatures=list(target_signatures),
+            matched_rule_ids=matched_rule_ids,
+            model_used="claude" if any(sig in failed_signature_counts and failed_signature_counts[sig] >= 2 for sig in target_signatures) else "qwen",
+            patch_kept=patch_kept,
+            patch_reason=reason,
+            verification_result=verification_result['success'],
+            new_signatures_introduced=list(verification_result['new_signatures']),
+            errors_before=len(remaining_diagnostics),
+            errors_after=len(diagnostics_after)
+        )
+
+        fix_run.iterations.append(fix_iteration)
+
+        # Print iteration summary
+        if not quiet:
+            print_fix_iteration_summary(
+                iteration, max_iterations, target_signatures,
+                fix_iteration.model_used, patch_kept, reason,
+                len(remaining_diagnostics), len(diagnostics_after),
+                verification_result['new_signatures'], verbose
+            )
+
+        # Update remaining diagnostics for next iteration
+        if patch_kept:
+            # Only update if patch was actually kept
+            remaining_diagnostics = diagnostics_after
+        else:
+            # If patch was reverted, the diagnostics are from after revert
+            remaining_diagnostics = diagnostics_after
 
         # Check if we should continue to next iteration
         if not keep_going and not verification_result['success']:
-            print_info("Stopping fix loop (not keeping going after failed fix).", 2)
+            if not quiet:
+                print_info("Stopping fix loop (not keeping going after failed fix).", 2)
             break
 
-        # Update target diagnostics for next iteration
-        target_diags = select_target_diagnostics(remaining_diagnostics, target)
-        if not target_diags:
-            print_info("No more target diagnostics to fix. Exiting fix loop.", 2)
+        # Check if no more target diagnostics to fix
+        target_diags_next = select_target_diagnostics(remaining_diagnostics, target)
+        if not target_diags_next:
+            if not quiet:
+                print_info("No more target diagnostics to fix. Exiting fix loop.", 2)
             break
 
-        print_info(f"Remaining diagnostics after iteration {iteration}: {len(remaining_diagnostics)}", 2)
+        if not quiet:
+            print_info(f"Remaining diagnostics after iteration {iteration}: {len(remaining_diagnostics)}", 2)
 
-    # Save fix history
-    os.makedirs(os.path.dirname(fix_history_path), exist_ok=True)
-    with open(fix_history_path, 'w', encoding='utf-8') as f:
-        json.dump(fix_history, f, indent=2)
+    # Complete the fix run
+    fix_run.end_time = time.time()
+    fix_run.completed = True
 
-    print_info(f"\nFix loop completed after {iteration} iterations.", 2)
-    print_info(f"Fix history saved to: {fix_history_path}", 2)
+    # Save the complete fix run
+    fix_run_path = save_fix_run(fix_run, session_path)
+
+    if not quiet:
+        print_info(f"\nFix loop completed after {iteration} iterations.", 2)
+        print_info(f"Fix run saved to: {fix_run_path}", 2)
+        print_info(f"Full audit trail available in: {os.path.dirname(fix_run_path)}", 2)
 
 
 def generate_debugger_prompt(session, target_diagnostics, session_path, iteration_count=None, failed_signatures=None):
@@ -10558,7 +11153,49 @@ def match_rulebooks_to_diagnostics(diagnostics: List[Diagnostic], session_dir: s
     return all_matched_rules
 
 
-def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbose=False, iteration_count=None, failed_signatures=None):
+def save_fix_iteration_artifacts(session_path: str, fix_run_id: str, iteration_num: int, model_used: str,
+                                 prompt: str, response: str, diagnostics_before: List[Diagnostic],
+                                 diagnostics_after: List[Diagnostic], verbose: bool = False):
+    """
+    Save all artifacts for a fix iteration including prompts, outputs, diagnostics, and patches.
+
+    Args:
+        session_path: Path to the session file
+        fix_run_id: ID of the fix run
+        iteration_num: Current iteration number
+        model_used: Model that was used for the iteration
+        prompt: The prompt sent to the AI
+        response: The response from the AI
+        diagnostics_before: Diagnostics before the fix
+        diagnostics_after: Diagnostics after the fix
+        verbose: Verbose output flag
+    """
+    # Save prompt in inputs directory following naming convention: iter_<n>_<model>.txt
+    runs_dir = get_fix_runs_dir(session_path)
+    run_dir = os.path.join(runs_dir, fix_run_id)
+    inputs_dir = os.path.join(run_dir, "inputs")
+    os.makedirs(inputs_dir, exist_ok=True)
+
+    prompt_filename = os.path.join(inputs_dir, f"iter_{iteration_num}_{model_used}.txt")
+    with open(prompt_filename, "w", encoding="utf-8") as f:
+        f.write(prompt)
+
+    # Save raw model output in outputs directory following naming convention: iter_<n>_<model>.txt
+    outputs_dir = os.path.join(run_dir, "outputs")
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    output_filename = os.path.join(outputs_dir, f"iter_{iteration_num}_{model_used}.txt")
+    with open(output_filename, "w", encoding="utf-8") as f:
+        f.write(response)
+
+    if verbose:
+        print_info(f"Saved prompt to: {prompt_filename}", 2)
+        print_info(f"Saved output to: {output_filename}", 2)
+
+
+def propose_fix_for_diagnostics(session, target_diagnostics, session_path, fix_run_id: str, iteration_num: int,
+                                matched_rules: List[MatchedRule] = None, verbose=False, iteration_count=None,
+                                failed_signatures=None, stream_ai_output=False):
     """
     Ask AI to propose a fix for the given target diagnostics using structured JSON format.
 
@@ -10566,9 +11203,13 @@ def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbo
         session: The loaded session
         target_diagnostics: List of diagnostics to fix
         session_path: Path to the session file
+        fix_run_id: ID of the current fix run
+        iteration_num: Current iteration number
+        matched_rules: List of matched rules to include as context (if any)
         verbose: Verbose output flag
         iteration_count: Current iteration count for escalation logic
         failed_signatures: Dict tracking signatures that failed to resolve in previous iterations
+        stream_ai_output: Whether to stream AI output to terminal
 
     Returns:
         Fix proposal JSON from the AI, or None if failed
@@ -10582,38 +11223,29 @@ def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbo
         for diag in target_diagnostics:
             if diag.signature in failed_signatures and failed_signatures[diag.signature] >= 2:
                 worker_model = "claude"
-                print_info(f"Escalating to {worker_model} for signature {diag.signature} (survived {failed_signatures[diag.signature]} iterations)", 2)
+                print_info(f"[maestro] Escalating fix attempt to {worker_model} (signature {diag.signature} persisted twice).", 2)
                 break  # Use the escalated model for this iteration
 
-    # Generate the structured prompt
-    fix_prompt = generate_debugger_prompt(session, target_diagnostics, session_path, iteration_count, failed_signatures)
-
-    # Save the fix prompt to build directory
-    build_dir = get_build_dir(session_path)
-    inputs_dir = os.path.join(build_dir, "inputs")  # Use build/inputs as required
-    os.makedirs(inputs_dir, exist_ok=True)
-
-    timestamp = int(time.time())
-    fix_prompt_filename = os.path.join(inputs_dir, f"debugger_{timestamp}.txt")
-    with open(fix_prompt_filename, "w", encoding="utf-8") as f:
-        f.write(fix_prompt)
+    # Generate the structured prompt with the contract requirements
+    fix_prompt = generate_debugger_prompt_with_contract(session, target_diagnostics, matched_rules, session_path,
+                                                        iteration_count, failed_signatures)
 
     # Get the AI response using the selected model
     from engines import get_engine
     try:
         engine = get_engine(f"{worker_model}_worker")
-        fix_response = engine.generate(fix_prompt)
 
-        # Save the AI response to build/outputs as required
-        outputs_dir = os.path.join(build_dir, "outputs")  # Use build/outputs as required
-        os.makedirs(outputs_dir, exist_ok=True)
-        fix_response_filename = os.path.join(outputs_dir, f"debugger_response_{timestamp}.txt")
-        with open(fix_response_filename, "w", encoding="utf-8") as f:
-            f.write(fix_response)
+        # Stream output if requested and not in quiet mode
+        if stream_ai_output and not verbose:  # Assuming stream_ai_output means showing live output
+            print_info(f"[maestro] Requesting fix from {worker_model} model...", 2)
+            fix_response = engine.generate(fix_prompt)
+        else:
+            fix_response = engine.generate(fix_prompt)
 
-        if verbose:
-            print_info(f"Debug response saved to: {fix_response_filename}", 2)
-            print_info(f"Prompt saved to: {fix_prompt_filename}", 2)
+        # Save all artifacts for this iteration
+        save_fix_iteration_artifacts(session_path, fix_run_id, iteration_num, worker_model,
+                                     fix_prompt, fix_response, target_diagnostics,
+                                     target_diagnostics, verbose)
 
         # Try to parse the response as JSON
         import json
@@ -10649,6 +11281,147 @@ def propose_fix_for_diagnostics(session, target_diagnostics, session_path, verbo
     except Exception as e:
         print_error(f"Failed to get AI fix proposal: {e}", 2)
         return None
+
+
+def print_fix_iteration_summary(iteration_num: int, max_iterations: int, target_signatures: set,
+                               model_used: str, kept: bool, reason: str = None, errors_before: int = 0,
+                               errors_after: int = 0, new_signatures: set = None,
+                               verbose: bool = False):
+    """
+    Print a user-facing summary of the fix iteration following the required format.
+
+    Args:
+        iteration_num: Current iteration number
+        max_iterations: Maximum number of iterations
+        target_signatures: Set of target signatures being addressed
+        model_used: Model that was used for this iteration
+        kept: Whether the changes were kept (True) or reverted (False)
+        reason: Reason for keeping or reverting
+        errors_before: Number of errors before the fix
+        errors_after: Number of errors after the fix
+        new_signatures: Set of new signatures introduced
+        verbose: Verbose output flag
+    """
+    if new_signatures is None:
+        new_signatures = set()
+
+    # Format target signature for display (use first signature if available)
+    target_sig_display = "unknown"
+    if target_signatures:
+        target_sig_display = next(iter(target_signatures))[:8]  # Show first 8 chars
+
+    # Determine result text
+    result_text = "kept" if kept else "reverted"
+    if reason:
+        result_text += f" ({reason})"
+
+    # Calculate error changes
+    error_change = f"{errors_before} -> {errors_after}"
+    new_sig_text = f" | New signatures: {len(new_signatures)}" if len(new_signatures) > 0 else ""
+
+    summary = f"[maestro] Fix iter {iteration_num}/{max_iterations} | model={model_used} | target={target_sig_display} ({len(target_signatures)} errors)"
+    summary += f"\nResult: {result_text}"
+    summary += f"\nErrors: {error_change}{new_sig_text}"
+
+    print_info(summary, 2)
+
+
+def generate_debugger_prompt_with_contract(session, target_diagnostics, matched_rules, session_path,
+                                          iteration_count=None, failed_signatures=None):
+    """
+    Generate a structured prompt following the contract requirements for diagnostic elimination.
+
+    Args:
+        session: The loaded session
+        target_diagnostics: List of diagnostics to fix
+        matched_rules: List of matched rules providing context
+        session_path: Path to the session file
+        iteration_count: Current iteration count
+        failed_signatures: Dict tracking signatures that failed to resolve in previous iterations
+
+    Returns:
+        The structured debugger prompt as a string
+    """
+    import os
+
+    # Build structured prompt components
+    prompt_parts = []
+
+    # GOAL: eliminate target signature(s)
+    prompt_parts.append("GOAL:")
+    prompt_parts.append("Eliminate the target diagnostic signature(s) provided below.")
+    prompt_parts.append("")
+
+    # CONTEXT: relevant diagnostics excerpt + matched rule hints
+    prompt_parts.append("CONTEXT:")
+    prompt_parts.append("Here are the diagnostics that need to be fixed:")
+
+    for i, diag in enumerate(target_diagnostics):
+        prompt_parts.append(f"Diagnostic {i+1}:")
+        prompt_parts.append(f"  Signature: {diag.signature}")
+        prompt_parts.append(f"  File: {diag.file}:{diag.line if diag.line else 'unknown'}" if diag.file else "  File: unknown")
+        prompt_parts.append(f"  Tool: {diag.tool}")
+        prompt_parts.append(f"  Severity: {diag.severity}")
+        prompt_parts.append(f"  Message: {diag.message}")
+        prompt_parts.append(f"  Raw: {diag.raw}")
+        if diag.known_issues:
+            for known_issue in diag.known_issues:
+                prompt_parts.append(f"  Known Issue: {known_issue.description}")
+        prompt_parts.append("")
+
+    if matched_rules:
+        prompt_parts.append("MATCHED RULE HINTS:")
+        for rule_match in matched_rules:
+            rule = rule_match.rule
+            diagnostic = rule_match.diagnostic
+            prompt_parts.append(f"Rule ID: {rule.id}")
+            prompt_parts.append(f"  Priority: {rule.priority}")
+            prompt_parts.append(f"  Confidence: {rule_match.confidence}")
+            prompt_parts.append(f"  Explanation: {rule.explanation}")
+            prompt_parts.append(f"  Applies to diagnostic: {diagnostic.signature}")
+
+            # Include action hints if they exist
+            for action in rule.actions:
+                if action.type == "hint":
+                    prompt_parts.append(f"  Hint: {action.text}")
+            prompt_parts.append("")
+
+    prompt_parts.append("")
+
+    # REQUIREMENTS section
+    prompt_parts.append("REQUIREMENTS:")
+    prompt_parts.append("- Make minimal changes to fix the specific diagnostic")
+    prompt_parts.append("- Do not refactor unrelated code")
+    prompt_parts.append("- Respect project conventions")
+    prompt_parts.append("- Keep existing code structure intact where possible")
+    prompt_parts.append("- Only modify files that are directly related to the diagnostic")
+    prompt_parts.append("")
+
+    # ACCEPTANCE section
+    prompt_parts.append("ACCEPTANCE CRITERIA:")
+    prompt_parts.append("- The target diagnostic signature(s) should disappear after rebuilding")
+    prompt_parts.append("- No new error signatures should be introduced")
+    prompt_parts.append("- The fix should be specific to the provided diagnostic")
+    prompt_parts.append("")
+
+    # DELIVERABLES section
+    prompt_parts.append("DELIVERABLES:")
+    prompt_parts.append("- Return your response in the following JSON format:")
+    prompt_parts.append("  {")
+    prompt_parts.append("    \"summary\": \"Brief summary of the fix\",")
+    prompt_parts.append("    \"files_to_modify\": [\"list\", \"of\", \"files\", \"to\", \"modify\"],")
+    prompt_parts.append("    \"patch_plan\": {")
+    prompt_parts.append("      \"filename\": \"detailed changes for each file\"")
+    prompt_parts.append("    },")
+    prompt_parts.append("    \"risk\": \"low/medium/high\",")
+    prompt_parts.append("    \"expected_effect\": \"What specific diagnostic should be eliminated\"")
+    prompt_parts.append("  }")
+    prompt_parts.append("")
+
+    session_dir = os.path.dirname(os.path.abspath(session_path))
+    prompt_parts.append(f"Codebase location: {session_dir}")
+
+    return "\n".join(prompt_parts)
 
 
 def apply_fix_from_json_plan(fix_plan_json, session_path, verbose=False):
@@ -12860,7 +13633,7 @@ def get_structure_dir(session_path: str) -> str:
     return structure_dir
 
 
-def handle_structure_scan(session_path: str, verbose: bool = False, target: str = None, only_rules: str = None, skip_rules: str = None):
+def handle_structure_scan(session_path: str, verbose: bool = False, target: str = None, only_rules: str = None, skip_rules: str = None, conformance: bool = False):
     """
     Handle structure scan command - analyze repository and produce a structured report (no changes).
 
@@ -12870,9 +13643,14 @@ def handle_structure_scan(session_path: str, verbose: bool = False, target: str 
         target: Build target to use (optional)
         only_rules: Comma-separated list of rules to apply
         skip_rules: Comma-separated list of rules to skip
+        conformance: Run conformance check mode
     """
     if verbose:
         print_info("Starting structure scan...", 2)
+
+    # Handle conformance mode first
+    if conformance:
+        return handle_structure_conformance(session_path, verbose)
 
     # Get structure directory
     structure_dir = get_structure_dir(session_path)
@@ -12893,7 +13671,14 @@ def handle_structure_scan(session_path: str, verbose: bool = False, target: str 
     repo_root = os.path.dirname(session_path) or os.getcwd()
 
     try:
+        # Use scan_upp_repo with verbose mode to show discovery trace
         repo_index = scan_upp_repo(repo_root, verbose=verbose)
+
+        # In verbose mode, also resolve dependencies to show the full search trace
+        if verbose and repo_index.packages:
+            # Try to resolve dependencies for the first package as an example
+            first_pkg_name = repo_index.packages[0].name
+            resolved_deps = resolve_upp_dependencies(repo_index, first_pkg_name, verbose=verbose)
 
         # Create a realistic scan report based on actual repository analysis
         scan_report = {

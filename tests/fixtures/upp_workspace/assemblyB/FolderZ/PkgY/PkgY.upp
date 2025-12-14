@@ -1,0 +1,3 @@
+uses "Core", "Draw", "PkgX";
+description "Test package Y that depends on PkgX";
+file "PkgY.cpp", "PkgY.h";

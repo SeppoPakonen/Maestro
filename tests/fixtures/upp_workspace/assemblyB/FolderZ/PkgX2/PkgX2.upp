@@ -1,0 +1,3 @@
+uses "Core";
+description "Another package with similar name";
+file "PkgX2.cpp", "PkgX2.h";
