@@ -7212,6 +7212,43 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
     return result
 
 
+def validate_build_target_schema(config: dict) -> bool:
+    """
+    Validate that the JSON config matches the required build target schema.
+
+    Args:
+        config: Dictionary containing the build target configuration
+
+    Returns:
+        True if valid, False otherwise
+    """
+    # Check for required top-level fields
+    required_fields = ['name']
+    for field in required_fields:
+        if field not in config:
+            print_error(f"Missing required field: '{field}'", 2)
+            return False
+
+    # Check that name is a string
+    if not isinstance(config['name'], str):
+        print_error("Field 'name' must be a string", 2)
+        return False
+
+    # Check that pipeline is present and has steps
+    if 'pipeline' in config:
+        if not isinstance(config['pipeline'], dict):
+            print_error("Field 'pipeline' must be an object", 2)
+            return False
+        if 'steps' not in config['pipeline']:
+            print_error("Field 'pipeline' must contain 'steps' array", 2)
+            return False
+        if not isinstance(config['pipeline']['steps'], list):
+            print_error("Field 'pipeline.steps' must be an array", 2)
+            return False
+
+    return True
+
+
 def plan_build_target_interactive(session_path: str, target_name: str, verbose: bool = False, quiet: bool = False, stream_ai_output: bool = False, print_ai_prompts: bool = False, planner_order: str = "codex,claude") -> Optional[BuildTarget]:
     """
     Interactive discussion to define target rules via AI for a build target.
@@ -7269,12 +7306,24 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
         # Get user input with support for commands
         user_input = input("> ").strip()
 
+        # Check for special commands first
         if user_input.lower() == "/done":
+            if not quiet:
+                print_info("Finalizing build target configuration...", 2)
             break
 
         if user_input.lower() == "/quit":
             print_warning("Exiting without creating build target.", 2)
             return None
+
+        # Check for empty input
+        if not user_input:
+            print_warning("Empty input. Please enter a message or use /done to finish.", 2)
+            continue
+
+        # Acknowledge user input unless quiet
+        if not quiet:
+            print_info("Sending message to build planner…", 2)
 
         # Append user message to conversation
         conversation.append({"role": "user", "content": user_input})
@@ -7300,7 +7349,7 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
 
             # Print sending confirmation unless quiet
             if not quiet:
-                print_info("sending message to planner…", 2)
+                print_info("Sending message to build planner…", 2)
 
             # Try each planner in preference order
             assistant_response = None
@@ -7310,6 +7359,12 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
                     from engines import get_engine
                     # Pass the quiet flag as stream_output to engines
                     engine = get_engine(engine_name + "_planner", stream_output=not quiet)
+
+                    # Save the prompt for traceability
+                    prompt_file_path = save_prompt_for_traceability(conversation_prompt, session_path, "build_plan", engine_name)
+                    if verbose:
+                        print_info(f"Build plan prompt saved to: {prompt_file_path}", 4)
+
                     assistant_response = engine.generate(conversation_prompt)
 
                     # If we get a response, break out of the loop
@@ -7323,9 +7378,19 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
             if assistant_response is None:
                 raise Exception(f"All planners failed: {last_error}")
 
+            # Save the raw planner output
+            timestamp = int(time.time())
+            build_dir = get_build_dir(session_path)
+            outputs_dir = os.path.join(build_dir, "outputs")
+            raw_output_filename = os.path.join(outputs_dir, f"build_plan_{engine_name}_{timestamp}.txt")
+            with open(raw_output_filename, "w", encoding="utf-8") as f:
+                f.write(assistant_response)
+            if verbose:
+                print_info(f"Raw build planner output saved to: {raw_output_filename}", 4)
+
             # Print response received message if not quiet
             if not quiet:
-                print_info(f"planner responded ({len(assistant_response)} chars).", 2)
+                print_info(f"Build planner responded ({len(assistant_response)} chars).", 2)
                 print_ai_response(assistant_response)
             else:
                 print_ai_response(assistant_response)  # Still print response in quiet mode, just not the confirmation
@@ -7391,13 +7456,23 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
 
     # Use the planner to generate the final configuration
     try:
+        # Print sending confirmation unless quiet
+        if not quiet:
+            print_info("Sending final build target configuration request to planner…", 2)
+
         # Try to get the final JSON configuration
         assistant_response = None
         last_error = None
         for engine_name in planner_preference:
             try:
                 from engines import get_engine
-                engine = get_engine(engine_name + "_planner")
+
+                # Save the final prompt for traceability
+                prompt_file_path = save_prompt_for_traceability(final_conversation_prompt, session_path, "build_plan_final", engine_name)
+                if verbose:
+                    print_info(f"Final build plan prompt saved to: {prompt_file_path}", 4)
+
+                engine = get_engine(engine_name + "_planner", stream_output=not quiet)
                 assistant_response = engine.generate(final_conversation_prompt)
 
                 if assistant_response:
@@ -7410,35 +7485,54 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
         if assistant_response is None:
             raise Exception(f"All planners failed: {last_error}")
 
-        # Save the raw planner output
-        raw_output_filename = os.path.join(outputs_dir, f"{timestamp}_planner_raw.txt")
+        # Save the raw planner output for the final config
+        raw_output_filename = os.path.join(outputs_dir, f"build_plan_{engine_name}_{timestamp}_final.txt")
         with open(raw_output_filename, "w", encoding="utf-8") as f:
             f.write(assistant_response)
-        print_info(f"Raw planner output saved to: {raw_output_filename}", 2)
+        if verbose:
+            print_info(f"Raw planner final output saved to: {raw_output_filename}", 4)
+
+        # Print response received confirmation unless quiet
+        if not quiet and assistant_response:
+            print_info(f"Build planner responded ({len(assistant_response)} chars) for final configuration.", 2)
 
         # Clean up the JSON response
         cleaned_response = clean_json_response(assistant_response)
 
-        # Parse the JSON
+        # Parse the JSON with better error handling and validation
+        target_config = None
         try:
             target_config = json.loads(cleaned_response)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             # If direct parsing fails, try to extract JSON from the response
             import re
             json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
             if json_match:
                 try:
                     target_config = json.loads(json_match.group(0))
-                except json.JSONDecodeError:
-                    print_error(f"Could not parse AI response as JSON: {cleaned_response[:200]}...", 2)
+                except json.JSONDecodeError as e2:
+                    print_error(f"Could not parse AI response as valid JSON: {str(e2)}", 2)
+                    print_info("AI response preview:", 2)
+                    print_info(f"  {cleaned_response[:200]}...", 4)
+                    print_info("Use /retry to continue discussion or /done to finish with different approach.", 2)
                     return None
             else:
-                print_error(f"Could not find JSON in AI response: {cleaned_response[:200]}...", 2)
+                print_error(f"Could not find valid JSON in AI response.", 2)
+                print_info("AI response preview:", 2)
+                print_info(f"  {cleaned_response[:200]}...", 4)
+                print_info("The AI needs to return a valid JSON object. Continue discussing or try different approach.", 2)
                 return None
 
         # Validate required fields
         if not isinstance(target_config, dict):
             print_error("AI response was not a JSON object", 2)
+            return None
+
+        # Validate JSON schema for build target
+        if not validate_build_target_schema(target_config):
+            print_error("JSON response does not match required build target schema.", 2)
+            print_info("Required fields: name (string), pipeline (object with steps array)", 2)
+            print_info("Please continue the discussion to get valid JSON.", 2)
             return None
 
         # Create the build target with the AI-provided configuration
@@ -7451,10 +7545,11 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
             pipeline=target_config.get("pipeline", {"steps": []}),
             patterns=target_config.get("patterns", {"error_extract": [], "ignore": []}),
             environment=target_config.get("environment", {"vars": {}, "cwd": "."}),
-            target_id=target_config.get("target_id")  # Use target_id if provided by AI, otherwise auto-generate
+            target_id=target_config.get("target_id") or f"bt_{int(time.time())}" # Use target_id if provided by AI, otherwise generate
         )
 
         print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
+        print_info(f"[maestro] Build plan updated for target: {build_target.name}", 2)
         return build_target
 
     except Exception as e:
@@ -7545,7 +7640,7 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
 
     # Print sending confirmation unless quiet
     if not quiet:
-        print_info("sending message to planner…", 2)
+        print_info("Sending message to build planner…", 2)
 
     # Try each planner in preference order
     assistant_response = None
@@ -7555,6 +7650,12 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
             from engines import get_engine
             # Pass the quiet flag as stream_output to engines
             engine = get_engine(engine_name + "_planner", stream_output=not quiet)
+
+            # Save the prompt for traceability
+            prompt_file_path = save_prompt_for_traceability(prompt, session_path, "build_plan", engine_name)
+            if verbose:
+                print_info(f"Build plan prompt saved to: {prompt_file_path}", 4)
+
             assistant_response = engine.generate(prompt)
 
             if assistant_response:
@@ -7566,36 +7667,42 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
 
     # Print response received message if not quiet
     if not quiet and assistant_response:
-        print_info(f"planner responded ({len(assistant_response)} chars).", 2)
+        print_info(f"Build planner responded ({len(assistant_response)} chars).", 2)
 
     if assistant_response is None:
         print_error(f"All planners failed: {last_error}", 2)
         return None
 
     # Save the raw planner output
-    raw_output_filename = os.path.join(outputs_dir, f"{timestamp}_planner_raw.txt")
+    raw_output_filename = os.path.join(outputs_dir, f"build_plan_{engine_name}_{timestamp}.txt")
     with open(raw_output_filename, "w", encoding="utf-8") as f:
         f.write(assistant_response)
-    print_info(f"Raw planner output saved to: {raw_output_filename}", 2)
+    if verbose:
+        print_info(f"Raw build planner output saved to: {raw_output_filename}", 4)
 
     # Clean up the JSON response
     cleaned_response = clean_json_response(assistant_response)
 
-    # Parse the JSON
+    # Parse the JSON with better error handling and validation
+    target_config = None
     try:
         target_config = json.loads(cleaned_response)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         # If direct parsing fails, try to extract JSON from the response
         import re
         json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
         if json_match:
             try:
                 target_config = json.loads(json_match.group(0))
-            except json.JSONDecodeError:
-                print_error(f"Could not parse AI response as JSON: {cleaned_response[:200]}...", 2)
+            except json.JSONDecodeError as e2:
+                print_error(f"Could not parse AI response as valid JSON: {str(e2)}", 2)
+                print_info("AI response preview:", 2)
+                print_info(f"  {cleaned_response[:200]}...", 4)
                 return None
         else:
-            print_error(f"Could not find JSON in AI response: {cleaned_response[:200]}...", 2)
+            print_error(f"Could not find valid JSON in AI response.", 2)
+            print_info("AI response preview:", 2)
+            print_info(f"  {cleaned_response[:200]}...", 4)
             return None
 
     # Validate required fields
@@ -7603,20 +7710,31 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
         print_error("AI response was not a JSON object", 2)
         return None
 
-    # Create the build target
-    build_target = create_build_target(
-        session_path=session_path,
-        name=target_name,
-        description=target_config.get("description", ""),
-        why=target_config.get("why", ""),
-        categories=target_config.get("categories", []),
-        pipeline=target_config.get("pipeline", {"steps": []}),
-        patterns=target_config.get("patterns", {"error_extract": [], "ignore": []}),
-        environment=target_config.get("environment", {"vars": {}, "cwd": "."}),
-        target_id=target_config.get("target_id")  # Use target_id if provided by AI, otherwise auto-generate
-    )
+    # Validate JSON schema for build target
+    if not validate_build_target_schema(target_config):
+        print_error("JSON response does not match required build target schema.", 2)
+        print_info("Required fields: name (string), pipeline (object with steps array)", 2)
+        return None
+
+    # Create the build target with validation
+    try:
+        build_target = create_build_target(
+            session_path=session_path,
+            name=target_name,
+            description=target_config.get("description", ""),
+            why=target_config.get("why", ""),
+            categories=target_config.get("categories", []),
+            pipeline=target_config.get("pipeline", {"steps": []}),
+            patterns=target_config.get("patterns", {"error_extract": [], "ignore": []}),
+            environment=target_config.get("environment", {"vars": {}, "cwd": "."}),
+            target_id=target_config.get("target_id") or f"bt_{int(time.time())}" # Use target_id if provided by AI, otherwise generate
+        )
+    except Exception as e:
+        print_error(f"Error creating build target: {e}", 2)
+        return None
 
     print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
+    print_info(f"[maestro] Build plan updated for target: {build_target.name}", 2)
     return build_target
 
 
