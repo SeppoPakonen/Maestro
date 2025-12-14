@@ -1,0 +1,9 @@
+{
+  "scenario_name": "python_to_typed_python_basic",
+  "intent": "typedness_upgrade",
+  "expected_stages": ["create", "semantic_mapping", "overview", "realize"],
+  "expected_success": true,
+  "validation_mode": "hard",
+  "typing_policies_documented": true,
+  "risk_notes_documented": true
+}

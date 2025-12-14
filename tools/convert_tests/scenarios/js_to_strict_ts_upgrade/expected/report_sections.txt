@@ -1,0 +1,16 @@
+## Required Report Sections for JS -> Strict TS
+
+- Typing policy decisions
+- - Use strict TypeScript settings (strict: true)
+- - Enable noImplicitAny, strictNullChecks
+- - Prefer interfaces for object structures
+- - Proper handling of null/undefined values
+
+- Risk notes
+- - Type incompatibility issues
+- - Generic type inference problems
+- - Third-party library type conflicts
+
+- Verification steps
+- - TypeScript compilation check (tsc --noEmit)
+- - Runtime behavior preservation check

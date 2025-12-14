@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "allowJs": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": false,                    // Not strict
+    "noImplicitAny": false,             // Allow implicit any
+    "strictNullChecks": false,          // Don't check nulls strictly
+    "strictFunctionTypes": false,       // Less strict function types
+    "noImplicitThis": false,            // Don't require explicit this
+    "alwaysStrict": false,              // Don't always use strict mode
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

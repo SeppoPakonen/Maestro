@@ -1,0 +1,14 @@
+{
+  "expected_artifacts": [
+    "semantic_mapping/mapping.json",
+    "report.md",
+    "pyproject.toml",
+    "mypy.ini",
+    "requirements.txt"
+  ],
+  "expected_stages": ["create", "semantic_mapping", "overview", "realize"],
+  "required_files": [
+    "calculator.py",
+    "data_models.py"
+  ]
+}

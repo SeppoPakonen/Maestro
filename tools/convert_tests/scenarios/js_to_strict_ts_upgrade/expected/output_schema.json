@@ -1,0 +1,12 @@
+{
+  "expected_artifacts": [
+    "semantic_mapping/mapping.json",
+    "report.md",
+    "tsconfig.json"
+  ],
+  "expected_stages": ["create", "semantic_mapping", "overview", "realize"],
+  "required_files": [
+    "calculator.js",
+    "utils.js"
+  ]
+}

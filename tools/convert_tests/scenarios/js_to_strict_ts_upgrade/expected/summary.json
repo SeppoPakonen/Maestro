@@ -1,0 +1,9 @@
+{
+  "scenario_name": "js_to_strict_ts_upgrade",
+  "intent": "typedness_upgrade",
+  "expected_stages": ["create", "semantic_mapping", "overview", "realize"],
+  "expected_success": true,
+  "validation_mode": "hard",
+  "typing_policies_documented": true,
+  "risk_notes_documented": true
+}

@@ -13,6 +13,24 @@ The harness enables testing of Maestro's convert capabilities with:
 - Zero accidental writes to source repository
 - Clear success/failure definitions per scenario
 
+## Test Categories
+
+The test harness supports different categories of conversion tests:
+
+### Category 1: Language-to-Language Conversions
+- Examples: JavaScript to TypeScript, C to C++, Java to C#
+- Purpose: Testing cross-language translation
+
+### Category 2: Typedness Upgrade Conversions (NEW)
+- Examples: Python to Typed Python, JavaScript to Strict TypeScript
+- Intent: `typedness_upgrade`
+- Purpose: Testing type safety improvements within the same language family
+- Pipeline stages: `semantic_mapping`, `overview`, `realize`
+- Key features:
+  - Adds type annotations while preserving behavior
+  - Updates configuration files for stricter typing
+  - Documents typing policy decisions and risk notes
+
 ## Directory Structure
 
 ```
@@ -49,6 +67,26 @@ tools/convert_tests/run_scenario.py --scenario minimal_dual_repo --force-clean -
 
 ```bash
 tools/convert_tests/run_scenario.py --scenario minimal_dual_repo --force-clean --interrupt-after 2 --verbose
+```
+
+## Running Category Test 2: Typedness Upgrade Conversions
+
+### List All Scenarios Including Typedness Upgrades
+
+```bash
+tools/convert_tests/run_scenario.py --list
+```
+
+### Run Python to Typed Python Conversion
+
+```bash
+python tools/convert_tests/run_scenario.py --scenario python_to_typed_python_basic --force-clean --verbose
+```
+
+### Run JavaScript to Strict TypeScript Conversion
+
+```bash
+python tools/convert_tests/run_scenario.py --scenario js_to_strict_ts_upgrade --force-clean --verbose
 ```
 
 ## Command Line Options

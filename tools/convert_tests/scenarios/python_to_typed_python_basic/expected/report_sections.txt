@@ -1,0 +1,17 @@
+## Required Report Sections for Python -> Typed Python
+
+- Typing policy decisions
+- - Use gradual typing, allow Any only where unavoidable
+- - Prefer dataclasses + type hints
+- - Prefer TypedDict for dict-like structures
+- - Avoid runtime-heavy frameworks unless required
+
+- Risk notes
+- - Dynamic typing pitfalls
+- - Generics / covariant containers
+- - Reflection / monkey patching hazards
+
+- Verification steps
+- - Python compilation check (py_compile)
+- - mypy validation status
+- - Runtime behavior preservation check

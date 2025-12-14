@@ -327,7 +327,7 @@ def main():
             
             # Run pipeline
             # For language_to_language conversions, run specific stages as per requirements
-            if intent == "language_to_language":
+            if intent == "language_to_language" or intent == "typedness_upgrade":
                 # Run semantic_mapping stage first
                 semantic_cmd = [sys.executable, "maestro.py", "convert", "run", "--stage", "semantic_mapping"]
                 log(f"Running: {' '.join(semantic_cmd)}")
