@@ -6953,6 +6953,61 @@ def find_repo_root(start_path: str, verbose: bool = False) -> str:
         current_dir = parent_dir
 
 
+def resolve_build_path(path: str, repo_root: str) -> str:
+    """
+    Resolve a build path (absolute or relative) to an absolute path.
+
+    Args:
+        path: Path to resolve (can be absolute or relative)
+        repo_root: Repository root directory
+
+    Returns:
+        Absolute path resolved from either absolute path or relative to repo root
+    """
+    if os.path.isabs(path):
+        # Absolute path - use as-is
+        return path
+    else:
+        # Relative path - resolve relative to repo root
+        return os.path.join(repo_root, path)
+
+
+def resolve_command_path(cmd, repo_root: str) -> list:
+    """
+    Resolve command paths in the command list, making relative paths absolute to repo root.
+
+    Args:
+        cmd: Command as a list of strings
+        repo_root: Repository root directory for resolving relative paths
+
+    Returns:
+        Updated command list with resolved paths
+    """
+    if not isinstance(cmd, list):
+        return cmd
+
+    resolved_cmd = []
+    for i, arg in enumerate(cmd):
+        if i == 0:  # First argument is typically the executable
+            # Only resolve if it looks like a relative path (contains / or .) and not a system command
+            if ('/' in arg or arg.startswith('./') or arg.startswith('../')) and not arg.startswith('-'):
+                resolved_path = resolve_build_path(arg, repo_root)
+                resolved_cmd.append(resolved_path)
+            else:
+                # System command like 'make', 'gcc', etc., leave as-is
+                resolved_cmd.append(arg)
+        else:
+            # For other arguments, resolve if they look like file paths
+            # Check if this argument contains what looks like a file path (has / or relative path indicators)
+            if ('/' in arg or arg.startswith('./') or arg.startswith('../')) and not arg.startswith('-'):
+                resolved_path = resolve_build_path(arg, repo_root)
+                resolved_cmd.append(resolved_path)
+            else:
+                resolved_cmd.append(arg)
+
+    return resolved_cmd
+
+
 def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_run: bool = False, verbose: bool = False) -> PipelineRunResult:
     """
     Run the pipeline based on the build target configuration.
@@ -7003,6 +7058,15 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
         print_warning(f"No steps configured in target {target.name}", 2)
         return PipelineRunResult(timestamp=time.time(), step_results=[], success=True)
 
+    # Get repo root
+    repo_root = find_repo_root(session_path)
+
+    # Print verbose info if requested
+    if verbose:
+        print_info(f"Repository root: {repo_root}", 4)
+        target_file_path = get_build_targets_path(session_path, target.target_id)
+        print_info(f"Target file: {target_file_path}", 4)
+
     # Run each step in the pipeline
     for step_def in pipeline_config:
         if isinstance(step_def, dict):
@@ -7031,20 +7095,23 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
             print_warning(f"No command configured for step '{step_name}'. Skipping.", 2)
             continue
 
-        # Get repo root
-        repo_root = find_repo_root(session_path)
+        # Resolve command paths to handle relative paths properly
+        resolved_cmd = resolve_command_path(cmd, repo_root)
 
         # Print verbose info if requested
         if verbose:
             print_info(f"Step: {step_name}", 4)
             print_info(f"  Command: {' '.join(cmd) if isinstance(cmd, list) else cmd}", 4)
+            print_info(f"  Resolved command: {' '.join(resolved_cmd) if isinstance(resolved_cmd, list) else resolved_cmd}", 4)
             print_info(f"  CWD: {repo_root}", 4)
             print_info(f"  Resolved paths: repo root = {repo_root}", 4)
 
         if dry_run:
             print_info(f"DRY RUN - Would execute: {step_name}", 4)
-            print_info(f"  Command: {' '.join(cmd) if isinstance(cmd, list) else cmd}", 4)
+            print_info(f"  Command: {' '.join(resolved_cmd) if isinstance(resolved_cmd, list) else resolved_cmd}", 4)
             print_info(f"  CWD: {repo_root}", 4)
+            if verbose:
+                print_info(f"  Environment variables: (none applied in dry run)", 4)
             # Create a mock result for dry run
             step_result = StepResult(
                 step_name=step_name,
@@ -7066,7 +7133,7 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
             try:
                 # Run the step command
                 result = subprocess.run(
-                    cmd,
+                    resolved_cmd,
                     capture_output=True,
                     text=True,
                     cwd=repo_root  # Run in the repo root (nearest directory with .maestro/)
@@ -7108,16 +7175,24 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
                     if result.stderr:
                         print_error(f"  Error: {result.stderr[:200]}{'...' if len(result.stderr) > 200 else ''}", 4)
 
-            except FileNotFoundError:
+            except FileNotFoundError as e:
                 # Command not found, but if optional, note it and continue
                 duration = time.time() - start_time
                 success = optional  # Optional steps succeed if not found
+
+                # Provide helpful error message for "file exists but not found" bugs
+                if verbose or not success:
+                    print_error(f"Command not found: {' '.join(resolved_cmd)}", 2)
+                    print_info(f"  Resolved CWD: {repo_root}", 2)
+                    print_info(f"  Check: 'maestro build show' to verify target config", 2)
+                    print_info(f"  Check: 'maestro build run --dry-run -v' to preview commands", 2)
+                    print_info(f"  Check: Repo root detection from current working directory", 2)
 
                 step_result = StepResult(
                     step_name=step_name,
                     exit_code=127,  # Standard "command not found" exit code
                     stdout="",
-                    stderr=f"Command not found: {' '.join(cmd)}",
+                    stderr=f"Command not found: {' '.join(resolved_cmd)}\nCWD: {repo_root}\nError: {str(e)}",
                     duration=duration,
                     success=success
                 )
@@ -7132,12 +7207,12 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
                     f.write("")
 
                 with open(stderr_log_path, 'w', encoding='utf-8') as f:
-                    f.write(f"Command not found: {' '.join(cmd)}")
+                    f.write(f"Command not found: {' '.join(resolved_cmd)}\nCWD: {repo_root}\nError: {str(e)}")
 
                 if success:
                     print_warning(f"Step '{step_name}' skipped (command not found, but optional)", 4)
                 else:
-                    print_error(f"Step '{step_name}' failed (command not found: {' '.join(cmd)})", 4)
+                    print_error(f"Step '{step_name}' failed (command not found: {' '.join(resolved_cmd)})", 4)
 
             except Exception as e:
                 duration = time.time() - start_time
@@ -7205,9 +7280,19 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
         }
         run_summary["steps"].append(step_summary)
 
+    # Save run.json in the specific run directory
     run_summary_path = os.path.join(run_path, "run.json")
     with open(run_summary_path, 'w', encoding='utf-8') as f:
         json.dump(run_summary, f, indent=2)
+
+    # Also save the run metadata to a diagnostics.json file in the run directory
+    # This contains the same information plus the repository root info
+    run_summary_with_repo = run_summary.copy()
+    run_summary_with_repo["repo_root"] = repo_root
+
+    diagnostics_json_path = os.path.join(run_path, "diagnostics.json")
+    with open(diagnostics_json_path, 'w', encoding='utf-8') as f:
+        json.dump(run_summary_with_repo, f, indent=2)
 
     return result
 
@@ -8639,7 +8724,7 @@ def check_fix_verification(diagnostics_after: List[Diagnostic], target_signature
 
 def compute_signature(raw_message: str, file_path: Optional[str] = None) -> str:
     """
-    Compute a stable signature for a diagnostic message.
+    Compute a stable signature for a diagnostic message following the requirements.
 
     Args:
         raw_message: The raw diagnostic message
@@ -8660,7 +8745,11 @@ def compute_signature(raw_message: str, file_path: Optional[str] = None) -> str:
     # Normalize the message by:
     # 1. Removing numeric IDs, addresses, line numbers
     normalized = re.sub(r'\b0x[0-9a-fA-F]+\b', 'ADDR', raw_message)  # Memory addresses
-    normalized = re.sub(r'\b\d+\b', 'NUM', normalized)  # Numbers
+    normalized = re.sub(r'\b0x[0-9a-fA-F]+:[0-9a-fA-F]+\b', 'ADDR_RANGE', normalized)  # Memory ranges like 0x1234:0x5678
+    normalized = re.sub(r'\b\d+\b', 'NUM', normalized)  # Numbers (including line numbers)
+    # But be careful not to remove useful numbers from the message context
+    # Remove hex values that are not part of the address pattern above
+    normalized = re.sub(r'\b[0-9A-Fa-f]{8,}\b', 'HEX_ID', normalized)  # Long hex IDs
     normalized = re.sub(r'\s+', ' ', normalized)  # Normalize whitespace
     normalized = normalized.strip()  # Trim leading/trailing spaces
 
@@ -8732,14 +8821,26 @@ def parse_line_for_diagnostic(line: str, tool: str) -> Optional[Diagnostic]:
         # Alternative GCC/Clang format: file:line: error|warning|note: message
         r'^(?P<file>[^:]+):(?P<line>\d+):\s*(?P<severity>error|warning|note):\s*(?P<message>.+)$',
 
+        # Clang++ format: full path with directory structure
+        r'^(?P<file>[/\\][^:]+):(?P<line>\d+):(?P<col>\d+):\s*(?P<severity>error|warning|note):\s*(?P<message>.+)$',
+
         # MSVC format: file(line): error|warning C####: message
         r'^(?P<file>[^(\s]+)\((?P<line>\d+)\):\s*(?P<severity>error|warning)\s*\w*:?\s*(?P<message>.+)$',
+
+        # Alternative MSVC format: full path
+        r'^(?P<file>[C-Z]:[^(\s]+)\((?P<line>\d+)\):\s*(?P<severity>error|warning)\s*\w*:?\s*(?P<message>.+)$',
 
         # Valgrind format: ==PID== [error details]
         r'^==\d+==\s*(?P<message>.*)$',
 
+        # Generic format: [error|warning|note] in brackets
+        r'^\[(?P<severity>error|warning|note)\]\s*(?P<message>.+)$',
+
         # General format: error|warning|note: message
         r'^(?P<severity>error|warning|note):\s*(?P<message>[^(\n\r]+)',
+
+        # CMake format: /path/to/file(C line): error: message
+        r'^(?P<file>[^(\s]+)\(\s*[Cc]\s*(?P<line>\d+)\):\s*(?P<severity>error|warning|note):\s*(?P<message>.+)$',
     ]
 
     for pattern in patterns:
@@ -8766,6 +8867,8 @@ def parse_line_for_diagnostic(line: str, tool: str) -> Optional[Diagnostic]:
                 file_path = file_path.strip()
                 if file_path.startswith('"') and file_path.endswith('"'):
                     file_path = file_path[1:-1]
+                # Handle Windows-style paths
+                file_path = file_path.replace('\\', '/')
 
             # Generate tags based on the message content
             tags = generate_tags(message, tool)
@@ -8786,10 +8889,10 @@ def parse_line_for_diagnostic(line: str, tool: str) -> Optional[Diagnostic]:
 
     # If no specific pattern matched, create a general diagnostic
     # for certain keywords that indicate problems
-    if any(keyword in line.lower() for keyword in ['error', 'warning', 'undefined', 'deprecated']):
+    if any(keyword in line.lower() for keyword in ['error', 'warning', 'undefined', 'deprecated', 'failed', 'fatal']):
         severity = 'note'  # Default to note for unrecognized diagnostics
 
-        if 'error' in line.lower():
+        if 'error' in line.lower() or 'fatal' in line.lower():
             severity = 'error'
         elif 'warning' in line.lower():
             severity = 'warning'
@@ -8865,6 +8968,7 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         stop_after_step: Stop pipeline after the specified step
         limit_steps: Limit pipeline to specified steps
         follow: Stream output live to terminal (not implemented for build target runs)
+        dry_run: If True, print commands without executing
     """
     if verbose:
         print_debug(f"Running build pipeline for session: {session_path}", 2)
@@ -8890,12 +8994,17 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         print_error("No active build target set. Use 'maestro build set <target>' to set an active target.", 2)
         sys.exit(1)
 
-    print_info(f"Running build pipeline for target: {active_target.name} [{active_target.target_id}]", 2)
+    if dry_run:
+        print_info(f"[DRY RUN] Would run build pipeline for target: {active_target.name} [{active_target.target_id}]", 2)
+    else:
+        print_info(f"Running build pipeline for target: {active_target.name} [{active_target.target_id}]", 2)
 
-    if verbose:
+    # Show repo root and target info in verbose mode (or dry-run mode)
+    if verbose or dry_run:
         print_info(f"Repository root: {repo_root}", 4)
         target_file_path = get_build_targets_path(session_path, active_target.target_id)
         print_info(f"Target file: {target_file_path}", 4)
+        print_info(f"Resolved working directory: {repo_root}", 4)
 
     # Apply step limiting if specified
     if limit_steps or stop_after_step:
@@ -8924,7 +9033,7 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         original_pipeline = active_target.pipeline.copy()
         active_target.pipeline["steps"] = filtered_steps
 
-        if verbose:
+        if verbose or dry_run:
             filtered_step_names = [s if isinstance(s, str) else s.get("id", "") for s in filtered_steps]
             print_debug(f"Limited pipeline steps to: {filtered_step_names}", 2)
 
@@ -8973,6 +9082,21 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         diagnostics_data.append(d_dict)
 
     with open(diagnostics_path, 'w', encoding='utf-8') as f:
+        json.dump(diagnostics_data, f, indent=2)
+
+    # Also save the diagnostics data to the run directory - but we need to be more direct
+    # The run directory was already created in run_pipeline_from_build_target
+    # So we need to identify the correct run directory based on the timestamp from pipeline_result
+    build_dir = get_build_dir(session_path)
+    runs_dir = os.path.join(build_dir, "runs")
+
+    # Create run_id based on the timestamp from pipeline_result
+    run_id = f"run_{int(pipeline_result.timestamp)}"
+    run_path = os.path.join(runs_dir, run_id)
+
+    # Save diagnostics to the specific run directory as diagnostics.json
+    run_diagnostics_path = os.path.join(run_path, "diagnostics.json")
+    with open(run_diagnostics_path, 'w', encoding='utf-8') as f:
         json.dump(diagnostics_data, f, indent=2)
 
     if pipeline_result.success:
@@ -9814,14 +9938,37 @@ def handle_build_status(session_path, verbose=False):
                  Colors.BOLD if run_summary.get('success', False) else Colors.BOLD, 2)
     styled_print(f"Steps: {run_summary.get('successful_steps', 0)}/{run_summary.get('step_count', 0)} succeeded", Colors.BRIGHT_CYAN, None, 2)
 
-    # Try to load and display diagnostics from the same timestamp as the run
-    diagnostics_dir = os.path.join(build_dir, "diagnostics")
-    target_diagnostics_path = os.path.join(diagnostics_dir, f"{latest_run_timestamp}.json")
+    # Try to load diagnostics from the specific run directory first
+    # Look for diagnostics.json in the specific run directory
+    run_diagnostics_path = os.path.join(latest_run_path, "diagnostics.json")
 
-    if os.path.exists(target_diagnostics_path):
-        with open(target_diagnostics_path, 'r', encoding='utf-8') as f:
-            diagnostics_data = json.load(f)
+    diagnostics_data = []
 
+    # First try to load from the run-specific diagnostics.json
+    if os.path.exists(run_diagnostics_path):
+        with open(run_diagnostics_path, 'r', encoding='utf-8') as f:
+            run_content = json.load(f)
+
+        # Check if this is a list of diagnostics or a run summary
+        # If it's a list and the first item has 'tool' field, it's diagnostics
+        if isinstance(run_content, list) and len(run_content) > 0 and 'tool' in run_content[0]:
+            diagnostics_data = run_content
+        else:
+            # It might be a run summary, try the main diagnostics directory
+            diagnostics_dir = os.path.join(build_dir, "diagnostics")
+            target_diagnostics_path = os.path.join(diagnostics_dir, f"{latest_run_timestamp}.json")
+            if os.path.exists(target_diagnostics_path):
+                with open(target_diagnostics_path, 'r', encoding='utf-8') as f:
+                    diagnostics_data = json.load(f)
+    else:
+        # Fallback to the global diagnostics directory
+        diagnostics_dir = os.path.join(build_dir, "diagnostics")
+        target_diagnostics_path = os.path.join(diagnostics_dir, f"{latest_run_timestamp}.json")
+        if os.path.exists(target_diagnostics_path):
+            with open(target_diagnostics_path, 'r', encoding='utf-8') as f:
+                diagnostics_data = json.load(f)
+
+    if diagnostics_data and isinstance(diagnostics_data, list) and len(diagnostics_data) > 0 and 'tool' in diagnostics_data[0]:
         # Convert back to Diagnostic objects
         diagnostics = []
         for d in diagnostics_data:
@@ -9868,48 +10015,36 @@ def handle_build_status(session_path, verbose=False):
         styled_print(f"Errors: {error_count}, Warnings: {warning_count}, Notes: {note_count}", Colors.BRIGHT_YELLOW, None, 2)
 
         if signature_groups:
-            print_subheader("TOP DIAGNOSTICS GROUPED BY SIGNATURE")
+            print_subheader("TOP 10 SIGNATURES")
+
+            # Count signature frequencies
+            signature_counts = {}
+            for sig, diags in signature_groups.items():
+                signature_counts[sig] = len(diags)
 
             # Sort by frequency (most common first)
-            sorted_groups = sorted(
-                signature_groups.items(),
-                key=lambda x: len(x[1]),
+            sorted_signatures = sorted(
+                signature_counts.items(),
+                key=lambda x: x[1],
                 reverse=True
             )
 
-            # Display top N diagnostic groups
-            top_n = min(10, len(sorted_groups))  # Show top 10 or all if less
-            for i, (signature, diag_list) in enumerate(sorted_groups[:top_n], 1):
-                first_diag = diag_list[0]  # Use first diagnostic in the group for display
-                count = len(diag_list)
+            # Display top 10 signatures with counts
+            top_n = min(10, len(sorted_signatures))
+            for i, (signature, count) in enumerate(sorted_signatures[:top_n], 1):
+                # Find a representative diagnostic for this signature to show details
+                representative_diag = next((d for d in diagnostics if d.signature == signature), None)
+                if representative_diag:
+                    severity_color = Colors.BRIGHT_RED if representative_diag.severity == 'error' else \
+                                    Colors.BRIGHT_YELLOW if representative_diag.severity == 'warning' else \
+                                    Colors.BRIGHT_CYAN
 
-                severity_color = Colors.BRIGHT_RED if first_diag.severity == 'error' else \
-                                Colors.BRIGHT_YELLOW if first_diag.severity == 'warning' else \
-                                Colors.BRIGHT_CYAN
+                    styled_print(f"{i:2d}. [{representative_diag.severity.upper()}] x{count} - {signature[:12]}...",
+                               severity_color, Colors.BOLD, 2)
 
-                styled_print(f"{i:2d}. [{first_diag.severity.upper()}] x{count} - {first_diag.tool}",
-                           severity_color, Colors.BOLD, 2)
-
-                if first_diag.file or first_diag.line is not None:
-                    location = f"{first_diag.file}:{first_diag.line}" if first_diag.file and first_diag.line else \
-                              f"{first_diag.file}" if first_diag.file else \
-                              f"line {first_diag.line}" if first_diag.line else "unknown location"
-                    styled_print(f"    Location: {location}", Colors.BRIGHT_WHITE, None, 2)
-
-                styled_print(f"    Message: {first_diag.message[:100]}{'...' if len(first_diag.message) > 100 else ''}",
-                           Colors.BRIGHT_WHITE, None, 2)
-
-                if first_diag.tags:
-                    styled_print(f"    Tags: {', '.join(first_diag.tags)}", Colors.BRIGHT_MAGENTA, None, 2)
-
-                # Show known issue information if available
-                if first_diag.known_issues:
-                    for issue in first_diag.known_issues:
-                        confidence_str = f"({issue.confidence*100:.0f}% confidence)"
-                        styled_print(f"    Known Issue {confidence_str}: {issue.description[:80]}{'...' if len(issue.description) > 80 else ''}",
-                                   Colors.BRIGHT_MAGENTA, Colors.BOLD, 2)
-                        styled_print(f"    Fix Hint: {issue.fix_hint[:100]}{'...' if len(issue.fix_hint) > 100 else ''}",
-                                   Colors.BRIGHT_YELLOW, None, 2)
+                    # Show a brief message from a diagnostic with this signature
+                    styled_print(f"    {representative_diag.message[:80]}{'...' if len(representative_diag.message) > 80 else ''}",
+                               Colors.BRIGHT_WHITE, None, 2)
 
     else:
         print_warning("No diagnostics found for latest run. Run 'maestro build run' to generate diagnostics.", 2)
@@ -9963,9 +10098,12 @@ def handle_build_status(session_path, verbose=False):
 
     # Always print paths for visibility
     print_subheader("BUILD ARTIFACTS")
-    styled_print(f"Build runs: {runs_dir}/", Colors.BRIGHT_GREEN, None, 2)
-    styled_print(f"Run {run_summary.get('run_id', 'unknown')}: {latest_run_path}/", Colors.BRIGHT_GREEN, None, 2)
-    styled_print(f"Diagnostics: {diagnostics_dir}/", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Build runs directory: {runs_dir}/", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"Current run directory: {latest_run_path}/", Colors.BRIGHT_GREEN, None, 2)
+    styled_print(f"  - run.json: {os.path.join(latest_run_path, 'run.json')}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"  - diagnostics.json: {os.path.join(latest_run_path, 'diagnostics.json')}", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"  - stdout/stderr logs: {latest_run_path}/*.txt", Colors.BRIGHT_CYAN, None, 2)
+    styled_print(f"Diagnostics directory: {diagnostics_dir}/", Colors.BRIGHT_GREEN, None, 2)
     styled_print(f"Fix history: {fix_history_path}", Colors.BRIGHT_GREEN, None, 2)
 def handle_build_new(session_path, target_name, verbose=False, description=None, categories=None, steps=None):
     """

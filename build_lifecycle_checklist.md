@@ -1,124 +1,75 @@
-# Build Target Lifecycle Smoke Test Checklist
+# Build Run Path Resolution & Diagnostics Regression Checklist
 
-This checklist verifies that the Maestro build target lifecycle is working properly. Use this to validate all functionality after implementing changes.
-
-## Prerequisites
-- [ ] Maestro is installed and accessible via `maestro` command
-- [ ] Repository has a `.maestro/` directory
-- [ ] At least one session exists and is set as active
+This checklist ensures the reliability of `maestro build run` and its diagnostics pipeline across different working directories, scripts, and environments.
 
 ## Test Cases
 
-### 1. Build Target Creation (`build new`)
-- [ ] Execute: `maestro build new test-target`
-- [ ] Verify: Target is created successfully with minimal valid schema
-- [ ] Verify: Target file is created in `.maestro/build/targets/<target_id>.json`
-- [ ] Verify: Target ID and name are displayed
-- [ ] Verify: Target has minimal pipeline with at least a `build` step
-- [ ] Verify: Target is set as active by default
-- [ ] Verify: Index file (`.maestro/build/index.json`) is updated
+### 1. Run from repo root
+- [ ] Navigate to repository root (where `.maestro/` directory exists)
+- [ ] Execute: `maestro b ru`
+- [ ] Verify: Build runs successfully and completes as expected
+- [ ] Verify: Repo root is correctly detected and shown in verbose mode
+- [ ] Verify: Commands execute in correct working directory
 
-### 2. Build Target Listing (`build list`)
-- [ ] Execute: `maestro build list` (or `maestro b ls`)
-- [ ] Verify: All build targets are listed with index numbers
-- [ ] Verify: Target names are displayed
-- [ ] Verify: Target IDs are displayed (shortened)
-- [ ] Verify: Active target is marked with `[*]`
-- [ ] Verify: Last modified time is shown
-- [ ] Verify: Verbose mode shows additional path information
+### 2. Run from a deep subdirectory
+- [ ] Navigate to a subdirectory: `cd src/foo/bar` (or similar nested path in your project)
+- [ ] Execute: `maestro b ru`
+- [ ] Verify: Build runs successfully and completes as expected
+- [ ] Verify: Repo root is correctly detected regardless of current directory
+- [ ] Verify: Commands execute in correct working directory (repo root)
 
-### 3. Build Target Activation (`build set`)
-- [ ] Execute: `maestro build set test-target` (or `maestro b se test-target`)
-- [ ] Verify: Target is set as active successfully
-- [ ] Execute: `maestro build set 1` (using index number)
-- [ ] Verify: Target can be selected by index
-- [ ] Verify: Error message appears for invalid target name/index
+### 3. Dry-run execution
+- [ ] Execute: `maestro b ru --dry-run -v`
+- [ ] Verify: No actual commands are executed
+- [ ] Verify: All pipeline steps are printed with their resolved commands
+- [ ] Verify: Working directory (CWD) is clearly shown for each step
+- [ ] Verify: Environment variables (if any) are shown
 
-### 4. Active Build Target Query (`build get`)
-- [ ] Execute: `maestro build get` (or `maestro b g`)
-- [ ] Verify: Active target name and ID are printed in one-liner format: `name (id)`
-- [ ] Execute: `maestro build get -v`
-- [ ] Verify: Verbose output shows detailed information
-- [ ] Execute with no active target: Should show guidance message
+### 4. Test "file exists but not found" scenarios
+- [ ] Modify a build target to reference a non-existent script: `"cmd": ["bash", "nonexistent_script.sh"]`
+- [ ] Execute: `maestro b ru`
+- [ ] Verify: Error message includes resolved CWD
+- [ ] Verify: Error message includes hint to check `build show`, `--dry-run`, or repo root
+- [ ] Verify: Raw traceback is not shown in normal mode
 
-### 5. Build Target Details (`build show`)
-- [ ] Execute: `maestro build show` (no arguments - should default to active)
-- [ ] Verify: Shows active target details
-- [ ] Execute: `maestro build show test-target` (or `maestro b sh test-target`)
-- [ ] Verify: Shows specified target details
-- [ ] Verify: Shows name, ID, created time
-- [ ] Verify: Shows pipeline steps with numbering
-- [ ] Verify: Shows environment variables (if any)
-- [ ] Verify: Shows patterns (if any)
-- [ ] Verify: Shows "why/description" (if present)
+### 5. Verify logging and artifacts
+- [ ] Execute: `maestro b ru` (after a successful build target has been set)
+- [ ] Navigate to: `.maestro/build/runs/`
+- [ ] Verify: A new timestamp-based run directory was created (e.g., `run_1234567890`)
+- [ ] Verify: `run.json` file exists in the run directory with complete metadata
+- [ ] Verify: `diagnostics.json` file exists with extracted diagnostic information
+- [ ] Verify: `step_*.stdout.txt` and `step_*.stderr.txt` files exist for each step
+- [ ] Check content of log files to ensure they contain expected output
 
-### 6. Build Plan Default Behavior (`build plan`)
-- [ ] Execute: `maestro build plan` (no target name provided)
-- [ ] Verify: Uses active build target by default
-- [ ] Execute: `maestro build plan` when no active target exists
-- [ ] Verify: Prompts: "No active build target. Create one now? [Y/n]"
-- [ ] Verify: Creates new target if user responds affirmatively
+### 6. Test build status command
+- [ ] Execute: `maestro b stat`
+- [ ] Verify: Active target is shown
+- [ ] Verify: Last run timestamp is shown
+- [ ] Verify: Last run result (success/failure) is shown
+- [ ] Verify: Error count and warning count are shown
+- [ ] Verify: Top signatures with counts are shown
+- [ ] Verify: Paths to run.json, diagnostics.json, and log directory are clearly shown
 
-### 7. Build Run Uses Active Target (`build run`)
-- [ ] Execute: `maestro build run` (no target name provided)
-- [ ] Verify: Uses active build target
-- [ ] Execute: `maestro build run` when no active target exists
-- [ ] Verify: Shows error message about missing active target
-- [ ] Verify: Runs pipeline from active target
+### 7. Path resolution with relative paths
+- [ ] Create a build target that uses relative paths in commands
+- [ ] Execute: `maestro b ru` from various subdirectories
+- [ ] Verify: Relative paths resolve correctly relative to repo root
+- [ ] Verify: Commands execute successfully regardless of current working directory
 
-### 8. Build Status Uses Active Target (`build status`)
-- [ ] Execute: `maestro build status` (or `maestro b stat`)
-- [ ] Verify: Shows status for active build target
-- [ ] Verify: Prints active target name
-- [ ] Verify: Prints last run result summary
-- [ ] Execute when no active target exists
-- [ ] Verify: Shows error message about missing active target
+### 8. Verbose mode information
+- [ ] Execute: `maestro b ru -v`
+- [ ] Verify: Repo root path is printed early in the output
+- [ ] Execute: `maestro b stat -v`
+- [ ] Verify: Detailed information about target file and repo root is shown
 
-### 9. Alias Parity
-- [ ] Verify: `maestro b n` works the same as `maestro build new`
-- [ ] Verify: `maestro b ls` works the same as `maestro build list`
-- [ ] Verify: `maestro b se` works the same as `maestro build set`
-- [ ] Verify: `maestro b g` works the same as `maestro build get`
-- [ ] Verify: `maestro b sh` works the same as `maestro build show`
-- [ ] Verify: `maestro b p` works the same as `maestro build plan`
-- [ ] Verify: `maestro b ru` works the same as `maestro build run`
-- [ ] Verify: `maestro b stat` works the same as `maestro build status`
+---
 
-### 10. Help Consistency
-- [ ] Execute: `maestro build h` or `maestro build help`
-- [ ] Verify: Shows help for build commands
-- [ ] Execute: `maestro build new h` or `maestro build new --help`
-- [ ] Verify: Shows help for build new command
-- [ ] Execute: `maestro b n h` (alias version)
-- [ ] Verify: Shows same help as full command
+## Expected Outcomes
 
-### 11. Repository Root Discovery
-- [ ] Execute any build command from a subdirectory of the repo
-- [ ] Verify: Correctly finds `.maestro/` directory in parent
-- [ ] Execute with `--verbose` flag
-- [ ] Verify: Shows "Detected repository root" message
-- [ ] Verify: Shows paths used during operation
-
-### 12. Error Handling
-- [ ] Execute `build set` with non-existent target name
-- [ ] Verify: Clear error message, no stack trace
-- [ ] Execute `build show` with non-existent target name
-- [ ] Verify: Clear error message, no stack trace
-- [ ] Break the index.json file manually
-- [ ] Verify: Graceful recovery by rebuilding index from target files
-
-## Success Criteria
-- [ ] All basic lifecycle commands work: new, list, set, get, show
-- [ ] Commands default to active target where appropriate
-- [ ] Aliases behave identically to long forms
-- [ ] Verbose mode shows repo root and path information
-- [ ] No stack traces in normal operation
-- [ ] Actionable error messages when inputs are invalid
-- [ ] Index file is properly maintained
-
-## Notes
-If any test fails, please check:
-- That `.maestro/` directory exists at repo root
-- That a session is properly set as active
-- That target files in `.maestro/build/targets/` are valid JSON
-- That `.maestro/build/index.json` is properly formatted
+After applying the fixes in Task 9:
+- `build run` works identically from any working directory
+- `--dry-run` prints exactly what would be executed
+- "file exists but not found" class bugs are eliminated or clearly diagnosed
+- Logs and run metadata are always persisted
+- Diagnostics extraction produces stable signatures suitable for fix verification
+- `build status` provides actionable "where are we" visibility
