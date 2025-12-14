@@ -2010,6 +2010,12 @@ def main():
     # task run (runs tasks, similar to resume)
     task_run_parser = task_subparsers.add_parser('run', aliases=['r'], help='Run tasks (similar to resume)')
     task_run_parser.add_argument('num_tasks', nargs='?', type=int, help='Number of tasks to run (if omitted, runs all pending tasks)')
+    task_run_parser.add_argument('--limit-subtasks', type=int, help='Limit the number of subtasks to execute in this run')
+    task_run_parser.add_argument('--retry-interrupted', action='store_true', help='Retry interrupted tasks')
+    task_run_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream AI output to terminal')
+    task_run_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print AI prompts to terminal')
+    task_run_parser.add_argument('-q', '--quiet', action='store_true', help='Suppress streaming AI output')
+    task_run_parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
 
     # task log (synonymous to "log task")
     task_log_parser = task_subparsers.add_parser('log', aliases=['l'], help='Show past tasks (limited to 10, -a shows all)')
@@ -2669,7 +2675,11 @@ def main():
             elif args.task_subcommand == 'run':
                 # For task run, we need to handle num_tasks properly
                 num_tasks = getattr(args, 'num_tasks', None)
-                handle_task_run(args.session, num_tasks, args.verbose, quiet=args.quiet)
+                # Use the new --limit-subtasks if provided, otherwise fall back to num_tasks positional arg
+                limit_subtasks = args.limit_subtasks if args.limit_subtasks is not None else num_tasks
+                handle_task_run(args.session, limit_subtasks, args.verbose, quiet=args.quiet,
+                               retry_interrupted=args.retry_interrupted, stream_ai_output=args.stream_ai_output,
+                               print_ai_prompts=args.print_ai_prompts)
             elif args.task_subcommand == 'log':
                 handle_task_log(args.session, args.all, args.verbose)
             else:
@@ -5904,18 +5914,43 @@ def handle_task_list(session_path, verbose=False):
         print("No tasks in current plan.")
         return
 
-    # Show tasks with status indicators
+    # Show tasks with status indicators (enhanced visibility)
     for i, subtask in enumerate(subtasks_to_show, 1):
-        status_symbol = "✓" if subtask.status == "done" else "○" if subtask.status == "pending" else "✗"
-        status_color = Colors.BRIGHT_GREEN if subtask.status == "done" else Colors.BRIGHT_YELLOW if subtask.status == "pending" else Colors.BRIGHT_RED
-        styled_print(f"{i:2d}. {status_symbol} {subtask.title} [{subtask.status}]", status_color, None, 0)
-        if verbose:
-            # In verbose mode, also show additional information
-            styled_print(f"    Description: {subtask.description[:100]}{'...' if len(subtask.description) > 100 else ''}", Colors.BRIGHT_WHITE, None, 0)
+        # Show more comprehensive status
+        status_symbol = "✓" if subtask.status == "done" else "○" if subtask.status == "pending" else "⚠" if subtask.status == "interrupted" else "✗"
+        status_color = Colors.BRIGHT_GREEN if subtask.status == "done" else Colors.BRIGHT_YELLOW if subtask.status == "pending" else Colors.BRIGHT_MAGENTA if subtask.status == "interrupted" else Colors.BRIGHT_RED
+
+        # Format the display with task id, title, status, and engine
+        task_info = f"{i:2d}. {status_symbol} {subtask.id}: {subtask.title} [{subtask.status}]"
+        if subtask.worker_model:  # Show engine if available
+            task_info += f" | Engine: {subtask.worker_model}"
+
+        styled_print(task_info, status_color, None, 0)
+
+        # Show last summary indicator if available
+        if subtask.summary_file and os.path.exists(subtask.summary_file):
+            try:
+                with open(subtask.summary_file, 'r', encoding='utf-8') as f:
+                    summary_content = f.read().strip()
+                    if summary_content:
+                        # Show first line or first 60 characters of summary
+                        first_line = summary_content.split('\n')[0]
+                        short_summary = first_line[:60] + "..." if len(first_line) > 60 else first_line
+                        styled_print(f"    Summary: {short_summary}", Colors.BRIGHT_WHITE, None, 0)
+            except:
+                pass  # If summary file can't be read, just continue
+
+        if verbose or subtask.status != "done":
+            # In verbose mode or for non-completed tasks, also show additional information
+            styled_print(f"    Description: {subtask.description[:120]}{'...' if len(subtask.description) > 120 else ''}", Colors.BRIGHT_WHITE, None, 0)
             if subtask.categories:
                 styled_print(f"    Categories: {', '.join(subtask.categories)}", Colors.BRIGHT_CYAN, None, 0)
             if subtask.root_excerpt:
-                styled_print(f"    Excerpt: {subtask.root_excerpt[:80]}{'...' if len(subtask.root_excerpt) > 80 else ''}", Colors.BRIGHT_MAGENTA, None, 0)
+                styled_print(f"    Excerpt: {subtask.root_excerpt[:100]}{'...' if len(subtask.root_excerpt) > 100 else ''}", Colors.BRIGHT_MAGENTA, None, 0)
+
+            # Show plan ID as well
+            if subtask.plan_id:
+                styled_print(f"    Plan: {subtask.plan_id}", Colors.BRIGHT_BLUE, None, 0)
 
     # If in verbose mode, also show rule-based information
     if verbose:
@@ -5940,7 +5975,8 @@ def handle_task_list(session_path, verbose=False):
                     styled_print(f"  {i}. {rule_line} [Rule-based task]", Colors.BRIGHT_CYAN, None, 0)
 
 
-def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
+def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False, retry_interrupted=False,
+                   stream_ai_output=False, print_ai_prompts=False):
     """
     Run tasks (similar to resume, but with optional limit on number of tasks).
     If num_tasks is specified, only that many tasks will be executed.
@@ -5974,37 +6010,57 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
                 active_plan = plan
                 break
 
+    # If no active plan exists, abort with guidance
+    if not active_plan:
+        print_error("Cannot execute tasks: No active plan exists.", 2)
+        print_info("Use 'maestro plan discuss' to create or select an active plan.", 2)
+        sys.exit(1)
+
     # Validate that the active plan is not dead
-    if active_plan:
-        if active_plan.status == "dead":
-            print_error(f"Cannot execute tasks: Active plan '{active_plan_id}' is marked as dead.", 2)
-            print_info("Use 'maestro plan list' to see available plans, or 'maestro plan set <plan_id>' to switch to an active plan.", 2)
-            sys.exit(1)
+    if active_plan and active_plan.status == "dead":
+        print_error(f"Cannot execute tasks: Active plan '{active_plan_id}' is marked as dead.", 2)
+        print_info("Use 'maestro plan list' to see available plans, or 'maestro plan set <plan_id>' to switch to an active plan.", 2)
+        sys.exit(1)
 
-        # Only consider subtasks from the active plan
-        target_subtasks = [
+    # Determine eligible subtasks from the active plan only
+    pending_subtasks = [
+        subtask for subtask in session.subtasks
+        if subtask.status == "pending" and subtask.plan_id == active_plan_id
+    ]
+
+    interrupted_subtasks = []
+    if retry_interrupted:
+        interrupted_subtasks = [
             subtask for subtask in session.subtasks
-            if subtask.status == "pending"
-            and subtask.plan_id == active_plan_id
-        ]
-    else:
-        # Consider all pending subtasks if no active plan
-        print_warning("No active plan set. Consider setting an active plan using 'maestro plan set'.", 2)
-        target_subtasks = [
-            subtask for subtask in session.subtasks
-            if subtask.status == "pending"
+            if subtask.status == "interrupted" and subtask.plan_id == active_plan_id
         ]
 
-    # Limit to the specified number of tasks if provided
+    # Combine eligible subtasks: first pending, then interrupted (if retrying)
+    eligible_subtasks = pending_subtasks + interrupted_subtasks
+
+    # Count total eligible tasks for verbose output
+    total_pending = len(pending_subtasks)
+    total_interrupted = len(interrupted_subtasks)
+    total_eligible = len(eligible_subtasks)
+
+    if verbose:
+        print_info(f"Eligible subtasks: {total_eligible} (pending={total_pending}, interrupted={total_interrupted})", 2)
+
+    # Apply execution limit if specified
     if num_tasks is not None and num_tasks > 0:
-        target_subtasks = target_subtasks[:num_tasks]
+        target_subtasks = eligible_subtasks[:num_tasks]
+        if verbose:
+            print_info(f"Limiting execution to first {num_tasks} subtasks.", 2)
+    else:
+        target_subtasks = eligible_subtasks
 
     # If no tasks to process, just print current status
     if not target_subtasks:
         if verbose:
             print_info("No tasks to process", 2)
         print(f"Status: {session.status}")
-        print(f"Number of pending tasks: {len([st for st in session.subtasks if st.status == 'pending'])}")
+        print(f"Number of pending tasks in active plan: {total_pending}")
+        print(f"Number of interrupted tasks in active plan: {total_interrupted}")
         return
 
     # Create inputs and outputs directories for the session
@@ -6019,10 +6075,16 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
 
     # Process each target subtask in order
     tasks_processed = 0
-    for subtask in target_subtasks:
+    for i, subtask in enumerate(target_subtasks, 1):
+        # Print "now playing" line unless quiet
+        if not quiet:
+            print_info(f"Running subtask {i}/{len(target_subtasks)}: \"{subtask.title}\"", 2)
+            if verbose:
+                print_info(f"Engine: {subtask.worker_model} | Stream: {'on' if stream_ai_output or (not quiet) else 'off'} | Prompt: saved to ...", 2)
+
         if subtask.status == "pending":
             if verbose:
-                print_info(f"Processing subtask: '{subtask.title}' (ID: {subtask.id})", 2)
+                print_info(f"Processing pending subtask: '{subtask.title}' (ID: {subtask.id})", 2)
 
             # Set the summary file path if not already set
             if not subtask.summary_file:
@@ -6059,130 +6121,202 @@ def handle_task_run(session_path, num_tasks=None, verbose=False, quiet=False):
             prompt += f"  into the file: {subtask.summary_file}\n\n"
             prompt += f"The summary MUST be written to that file before you consider the task complete."
 
+        elif subtask.status == "interrupted" and retry_interrupted:
             if verbose:
-                print_info(f"Using worker model: {subtask.worker_model}", 2)
+                print_info(f"Processing interrupted subtask: '{subtask.title}' (ID: {subtask.id})", 2)
 
-            # Look up the worker engine
-            from engines import get_engine
+            # Load partial output to inject into the next prompt
+            partial_dir = os.path.join(maestro_dir, "partials")
+            partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
+
+            partial_output_content = ""
+            if os.path.exists(partial_filename):
+                with open(partial_filename, 'r', encoding='utf-8') as f:
+                    partial_output_content = f.read().strip()
+
+            # Set the summary file path if not already set
+            if not subtask.summary_file:
+                subtask.summary_file = os.path.join(outputs_dir, f"{subtask.id}.summary.txt")
+
+            # Build structured prompt - but inject partial result
+            goal = f"Resume the subtask: {subtask.title}\nDescription: {subtask.description}"
+
+            requirements_parts = [f"ROOT TASK (CLEANED):\n{root_task_to_use}"]
+            requirements_parts.append(f"RELEVANT CATEGORIES:\n{categories_str}")
+            requirements_parts.append(f"RELEVANT ROOT EXCERPT:\n{root_excerpt}")
+            requirements_parts.append(f"SUBTASK DETAILS:\nid: {subtask.id}\ntitle: {subtask.title}\ndescription:\n{subtask.description}")
+            requirements_parts.append(f"CURRENT RULES:\n{rules}")
+            requirements_parts.append(f"[PARTIAL RESULT FROM PREVIOUS ATTEMPT]\n{partial_output_content}")
+            requirements = "\n\n".join(requirements_parts)
+
+            acceptance_criteria = "The work should be completed according to the subtask requirements. The work should be properly integrated with existing codebase. Build upon the partial result provided."
+
+            deliverables_parts = [f"Continue and complete work for subtask '{subtask.title}', based on the partial result"]
+            deliverables_parts.append(f"Write a summary to file: {subtask.summary_file}")
+            deliverables = "\n".join(deliverables_parts)
+
+            prompt = build_structured_prompt(goal, requirements, acceptance_criteria, deliverables)
+
+            # Add additional instructions that were in the original prompt
+            prompt += f"[ADDITIONAL INSTRUCTIONS]\n"
+            prompt += f"[SUBTASK]\n"
+            prompt += f"id: {subtask.id}\n"
+            prompt += f"title: {subtask.title}\n"
+            prompt += f"description:\n{subtask.description}\n\n"
+            prompt += f"You are resuming an autonomous coding agent task that was previously interrupted.\n"
+            prompt += f"- Continue the work needed for this subtask based on the partial result.\n"
+            prompt += f"- Use your normal tools and workflows.\n"
+            prompt += f"- When you are done, write a short plain-text summary of what you did\n"
+            prompt += f"  into the file: {subtask.summary_file}\n\n"
+            prompt += f"The summary MUST be written to that file before you consider the task complete."
+
+        else:
+            # This shouldn't happen if the logic is working correctly
+            if verbose:
+                print_info(f"Skipping subtask with status: '{subtask.status}' (ID: {subtask.id})", 2)
+            continue
+
+        if verbose:
+            print_info(f"Using worker model: {subtask.worker_model}", 2)
+
+        # Print prompt if requested
+        if print_ai_prompts and not quiet:
+            print_info("PROMPT:", 2)
+            print(prompt)
+            print_info("END PROMPT", 2)
+
+        # Look up the worker engine
+        from engines import get_engine
+        try:
+            # Use stream_ai_output parameter when retry_interrupted is True, otherwise use (not quiet)
+            effective_stream = stream_ai_output
+            if not retry_interrupted:  # Only use quiet for non-interrupted tasks
+                effective_stream = not quiet
+
+            engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=effective_stream)
+        except ValueError:
+            # If we don't have the specific model with "_worker" suffix, try directly
             try:
-                engine = get_engine(subtask.worker_model + "_worker", debug=verbose, stream_output=not quiet)
+                engine = get_engine(subtask.worker_model, debug=verbose, stream_output=effective_stream)
             except ValueError:
-                # If we don't have the specific model with "_worker" suffix, try directly
-                try:
-                    engine = get_engine(subtask.worker_model, debug=verbose, stream_output=not quiet)
-                except ValueError:
-                    print(f"Error: Unknown worker model '{subtask.worker_model}'", file=sys.stderr)
-                    session.status = "failed"
-                    session.updated_at = datetime.now().isoformat()
-                    save_session(session, session_path)
-                    sys.exit(1)
-
-            if verbose:
-                print_info(f"Generated prompt for engine (length: {len(prompt)} chars)", 2)
-
-            # Save the worker prompt to the inputs directory
-            worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{subtask.worker_model}.txt")
-            with open(worker_prompt_filename, "w", encoding="utf-8") as f:
-                f.write(prompt)
-
-            # Log verbose information
-            if verbose:
-                print_info(f"Engine={subtask.worker_model} subtask={subtask.id}", 2)
-                print_info(f"Prompt file: {worker_prompt_filename}", 2)
-                print_info(f"Output file: {os.path.join(outputs_dir, f'{subtask.id}.txt')}", 2)
-
-            # Call engine.generate(prompt) with interruption handling
-            try:
-                output = engine.generate(prompt)
-            except KeyboardInterrupt:
-                # Handle user interruption
-                print(f"\n[orchestrator] Interrupt received — stopping after current AI step...", file=sys.stderr)
-                subtask.status = "interrupted"
-                session.status = "interrupted"
-                session.updated_at = datetime.now().isoformat()
-                save_session(session, session_path)
-
-                # Save partial output if available
-                partial_dir = os.path.join(maestro_dir, "partials")
-                os.makedirs(partial_dir, exist_ok=True)
-                partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
-
-                with open(partial_filename, 'w', encoding='utf-8') as f:
-                    f.write(output if output else "")
-
-                # Also create an empty summary file to prevent error on resume
-                # This ensures that when the task is resumed, the expected summary file exists
-                if subtask.summary_file and not os.path.exists(subtask.summary_file):
-                    os.makedirs(os.path.dirname(subtask.summary_file), exist_ok=True)
-                    with open(subtask.summary_file, 'w', encoding='utf-8') as f:
-                        f.write("")  # Create empty summary file
-
-                if verbose:
-                    print_info(f"Partial stdout saved to: {partial_filename}", 2)
-                    print_info(f"Subtask {subtask.id} marked as interrupted", 2)
-
-                # Exit with clean code for interruption
-                sys.exit(130)
-            except Exception as e:
-                print(f"Error: Failed to generate output from engine: {str(e)}", file=sys.stderr)
-                subtask.status = "error"
+                print(f"Error: Unknown worker model '{subtask.worker_model}'", file=sys.stderr)
                 session.status = "failed"
                 session.updated_at = datetime.now().isoformat()
                 save_session(session, session_path)
                 sys.exit(1)
 
-            if verbose:
-                print_info(f"Generated output from engine (length: {len(output)} chars)", 2)
+        if verbose:
+            print_info(f"Generated prompt for engine (length: {len(prompt)} chars)", 2)
 
-            # Save the raw stdout to a file
-            stdout_filename = os.path.join(outputs_dir, f"worker_{subtask.id}.stdout.txt")
-            with open(stdout_filename, 'w', encoding='utf-8') as f:
-                f.write(output)
+        # Save the worker prompt to the inputs directory with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        worker_prompt_filename = os.path.join(inputs_dir, f"worker_{subtask.id}_{timestamp}.txt")
+        with open(worker_prompt_filename, "w", encoding="utf-8") as f:
+            f.write(prompt)
 
-            if verbose:
-                print_info(f"Saved raw stdout to: {stdout_filename}", 2)
+        # Log verbose information
+        if verbose:
+            print_info(f"Engine={subtask.worker_model} subtask={subtask.id}", 2)
+            print_info(f"Prompt file: {worker_prompt_filename}", 2)
+            print_info(f"Output file: {os.path.join(outputs_dir, f'{subtask.id}.txt')}", 2)
 
-            output_file_path = os.path.join(outputs_dir, f"{subtask.id}.txt")
-            with open(output_file_path, 'w', encoding='utf-8') as f:
-                f.write(output)
-
-            if verbose:
-                print_info(f"Saved output to: {output_file_path}", 2)
-
-            # Verify summary file exists and is non-empty
-            if not os.path.exists(subtask.summary_file):
-                print(f"Error: Summary file missing for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
-                subtask.status = "error"
-                session.status = "failed"
-                session.updated_at = datetime.now().isoformat()
-                save_session(session, session_path)
-                sys.exit(1)
-
-            size = os.path.getsize(subtask.summary_file)
-            if size == 0:
-                print(f"Error: Summary file empty for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
-                subtask.status = "error"
-                session.status = "failed"
-                session.updated_at = datetime.now().isoformat()
-                save_session(session, session_path)
-                sys.exit(1)
-
-            # Mark subtask.status as "done" and update updated_at
-            subtask.status = "done"
+        # Call engine.generate(prompt) with interruption handling
+        try:
+            output = engine.generate(prompt)
+        except KeyboardInterrupt:
+            # Handle user interruption
+            print(f"\n[maestro] Interrupt received — stopping current AI step…", file=sys.stderr)
+            subtask.status = "interrupted"
+            session.status = "interrupted"
             session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+
+            # Save partial output if available
+            partial_dir = os.path.join(maestro_dir, "partials")
+            os.makedirs(partial_dir, exist_ok=True)
+            partial_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.txt")
+
+            with open(partial_filename, 'w', encoding='utf-8') as f:
+                f.write(output if output else "")
+
+            # Also save stderr if available (not currently implemented in engines)
+            partial_stderr_filename = os.path.join(partial_dir, f"worker_{subtask.id}.partial.err.txt")
+            # This will be saved if we track stderr in engine results (not currently done)
+
+            # Also create an empty summary file to prevent error on resume
+            # This ensures that when the task is resumed, the expected summary file exists
+            if subtask.summary_file and not os.path.exists(subtask.summary_file):
+                os.makedirs(os.path.dirname(subtask.summary_file), exist_ok=True)
+                with open(subtask.summary_file, 'w', encoding='utf-8') as f:
+                    f.write("")  # Create empty summary file
 
             if verbose:
-                print_info(f"Updated subtask status to 'done'", 2)
+                print_info(f"Partial stdout saved to: {partial_filename}", 2)
+                print_info(f"Subtask {subtask.id} marked as interrupted", 2)
 
-            tasks_processed += 1
+            # Exit with clean code for interruption
+            sys.exit(130)
+        except Exception as e:
+            print(f"Error: Failed to generate output from engine: {str(e)}", file=sys.stderr)
+            subtask.status = "error"
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+            sys.exit(1)
 
-            # Process rule-based post-tasks if any
-            if verbose:
-                print_info("Processing rule-based post-tasks...", 2)
+        if verbose:
+            print_info(f"Generated output from engine (length: {len(output)} chars)", 2)
 
-            # Process rule-based post-tasks if they exist in the rules
-            # When running with limited tasks, we still process rules for each completed task
-            process_rule_based_post_tasks(session, subtask, rules, session_dir, verbose)
+        # Save the raw stdout to a file with engine name and timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        stdout_filename = os.path.join(outputs_dir, f"worker_{subtask.id}_{subtask.worker_model}_{timestamp}.txt")
+        with open(stdout_filename, 'w', encoding='utf-8') as f:
+            f.write(output)
+
+        if verbose:
+            print_info(f"Saved raw stdout to: {stdout_filename}", 2)
+
+        output_file_path = os.path.join(outputs_dir, f"{subtask.id}.txt")
+        with open(output_file_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+
+        if verbose:
+            print_info(f"Saved output to: {output_file_path}", 2)
+
+        # Verify summary file exists and is non-empty
+        if not os.path.exists(subtask.summary_file):
+            print(f"Error: Summary file missing for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
+            subtask.status = "error"
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+            sys.exit(1)
+
+        size = os.path.getsize(subtask.summary_file)
+        if size == 0:
+            print(f"Error: Summary file empty for subtask {subtask.id}: {subtask.summary_file}", file=sys.stderr)
+            subtask.status = "error"
+            session.status = "failed"
+            session.updated_at = datetime.now().isoformat()
+            save_session(session, session_path)
+            sys.exit(1)
+
+        # Mark subtask.status as "done" and update updated_at
+        subtask.status = "done"
+        session.updated_at = datetime.now().isoformat()
+
+        if verbose:
+            print_info(f"Updated subtask status to 'done'", 2)
+
+        tasks_processed += 1
+
+        # Process rule-based post-tasks if any
+        if verbose:
+            print_info("Processing rule-based post-tasks...", 2)
+
+        # Process rule-based post-tasks if they exist in the rules
+        # When running with limited tasks, we still process rules for each completed task
+        process_rule_based_post_tasks(session, subtask, rules, session_dir, verbose)
 
     # Update session status based on subtask completion
     all_done = all(subtask.status == "done" for subtask in session.subtasks)
