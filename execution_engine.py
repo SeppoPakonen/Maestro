@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 import subprocess
 import threading
 import time
+import hashlib
 
 class ConversionExecutor:
     def __init__(self, plan_path: str):
@@ -125,45 +126,66 @@ The conversion is taking place between two repositories:
         """Execute a single task."""
         task_id = task['task_id']
         print(f"Executing task {task_id}: {task['acceptance_criteria'][:50]}...")
-        
+
         try:
             # Update status to running
             self._update_task_status(task_id, 'running')
-            
-            # Create prompt for the task
-            prompt = self._create_prompt_for_task(task, source_repo_path, target_repo_path)
-            prompt_path = self._save_prompt_for_task(task_id, prompt)
-            
-            # Prepare the output directory for this task
-            output_dir = f".maestro/convert/outputs/{task_id}"
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Select appropriate AI engine based on task['engine']
-            if task['engine'] in ['codex', 'gpt4', 'gpt3.5', 'claude']:
-                # Simulate AI processing by calling a mock function
-                # In a real implementation, this would call an AI service
-                success = self._call_ai_engine(task, prompt_path, output_dir)
-            elif task['engine'] == 'file_copy':
-                # Copy files directly
-                success = self._copy_files(task, source_repo_path, target_repo_path)
-            elif task['engine'] == 'directory_create':
-                # Create directories
-                success = self._create_directories(task, target_repo_path)
+
+            # Check if this is a file task that should use the new realize worker
+            if task['phase'] == 'file':
+                # Import the realize worker
+                from realize_worker import execute_file_task
+
+                success = execute_file_task(task, source_repo_path, target_repo_path, verbose=True, plan_path=self.plan_path)
+
+                if success:
+                    # Update status to completed
+                    self._update_task_status(task_id, 'completed')
+                    print(f"Task {task_id} completed successfully")
+                    return True
+                else:
+                    # Update status to failed (unless already marked as interrupted)
+                    current_status = task.get('status', 'pending')
+                    if current_status != 'interrupted':
+                        self._update_task_status(task_id, 'failed')
+                    print(f"Task {task_id} failed")
+                    return False
             else:
-                # Custom converter or other engines
-                success = self._execute_custom_engine(task, prompt_path, output_dir)
-            
-            if success:
-                # Update status to completed
-                self._update_task_status(task_id, 'completed')
-                print(f"Task {task_id} completed successfully")
-                return True
-            else:
-                # Update status to failed
-                self._update_task_status(task_id, 'failed')
-                print(f"Task {task_id} failed")
-                return False
-                
+                # For non-file tasks (scaffold/sweep), use the original logic
+                # Create prompt for the task
+                prompt = self._create_prompt_for_task(task, source_repo_path, target_repo_path)
+                prompt_path = self._save_prompt_for_task(task_id, prompt)
+
+                # Prepare the output directory for this task
+                output_dir = f".maestro/convert/outputs/{task_id}"
+                os.makedirs(output_dir, exist_ok=True)
+
+                # Select appropriate AI engine based on task['engine']
+                if task['engine'] in ['codex', 'gpt4', 'gpt3.5', 'claude']:
+                    # Simulate AI processing by calling a mock function
+                    # In a real implementation, this would call an AI service
+                    success = self._call_ai_engine(task, prompt_path, output_dir)
+                elif task['engine'] == 'file_copy':
+                    # Copy files directly
+                    success = self._copy_files(task, source_repo_path, target_repo_path)
+                elif task['engine'] == 'directory_create':
+                    # Create directories
+                    success = self._create_directories(task, target_repo_path)
+                else:
+                    # Custom converter or other engines
+                    success = self._execute_custom_engine(task, prompt_path, output_dir)
+
+                if success:
+                    # Update status to completed
+                    self._update_task_status(task_id, 'completed')
+                    print(f"Task {task_id} completed successfully")
+                    return True
+                else:
+                    # Update status to failed
+                    self._update_task_status(task_id, 'failed')
+                    print(f"Task {task_id} failed")
+                    return False
+
         except KeyboardInterrupt:
             # Handle Ctrl+C during task execution
             self._update_task_status(task_id, 'interrupted')

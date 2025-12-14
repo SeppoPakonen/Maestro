@@ -40,11 +40,14 @@ def validate_plan(plan_data: Dict, plan_path: str = ".maestro/convert/plan/plan.
     """
     errors = []
 
-    # Load the schema
-    schema_path = ".maestro/convert/schemas/plan.schema.json"
+    # Load the schema - first try the committed location, then fallback
+    schema_path = "tools/convert_tests/schemas/plan.schema.json"
     if not os.path.exists(schema_path):
-        errors.append(f"Schema not found at {schema_path}")
-        return errors
+        # Fallback to .maestro location if tools location doesn't exist
+        schema_path = ".maestro/convert/schemas/plan.schema.json"
+        if not os.path.exists(schema_path):
+            errors.append(f"Schema not found at {schema_path}")
+            return errors
 
     with open(schema_path, 'r') as f:
         schema = json.load(f)
