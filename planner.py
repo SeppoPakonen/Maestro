@@ -11,19 +11,21 @@ def generate_task_id():
 def create_scaffold_tasks(target_inventory: Dict) -> List[Dict]:
     """Create scaffold tasks to establish project structure."""
     tasks = []
-    
+
     # If target is empty, create basic scaffolding tasks
     if not target_inventory or target_inventory.get('total_count', 0) == 0:
         # Create basic project infrastructure
+        # Use gemini for scaffolding tasks (broad context for project structure)
         scaffold_tasks = [
             {
                 "task_id": generate_task_id(),
                 "phase": "scaffold",
+                "title": "Set up basic project files",
                 "source_files": [],
                 "target_files": ["README.md", "package.json", "requirements.txt", ".gitignore"],
-                "engine": "claude",
-                "prompt_ref": "scaffold_project_setup.txt",
-                "acceptance_criteria": "Basic project files created with appropriate content",
+                "engine": "gemini",  # Default for scaffolding: broad context
+                "prompt_ref": "inputs/scaffold_project_setup.txt",
+                "acceptance_criteria": ["Basic project files created with appropriate content"],
                 "deliverables": ["README.md", "package.json", "requirements.txt", ".gitignore"],
                 "depends_on": [],
                 "status": "pending"
@@ -31,17 +33,18 @@ def create_scaffold_tasks(target_inventory: Dict) -> List[Dict]:
             {
                 "task_id": generate_task_id(),
                 "phase": "scaffold",
+                "title": "Create directory structure",
                 "source_files": [],
                 "target_files": ["src/", "tests/", "docs/"],
-                "engine": "directory_create",
-                "prompt_ref": "scaffold_directory_structure.txt",
-                "acceptance_criteria": "Directory structure created according to best practices for target language",
+                "engine": "qwen",  # Default for directory creation: efficient for simple tasks
+                "prompt_ref": "inputs/scaffold_directory_structure.txt",
+                "acceptance_criteria": ["Directory structure created according to best practices for target language"],
                 "deliverables": ["src/", "tests/", "docs/"],
                 "depends_on": [],
                 "status": "pending"
             }
         ]
-        
+
         for task in scaffold_tasks:
             tasks.append(task)
 
@@ -67,56 +70,58 @@ def create_file_conversion_tasks(source_inventory: Dict, target_inventory: Dict)
         # Determine appropriate engine based on language
         sample_lang = files[0]['language'] if files else 'Unknown'
         
-        # Map languages to appropriate AI engines
+        # Map languages to appropriate AI engines (only allowed engines from schema)
         lang_to_engine = {
             'Python': 'codex',
-            'JavaScript': 'gpt4',
-            'TypeScript': 'gpt4',
+            'JavaScript': 'claude',
+            'TypeScript': 'claude',
             'Java': 'claude',
             'C++': 'claude',
             'C': 'claude',
-            'C#': 'gpt4',
-            'Go': 'gpt4',
+            'C#': 'claude',
+            'Go': 'claude',
             'Rust': 'claude',
-            'Ruby': 'gpt4',
-            'PHP': 'gpt4',
-            'Swift': 'gpt4',
-            'Kotlin': 'gpt4',
-            'Scala': 'gpt4',
-            'HTML': 'gpt3.5',
-            'CSS': 'gpt3.5',
-            'JSON': 'gpt3.5',
-            'YAML': 'gpt3.5',
-            'Markdown': 'gpt3.5',
-            'Shell': 'gpt3.5',
-            'Configuration': 'gpt3.5',
-            'Text': 'gpt3.5',
-            'Dockerfile': 'gpt3.5'
+            'Ruby': 'claude',
+            'PHP': 'claude',
+            'Swift': 'claude',
+            'Kotlin': 'claude',
+            'Scala': 'claude',
+            'HTML': 'qwen',
+            'CSS': 'qwen',
+            'JSON': 'qwen',
+            'YAML': 'qwen',
+            'Markdown': 'qwen',
+            'Shell': 'qwen',
+            'Configuration': 'qwen',
+            'Text': 'qwen',
+            'Dockerfile': 'qwen'
         }
         
-        engine = lang_to_engine.get(sample_lang, 'gpt3.5')
-        
+        # Use specific engine if available, otherwise default to 'qwen' for file tasks
+        engine = lang_to_engine.get(sample_lang, 'qwen')
+
         # Create a task for this group of files
         source_paths = [f['path'] for f in files]
         target_paths = [f['path'] for f in files]  # Same names initially
-        
+
         # Decide on conversion vs copy based on file type
         if sample_lang in ['Image', 'Binary', 'Unknown']:  # Placeholder - will be handled differently
             task_type = "file_copy"
             engine = "file_copy"
-            acceptance = "Files copied to target location without modification"
+            acceptance_criteria = ["Files copied to target location without modification"]
         else:
             task_type = "file_conversion"
-            acceptance = "Source files converted appropriately to target technology stack"
-        
+            acceptance_criteria = ["Source files converted appropriately to target technology stack"]
+
         task = {
             "task_id": generate_task_id(),
             "phase": "file",
+            "title": f"Convert {ext} files",
             "source_files": source_paths,
             "target_files": target_paths,
             "engine": engine,
-            "prompt_ref": f"convert_files_{ext}.txt",
-            "acceptance_criteria": acceptance,
+            "prompt_ref": f"inputs/convert_files_{ext}.txt",
+            "acceptance_criteria": acceptance_criteria,
             "deliverables": target_paths,
             "depends_on": [],  # Dependencies will be determined later
             "status": "pending"
@@ -132,11 +137,12 @@ def create_sweep_tasks(source_inventory: Dict, target_inventory: Dict) -> List[D
         {
             "task_id": generate_task_id(),
             "phase": "sweep",
+            "title": "Verify conversion coverage",
             "source_files": [f['path'] for f in source_inventory.get('files', [])],
             "target_files": [f['path'] for f in target_inventory.get('files', []) if f.get('path', '')],
-            "engine": "gpt4",
-            "prompt_ref": "verify_conversion_coverage.txt",
-            "acceptance_criteria": "All source files have been accounted for in target conversion",
+            "engine": "gemini",  # Default for sweep: large text synthesis for verification
+            "prompt_ref": "inputs/verify_conversion_coverage.txt",
+            "acceptance_criteria": ["All source files have been accounted for in target conversion"],
             "deliverables": [".maestro/convert/reports/coverage.json"],
             "depends_on": [],
             "status": "pending"
@@ -144,17 +150,18 @@ def create_sweep_tasks(source_inventory: Dict, target_inventory: Dict) -> List[D
         {
             "task_id": generate_task_id(),
             "phase": "sweep",
+            "title": "Generate final summary report",
             "source_files": [],
             "target_files": [".maestro/convert/reports/final_summary.md"],
-            "engine": "gpt4",
-            "prompt_ref": "generate_final_report.txt",
-            "acceptance_criteria": "Comprehensive report of conversion process and results",
+            "engine": "gemini",  # Default for sweeps: good for comprehensive reporting
+            "prompt_ref": "inputs/generate_final_report.txt",
+            "acceptance_criteria": ["Comprehensive report of conversion process and results"],
             "deliverables": [".maestro/convert/reports/final_summary.md"],
             "depends_on": [sweep_tasks[0]['task_id']] if 'sweep_tasks' in locals() else [],
             "status": "pending"
         }
     ]
-    
+
     return sweep_tasks
 
 def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_output_path: str) -> Dict:
@@ -170,20 +177,23 @@ def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_
     if not source_inventory:
         raise ValueError(f"Source inventory not found at {source_inventory_path}")
     
-    # Create the plan
+    # Create the plan following the new schema
     plan = {
-        "version": "1.0",
-        "source_inventory": source_inventory_path,
-        "target_inventory": target_inventory_path,
+        "plan_version": "1.0",
+        "pipeline_id": f"conversion-plan-{uuid.uuid4().hex[:8]}",
+        "intent": f"Convert {source_repo_path} to {target_repo_path}",
+        "created_at": datetime.utcnow().isoformat(),
+        "source": {
+            "path": source_repo_path
+        },
+        "target": {
+            "path": target_repo_path
+        },
         "scaffold_tasks": [],
         "file_tasks": [],
         "final_sweep_tasks": [],
-        "metadata": {
-            "created_at": datetime.utcnow().isoformat(),
-            "source_repo": source_repo_path,
-            "target_repo": target_repo_path,
-            "ai_model_used": "claude-sonnet"  # This can be configurable
-        }
+        "source_inventory": source_inventory_path,
+        "target_inventory": target_inventory_path
     }
     
     # Create scaffold tasks (these come first)
@@ -202,34 +212,6 @@ def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_
     return plan
 
 def validate_conversion_plan(plan: Dict) -> List[str]:
-    """Validate the conversion plan structure and completeness."""
-    errors = []
-    
-    # Basic structure validation
-    required_fields = ["version", "source_inventory", "target_inventory", "scaffold_tasks", "file_tasks", "final_sweep_tasks"]
-    for field in required_fields:
-        if field not in plan:
-            errors.append(f"Missing required field: {field}")
-    
-    # Validate task IDs are unique
-    all_tasks = plan.get("scaffold_tasks", []) + plan.get("file_tasks", []) + plan.get("final_sweep_tasks", [])
-    task_ids = [task.get("task_id") for task in all_tasks if "task_id" in task]
-    if len(task_ids) != len(set(task_ids)):
-        errors.append("Duplicate task IDs found in plan")
-    
-    # Validate task structure
-    required_task_fields = ["task_id", "phase", "source_files", "engine", "prompt_ref", "acceptance_criteria", "deliverables", "depends_on", "status"]
-    for i, task in enumerate(all_tasks):
-        for field in required_task_fields:
-            if field not in task:
-                errors.append(f"Task {i} ({task.get('task_id', 'unknown')}) missing required field: {field}")
-        
-        # Validate phase
-        if task.get("phase") not in ["scaffold", "file", "sweep"]:
-            errors.append(f"Task {task.get('task_id')} has invalid phase: {task.get('phase')}")
-        
-        # Validate status
-        if task.get("status") not in ["pending", "running", "completed", "failed", "interrupted", "skipped"]:
-            errors.append(f"Task {task.get('task_id')} has invalid status: {task.get('status')}")
-    
-    return errors
+    """This function is deprecated. Use the validate_plan function in convert_orchestrator.py instead."""
+    print("Warning: validate_conversion_plan in planner.py is deprecated. Use the one in convert_orchestrator.py.")
+    return []

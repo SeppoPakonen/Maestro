@@ -1,0 +1,32 @@
+{
+  "plan_version": "1.0",
+  "pipeline_id": "conversion-plan-XXXXXXXX",
+  "intent": "Convert /home/sblo/Dev/Maestro/tools/convert_tests/scenarios/plan_schema_fixture/source_repo to /home/sblo/Dev/Maestro/tools/convert_tests/scenarios/plan_schema_fixture/target_repo",
+  "required_top_level_fields": [
+    "plan_version",
+    "pipeline_id", 
+    "intent",
+    "created_at",
+    "source",
+    "target",
+    "scaffold_tasks",
+    "file_tasks", 
+    "final_sweep_tasks"
+  ],
+  "expected_task_counts": {
+    "scaffold_tasks_count": 2,
+    "file_tasks_count": 1,
+    "final_sweep_tasks_count": 2
+  },
+  "expected_task_structure": [
+    "task_id",
+    "phase", 
+    "title",
+    "engine",
+    "status",
+    "prompt_ref",
+    "depends_on",
+    "acceptance_criteria",
+    "deliverables"
+  ]
+}

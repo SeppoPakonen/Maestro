@@ -1,0 +1,25 @@
+{
+  "expected_coverage": {
+    "main.py": {
+      "policy": "convert",
+      "task_phase": "file"
+    },
+    "README.md": {
+      "policy": "convert", 
+      "task_phase": "file"
+    },
+    "package.json": {
+      "policy": "convert",
+      "task_phase": "file"
+    },
+    "build.sh": {
+      "policy": "convert",
+      "task_phase": "file"
+    },
+    "tsconfig.json": {
+      "policy": "convert",
+      "task_phase": "file"
+    }
+  },
+  "total_files": 5
+}
