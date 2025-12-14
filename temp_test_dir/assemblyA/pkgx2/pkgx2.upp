@@ -1,0 +1,11 @@
+description "PkgX2 main package";
+
+uses
+	"Core", "Ctrl";
+
+file
+	"PkgX2.cpp",
+	"PkgX2.h",
+	"Widget.h";
+
+options(BUILDER_OPTION) NOWARNINGS;

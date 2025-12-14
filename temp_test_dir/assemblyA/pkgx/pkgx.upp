@@ -1,0 +1,10 @@
+description "PkgX main package";
+
+uses
+	"Core";
+
+file
+	"pkgx.cpp",
+	"pkgx.h";
+
+options(BUILDER_OPTION) NOWARNINGS;

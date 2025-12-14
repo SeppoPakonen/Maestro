@@ -1,0 +1,10 @@
+description "PkgY main package";
+
+uses
+	"Core", "PkgX";
+
+file
+	"PkgY.cpp",
+	"PkgY.h";
+
+options(BUILDER_OPTION) NOWARNINGS;
