@@ -179,6 +179,9 @@ class ConversionPipeline:
     logs_dir: Optional[str] = None
     inputs_dir: Optional[str] = None
     outputs_dir: Optional[str] = None
+    source_repo: Optional[Dict[str, Any]] = None  # Enhanced source repo details
+    target_repo: Optional[Dict[str, Any]] = None  # Enhanced target repo details
+    conversion_intent: Optional[str] = None       # Conversion intent taxonomy
 
 
 @dataclass
@@ -2368,6 +2371,10 @@ def main():
     convert_new_parser.add_argument('source', help='Source repository or path')
     convert_new_parser.add_argument('target', help='Target repository or path')
     convert_new_parser.add_argument('--name', help='Name for the conversion pipeline')
+    convert_new_parser.add_argument('--intent',
+                                   choices=['language_to_language', 'low_to_high_level', 'high_to_low_level',
+                                           'platform_to_platform', 'framework_to_framework', 'dialect_or_library_shift'],
+                                   help='Conversion intent taxonomy')
 
     # convert plan
     convert_plan_parser = convert_subparsers.add_parser('plan', aliases=['p'], help='Interactive discussion to define conversion pipeline stages via AI')
@@ -2380,7 +2387,7 @@ def main():
 
     # convert run
     convert_run_parser = convert_subparsers.add_parser('run', aliases=['r'], help='Run the conversion pipeline')
-    convert_run_parser.add_argument('--stage', help='Run specific stage (overview|core_builds|grow_from_main|full_tree_check)')
+    convert_run_parser.add_argument('--stage', help='Run specific stage (semantic_mapping|overview|core_builds|grow_from_main|full_tree_check)')
 
     # convert status
     convert_status_parser = convert_subparsers.add_parser('status', aliases=['s'], help='Show conversion pipeline status')
@@ -3554,8 +3561,8 @@ def main():
         # Handle conversion pipeline commands
         if hasattr(args, 'convert_subcommand') and args.convert_subcommand:
             if args.convert_subcommand == 'new':
-                # For the 'new' command, we have source, target, and optional name
-                handle_convert_new_with_args(args.source, args.target, args.name, args.verbose)
+                # For the 'new' command, we have source, target, name, and optional intent
+                handle_convert_new_with_args(args.source, args.target, args.name, args.verbose, args.intent)
             elif args.convert_subcommand == 'plan':
                 # For the 'plan' command, we need to plan the conversion pipeline
                 plan_name = args.name
@@ -16056,7 +16063,10 @@ def load_conversion_pipeline(pipeline_id: str) -> ConversionPipeline:
         active_stage=data.get('active_stage'),
         logs_dir=data.get('logs_dir'),
         inputs_dir=data.get('inputs_dir'),
-        outputs_dir=data.get('outputs_dir')
+        outputs_dir=data.get('outputs_dir'),
+        source_repo=data.get('source_repo'),
+        target_repo=data.get('target_repo'),
+        conversion_intent=data.get('conversion_intent')
     )
 
     return pipeline
@@ -16097,14 +16107,17 @@ def save_conversion_pipeline(pipeline: ConversionPipeline) -> None:
         'active_stage': pipeline.active_stage,
         'logs_dir': pipeline.logs_dir,
         'inputs_dir': pipeline.inputs_dir,
-        'outputs_dir': pipeline.outputs_dir
+        'outputs_dir': pipeline.outputs_dir,
+        'source_repo': pipeline.source_repo,
+        'target_repo': pipeline.target_repo,
+        'conversion_intent': pipeline.conversion_intent
     }
 
     with open(pipeline_file, 'w', encoding='utf-8') as f:
         json.dump(pipeline_data, f, indent=2)
 
 
-def create_conversion_pipeline(name: str, source: str, target: str) -> ConversionPipeline:
+def create_conversion_pipeline(name: str, source: str, target: str, conversion_intent: str = None) -> ConversionPipeline:
     """
     Create a new conversion pipeline with the defined stages.
 
@@ -16112,14 +16125,18 @@ def create_conversion_pipeline(name: str, source: str, target: str) -> Conversio
         name: Name for the pipeline
         source: Source repository/path
         target: Target repository/path
+        conversion_intent: Intent for the conversion (optional)
 
     Returns:
         Created ConversionPipeline object
     """
-    pipeline_id = f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    # Extract detailed repo information from source and target paths
+    source_repo_info = extract_repo_info(source)
+    target_repo_info = extract_repo_info(target)
 
-    # Define the required stages including refactor
+    # Define the four required stages including semantic mapping
     stages = [
+        ConversionStage(name="semantic_mapping", status="pending"),
         ConversionStage(name="overview", status="pending"),
         ConversionStage(name="core_builds", status="pending"),
         ConversionStage(name="grow_from_main", status="pending"),
@@ -16146,14 +16163,63 @@ def create_conversion_pipeline(name: str, source: str, target: str) -> Conversio
         updated_at=datetime.now().isoformat(),
         status="new",
         stages=stages,
-        active_stage="overview",  # Start with the first stage
+        active_stage="semantic_mapping",  # Start with semantic mapping stage
         logs_dir=pipeline_logs_dir,
         inputs_dir=pipeline_inputs_dir,
-        outputs_dir=pipeline_outputs_dir
+        outputs_dir=pipeline_outputs_dir,
+        source_repo=source_repo_info,
+        target_repo=target_repo_info,
+        conversion_intent=conversion_intent
     )
 
     save_conversion_pipeline(pipeline)
     return pipeline
+
+
+def extract_repo_info(repo_path: str) -> Dict[str, Any]:
+    """
+    Extract detailed information about a repository including path, git info, and revision.
+
+    Args:
+        repo_path: Path or git URL to the repository
+
+    Returns:
+        Dictionary with repo information
+    """
+    import os
+    from urllib.parse import urlparse
+    import subprocess
+
+    repo_info = {
+        "path": repo_path,
+        "git": None,
+        "revision": None
+    }
+
+    # Check if it's a git URL
+    parsed = urlparse(repo_path)
+    if parsed.scheme in ['http', 'https', 'git'] or (parsed.scheme == '' and '@' in repo_path and repo_path.endswith('.git')):
+        repo_info["git"] = repo_path
+    else:
+        # It's a local path
+        repo_info["path"] = repo_path
+        # Try to get git information if it's a git repo
+        if os.path.isdir(repo_path):
+            git_dir = os.path.join(repo_path, '.git')
+            if os.path.exists(git_dir):
+                repo_info["git"] = repo_path
+                try:
+                    # Get current revision/commit hash
+                    result = subprocess.run(['git', 'rev-parse', 'HEAD'],
+                                          cwd=repo_path,
+                                          capture_output=True,
+                                          text=True)
+                    if result.returncode == 0:
+                        repo_info["revision"] = result.stdout.strip()
+                except Exception:
+                    pass  # Ignore git command errors
+
+    return repo_info
 
 
 def handle_convert_new(verbose: bool = False) -> None:
@@ -16186,6 +16252,436 @@ def handle_convert_run(verbose: bool = False) -> None:
     # We need to get the global args, but since this runs from within the main function's context,
     # we'll need to update the global function to pass the correct parameters
     print_warning("handle_convert_run should not be called directly. Implementation needs to be updated in main handler.", 2)
+
+
+def run_semantic_mapping_stage(pipeline: ConversionPipeline, stage_obj: ConversionStage, verbose: bool = False) -> None:
+    """
+    Execute the semantic mapping stage: create concept mappings and transformation rules.
+
+    Args:
+        pipeline: The conversion pipeline
+        stage_obj: The stage object being executed
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info("Executing semantic mapping stage...", 2)
+
+    # Create the semantic mapping stage directory
+    stage_dir = get_convert_stage_dir("semantic_mapping")
+    os.makedirs(stage_dir, exist_ok=True)
+
+    # Define the artifact file paths
+    mapping_file = os.path.join(stage_dir, "mapping.json")
+    concepts_source_file = os.path.join(stage_dir, "concepts_source.json")
+    concepts_target_file = os.path.join(stage_dir, "concepts_target.json")
+    decisions_file = os.path.join(stage_dir, "decisions.json")
+
+    try:
+        # Extract concepts from source repo
+        source_path = pipeline.source_repo['path'] if pipeline.source_repo and 'path' in pipeline.source_repo else pipeline.source
+        source_concepts = extract_concepts_from_repo(source_path)
+        with open(concepts_source_file, 'w', encoding='utf-8') as f:
+            json.dump(source_concepts, f, indent=2)
+
+        # Extract concepts from target repo (if exists or defaults)
+        target_path = pipeline.target_repo['path'] if pipeline.target_repo and 'path' in pipeline.target_repo and pipeline.target_repo['path'] else pipeline.target
+        target_concepts = extract_concepts_from_repo(target_path) if target_path and os.path.exists(target_path) else {}
+        with open(concepts_target_file, 'w', encoding='utf-8') as f:
+            json.dump(target_concepts, f, indent=2)
+
+        # Generate semantic mappings based on conversion intent
+        mappings = generate_semantic_mappings(
+            source_concepts,
+            target_concepts,
+            pipeline.conversion_intent
+        )
+        with open(mapping_file, 'w', encoding='utf-8') as f:
+            json.dump(mappings, f, indent=2)
+
+        # Generate decisions based on mappings
+        decisions = generate_mapping_decisions(mappings, pipeline.conversion_intent)
+        with open(decisions_file, 'w', encoding='utf-8') as f:
+            json.dump(decisions, f, indent=2)
+
+        # Update stage status to completed
+        stage_obj.status = "completed"
+        stage_obj.completed_at = datetime.now().isoformat()
+        stage_obj.details = {
+            "artifacts_created": [
+                "mapping.json",
+                "concepts_source.json",
+                "concepts_target.json",
+                "decisions.json"
+            ],
+            "concept_count": len(source_concepts.get('concepts', [])),
+            "mapping_count": len(mappings)
+        }
+
+        if verbose:
+            print_success(f"Semantic mapping stage completed. Created {len(mappings)} mappings.", 2)
+
+    except Exception as e:
+        stage_obj.status = "failed"
+        stage_obj.error = str(e)
+        stage_obj.completed_at = datetime.now().isoformat()
+        if verbose:
+            print_error(f"Semantic mapping stage failed: {e}", 2)
+        raise
+
+
+def extract_concepts_from_repo(repo_path: str) -> Dict[str, Any]:
+    """
+    Extract conceptual information from a repository (files, structures, patterns).
+
+    Args:
+        repo_path: Path to the repository
+
+    Returns:
+        Dictionary containing extracted concepts
+    """
+    import os
+    from collections import defaultdict
+
+    concepts = {
+        "path": repo_path,
+        "file_extensions": defaultdict(int),
+        "language_features": [],
+        "patterns": [],
+        "structures": [],
+        "concepts": []
+    }
+
+    if os.path.exists(repo_path):
+        for root, dirs, files in os.walk(repo_path):
+            # Skip common directories that don't contain source code
+            dirs[:] = [d for d in dirs if d not in ['.git', 'node_modules', '__pycache__', '.venv', 'venv', 'build', 'dist']]
+
+            for file in files:
+                file_path = os.path.join(root, file)
+                ext = os.path.splitext(file)[1].lower()
+
+                if ext:  # If file has extension
+                    concepts["file_extensions"][ext] += 1
+
+                # Extract language-specific concepts based on file extension
+                if ext in ['.cpp', '.c', '.h', '.hpp']:
+                    # C++/C concepts
+                    concepts["language_features"].extend(["classes", "templates", "STL", "memory_management"])
+                elif ext in ['.py']:
+                    # Python concepts
+                    concepts["language_features"].extend(["dynamic_typing", "modules", "decorators", "generators"])
+                elif ext in ['.js', '.ts', '.jsx', '.tsx']:
+                    # JavaScript/TypeScript concepts
+                    concepts["language_features"].extend(["dynamic_typing", "functions", "closures", "async_await"])
+                elif ext in ['.java']:
+                    # Java concepts
+                    concepts["language_features"].extend(["classes", "interfaces", "JVM", "OOP"])
+                elif ext in ['.go']:
+                    # Go concepts
+                    concepts["language_features"].extend(["goroutines", "channels", "interfaces"])
+                elif ext in ['.rs']:
+                    # Rust concepts
+                    concepts["language_features"].extend(["ownership", "borrowing", "traits", "memory_safety"])
+
+    # Convert defaultdict to regular dict for JSON serialization
+    concepts["file_extensions"] = dict(concepts["file_extensions"])
+
+    # Remove duplicates from language features
+    concepts["language_features"] = list(set(concepts["language_features"]))
+
+    return concepts
+
+
+def generate_semantic_mappings(source_concepts: Dict[str, Any],
+                             target_concepts: Dict[str, Any],
+                             conversion_intent: str) -> List[Dict[str, Any]]:
+    """
+    Generate semantic mappings based on conversion intent.
+
+    Args:
+        source_concepts: Concepts from source repository
+        target_concepts: Concepts from target repository
+        conversion_intent: Intent for the conversion
+
+    Returns:
+        List of mapping objects
+    """
+    mappings = []
+
+    # Define common mappings based on conversion intent
+    conversion_intent = conversion_intent or "general"  # Default to general if None
+
+    if conversion_intent == "language_to_language":
+        # Language to language mapping (e.g. C++ to Rust, Python to JavaScript)
+        mappings.extend([
+            {
+                "concept": "Classes",
+                "source_meaning": "Object-oriented programming with inheritance",
+                "target_equivalent": "Structs with methods" if "rust" in str(target_concepts) else "Classes",
+                "notes": "Convert class-based OOP to target language approach"
+            }
+        ])
+    elif conversion_intent == "low_to_high_level":
+        # Low level to high level (e.g. C to Python)
+        mappings.extend([
+            {
+                "concept": "Manual Memory Management",
+                "source_meaning": "Explicit allocation/deallocation",
+                "target_equivalent": "Automatic Garbage Collection",
+                "notes": "Replace manual memory management with automatic",
+                "losses": ["memory control", "performance predictability"],
+                "gains": ["safety", "development speed"]
+            }
+        ])
+    elif conversion_intent == "high_to_low_level":
+        # High level to low level (e.g. Python to C)
+        mappings.extend([
+            {
+                "concept": "Automatic Garbage Collection",
+                "source_meaning": "Automatic memory management",
+                "target_equivalent": "Manual Memory Management",
+                "notes": "Implement explicit allocation/deallocation",
+                "losses": ["safety", "development speed"],
+                "gains": ["performance", "memory control"]
+            }
+        ])
+    elif conversion_intent == "platform_to_platform":
+        # Platform to platform (e.g. Qt to GTK)
+        mappings.extend([
+            {
+                "concept": "UI Framework Components",
+                "source_meaning": "GUI elements and event handling",
+                "target_equivalent": "Target platform UI components",
+                "notes": "Map UI elements and events to target platform",
+                "losses": ["platform-specific features"],
+                "gains": ["target platform compatibility"]
+            }
+        ])
+    elif conversion_intent == "framework_to_framework":
+        # Framework to framework (e.g. React to Vue)
+        mappings.extend([
+            {
+                "concept": "Component Structure",
+                "source_meaning": "UI component with lifecycle",
+                "target_equivalent": "Target framework component",
+                "notes": "Convert component structure to target framework"
+            }
+        ])
+    elif conversion_intent == "dialect_or_library_shift":
+        # Dialect or library shift (e.g. STL to Boost)
+        mappings.extend([
+            {
+                "concept": "Library Functions",
+                "source_meaning": "Function calls from source library",
+                "target_equivalent": "Equivalent functions from target library",
+                "notes": "Replace library-specific functions with equivalents"
+            }
+        ])
+    else:
+        # Default mapping for unspecified intent
+        mappings.extend([
+            {
+                "concept": "Data Structures",
+                "source_meaning": "Container types and operations",
+                "target_equivalent": "Equivalent target structures",
+                "notes": "Map data structures to target equivalents"
+            }
+        ])
+
+    # Add file extension mappings
+    for ext, count in source_concepts.get("file_extensions", {}).items():
+        if ext:
+            target_ext = map_file_extension(ext, conversion_intent)
+            mappings.append({
+                "concept": f"File Extension: {ext}",
+                "source_meaning": f"Source code in {ext} format",
+                "target_equivalent": f"Target code in {target_ext} format",
+                "notes": f"Convert from {ext} to {target_ext} syntax"
+            })
+
+    return mappings
+
+
+def map_file_extension(source_ext: str, conversion_intent: str) -> str:
+    """
+    Map a source file extension to a target extension based on conversion intent.
+
+    Args:
+        source_ext: Source file extension
+        conversion_intent: Intent for the conversion
+
+    Returns:
+        Target file extension
+    """
+    # Default to general if conversion intent is None
+    conversion_intent = conversion_intent or "general"
+
+    extension_mapping = {
+        "language_to_language": {
+            ".cpp": ".rs" if "rust" in conversion_intent.lower() else ".py" if "python" in conversion_intent.lower() else ".js",
+            ".c": ".rs" if "rust" in conversion_intent.lower() else ".py" if "python" in conversion_intent.lower() else ".go",
+            ".py": ".js" if "javascript" in conversion_intent.lower() else ".ts",
+            ".js": ".ts" if "typescript" in conversion_intent.lower() else ".py",
+            ".java": ".kt" if "kotlin" in conversion_intent.lower() else ".rs",
+            ".go": ".rs" if "rust" in conversion_intent.lower() else ".py",
+            ".rs": ".py" if "python" in conversion_intent.lower() else ".js"
+        },
+        "default": {
+            ".cpp": ".h",
+            ".c": ".h",
+            ".py": ".py",
+            ".js": ".ts",
+            ".java": ".class",
+            ".go": ".go",
+            ".rs": ".rs"
+        }
+    }
+
+    return extension_mapping.get(conversion_intent, extension_mapping["default"]).get(source_ext, source_ext)
+
+
+def generate_mapping_decisions(mappings: List[Dict[str, Any]], conversion_intent: str) -> Dict[str, Any]:
+    """
+    Generate decisions based on the semantic mappings.
+
+    Args:
+        mappings: List of semantic mappings
+        conversion_intent: Intent for the conversion
+
+    Returns:
+        Dictionary of mapping decisions
+    """
+    decisions = {
+        "conversion_intent": conversion_intent,
+        "total_mappings": len(mappings),
+        "mapping_approach": determine_mapping_approach(conversion_intent),
+        "risk_assessment": assess_conversion_risks(mappings),
+        "complexity_factors": identify_complexity_factors(mappings),
+        "preservation_priority": determine_preservation_priority(conversion_intent)
+    }
+
+    return decisions
+
+
+def determine_mapping_approach(conversion_intent: str) -> str:
+    """
+    Determine the appropriate mapping approach based on conversion intent.
+
+    Args:
+        conversion_intent: Intent for the conversion
+
+    Returns:
+        String describing the mapping approach
+    """
+    approach_map = {
+        "language_to_language": "semantic_translation",
+        "low_to_high_level": "abstraction_increase",
+        "high_to_low_level": "abstraction_decrease",
+        "platform_to_platform": "concept_mapping",
+        "framework_to_framework": "paradigm_adaptation",
+        "dialect_or_library_shift": "library_substitution"
+    }
+
+    conversion_intent = conversion_intent or "general"
+    return approach_map.get(conversion_intent, "general_mapping")
+
+
+def assess_conversion_risks(mappings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    """
+    Assess risks associated with the conversion mappings.
+
+    Args:
+        mappings: List of semantic mappings
+
+    Returns:
+        List of risk assessments
+    """
+    risks = []
+
+    for mapping in mappings:
+        if "losses" in mapping and mapping["losses"]:
+            risks.append({
+                "type": "feature_loss",
+                "concept": mapping["concept"],
+                "losses": mapping["losses"],
+                "severity": "high" if len(mapping["losses"]) > 2 else "medium"
+            })
+
+    return risks
+
+
+def identify_complexity_factors(mappings: List[Dict[str, Any]]) -> List[str]:
+    """
+    Identify complexity factors in the conversion.
+
+    Args:
+        mappings: List of semantic mappings
+
+    Returns:
+        List of complexity factors
+    """
+    factors = set()
+
+    for mapping in mappings:
+        if "notes" in mapping and "memory" in mapping["notes"].lower():
+            factors.add("memory_management")
+        if "thread" in mapping.get("concept", "").lower() or "thread" in mapping.get("notes", "").lower():
+            factors.add("concurrency")
+        if "template" in mapping.get("concept", "").lower() or "generic" in mapping.get("notes", "").lower():
+            factors.add("templating")
+
+    return list(factors)
+
+
+def determine_preservation_priority(conversion_intent: str) -> Dict[str, int]:
+    """
+    Determine preservation priorities for different aspects based on conversion intent.
+
+    Args:
+        conversion_intent: Intent for the conversion
+
+    Returns:
+        Dictionary mapping aspect to priority level
+    """
+    priority_map = {
+        "language_to_language": {
+            "semantics": 10,
+            "behavior": 9,
+            "performance": 7,
+            "structure": 6
+        },
+        "low_to_high_level": {
+            "safety": 10,
+            "maintainability": 9,
+            "functionality": 8,
+            "performance": 5
+        },
+        "high_to_low_level": {
+            "performance": 10,
+            "control": 9,
+            "functionality": 8,
+            "safety": 5
+        },
+        "platform_to_platform": {
+            "UI_intent": 10,
+            "functionality": 9,
+            "look_feel": 7,
+            "performance": 6
+        },
+        "framework_to_framework": {
+            "component_logic": 10,
+            "data_flow": 9,
+            "state_management": 8,
+            "styling": 6
+        }
+    }
+
+    conversion_intent = conversion_intent or "general"
+    return priority_map.get(conversion_intent, {
+        "functionality": 10,
+        "behavior": 9,
+        "structure": 7
+    })
 
 
 def run_overview_stage(pipeline: ConversionPipeline, stage_obj: ConversionStage, verbose: bool = False) -> None:
@@ -18968,7 +19464,9 @@ def handle_convert_run_with_args(stage: str = None, verbose: bool = False, inclu
         save_conversion_pipeline(pipeline)
 
         # Execute the specific stage
-        if target_stage == "overview":
+        if target_stage == "semantic_mapping":
+            run_semantic_mapping_stage(pipeline, stage_obj, verbose)
+        elif target_stage == "overview":
             run_overview_stage(pipeline, stage_obj, verbose)
         elif target_stage == "core_builds":
             run_core_builds_stage(pipeline, stage_obj, verbose)
@@ -19085,11 +19583,14 @@ def handle_convert_status(verbose: bool = False) -> None:
                           Colors.BRIGHT_YELLOW if pipeline.status in ["new", "running"] else \
                           Colors.BRIGHT_RED
             styled_print(f"Pipeline: {pipeline.name} (ID: {pipeline.id})", status_color, Colors.BOLD, 0)
-            styled_print(f"  Source: {pipeline.source}", Colors.BRIGHT_WHITE, None, 2)
-            styled_print(f"  Target: {pipeline.target}", Colors.BRIGHT_WHITE, None, 2)
+            styled_print(f"  Conversion Intent: {pipeline.conversion_intent or 'unspecified'}", Colors.BRIGHT_WHITE, None, 2)
             styled_print(f"  Status: {pipeline.status}", status_color, None, 2)
             styled_print(f"  Created: {pipeline.created_at}", Colors.BRIGHT_CYAN, None, 2)
             styled_print(f"  Active Stage: {pipeline.active_stage or 'None'}", Colors.BRIGHT_MAGENTA, None, 2)
+
+            # Show source and target repos
+            styled_print(f"  Source: {pipeline.source_repo.get('path', pipeline.source) if pipeline.source_repo else pipeline.source}", Colors.BRIGHT_WHITE, None, 2)
+            styled_print(f"  Target: {pipeline.target_repo.get('path', pipeline.target) if pipeline.target_repo else pipeline.target}", Colors.BRIGHT_WHITE, None, 2)
 
             # Show stage progress
             print_subheader(f"Stage Progress ({len([s for s in pipeline.stages if s.status == 'completed'])}/{len(pipeline.stages)} completed)")
@@ -19155,11 +19656,83 @@ def handle_convert_show(verbose: bool = False) -> None:
             pipeline = load_conversion_pipeline(pipeline_id)
 
             print_header(f"Pipeline: {pipeline.name} (ID: {pipeline.id})")
-            styled_print(f"Source: {pipeline.source}", Colors.BRIGHT_WHITE, None, 0)
-            styled_print(f"Target: {pipeline.target}", Colors.BRIGHT_WHITE, None, 0)
+            styled_print(f"Conversion Intent: {pipeline.conversion_intent or 'unspecified'}", Colors.BRIGHT_WHITE, None, 0)
             styled_print(f"Status: {pipeline.status}", Colors.BRIGHT_YELLOW, None, 0)
             styled_print(f"Created: {pipeline.created_at}", Colors.BRIGHT_CYAN, None, 0)
             styled_print(f"Active Stage: {pipeline.active_stage or 'None'}", Colors.BRIGHT_MAGENTA, None, 0)
+
+            # Enhanced source and target repo information
+            styled_print("Source Repository:", Colors.BOLD, Colors.BRIGHT_WHITE, 0)
+            if pipeline.source_repo:
+                styled_print(f"  Path: {pipeline.source_repo.get('path', pipeline.source)}", Colors.BRIGHT_WHITE, None, 2)
+                if pipeline.source_repo.get('git'):
+                    styled_print(f"  Git URL: {pipeline.source_repo['git']}", Colors.BRIGHT_WHITE, None, 2)
+                if pipeline.source_repo.get('revision'):
+                    styled_print(f"  Revision: {pipeline.source_repo['revision']}", Colors.BRIGHT_WHITE, None, 2)
+            else:
+                styled_print(f"  Path: {pipeline.source}", Colors.BRIGHT_WHITE, None, 2)
+
+            styled_print("Target Repository:", Colors.BOLD, Colors.BRIGHT_WHITE, 0)
+            if pipeline.target_repo:
+                styled_print(f"  Path: {pipeline.target_repo.get('path', pipeline.target)}", Colors.BRIGHT_WHITE, None, 2)
+                if pipeline.target_repo.get('git'):
+                    styled_print(f"  Git URL: {pipeline.target_repo['git']}", Colors.BRIGHT_WHITE, None, 2)
+                if pipeline.target_repo.get('revision'):
+                    styled_print(f"  Revision: {pipeline.target_repo['revision']}", Colors.BRIGHT_WHITE, None, 2)
+            else:
+                styled_print(f"  Path: {pipeline.target}", Colors.BRIGHT_WHITE, None, 2)
+
+            # Show semantic mapping information if available
+            semantic_stage = next((s for s in pipeline.stages if s.name == 'semantic_mapping'), None)
+            if semantic_stage and semantic_stage.status == 'completed':
+                print_subheader("Semantic Mapping Results:")
+
+                # Load and display semantic mapping artifacts
+                stage_dir = get_convert_stage_dir("semantic_mapping")
+                decisions_file = os.path.join(stage_dir, "decisions.json")
+
+                if os.path.exists(decisions_file):
+                    try:
+                        with open(decisions_file, 'r', encoding='utf-8') as f:
+                            decisions = json.load(f)
+
+                        styled_print("  Conversion Intent Details:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                        styled_print(f"    Approach: {decisions.get('mapping_approach', 'Unknown')}", Colors.BRIGHT_WHITE, None, 4)
+                        styled_print(f"    Preservation Priority: {decisions.get('preservation_priority', {})}", Colors.BRIGHT_WHITE, None, 4)
+
+                        # Display risks
+                        risk_assessment = decisions.get('risk_assessment', [])
+                        if risk_assessment:
+                            styled_print("  Identified Risks:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                            for risk in risk_assessment:
+                                severity = risk.get('severity', 'medium')
+                                severity_color = Colors.BRIGHT_RED if severity == 'high' else Colors.BRIGHT_YELLOW
+                                styled_print(f"    {risk.get('type', 'Unknown')}: {', '.join(risk.get('losses', []))}",
+                                           severity_color, None, 4)
+
+                    except Exception:
+                        styled_print("  Could not load semantic mapping decisions", Colors.BRIGHT_YELLOW, None, 2)
+
+                # Show mapping statistics
+                mapping_file = os.path.join(stage_dir, "mapping.json")
+                if os.path.exists(mapping_file):
+                    try:
+                        with open(mapping_file, 'r', encoding='utf-8') as f:
+                            mappings = json.load(f)
+
+                        styled_print(f"  Concept Mappings: {len(mappings)} generated", Colors.BRIGHT_WHITE, None, 2)
+
+                        # Show some example mappings
+                        if mappings and len(mappings) > 0:
+                            styled_print("  Sample Mappings:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                            for mapping in mappings[:3]:  # Show first 3 mappings
+                                styled_print(f"    {mapping.get('concept', 'Unknown')} -> {mapping.get('target_equivalent', 'Unknown')}",
+                                           Colors.BRIGHT_WHITE, None, 4)
+                            if len(mappings) > 3:
+                                styled_print(f"    ... and {len(mappings) - 3} more", Colors.BRIGHT_WHITE, None, 4)
+
+                    except Exception:
+                        styled_print("  Could not load mapping details", Colors.BRIGHT_YELLOW, None, 2)
 
             # Show detailed stage information
             print_subheader("Stage Details:")
@@ -19452,7 +20025,7 @@ def handle_convert_reset(verbose: bool = False) -> None:
     print_warning("Conversion pipeline reset functionality not fully implemented yet.", 2)
 
 
-def handle_convert_new_with_args(source: str, target: str, name: str = None, verbose: bool = False) -> None:
+def handle_convert_new_with_args(source: str, target: str, name: str = None, verbose: bool = False, intent: str = None) -> None:
     """
     Handle creating a new conversion pipeline with the given arguments.
 
@@ -19461,15 +20034,16 @@ def handle_convert_new_with_args(source: str, target: str, name: str = None, ver
         target: Target repository/path
         name: Name for the pipeline (optional, will generate if not provided)
         verbose: Whether to show verbose output
+        intent: Conversion intent taxonomy
     """
     if verbose:
-        print_info(f"Creating new conversion pipeline from {source} to {target}", 2)
+        print_info(f"Creating new conversion pipeline from {source} to {target} with intent: {intent or 'unspecified'}", 2)
 
     if not name:
         name = f"Conversion from {os.path.basename(source)} to {os.path.basename(target)}"
 
     try:
-        pipeline = create_conversion_pipeline(name, source, target)
+        pipeline = create_conversion_pipeline(name, source, target, conversion_intent=intent)
         print_success(f"Created conversion pipeline '{pipeline.name}' with ID: {pipeline.id}", 2)
         print_info(f"Pipeline directory: {os.path.dirname(pipeline.logs_dir)}", 4)
 

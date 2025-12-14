@@ -131,14 +131,15 @@ Constraints (build system, language, minimal compile requirements): {constraints
 
 [REQUIREMENTS]
 - Strict JSON output only with no additional text
-- Required stages: overview, core_builds, grow_from_main, full_tree_check
+- Required stages: semantic_mapping, overview, core_builds, grow_from_main, full_tree_check
 - Each stage must include: entry criteria, exit criteria, artifacts produced, failure handling
 - Stage structure: name, status, entry_criteria (array), exit_criteria (array), artifacts (array), failure_handling (string), details (object)
+- The semantic_mapping stage must produce mapping.json, concepts_source.json, concepts_target.json, and decisions.json artifacts
 - Return only the complete JSON object with no markdown ```json ``` wrappers
 
 [ACCEPTANCE CRITERIA]
 - JSON parses successfully without errors
-- All required stages exist (overview, core_builds, grow_from_main, full_tree_check)
+- All required stages exist (semantic_mapping, overview, core_builds, grow_from_main, full_tree_check)
 - Each stage has defined exit criteria
 - All required schema fields are present and properly structured
 - Contains no additional text or explanations outside the JSON object
