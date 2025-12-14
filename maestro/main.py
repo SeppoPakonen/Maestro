@@ -9731,20 +9731,31 @@ def match_rulebooks_to_diagnostics(diagnostics: List[Diagnostic], session_dir: s
     matched_rulebook_names = []
     abs_session_dir = os.path.abspath(session_dir)
 
+    # Check for mapped rulebooks for this repo and warn about missing paths
+    repo_mapped_rulebooks = []
     for repo in registry.get('repos', []):
         abs_repo_path = repo.get('abs_path', '')
+        repo_exists = os.path.exists(abs_repo_path)
+
+        # If this repo path matches the current session dir but path doesn't exist, warn user
         if os.path.abspath(abs_repo_path) == abs_session_dir:
-            matched_rulebook_names.append(repo.get('rulebook', ''))
+            if not repo_exists:
+                print_warning(f"Repository path no longer exists: {abs_repo_path}", 2)
+                print_info(f"No fix rulebook mapped for this repo. Use `maestro build fix add . <rulebook>` to map a rulebook.", 2)
+                return []  # Return empty list since path doesn't exist
+            else:
+                repo_mapped_rulebooks.append(repo.get('rulebook', ''))
+
+    matched_rulebook_names.extend(repo_mapped_rulebooks)
 
     # Also check if there's an active rulebook
     active_rulebook = registry.get('active_rulebook')
     if active_rulebook and active_rulebook not in matched_rulebook_names:
         matched_rulebook_names.append(active_rulebook)
 
-    if not matched_rulebook_names:
-        # If no specific rulebook is mapped to this repo, try the active one
-        if active_rulebook:
-            matched_rulebook_names.append(active_rulebook)
+    # If no rulebook is mapped to this repo, provide guidance
+    if not repo_mapped_rulebooks and not active_rulebook:
+        print_info(f"No fix rulebook mapped for this repo. Use `maestro build fix add . <rulebook>` to map a rulebook.", 2)
 
     all_matched_rules = []
 
@@ -11117,8 +11128,26 @@ def load_registry() -> dict:
     registry_path = get_registry_file_path()
 
     if os.path.exists(registry_path):
-        with open(registry_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(registry_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            print_error(f"Corrupted registry file at {registry_path}: {e}", 2)
+            print_info("Registry file appears to contain invalid JSON. Recovery steps:", 2)
+            print_info(f"1. Backup current file: cp {registry_path} {registry_path}.backup", 4)
+            print_info(f"2. Remove or fix the file", 4)
+            print_info("3. The system will create a new registry on next use", 4)
+            # Return default registry structure for safety
+            return {
+                "repos": [],
+                "active_rulebook": None
+            }
+        except Exception as e:
+            print_error(f"Error loading registry from {registry_path}: {e}", 2)
+            return {
+                "repos": [],
+                "active_rulebook": None
+            }
     else:
         # Return default registry structure
         return {
@@ -11154,8 +11183,31 @@ def load_rulebook(name: str) -> Rulebook:
     rulebook_path = get_rulebook_file_path(name)
 
     if os.path.exists(rulebook_path):
-        with open(rulebook_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        try:
+            with open(rulebook_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            print_error(f"Corrupted rulebook file at {rulebook_path}: {e}", 2)
+            print_info("Rulebook file appears to contain invalid JSON. Recovery steps:", 2)
+            print_info(f"1. Check which mapping references this rulebook with: maestro build fix list", 4)
+            print_info(f"2. Consider recreating the rulebook with: maestro build fix new {name}", 4)
+            print_info("3. Or manually fix the JSON in the file above", 4)
+            # Return a basic rulebook structure to continue operation safely
+            data = {
+                "version": 1,
+                "name": name,
+                "description": f"Rulebook for {name} (corrupted, needs repair)",
+                "rules": []
+            }
+        except Exception as e:
+            print_error(f"Error loading rulebook from {rulebook_path}: {e}", 2)
+            # Return a basic rulebook structure to continue operation safely
+            data = {
+                "version": 1,
+                "name": name,
+                "description": f"Rulebook for {name} (error loading, needs repair)",
+                "rules": []
+            }
     else:
         # Return a basic rulebook structure
         data = {
@@ -11527,13 +11579,33 @@ def handle_build_fix_list(verbose: bool = False):
         is_active = name == active_rulebook
         marker = " [ACTIVE]" if is_active else ""
         indicator = "*" if is_active else " "
-        print_info(f"{indicator} {i}. {name}{marker}", 2)
+
+        # Check if this rulebook is used by any repositories
+        repos_using_this_rulebook = [repo for repo in registry['repos'] if repo.get('rulebook') == name]
+
+        # Create the base line
+        line = f"{indicator} {i}. {name}{marker}"
+
+        # Add repositories that use this rulebook
+        if repos_using_this_rulebook:
+            repo_info_parts = []
+            for repo in repos_using_this_rulebook:
+                abs_path = repo.get('abs_path', 'unknown')
+                exists = os.path.exists(abs_path)
+                path_status = "✓" if exists else "✗ MISSING"
+                repo_id = repo.get('repo_id', os.path.basename(abs_path))
+                repo_info_parts.append(f"{repo_id} [{path_status}]")
+
+            line += f" (used by: {', '.join(repo_info_parts)})"
+
+        print_info(line, 2)
 
         # In verbose mode, show more details
         if verbose:
             rulebook = load_rulebook(name)
-            print_info(f"     Created: {rulebook.get('created_at', 'unknown')}", 4)
-            print_info(f"     Rules: {len(rulebook.get('rules', []))}", 4)
+            # Rulebook is a dataclass, not a dict, so we can't use .get()
+            # Since Rulebook objects don't have created_at, we'll skip this for now
+            print_info(f"     Rules: {len(rulebook.rules)}", 4)
 
 
 def handle_build_fix_remove(name_or_index: str, verbose: bool = False):
