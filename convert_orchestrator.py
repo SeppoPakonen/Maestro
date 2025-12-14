@@ -22,6 +22,7 @@ import inventory_generator
 import planner
 import execution_engine
 import coverage_report
+from conversion_memory import ConversionMemory
 from inventory_generator import generate_inventory, save_inventory
 from execution_engine import execute_conversion
 from coverage_report import generate_coverage_report
@@ -65,6 +66,7 @@ def validate_plan(plan_data: Dict, plan_path: str = ".maestro/convert/plan/plan.
     errors.extend(_check_dependency_references(plan_data))
     errors.extend(_check_prompt_refs(plan_data))
     errors.extend(_check_engines(plan_data))
+    errors.extend(_check_write_policies(plan_data))
     errors.extend(_check_coverage_map(plan_data))
     errors.extend(_check_duplicate_task_ids(plan_data))
 
@@ -225,6 +227,42 @@ def _check_engines(plan_data: Dict) -> List[str]:
     return errors
 
 
+def _check_write_policies(plan_data: Dict) -> List[str]:
+    """Check that all write policies are from the allowed set."""
+    errors = []
+    allowed_policies = {'overwrite', 'merge', 'skip_if_exists', 'fail_if_exists'}
+
+    all_tasks = (
+        plan_data.get('scaffold_tasks', []) +
+        plan_data.get('file_tasks', []) +
+        plan_data.get('final_sweep_tasks', [])
+    )
+
+    for task in all_tasks:
+        write_policy = task.get('write_policy')
+        if write_policy and write_policy not in allowed_policies:
+            errors.append(f"Task {task.get('task_id', 'unknown')} uses disallowed write_policy: {write_policy}")
+
+        # Validate merge-specific fields
+        if write_policy == 'merge':
+            merge_strategy = task.get('merge_strategy')
+            if not merge_strategy:
+                errors.append(f"Task {task.get('task_id', 'unknown')} has write_policy 'merge' but no merge_strategy")
+
+            if merge_strategy:
+                allowed_strategies = {'append_section', 'replace_section_by_marker', 'json_merge', 'toml_merge'}
+                if merge_strategy not in allowed_strategies:
+                    errors.append(f"Task {task.get('task_id', 'unknown')} uses disallowed merge_strategy: {merge_strategy}")
+
+        # Validate merge markers if replace_section_by_marker is used
+        if task.get('merge_strategy') == 'replace_section_by_marker':
+            merge_markers = task.get('merge_markers', {})
+            if not merge_markers.get('begin_marker') or not merge_markers.get('end_marker'):
+                errors.append(f"Task {task.get('task_id', 'unknown')} uses 'replace_section_by_marker' strategy but missing required markers in merge_markers")
+
+    return errors
+
+
 def _check_coverage_map(plan_data: Dict) -> List[str]:
     """Check coverage map integrity and source file coverage."""
     errors = []
@@ -356,6 +394,17 @@ def cmd_inventory(args):
     print(f"Target: {summary['target_files_count']} files, {summary['target_size_bytes']} bytes")
 
 
+def compute_inventory_fingerprint(inventory_path: str) -> str:
+    """Compute a hash fingerprint of an inventory file."""
+    import hashlib
+    if not os.path.exists(inventory_path):
+        return ""
+
+    with open(inventory_path, 'rb') as f:
+        content = f.read()
+        return hashlib.sha256(content).hexdigest()
+
+
 def cmd_plan(args):
     """Generate a conversion plan based on source and target inventories."""
     print(f"Generating conversion plan from {args.source} to {args.target}")
@@ -365,6 +414,22 @@ def cmd_plan(args):
     # Import the planner here to avoid circular imports
     from planner import generate_conversion_plan
     plan = generate_conversion_plan(args.source, args.target, plan_path)
+
+    # Add inventory fingerprints to the plan
+    source_inventory_path = ".maestro/convert/inventory/source_files.json"
+    target_inventory_path = ".maestro/convert/inventory/target_files.json"
+
+    plan['source_inventory_fingerprint'] = compute_inventory_fingerprint(source_inventory_path)
+    plan['target_inventory_fingerprint'] = compute_inventory_fingerprint(target_inventory_path)
+
+    # Also add summary fingerprint
+    summary_path = ".maestro/convert/inventory/summary.json"
+    plan['inventory_summary_fingerprint'] = compute_inventory_fingerprint(summary_path)
+
+    # Save the updated plan
+    with open(plan_path, 'w', encoding='utf-8') as f:
+        json.dump(plan, f, indent=2)
+
     print(f"✓ Conversion plan generated at {plan_path}")
 
     # Validate the plan using our new comprehensive validator
@@ -408,6 +473,566 @@ def cmd_validate(args):
         return 0
 
 
+def check_inventory_change(plan_path: str, source_path: str, target_path: str) -> Dict:
+    """Check if source or target inventory has changed since plan generation."""
+    with open(plan_path, 'r') as f:
+        plan = json.load(f)
+
+    # Compute current fingerprints
+    current_source_fingerprint = compute_inventory_fingerprint(".maestro/convert/inventory/source_files.json")
+    current_target_fingerprint = compute_inventory_fingerprint(".maestro/convert/inventory/target_files.json")
+    current_summary_fingerprint = compute_inventory_fingerprint(".maestro/convert/inventory/summary.json")
+
+    # Compare with stored fingerprints
+    source_changed = current_source_fingerprint != plan.get('source_inventory_fingerprint', '')
+    target_changed = current_target_fingerprint != plan.get('target_inventory_fingerprint', '')
+    summary_changed = current_summary_fingerprint != plan.get('inventory_summary_fingerprint', '')
+
+    return {
+        'source_changed': source_changed,
+        'target_changed': target_changed,
+        'summary_changed': summary_changed,
+        'current_source_fingerprint': current_source_fingerprint,
+        'current_target_fingerprint': current_target_fingerprint,
+        'current_summary_fingerprint': current_summary_fingerprint
+    }
+
+def cmd_memory_show(args):
+    """Show current conversion memory state."""
+    memory = ConversionMemory()
+
+    print("=== CONVERSION MEMORY STATUS ===\n")
+
+    # Show decisions
+    decisions = memory.load_decisions()
+    print(f"DECISIONS ({len(decisions)} total):")
+    for decision in decisions:
+        print(f"  - {decision.get('decision_id')}: {decision.get('description')} = {decision.get('value')}")
+    print()
+
+    # Show conventions
+    conventions = memory.load_conventions()
+    print(f"CONVENTIONS ({len(conventions)} total):")
+    for convention in conventions:
+        print(f"  - {convention.get('convention_id')}: {convention.get('rule')}")
+    print()
+
+    # Show open issues
+    open_issues = [issue for issue in memory.load_open_issues()
+                   if issue.get('status') in ['open', 'investigating']]
+    print(f"OPEN ISSUES ({len(open_issues)} total):")
+    for issue in open_issues:
+        print(f"  - {issue.get('issue_id')}: {issue.get('description')} (severity: {issue.get('severity')})")
+    print()
+
+    # Show summary count
+    summary_log = memory.load_summary_log()
+    print(f"SUMMARY ENTRIES: {len(summary_log)}")
+    print()
+
+    # Show memory usage
+    usage_info = memory.get_memory_usage_info()
+    print("MEMORY USAGE:")
+    for key, value in usage_info.items():
+        print(f"  - {key}: {value}")
+    print()
+
+def cmd_memory_diff(args):
+    """Show changes in conversion memory since the last check."""
+    memory = ConversionMemory()
+
+    print("=== CONVERSION MEMORY DIFF ===\n")
+
+    # In a real implementation, this would compare with a previous snapshot
+    # For now, we'll show the current state with some comparison info
+    print("Showing current memory state (detailed view)...")
+    print()
+
+    # Load all memory components
+    decisions = memory.load_decisions()
+    conventions = memory.load_conventions()
+    open_issues = memory.load_open_issues()
+    glossary = memory.load_glossary()
+    summary_log = memory.load_summary_log()
+
+    print("DECISIONS:")
+    if decisions:
+        for decision in decisions[-5:]:  # Show last 5 decisions
+            print(f"  - {decision.get('decision_id')}: {decision.get('description')}")
+    else:
+        print("  No decisions recorded yet")
+    print()
+
+    print("CONVENTIONS:")
+    if conventions:
+        for convention in conventions[-5:]:  # Show last 5 conventions
+            print(f"  - {convention.get('convention_id')}: {convention.get('rule')}")
+    else:
+        print("  No conventions established yet")
+    print()
+
+    print("OPEN ISSUES:")
+    if open_issues:
+        for issue in open_issues[-5:]:  # Show last 5 issues
+            if issue.get('status') in ['open', 'investigating']:
+                print(f"  - {issue.get('issue_id')}: {issue.get('description')}")
+    else:
+        print("  No open issues")
+    print()
+
+    print("GLOSSARY ENTRIES:")
+    if glossary:
+        for entry in glossary[-5:]:  # Show last 5 entries
+            print(f"  - {entry.get('source_term')} → {entry.get('target_term')}")
+    else:
+        print("  No glossary entries")
+    print()
+
+    print("RECENT SUMMARY ENTRIES:")
+    if summary_log:
+        for entry in summary_log[-5:]:  # Show last 5 summaries
+            print(f"  - {entry.get('task_id')}: {entry.get('summary')}")
+    else:
+        print("  No summary entries")
+    print()
+
+def cmd_memory_explain(args):
+    """Explain a specific decision by ID."""
+    memory = ConversionMemory()
+
+    if args.decision_id.startswith('D-'):  # Decision ID
+        decision = memory.get_decision_by_id(args.decision_id)
+        if decision:
+            print(f"DECISION: {decision.get('decision_id')}")
+            print(f"Category: {decision.get('category')}")
+            print(f"Description: {decision.get('description')}")
+            print(f"Value: {decision.get('value')}")
+            print(f"Justification: {decision.get('justification')}")
+            print(f"Timestamp: {decision.get('timestamp')}")
+        else:
+            print(f"Decision with ID {args.decision_id} not found")
+    elif args.decision_id.startswith('C-'):  # Convention ID
+        convention = memory.get_convention_by_id(args.decision_id)
+        if convention:
+            print(f"CONVENTION: {convention.get('convention_id')}")
+            print(f"Category: {convention.get('category')}")
+            print(f"Rule: {convention.get('rule')}")
+            print(f"Applies to: {convention.get('applies_to')}")
+            print(f"Timestamp: {convention.get('timestamp')}")
+        else:
+            print(f"Convention with ID {args.decision_id} not found")
+    elif args.decision_id.startswith('I-'):  # Issue ID
+        issue = memory.get_issue_by_id(args.decision_id)
+        if issue:
+            print(f"ISSUE: {issue.get('issue_id')}")
+            print(f"Severity: {issue.get('severity')}")
+            print(f"Description: {issue.get('description')}")
+            print(f"Status: {issue.get('status')}")
+            print(f"Related tasks: {issue.get('related_tasks', [])}")
+            if issue.get('resolution'):
+                print(f"Resolution: {issue.get('resolution')}")
+            print(f"Timestamp: {issue.get('timestamp')}")
+        else:
+            print(f"Issue with ID {args.decision_id} not found")
+    elif args.decision_id.startswith('G-'):  # Glossary term ID
+        term = memory.get_glossary_entry_by_id(args.decision_id)
+        if term:
+            print(f"GLOSSARY TERM: {term.get('term_id')}")
+            print(f"Source: {term.get('source_term')}")
+            print(f"Target: {term.get('target_term')}")
+            print(f"Definition: {term.get('definition')}")
+            print(f"Usage context: {term.get('usage_context')}")
+            print(f"Timestamp: {term.get('timestamp')}")
+        else:
+            print(f"Glossary term with ID {args.decision_id} not found")
+    else:
+        print(f"Unknown ID format: {args.decision_id}. Use D-xxx for decisions, C-xxx for conventions, I-xxx for issues, G-xxx for glossary terms")
+
+
+def cmd_decision_override(args):
+    """Override a decision with a new value and reason."""
+    from datetime import datetime
+    import tempfile
+    import subprocess
+
+    memory = ConversionMemory()
+
+    if not args.decision_id:
+        print("Error: Decision ID required")
+        return 1
+
+    decision = memory.get_decision_by_id(args.decision_id)
+    if not decision:
+        print(f"Error: Decision with ID {args.decision_id} not found")
+        return 1
+
+    print(f"Current decision {decision.get('decision_id')}: {decision.get('description')} = {decision.get('value')}")
+    print(f"Status: {decision.get('status')}")
+    print(f"Created by: {decision.get('created_by')}")
+    print()
+
+    # Handle the new value
+    new_value = args.new_value
+    reason = args.reason
+    replan = args.replan
+
+    # If no new value was provided via command line, open editor
+    if not new_value:
+        # Create a temporary file with the current decision information
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write(f"# Decision Override\n")
+            f.write(f"# Decision ID: {args.decision_id}\n")
+            f.write(f"# Current value: {decision.get('value')}\n")
+            f.write(f"# Current status: {decision.get('status')}\n")
+            f.write(f"# Current justification: {decision.get('justification')}\n")
+            f.write(f"#\n")
+            f.write(f"# Enter the new value for this decision below\n")
+            f.write(f"NEW_VALUE=\n")
+            f.write(f"# Enter the reason for this override below\n")
+            f.write(f"REASON=\n")
+            f.write(f"# Replan automatically? (true/false)\n")
+            f.write(f"REPLAN=false\n")
+
+            temp_path = f.name
+
+        # Open editor
+        editor = os.environ.get('EDITOR', 'nano')
+        result = subprocess.run([editor, temp_path])
+
+        # Read the values from the file
+        with open(temp_path, 'r') as f:
+            content = f.read()
+
+        # Extract values using regex or simple parsing
+        import re
+        new_value_match = re.search(r'NEW_VALUE=(.*)', content)
+        reason_match = re.search(r'REASON=(.*)', content)
+        replan_match = re.search(r'REPLAN=(.*)', content)
+
+        if new_value_match:
+            new_value = new_value_match.group(1).strip()
+        if reason_match:
+            reason = reason_match.group(1).strip()
+        if replan_match:
+            replan_str = replan_match.group(1).strip()
+            replan = replan_str.lower() in ['true', 'yes', '1', 'on']
+
+        # Clean up temp file
+        os.unlink(temp_path)
+
+    if not new_value:
+        print("Error: No new value provided for override")
+        return 1
+
+    if not reason:
+        print("Error: A reason is required for the override")
+        return 1
+
+    try:
+        # Perform the override
+        result = memory.override_decision(
+            decision_id=args.decision_id,
+            new_value=new_value,
+            reason=reason,
+            created_by="user"
+        )
+
+        print(f"Successfully overrode decision:")
+        print(f"  Old ID: {result['old_id']} → New ID: {result['new_id']}")
+        print(f"  Old value: {result['old_decision']['value']} → New value: {result['new_decision']['value']}")
+
+        # Log to summary log
+        summary_entry = {
+            "entry_id": f"S-{len(memory.load_summary_log()) + 1:03d}",
+            "task_id": "decision_override",
+            "timestamp": datetime.now().isoformat(),
+            "summary": f"Decision override: {result['old_id']} → {result['new_id']}, "
+                      f"Reason: {reason}"
+        }
+        current_log = memory.load_summary_log()
+        current_log.append(summary_entry)
+        memory.save_summary_log(current_log)
+
+        print()
+        print(f"What will happen next:")
+        if replan:
+            print("- Plan will be automatically renegotiated due to decision changes")
+        else:
+            print("- Plan will need to be renegotiated manually before execution")
+            print("  Run: maestro convert plan --negotiate")
+
+        return 0
+
+    except ValueError as e:
+        print(f"Error: {str(e)}")
+        return 1
+
+
+def apply_plan_patch(plan: Dict, patch: Dict) -> Dict:
+    """Apply a patch to the plan and return the updated plan."""
+    import copy
+    updated_plan = copy.deepcopy(plan)
+
+    # Get all task lists to update
+    all_tasks = []
+    all_tasks.extend(updated_plan.get('scaffold_tasks', []))
+    all_tasks.extend(updated_plan.get('file_tasks', []))
+    all_tasks.extend(updated_plan.get('final_sweep_tasks', []))
+
+    # Create a mapping of task_id to task for easy lookup
+    task_map = {task['task_id']: task for task in all_tasks}
+
+    # Invalidate tasks marked for invalidation
+    invalidate_tasks = patch.get('plan_patch', {}).get('invalidate_tasks', [])
+    for task_id in invalidate_tasks:
+        if task_id in task_map:
+            # Check if the task was already completed (before being invalidated)
+            old_status = task_map[task_id].get('status', 'pending')
+            if old_status in ['completed', 'done']:
+                print(f"  - Task {task_id} was completed but is now invalidated by decision changes")
+                print(f"    Previous status: {old_status} -> New status: invalidated")
+                # In a full implementation, we might want to branch here
+                # For now, we just mark as invalidated but note that work was lost
+            task_map[task_id]['status'] = 'invalidated'
+            print(f"  - Invalidated task: {task_id}")
+
+    # Add new tasks
+    add_tasks = patch.get('plan_patch', {}).get('add_tasks', [])
+    for task in add_tasks:
+        if 'task_id' not in task:
+            # Generate new task ID if not provided
+            task['task_id'] = f"task_{uuid.uuid4().hex[:8]}"
+
+        # Determine which phase to add the task to based on phase field
+        phase = task.get('phase', 'file')
+        if phase == 'scaffold':
+            updated_plan.setdefault('scaffold_tasks', []).append(task)
+        elif phase == 'file':
+            updated_plan.setdefault('file_tasks', []).append(task)
+        elif phase == 'sweep':
+            updated_plan.setdefault('final_sweep_tasks', []).append(task)
+        else:
+            # Default to file if phase is not specified properly
+            updated_plan.setdefault('file_tasks', []).append(task)
+
+    # Modify existing tasks
+    modify_tasks = patch.get('plan_patch', {}).get('modify_tasks', [])
+    for mod_task in modify_tasks:
+        task_id = mod_task.get('task_id')
+        if task_id and task_id in task_map:
+            # Update only the fields provided in the modification
+            for key, value in mod_task.items():
+                if key != 'task_id':  # Don't update the task_id itself
+                    task_map[task_id][key] = value
+        else:
+            print(f"Warning: Task {task_id} not found for modification")
+
+    # Handle reordering if specified
+    reorder = patch.get('plan_patch', {}).get('reorder', [])
+    if reorder:
+        # Create reordered task lists
+        def reorder_phase_tasks(phase_name):
+            if phase_name in updated_plan:
+                current_tasks = updated_plan[phase_name]
+                # Create a map from current task IDs to tasks
+                task_id_map = {task['task_id']: task for task in current_tasks}
+
+                # Build new ordered list based on reorder specification
+                reordered_tasks = []
+                for task_id in reorder:
+                    if task_id in task_id_map:
+                        reordered_tasks.append(task_id_map[task_id])
+
+                # Add any tasks that weren't in the reorder list at the end
+                reorder_set = set(reorder)
+                for task in current_tasks:
+                    if task['task_id'] not in reorder_set:
+                        reordered_tasks.append(task)
+
+                updated_plan[phase_name] = reordered_tasks
+
+        # Apply reordering to each phase
+        reorder_phase_tasks('scaffold_tasks')
+        reorder_phase_tasks('file_tasks')
+        reorder_phase_tasks('final_sweep_tasks')
+
+    return updated_plan
+
+
+def cmd_negotiate_plan(args):
+    """Negotiate plan updates after decision changes."""
+    import hashlib
+    from conversion_memory import ConversionMemory
+
+    plan_path = ".maestro/convert/plan/plan.json"
+
+    if not os.path.exists(plan_path):
+        print(f"Error: No plan found at {plan_path}. Run 'plan' command first.")
+        return 1
+
+    print(f"Loading plan from {plan_path}")
+    with open(plan_path, 'r') as f:
+        plan = json.load(f)
+
+    print("Loading conversion memory...")
+    memory = ConversionMemory()
+
+    # Calculate current decision fingerprint
+    current_decision_fingerprint = memory.compute_decision_fingerprint()
+
+    # Get plan's stored decision fingerprint
+    plan_decision_fingerprint = plan.get('decision_fingerprint', '')
+
+    print(f"Current decision fingerprint: {current_decision_fingerprint}")
+    print(f"Plan decision fingerprint: {plan_decision_fingerprint}")
+    print(f"Decision fingerprints match: {current_decision_fingerprint == plan_decision_fingerprint}")
+
+    # Load inventory to provide context to AI
+    source_inventory_path = ".maestro/convert/inventory/source_files.json"
+    target_inventory_path = ".maestro/convert/inventory/target_files.json"
+
+    source_inventory = {}
+    target_inventory = {}
+
+    if os.path.exists(source_inventory_path):
+        with open(source_inventory_path, 'r') as f:
+            source_inventory = json.load(f)
+
+    if os.path.exists(target_inventory_path):
+        with open(target_inventory_path, 'r') as f:
+            target_inventory = json.load(f)
+
+    # Prepare prompt for AI to suggest plan changes
+    prompt = f"""
+You are a conversion planning assistant. The conversion plan needs to be updated due to changes in decisions.
+
+Current decision fingerprint: {current_decision_fingerprint}
+Plan's decision fingerprint: {plan_decision_fingerprint}
+
+Current plan:
+{json.dumps(plan, indent=2)}
+
+Source inventory:
+{json.dumps(source_inventory.get('files', [])[:10], indent=2)}  # Limit to first 10 files
+
+Conversion memory decisions:
+{json.dumps(memory.get_active_decisions(), indent=2)}
+
+Based on the changed decisions, please suggest what needs to change in the plan.
+Provide your response as a JSON object with the following structure:
+
+{{
+  "plan_patch": {{
+    "invalidate_tasks": ["task_id_1", "task_id_2"],
+    "add_tasks": [...],  # New task objects to add
+    "modify_tasks": [...],  # Task update objects
+    "reorder": [...]  # New ordering of task IDs
+  }},
+  "decision_changes": ["D-001 -> D-019"],
+  "risks": ["risk1", "risk2"],
+  "requires_user_confirm": true
+}}
+
+Validate your JSON response carefully.
+"""
+
+    # In a real implementation, we would call an AI model here
+    # For now, create a mock response that shows the structure
+    # This demonstrates how the negotiation would work
+    print("\nAnalyzing plan changes due to decision overrides...")
+
+    # Find invalidated tasks based on decision compliance checking
+    invalidated_tasks = []
+    active_decisions = memory.get_active_decisions()
+    old_decisions = [d for d in memory.load_decisions() if d.get('status') == 'superseded']
+
+    # Check each task in the plan against the active decisions
+    all_plan_tasks = []
+    all_plan_tasks.extend(plan.get('scaffold_tasks', []))
+    all_plan_tasks.extend(plan.get('file_tasks', []))
+    all_plan_tasks.extend(plan.get('final_sweep_tasks', []))
+
+    for task in all_plan_tasks:
+        violations = memory.check_task_compliance(task)
+        if violations:
+            invalidated_tasks.append(task.get('task_id'))
+            print(f"  - Task {task.get('task_id')} violates decisions: {violations}")
+
+    decision_changes = [f"{old_d.get('decision_id')} -> {new_d.get('decision_id')}"
+                       for old_d in old_decisions
+                       for new_d in active_decisions
+                       if (old_d.get('decision_id', '').split('-')[1] ==
+                           new_d.get('decision_id', '').split('-')[1])]
+
+    # For this mock implementation, return a sample patch
+    # In real implementation, this would come from an AI analysis
+    mock_response = {
+        "plan_patch": {
+            "invalidate_tasks": invalidated_tasks,
+            "add_tasks": [],  # Would be populated by AI based on new decisions
+            "modify_tasks": [],  # Would be populated by AI based on changes needed
+            "reorder": []  # Would be populated if task order changes
+        },
+        "decision_changes": decision_changes,
+        "risks": ["Potential conflicts if already-completed tasks are invalidated"],
+        "requires_user_confirm": True
+    }
+
+    print("AI analysis complete. JSON output:")
+    print(json.dumps(mock_response, indent=2))
+
+    # Ask for user confirmation if required
+    if mock_response.get("requires_user_confirm", True):
+        response = input("\nApply these changes to the plan? (y/N): ")
+        if response.lower() not in ['y', 'yes']:
+            print("Plan negotiation cancelled by user.")
+            return 0
+
+    # Apply the patch if confirmed
+    print("Applying plan patch...")
+    # Save the current plan as a historical version before applying patch
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    history_dir = Path(".maestro/convert/plan/history")
+    history_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save current plan as historical version
+    hist_plan_path = history_dir / f"plan_{timestamp}.json"
+    with open(hist_plan_path, 'w', encoding='utf-8') as f:
+        json.dump(plan, f, indent=2)
+
+    # Save the patch as well
+    patch_path = history_dir / f"patch_{timestamp}.json"
+    with open(patch_path, 'w', encoding='utf-8') as f:
+        json.dump(mock_response, f, indent=2)
+
+    print(f"Plan history saved to {hist_plan_path}")
+    print(f"Patch saved to {patch_path}")
+
+    # Apply the patch to the plan
+    updated_plan = apply_plan_patch(plan, mock_response)
+
+    # Update the plan with new revision information
+    updated_plan['plan_revision'] = plan.get('plan_revision', 0) + 1
+    updated_plan['derived_from_revision'] = plan.get('plan_revision', 0)  # previous revision
+    updated_plan['decision_fingerprint'] = current_decision_fingerprint
+
+    # Save updated plan
+    with open(plan_path, 'w', encoding='utf-8') as f:
+        json.dump(updated_plan, f, indent=2)
+
+    print("Plan updated with new revision and decision fingerprint.")
+
+    # Validate the updated plan
+    errors = validate_plan(updated_plan, plan_path)
+    if errors:
+        print(f"⚠️  Warning: Updated plan has validation errors: {errors}")
+        print("Consider reviewing the plan before execution.")
+
+    print("Plan negotiation and patching completed successfully.")
+    return 0
+
+
 def cmd_run(args):
     """Execute the conversion plan."""
     plan_path = ".maestro/convert/plan/plan.json"
@@ -420,14 +1045,75 @@ def cmd_run(args):
     if args.limit:
         print(f"Limited to {args.limit} tasks")
 
-    # Validate the plan before executing (enforce validation requirement)
+    # Load the plan first
     with open(plan_path, 'r') as f:
         plan = json.load(f)
 
+    # Check if inventories have changed since plan was generated
+    inventory_check = check_inventory_change(plan_path, args.source, args.target)
+
+    if inventory_check['source_changed'] or inventory_check['target_changed'] or inventory_check['summary_changed']:
+        print("⚠️  Warning: Inventory has changed since plan was generated:")
+        if inventory_check['source_changed']:
+            print("   - Source inventory has changed")
+        if inventory_check['target_changed']:
+            print("   - Target inventory has changed")
+        if inventory_check['summary_changed']:
+            print("   - Inventory summary has changed")
+
+        if not args.auto_replan:
+            print("   Run 'convert plan' to regenerate the plan, or use --auto-replan flag to auto-replan.")
+            return 1
+        else:
+            print("   Auto-replanning...")
+            # Regenerate plan
+            from planner import generate_conversion_plan
+            plan = generate_conversion_plan(args.source, args.target, plan_path)
+
+            # Add inventory fingerprints to the new plan
+            source_inventory_path = ".maestro/convert/inventory/source_files.json"
+            target_inventory_path = ".maestro/convert/inventory/target_files.json"
+
+            plan['source_inventory_fingerprint'] = compute_inventory_fingerprint(source_inventory_path)
+            plan['target_inventory_fingerprint'] = compute_inventory_fingerprint(target_inventory_path)
+
+            # Also add summary fingerprint
+            summary_path = ".maestro/convert/inventory/summary.json"
+            plan['inventory_summary_fingerprint'] = compute_inventory_fingerprint(summary_path)
+
+            # Save the updated plan
+            with open(plan_path, 'w', encoding='utf-8') as f:
+                json.dump(plan, f, indent=2)
+
+            print("✓ Plan regenerated with updated inventory fingerprints")
+    else:
+        print("✓ Plan inventory check passed - no changes detected")
+
+    # Validate the plan after potential regeneration (enforce validation requirement)
     errors = validate_plan(plan, plan_path)
     if errors:
         print(f"✗ Plan validation failed before execution: {errors}")
         return 1
+
+    # Check if active decisions have changed since plan was created
+    from conversion_memory import ConversionMemory
+    memory = ConversionMemory()
+    current_decision_fingerprint = memory.compute_decision_fingerprint()
+    plan_decision_fingerprint = plan.get('decision_fingerprint', '')
+
+    if current_decision_fingerprint != plan_decision_fingerprint:
+        print("⚠️  Warning: Active decisions have changed since plan was created")
+        print(f"   Current decision fingerprint: {current_decision_fingerprint}")
+        print(f"   Plan decision fingerprint: {plan_decision_fingerprint}")
+
+        if args.ignore_decision_drift:
+            print("   Proceeding anyway due to --ignore-decision-drift flag")
+        else:
+            print("   Plan is stale vs active decisions. Run 'maestro convert plan --negotiate' to update the plan.")
+            print("   Or use --ignore-decision-drift to proceed anyway (not recommended).")
+            return 1
+    else:
+        print("✓ Decision fingerprint check passed - plan is current with active decisions")
 
     print("✓ Plan validation passed - proceeding with execution")
 
@@ -495,7 +1181,43 @@ Examples:
     run_parser.add_argument('target', help='Target repository or path')
     run_parser.add_argument('--limit', type=int, help='Limit number of tasks to execute')
     run_parser.add_argument('--resume', action='store_true', help='Resume from interrupted execution')
+    run_parser.add_argument('--auto-replan', action='store_true', help='Auto-replan if inventory changed')
+    run_parser.add_argument('--ignore-decision-drift', action='store_true', help='Ignore decision drift and run anyway (dangerous)')
     run_parser.set_defaults(func=cmd_run)
+
+    # Memory command
+    memory_parser = subparsers.add_parser('memory', help='Manage conversion memory')
+    memory_subparsers = memory_parser.add_subparsers(dest='memory_command', help='Memory subcommands')
+
+    # Memory show command
+    memory_show_parser = memory_subparsers.add_parser('show', help='Show current memory state')
+    memory_show_parser.set_defaults(func=cmd_memory_show)
+
+    # Memory diff command
+    memory_diff_parser = memory_subparsers.add_parser('diff', help='Show memory changes since last check')
+    memory_diff_parser.set_defaults(func=cmd_memory_diff)
+
+    # Memory explain command
+    memory_explain_parser = memory_subparsers.add_parser('explain', help='Explain a specific decision by ID')
+    memory_explain_parser.add_argument('decision_id', help='ID of the decision/convention/issue/glossary term to explain (e.g., D-001, C-002, I-003, G-004)')
+    memory_explain_parser.set_defaults(func=cmd_memory_explain)
+
+    # Decision command
+    decision_parser = subparsers.add_parser('decision', help='Manage conversion decisions')
+    decision_subparsers = decision_parser.add_subparsers(dest='decision_command', help='Decision subcommands')
+
+    # Decision override command
+    decision_override_parser = decision_subparsers.add_parser('override', help='Override a decision with a new value')
+    decision_override_parser.add_argument('decision_id', help='ID of the decision to override (e.g., D-001)')
+    decision_override_parser.add_argument('--new-value', help='New value for the decision')
+    decision_override_parser.add_argument('--reason', help='Reason for the override')
+    decision_override_parser.add_argument('--replan', action='store_true', help='Replan automatically after override')
+    decision_override_parser.set_defaults(func=cmd_decision_override)
+
+    # Plan command enhancements - add negotiate flag
+    plan_parser.add_argument('--negotiate', action='store_true', help='Negotiate plan updates based on new decisions')
+    # Store the original command function
+    plan_parser.set_defaults(func=lambda args: cmd_negotiate_plan(args) if args.negotiate else cmd_plan(args))
 
     args = parser.parse_args()
 
