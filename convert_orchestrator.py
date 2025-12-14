@@ -16,6 +16,7 @@ from pathlib import Path
 import json
 import jsonschema
 from typing import Dict, List, Set
+import datetime
 
 # Import our conversion modules
 import inventory_generator
@@ -649,6 +650,178 @@ def cmd_memory_explain(args):
         print(f"Unknown ID format: {args.decision_id}. Use D-xxx for decisions, C-xxx for conventions, I-xxx for issues, G-xxx for glossary terms")
 
 
+def cmd_semantics_list(args):
+    """List all semantic check results."""
+    from semantic_integrity import SemanticIntegrityChecker
+    checker = SemanticIntegrityChecker()
+
+    # Get all semantic result files
+    import glob
+    semantic_files = glob.glob(".maestro/convert/semantics/task_*.json")
+
+    if not semantic_files:
+        print("No semantic checks have been performed yet.")
+        return 0
+
+    print("SEMANTIC CHECK RESULTS:")
+    print("-" * 80)
+
+    for file_path in sorted(semantic_files):
+        task_id = file_path.split('/')[-1].replace('task_', '').replace('.json', '')
+
+        with open(file_path, 'r') as f:
+            try:
+                result = json.load(f)
+
+                equiv = result.get('semantic_equivalence', 'unknown')
+                confidence = result.get('confidence', 0)
+                requires_review = result.get('requires_human_review', False)
+
+                status_indicator = "!" if requires_review else " "
+                equiv_emoji = {"high": "✅", "medium": "⚠️", "low": "❌", "unknown": "❓"}
+
+                print(f"{status_indicator} {equiv_emoji.get(equiv, '?')} {task_id:<15} | {equiv:<6} | {confidence:.2f}")
+
+            except json.JSONDecodeError:
+                print(f"   📄 {task_id:<15} | invalid  | 0.00")
+
+    # Print summary
+    summary = checker.get_summary()
+    print("\nSUMMARY:")
+    print(f"Total files checked: {summary['total_files_checked']}")
+    print(f"Equivalence breakdown: {summary['equivalence_counts']}")
+    print(f"Unresolved warnings: {summary['unresolved_semantic_warnings']}")
+
+    return 0
+
+
+def cmd_semantics_show(args):
+    """Show details of a specific semantic check."""
+    from semantic_integrity import SemanticIntegrityChecker
+    checker = SemanticIntegrityChecker()
+
+    result = checker.get_semantic_check_result(args.task_id)
+
+    if not result:
+        print(f"Semantic check result not found for task {args.task_id}")
+        return 1
+
+    print(f"SEMANTIC CHECK RESULT FOR TASK: {args.task_id}")
+    print("=" * 50)
+    print(f"Semantic Equivalence: {result.get('semantic_equivalence', 'unknown')}")
+    print(f"Confidence: {result.get('confidence', 0.0)}")
+    print(f"Requires Human Review: {result.get('requires_human_review', False)}")
+    print(f"Risk Flags: {result.get('risk_flags', [])}")
+    print(f"Preserved Concepts: {result.get('preserved_concepts', [])}")
+    print(f"Changed Concepts: {result.get('changed_concepts', [])}")
+    print(f"Lost Concepts: {result.get('lost_concepts', [])}")
+    print(f"Assumptions: {result.get('assumptions', [])}")
+
+    return 0
+
+
+def cmd_semantics_accept(args):
+    """Accept a semantic change after human review."""
+    from semantic_integrity import SemanticIntegrityChecker
+    from conversion_memory import ConversionMemory
+    import datetime
+
+    checker = SemanticIntegrityChecker()
+    memory = ConversionMemory()
+
+    result = checker.get_semantic_check_result(args.task_id)
+
+    if not result:
+        print(f"Semantic check result not found for task {args.task_id}")
+        return 1
+
+    # Update the semantic check result to indicate human acceptance
+    result['requires_human_review'] = False
+    result['human_approval'] = {
+        'approved_by': os.environ.get('USER', 'unknown'),
+        'approved_at': datetime.datetime.now().isoformat(),
+        'note': args.note or 'Manual acceptance via CLI'
+    }
+
+    # Save the updated result
+    checker._save_semantic_check_result(args.task_id, result)
+
+    # Update the summary to reflect the acceptance
+    summary = checker.get_summary()
+    if summary.get("unresolved_semantic_warnings", 0) > 0:
+        summary["unresolved_semantic_warnings"] -= 1
+        summary["last_updated"] = datetime.datetime.now().isoformat()
+
+        with open(checker.summary_path, 'w', encoding='utf-8') as f:
+            json.dump(summary, f, indent=2)
+
+    print(f"Task {args.task_id} semantic check result accepted manually.")
+    if args.note:
+        print(f"Note: {args.note}")
+
+    # Add to summary log
+    summary_entry = {
+        "entry_id": f"S-{len(memory.load_summary_log()) + 1:03d}",
+        "task_id": args.task_id,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "summary": f"Semantic check manually accepted: {args.task_id}, Note: {args.note or 'No note provided'}"
+    }
+    current_log = memory.load_summary_log()
+    current_log.append(summary_entry)
+    memory.save_summary_log(current_log)
+
+    return 0
+
+
+def cmd_semantics_reject(args):
+    """Reject a semantic change after human review."""
+    from semantic_integrity import SemanticIntegrityChecker
+    from conversion_memory import ConversionMemory
+    import datetime
+
+    checker = SemanticIntegrityChecker()
+    memory = ConversionMemory()
+
+    result = checker.get_semantic_check_result(args.task_id)
+
+    if not result:
+        print(f"Semantic check result not found for task {args.task_id}")
+        return 1
+
+    # Mark as rejected and requiring rework
+    result['requires_human_review'] = True  # Keep as true to indicate ongoing issue
+    result['human_rejection'] = {
+        'rejected_by': os.environ.get('USER', 'unknown'),
+        'rejected_at': datetime.datetime.now().isoformat(),
+        'note': args.note or 'Manual rejection via CLI'
+    }
+    result['semantic_status'] = 'rejected'
+
+    # Save the updated result
+    checker._save_semantic_check_result(args.task_id, result)
+
+    print(f"Task {args.task_id} semantic check result rejected manually.")
+    if args.note:
+        print(f"Note: {args.note}")
+    print("Task will require rework.")
+
+    # Add to summary log
+    summary_entry = {
+        "entry_id": f"S-{len(memory.load_summary_log()) + 1:03d}",
+        "task_id": args.task_id,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "summary": f"Semantic check manually rejected: {args.task_id}, Note: {args.note or 'No note provided'}"
+    }
+    current_log = memory.load_summary_log()
+    current_log.append(summary_entry)
+    memory.save_summary_log(current_log)
+
+    # Add an issue to conversion memory about the rejected task
+    memory.add_issue("high", f"Task {args.task_id} semantic check rejected, requires rework", [args.task_id])
+
+    return 0
+
+
 def cmd_decision_override(args):
     """Override a decision with a new value and reason."""
     from datetime import datetime
@@ -1044,6 +1217,8 @@ def cmd_run(args):
     print(f"Starting conversion execution from {args.source} to {args.target}")
     if args.limit:
         print(f"Limited to {args.limit} tasks")
+    if args.accept_semantic_risk:
+        print("Accepting semantic risks without human confirmation")
 
     # Load the plan first
     with open(plan_path, 'r') as f:
@@ -1117,7 +1292,7 @@ def cmd_run(args):
 
     print("✓ Plan validation passed - proceeding with execution")
 
-    success = execute_conversion(args.source, args.target, args.limit, args.resume)
+    success = execute_conversion(args.source, args.target, args.limit, args.resume, accept_semantic_risk=args.accept_semantic_risk)
 
     if success:
         print("✓ Conversion execution completed successfully")
@@ -1183,6 +1358,7 @@ Examples:
     run_parser.add_argument('--resume', action='store_true', help='Resume from interrupted execution')
     run_parser.add_argument('--auto-replan', action='store_true', help='Auto-replan if inventory changed')
     run_parser.add_argument('--ignore-decision-drift', action='store_true', help='Ignore decision drift and run anyway (dangerous)')
+    run_parser.add_argument('--accept-semantic-risk', action='store_true', help='Accept semantic risks without human confirmation')
     run_parser.set_defaults(func=cmd_run)
 
     # Memory command
@@ -1218,6 +1394,31 @@ Examples:
     plan_parser.add_argument('--negotiate', action='store_true', help='Negotiate plan updates based on new decisions')
     # Store the original command function
     plan_parser.set_defaults(func=lambda args: cmd_negotiate_plan(args) if args.negotiate else cmd_plan(args))
+
+    # Semantic command group
+    semantic_parser = subparsers.add_parser('semantics', help='Semantic integrity management')
+    semantic_subparsers = semantic_parser.add_subparsers(dest='semantic_command', help='Semantic subcommands')
+
+    # Semantic list command
+    semantic_list_parser = semantic_subparsers.add_parser('list', help='List all semantic check results')
+    semantic_list_parser.set_defaults(func=cmd_semantics_list)
+
+    # Semantic show command
+    semantic_show_parser = semantic_subparsers.add_parser('show', help='Show details of a specific semantic check')
+    semantic_show_parser.add_argument('task_id', help='ID of the task to show semantic check for')
+    semantic_show_parser.set_defaults(func=cmd_semantics_show)
+
+    # Semantic accept command
+    semantic_accept_parser = semantic_subparsers.add_parser('accept', help='Accept a semantic change after human review')
+    semantic_accept_parser.add_argument('task_id', help='ID of the task to accept')
+    semantic_accept_parser.add_argument('--note', help='Optional note for the acceptance')
+    semantic_accept_parser.set_defaults(func=cmd_semantics_accept)
+
+    # Semantic reject command
+    semantic_reject_parser = semantic_subparsers.add_parser('reject', help='Reject a semantic change after human review')
+    semantic_reject_parser.add_argument('task_id', help='ID of the task to reject')
+    semantic_reject_parser.add_argument('--note', help='Optional note for the rejection')
+    semantic_reject_parser.set_defaults(func=cmd_semantics_reject)
 
     args = parser.parse_args()
 

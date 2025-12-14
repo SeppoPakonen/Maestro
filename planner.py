@@ -3,6 +3,8 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 from inventory_generator import load_inventory
+from conversion_memory import ConversionMemory, TaskSummary
+from context_builder import ContextBuilder
 
 def generate_task_id():
     """Generate a unique task ID."""
@@ -166,17 +168,40 @@ def create_sweep_tasks(source_inventory: Dict, target_inventory: Dict) -> List[D
 
 def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_output_path: str) -> Dict:
     """Generate a complete conversion plan JSON based on source and target inventories."""
-    
+
     # Load inventories
     source_inventory_path = ".maestro/convert/inventory/source_files.json"
     target_inventory_path = ".maestro/convert/inventory/target_files.json"
-    
+
     source_inventory = load_inventory(source_inventory_path)
     target_inventory = load_inventory(target_inventory_path)
-    
+
     if not source_inventory:
         raise ValueError(f"Source inventory not found at {source_inventory_path}")
-    
+
+    # Initialize conversion memory
+    memory = ConversionMemory()
+
+    # Make initial decisions based on source/target analysis
+    # Determine target language based on source characteristics
+    source_extensions = {}
+    for file in source_inventory.get('files', []):
+        ext = file['path'].split('.')[-1] if '.' in file['path'] else 'no_ext'
+        source_extensions[ext] = source_extensions.get(ext, 0) + 1
+
+    # Determine likely target language (this is a simplified approach)
+    # In a real implementation, the user would specify this
+    most_common_ext = max(source_extensions, key=source_extensions.get) if source_extensions else 'unknown'
+
+    # Record the target language decision if not already decided
+    if not memory.get_applicable_decisions(['language_target']):
+        memory.add_decision(
+            category="language_target",
+            description="Target language for conversion",
+            value=determine_target_language_from_source(most_common_ext),  # Helper function
+            justification=f"Inferred from source language extension: {most_common_ext}"
+        )
+
     # Create the plan following the new schema
     plan = {
         "plan_version": "1.0",
@@ -195,21 +220,148 @@ def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_
         "source_inventory": source_inventory_path,
         "target_inventory": target_inventory_path
     }
-    
+
     # Create scaffold tasks (these come first)
     plan['scaffold_tasks'] = create_scaffold_tasks(target_inventory)
-    
+
     # Create file conversion tasks (these process the source files)
     plan['file_tasks'] = create_file_conversion_tasks(source_inventory, target_inventory)
-    
+
     # Create final sweep tasks (these verify completion)
     plan['final_sweep_tasks'] = create_sweep_tasks(source_inventory, target_inventory)
-    
+
+    # Apply memory-driven enhancements to the plan
+    plan = apply_memory_guidance_to_plan(plan, memory)
+
     # Save the plan
     with open(plan_output_path, 'w', encoding='utf-8') as f:
         json.dump(plan, f, indent=2)
-    
+
+    # Add a summary for the planning phase
+    summary = TaskSummary(
+        task_id="planning_phase",
+        source_files=[source_inventory_path],
+        target_files=[plan_output_path]
+    )
+    summary.add_semantic_decision("Generated conversion plan with memory guidance")
+    summary.save_to_file()
+
     return plan
+
+
+def determine_target_language_from_source(source_ext: str) -> str:
+    """Determine appropriate target language based on source extension."""
+    # Simple mapping - in reality this would be more sophisticated
+    ext_to_lang = {
+        'js': 'python',
+        'ts': 'python',
+        'java': 'python',
+        'cpp': 'python',
+        'c': 'python',
+        'py': 'python',  # No conversion needed, but for example
+        'cs': 'python',
+        'go': 'python',
+        'rs': 'python',
+    }
+    return ext_to_lang.get(source_ext, 'python')  # Default to python
+
+
+def apply_memory_guidance_to_plan(plan: Dict, memory: ConversionMemory) -> Dict:
+    """Apply memory-based guidance to enhance the plan."""
+    # Get relevant decisions and conventions to guide the plan
+    decisions = memory.load_decisions()
+    conventions = memory.load_conventions()
+
+    # Apply engine decisions if specified
+    for decision in decisions:
+        if decision.get('category') == 'engine_choice':
+            # Apply this engine choice to all tasks of the specified type
+            engine_value = decision.get('value')
+            for phase in ['scaffold_tasks', 'file_tasks', 'final_sweep_tasks']:
+                for task in plan.get(phase, []):
+                    # Override engine if decision applies to this task type
+                    task['engine'] = engine_value
+
+    # Apply language target decisions to file paths if needed
+    language_decisions = [d for d in decisions if d.get('category') == 'language_target']
+    if language_decisions:
+        target_language = language_decisions[0].get('value', 'python')
+        # Update file extensions based on target language
+        ext_mapping = {
+            'python': {'.js': '.py', '.ts': '.py', '.java': '.py', '.cpp': '.py'},
+            'javascript': {'.py': '.js', '.java': '.js', '.cpp': '.js'},
+            # Add more mappings as needed
+        }
+
+        mapping = ext_mapping.get(target_language, {})
+
+        for phase in ['file_tasks']:
+            for task in plan.get(phase, []):
+                new_target_files = []
+                for target_file in task.get('target_files', []):
+                    for old_ext, new_ext in mapping.items():
+                        if target_file.endswith(old_ext):
+                            new_target_files.append(target_file[:-len(old_ext)] + new_ext)
+                            break
+                    else:
+                        new_target_files.append(target_file)
+                task['target_files'] = new_target_files
+
+    # Integrate semantic awareness into the plan
+    integrate_semantic_awareness(plan, memory)
+
+    return plan
+
+
+def integrate_semantic_awareness(plan: Dict, memory: ConversionMemory):
+    """Integrate semantic awareness into the plan by considering past semantic warnings."""
+    try:
+        # Import semantic integrity module to get semantic summary and issues
+        from semantic_integrity import SemanticIntegrityChecker
+
+        checker = SemanticIntegrityChecker()
+
+        # Add semantic summary information to the plan
+        plan['semantic_summary'] = checker.get_summary()
+
+        # Get open semantic issues that might affect the planning
+        open_semantic_issues = checker.get_open_issues()
+
+        if open_semantic_issues:
+            plan['open_semantic_issues'] = open_semantic_issues
+            print(f"Planner aware of {len(open_semantic_issues)} open semantic issues")
+
+        # Adjust plan based on semantic health
+        semantic_summary = checker.get_summary()
+        low_eq_count = semantic_summary['equivalence_counts'].get('low', 0)
+        total_checked = semantic_summary.get('total_files_checked', 0)
+
+        if total_checked > 0:
+            low_eq_ratio = low_eq_count / total_checked
+            if low_eq_ratio > 0.2:  # If more than 20% of files had low equivalence
+                print(f"Warning: {low_eq_ratio:.1%} files had low semantic equivalence. Planner should avoid risky transformations.")
+
+                # In such cases, we could adjust the plan to be more conservative
+                # For example, use engines with higher accuracy, add more verification steps, etc.
+                for task in plan.get('file_tasks', []):
+                    # Add additional verification for risky files
+                    if 'validation_cmd' not in task:
+                        task['validation_cmd'] = 'echo "Semantic validation recommended for this task"'
+
+        # Check for specific patterns in inconsistent tasks and avoid repeating them
+        memory.add_summary_entry(
+            "planning_phase",
+            f"Planner consulted semantic summary: {low_eq_count}/{total_checked} files with low equivalence"
+        )
+
+    except ImportError:
+        # If semantic_integrity module is not available, continue without semantic awareness
+        print("Warning: Semantic integrity module not available, proceeding without semantic awareness")
+        pass
+    except Exception as e:
+        # If there's an error accessing semantic data, continue anyway
+        print(f"Warning: Could not access semantic data: {e}")
+        pass
 
 def validate_conversion_plan(plan: Dict) -> List[str]:
     """This function is deprecated. Use the validate_plan function in convert_orchestrator.py instead."""
