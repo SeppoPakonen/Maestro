@@ -26,6 +26,7 @@ from typing import List, Dict, Optional, Any
 from .session_model import Session, Subtask, PlanNode, load_session, save_session
 from .engines import EngineError
 from .known_issues import match_known_issues, KnownIssue
+from .planner_templates import format_build_target_template, format_fix_rulebook_template, format_conversion_pipeline_template, build_target_planner_template, fix_rulebook_planner_template, conversion_pipeline_planner_template
 
 
 # Dataclasses for builder configuration
@@ -5039,35 +5040,17 @@ def build_conversion_pipeline_planner_prompt(root_task: str, summaries: str, cur
         current_plan_parts.append(f"   {subtask.description}")
     current_plan = "\n".join(current_plan_parts) if subtasks else "(no current plan)"
 
-    goal = f"Propose an updated conversion pipeline plan based on the root task: {root_task} and current stage: {current_stage}"
-    context = f"CURRENT ARTIFACTS:\n{artifacts}\n\nCURRENT SUMMARIES FROM WORKERS:\n{summaries}\n\nCURRENT PLAN:\n{current_plan}"
-    requirements = (
-        "Return a JSON object with a 'stages' field containing an array of stage objects.\n"
-        "- Each stage object should have 'name', 'status', 'entry_criteria', 'exit_criteria', 'expected_artifacts', 'failure_handling', and 'details' fields.\n"
-        "- Include 'pipeline' field with overall pipeline configuration.\n"
-        "- Define clear entry and exit criteria for each stage.\n"
-        "- Specify expected artifacts for each stage.\n"
-        "- Define failure handling strategies.\n"
-        "- Return only valid JSON with no additional text or explanations outside the JSON.\n"
-        "- The conversion pipeline should be structured with proper progression from source to target."
-    )
-    acceptance = (
-        "The response is valid JSON with required stages array\n"
-        "Each stage has proper structure with name, status, entry/exit criteria, artifacts, failure handling\n"
-        "Entry and exit criteria are clearly defined\n"
-        "Expected artifacts are specified\n"
-        "Failure handling strategies are defined\n"
-        "Response contains no additional text outside JSON structure"
-    )
-    deliverables = (
-        "JSON object with stages array containing properly structured stage objects\n"
-        "Entry and exit criteria for each stage\n"
-        "Expected artifacts specified\n"
-        "Failure handling strategies defined\n"
-        "Overall pipeline configuration provided"
-    )
+    # Build the conversion context
+    repo_inventory = f"Current artifacts: {artifacts}\nCurrent summaries from workers: {summaries}\nCurrent plan: {current_plan}"
+    conversion_goal = f"Conversion pipeline from current state to achieve goal: {root_task} at stage {current_stage}"
+    constraints = "Must follow proper progression from source to target, define clear entry/exit criteria for each stage, specify expected artifacts, and define failure handling strategies"
 
-    return build_prompt(goal, context, requirements, acceptance, deliverables)
+    # Use the new template function
+    return conversion_pipeline_planner_template(
+        repo_inventory=repo_inventory,
+        conversion_goal=conversion_goal,
+        constraints=constraints
+    )
 
 
 def save_prompt_for_traceability(prompt: str, session_path: str, prompt_type: str, engine_name: str = "unknown") -> str:
@@ -5086,9 +5069,24 @@ def save_prompt_for_traceability(prompt: str, session_path: str, prompt_type: st
     import time
     import os
 
-    # Create inputs directory if it doesn't exist
-    maestro_dir = get_maestro_dir(session_path)
-    inputs_dir = os.path.join(maestro_dir, "inputs")
+    # Determine the appropriate directory based on prompt type for the three planner types
+    if "build" in prompt_type.lower():
+        # Build target planner -> .maestro/build/inputs/
+        maestro_dir = get_maestro_dir(session_path)
+        inputs_dir = os.path.join(maestro_dir, "build", "inputs")
+    elif "fix" in prompt_type.lower() or "rulebook" in prompt_type.lower():
+        # Fix rulebook planner -> ~/.config/maestro/fix/inputs/
+        user_config_dir = get_user_config_dir()
+        inputs_dir = os.path.join(user_config_dir, "fix", "inputs")
+    elif "convert" in prompt_type.lower() or "conversion" in prompt_type.lower():
+        # Conversion pipeline planner -> .maestro/convert/inputs/
+        maestro_dir = get_maestro_dir(session_path)
+        inputs_dir = os.path.join(maestro_dir, "convert", "inputs")
+    else:
+        # Default to general inputs directory for other types
+        maestro_dir = get_maestro_dir(session_path)
+        inputs_dir = os.path.join(maestro_dir, "inputs")
+
     os.makedirs(inputs_dir, exist_ok=True)
 
     # Create timestamp
@@ -5120,9 +5118,24 @@ def save_ai_output(output: str, session_path: str, output_type: str, engine_name
     import time
     import os
 
-    # Create outputs directory if it doesn't exist
-    maestro_dir = get_maestro_dir(session_path)
-    outputs_dir = os.path.join(maestro_dir, "outputs")
+    # Determine the appropriate directory based on output type for the three planner types
+    if "build" in output_type.lower():
+        # Build target planner -> .maestro/build/outputs/
+        maestro_dir = get_maestro_dir(session_path)
+        outputs_dir = os.path.join(maestro_dir, "build", "outputs")
+    elif "fix" in output_type.lower() or "rulebook" in output_type.lower():
+        # Fix rulebook planner -> ~/.config/maestro/fix/outputs/
+        user_config_dir = get_user_config_dir()
+        outputs_dir = os.path.join(user_config_dir, "fix", "outputs")
+    elif "convert" in output_type.lower() or "conversion" in output_type.lower():
+        # Conversion pipeline planner -> .maestro/convert/outputs/
+        maestro_dir = get_maestro_dir(session_path)
+        outputs_dir = os.path.join(maestro_dir, "convert", "outputs")
+    else:
+        # Default to general outputs directory for other types
+        maestro_dir = get_maestro_dir(session_path)
+        outputs_dir = os.path.join(maestro_dir, "outputs")
+
     os.makedirs(outputs_dir, exist_ok=True)
 
     # Create timestamp
@@ -7581,32 +7594,23 @@ def plan_build_target_interactive(session_path: str, target_name: str, verbose: 
 
     print_info(f"Conversation saved to: {conversation_filename}", 2)
 
-    final_conversation_prompt = f"Based on our discussion, please generate the final build target configuration for '{target_name}'.\n\n"
+    # Build context from the conversation for the template
+    conversation_context = ""
     for msg in conversation:
-        final_conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+        conversation_context += f"{msg['role'].upper()}: {msg['content']}\n\n"
 
-    final_conversation_prompt += """Return ONLY the complete JSON build target configuration with these fields:
-{
-  "target_id": "string",
-  "name": "string",
-  "created_at": "ISO8601 datetime",
-  "categories": ["category1", "category2"],
-  "description": "Human readable description",
-  "why": "Planner rationale/intent",
-  "pipeline": {
-    "steps": [
-      {"id":"step_name","cmd":["command","arg1"],"optional":true/false}
-    ]
-  },
-  "patterns": {
-    "error_extract": ["regex1", "regex2"],
-    "ignore": ["regex3"]
-  },
-  "environment": {
-    "vars": {"VAR_NAME":"value"},
-    "cwd": "."
-  }
-}"""
+    # Get repo root and build context for the template
+    repo_root = os.path.dirname(session_path) if session_path else os.getcwd()
+    user_goals = session.root_task
+    pipeline_summary = ""  # No previous pipeline run summary
+
+    # Use the template to create the final prompt
+    final_conversation_prompt = build_target_planner_template(
+        repo_root=repo_root,
+        current_target_json="{}",
+        user_goals=f"{user_goals}\n\nBased on our discussion:\n{conversation_context}",
+        pipeline_summary=pipeline_summary
+    )
 
     # Print final prompt if requested
     if print_ai_prompts:
@@ -7753,40 +7757,20 @@ def plan_build_target_one_shot(session_path: str, target_name: str, verbose: boo
     outputs_dir = os.path.join(build_dir, "outputs")
     os.makedirs(outputs_dir, exist_ok=True)
 
-    # Build the planner prompt
+    # Build the planner prompt using the template
     timestamp = int(time.time())
-    target_spec = f"Build target name: {target_name}\nSession root task: {session.root_task}"
 
-    if clean_target:
-        prompt = f"You are a build configuration expert. The user wants to create a clean, well-structured build target configuration.\n\n"
-        prompt += f"Original request:\n{target_spec}\n\n"
-        prompt += f"Please provide a refined, cleaned-up version of this build target specification that is appropriate for the project context.\n\n"
-        prompt += "Return ONLY the complete JSON build target configuration with these fields:\n"
-    else:
-        prompt = f"You are a build configuration expert. Create a build target configuration for:\n{target_spec}\n\n"
-        prompt += "Return ONLY the complete JSON build target configuration with these fields:\n"
+    # Get repo root and build context for the template
+    repo_root = os.path.dirname(session_path) if session_path else os.getcwd()
+    user_goals = session.root_task
+    pipeline_summary = ""  # No previous pipeline run summary for new targets
 
-    prompt += """{
-  "target_id": "string",
-  "name": "string",
-  "created_at": "ISO8601 datetime",
-  "categories": ["category1", "category2"],
-  "description": "Human readable description",
-  "why": "Planner rationale/intent",
-  "pipeline": {
-    "steps": [
-      {"id":"step_name","cmd":["command","arg1"],"optional":true/false}
-    ]
-  },
-  "patterns": {
-    "error_extract": ["regex1", "regex2"],
-    "ignore": ["regex3"]
-  },
-  "environment": {
-    "vars": {"VAR_NAME":"value"},
-    "cwd": "."
-  }
-}"""
+    prompt = build_target_planner_template(
+        repo_root=repo_root,
+        current_target_json="{}",
+        user_goals=user_goals,
+        pipeline_summary=pipeline_summary
+    )
 
     # Print prompt if requested
     if print_ai_prompts:
@@ -11707,7 +11691,7 @@ def handle_build_fix_plan(name: str = None, verbose: bool = False, stream_ai_out
     transcript.append("")
 
     # Build initial context for the AI
-    current_rulebook_json = json.dumps({
+    current_rulebook_dict = {
         "version": rulebook.version,
         "name": rulebook.name,
         "description": rulebook.description,
@@ -11743,9 +11727,12 @@ def handle_build_fix_plan(name: str = None, verbose: bool = False, stream_ai_out
             }
             for r in rulebook.rules
         ]
-    }, indent=2)
+    }
+    current_rulebook_json = json.dumps(current_rulebook_dict, indent=2)
 
-    initial_context = f"""
+    # Initialize conversation history for building final context
+    conversation_history = []
+    conversation_history.append({"role": "system", "content": f"""
 [REACTIVE FIX RULEBOOK SPECIFICATION]
 You are creating reactive fix rules for automated diagnostic fixing across repositories.
 The purpose is to match diagnostic patterns and suggest appropriate fixes automatically.
@@ -11767,11 +11754,12 @@ Common diagnostic patterns to match include:
 - The JSON schema must match the reactive fix rulebook format
 - Do not add any text outside the JSON when '/done' is requested
 - Focus on patterns that match diagnostic text/signatures and suggest actionable fixes
-"""
+"""})
 
     # Save initial context to transcript
-    transcript.append(f"AI: {initial_context.strip()}")
-    print_ai_response(initial_context.strip())
+    initial_ai_response = conversation_history[0]["content"]
+    transcript.append(f"AI: {initial_ai_response.strip()}")
+    print_ai_response(initial_ai_response.strip())
 
     # Get planner engine
     planner_preference = [p.strip() for p in planner_order.split(',')]
@@ -11793,24 +11781,20 @@ Common diagnostic patterns to match include:
         elif user_input == "/done":
             print_info("Finalizing rulebook with AI...", 2)
 
-            # Ask the AI to generate the final JSON rulebook
-            final_prompt = f"""
-[FINAL REQUEST]
-Based on our discussion, please return ONLY the complete rulebook JSON with all the rules we discussed.
-Do not include any other text or explanations - only return the valid JSON.
+            # Build context from the conversation for the template
+            conversation_context = ""
+            for msg in conversation_history[1:]:  # Skip system message
+                conversation_context += f"{msg['role'].upper()}: {msg['content']}\n\n"
 
-The JSON must follow the reactive fix rulebook schema:
-{{
-  "version": 1,
-  "name": "...",
-  "description": "...",
-  "rules": [
-    ...
-  ]
-}}
+            # Include conversation context in the diagnostic examples
+            diagnostic_examples = f"Common diagnostic patterns discussed:\n{conversation_context}\n\nCommon diagnostic patterns to match include:\n- U++ Vector/Moveable issues: \"static_assert.*Moveable\", \"Upp::Vector\", \"Pick()\"\n- Memory errors: \"segmentation fault\", \"heap-use-after-free\"\n- Template errors: \"template instantiation\", \"no matching function\"\n- Compiler errors: specific error signatures from gcc/clang/msvc"
 
-Return only the JSON.
-"""
+            # Ask the AI to generate the final JSON rulebook using the template
+            final_prompt = format_fix_rulebook_template(
+                current_rulebook_json=current_rulebook_json,
+                diagnostic_examples=diagnostic_examples,
+                repo_info=f"Rulebook name: {name}"
+            )
             transcript.append(f"User: /done")
             transcript.append(f"System: Requesting final rulebook JSON")
             transcript.append(f"AI Prompt: {final_prompt}")
@@ -11890,13 +11874,20 @@ Return only the JSON.
         else:
             # Process regular user input with AI
             transcript.append(f"User: {user_input}")
+            conversation_history.append({"role": "user", "content": user_input})
 
             if verbose:
                 print_info(f"Sending to AI: {user_input}", 4)
 
             try:
                 ai_engine = get_engine(f"{planner_preference[0]}_planner")
-                ai_response = ai_engine.generate(f"{initial_context}\n\nUser request: {user_input}")
+
+                # Build a prompt from the conversation history
+                conversation_prompt = "You are helping configure a fix rulebook. Here's the conversation so far:\n\n"
+                for msg in conversation_history:
+                    conversation_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+
+                ai_response = ai_engine.generate(conversation_prompt)
 
                 if stream_ai_output:
                     print_ai_response(ai_response)
@@ -11904,9 +11895,10 @@ Return only the JSON.
                     print_ai_response(ai_response[:200] + "..." if len(ai_response) > 200 else ai_response)
 
                 transcript.append(f"AI: {ai_response}")
+                conversation_history.append({"role": "assistant", "content": ai_response})
 
                 if print_ai_prompts:
-                    print_info(f"AI prompt: {initial_context}\n\nUser request: {user_input}", 4)
+                    print_info(f"AI prompt: {conversation_prompt}", 4)
 
             except EngineError as e:
                 print_error(f"Engine error: {e}", 2)
