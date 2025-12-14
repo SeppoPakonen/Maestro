@@ -6507,6 +6507,20 @@ def get_build_targets_path(session_path: str, target_id: str) -> str:
     return os.path.join(target_dir, f"{target_id}.json")
 
 
+def get_build_targets_index_path(session_path: str) -> str:
+    """
+    Get the path to the build targets index file.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        Path to the build targets index JSON file
+    """
+    build_dir = get_build_dir(session_path)
+    return os.path.join(build_dir, "index.json")
+
+
 def get_active_target_path(session_path: str) -> str:
     """
     Get the path to the active target file.
@@ -6519,6 +6533,45 @@ def get_active_target_path(session_path: str) -> str:
     """
     build_dir = get_build_dir(session_path)
     return os.path.join(build_dir, "active_target.txt")
+
+
+def load_build_targets_index(session_path: str) -> List[Dict[str, Any]]:
+    """
+    Load the build targets index from file.
+
+    Args:
+        session_path: Path to the session file
+
+    Returns:
+        List of target metadata dictionaries
+    """
+    index_path = get_build_targets_index_path(session_path)
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # Ensure data is a list
+                if isinstance(data, list):
+                    return data
+                else:
+                    return []
+        except (json.JSONDecodeError, Exception):
+            # If index is corrupted, return empty list
+            return []
+    return []
+
+
+def save_build_targets_index(session_path: str, targets: List[Dict[str, Any]]):
+    """
+    Save the build targets index to file.
+
+    Args:
+        session_path: Path to the session file
+        targets: List of target metadata dictionaries
+    """
+    index_path = get_build_targets_index_path(session_path)
+    with open(index_path, 'w', encoding='utf-8') as f:
+        json.dump(targets, f, indent=2)
 
 
 def create_build_target(session_path: str, name: str, description: str = "", categories: List[str] = None,
@@ -6577,12 +6630,39 @@ def create_build_target(session_path: str, name: str, description: str = "", cat
     # Save the build target to file
     save_build_target(session_path, build_target)
 
+    # Add to the index
+    targets_index = load_build_targets_index(session_path)
+    # Check if this target is already in the index to avoid duplicates
+    target_exists = False
+    for i, target_meta in enumerate(targets_index):
+        if target_meta.get('target_id') == build_target.target_id:
+            # Update the existing entry
+            targets_index[i] = {
+                'target_id': build_target.target_id,
+                'name': build_target.name,
+                'created_at': build_target.created_at,
+                'categories': build_target.categories
+            }
+            target_exists = True
+            break
+
+    if not target_exists:
+        targets_index.append({
+            'target_id': build_target.target_id,
+            'name': build_target.name,
+            'created_at': build_target.created_at,
+            'categories': build_target.categories
+        })
+
+    save_build_targets_index(session_path, targets_index)
+
     return build_target
 
 
 def save_build_target(session_path: str, build_target: BuildTarget):
     """
     Save a build target to the appropriate file.
+    Also updates the index to keep it synchronized.
 
     Args:
         session_path: Path to the session file
@@ -6603,6 +6683,31 @@ def save_build_target(session_path: str, build_target: BuildTarget):
 
     with open(target_file, 'w', encoding='utf-8') as f:
         json.dump(target_data, f, indent=2)
+
+    # Update index to keep it synchronized
+    targets_index = load_build_targets_index(session_path)
+    target_exists = False
+    for i, target_meta in enumerate(targets_index):
+        if target_meta.get('target_id') == build_target.target_id:
+            # Update the existing entry
+            targets_index[i] = {
+                'target_id': build_target.target_id,
+                'name': build_target.name,
+                'created_at': build_target.created_at,
+                'categories': build_target.categories
+            }
+            target_exists = True
+            break
+
+    if not target_exists:
+        targets_index.append({
+            'target_id': build_target.target_id,
+            'name': build_target.name,
+            'created_at': build_target.created_at,
+            'categories': build_target.categories
+        })
+
+    save_build_targets_index(session_path, targets_index)
 
 
 def load_build_target(session_path: str, target_id: str) -> BuildTarget:
@@ -6640,6 +6745,7 @@ def load_build_target(session_path: str, target_id: str) -> BuildTarget:
 def list_build_targets(session_path: str) -> List[BuildTarget]:
     """
     List all available build targets for the session.
+    Uses the index file for efficiency but falls back to scanning files if needed.
 
     Args:
         session_path: Path to the session file
@@ -6647,19 +6753,100 @@ def list_build_targets(session_path: str) -> List[BuildTarget]:
     Returns:
         List of BuildTarget objects
     """
-    target_dir = get_build_target_dir(session_path)
     targets = []
 
-    for filename in os.listdir(target_dir):
-        if filename.endswith('.json'):
-            target_id = os.path.splitext(filename)[0]
+    # Try to use index file first
+    targets_index = load_build_targets_index(session_path)
+
+    # Check if index needs to be synchronized with actual files
+    target_dir = get_build_target_dir(session_path)
+    actual_target_files = []
+    if os.path.exists(target_dir):
+        for filename in os.listdir(target_dir):
+            if filename.endswith('.json'):
+                target_id = os.path.splitext(filename)[0]
+                actual_target_files.append(target_id)
+
+    # Check if index is missing targets or if files are missing from index
+    index_needs_sync = False
+    if len(targets_index) != len(actual_target_files):
+        index_needs_sync = True
+    else:
+        # Check if all targets in index are present in file system
+        index_target_ids = [t['target_id'] for t in targets_index]
+        for target_id in actual_target_files:
+            if target_id not in index_target_ids:
+                index_needs_sync = True
+                break
+
+    if index_needs_sync:
+        # Resync index with actual files
+        targets_index = []
+        for target_id in actual_target_files:
             try:
                 target = load_build_target(session_path, target_id)
+                targets_index.append({
+                    'target_id': target.target_id,
+                    'name': target.name,
+                    'created_at': target.created_at,
+                    'categories': target.categories
+                })
                 targets.append(target)
             except Exception as e:
                 print_warning(f"Could not load build target {target_id}: {e}", 2)
 
+        # Save the synchronized index
+        save_build_targets_index(session_path, targets_index)
+    else:
+        # Load targets using the index
+        for target_meta in targets_index:
+            target_id = target_meta.get('target_id')
+            try:
+                target = load_build_target(session_path, target_id)
+                targets.append(target)
+            except FileNotFoundError:
+                # Target file doesn't exist but is in index - remove from index
+                print_warning(f"Build target file missing but referenced in index: {target_id}", 2)
+                targets_index = [t for t in targets_index if t.get('target_id') != target_id]
+                save_build_targets_index(session_path, targets_index)
+            except Exception as e:
+                print_warning(f"Could not load build target {target_id}: {e}", 2)
+
+    # Sort targets by creation time to maintain consistent ordering
+    targets.sort(key=lambda t: t.created_at)
+
     return targets
+
+
+def delete_build_target(session_path: str, target_id: str) -> bool:
+    """
+    Delete a build target file and remove it from the index.
+
+    Args:
+        session_path: Path to the session file
+        target_id: Target ID to delete
+
+    Returns:
+        True if deletion was successful, False otherwise
+    """
+    target_file = get_build_targets_path(session_path, target_id)
+
+    if not os.path.exists(target_file):
+        return False
+
+    try:
+        # Remove the target file
+        os.remove(target_file)
+
+        # Remove from the index
+        targets_index = load_build_targets_index(session_path)
+        updated_index = [t for t in targets_index if t.get('target_id') != target_id]
+        save_build_targets_index(session_path, updated_index)
+
+        return True
+    except Exception as e:
+        print_error(f"Could not delete build target: {e}", 2)
+        return False
 
 
 def set_active_build_target(session_path: str, target_id: str) -> bool:
@@ -6728,12 +6915,13 @@ def get_active_build_target(session_path: str) -> Optional[BuildTarget]:
     return None
 
 
-def find_repo_root(start_path: str) -> str:
+def find_repo_root(start_path: str, verbose: bool = False) -> str:
     """
     Find the repository root which is the nearest directory containing .maestro/
 
     Args:
         start_path: Path to start searching from (can be file or directory)
+        verbose: If True, print verbose information about the discovery process
 
     Returns:
         Path to the repository root directory containing .maestro/,
@@ -6742,16 +6930,24 @@ def find_repo_root(start_path: str) -> str:
     start_dir = os.path.abspath(os.path.dirname(start_path)) if os.path.isfile(start_path) else os.path.abspath(start_path)
     current_dir = start_dir
 
+    if verbose:
+        print_info(f"Detecting repository root starting from: {start_dir}", 2)
+
     # Walk up the directory tree
     while True:
         maestro_dir = os.path.join(current_dir, '.maestro')
         if os.path.exists(maestro_dir) and os.path.isdir(maestro_dir):
+            if verbose:
+                print_info(f"Found .maestro directory at: {maestro_dir}", 2)
+                print_info(f"Repository root: {current_dir}", 2)
             return current_dir
 
         parent_dir = os.path.dirname(current_dir)
         # If we've reached the root of the filesystem, stop
         if parent_dir == current_dir:
             # If no .maestro directory found, return the start directory
+            if verbose:
+                print_warning(f"No .maestro directory found. Using start directory: {start_dir}", 2)
             return start_dir
 
         current_dir = parent_dir
@@ -8555,6 +8751,9 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
     if verbose:
         print_debug(f"Running build pipeline for session: {session_path}", 2)
 
+    # Find repo root
+    repo_root = find_repo_root(session_path, verbose=verbose)
+
     # Load the session
     try:
         session = load_session(session_path)
@@ -8574,6 +8773,11 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         sys.exit(1)
 
     print_info(f"Running build pipeline for target: {active_target.name} [{active_target.target_id}]", 2)
+
+    if verbose:
+        print_info(f"Repository root: {repo_root}", 4)
+        target_file_path = get_build_targets_path(session_path, active_target.target_id)
+        print_info(f"Target file: {target_file_path}", 4)
 
     # Apply step limiting if specified
     if limit_steps or stop_after_step:
@@ -9413,6 +9617,9 @@ def handle_build_status(session_path, verbose=False):
     if verbose:
         print_debug(f"Showing build status for session: {session_path}", 2)
 
+    # Find repo root
+    repo_root = find_repo_root(session_path, verbose=verbose)
+
     # Load the session
     try:
         session = load_session(session_path)
@@ -9436,6 +9643,11 @@ def handle_build_status(session_path, verbose=False):
     # Print active target information
     styled_print(f"Active Target: {active_target.name}", Colors.BRIGHT_YELLOW, Colors.BOLD, 2)
     styled_print(f"Target ID: {active_target.target_id}", Colors.BRIGHT_CYAN, None, 2)
+
+    if verbose:
+        print_info(f"Repository root: {repo_root}", 4)
+        target_file_path = get_build_targets_path(session_path, active_target.target_id)
+        print_info(f"Target file: {target_file_path}", 4)
 
     # Get the build directory and runs
     build_dir = get_build_dir(session_path)
@@ -9657,11 +9869,11 @@ def handle_build_new(session_path, target_name, verbose=False, description=None,
     if categories:
         categories_list = [cat.strip() for cat in categories.split(',')]
 
-    # Create the pipeline steps if steps are provided
-    pipeline = {"steps": []}
+    # Create the pipeline steps - ensure at least a basic build step if no steps are provided
+    pipeline = {"steps": [], "step_definitions": {}}
     if steps:
         steps_list = [step.strip() for step in steps.split(',')]
-        # Create step definitions for the basic steps
+        # Create step definitions for the provided steps
         step_definitions = {}
         for step in steps_list:
             # For now, create basic step configuration
@@ -9672,6 +9884,17 @@ def handle_build_new(session_path, target_name, verbose=False, description=None,
         pipeline = {
             "steps": steps_list,
             "step_definitions": step_definitions
+        }
+    else:
+        # Create a minimal valid pipeline with at least a build step
+        pipeline = {
+            "steps": ["build"],
+            "step_definitions": {
+                "build": {
+                    "cmd": ["make"],  # Default build command
+                    "optional": False  # Build step should not be optional by default
+                }
+            }
         }
 
     try:
@@ -9686,9 +9909,11 @@ def handle_build_new(session_path, target_name, verbose=False, description=None,
             environment={"vars": {}, "cwd": "."}  # Default environment
         )
 
+        target_file_path = get_build_targets_path(session_path, build_target.target_id)
         print_success(f"Build target '{build_target.name}' created successfully with ID: {build_target.target_id}", 2)
+        print_info(f"Target file: {target_file_path}", 2)
 
-        # Set this as the active target
+        # Set this as the active target by default
         if set_active_build_target(session_path, build_target.target_id):
             print_info(f"Target '{build_target.name}' is now the active build target", 2)
         else:
@@ -9710,9 +9935,17 @@ def handle_build_list(session_path, verbose=False):
     if verbose:
         print_debug(f"Listing build targets for session: {session_path}", 2)
 
+    # Find repo root for verbose output
+    repo_root = find_repo_root(session_path, verbose=False)  # Only show if specifically verbose
+
     try:
         targets = list_build_targets(session_path)
         active_target_id = get_active_build_target_id(session_path)
+
+        if verbose:
+            print_info(f"Repository root: {repo_root}", 4)
+            index_path = get_build_targets_index_path(session_path)
+            print_info(f"Index file: {index_path}", 4)
 
         if not targets:
             print_info("No build targets found.", 2)
@@ -9723,7 +9956,16 @@ def handle_build_list(session_path, verbose=False):
         for i, target in enumerate(targets, 1):
             marker = "[*]" if target.target_id == active_target_id else "[ ]"
             status_color = Colors.BRIGHT_GREEN if target.target_id == active_target_id else Colors.BRIGHT_WHITE
-            styled_print(f"{i:2d}. {marker} {target.name} [{target.target_id}]", status_color, None, 0)
+
+            # Get the target file path and modification time
+            target_file_path = get_build_targets_path(session_path, target.target_id)
+            mod_time_str = ""
+            if os.path.exists(target_file_path):
+                import time
+                mod_time = os.path.getmtime(target_file_path)
+                mod_time_str = f" ({time.strftime('%Y-%m-%d %H:%M', time.localtime(mod_time))})"
+
+            styled_print(f"{i:2d}. {marker} {target.name} [{target.target_id[:12]}...]{mod_time_str}", status_color, None, 0)
 
             if verbose or target.description:
                 styled_print(f"    Description: {target.description}", Colors.BRIGHT_CYAN, None, 0)
@@ -9752,6 +9994,9 @@ def handle_build_set(session_path, target_name, verbose=False):
     try:
         targets = list_build_targets(session_path)
 
+        # Find repo root for verbose output
+        repo_root = find_repo_root(session_path, verbose=False)  # Only show if specifically verbose
+
         # Check if target_name is a number (index)
         target_to_set = None
         if target_name.isdigit():
@@ -9775,7 +10020,10 @@ def handle_build_set(session_path, target_name, verbose=False):
             if set_active_build_target(session_path, target_to_set.target_id):
                 print_success(f"Build target '{target_to_set.name}' is now active", 2)
                 if verbose:
-                    print_debug(f"Set active target to: {target_to_set.target_id}", 2)
+                    print_info(f"Repository root: {repo_root}", 4)
+                    target_file_path = get_build_targets_path(session_path, target_to_set.target_id)
+                    print_info(f"Target file: {target_file_path}", 4)
+                    print_debug(f"Set active target to: {target_to_set.target_id}", 4)
             else:
                 print_error(f"Failed to set active build target", 2)
                 sys.exit(1)
@@ -9799,7 +10047,7 @@ def handle_build_get(session_path, verbose=False):
     active_target = get_active_build_target(session_path)
 
     if active_target:
-        print(active_target.name)
+        print(f"{active_target.name} ({active_target.target_id})")
         if verbose:
             print_info(f"Active build target details:", 2)
             print_info(f"  Name: {active_target.name}", 2)
@@ -9807,7 +10055,8 @@ def handle_build_get(session_path, verbose=False):
             print_info(f"  Description: {active_target.description}", 2)
             print_info(f"  Categories: {active_target.categories}", 2)
     else:
-        print_info("No active build target set", 2)
+        # If no active target, print guidance as required
+        print_info("No active build target. Use `maestro build new` or `maestro build set`.", 2)
 
 
 def handle_build_plan(session_path, target_name, verbose=False, quiet=False, stream_ai_output=False, print_ai_prompts=False, planner_order="codex,claude", one_shot=False, discuss=False):
