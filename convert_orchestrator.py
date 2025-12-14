@@ -1220,6 +1220,14 @@ def cmd_run(args):
     if args.accept_semantic_risk:
         print("Accepting semantic risks without human confirmation")
 
+    # Print arbitration settings if enabled
+    if args.arbitrate:
+        print(f"Arbitration mode enabled")
+        print(f"  Engines: {args.arbitrate_engines}")
+        print(f"  Judge: {args.judge_engine}")
+        print(f"  Max candidates: {args.max_candidates}")
+        print(f"  Use judge: {'No' if args.no_judge else 'Yes'}")
+
     # Load the plan first
     with open(plan_path, 'r') as f:
         plan = json.load(f)
@@ -1292,7 +1300,18 @@ def cmd_run(args):
 
     print("✓ Plan validation passed - proceeding with execution")
 
-    success = execute_conversion(args.source, args.target, args.limit, args.resume, accept_semantic_risk=args.accept_semantic_risk)
+    success = execute_conversion(
+        args.source,
+        args.target,
+        args.limit,
+        args.resume,
+        accept_semantic_risk=args.accept_semantic_risk,
+        arbitrate=args.arbitrate,
+        arbitrate_engines=args.arbitrate_engines,
+        judge_engine=args.judge_engine,
+        max_candidates=args.max_candidates,
+        use_judge=not args.no_judge
+    )
 
     if success:
         print("✓ Conversion execution completed successfully")
@@ -1359,6 +1378,14 @@ Examples:
     run_parser.add_argument('--auto-replan', action='store_true', help='Auto-replan if inventory changed')
     run_parser.add_argument('--ignore-decision-drift', action='store_true', help='Ignore decision drift and run anyway (dangerous)')
     run_parser.add_argument('--accept-semantic-risk', action='store_true', help='Accept semantic risks without human confirmation')
+
+    # Arbitration mode flags
+    run_parser.add_argument('--arbitrate', action='store_true', help='Enable arbitration mode for eligible tasks')
+    run_parser.add_argument('--arbitrate-engines', default='qwen,claude', help='Comma-separated list of engines to arbitrate (default: qwen,claude)')
+    run_parser.add_argument('--judge-engine', default='codex', help='Engine to use as judge (default: codex, fallback: claude)')
+    run_parser.add_argument('--max-candidates', type=int, default=2, help='Maximum number of candidate outputs to generate (default: 2)')
+    run_parser.add_argument('--no-judge', action='store_true', help='Use heuristic scoring only, no judge pass')
+
     run_parser.set_defaults(func=cmd_run)
 
     # Memory command
@@ -1420,6 +1447,15 @@ Examples:
     semantic_reject_parser.add_argument('--note', help='Optional note for the rejection')
     semantic_reject_parser.set_defaults(func=cmd_semantics_reject)
 
+    # Arbitration command group
+    arbitration_parser = subparsers.add_parser('arbitration', help='Arbitration result management')
+    arbitration_subparsers = arbitration_parser.add_subparsers(dest='arbitration_command', help='Arbitration subcommands')
+
+    # Arbitration show command
+    arbitration_show_parser = arbitration_subparsers.add_parser('show', help='Show arbitration results for a task')
+    arbitration_show_parser.add_argument('task_id', help='ID of the task to show arbitration results for')
+    arbitration_show_parser.set_defaults(func=cmd_arbitration_show)
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -1427,6 +1463,91 @@ Examples:
         return 1
 
     return args.func(args)
+
+
+def cmd_arbitration_show(args):
+    """Show arbitration results for a specific task."""
+    import os
+    import json
+    from pathlib import Path
+
+    arbitration_dir = f".maestro/convert/arbitration/{args.task_id}"
+
+    if not os.path.exists(arbitration_dir):
+        print(f"Arbitration results not found for task {args.task_id}")
+        print(f"Directory {arbitration_dir} does not exist")
+        return 1
+
+    # Load decision file
+    decision_path = os.path.join(arbitration_dir, 'decision.json')
+    if not os.path.exists(decision_path):
+        print(f"Decision file not found for task {args.task_id}")
+        return 1
+
+    with open(decision_path, 'r', encoding='utf-8') as f:
+        decision = json.load(f)
+
+    print(f"ARBITRATION RESULTS FOR TASK: {args.task_id}")
+    print("=" * 60)
+    print(f"Winner Engine: {decision.get('winner_engine', 'N/A')}")
+    print(f"Used Judge: {decision.get('used_judge', 'N/A')}")
+    if decision.get('judge_engine'):
+        print(f"Judge Engine: {decision.get('judge_engine')}")
+    print(f"Decision Timestamp: {decision.get('decision_timestamp', 'N/A')}")
+    print()
+
+    # Load and show scorecards
+    print("CANDIDATE SCORES:")
+    print("-" * 40)
+
+    candidate_scorecards = decision.get('candidate_scorecards', {})
+    semantic_results = decision.get('semantic_results', {})
+
+    # Sort candidates by some score if available
+    sorted_candidates = sorted(candidate_scorecards.items(), key=lambda x: x[0])  # Sort by engine name for now
+
+    for engine, scorecard in sorted_candidates:
+        print(f"  Engine: {engine}")
+        print(f"    Protocol Valid: {scorecard.get('protocol_valid', 'N/A')}")
+        print(f"    Deliverables OK: {scorecard.get('deliverables_ok', 'N/A')}")
+        print(f"    Placeholder Penalty: {scorecard.get('placeholder_penalty', 'N/A')}")
+        print(f"    Diff Size Metric: {scorecard.get('diff_size_metric', 'N/A')}")
+        print(f"    Validation Result: {scorecard.get('validation_cmd_result', 'N/A')}")
+        print(f"    Semantic Equivalence: {scorecard.get('semantic_equivalence', 'N/A')}")
+        print(f"    Semantic Confidence: {scorecard.get('semantic_confidence', 'N/A')}")
+        print(f"    Requires Human Review: {scorecard.get('requires_human_review', 'N/A')}")
+        print()
+
+    # Show candidates summary
+    print("CANDIDATES SUMMARY:")
+    print("-" * 40)
+    candidates = decision.get('candidates', [])
+    print(f"  Total Candidates: {len(candidates)}")
+    for candidate in candidates:
+        print(f"    - {candidate}")
+    print()
+
+    # Show top reasons if available
+    print("DECISION SUMMARY:")
+    print("-" * 40)
+    print(f"  Winner: {decision.get('winner_engine', 'N/A')}")
+    if decision.get('judge_engine') and decision.get('used_judge'):
+        print("  Decision made by judge engine")
+    else:
+        print("  Decision made by heuristic scoring")
+    print()
+
+    # Show location of artifacts
+    print("ARBITRATION ARTIFACTS:")
+    print("-" * 40)
+    print(f"  Directory: {arbitration_dir}")
+    print("  Files:")
+    for file_path in Path(arbitration_dir).iterdir():
+        print(f"    - {file_path.name}")
+
+    return 0
+
+
 
 
 if __name__ == "__main__":

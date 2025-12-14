@@ -20,6 +20,13 @@ class ConversionExecutor:
         self.interrupted_task = None
         self.accept_semantic_risk = False  # Default value, can be overridden
         self.setup_signal_handlers()
+
+        # Default arbitration settings
+        self.arbitrate = False
+        self.arbitrate_engines = 'qwen,claude'
+        self.judge_engine = 'codex'
+        self.max_candidates = 2
+        self.use_judge = True
         
     def setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown."""
@@ -156,8 +163,34 @@ The conversion is taking place between two repositories:
             # Update status to running
             self._update_task_status(task_id, 'running')
 
-            # Check if this is a file task that should use the new realize worker
-            if task['phase'] == 'file':
+            # Check if this is a file task and arbitration is enabled
+            if task['phase'] == 'file' and self.arbitrate:
+                # Import the realize worker with arbitration support
+                from realize_worker import execute_file_task_with_arbitration
+
+                success = execute_file_task_with_arbitration(
+                    task,
+                    source_repo_path,
+                    target_repo_path,
+                    verbose=True,
+                    plan_path=self.plan_path,
+                    arbitrate_engines=self.arbitrate_engines.split(','),
+                    judge_engine=self.judge_engine,
+                    max_candidates=self.max_candidates,
+                    use_judge=self.use_judge
+                )
+
+                if success:
+                    # Update status to completed
+                    self._update_task_status(task_id, 'completed')
+                    print(f"Task {task_id} completed successfully")
+                else:
+                    # Update status to failed (unless already marked as interrupted)
+                    current_status = task.get('status', 'pending')
+                    if current_status != 'interrupted':
+                        self._update_task_status(task_id, 'failed')
+                    print(f"Task {task_id} failed")
+            elif task['phase'] == 'file':
                 # Import the realize worker
                 from realize_worker import execute_file_task
 
@@ -532,7 +565,7 @@ The conversion is taking place between two repositories:
         print(f"Plan execution completed. {tasks_executed} tasks processed.")
         return True
 
-def execute_conversion(source_repo_path: str, target_repo_path: str, limit: int = None, resume: bool = False, accept_semantic_risk: bool = False):
+def execute_conversion(source_repo_path: str, target_repo_path: str, limit: int = None, resume: bool = False, accept_semantic_risk: bool = False, arbitrate: bool = False, arbitrate_engines: str = 'qwen,claude', judge_engine: str = 'codex', max_candidates: int = 2, use_judge: bool = True):
     """Main function to execute the conversion process."""
     plan_path = ".maestro/convert/plan/plan.json"
 
@@ -544,6 +577,13 @@ def execute_conversion(source_repo_path: str, target_repo_path: str, limit: int 
 
     # Store the accept_semantic_risk flag in the executor so it can be used during task execution
     executor.accept_semantic_risk = accept_semantic_risk
+
+    # Store arbitration parameters
+    executor.arbitrate = arbitrate
+    executor.arbitrate_engines = arbitrate_engines
+    executor.judge_engine = judge_engine
+    executor.max_candidates = max_candidates
+    executor.use_judge = use_judge
 
     # If resuming, we'll pick up from where we left off based on task statuses
     # The executor already handles status tracking in the plan file
