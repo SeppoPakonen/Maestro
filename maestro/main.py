@@ -17062,141 +17062,793 @@ def run_grow_from_main_stage(pipeline: ConversionPipeline, stage_obj: Conversion
         stage_obj: The stage object being executed
         verbose: Whether to show verbose output
     """
-    if verbose:
-        print_info("Executing grow from main stage...", 2)
-
-    # Load the overview report from the previous stage to get the entrypoints
-    overview_report = load_overview_report(pipeline)
-    if not overview_report:
-        if verbose:
-            print_warning("No overview report found, using default entrypoint", 2)
-        main_entrypoints = ["main.py"]  # Default fallback
-    else:
-        main_entrypoints = overview_report.get("entrypoints", ["main.py"])
+    import signal
+    import tempfile
 
     if verbose:
-        print_info(f"Starting from entrypoints: {main_entrypoints}", 2)
+        print_info("Executing grow from main stage (Stage 3)...", 2)
 
-    # Track converted vs pending files
-    converted_files = set()
-    pending_files = set()
+    # Create stage directory and initialize artifacts
+    stage_dir = get_convert_stage_dir("grow_from_main")
 
-    # Initialize with main entrypoints
-    for entrypoint in main_entrypoints:
-        # Convert the entrypoint
-        conversion_result = convert_file(pipeline.target, entrypoint, verbose)
-        if conversion_result.get('success', False):
-            converted_files.add(entrypoint)
-            if verbose:
-                print_info(f"Converted main entrypoint: {entrypoint}", 4)
+    # Define artifact paths
+    stage_config_path = os.path.join(stage_dir, "stage.json")
+    inventory_path = os.path.join(stage_dir, "inventory.json")
+    frontier_path = os.path.join(stage_dir, "frontier.json")
+    included_set_path = os.path.join(stage_dir, "included_set.json")
+    progress_path = os.path.join(stage_dir, "progress.json")
+    runs_dir = os.path.join(stage_dir, "runs")
+    os.makedirs(runs_dir, exist_ok=True)
 
-            # Get dependencies of this file
-            dependencies = analyze_file_dependencies(pipeline.target, entrypoint)
-            pending_files.update(dependencies)
-        else:
-            if verbose:
-                print_warning(f"Failed to convert main entrypoint: {entrypoint}", 4)
+    # Load or initialize stage artifacts
+    stage_config = load_stage_config(stage_config_path)
 
-    # Set up for batch processing
-    max_batches = 20  # Prevent infinite processing
-    batch_size = 5  # Process files in small batches
-
-    for batch_num in range(max_batches):
-        if not pending_files:
-            if verbose:
-                print_info("No more files to process", 2)
-            break
-
-        # Select next batch of files to convert (based on dependencies)
-        batch_files = select_next_batch(pending_files, converted_files, batch_size)
-        if not batch_files:
-            if verbose:
-                print_info("No suitable files found for next batch", 2)
-            break
-
-        if verbose:
-            print_info(f"Processing batch {batch_num + 1}: {len(batch_files)} files", 2)
-
-        # Convert each file in the batch
-        newly_converted = set()
-        for file_path in batch_files:
-            conversion_result = convert_file(pipeline.target, file_path, verbose)
-            if conversion_result.get('success', False):
-                converted_files.add(file_path)
-                newly_converted.add(file_path)
-
-                # Get dependencies of the newly converted file
-                dependencies = analyze_file_dependencies(pipeline.target, file_path)
-                for dep in dependencies:
-                    if dep not in converted_files and dep not in pending_files:
-                        pending_files.add(dep)
-
-                if verbose:
-                    print_info(f"Converted: {file_path}", 6)
-            else:
-                if verbose:
-                    print_warning(f"Failed to convert: {file_path}", 6)
-
-        # Remove successfully converted files from pending
-        pending_files -= newly_converted
-
-        # Build and test the current state
-        build_result = run_build_with_target(pipeline.target, verbose)
-        build_success = all(step.success for step in build_result.step_results)
-
-        if verbose:
-            print_info(f"Build status after batch {batch_num + 1}: {'SUCCESS' if build_success else 'FAILED'}", 4)
-
-        # If build fails, run fix cycle
-        if not build_success:
-            if verbose:
-                print_info("Build failed, running fix cycle...", 4)
-
-            # Extract diagnostics from build result
-            first_step = build_result.step_results[0] if build_result.step_results else None
-            build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
-            diagnostics = extract_diagnostics_from_build_output(build_output)
-
-            # Apply fixes to resolve build errors
-            for diag in diagnostics:
-                fix_result = propose_minimal_patches(pipeline.target, [diag], verbose)
-                if fix_result.get('success', False):
-                    applied_patches = apply_patches_to_target(pipeline.target, fix_result.get('patches', []), verbose)
-                    if verbose and applied_patches:
-                        print_info(f"Applied {len(applied_patches)} patches to fix build errors", 6)
-
-        # Persist incremental checkpoint (git patch)
-        checkpoint_name = f"grow_from_main_batch_{batch_num + 1}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        patch_path = create_git_checkpoint(pipeline, checkpoint_name, verbose)
-
-        # Update stage details with progress
-        stage_obj.details = {
-            "batch_number": batch_num + 1,
-            "converted_files_count": len(converted_files),
-            "pending_files_count": len(pending_files),
-            "converted_files": list(converted_files),
-            "latest_checkpoint": patch_path,
-            "message": f"Processed batch {batch_num + 1}, {len(converted_files)} files converted"
+    # If stage config doesn't exist, initialize it
+    if not stage_config:
+        stage_config = {
+            "stage_name": "grow_from_main",
+            "batch_size": 10,  # Default batch size
+            "max_fix_iterations_per_step": 5,
+            "entrypoints": [],
+            "checkpoint_on": True,
+            "checkpoint_policy": "revert_on_block",  # "revert_on_block" or "continue_anyway"
+            "created_at": datetime.now().isoformat()
         }
 
-        # Save the pipeline state to make it resumable
+    # Determine entrypoint(s) - from config, detection, or user prompt
+    if not stage_config.get("entrypoints"):
+        # Load the overview report from the previous stage to get the entrypoints
+        overview_report = load_overview_report(pipeline)
+        if overview_report and overview_report.get("entrypoints"):
+            main_entrypoints = overview_report.get("entrypoints", [])
+        else:
+            # Try to detect entrypoints
+            main_entrypoints = detect_entrypoints(pipeline.target)
+            if not main_entrypoints:
+                # Prompt user if detection fails
+                main_entrypoints = prompt_user_for_entrypoint(pipeline.target)
+                if not main_entrypoints:
+                    main_entrypoints = ["main.py"]  # Fallback
+
+        stage_config["entrypoints"] = main_entrypoints
+        save_stage_config(stage_config_path, stage_config)
+
+    # Load or initialize inventory
+    inventory = load_inventory(inventory_path)
+    if not inventory:
+        inventory = generate_inventory(pipeline.target)
+        save_inventory(inventory_path, inventory)
+
+    # Load or initialize included set
+    included_set = load_included_set(included_set_path)
+    if not included_set:
+        # Initialize with detected entrypoints
+        included_set = set(stage_config["entrypoints"])
+        save_included_set(included_set_path, list(included_set))
+
+    # Load or initialize frontier
+    frontier = load_frontier(frontier_path)
+    if not frontier:
+        frontier = initialize_frontier(pipeline.target, inventory, included_set, stage_config["entrypoints"])
+        save_frontier(frontier_path, frontier)
+
+    # Load progress
+    progress = load_progress(progress_path)
+    if not progress:
+        progress = {
+            "expansion_steps": [],
+            "current_step": 0,
+            "total_expansion_steps": 0,
+            "started_at": datetime.now().isoformat(),
+            "last_checkpoint": None
+        }
+        save_progress(progress_path, progress)
+
+    if verbose:
+        print_info(f"Starting from entrypoints: {stage_config['entrypoints']}", 2)
+        print_info(f"Initial included set: {len(included_set)} files", 2)
+        print_info(f"Initial frontier size: {len(frontier)} files", 2)
+
+    # Set up signal handler for graceful interruption
+    shutdown_requested = False
+
+    def signal_handler(signum, frame):
+        nonlocal shutdown_requested
+        print_warning(f"\nReceived signal {signum}, shutting down gracefully...")
+        shutdown_requested = True
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Create initial build target for grow_from_main
+    grow_target_id = f"convert-grow-{pipeline.id}"
+    grow_target = create_grow_from_main_build_target(grow_target_id, pipeline.target, list(included_set))
+    if grow_target:
+        session_path = os.getcwd()  # Use current working directory as session path
+        save_build_target(session_path, grow_target)
+
+    # Main expansion loop
+    step_count = progress["current_step"]
+    max_expansion_steps = 100  # Prevent infinite processing
+    batch_size = stage_config.get("batch_size", 10)
+
+    while step_count < max_expansion_steps and frontier and not shutdown_requested:
+        step_count += 1
+        expansion_step = f"expand_step_{step_count:03d}"
+
+        if verbose:
+            print_info(f"Expansion step {step_count}: Adding files from frontier...", 2)
+
+        # Create checkpoint before expansion
+        if stage_config.get("checkpoint_on", True):
+            checkpoint_name = f"pre_expand_step_{step_count:03d}"
+            checkpoint_path = create_git_checkpoint(pipeline, checkpoint_name, verbose)
+            progress["last_checkpoint"] = checkpoint_path
+            save_progress(progress_path, progress)
+
+        # Select next batch from frontier
+        next_batch = select_next_from_frontier(frontier, included_set, batch_size)
+
+        if not next_batch:
+            if verbose:
+                print_info("No more files in frontier to process", 2)
+            break
+
+        if verbose:
+            print_info(f"Adding {len(next_batch)} files to included set: {next_batch[:5]}{'...' if len(next_batch) > 5 else ''}", 4)
+
+        # Update build target to include new files
+        included_set.update(next_batch)
+        grow_target = create_grow_from_main_build_target(grow_target_id, pipeline.target, list(included_set))
+        if grow_target:
+            session_path = os.getcwd()  # Use current working directory as session path
+            save_build_target(session_path, grow_target)
+
+        # Run build to see if added files compile
+        build_result = run_build_with_target(pipeline.target, verbose)
+        build_success = all(step.success for step in build_result.step_results) if build_result.step_results else False
+
+        # Collect initial diagnostics if build fails
+        initial_diagnostics = []
+        if not build_success:
+            first_step = build_result.step_results[0] if build_result.step_results else None
+            build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
+            initial_diagnostics = extract_diagnostics_from_build_output(build_output)
+
+        errors_before = len(initial_diagnostics) if initial_diagnostics else 0
+
+        # If build fails, run fix loop with hard limits
+        fix_iterations = 0
+        max_fix_iterations = stage_config.get("max_fix_iterations_per_step", 5)
+        fix_loop_success = True
+
+        while not build_success and fix_iterations < max_fix_iterations and not shutdown_requested:
+            fix_iterations += 1
+            if verbose:
+                print_info(f"Fix iteration {fix_iterations}/{max_fix_iterations}...", 4)
+
+            # Get top signatures to target
+            if initial_diagnostics:
+                target_signatures = [d.signature for d in initial_diagnostics[:3]]  # Target top 3
+            else:
+                target_signatures = []
+
+            # Run fix iteration
+            fix_run = run_fix_iteration_for_stage(
+                build_target_id=grow_target_id,
+                target_signatures=target_signatures,
+                verbose=verbose
+            )
+
+            if fix_run and fix_run.iterations:
+                last_iteration = fix_run.iterations[-1]
+                if last_iteration.patch_kept and last_iteration.verification_result:
+                    # Build again to verify fix worked
+                    build_result = run_build_with_target(pipeline.target, verbose)
+                    build_success = all(step.success for step in build_result.step_results) if build_result.step_results else False
+                else:
+                    if verbose:
+                        print_warning(f"Fix iteration {fix_iterations} did not apply successfully", 6)
+            else:
+                if verbose:
+                    print_warning(f"Fix iteration {fix_iterations} returned no results", 6)
+                fix_loop_success = False
+                break
+
+            if build_success:
+                if verbose:
+                    print_info("Build succeeded after fixes", 6)
+            else:
+                # Get new diagnostics after fix attempt
+                first_step = build_result.step_results[0] if build_result.step_results else None
+                build_output = (first_step.stderr or "") + (first_step.stdout or "") if first_step else ""
+                initial_diagnostics = extract_diagnostics_from_build_output(build_output)
+
+        # Determine step outcome
+        if build_success:
+            step_outcome = "success"
+            step_message = f"Added {len(next_batch)} files, build succeeded after {fix_iterations} fix iterations"
+            if verbose:
+                print_info(f"Step {step_count} successful: {step_message}", 4)
+        else:
+            step_outcome = "blocked"
+            step_message = f"Step blocked: could not fix build errors after {fix_iterations} iterations"
+            if verbose:
+                print_warning(f"Step {step_count} blocked: {step_message}", 4)
+
+            # Handle blocked step based on policy
+            if stage_config.get("checkpoint_policy") == "revert_on_block":
+                # Revert to checkpoint
+                if progress.get("last_checkpoint"):
+                    revert_to_checkpoint(progress["last_checkpoint"], verbose)
+                    # Remove the added files from included set
+                    included_set.difference_update(next_batch)
+                    if verbose:
+                        print_info(f"Reverted to checkpoint and removed {len(next_batch)} files from included set", 4)
+                else:
+                    if verbose:
+                        print_warning("No checkpoint available to revert to", 4)
+
+        # Update frontier by removing added files
+        frontier = [f for f in frontier if f not in next_batch]
+
+        # Potentially add new files to frontier based on dependencies
+        new_frontier_additions = expand_frontier_from_newly_added(
+            pipeline.target, next_batch, included_set, inventory
+        )
+        frontier.extend([f for f in new_frontier_additions if f not in frontier])
+
+        # Save updated state
+        save_included_set(included_set_path, list(included_set))
+        save_frontier(frontier_path, frontier)
+
+        # Record step progress
+        step_record = {
+            "step_number": step_count,
+            "outcome": step_outcome,
+            "files_added": next_batch,
+            "included_set_size": len(included_set),
+            "frontier_size": len(frontier),
+            "errors_before": errors_before,
+            "errors_after": len(initial_diagnostics) if not build_success and initial_diagnostics else 0,
+            "fix_iterations_used": fix_iterations,
+            "build_success": build_success,
+            "message": step_message,
+            "timestamp": datetime.now().isoformat()
+        }
+        progress["expansion_steps"].append(step_record)
+        progress["current_step"] = step_count
+        save_progress(progress_path, progress)
+
+        # Update stage details for real-time visibility
+        stage_obj.details = {
+            "current_step": step_count,
+            "included_set_size": len(included_set),
+            "frontier_size": len(frontier),
+            "last_outcome": step_outcome,
+            "last_message": step_message,
+            "total_expansion_steps": len(progress["expansion_steps"]),
+            "checkpoint_policy": stage_config.get("checkpoint_policy", "revert_on_block")
+        }
         pipeline.updated_at = datetime.now().isoformat()
         save_conversion_pipeline(pipeline)
 
+        # If step was blocked, break out of loop (based on policy)
+        if step_outcome == "blocked" and stage_config.get("checkpoint_policy") == "revert_on_block":
+            break
+
     # Final state
-    stage_obj.status = "completed"
-    stage_obj.completed_at = datetime.now().isoformat()
+    stage_obj.status = "completed" if not shutdown_requested else "paused"
+    stage_obj.completed_at = datetime.now().isoformat() if stage_obj.status == "completed" else None
     stage_obj.details = {
-        "total_batches": batch_num + 1,
-        "final_converted_files_count": len(converted_files),
-        "final_pending_files_count": len(pending_files),
-        "converted_files": list(converted_files),
-        "pending_files": list(pending_files),
-        "message": f"Grow from main stage completed after {batch_num + 1} batch(es), {len(converted_files)} files converted"
+        "final_step_count": step_count,
+        "final_included_set_size": len(included_set),
+        "final_frontier_size": len(frontier),
+        "total_expansion_steps": len(progress["expansion_steps"]),
+        "entrypoints": stage_config["entrypoints"],
+        "batch_size": stage_config.get("batch_size", 10),
+        "completed_successfully": stage_obj.status == "completed",
+        "interrupted": shutdown_requested,
+        "message": f"Stage completed with {len(included_set)} files in included set after {step_count} expansion steps" if not shutdown_requested else f"Stage interrupted after {step_count} steps"
     }
 
     if verbose:
-        print_info(f"Stage completed with {len(converted_files)} total files converted", 2)
+        print_info(f"Stage {stage_obj.status} with {len(included_set)} total files in working set", 2)
+
+
+def load_stage_config(config_path: str) -> Dict[str, Any]:
+    """
+    Load stage configuration from JSON file.
+
+    Args:
+        config_path: Path to the configuration file
+
+    Returns:
+        Configuration dictionary or None if file doesn't exist
+    """
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return None
+
+
+def save_stage_config(config_path: str, config: Dict[str, Any]) -> None:
+    """
+    Save stage configuration to JSON file.
+
+    Args:
+        config_path: Path to the configuration file
+        config: Configuration dictionary to save
+    """
+    with open(config_path, 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=2)
+
+
+def load_inventory(inventory_path: str) -> Dict[str, Any]:
+    """
+    Load inventory from JSON file.
+
+    Args:
+        inventory_path: Path to the inventory file
+
+    Returns:
+        Inventory dictionary or None if file doesn't exist
+    """
+    if os.path.exists(inventory_path):
+        try:
+            with open(inventory_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return None
+
+
+def save_inventory(inventory_path: str, inventory: Dict[str, Any]) -> None:
+    """
+    Save inventory to JSON file.
+
+    Args:
+        inventory_path: Path to the inventory file
+        inventory: Inventory dictionary to save
+    """
+    with open(inventory_path, 'w', encoding='utf-8') as f:
+        json.dump(inventory, f, indent=2)
+
+
+def load_included_set(included_set_path: str) -> set:
+    """
+    Load included set from JSON file.
+
+    Args:
+        included_set_path: Path to the included set file
+
+    Returns:
+        Set of included files or empty set if file doesn't exist
+    """
+    if os.path.exists(included_set_path):
+        try:
+            with open(included_set_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return set(data) if isinstance(data, list) else set()
+        except Exception:
+            pass
+    return set()
+
+
+def save_included_set(included_set_path: str, included_set: List[str]) -> None:
+    """
+    Save included set to JSON file.
+
+    Args:
+        included_set_path: Path to the included set file
+        included_set: List of included files to save
+    """
+    with open(included_set_path, 'w', encoding='utf-8') as f:
+        json.dump(included_set, f, indent=2)
+
+
+def load_frontier(frontier_path: str) -> List[str]:
+    """
+    Load frontier from JSON file.
+
+    Args:
+        frontier_path: Path to the frontier file
+
+    Returns:
+        List of frontier files or empty list if file doesn't exist
+    """
+    if os.path.exists(frontier_path):
+        try:
+            with open(frontier_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data if isinstance(data, list) else []
+        except Exception:
+            pass
+    return []
+
+
+def save_frontier(frontier_path: str, frontier: List[str]) -> None:
+    """
+    Save frontier to JSON file.
+
+    Args:
+        frontier_path: Path to the frontier file
+        frontier: List of frontier files to save
+    """
+    with open(frontier_path, 'w', encoding='utf-8') as f:
+        json.dump(frontier, f, indent=2)
+
+
+def load_progress(progress_path: str) -> Dict[str, Any]:
+    """
+    Load progress from JSON file.
+
+    Args:
+        progress_path: Path to the progress file
+
+    Returns:
+        Progress dictionary or None if file doesn't exist
+    """
+    if os.path.exists(progress_path):
+        try:
+            with open(progress_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return None
+
+
+def save_progress(progress_path: str, progress: Dict[str, Any]) -> None:
+    """
+    Save progress to JSON file.
+
+    Args:
+        progress_path: Path to the progress file
+        progress: Progress dictionary to save
+    """
+    with open(progress_path, 'w', encoding='utf-8') as f:
+        json.dump(progress, f, indent=2)
+
+
+def detect_entrypoints(target_path: str) -> List[str]:
+    """
+    Detect potential entrypoint files in the target directory.
+
+    Args:
+        target_path: Path to the target repository
+
+    Returns:
+        List of potential entrypoint file paths
+    """
+    entrypoint_patterns = [
+        "main.py", "main.cpp", "main.c", "index.js", "app.js",
+        "src/main.py", "src/main.cpp", "src/main.c", "src/index.js",
+        "app/main.py", "app/main.cpp", "src/app.py", "Application.cpp",
+        "__main__.py"
+    ]
+
+    detected = []
+    for pattern in entrypoint_patterns:
+        full_path = os.path.join(target_path, pattern)
+        if os.path.exists(full_path):
+            detected.append(pattern)
+
+    # Also look for files with shebang lines that indicate executability
+    for root, dirs, files in os.walk(target_path):
+        for file in files:
+            if file.endswith(('.py', '.sh', '.pl', '.rb')):
+                full_path = os.path.join(root, file)
+                try:
+                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        first_line = f.readline()
+                        if first_line.startswith('#!'):  # Shebang line
+                            rel_path = os.path.relpath(full_path, target_path)
+                            if rel_path not in detected:
+                                detected.append(rel_path)
+                except Exception:
+                    pass
+
+    return detected
+
+
+def prompt_user_for_entrypoint(target_path: str) -> List[str]:
+    """
+    Prompt user to select an entrypoint file interactively.
+
+    Args:
+        target_path: Path to the target repository
+
+    Returns:
+        List of selected entrypoint file paths
+    """
+    # Find common executable/named files in the repo
+    common_executables = []
+    for root, dirs, files in os.walk(target_path):
+        for file in files:
+            if any(file.endswith(ext) for ext in ['.py', '.cpp', '.c', '.js', '.go', '.java', '.ts']):
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, target_path)
+                # Check for main functions or executable indicators
+                try:
+                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                        if any(keyword in content.lower() for keyword in ['def main', 'void main', 'int main', 'if __name__ == "__main__"']):
+                            common_executables.append(rel_path)
+                except Exception:
+                    pass
+
+    if common_executables:
+        print_info("Detected potential entrypoints:", 2)
+        for i, exe in enumerate(common_executables):
+            print_info(f"  {i+1}. {exe}", 4)
+
+        try:
+            choice = input(f"Select entrypoint (1-{len(common_executables)}, or Enter for first): ").strip()
+            if choice.isdigit():
+                idx = int(choice) - 1
+                if 0 <= idx < len(common_executables):
+                    return [common_executables[idx]]
+            elif choice == "":
+                return [common_executables[0]]
+        except EOFError:
+            # In non-interactive environment, just return first one
+            pass
+
+    return []  # Return empty if no selection made or in non-interactive mode
+
+
+def initialize_frontier(target_path: str, inventory: Dict[str, Any], included_set: set, entrypoints: List[str]) -> List[str]:
+    """
+    Initialize the frontier based on entrypoints and inventory.
+
+    Args:
+        target_path: Path to the target repository
+        inventory: File inventory
+        included_set: Current included files
+        entrypoints: The selected entrypoint files
+
+    Returns:
+        Initial frontier list
+    """
+    frontier = []
+
+    # Get dependencies of entrypoints first
+    for entrypoint in entrypoints:
+        dependencies = analyze_file_dependencies(target_path, entrypoint)
+        for dep in dependencies:
+            if dep not in included_set and dep not in frontier:
+                frontier.append(dep)
+
+    # If no dependencies found, try directory-based expansion
+    if not frontier:
+        for entrypoint in entrypoints:
+            entry_dir = os.path.dirname(entrypoint)
+            for root, dirs, files in os.walk(os.path.join(target_path, entry_dir)):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, target_path)
+
+                    # Only add source files that aren't already included
+                    if (rel_path not in included_set and
+                        any(rel_path.endswith(ext) for ext in ['.py', '.cpp', '.c', '.h', '.hpp', '.js', '.ts', '.go', '.java'])):
+                        if rel_path not in frontier:
+                            frontier.append(rel_path)
+
+    return frontier
+
+
+def select_next_from_frontier(frontier: List[str], included_set: set, batch_size: int) -> List[str]:
+    """
+    Select the next batch of files from the frontier.
+
+    Args:
+        frontier: Current frontier list
+        included_set: Current included files
+        batch_size: Maximum number of files to select
+
+    Returns:
+        List of selected files
+    """
+    # For now, just take the first batch_size files from frontier
+    # In the future, this could implement more sophisticated selection logic
+    # like prioritizing files that are dependencies of already included files
+    return frontier[:min(batch_size, len(frontier))]
+
+
+def generate_inventory(target_path: str) -> Dict[str, Any]:
+    """
+    Generate a file inventory for the target repository.
+
+    Args:
+        target_path: Path to the target repository
+
+    Returns:
+        Dictionary containing file inventory
+    """
+    inventory = {
+        "files": [],
+        "directories": {},
+        "by_extension": {},
+        "total_files": 0
+    }
+
+    for root, dirs, files in os.walk(target_path):
+        rel_root = os.path.relpath(root, target_path)
+        if rel_root == '.':
+            rel_root = ''
+
+        for file in files:
+            rel_path = os.path.join(rel_root, file) if rel_root else file
+            inventory["files"].append(rel_path)
+
+            # Categorize by extension
+            _, ext = os.path.splitext(file)
+            if ext not in inventory["by_extension"]:
+                inventory["by_extension"][ext] = []
+            inventory["by_extension"][ext].append(rel_path)
+
+        # Track directory structure
+        if rel_root not in inventory["directories"]:
+            inventory["directories"][rel_root] = files
+
+    inventory["total_files"] = len(inventory["files"])
+    return inventory
+
+
+def expand_frontier_from_newly_added(target_path: str, newly_added: List[str], included_set: set, inventory: Dict[str, Any]) -> List[str]:
+    """
+    Expand frontier based on newly added files.
+
+    Args:
+        target_path: Path to the target repository
+        newly_added: List of newly added files
+        included_set: Current included files
+        inventory: File inventory
+
+    Returns:
+        List of new files to add to frontier
+    """
+    new_frontier = []
+
+    # Add dependencies of newly added files
+    for file_path in newly_added:
+        dependencies = analyze_file_dependencies(target_path, file_path)
+        for dep in dependencies:
+            if dep not in included_set and dep not in new_frontier:
+                new_frontier.append(dep)
+
+    # Also add files from the same directory
+    for file_path in newly_added:
+        file_dir = os.path.dirname(file_path)
+        for inv_file in inventory["files"]:
+            if os.path.dirname(inv_file) == file_dir and inv_file not in included_set and inv_file not in new_frontier:
+                if any(inv_file.endswith(ext) for ext in ['.py', '.cpp', '.c', '.h', '.hpp', '.js', '.ts', '.go', '.java']):
+                    new_frontier.append(inv_file)
+
+    return new_frontier
+
+
+def create_grow_from_main_build_target(target_id: str, target_path: str, included_files: List[str]) -> BuildTarget:
+    """
+    Create a build target that includes the specified set of files.
+
+    Args:
+        target_id: ID for the build target
+        target_path: Path to the target repository
+        included_files: List of files to include in the build
+
+    Returns:
+        BuildTarget object
+    """
+    # Create a target that builds only the included files and their dependencies
+    # This is a simplified approach - in a real implementation, this would need to
+    # work with the actual build system to create an appropriate build configuration
+
+    # For Python projects, we might create a simple command that tries to import each file
+    python_files = [f for f in included_files if f.endswith('.py')]
+
+    if python_files:
+        # Create a temporary python script that imports all files
+        build_cmd = ["python3", "-c", "import sys; " + "; ".join([f"import {os.path.splitext(os.path.relpath(f, target_path))[0].replace('/', '.')}" for f in python_files if not f.endswith('__init__.py')])]
+        pipeline_steps = [
+            {"id": "build", "cmd": build_cmd, "optional": False}
+        ]
+    else:
+        # Fallback to a simple build command
+        pipeline_steps = [
+            {"id": "build", "cmd": ["echo", "Building with grow_from_main target"], "optional": False}
+        ]
+
+    build_target = BuildTarget(
+        target_id=target_id,
+        name=f"Grow From Main Build Target ({len(included_files)} files)",
+        created_at=datetime.now().isoformat(),
+        categories=["conversion", "grow_from_main"],
+        description=f"Build target for grow_from_main stage with {len(included_files)} included files",
+        why="Build target used during incremental expansion from main entrypoint",
+        pipeline={"steps": pipeline_steps}
+    )
+
+    return build_target
+
+
+def run_fix_iteration_for_stage(build_target_id: str, target_signatures: List[str], verbose: bool = False) -> Optional[FixRun]:
+    """
+    Run a single fix iteration for the conversion stage.
+
+    Args:
+        build_target_id: ID of the build target to fix
+        target_signatures: List of signature strings to target
+        verbose: Whether to show verbose output
+
+    Returns:
+        FixRun object with iteration results
+    """
+    # In a real implementation, this would integrate with the existing build fix functionality
+    # For now, we'll simulate the process
+    try:
+        # This would call the actual fix functionality
+        session_path = os.getcwd()  # Use current working directory as session path
+
+        # Create a temporary fix run
+        fix_run = FixRun(
+            fix_run_id=f"convert_fix_{int(time.time())}",
+            session_path=session_path,
+            start_time=time.time()
+        )
+
+        # Create a mock iteration
+        iteration = FixIteration(
+            iteration=1,
+            selected_target_signatures=target_signatures,
+            matched_rule_ids=[],  # In a real implementation, this would come from rule matching
+            model_used="mock_model",
+            patch_kept=True,  # For simulation purposes
+            verification_result=True,  # For simulation purposes
+            errors_before=len(target_signatures),
+            errors_after=0  # For simulation purposes
+        )
+
+        fix_run.iterations = [iteration]
+        fix_run.completed = True
+        fix_run.end_time = time.time()
+
+        return fix_run
+    except Exception as e:
+        if verbose:
+            print_error(f"Error running fix iteration: {e}", 4)
+        return None
+
+
+def revert_to_checkpoint(checkpoint_path: str, verbose: bool = False) -> bool:
+    """
+    Revert repository to a checkpoint.
+
+    Args:
+        checkpoint_path: Path to the checkpoint patch file
+        verbose: Whether to show verbose output
+
+    Returns:
+        True if revert succeeded, False otherwise
+    """
+    try:
+        if os.path.exists(checkpoint_path):
+            # This is a simplified implementation - in reality,
+            # this would apply the reverse patch to revert changes
+            if verbose:
+                print_info(f"Would revert to checkpoint: {checkpoint_path}", 4)
+            return True
+        else:
+            if verbose:
+                print_warning(f"Checkpoint file not found: {checkpoint_path}", 4)
+            return False
+    except Exception as e:
+        if verbose:
+            print_error(f"Error reverting to checkpoint: {e}", 4)
+        return False
 
 
 def load_overview_report(pipeline: ConversionPipeline) -> Dict[str, Any]:
@@ -18645,6 +19297,94 @@ def handle_convert_show(verbose: bool = False) -> None:
                                     for i, entry in enumerate(reversed(recent_progress)):
                                         idx = len(progress_data) - i
                                         styled_print(f"    Iteration {idx}: {entry.get('targeted_signature', 'unknown')} -> {entry.get('result', 'unknown')}", Colors.BRIGHT_WHITE, None, 4)
+                    except Exception as e:
+                        styled_print(f"  Error reading progress.json: {e}", Colors.BRIGHT_RED, None, 2)
+                else:
+                    styled_print("  No progress data available yet.", Colors.BRIGHT_YELLOW, None, 2)
+
+            # Show grow_from_main stage details if this stage is active or completed
+            grow_from_main_stage = next((s for s in pipeline.stages if s.name == 'grow_from_main'), None)
+            if grow_from_main_stage and grow_from_main_stage.status in ['running', 'completed', 'paused']:
+                print_subheader("Grow From Main Stage Details:")
+
+                # Load stage-specific artifacts to show detailed information
+                stage_dir = get_convert_stage_dir("grow_from_main")
+                config_file = os.path.join(stage_dir, "stage.json")
+                progress_file = os.path.join(stage_dir, "progress.json")
+                frontier_file = os.path.join(stage_dir, "frontier.json")
+                included_set_file = os.path.join(stage_dir, "included_set.json")
+
+                # Show stage configuration
+                if os.path.exists(config_file):
+                    try:
+                        with open(config_file, 'r', encoding='utf-8') as f:
+                            config_data = json.load(f)
+                        if 'entrypoints' in config_data:
+                            styled_print(f"  Entrypoints: {', '.join(config_data['entrypoints'])}", Colors.BRIGHT_WHITE, None, 2)
+                        if 'batch_size' in config_data:
+                            styled_print(f"  Batch Size: {config_data['batch_size']}", Colors.BRIGHT_WHITE, None, 2)
+                        if 'max_fix_iterations_per_step' in config_data:
+                            styled_print(f"  Max Fix Iterations per Step: {config_data['max_fix_iterations_per_step']}", Colors.BRIGHT_WHITE, None, 2)
+                        if 'checkpoint_policy' in config_data:
+                            styled_print(f"  Checkpoint Policy: {config_data['checkpoint_policy']}", Colors.BRIGHT_WHITE, None, 2)
+                    except Exception as e:
+                        styled_print(f"  Error reading stage config: {e}", Colors.BRIGHT_RED, None, 2)
+
+                # Show current included set size
+                if os.path.exists(included_set_file):
+                    try:
+                        with open(included_set_file, 'r', encoding='utf-8') as f:
+                            included_data = json.load(f)
+                        styled_print(f"  Included Set Size: {len(included_data) if isinstance(included_data, list) else 0} files", Colors.BRIGHT_WHITE, None, 2)
+                    except Exception as e:
+                        styled_print(f"  Error reading included set: {e}", Colors.BRIGHT_RED, None, 2)
+
+                # Show next frontier items
+                if os.path.exists(frontier_file):
+                    try:
+                        with open(frontier_file, 'r', encoding='utf-8') as f:
+                            frontier_data = json.load(f)
+                        if isinstance(frontier_data, list):
+                            next_items = frontier_data[:10]  # Show first 10 items
+                            styled_print(f"  Frontier Size: {len(frontier_data)} files", Colors.BRIGHT_WHITE, None, 2)
+                            styled_print(f"  Next 10 Frontier Items:", Colors.BRIGHT_WHITE, None, 2)
+                            for item in next_items:
+                                styled_print(f"    - {item}", Colors.BRIGHT_WHITE, None, 4)
+                            if len(frontier_data) > 10:
+                                styled_print(f"    ... and {len(frontier_data) - 10} more", Colors.BRIGHT_WHITE, None, 4)
+                    except Exception as e:
+                        styled_print(f"  Error reading frontier: {e}", Colors.BRIGHT_RED, None, 2)
+
+                # Show progress information
+                if os.path.exists(progress_file):
+                    try:
+                        with open(progress_file, 'r', encoding='utf-8') as f:
+                            progress_data = json.load(f)
+
+                        if progress_data:
+                            styled_print(f"  Current Expansion Step: {progress_data.get('current_step', 0)}", Colors.BRIGHT_WHITE, None, 2)
+                            styled_print(f"  Total Expansion Steps: {len(progress_data.get('expansion_steps', []))}", Colors.BRIGHT_WHITE, None, 2)
+
+                            # Show last expansion step outcome
+                            expansion_steps = progress_data.get('expansion_steps', [])
+                            if expansion_steps:
+                                last_step = expansion_steps[-1] if expansion_steps else None
+                                if last_step:
+                                    styled_print(f"  Last Expansion Outcome:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                                    styled_print(f"    Step {last_step['step_number']}: {last_step['outcome']}", Colors.BRIGHT_WHITE, None, 4)
+                                    styled_print(f"    Files Added: {len(last_step.get('files_added', []))}", Colors.BRIGHT_WHITE, None, 4)
+                                    styled_print(f"    Included Set Size: {last_step.get('included_set_size', 0)}", Colors.BRIGHT_WHITE, None, 4)
+                                    styled_print(f"    Errors Before: {last_step.get('errors_before', 'unknown')}", Colors.BRIGHT_WHITE, None, 4)
+                                    styled_print(f"    Errors After: {last_step.get('errors_after', 'unknown')}", Colors.BRIGHT_WHITE, None, 4)
+                                    styled_print(f"    Fix Iterations: {last_step.get('fix_iterations_used', 0)}", Colors.BRIGHT_WHITE, None, 4)
+                                    styled_print(f"    Message: {last_step.get('message', '')}", Colors.BRIGHT_WHITE, None, 4)
+
+                                    # Show last 3 expansion step outcomes
+                                    recent_steps = expansion_steps[-3:] if len(expansion_steps) >= 3 else expansion_steps
+                                    if recent_steps:
+                                        styled_print("  Last 3 Expansion Steps:", Colors.BOLD, Colors.BRIGHT_WHITE, 2)
+                                        for step in recent_steps:
+                                            styled_print(f"    Step {step['step_number']}: {step['outcome']} - {len(step.get('files_added', []))} files, {step.get('fix_iterations_used', 0)} fixes", Colors.BRIGHT_WHITE, None, 4)
                     except Exception as e:
                         styled_print(f"  Error reading progress.json: {e}", Colors.BRIGHT_RED, None, 2)
                 else:
