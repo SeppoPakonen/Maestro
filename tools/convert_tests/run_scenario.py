@@ -311,9 +311,9 @@ def main():
         
         # Create pipeline
         create_cmd = [
-            sys.executable, "-m", "maestro", "convert", "new",
-            "--source", str(source_path),
-            "--target", str(target_path),
+            sys.executable, "maestro.py", "convert", "new",
+            str(source_path),
+            str(target_path),
             "--intent", intent
         ]
         log(f"Running: {' '.join(create_cmd)}")
@@ -326,17 +326,66 @@ def main():
             stages_status["create"] = "success"
             
             # Run pipeline
-            run_cmd = [sys.executable, "-m", "maestro", "convert", "run"]
-            log(f"Running: {' '.join(run_cmd)}")
-            
-            exit_code, stdout, stderr = run_maestro_convert_subprocess(run_cmd, interrupt_after=args.interrupt_after)
-            cmd_exit_codes["run"] = exit_code
-            log(f"Run command exit code: {exit_code}")
-            
-            if exit_code == 0:
-                stages_status["run"] = "success"
+            # For language_to_language conversions, run specific stages as per requirements
+            if intent == "language_to_language":
+                # Run semantic_mapping stage first
+                semantic_cmd = [sys.executable, "maestro.py", "convert", "run", "--stage", "semantic_mapping"]
+                log(f"Running: {' '.join(semantic_cmd)}")
+
+                exit_code, stdout, stderr = run_maestro_convert_subprocess(semantic_cmd, interrupt_after=args.interrupt_after)
+                cmd_exit_codes["semantic_mapping"] = exit_code
+                log(f"Semantic mapping stage exit code: {exit_code}")
+
+                if exit_code == 0:
+                    stages_status["semantic_mapping"] = "success"
+                else:
+                    stages_status["semantic_mapping"] = "failed"
+
+                # Run overview stage
+                overview_cmd = [sys.executable, "maestro.py", "convert", "run", "--stage", "overview"]
+                log(f"Running: {' '.join(overview_cmd)}")
+
+                exit_code, stdout, stderr = run_maestro_convert_subprocess(overview_cmd, interrupt_after=args.interrupt_after)
+                cmd_exit_codes["overview"] = exit_code
+                log(f"Overview stage exit code: {exit_code}")
+
+                if exit_code == 0:
+                    stages_status["overview"] = "success"
+                else:
+                    stages_status["overview"] = "failed"
+
+                # Run realize stage if it's available
+                realize_cmd = [sys.executable, "maestro.py", "convert", "run", "--stage", "realize"]
+                log(f"Running: {' '.join(realize_cmd)}")
+
+                exit_code, stdout, stderr = run_maestro_convert_subprocess(realize_cmd, interrupt_after=args.interrupt_after)
+                cmd_exit_codes["realize"] = exit_code
+                log(f"Realize stage exit code: {exit_code}")
+
+                if exit_code == 0:
+                    stages_status["realize"] = "success"
+                else:
+                    stages_status["realize"] = "failed"
+
+                # The overall "run" success depends on all required stages
+                all_stages_successful = all(status == "success" for status in stages_status.values())
+                if all_stages_successful:
+                    stages_status["run"] = "success"
+                else:
+                    stages_status["run"] = "failed"
             else:
-                stages_status["run"] = "failed"
+                # For other intents, run the full pipeline as before
+                run_cmd = [sys.executable, "maestro.py", "convert", "run"]
+                log(f"Running: {' '.join(run_cmd)}")
+
+                exit_code, stdout, stderr = run_maestro_convert_subprocess(run_cmd, interrupt_after=args.interrupt_after)
+                cmd_exit_codes["run"] = exit_code
+                log(f"Run command exit code: {exit_code}")
+
+                if exit_code == 0:
+                    stages_status["run"] = "success"
+                else:
+                    stages_status["run"] = "failed"
         else:
             stages_status["create"] = "failed"
         
@@ -420,10 +469,14 @@ def main():
                 log("Warning: No expected summary.json found for this scenario")
 
     # Update overall success after golden validation
-    overall_success = success and source_unchanged
-    
+    # Make sure source repo wasn't modified (essential requirement)
+    if not source_unchanged:
+        overall_success = False
+        log("FAILED: Source repo was modified")
+    # The golden validation already updated overall_success appropriately
+
     log(f"Scenario {args.scenario} {'PASSED' if overall_success else 'FAILED'}")
-    
+
     return 0 if overall_success else 1
 
 

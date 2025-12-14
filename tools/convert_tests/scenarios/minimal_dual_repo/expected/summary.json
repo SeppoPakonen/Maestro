@@ -1,0 +1,13 @@
+{
+  "scenario_name": "minimal_dual_repo",
+  "timestamp": "2025-12-14T20:45:44.717314",
+  "intent": "Test basic dual-repo functionality with a minimal source repository.",
+  "source_repo_path": "tools/convert_tests/scenarios/minimal_dual_repo/source_repo",
+  "source_repo_rev": "1cc7c9dfe522a06cccd02203038f8b60e3431dab",
+  "target_repo_path": "tools/convert_tests/scenarios/minimal_dual_repo/target_repo",
+  "target_repo_rev": "0c40659b62d4f2af3e29090584087c8668eb9ac9",
+  "stages_executed": {},
+  "command_exit_codes": {},
+  "writes_detected_to_source": false,
+  "changed_files_in_source": []
+}

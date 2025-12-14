@@ -1,0 +1,18 @@
+# Required Report Sections for C to C++
+
+## Conversion Summary
+- language_to_language intent
+- C to C++ conversion
+- File mappings from .c/.h to .cpp/.hpp
+- Memory management transformations
+
+## Semantic Mapping Details
+- Struct to class mappings
+- malloc/free to new/delete transformations
+- C library to C++ STL mappings
+- Function to method mappings
+
+## Quality Assurance
+- C++ compilation compatibility
+- RAII implementation status
+- Functional equivalence maintained

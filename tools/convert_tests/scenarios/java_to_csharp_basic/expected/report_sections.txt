@@ -1,0 +1,18 @@
+# Required Report Sections for Java to C#
+
+## Conversion Summary
+- language_to_language intent
+- Java to C# conversion
+- File mappings from .java packages to .cs namespaces
+- Collection and I/O transformations
+
+## Semantic Mapping Details
+- Class and method mappings
+- Package to namespace transformations
+- Java Collections to .NET Collections
+- Exception handling mappings
+
+## Quality Assurance
+- C# compilation compatibility
+- .NET idiomatic code generation
+- Functional equivalence maintained

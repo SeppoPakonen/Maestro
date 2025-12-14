@@ -1,0 +1,14 @@
+{
+  "expected_stages": ["create", "run", "semantic_mapping", "overview"],
+  "expected_success": true,
+  "required_artifacts": [
+    "mapping.json",
+    "report.md"
+  ],
+  "required_mapping_elements": [
+    "modules",
+    "functions",
+    "data_structures",
+    "standard_library_equivalents"
+  ]
+}

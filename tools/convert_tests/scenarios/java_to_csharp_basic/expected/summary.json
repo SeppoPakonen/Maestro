@@ -1,0 +1,7 @@
+{
+  "scenario_name": "java_to_csharp_basic",
+  "intent": "language_to_language",
+  "expected_stages": ["create", "run"],
+  "expected_success": true,
+  "writes_detected_to_source": false
+}

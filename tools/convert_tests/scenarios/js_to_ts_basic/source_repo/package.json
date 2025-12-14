@@ -1,0 +1,16 @@
+{
+  "name": "js-to-ts-test-project",
+  "version": "1.0.0",
+  "description": "Test project for JavaScript to TypeScript conversion",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  },
+  "keywords": ["javascript", "typescript", "conversion"],
+  "author": "Maestro Test",
+  "license": "MIT"
+}
