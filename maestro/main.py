@@ -2518,6 +2518,20 @@ def main():
     baseline_parser.add_argument('run_id', help='Run ID to create baseline from')
     baseline_parser.add_argument('baseline_id', nargs='?', help='Baseline ID (optional, auto-generated if not provided)')
 
+    # Add semantics subcommand
+    convert_semantics_parser = convert_subparsers.add_parser('semantics', aliases=['sem'], help='Semantic analysis and integrity commands')
+    convert_semantics_subparsers = convert_semantics_parser.add_subparsers(dest='semantics_subcommand', help='Semantic subcommands')
+
+    # semantics diff
+    semantics_diff_parser = convert_semantics_subparsers.add_parser('diff', aliases=['d'], help='Cross-repo semantic diff with drift analysis')
+    semantics_diff_parser.add_argument('--top', type=int, default=20, help='Show top N items (default: 20)')
+    semantics_diff_parser.add_argument('--only', help='Filter results (format: file:<path> or risk:<flag>)')
+    semantics_diff_parser.add_argument('--format', choices=['text', 'json', 'md'], default='text', help='Output format (default: text)')
+    semantics_diff_parser.add_argument('--against', help='Compare against baseline ID (format: baseline:<id>)')
+
+    # semantics coverage
+    semantics_coverage_parser = convert_semantics_subparsers.add_parser('coverage', aliases=['c'], help='Show semantic coverage metrics')
+
     # Add help/h subcommands for convert subparsers
     convert_subparsers.add_parser('help', aliases=['h'], help='Show help for conversion pipeline commands')
 
@@ -3768,6 +3782,39 @@ def main():
 
                 result = subprocess.run(cmd)
                 sys.exit(result.returncode)
+            elif args.convert_subcommand == 'semantics':
+                # Handle semantic analysis commands
+                if hasattr(args, 'semantics_subcommand') and args.semantics_subcommand:
+                    if args.semantics_subcommand == 'diff':
+                        import subprocess
+                        import sys
+                        cmd = [sys.executable, "cross_repo_semantic_diff.py"]
+
+                        # Add optional arguments
+                        if hasattr(args, 'top') and args.top:
+                            cmd.extend(['--top', str(args.top)])
+                        if hasattr(args, 'only'):
+                            cmd.extend(['--only', args.only])
+                        if hasattr(args, 'format'):
+                            cmd.extend(['--format', args.format])
+                        if hasattr(args, 'against'):
+                            cmd.extend(['--against', args.against])
+
+                        result = subprocess.run(cmd)
+                        sys.exit(result.returncode)
+                    elif args.semantics_subcommand == 'coverage':
+                        import subprocess
+                        import sys
+                        cmd = [sys.executable, "cross_repo_semantic_diff.py", "coverage"]
+                        result = subprocess.run(cmd)
+                        sys.exit(result.returncode)
+                    else:
+                        print_error(f"Unknown semantics subcommand: {args.semantics_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    # If no subcommand, show help
+                    convert_semantics_parser.print_help()
+                    sys.exit(1)
             elif args.convert_subcommand == 'help' or args.convert_subcommand == 'h':
                 # Print help for convert subcommands
                 convert_parser.print_help()
