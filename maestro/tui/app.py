@@ -17,6 +17,7 @@ from maestro.tui.screens.build import BuildScreen
 from maestro.tui.screens.convert import ConvertScreen
 from maestro.tui.screens.logs import LogsScreen
 from maestro.tui.screens.help import HelpScreen
+from maestro.tui.screens.memory import MemoryScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 
 
@@ -119,6 +120,231 @@ class MaestroTUI(App):
         content-align: left middle;
         padding: 0 1;
     }
+
+    /* Convert Dashboard Styles */
+    #dashboard-container {
+        height: 1fr;
+        width: 100%;
+    }
+
+    .dashboard-panel {
+        height: 1fr;
+        border: solid $primary;
+    }
+
+    #stage-timeline-container {
+        width: 30%;
+        border-right: solid $primary;
+    }
+
+    #stage-details-container {
+        width: 40%;
+        border-right: solid $primary;
+    }
+
+    #controls-container {
+        width: 30%;
+    }
+
+    .stage-item {
+        height: 1;
+        padding: 0 1;
+        background: $surface;
+    }
+
+    .stage-item.selected {
+        background: $accent 30%;
+        text-style: bold;
+    }
+
+    .stage-title {
+        text-style: bold;
+        color: $success;
+    }
+
+    .stage-status {
+        color: $text;
+    }
+
+    .stage-detail {
+        color: $text 70%;
+    }
+
+    .artifacts-title, .description-title, .blocking-title {
+        text-style: bold;
+        color: $primary;
+    }
+
+    .artifact-item {
+        color: $text 80%;
+        text-style: italic;
+    }
+
+    .description-text {
+        color: $text 90%;
+    }
+
+    .blocking-reason {
+        color: $warning;
+        text-style: bold;
+    }
+
+    .pipeline-status, .active-stage {
+        color: $primary;
+        text-style: bold;
+    }
+
+    .checkpoints-title {
+        color: $warning;
+        text-style: bold;
+    }
+
+    .checkpoint-button {
+        width: 100%;
+        margin: 1 0;
+    }
+
+    .checkpoint-controls {
+        width: 100%;
+    }
+
+    .checkpoint-controls Button {
+        width: 30%;
+        margin-right: 1;
+    }
+
+    .run-history-title {
+        color: $primary;
+        text-style: bold;
+    }
+
+    .run-item {
+        color: $text 80%;
+    }
+
+    .run-summary {
+        color: $text 60%;
+        margin-left: 1;
+    }
+
+    .run-item-sm {
+        color: $text 70%;
+    }
+
+    .history-title {
+        color: $primary;
+        text-style: bold;
+    }
+
+    .history-placeholder {
+        color: $text 40%;
+        text-style: italic;
+    }
+
+    .placeholder {
+        color: $text 50%;
+        text-style: italic;
+    }
+
+    /* Memory Screen Styles */
+    #memory-container {
+        height: 1fr;
+        width: 100%;
+    }
+
+    .memory-panel {
+        height: 1fr;
+        border: solid $primary;
+    }
+
+    .category-title {
+        text-style: bold;
+        color: $primary;
+        margin: 0 0 1 0;
+    }
+
+    .category-item {
+        padding: 0 1;
+        height: 1;
+        background: $surface;
+        border-left: solid $primary;
+    }
+
+    .category-item:hover {
+        background: $surface 20%;
+    }
+
+    .selected {
+        background: $accent 30%;
+        text-style: bold;
+    }
+
+    .entry-item {
+        height: 1;
+        padding: 0 1;
+        background: $surface;
+    }
+
+    .entry-item:hover {
+        background: $surface 20%;
+    }
+
+    .entry-meta {
+        padding: 0 1 0 2;
+        color: $text 70%;
+        height: 1;
+    }
+
+    .detail-title {
+        text-style: bold;
+        color: $success;
+        margin: 0 0 1 0;
+    }
+
+    .detail-status, .detail-timestamp, .detail-origin, .detail-field {
+        margin: 0 0 1 0;
+        color: $text 90%;
+    }
+
+    .detail-section-title {
+        text-style: bold;
+        color: $primary;
+        margin: 1 0 0 0;
+    }
+
+    .detail-reason, .detail-reference, .detail-file, .detail-example, .detail-note {
+        margin: 0 0 1 1;
+        color: $text 80%;
+    }
+
+    .search-title {
+        text-style: bold;
+        color: $primary;
+        margin: 0 1 0 0;
+    }
+
+    .search-input {
+        width: 1fr;
+    }
+
+    .filter-title, .search-title {
+        text-style: bold;
+        color: $primary;
+        margin: 0 1 0 0;
+    }
+
+    .filter-row {
+        margin: 0 0 1 0;
+    }
+
+    .filter-label {
+        width: 15;
+        color: $text 80%;
+    }
+
+    .filter-value {
+        color: $text 90%;
+    }
     """
 
     BINDINGS = [
@@ -133,6 +359,7 @@ class MaestroTUI(App):
         ("t", "switch_to_screen('tasks')", "Tasks"),
         ("b", "switch_to_screen('build')", "Build"),
         ("c", "switch_to_screen('convert')", "Convert"),
+        ("m", "switch_to_screen('memory')", "Memory"),
         ("l", "switch_to_screen('logs')", "Logs"),
     ]
 
@@ -202,6 +429,7 @@ class MaestroTUI(App):
                 Label("✅ Tasks", id="nav-tasks", classes="nav-item"),
                 Label("🔨 Build", id="nav-build", classes="nav-item"),
                 Label("🔄 Convert", id="nav-convert", classes="nav-item"),
+                Label("🧠 Memory", id="nav-memory", classes="nav-item"),
                 Label("📄 Logs", id="nav-logs", classes="nav-item"),
                 Label("❓ Help", id="nav-help", classes="nav-item"),
                 id="nav-menu"
@@ -270,6 +498,10 @@ class MaestroTUI(App):
             convert_widget.styles.cursor = "pointer"
             self.query_one("#nav-convert").on("click", lambda: self._switch_main_content(ConvertScreen()))
 
+            memory_widget = self.query_one("#nav-memory", Label)
+            memory_widget.styles.cursor = "pointer"
+            self.query_one("#nav-memory").on("click", lambda: self._switch_main_content(MemoryScreen()))
+
             logs_widget = self.query_one("#nav-logs", Label)
             logs_widget.styles.cursor = "pointer"
             self.query_one("#nav-logs").on("click", lambda: self._switch_main_content(LogsScreen()))
@@ -308,6 +540,7 @@ class MaestroTUI(App):
             "tasks": TasksScreen,
             "build": BuildScreen,
             "convert": ConvertScreen,
+            "memory": MemoryScreen,
             "logs": LogsScreen,
             "help": HelpScreen,
         }

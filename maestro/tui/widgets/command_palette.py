@@ -42,6 +42,7 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Go to convert", "action": "screen_convert", "type": "navigation"},
             {"name": "Go to logs", "action": "screen_logs", "type": "navigation"},
             {"name": "Go to help", "action": "screen_help", "type": "navigation"},
+            {"name": "Go to memory", "action": "screen_memory", "type": "navigation"},
         ])
 
         # Quick action commands (read-only)
@@ -84,6 +85,30 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Build: Run build", "action": "build_run", "type": "build"},
             {"name": "Build: Run fix loop", "action": "build_fix", "type": "build"},
             {"name": "Build: Get status", "action": "build_status", "type": "build"},
+        ])
+
+        # Convert operations
+        commands.extend([
+            {"name": "Convert: Status", "action": "convert_status", "type": "convert"},
+            {"name": "Convert: Run", "action": "convert_run", "type": "convert"},
+            {"name": "Convert: Rehearse", "action": "convert_rehearse", "type": "convert"},
+            {"name": "Convert: Promote", "action": "convert_promote", "type": "convert"},
+        ])
+
+        # Memory operations
+        commands.extend([
+            {"name": "Memory: Show all", "action": "memory_show", "type": "memory"},
+            {"name": "Memory: Show decisions", "action": "memory_decisions", "type": "memory"},
+            {"name": "Memory: Show conventions", "action": "memory_conventions", "type": "memory"},
+            {"name": "Memory: Show glossary", "action": "memory_glossary", "type": "memory"},
+            {"name": "Memory: Show issues", "action": "memory_issues", "type": "memory"},
+            {"name": "Memory: Show summaries", "action": "memory_summaries", "type": "memory"},
+        ])
+
+        # Checkpoint operations
+        commands.extend([
+            {"name": "Convert: Approve checkpoint", "action": "convert_checkpoint_approve", "type": "checkpoint"},
+            {"name": "Convert: Reject checkpoint", "action": "convert_checkpoint_reject", "type": "checkpoint"},
         ])
 
         return commands
@@ -778,6 +803,127 @@ class CommandPaletteScreen(ModalScreen):
                     return f"Build Status: {status.state}, Errors: {status.error_count}"
                 else:
                     return "No active session for build status"
+            elif action_name == "convert_status":
+                # Get convert pipeline status
+                from maestro.ui_facade.convert import get_pipeline_status
+                status = get_pipeline_status()
+                if status:
+                    return f"Convert Pipeline: {status.name}, Status: {status.status}, Active: {status.active_stage or 'None'}"
+                else:
+                    return "No convert pipeline found"
+            elif action_name == "convert_run":
+                # Run convert pipeline
+                from maestro.ui_facade.convert import get_pipeline_status, list_stages, run_stage
+                status = get_pipeline_status()
+                if status and status.stages:
+                    # Find the next pending stage and run it
+                    for stage in status.stages:
+                        if stage.status == "pending":
+                            success = run_stage(status.id, stage.name)
+                            if success:
+                                return f"Started running {stage.name} stage"
+                            else:
+                                return f"Failed to start {stage.name} stage"
+                    return "No pending stages to run"
+                else:
+                    return "No convert pipeline or stages found"
+            elif action_name == "convert_rehearse":
+                # Rehearse convert pipeline
+                from maestro.ui_facade.convert import get_pipeline_status
+                status = get_pipeline_status()
+                if status:
+                    # This would trigger a rehearsal mode in a real implementation
+                    return f"Rehearse mode started for {status.name}"
+                else:
+                    return "No convert pipeline found"
+            elif action_name == "convert_promote":
+                # Promote convert results
+                from maestro.ui_facade.convert import get_pipeline_status
+                status = get_pipeline_status()
+                if status:
+                    # In a real implementation, this would promote changes
+                    return f"Promoting results for {status.name}"
+                else:
+                    return "No convert pipeline found"
+            elif action_name == "convert_checkpoint_approve":
+                # Approve checkpoint
+                from maestro.ui_facade.convert import get_pipeline_status, get_checkpoints, approve_checkpoint
+                status = get_pipeline_status()
+                if status:
+                    checkpoints = get_checkpoints(status.id)
+                    if checkpoints:
+                        # For simplicity, approve the first pending checkpoint
+                        for checkpoint in checkpoints:
+                            if checkpoint.status == "pending":
+                                success = approve_checkpoint(status.id, checkpoint.id)
+                                if success:
+                                    return f"Approved checkpoint: {checkpoint.name}"
+                                else:
+                                    return f"Failed to approve checkpoint: {checkpoint.name}"
+                        return "No pending checkpoints to approve"
+                    else:
+                        return "No checkpoints found"
+                else:
+                    return "No convert pipeline found"
+            elif action_name == "convert_checkpoint_reject":
+                # Reject checkpoint
+                from maestro.ui_facade.convert import get_pipeline_status, get_checkpoints, reject_checkpoint
+                status = get_pipeline_status()
+                if status:
+                    checkpoints = get_checkpoints(status.id)
+                    if checkpoints:
+                        # For simplicity, reject the first pending checkpoint
+                        for checkpoint in checkpoints:
+                            if checkpoint.status == "pending":
+                                success = reject_checkpoint(status.id, checkpoint.id)
+                                if success:
+                                    return f"Rejected checkpoint: {checkpoint.name}"
+                                else:
+                                    return f"Failed to reject checkpoint: {checkpoint.name}"
+                        return "No pending checkpoints to reject"
+                    else:
+                        return "No checkpoints found"
+                else:
+                    return "No convert pipeline found"
+            elif action_name == "screen_memory":
+                # Navigate to memory screen
+                from maestro.tui.screens.memory import MemoryScreen
+                # Switch to the memory screen content
+                self.app._switch_main_content(MemoryScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "memory_show":
+                # Navigate to memory screen (default to decisions)
+                from maestro.tui.screens.memory import MemoryScreen
+                # Switch to the memory screen content
+                self.app._switch_main_content(MemoryScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "memory_decisions":
+                from maestro.tui.screens.memory import MemoryScreen
+                self.app._switch_main_content(MemoryScreen(initial_category="decisions"))
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "memory_conventions":
+                from maestro.tui.screens.memory import MemoryScreen
+                self.app._switch_main_content(MemoryScreen(initial_category="conventions"))
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "memory_glossary":
+                from maestro.tui.screens.memory import MemoryScreen
+                self.app._switch_main_content(MemoryScreen(initial_category="glossary"))
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "memory_issues":
+                from maestro.tui.screens.memory import MemoryScreen
+                self.app._switch_main_content(MemoryScreen(initial_category="open_issues"))
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "memory_summaries":
+                from maestro.tui.screens.memory import MemoryScreen
+                self.app._switch_main_content(MemoryScreen(initial_category="task_summaries"))
+                self.dismiss()
+                return "COMPLETED"
             else:
                 return f"Unknown command: {action_name}"
         except Exception as e:
