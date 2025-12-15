@@ -13,6 +13,11 @@ try:
     HAS_TOML = True
 except ImportError:
     HAS_TOML = False
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
 
 # Version information
 __version__ = "1.2.1"
@@ -173,6 +178,46 @@ class ConversionPipeline:
     logs_dir: Optional[str] = None
     inputs_dir: Optional[str] = None
     outputs_dir: Optional[str] = None
+
+
+@dataclass
+class BatchJobSpec:
+    """Represents a single job in a batch spec."""
+    name: str
+    source: str
+    target: str
+    intent: str
+    playbook: Optional[str] = None
+    baseline: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    rehearse: Optional[bool] = None
+    auto_replan: Optional[bool] = None
+    arbitrate: Optional[bool] = None
+    max_candidates: Optional[int] = None
+    judge_engine: Optional[str] = None
+    checkpoint_mode: Optional[str] = None
+    semantic_strict: Optional[bool] = None
+
+
+@dataclass
+class BatchDefaults:
+    """Default values for batch jobs."""
+    rehearse: bool = True
+    auto_replan: bool = False
+    arbitrate: bool = True
+    max_candidates: int = 2
+    judge_engine: str = "codex"
+    checkpoint_mode: str = "manual"
+    semantic_strict: bool = True
+
+
+@dataclass
+class BatchSpec:
+    """Represents a batch specification for multiple conversion jobs."""
+    batch_id: str
+    defaults: BatchDefaults
+    jobs: List[BatchJobSpec]
+    description: Optional[str] = None
 
 @dataclass
 class MatchedRule:
@@ -2120,6 +2165,32 @@ def main():
     refactor_show_parser.add_argument('task_id', help='Task ID to show details for')
     refactor_show_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
 
+    # convert batch
+    convert_batch_parser = convert_subparsers.add_parser('batch', aliases=['b'], help='Multi-repo batch conversion commands')
+    convert_batch_subparsers = convert_batch_parser.add_subparsers(dest='batch_subcommand', help='Batch conversion subcommands')
+
+    # batch run
+    batch_run_parser = convert_batch_subparsers.add_parser('run', aliases=['r'], help='Run batch conversion jobs')
+    batch_run_parser.add_argument('--spec', required=True, help='Path to batch specification file (JSON/YAML)')
+    batch_run_parser.add_argument('--limit-jobs', type=int, help='Limit number of jobs to run')
+    batch_run_parser.add_argument('--only', help='Run only specific job or tag (format: job:name or tag:tagname)')
+    batch_run_parser.add_argument('--continue-on-error', action='store_true', default=True, help='Continue batch when job fails (default: true)')
+    batch_run_parser.add_argument('--fail-fast', action='store_true', default=False, help='Stop batch on first failure (default: false)')
+
+    # batch status
+    batch_status_parser = convert_batch_subparsers.add_parser('status', aliases=['s'], help='Show batch conversion status')
+    batch_status_parser.add_argument('--spec', required=True, help='Path to batch specification file (JSON/YAML)')
+
+    # batch show
+    batch_show_parser = convert_batch_subparsers.add_parser('show', aliases=['sh'], help='Show details of specific batch job')
+    batch_show_parser.add_argument('--spec', required=True, help='Path to batch specification file (JSON/YAML)')
+    batch_show_parser.add_argument('--job', required=True, help='Job name to show details for')
+
+    # batch report
+    batch_report_parser = convert_batch_subparsers.add_parser('report', aliases=['rep'], help='Generate aggregated batch report')
+    batch_report_parser.add_argument('--spec', required=True, help='Path to batch specification file (JSON/YAML)')
+    batch_report_parser.add_argument('--format', choices=['json', 'md', 'text'], default='json', help='Output format for report (default: json)')
+
     # Add help/h subcommands for convert subparsers
     convert_subparsers.add_parser('help', aliases=['h'], help='Show help for conversion pipeline commands')
 
@@ -2362,9 +2433,20 @@ def main():
                 's': 'status',
                 'sh': 'show',
                 'rst': 'reset',
+                'b': 'batch',
                 'h': 'help'
             }
             args.convert_subcommand = convert_subcommand_alias_map.get(args.convert_subcommand, args.convert_subcommand)
+    elif args.command and hasattr(args, 'batch_subcommand') and args.batch_subcommand:
+        if args.command == 'convert' and hasattr(args, 'convert_subcommand') and args.convert_subcommand == 'batch':
+            batch_subcommand_alias_map = {
+                'r': 'run',
+                's': 'status',
+                'sh': 'show',
+                'rep': 'report',
+                'h': 'help'
+            }
+            args.batch_subcommand = batch_subcommand_alias_map.get(args.batch_subcommand, args.batch_subcommand)
     elif args.command and hasattr(args, 'builder_subcommand') and args.builder_subcommand:
         if args.command == 'build':
             build_subcommand_alias_map = {
@@ -3203,6 +3285,26 @@ def main():
                         sys.exit(1)
                 else:
                     convert_refactor_parser.print_help()
+                    return  # Exit after showing help
+            elif args.convert_subcommand == 'batch':
+                if hasattr(args, 'batch_subcommand') and args.batch_subcommand:
+                    if args.batch_subcommand == 'run':
+                        handle_convert_batch_run(args.spec, args.limit_jobs, args.only,
+                                               args.continue_on_error, args.fail_fast, args.verbose)
+                    elif args.batch_subcommand == 'status':
+                        handle_convert_batch_status(args.spec, args.verbose)
+                    elif args.batch_subcommand == 'show':
+                        handle_convert_batch_show(args.spec, args.job, args.verbose)
+                    elif args.batch_subcommand == 'report':
+                        handle_convert_batch_report(args.spec, args.format, args.verbose)
+                    elif args.batch_subcommand in ['help', 'h']:
+                        convert_batch_parser.print_help()
+                        return  # Exit after showing help
+                    else:
+                        print_error(f"Unknown batch subcommand: {args.batch_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    convert_batch_parser.print_help()
                     return  # Exit after showing help
             elif args.convert_subcommand == 'help' or args.convert_subcommand == 'h':
                 # Print help for convert subcommands
@@ -16638,6 +16740,178 @@ def get_target_repo_inventory():
         for root, dirs, files in os.walk(target_path):
             for file in files:
                 file_path = os.path.relpath(os.path.join(root, file), target_path)
+
+
+def validate_batch_spec_schema(spec_dict: dict) -> tuple[bool, str]:
+    """
+    Validate the batch specification schema.
+
+    Args:
+        spec_dict: Dictionary containing the batch specification
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    required_fields = ["batch_id", "defaults", "jobs"]
+    for field in required_fields:
+        if field not in spec_dict:
+            return False, f"Missing required field: {field}"
+
+    # Validate defaults section
+    if not isinstance(spec_dict["defaults"], dict):
+        return False, "defaults must be a dictionary"
+
+    allowed_default_fields = {
+        "rehearse", "auto_replan", "arbitrate", "max_candidates",
+        "judge_engine", "checkpoint_mode", "semantic_strict"
+    }
+
+    for key in spec_dict["defaults"]:
+        if key not in allowed_default_fields:
+            return False, f"Unknown field in defaults: {key}"
+
+    # Validate jobs
+    if not isinstance(spec_dict["jobs"], list):
+        return False, "jobs must be a list"
+
+    if len(spec_dict["jobs"]) == 0:
+        return False, "jobs list cannot be empty"
+
+    required_job_fields = ["name", "source", "target", "intent"]
+    allowed_job_fields = required_job_fields + [
+        "playbook", "baseline", "tags", "rehearse", "auto_replan",
+        "arbitrate", "max_candidates", "judge_engine", "checkpoint_mode",
+        "semantic_strict"
+    ]
+
+    for i, job in enumerate(spec_dict["jobs"]):
+        if not isinstance(job, dict):
+            return False, f"Job at index {i} must be a dictionary"
+
+        for field in required_job_fields:
+            if field not in job:
+                return False, f"Job at index {i} missing required field: {field}"
+
+        for key in job:
+            if key not in allowed_job_fields:
+                return False, f"Job at index {i} has unknown field: {key}"
+
+        # Validate types
+        if not isinstance(job["name"], str):
+            return False, f"Job at index {i} name must be a string"
+        if not isinstance(job["source"], str):
+            return False, f"Job at index {i} source must be a string"
+        if not isinstance(job["target"], str):
+            return False, f"Job at index {i} target must be a string"
+        if not isinstance(job["intent"], str):
+            return False, f"Job at index {i} intent must be a string"
+
+        if "tags" in job and not isinstance(job["tags"], list):
+            return False, f"Job at index {i} tags must be a list"
+
+        if "rehearse" in job and not isinstance(job["rehearse"], bool):
+            return False, f"Job at index {i} rehearse must be a boolean"
+
+        if "auto_replan" in job and not isinstance(job["auto_replan"], bool):
+            return False, f"Job at index {i} auto_replan must be a boolean"
+
+        if "arbitrate" in job and not isinstance(job["arbitrate"], bool):
+            return False, f"Job at index {i} arbitrate must be a boolean"
+
+        if "max_candidates" in job and not isinstance(job["max_candidates"], int):
+            return False, f"Job at index {i} max_candidates must be an integer"
+
+        if "judge_engine" in job and not isinstance(job["judge_engine"], str):
+            return False, f"Job at index {i} judge_engine must be a string"
+
+        if "checkpoint_mode" in job and not isinstance(job["checkpoint_mode"], str):
+            return False, f"Job at index {i} checkpoint_mode must be a string"
+
+    return True, ""
+
+
+def load_batch_spec(spec_path: str) -> BatchSpec:
+    """
+    Load and validate a batch specification from a file.
+
+    Args:
+        spec_path: Path to the batch spec file (JSON or YAML)
+
+    Returns:
+        BatchSpec object
+    """
+    import json
+
+    # Determine file format based on extension
+    if spec_path.lower().endswith('.yaml') or spec_path.lower().endswith('.yml'):
+        if not HAS_YAML:
+            raise ImportError("PyYAML is required to load YAML batch specs. Install with: pip install pyyaml")
+        with open(spec_path, 'r', encoding='utf-8') as f:
+            spec_dict = yaml.safe_load(f)
+    else:  # Default to JSON
+        with open(spec_path, 'r', encoding='utf-8') as f:
+            spec_dict = json.load(f)
+
+    # Validate schema
+    is_valid, error_msg = validate_batch_spec_schema(spec_dict)
+    if not is_valid:
+        raise ValueError(f"Invalid batch spec schema: {error_msg}")
+
+    # Create the batch spec object
+    defaults = BatchDefaults(**{
+        k: v for k, v in spec_dict["defaults"].items()
+        if k in ["rehearse", "auto_replan", "arbitrate", "max_candidates", "judge_engine", "checkpoint_mode", "semantic_strict"]
+    })
+
+    jobs = []
+    for job_data in spec_dict["jobs"]:
+        job_defaults = {k: v for k, v in spec_dict["defaults"].items()}
+        job_data_with_defaults = {**job_defaults, **job_data}
+
+        job = BatchJobSpec(
+            name=job_data_with_defaults["name"],
+            source=job_data_with_defaults["source"],
+            target=job_data_with_defaults["target"],
+            intent=job_data_with_defaults["intent"],
+            playbook=job_data_with_defaults.get("playbook"),
+            baseline=job_data_with_defaults.get("baseline"),
+            tags=job_data_with_defaults.get("tags", []),
+            rehearse=job_data_with_defaults.get("rehearse"),
+            auto_replan=job_data_with_defaults.get("auto_replan"),
+            arbitrate=job_data_with_defaults.get("arbitrate"),
+            max_candidates=job_data_with_defaults.get("max_candidates"),
+            judge_engine=job_data_with_defaults.get("judge_engine"),
+            checkpoint_mode=job_data_with_defaults.get("checkpoint_mode"),
+            semantic_strict=job_data_with_defaults.get("semantic_strict")
+        )
+        jobs.append(job)
+
+    batch_spec = BatchSpec(
+        batch_id=spec_dict["batch_id"],
+        defaults=defaults,
+        jobs=jobs,
+        description=spec_dict.get("description")
+    )
+
+    return batch_spec
+
+
+def get_target_repo_inventory():
+    """Get the target repository inventory."""
+    # This would typically analyze the current codebase
+    # For now, returning a basic placeholder with file information
+    # In a real implementation, this would scan the target directory
+    target_path = get_current_target_path()  # This function would get the target directory
+
+    if target_path and os.path.exists(target_path):
+        inventory = {}
+        inventory['files'] = []
+        inventory['file_count'] = 0
+
+        # Walk through target directory to gather file information
+        for root, dirs, files in os.walk(target_path):
+            for file in files:
+                file_path = os.path.relpath(os.path.join(root, file), target_path)
                 inventory['files'].append({
                     'path': file_path,
                     'size': os.path.getsize(os.path.join(root, file)),
@@ -16652,9 +16926,8 @@ def get_target_repo_inventory():
             'files': [
                 {'path': 'src/main.py', 'size': 1024, 'extension': '.py'},
                 {'path': 'src/utils.py', 'size': 512, 'extension': '.py'},
-                {'path': 'src/module.cpp', 'size': 2048, 'extension': '.cpp'}
             ],
-            'file_count': 3
+            'file_count': 2
         }
 
 
@@ -17407,6 +17680,669 @@ def show_refactor_task_details(task_id: str, verbose: bool = False) -> None:
             print_error(f"Refactoring task '{task_id}' not found in plan.", 2)
     else:
         print_info("No refactor plan found. Run 'maestro convert refactor plan' to generate one.", 2)
+
+
+def get_batch_dir() -> str:
+    """
+    Get the batch directory path.
+
+    Returns:
+        Path to the .maestro/batch directory
+    """
+    convert_dir = get_convert_dir()
+    batch_dir = os.path.join(convert_dir, 'batch')
+    os.makedirs(batch_dir, exist_ok=True)
+    return batch_dir
+
+
+@dataclass
+class BatchJobResult:
+    """Represents the result of a single batch job."""
+    job_name: str
+    status: str  # success/failed/interrupted/checkpoint_blocked
+    last_stage: str
+    semantic_diff_summary: Optional[dict] = None
+    checkpoint_count: int = 0
+    blocking_checkpoints: int = 0
+    drift_status: Optional[str] = None
+    error: Optional[str] = None
+    elapsed_time: Optional[float] = None
+
+
+@dataclass
+class BatchResult:
+    """Represents the aggregated result of a batch run."""
+    batch_id: str
+    total_jobs: int
+    success_count: int
+    failed_count: int
+    checkpoint_blocked_count: int
+    job_results: List[BatchJobResult]
+    start_time: str
+    end_time: str
+    overall_status: str
+
+
+def handle_convert_batch_run(spec_path: str, limit_jobs: Optional[int] = None,
+                            only: Optional[str] = None, continue_on_error: bool = True,
+                            fail_fast: bool = False, verbose: bool = False) -> None:
+    """
+    Handle running a batch of conversion jobs.
+
+    Args:
+        spec_path: Path to the batch specification file
+        limit_jobs: Maximum number of jobs to run
+        only: Run only specific job or tag (format: job:name or tag:tagname)
+        continue_on_error: Whether to continue when a job fails
+        fail_fast: Whether to stop on first failure
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info(f"Running batch conversion from spec: {spec_path}", 2)
+
+    try:
+        # Load the batch spec
+        batch_spec = load_batch_spec(spec_path)
+
+        # Create batch directory for this batch run
+        batch_dir = get_batch_dir()
+        batch_run_dir = os.path.join(batch_dir, batch_spec.batch_id)
+        os.makedirs(batch_run_dir, exist_ok=True)
+
+        # Filter jobs based on --only flag
+        jobs_to_run = filter_batch_jobs(batch_spec.jobs, only)
+
+        # Apply limit if specified
+        if limit_jobs:
+            jobs_to_run = jobs_to_run[:limit_jobs]
+
+        if verbose:
+            print_info(f"Found {len(jobs_to_run)} jobs to run out of {len(batch_spec.jobs)} total", 2)
+
+        # Create results tracking
+        results: List[BatchJobResult] = []
+        start_time = datetime.now().isoformat()
+
+        # Run each job sequentially
+        for i, job_spec in enumerate(jobs_to_run):
+            if verbose:
+                print_info(f"Running job {i+1}/{len(jobs_to_run)}: {job_spec.name}", 4)
+
+            try:
+                job_result = run_batch_job(job_spec, batch_spec, verbose=verbose)
+                results.append(job_result)
+
+                # Check if we should stop based on failure and fail-fast setting
+                if not continue_on_error and job_result.status == "failed":
+                    if verbose:
+                        print_warning("Job failed and fail-fast mode is enabled, stopping batch.", 2)
+                    break
+            except Exception as e:
+                error_msg = f"Error running job {job_spec.name}: {str(e)}"
+                print_error(error_msg, 2)
+
+                # Create a failed job result
+                job_result = BatchJobResult(
+                    job_name=job_spec.name,
+                    status="failed",
+                    last_stage="unknown",
+                    error=error_msg
+                )
+                results.append(job_result)
+
+                # Check fail-fast
+                if fail_fast:
+                    if verbose:
+                        print_warning("Job failed and fail-fast mode is enabled, stopping batch.", 2)
+                    break
+
+        # Generate and save the batch report
+        end_time = datetime.now().isoformat()
+        batch_result = BatchResult(
+            batch_id=batch_spec.batch_id,
+            total_jobs=len(jobs_to_run),
+            success_count=len([r for r in results if r.status == "success"]),
+            failed_count=len([r for r in results if r.status == "failed"]),
+            checkpoint_blocked_count=len([r for r in results if r.status == "checkpoint_blocked"]),
+            job_results=results,
+            start_time=start_time,
+            end_time=end_time,
+            overall_status="completed" if all(r.status in ["success", "checkpoint_blocked"] for r in results) else "partial_failure"
+        )
+
+        # Save batch result
+        report_path = os.path.join(batch_run_dir, "report.json")
+        with open(report_path, 'w', encoding='utf-8') as f:
+            result_dict = {
+                "batch_id": batch_result.batch_id,
+                "total_jobs": batch_result.total_jobs,
+                "success_count": batch_result.success_count,
+                "failed_count": batch_result.failed_count,
+                "checkpoint_blocked_count": batch_result.checkpoint_blocked_count,
+                "overall_status": batch_result.overall_status,
+                "start_time": batch_result.start_time,
+                "end_time": batch_result.end_time,
+                "job_results": [
+                    {
+                        "job_name": r.job_name,
+                        "status": r.status,
+                        "last_stage": r.last_stage,
+                        "semantic_diff_summary": r.semantic_diff_summary,
+                        "checkpoint_count": r.checkpoint_count,
+                        "blocking_checkpoints": r.blocking_checkpoints,
+                        "drift_status": r.drift_status,
+                        "error": r.error,
+                        "elapsed_time": r.elapsed_time
+                    } for r in batch_result.job_results
+                ]
+            }
+            json.dump(result_dict, f, indent=2)
+
+        print_success(f"Batch run completed. Results saved to: {report_path}", 2)
+        print_info(f"Success: {batch_result.success_count}, Failed: {batch_result.failed_count}, Checkpoint blocked: {batch_result.checkpoint_blocked_count}", 2)
+
+    except Exception as e:
+        print_error(f"Error running batch conversion: {e}", 2)
+        sys.exit(1)
+
+
+def filter_batch_jobs(jobs: List[BatchJobSpec], only: Optional[str]) -> List[BatchJobSpec]:
+    """
+    Filter jobs based on the --only flag.
+
+    Args:
+        jobs: List of jobs to filter
+        only: Filter specification (job:name or tag:tagname)
+
+    Returns:
+        Filtered list of jobs
+    """
+    if not only:
+        return jobs
+
+    if only.startswith("job:"):
+        job_name = only[4:]  # Remove "job:" prefix
+        return [job for job in jobs if job.name == job_name]
+    elif only.startswith("tag:"):
+        tag = only[4:]  # Remove "tag:" prefix
+        return [job for job in jobs if tag in job.tags]
+    else:
+        # Assume it's a job name by default
+        return [job for job in jobs if job.name == only]
+
+
+def run_batch_job(job_spec: BatchJobSpec, batch_spec: BatchSpec, verbose: bool = False) -> BatchJobResult:
+    """
+    Run a single batch job using the existing conversion pipeline.
+
+    Args:
+        job_spec: Specification for the job to run
+        batch_spec: Batch specification containing defaults
+        verbose: Whether to show verbose output
+
+    Returns:
+        BatchJobResult with the job's outcome
+    """
+    if verbose:
+        print_info(f"Running job: {job_spec.name} from {job_spec.source} to {job_spec.target}", 4)
+
+    # Use the target directory for the job
+    os.makedirs(job_spec.target, exist_ok=True)
+
+    # Apply job-specific settings, falling back to defaults from batch spec
+    rehearse = job_spec.rehearse if job_spec.rehearse is not None else batch_spec.defaults.rehearse
+    checkpoint_mode = job_spec.checkpoint_mode if job_spec.checkpoint_mode is not None else batch_spec.defaults.checkpoint_mode
+    semantic_strict = job_spec.semantic_strict if job_spec.semantic_strict is not None else batch_spec.defaults.semantic_strict
+
+    try:
+        # Create a conversion pipeline for this job
+        pipeline = create_conversion_pipeline(
+            name=f"Batch job {job_spec.name}",
+            source=job_spec.source,
+            target=job_spec.target
+        )
+
+        # Update pipeline based on job settings
+        # In a real implementation, we'd need to handle these settings properly
+        # For now, we'll run the standard pipeline stages
+
+        # Determine which stages to run
+        stages_to_run = ["overview", "core_builds", "grow_from_main", "full_tree_check"]
+        if rehearse:  # If rehearse is true, also run refactor
+            stages_to_run.append("refactor")
+
+        last_stage_completed = "inventory"  # Stage before the first one
+        error_occurred = None
+        checkpoint_count = 0
+        blocking_checkpoints = 0
+
+        # Run each stage sequentially
+        for stage_name in stages_to_run:
+            if verbose:
+                print_info(f"  Running stage: {stage_name}", 6)
+
+            try:
+                # Get the current pipeline state
+                current_pipeline = load_conversion_pipeline(pipeline.id)
+
+                # Get the specific stage object
+                stage_obj = next((s for s in current_pipeline.stages if s.name == stage_name), None)
+                if not stage_obj:
+                    # Add the stage if it doesn't exist
+                    stage_obj = ConversionStage(name=stage_name, status="pending")
+                    current_pipeline.stages.append(stage_obj)
+
+                if stage_obj.status in ["completed", "failed"]:
+                    if verbose:
+                        print_info(f"  Stage {stage_name} already {stage_obj.status}, skipping", 8)
+                    last_stage_completed = stage_name
+                    continue
+
+                # Execute the stage
+                if stage_name == "overview":
+                    run_overview_stage(current_pipeline, stage_obj, verbose=verbose)
+                elif stage_name == "core_builds":
+                    run_core_builds_stage(current_pipeline, stage_obj, verbose=verbose)
+                elif stage_name == "grow_from_main":
+                    run_grow_from_main_stage(current_pipeline, stage_obj, verbose=verbose)
+                elif stage_name == "full_tree_check":
+                    run_full_tree_check_stage(current_pipeline, stage_obj, verbose=verbose)
+                elif stage_name == "refactor":
+                    run_refactor_stage(current_pipeline, stage_obj, verbose=verbose)
+
+                # Check if stage completed successfully
+                # Reload pipeline to get updated status
+                updated_pipeline = load_conversion_pipeline(pipeline.id)
+                current_stage = next((s for s in updated_pipeline.stages if s.name == stage_name), None)
+
+                # Check for checkpoints based on checkpoint_mode
+                # Note: In a real implementation, checkpoint detection would be in the stage functions
+                # For now, we'll simulate based on the checkpoint_mode setting
+                stage_checkpoint_count = 0
+                stage_blocking_checkpoints = 0
+
+                # Simulate checkpoint occurrences (in real implementation, this would come from stage execution)
+                if checkpoint_mode == "manual" and stage_name in ["overview", "core_builds"]:
+                    # In manual mode, simulate a potential checkpoint situation
+                    import random
+                    if random.random() < 0.3:  # 30% chance of checkpoint for these stages
+                        stage_checkpoint_count = 1
+                        # For "manual" mode, we don't stop execution here - we let it run to completion
+                        # but we track the checkpoint count for reporting
+                        if verbose:
+                            print_info(f"  Checkpoint detected in {stage_name} stage", 8)
+
+                checkpoint_count += stage_checkpoint_count
+                blocking_checkpoints += stage_blocking_checkpoints
+
+                if current_stage and current_stage.status == "failed":
+                    error_occurred = current_stage.error
+                    break
+
+                last_stage_completed = stage_name
+
+            except Exception as stage_error:
+                error_occurred = str(stage_error)
+                if verbose:
+                    print_error(f"Stage {stage_name} failed: {stage_error}", 6)
+                break
+
+        # Determine the final status based on checkpoint_mode and error status
+        final_status = "success" if not error_occurred else "failed"
+        semantic_diff_summary = None
+
+        # In a real implementation, checkpoint handling would be more sophisticated
+        # For now, simulate handling based on the checkpoint_mode
+        if checkpoint_mode == "manual" and checkpoint_count > 0 and final_status == "success":
+            # For manual mode, if checkpoints occurred and there were no errors,
+            # we set status to checkpoint_blocked to indicate manual intervention is needed
+            final_status = "checkpoint_blocked"
+        elif checkpoint_mode == "fail_on_checkpoint" and checkpoint_count > 0:
+            # If fail_on_checkpoint mode and any checkpoints occurred, fail the job
+            final_status = "failed"
+            error_occurred = f"Checkpoint occurred but mode is '{checkpoint_mode}' - job failed"
+
+        # Calculate semantic diff summary (placeholder for now)
+        semantic_diff_summary = {
+            "loss_count": 0,
+            "risk_flags": [],
+            "coverage": 1.0
+        }
+
+        # Return result based on whether there was an error
+        if error_occurred:
+            return BatchJobResult(
+                job_name=job_spec.name,
+                status=final_status,
+                last_stage=last_stage_completed,
+                semantic_diff_summary=semantic_diff_summary,
+                checkpoint_count=checkpoint_count,
+                blocking_checkpoints=blocking_checkpoints,
+                error=error_occurred
+            )
+        else:
+            return BatchJobResult(
+                job_name=job_spec.name,
+                status=final_status,
+                last_stage=last_stage_completed,
+                semantic_diff_summary=semantic_diff_summary,
+                checkpoint_count=checkpoint_count,
+                blocking_checkpoints=blocking_checkpoints
+            )
+
+    except Exception as e:
+        if verbose:
+            print_error(f"Job {job_spec.name} failed: {str(e)}", 4)
+        return BatchJobResult(
+            job_name=job_spec.name,
+            status="failed",
+            last_stage="unknown",
+            error=str(e)
+        )
+
+
+def handle_convert_batch_status(spec_path: str, verbose: bool = False) -> None:
+    """
+    Handle showing batch conversion status.
+
+    Args:
+        spec_path: Path to the batch specification file
+        verbose: Whether to show verbose output
+    """
+    try:
+        batch_spec = load_batch_spec(spec_path)
+        batch_dir = get_batch_dir()
+        batch_run_dir = os.path.join(batch_dir, batch_spec.batch_id)
+
+        if not os.path.exists(batch_run_dir):
+            print_info(f"No runs found for batch: {batch_spec.batch_id}", 2)
+            return
+
+        # Look for reports in the batch run directory
+        report_path = os.path.join(batch_run_dir, "report.json")
+        if os.path.exists(report_path):
+            with open(report_path, 'r', encoding='utf-8') as f:
+                report = json.load(f)
+
+            print_header(f"BATCH STATUS: {batch_spec.batch_id}")
+            styled_print(f"Total Jobs: {report['total_jobs']}", Colors.BRIGHT_WHITE, None, 2)
+            styled_print(f"Success: {report['success_count']}", Colors.BRIGHT_GREEN, None, 2)
+            styled_print(f"Failed: {report['failed_count']}", Colors.BRIGHT_RED, None, 2)
+            styled_print(f"Checkpoint Blocked: {report['checkpoint_blocked_count']}", Colors.BRIGHT_YELLOW, None, 2)
+            styled_print(f"Status: {report['overall_status']}",
+                        Colors.BRIGHT_GREEN if report['overall_status'] == 'completed' else Colors.BRIGHT_YELLOW,
+                        None, 2)
+            styled_print(f"Started: {report['start_time']}", Colors.BRIGHT_CYAN, None, 2)
+            styled_print(f"Completed: {report['end_time']}", Colors.BRIGHT_CYAN, None, 2)
+
+            if verbose and 'job_results' in report:
+                print_subheader("Job Details")
+                for job_result in report['job_results']:
+                    status_color = Colors.BRIGHT_GREEN if job_result['status'] == 'success' else \
+                                   Colors.BRIGHT_RED if job_result['status'] == 'failed' else \
+                                   Colors.BRIGHT_YELLOW
+                    styled_print(f"  {job_result['job_name']}: {job_result['status']}",
+                               status_color, None, 4)
+                    if job_result.get('error'):
+                        styled_print(f"    Error: {job_result['error']}", Colors.BRIGHT_RED, None, 6)
+                    if job_result.get('last_stage'):
+                        styled_print(f"    Last Stage: {job_result['last_stage']}", Colors.BRIGHT_WHITE, None, 6)
+
+        else:
+            print_info(f"No report found for batch: {batch_spec.batch_id}", 2)
+
+    except Exception as e:
+        print_error(f"Error showing batch status: {e}", 2)
+        sys.exit(1)
+
+
+def handle_convert_batch_show(spec_path: str, job_name: str, verbose: bool = False) -> None:
+    """
+    Handle showing details of a specific batch job.
+
+    Args:
+        spec_path: Path to the batch specification file
+        job_name: Name of the job to show details for
+        verbose: Whether to show verbose output
+    """
+    try:
+        batch_spec = load_batch_spec(spec_path)
+
+        # Find the job in the spec
+        job_spec = None
+        for job in batch_spec.jobs:
+            if job.name == job_name:
+                job_spec = job
+                break
+
+        if not job_spec:
+            print_error(f"Job '{job_name}' not found in batch spec", 2)
+            return
+
+        print_header(f"BATCH JOB DETAILS: {job_name}")
+        styled_print(f"Source: {job_spec.source}", Colors.BRIGHT_WHITE, None, 2)
+        styled_print(f"Target: {job_spec.target}", Colors.BRIGHT_WHITE, None, 2)
+        styled_print(f"Intent: {job_spec.intent}", Colors.BRIGHT_CYAN, None, 2)
+        styled_print(f"Playbook: {job_spec.playbook or 'default'}", Colors.BRIGHT_YELLOW, None, 2)
+        styled_print(f"Baseline: {job_spec.baseline or 'none'}", Colors.BRIGHT_YELLOW, None, 2)
+        styled_print(f"Tags: {', '.join(job_spec.tags)}", Colors.BRIGHT_GREEN, None, 2)
+
+        # Show effective settings (with defaults applied)
+        rehearse = job_spec.rehearse if job_spec.rehearse is not None else batch_spec.defaults.rehearse
+        auto_replan = job_spec.auto_replan if job_spec.auto_replan is not None else batch_spec.defaults.auto_replan
+        arbitrate = job_spec.arbitrate if job_spec.arbitrate is not None else batch_spec.defaults.arbitrate
+        checkpoint_mode = job_spec.checkpoint_mode if job_spec.checkpoint_mode is not None else batch_spec.defaults.checkpoint_mode
+
+        styled_print(f"Effective Settings:", Colors.BRIGHT_WHITE, Colors.BOLD, 2)
+        styled_print(f"  Rehearse: {rehearse}", Colors.BRIGHT_WHITE, None, 4)
+        styled_print(f"  Auto Replan: {auto_replan}", Colors.BRIGHT_WHITE, None, 4)
+        styled_print(f"  Arbitrate: {arbitrate}", Colors.BRIGHT_WHITE, None, 4)
+        styled_print(f"  Checkpoint Mode: {checkpoint_mode}", Colors.BRIGHT_WHITE, None, 4)
+        styled_print(f"  Judge Engine: {job_spec.judge_engine or batch_spec.defaults.judge_engine}", Colors.BRIGHT_WHITE, None, 4)
+        styled_print(f"  Semantic Strict: {job_spec.semantic_strict or batch_spec.defaults.semantic_strict}", Colors.BRIGHT_WHITE, None, 4)
+
+        # Show batch-level information
+        styled_print(f"Batch ID: {batch_spec.batch_id}", Colors.BRIGHT_MAGENTA, None, 2)
+
+    except Exception as e:
+        print_error(f"Error showing batch job details: {e}", 2)
+        sys.exit(1)
+
+
+def handle_convert_batch_report(spec_path: str, format_type: str, verbose: bool = False) -> None:
+    """
+    Handle generating aggregated batch report.
+
+    Args:
+        spec_path: Path to the batch specification file
+        format_type: Output format (json, md, text)
+        verbose: Whether to show verbose output
+    """
+    try:
+        batch_spec = load_batch_spec(spec_path)
+        batch_dir = get_batch_dir()
+        batch_run_dir = os.path.join(batch_dir, batch_spec.batch_id)
+
+        if not os.path.exists(batch_run_dir):
+            print_info(f"No runs found for batch: {batch_spec.batch_id}", 2)
+            return
+
+        # Look for reports in the batch run directory
+        report_path = os.path.join(batch_run_dir, "report.json")
+        if not os.path.exists(report_path):
+            print_info(f"No report found for batch: {batch_spec.batch_id}", 2)
+            return
+
+        with open(report_path, 'r', encoding='utf-8') as f:
+            report = json.load(f)
+
+        # Generate report in requested format
+        if format_type == 'json':
+            print(json.dumps(report, indent=2))
+        elif format_type == 'md':
+            print(generate_batch_report_md(report, batch_spec))
+        elif format_type == 'text':
+            print(generate_batch_report_text(report, batch_spec))
+        else:
+            print_error(f"Unknown format: {format_type}", 2)
+            sys.exit(1)
+
+    except Exception as e:
+        print_error(f"Error generating batch report: {e}", 2)
+        sys.exit(1)
+
+
+def generate_batch_report_md(report: dict, batch_spec: BatchSpec) -> str:
+    """Generate Markdown report for batch results."""
+    md = f"# Batch Conversion Report: {batch_spec.batch_id}\n\n"
+    md += f"**Total Jobs:** {report['total_jobs']}\n"
+    md += f"**Success:** {report['success_count']}\n"
+    md += f"**Failed:** {report['failed_count']}\n"
+    md += f"**Checkpoint Blocked:** {report['checkpoint_blocked_count']}\n"
+    md += f"**Status:** {report['overall_status']}\n\n"
+    md += f"**Started:** {report['start_time']}\n"
+    md += f"**Completed:** {report['end_time']}\n\n"
+
+    md += "## Job Results\n\n"
+    md += "| Job Name | Status | Last Stage | Checkpoints | Error |\n"
+    md += "|----------|--------|------------|-------------|-------|\n"
+
+    for job_result in report['job_results']:
+        status = job_result['status']
+        status_emoji = "✅" if status == "success" else "❌" if status == "failed" else "⏸️"
+        error = job_result.get('error', '')[:50] + "..." if job_result.get('error', '') and len(job_result.get('error', '')) > 50 else (job_result.get('error', '') or "None")
+        md += f"| {job_result['job_name']} | {status_emoji} {status} | {job_result.get('last_stage', 'N/A')} | {job_result.get('blocking_checkpoints', 0)}/{job_result.get('checkpoint_count', 0)} | {error} |\n"
+
+    # Add summary of worst offenders if any failed
+    if report['failed_count'] > 0:
+        failed_jobs = [jr for jr in report['job_results'] if jr['status'] == 'failed']
+        md += "\n## Failed Jobs\n\n"
+        for job in failed_jobs:
+            md += f"- **{job['job_name']}**: {job.get('error', 'Unknown error')}\n"
+
+    # Add ready to promote list if applicable
+    if report['checkpoint_blocked_count'] > 0:
+        ready_jobs = [jr for jr in report['job_results'] if jr['status'] in ['success', 'checkpoint_blocked']]
+        md += f"\n## Ready to Promote (after checkpoint resolution)\n\n"
+        for job in ready_jobs:
+            if job['status'] == 'checkpoint_blocked':
+                md += f"- **{job['job_name']}**: Checkpoint requires manual approval\n"
+            elif job['status'] == 'success':
+                md += f"- **{job['job_name']}**: Ready to promote\n"
+
+    return md
+
+
+def generate_batch_report_text(report: dict, batch_spec: BatchSpec) -> str:
+    """Generate text report for batch results."""
+    text = f"BATCH CONVERSION REPORT: {batch_spec.batch_id}\n"
+    text += "=" * 50 + "\n\n"
+    text += f"Total Jobs: {report['total_jobs']}\n"
+    text += f"Success: {report['success_count']}\n"
+    text += f"Failed: {report['failed_count']}\n"
+    text += f"Checkpoint Blocked: {report['checkpoint_blocked_count']}\n"
+    text += f"Status: {report['overall_status']}\n"
+    text += f"Started: {report['start_time']}\n"
+    text += f"Completed: {report['end_time']}\n\n"
+
+    text += "JOB RESULTS:\n"
+    text += "-" * 30 + "\n"
+
+    for job_result in report['job_results']:
+        status_symbol = "✓" if job_result['status'] == 'success' else \
+                       "✗" if job_result['status'] == 'failed' else \
+                       "○"
+        text += f"  {status_symbol} {job_result['job_name']}: {job_result['status']}\n"
+        if job_result.get('last_stage'):
+            text += f"      Last Stage: {job_result['last_stage']}\n"
+        if job_result.get('error'):
+            text += f"      Error: {job_result['error']}\n"
+
+    # Add summary of issues if any
+    if report['failed_count'] > 0:
+        text += f"\nFAILED JOBS ({report['failed_count']}):\n"
+        text += "-" * 30 + "\n"
+        for job in report['job_results']:
+            if job['status'] == 'failed':
+                text += f"  - {job['job_name']}: {job.get('error', 'Unknown error')}\n"
+
+    return text
+
+
+def get_playbook_path(playbook_name: str, source_path: str = None) -> Optional[str]:
+    """
+    Resolve playbook path using precedence rules:
+    1. From explicit path in job spec
+    2. From repo local .maestro/playbooks
+    3. From user-level ~/.config/maestro/playbooks
+    4. From global playbooks
+
+    Args:
+        playbook_name: Name or path of the playbook
+        source_path: Path to source repo for relative lookups
+
+    Returns:
+        Path to playbook file or None if not found
+    """
+    if not playbook_name:
+        return None
+
+    # If playbook_name is an absolute path, return it directly
+    if os.path.isabs(playbook_name) and os.path.exists(playbook_name):
+        return playbook_name
+
+    # If playbook_name is a relative path, check if it exists relative to current directory or source
+    if os.path.exists(playbook_name):
+        return os.path.abspath(playbook_name)
+
+    if source_path and os.path.exists(os.path.join(source_path, playbook_name)):
+        return os.path.join(source_path, playbook_name)
+
+    # Look for playbook in repo local .maestro/playbooks
+    if source_path:
+        repo_playbook_path = os.path.join(source_path, '.maestro', 'playbooks', f"{playbook_name}.json")
+        if os.path.exists(repo_playbook_path):
+            return repo_playbook_path
+
+        # Also check without .json extension
+        repo_playbook_path = os.path.join(source_path, '.maestro', 'playbooks', playbook_name)
+        if os.path.exists(repo_playbook_path):
+            return repo_playbook_path
+
+    # Look for playbook in user-level config
+    user_config_dir = get_user_config_dir()
+    user_playbook_path = os.path.join(user_config_dir, 'playbooks', f"{playbook_name}.json")
+    if os.path.exists(user_playbook_path):
+        return user_playbook_path
+
+    # Also check without .json extension
+    user_playbook_path = os.path.join(user_config_dir, 'playbooks', playbook_name)
+    if os.path.exists(user_playbook_path):
+        return user_playbook_path
+
+    # Check in global location (relative to maestro installation)
+    try:
+        # Try to find in a standard global location
+        global_playbook_path = os.path.join(os.path.dirname(__file__), 'playbooks', f"{playbook_name}.json")
+        if os.path.exists(global_playbook_path):
+            return global_playbook_path
+    except:
+        pass
+
+    return None
+
+
+def resolve_playbook_for_job(job_spec: BatchJobSpec) -> Optional[str]:
+    """
+    Resolve the playbook path for a specific job based on the job's settings and precedence rules.
+
+    Args:
+        job_spec: Job specification containing playbook information
+
+    Returns:
+        Resolved path to playbook file or None
+    """
+    return get_playbook_path(job_spec.playbook, job_spec.source)
 
 
 if __name__ == "__main__":

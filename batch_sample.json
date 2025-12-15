@@ -1,0 +1,41 @@
+{
+  "batch_id": "tour_2025_12",
+  "description": "Sample batch specification for testing multi-repo conversions",
+  "defaults": {
+    "rehearse": true,
+    "auto_replan": false,
+    "arbitrate": true,
+    "max_candidates": 2,
+    "judge_engine": "codex",
+    "checkpoint_mode": "manual",
+    "semantic_strict": true
+  },
+  "jobs": [
+    {
+      "name": "repoA_cpp_to_c",
+      "source": "/path/to/repoA",
+      "target": "/path/to/repoA_out",
+      "intent": "high_to_low_level",
+      "playbook": "cpp_to_c",
+      "baseline": "optional_baseline_id",
+      "tags": ["core", "low_level"]
+    },
+    {
+      "name": "repoB_py_typed",
+      "source": "/path/to/repoB",
+      "target": "/path/to/repoB_out",
+      "intent": "typedness_upgrade",
+      "playbook": null,
+      "tags": ["python"]
+    },
+    {
+      "name": "repoC_modernize_cpp",
+      "source": "/path/to/repoC",
+      "target": "/path/to/repoC_out", 
+      "intent": "cpp_modernization",
+      "playbook": "cpp17_to_cpp20",
+      "checkpoint_mode": "auto_approve",
+      "tags": ["cpp", "modernization"]
+    }
+  ]
+}
