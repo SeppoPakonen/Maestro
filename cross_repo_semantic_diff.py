@@ -18,6 +18,7 @@ from datetime import datetime
 
 from conversion_memory import ConversionMemory
 from semantic_integrity import SemanticIntegrityChecker
+import playbook_manager
 
 
 class CrossRepoSemanticDiff:
@@ -784,19 +785,50 @@ class CrossRepoSemanticDiff:
         """Build a ledger of lost/approximated concepts with evidence."""
         loss_ledger = []
 
+        # Check if there's an active playbook with required losses
+        playbook_manager_instance = playbook_manager.PlaybookManager()
+        active_binding = playbook_manager_instance.get_active_playbook_binding()
+        active_playbook = None
+
+        expected_losses = set()
+        if active_binding:
+            playbook_id = active_binding['playbook_id']
+            active_playbook = playbook_manager_instance.load_playbook(playbook_id)
+            if active_playbook:
+                # Normalize the required losses to lowercase for comparison
+                expected_losses = {loss.lower() for loss in active_playbook.required_losses}
+
         for task_id, report in semantic_reports.items():
             lost_concepts = report.get("lost_concepts", [])
             assumptions = report.get("assumptions", [])
             risk_flags = report.get("risk_flags", [])
 
             if lost_concepts or risk_flags:
+                # Filter out expected losses based on playbook
+                unexpected_lost_concepts = []
+                expected_lost_concepts = []
+
+                for concept in lost_concepts:
+                    # Check if this loss is expected based on the playbook
+                    concept_lower = concept.lower()
+                    is_expected = any(expected_loss in concept_lower or concept_lower in expected_loss for expected_loss in expected_losses)
+
+                    if is_expected:
+                        expected_lost_concepts.append(concept)
+                    else:
+                        unexpected_lost_concepts.append(concept)
+
+                # Create an entry that differentiates between expected and unexpected losses
                 loss_entry = {
                     "task_id": task_id,
-                    "lost_concepts": lost_concepts,
+                    "lost_concepts": lost_concepts,  # All original lost concepts
+                    "unexpected_lost_concepts": unexpected_lost_concepts,
+                    "expected_lost_concepts": expected_lost_concepts,  # Concepts that match playbook requirements
                     "assumptions": assumptions,
                     "risk_flags": risk_flags,
                     "confidence": report.get("confidence", 0.0),
-                    "semantic_equivalence": report.get("semantic_equivalence", "unknown")
+                    "semantic_equivalence": report.get("semantic_equivalence", "unknown"),
+                    "playbook_id": active_playbook.id if active_playbook else None
                 }
                 loss_ledger.append(loss_entry)
 
@@ -860,20 +892,34 @@ class CrossRepoSemanticDiff:
         unknown_equiv_count = sum(1 for fe in file_equivalence if fe.get("semantic_equivalence") == "unknown")
         total_files = len(file_equivalence)
 
-        lost_concepts_total = sum(len(entry.get("lost_concepts", [])) for entry in loss_ledger)
+        # Calculate both expected and unexpected lost concepts
+        expected_lost_concepts_total = 0
+        unexpected_lost_concepts_total = 0
+
+        for entry in loss_ledger:
+            # Prioritize the new fields if available (from playbook-enhanced loss ledger)
+            if "unexpected_lost_concepts" in entry:
+                unexpected_lost_concepts_total += len(entry.get("unexpected_lost_concepts", []))
+                expected_lost_concepts_total += len(entry.get("expected_lost_concepts", []))
+            else:
+                # Fallback to original behavior if playbook wasn't used
+                lost_concepts = entry.get("lost_concepts", [])
+                unexpected_lost_concepts_total += len(lost_concepts)  # Treat all as unexpected if no playbook
 
         unknown_ratio = unknown_equiv_count / total_files if total_files > 0 else 0
 
         drift_analysis = {
             "core_files_low_equivalence": low_equiv_count,
             "low_equivalence_exceeds_threshold": low_equiv_count > thresholds["core_files_low_equivalence"],
-            "lost_concepts_count": lost_concepts_total,
-            "lost_concepts_exceeds_threshold": lost_concepts_total >= thresholds["lost_concepts_count_threshold"],
+            "lost_concepts_count": unexpected_lost_concepts_total,  # Only count unexpected losses for threshold
+            "expected_lost_concepts_count": expected_lost_concepts_total,
+            "unexpected_lost_concepts_count": unexpected_lost_concepts_total,
+            "lost_concepts_exceeds_threshold": unexpected_lost_concepts_total >= thresholds["lost_concepts_count_threshold"],
             "unknown_equivalence_ratio": unknown_ratio,
             "unknown_ratio_exceeds_threshold": unknown_ratio > thresholds["unknown_equivalence_ratio_threshold"],
             "requires_checkpoint": (
                 low_equiv_count > thresholds["core_files_low_equivalence"] or
-                lost_concepts_total >= thresholds["lost_concepts_count_threshold"] or
+                unexpected_lost_concepts_total >= thresholds["lost_concepts_count_threshold"] or
                 unknown_ratio > thresholds["unknown_equivalence_ratio_threshold"]
             ),
             "checkpoint_reasons": []
@@ -881,8 +927,8 @@ class CrossRepoSemanticDiff:
 
         if low_equiv_count > thresholds["core_files_low_equivalence"]:
             drift_analysis["checkpoint_reasons"].append("Low equivalence files count exceeds threshold")
-        if lost_concepts_total >= thresholds["lost_concepts_count_threshold"]:
-            drift_analysis["checkpoint_reasons"].append("Lost concepts count exceeds threshold")
+        if unexpected_lost_concepts_total >= thresholds["lost_concepts_count_threshold"]:
+            drift_analysis["checkpoint_reasons"].append("Unexpected lost concepts count exceeds threshold")
         if unknown_ratio > thresholds["unknown_equivalence_ratio_threshold"]:
             drift_analysis["checkpoint_reasons"].append("Unknown equivalence ratio exceeds threshold")
 

@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from inventory_generator import load_inventory
 from conversion_memory import ConversionMemory, TaskSummary
 from context_builder import ContextBuilder
+import playbook_manager
 
 def generate_task_id():
     """Generate a unique task ID."""
@@ -166,8 +167,21 @@ def create_sweep_tasks(source_inventory: Dict, target_inventory: Dict) -> List[D
 
     return sweep_tasks
 
-def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_output_path: str) -> Dict:
+def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_output_path: str, rehearsal_mode: bool = False) -> Dict:
     """Generate a complete conversion plan JSON based on source and target inventories."""
+
+    # Check if there's an active playbook binding
+    playbook_manager_instance = playbook_manager.PlaybookManager()
+    active_binding = playbook_manager_instance.get_active_playbook_binding()
+    active_playbook = None
+
+    if active_binding:
+        playbook_id = active_binding['playbook_id']
+        active_playbook = playbook_manager_instance.load_playbook(playbook_id)
+        if active_playbook:
+            print(f"[PLANNER] Using active playbook: {active_playbook.id} (version {active_playbook.version})")
+        else:
+            print(f"[WARNING] Active binding exists for playbook {playbook_id} but playbook not found")
 
     # Load inventories
     source_inventory_path = ".maestro/convert/inventory/source_files.json"
@@ -221,6 +235,16 @@ def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_
         "target_inventory": target_inventory_path
     }
 
+    # Apply playbook-specific modifications if active
+    if active_playbook:
+        # Ensure the conversion intent matches playbook intent
+        plan['intent'] = f"{active_playbook.intent}: Convert {source_repo_path} to {target_repo_path} using playbook {active_playbook.id}"
+
+        # Apply checkpoint policy from playbook
+        if active_playbook.checkpoint_policy:
+            # Store the checkpoint policy in the plan for later use
+            plan['checkpoint_policy'] = active_playbook.checkpoint_policy
+
     # Create scaffold tasks (these come first)
     plan['scaffold_tasks'] = create_scaffold_tasks(target_inventory)
 
@@ -233,6 +257,11 @@ def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_
     # Apply memory-driven enhancements to the plan
     plan = apply_memory_guidance_to_plan(plan, memory)
 
+    # Add checkpoints based on playbook policy, rehearsal mode, or auto-checkpoints
+    if rehearsal_mode or (active_playbook and active_playbook.checkpoint_policy):
+        # Add checkpoints to allow human review during rehearsal or according to playbook
+        plan = add_auto_checkpoints(plan, memory, active_playbook)
+
     # Save the plan
     with open(plan_output_path, 'w', encoding='utf-8') as f:
         json.dump(plan, f, indent=2)
@@ -243,8 +272,75 @@ def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_
         source_files=[source_inventory_path],
         target_files=[plan_output_path]
     )
-    summary.add_semantic_decision("Generated conversion plan with memory guidance")
+    summary.add_semantic_decision(f"Generated conversion plan with memory guidance (rehearsal_mode: {rehearsal_mode})")
     summary.save_to_file()
+
+    return plan
+
+
+def add_auto_checkpoints(plan: Dict, memory: ConversionMemory, active_playbook=None) -> Dict:
+    """Add automatic checkpoints to the plan based on risk assessment and playbook policy."""
+
+    # Get all task IDs for checkpoint insertion
+    all_task_ids = []
+    all_task_ids.extend([task['task_id'] for task in plan.get('scaffold_tasks', [])])
+    all_task_ids.extend([task['task_id'] for task in plan.get('file_tasks', [])])
+    all_task_ids.extend([task['task_id'] for task in plan.get('final_sweep_tasks', [])])
+
+    # Create checkpoints automatically
+    checkpoints = []
+
+    # Add checkpoint after scaffold tasks
+    scaffold_tasks = plan.get('scaffold_tasks', [])
+    if scaffold_tasks:
+        checkpoint = {
+            "checkpoint_id": "CP-Scaffold-Setup",
+            "after_tasks": [task['task_id'] for task in scaffold_tasks],
+            "label": "Scaffold tasks completed - Basic structure in place",
+            "requires": ["semantic_ok"],
+            "auto_continue": False,
+            "status": "pending"
+        }
+        checkpoints.append(checkpoint)
+
+    # Add checkpoint after every N file tasks according to playbook policy or default
+    file_tasks = plan.get('file_tasks', [])
+    if file_tasks:
+        # Use playbook policy for checkpoint frequency, default to 5 if not specified
+        checkpoint_frequency = 5
+        if active_playbook and active_playbook.checkpoint_policy:
+            freq = active_playbook.checkpoint_policy.get('after_files', 5)
+            checkpoint_frequency = freq
+
+        for i in range(0, len(file_tasks), checkpoint_frequency):
+            batch_end = min(i + checkpoint_frequency, len(file_tasks))
+            batch_task_ids = [task['task_id'] for task in file_tasks[i:batch_end]]
+
+            checkpoint = {
+                "checkpoint_id": f"CP-FileBatch-{i//checkpoint_frequency + 1}",
+                "after_tasks": batch_task_ids,
+                "label": f"File conversion batch {i//checkpoint_frequency + 1} completed",
+                "requires": ["semantic_ok"],
+                "auto_continue": False,
+                "status": "pending"
+            }
+            checkpoints.append(checkpoint)
+
+    # Add checkpoint after sweep tasks
+    sweep_tasks = plan.get('final_sweep_tasks', [])
+    if sweep_tasks:
+        checkpoint = {
+            "checkpoint_id": "CP-Final-Sweep",
+            "after_tasks": [task['task_id'] for task in sweep_tasks],
+            "label": "Final sweep tasks completed",
+            "requires": ["build_pass", "semantic_ok"],
+            "auto_continue": False,
+            "status": "pending"
+        }
+        checkpoints.append(checkpoint)
+
+    # Add the checkpoints to the plan
+    plan['checkpoints'] = checkpoints
 
     return plan
 

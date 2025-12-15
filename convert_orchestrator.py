@@ -27,6 +27,7 @@ from conversion_memory import ConversionMemory
 from inventory_generator import generate_inventory, save_inventory
 from execution_engine import execute_conversion
 from coverage_report import generate_coverage_report
+import playbook_manager
 
 
 def validate_plan(plan_data: Dict, plan_path: str = ".maestro/convert/plan/plan.json") -> List[str]:
@@ -409,12 +410,14 @@ def compute_inventory_fingerprint(inventory_path: str) -> str:
 def cmd_plan(args):
     """Generate a conversion plan based on source and target inventories."""
     print(f"Generating conversion plan from {args.source} to {args.target}")
+    if args.rehearse:
+        print("Rehearsal mode enabled - adding checkpoints to plan")
 
     plan_path = ".maestro/convert/plan/plan.json"
 
     # Import the planner here to avoid circular imports
     from planner import generate_conversion_plan
-    plan = generate_conversion_plan(args.source, args.target, plan_path)
+    plan = generate_conversion_plan(args.source, args.target, plan_path, rehearsal_mode=args.rehearse)
 
     # Add inventory fingerprints to the plan
     source_inventory_path = ".maestro/convert/inventory/source_files.json"
@@ -1313,6 +1316,7 @@ def cmd_run(args):
     if args.ignore_decision_drift: flags_used.append("--ignore-decision-drift")
     if args.accept_semantic_risk: flags_used.append("--accept-semantic-risk")
     if args.arbitrate: flags_used.append("--arbitrate")
+    if args.rehearse: flags_used.append("--rehearse")
 
     # Create run manifest
     run_manifest = capture_run_manifest(
@@ -1336,7 +1340,8 @@ def cmd_run(args):
         arbitrate_engines=args.arbitrate_engines,
         judge_engine=args.judge_engine,
         max_candidates=args.max_candidates,
-        use_judge=not args.no_judge
+        use_judge=not args.no_judge,
+        rehearsal_mode=args.rehearse  # Add rehearsal mode flag
     )
 
     # Update manifest with final status
@@ -1637,6 +1642,7 @@ Examples:
     plan_parser = subparsers.add_parser('plan', help='Generate conversion plan JSON')
     plan_parser.add_argument('source', help='Source repository or path')
     plan_parser.add_argument('target', help='Target repository or path')
+    plan_parser.add_argument('--rehearse', action='store_true', help='Generate plan with rehearsal checkpoints')
     plan_parser.set_defaults(func=cmd_plan)
 
     # Validate command
@@ -1654,6 +1660,7 @@ Examples:
     run_parser.add_argument('--auto-replan', action='store_true', help='Auto-replan if inventory changed')
     run_parser.add_argument('--ignore-decision-drift', action='store_true', help='Ignore decision drift and run anyway (dangerous)')
     run_parser.add_argument('--accept-semantic-risk', action='store_true', help='Accept semantic risks without human confirmation')
+    run_parser.add_argument('--rehearse', action='store_true', help='Run in rehearsal mode (no writes to target)')
 
     # Arbitration mode flags
     run_parser.add_argument('--arbitrate', action='store_true', help='Enable arbitration mode for eligible tasks')
@@ -1663,6 +1670,24 @@ Examples:
     run_parser.add_argument('--no-judge', action='store_true', help='Use heuristic scoring only, no judge pass')
 
     run_parser.set_defaults(func=cmd_run)
+
+    # Playbook command group
+    playbook_parser = subparsers.add_parser('playbook', help='Conversion playbook management')
+    playbook_subparsers = playbook_parser.add_subparsers(dest='playbook_command', help='Playbook subcommands')
+
+    # Playbook list command
+    playbook_list_parser = playbook_subparsers.add_parser('list', aliases=['ls'], help='List all available playbooks')
+    playbook_list_parser.set_defaults(func=cmd_playbook_list)
+
+    # Playbook show command
+    playbook_show_parser = playbook_subparsers.add_parser('show', aliases=['sh'], help='Show details of a specific playbook')
+    playbook_show_parser.add_argument('playbook_id', help='ID of the playbook to show')
+    playbook_show_parser.set_defaults(func=cmd_playbook_show)
+
+    # Playbook use command
+    playbook_use_parser = playbook_subparsers.add_parser('use', aliases=['u'], help='Bind a playbook to current conversion')
+    playbook_use_parser.add_argument('playbook_id', help='ID of the playbook to bind')
+    playbook_use_parser.set_defaults(func=cmd_playbook_use)
 
     # Runs subcommands
     runs_parser = subparsers.add_parser('runs', help='Manage conversion runs')
@@ -1707,6 +1732,13 @@ Examples:
     replay_parser.add_argument('--fail-on-any-drift', action='store_true', help='Fail if any drift is detected')
     replay_parser.set_defaults(func=cmd_replay)
 
+    # Promote command
+    promote_parser = subparsers.add_parser('promote', help='Promote a rehearsal run to real execution')
+    promote_parser.add_argument('rehearsal_run_id', help='ID of the rehearsal run to promote')
+    promote_parser.add_argument('source', help='Source repository or path')
+    promote_parser.add_argument('target', help='Target repository or path')
+    promote_parser.set_defaults(func=cmd_promote)
+
     # Memory command
     memory_parser = subparsers.add_parser('memory', help='Manage conversion memory')
     memory_subparsers = memory_parser.add_subparsers(dest='memory_command', help='Memory subcommands')
@@ -1735,6 +1767,17 @@ Examples:
     decision_override_parser.add_argument('--reason', help='Reason for the override')
     decision_override_parser.add_argument('--replan', action='store_true', help='Replan automatically after override')
     decision_override_parser.set_defaults(func=cmd_decision_override)
+
+    # Playbook command group (if not already added)
+    # Note: This was already added elsewhere in the file
+
+    # Playbook override command
+    playbook_override_parser = subparsers.add_parser('playbook-override', help='Override a playbook constraint violation')
+    playbook_override_parser.add_argument('task_id', help='ID of the task with the violation')
+    playbook_override_parser.add_argument('--violation-type', help='Type of violation (e.g., forbidden_construct)')
+    playbook_override_parser.add_argument('--reason', required=True, help='Reason for the override')
+    playbook_override_parser.add_argument('--force', action='store_true', help='Force override without confirmation')
+    playbook_override_parser.set_defaults(func=cmd_playbook_override)
 
     # Plan command enhancements - add negotiate flag
     plan_parser.add_argument('--negotiate', action='store_true', help='Negotiate plan updates based on new decisions')
@@ -1765,6 +1808,37 @@ Examples:
     semantic_reject_parser.add_argument('task_id', help='ID of the task to reject')
     semantic_reject_parser.add_argument('--note', help='Optional note for the rejection')
     semantic_reject_parser.set_defaults(func=cmd_semantics_reject)
+
+    # Checkpoint command group
+    checkpoint_parser = subparsers.add_parser('checkpoint', help='Checkpoint management')
+    checkpoint_subparsers = checkpoint_parser.add_subparsers(dest='checkpoint_command', help='Checkpoint subcommands')
+
+    # Checkpoint approve command
+    checkpoint_approve_parser = checkpoint_subparsers.add_parser('approve', help='Approve a checkpoint to continue execution')
+    checkpoint_approve_parser.add_argument('checkpoint_id', help='ID of the checkpoint to approve')
+    checkpoint_approve_parser.add_argument('--note', help='Optional note for the approval')
+    checkpoint_approve_parser.set_defaults(func=cmd_checkpoint_approve)
+
+    # Checkpoint reject command
+    checkpoint_reject_parser = checkpoint_subparsers.add_parser('reject', help='Reject a checkpoint and stop execution')
+    checkpoint_reject_parser.add_argument('checkpoint_id', help='ID of the checkpoint to reject')
+    checkpoint_reject_parser.add_argument('--note', help='Optional note for the rejection')
+    checkpoint_reject_parser.set_defaults(func=cmd_checkpoint_reject)
+
+    # Checkpoint override command
+    checkpoint_override_parser = checkpoint_subparsers.add_parser('override', help='Override a checkpoint and continue execution with risk acceptance')
+    checkpoint_override_parser.add_argument('checkpoint_id', help='ID of the checkpoint to override')
+    checkpoint_override_parser.add_argument('--note', help='Optional note for the override')
+    checkpoint_override_parser.set_defaults(func=cmd_checkpoint_override)
+
+    # Checkpoint list command
+    checkpoint_list_parser = checkpoint_subparsers.add_parser('list', help='List all checkpoints')
+    checkpoint_list_parser.set_defaults(func=cmd_checkpoint_list)
+
+    # Checkpoint show command
+    checkpoint_show_parser = checkpoint_subparsers.add_parser('show', help='Show details of a specific checkpoint')
+    checkpoint_show_parser.add_argument('checkpoint_id', help='ID of the checkpoint to show')
+    checkpoint_show_parser.set_defaults(func=cmd_checkpoint_show)
 
     # Arbitration command group
     arbitration_parser = subparsers.add_parser('arbitration', help='Arbitration result management')
@@ -1867,6 +1941,448 @@ def cmd_arbitration_show(args):
     return 0
 
 
+def cmd_checkpoint_approve(args):
+    """Approve a checkpoint to continue execution."""
+    import os
+    import json
+    from pathlib import Path
+    import datetime
+
+    checkpoint_id = args.checkpoint_id
+    plan_path = ".maestro/convert/plan/plan.json"
+
+    if not os.path.exists(plan_path):
+        print(f"Error: No plan found at {plan_path}. Run 'plan' command first.")
+        return 1
+
+    # Load the plan
+    with open(plan_path, 'r') as f:
+        plan = json.load(f)
+
+    # Find the checkpoint
+    checkpoint = None
+    for cp in plan.get('checkpoints', []):
+        if cp['checkpoint_id'] == checkpoint_id:
+            checkpoint = cp
+            break
+
+    if not checkpoint:
+        print(f"Error: Checkpoint {checkpoint_id} not found in plan")
+        return 1
+
+    # Update checkpoint status to approved
+    checkpoint['status'] = 'approved'
+    checkpoint['approved_at'] = datetime.datetime.now().isoformat()
+    checkpoint['note'] = args.note
+
+    # Save the updated plan
+    with open(plan_path, 'w', encoding='utf-8') as f:
+        json.dump(plan, f, indent=2)
+
+    print(f"✓ Checkpoint {checkpoint_id} approved")
+    if args.note:
+        print(f"  Note: {args.note}")
+
+    return 0
+
+
+def cmd_checkpoint_reject(args):
+    """Reject a checkpoint and stop execution."""
+    import os
+    import json
+    from pathlib import Path
+    import datetime
+
+    checkpoint_id = args.checkpoint_id
+    plan_path = ".maestro/convert/plan/plan.json"
+
+    if not os.path.exists(plan_path):
+        print(f"Error: No plan found at {plan_path}. Run 'plan' command first.")
+        return 1
+
+    # Load the plan
+    with open(plan_path, 'r') as f:
+        plan = json.load(f)
+
+    # Find the checkpoint
+    checkpoint = None
+    for cp in plan.get('checkpoints', []):
+        if cp['checkpoint_id'] == checkpoint_id:
+            checkpoint = cp
+            break
+
+    if not checkpoint:
+        print(f"Error: Checkpoint {checkpoint_id} not found in plan")
+        return 1
+
+    # Update checkpoint status to rejected
+    checkpoint['status'] = 'rejected'
+    checkpoint['rejected_at'] = datetime.datetime.now().isoformat()
+    checkpoint['note'] = args.note
+
+    # Save the updated plan
+    with open(plan_path, 'w', encoding='utf-8') as f:
+        json.dump(plan, f, indent=2)
+
+    print(f"✓ Checkpoint {checkpoint_id} rejected")
+    print("Conversion execution will be stopped at this checkpoint.")
+    if args.note:
+        print(f"  Note: {args.note}")
+
+    return 0
+
+
+def cmd_checkpoint_override(args):
+    """Override a checkpoint and continue execution with risk acceptance."""
+    import os
+    import json
+    from pathlib import Path
+    import datetime
+
+    checkpoint_id = args.checkpoint_id
+    plan_path = ".maestro/convert/plan/plan.json"
+
+    if not os.path.exists(plan_path):
+        print(f"Error: No plan found at {plan_path}. Run 'plan' command first.")
+        return 1
+
+    # Load the plan
+    with open(plan_path, 'r') as f:
+        plan = json.load(f)
+
+    # Find the checkpoint
+    checkpoint = None
+    for cp in plan.get('checkpoints', []):
+        if cp['checkpoint_id'] == checkpoint_id:
+            checkpoint = cp
+            break
+
+    if not checkpoint:
+        print(f"Error: Checkpoint {checkpoint_id} not found in plan")
+        return 1
+
+    # Update checkpoint status to completed (override)
+    checkpoint['status'] = 'completed'
+    checkpoint['overridden_at'] = datetime.datetime.now().isoformat()
+    checkpoint['overridden_by'] = os.environ.get('USER', 'unknown')
+    checkpoint['note'] = args.note
+    checkpoint['risk_accepted'] = True  # Mark that risk was accepted
+
+    # Save the updated plan
+    with open(plan_path, 'w', encoding='utf-8') as f:
+        json.dump(plan, f, indent=2)
+
+    print(f"✓ Checkpoint {checkpoint_id} overridden")
+    print("Conversion execution will continue with risk acceptance.")
+    if args.note:
+        print(f"  Note: {args.note}")
+
+    return 0
+
+
+def cmd_checkpoint_list(args):
+    """List all checkpoints."""
+    import os
+    import json
+
+    plan_path = ".maestro/convert/plan/plan.json"
+
+    if not os.path.exists(plan_path):
+        print(f"Error: No plan found at {plan_path}. Run 'plan' command first.")
+        return 1
+
+    # Load the plan
+    with open(plan_path, 'r') as f:
+        plan = json.load(f)
+
+    checkpoints = plan.get('checkpoints', [])
+
+    if not checkpoints:
+        print("No checkpoints found in plan")
+        return 0
+
+    print(f"{'ID':<20} {'Label':<40} {'Status':<12} {'Auto-Cont'}")
+    print("-" * 85)
+
+    for checkpoint in checkpoints:
+        cp_id = checkpoint.get('checkpoint_id', 'N/A')
+        label = checkpoint.get('label', '')[:37]  # Truncate if too long
+        status = checkpoint.get('status', 'N/A')
+        auto_cont = 'Yes' if checkpoint.get('auto_continue', False) else 'No'
+
+        print(f"{cp_id:<20} {label:<40} {status:<12} {auto_cont:<10}")
+
+    print(f"\nTotal: {len(checkpoints)} checkpoint(s)")
+    return 0
+
+
+def cmd_checkpoint_show(args):
+    """Show details of a specific checkpoint."""
+    import os
+    import json
+
+    checkpoint_id = args.checkpoint_id
+    plan_path = ".maestro/convert/plan/plan.json"
+
+    if not os.path.exists(plan_path):
+        print(f"Error: No plan found at {plan_path}. Run 'plan' command first.")
+        return 1
+
+    # Load the plan
+    with open(plan_path, 'r') as f:
+        plan = json.load(f)
+
+    # Find the checkpoint
+    checkpoint = None
+    for cp in plan.get('checkpoints', []):
+        if cp['checkpoint_id'] == checkpoint_id:
+            checkpoint = cp
+            break
+
+    if not checkpoint:
+        print(f"Error: Checkpoint {checkpoint_id} not found in plan")
+        return 1
+
+    print(f"CHECKPOINT DETAILS: {checkpoint_id}")
+    print("=" * 50)
+    print(f"Label: {checkpoint.get('label', 'N/A')}")
+    print(f"Status: {checkpoint.get('status', 'N/A')}")
+    print(f"Auto Continue: {checkpoint.get('auto_continue', False)}")
+    print(f"Requires: {', '.join(checkpoint.get('requires', []))}")
+    print(f"Tasks after checkpoint: {len(checkpoint.get('after_tasks', []))}")
+
+    # Show checkpoint artifact if it exists
+    checkpoint_artifact_path = f".maestro/convert/checkpoints/{checkpoint_id}/summary.json"
+    if os.path.exists(checkpoint_artifact_path):
+        print(f"\nARTIFACT SUMMARY:")
+        with open(checkpoint_artifact_path, 'r') as f:
+            summary = json.load(f)
+        print(f"  Timestamp: {summary.get('timestamp', 'N/A')}")
+        print(f"  Tasks completed: {summary.get('tasks_completed_since_last_checkpoint', 0)}")
+        print(f"  Open issues: {summary.get('open_issues_added_since_last_checkpoint', 0)}")
+
+        semantic_summary = summary.get('semantic_summary', {})
+        if semantic_summary:
+            print(f"  Semantic summary:")
+            print(f"    Total files checked: {semantic_summary.get('total_files_checked', 0)}")
+            equiv_counts = semantic_summary.get('equivalence_counts', {})
+            print(f"    Equivalence counts: {equiv_counts}")
+    else:
+        print(f"\nCheckpoint artifact not found at: {checkpoint_artifact_path}")
+
+    return 0
+
+
+def cmd_promote(args):
+    """Promote a rehearsal run to real execution."""
+    import os
+    import json
+    from pathlib import Path
+    import shutil
+
+    rehearsal_run_id = args.rehearsal_run_id
+    source_path = args.source
+    target_path = args.target
+
+    # Check if rehearsal artifacts exist
+    rehearsal_dir = f".maestro/convert/rehearsal/{rehearsal_run_id}"
+    if not os.path.exists(rehearsal_dir):
+        print(f"Error: No rehearsal run found with ID {rehearsal_run_id}")
+        print(f"Directory {rehearsal_dir} does not exist")
+        return 1
+
+    # Load the plan from the rehearsal
+    plan_path = os.path.join(rehearsal_dir, "plan.json")
+    if not os.path.exists(plan_path):
+        print(f"Error: Plan file not found for rehearsal {rehearsal_run_id}")
+        return 1
+
+    # Load the rehearsal plan
+    with open(plan_path, 'r', encoding='utf-8') as f:
+        plan = json.load(f)
+
+    print(f"Promoting rehearsal run: {rehearsal_run_id}")
+    print(f"Source: {source_path}")
+    print(f"Target: {target_path}")
+
+    # Check if there's already a regular plan in .maestro/convert/plan/
+    regular_plan_dir = ".maestro/convert/plan"
+    os.makedirs(regular_plan_dir, exist_ok=True)
+    regular_plan_path = os.path.join(regular_plan_dir, "plan.json")
+
+    # Copy the rehearsal plan to the regular plan location
+    shutil.copy2(plan_path, regular_plan_path)
+    print(f"✓ Copied plan from rehearsal to: {regular_plan_path}")
+
+    # Execute the plan with the rehearsal decisions but now with real target
+    from execution_engine import execute_conversion
+
+    # Since we're promoting rehearsal results, we need to run the plan normally
+    # but potentially skip tasks that have already been validated during rehearsal
+
+    # Execute the plan normally, but with the knowledge that many decisions are already made
+    print(f"Starting promotion execution...")
+
+    # Run the conversion normally
+    success = execute_conversion(
+        source_path,
+        target_path,
+        limit=None,
+        resume=False,
+        accept_semantic_risk=True,  # Accept risks since they've been validated in rehearsal
+        arbitrate=False,  # May want to re-enable arbitration for final run
+        arbitrate_engines='qwen,claude',
+        judge_engine='codex',
+        max_candidates=2,
+        use_judge=True,
+        rehearsal_mode=False  # This is a real run now
+    )
+
+    if success:
+        print("✓ Promotion completed successfully. Rehearsal results applied to real target.")
+
+        # Generate coverage report
+        from coverage_report import generate_coverage_report
+        generate_coverage_report(
+            ".maestro/convert/inventory/source_files.json",
+            ".maestro/convert/inventory/target_files.json",
+            regular_plan_path,
+            ".maestro/convert/reports/coverage.json"
+        )
+        return 0
+    else:
+        print("✗ Promotion failed or was interrupted")
+        return 1
+
+
+def cmd_playbook_list(args):
+    """List all available playbooks."""
+    manager = playbook_manager.PlaybookManager()
+    playbooks = manager.list_playbooks()
+
+    if not playbooks:
+        print("No playbooks found.")
+        return 0
+
+    print(f"{'ID':<25} {'TITLE':<50} {'VERSION':<10} {'SOURCE->TARGET':<20}")
+    print("-" * 110)
+
+    for pb in playbooks:
+        src_tgt = f"{pb.get('source_language', 'N/A')}→{pb.get('target_language', 'N/A')}"
+        print(f"{pb.get('id', 'N/A'):<25} {pb.get('title', 'N/A')[:49]:<50} {pb.get('version', 'N/A'):<10} {src_tgt:<20}")
+
+    print(f"\nTotal: {len(playbooks)} playbook(s)")
+    return 0
+
+
+def cmd_playbook_show(args):
+    """Show details of a specific playbook."""
+    manager = playbook_manager.PlaybookManager()
+    playbook = manager.load_playbook(args.playbook_id)
+
+    if not playbook:
+        print(f"Playbook '{args.playbook_id}' not found.")
+        return 1
+
+    pb_data = playbook.to_dict()
+
+    print(f"PLAYBOOK DETAILS: {pb_data['id']}")
+    print("=" * 60)
+    print(f"Title: {pb_data['title']}")
+    print(f"Version: {pb_data['version']}")
+    print(f"Intent: {pb_data['intent']}")
+    print()
+
+    print("APPLIES TO:")
+    print(f"  Source Language: {pb_data['applies_to'].get('source_language', 'N/A')}")
+    print(f"  Target Language: {pb_data['applies_to'].get('target_language', 'N/A')}")
+    print()
+
+    print("PRINCIPLES:")
+    for i, principle in enumerate(pb_data['principles'], 1):
+        print(f"  {i}. {principle}")
+    print()
+
+    if pb_data['required_losses']:
+        print("REQUIRED LOSSES:")
+        for loss in pb_data['required_losses']:
+            print(f"  - {loss}")
+        print()
+
+    if pb_data['forbidden_constructs'].get('target'):
+        print("FORBIDDEN CONSTRUCTS (TARGET):")
+        for forbidden in pb_data['forbidden_constructs']['target']:
+            print(f"  - {forbidden}")
+        print()
+
+    if pb_data['preferred_patterns']:
+        print("PREFERRED PATTERNS:")
+        for pattern in pb_data['preferred_patterns']:
+            print(f"  - {pattern}")
+        print()
+
+    if pb_data['checkpoint_policy']:
+        print("CHECKPOINT POLICY:")
+        for key, value in pb_data['checkpoint_policy'].items():
+            print(f"  {key}: {value}")
+        print()
+
+    if pb_data['validation_policy']:
+        print("VALIDATION POLICY:")
+        for key, value in pb_data['validation_policy'].items():
+            print(f"  {key}: {value}")
+        print()
+
+    return 0
+
+
+def cmd_playbook_use(args):
+    """Bind a playbook to current conversion."""
+    manager = playbook_manager.PlaybookManager()
+
+    # Check if playbook exists
+    playbook = manager.load_playbook(args.playbook_id)
+    if not playbook:
+        print(f"Playbook '{args.playbook_id}' not found.")
+        return 1
+
+    # Bind the playbook
+    if manager.bind_playbook(args.playbook_id):
+        print(f"✓ Playbook '{args.playbook_id}' bound successfully")
+
+        # Show binding details
+        binding = manager.get_active_playbook_binding()
+        if binding:
+            bound_timestamp = binding.get('bound_at', 'N/A')
+            if isinstance(bound_timestamp, int):
+                import datetime
+                bound_time = datetime.datetime.fromtimestamp(bound_timestamp).strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                bound_time = bound_timestamp
+            print(f"  Bound at: {bound_time}")
+            print(f"  Bound by: {binding.get('bound_by', 'N/A')}")
+            print(f"  Version: {binding.get('playbook_version', 'N/A')}")
+        return 0
+    else:
+        print(f"✗ Failed to bind playbook '{args.playbook_id}'")
+        return 1
+
+
+def cmd_playbook_override(args):
+    """Override a playbook constraint violation."""
+    manager = playbook_manager.PlaybookManager()
+
+    # Record the override
+    success = manager.record_override(args.task_id, args.violation_type, args.reason)
+
+    if success:
+        print(f"✓ Override recorded for task '{args.task_id}'")
+        print(f"  Violation type: {args.violation_type or 'N/A'}")
+        print(f"  Reason: {args.reason}")
+        return 0
+    else:
+        print(f"✗ Failed to record override for task '{args.task_id}'")
+        return 1
 
 
 if __name__ == "__main__":

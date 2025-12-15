@@ -2532,6 +2532,29 @@ def main():
     # semantics coverage
     semantics_coverage_parser = convert_semantics_subparsers.add_parser('coverage', aliases=['c'], help='Show semantic coverage metrics')
 
+    # Add playbook subcommand
+    convert_playbook_parser = convert_subparsers.add_parser('playbook', aliases=['pb'], help='Conversion playbook management')
+    convert_playbook_subparsers = convert_playbook_parser.add_subparsers(dest='playbook_subcommand', help='Playbook subcommands')
+
+    # playbook list
+    playbook_list_parser = convert_playbook_subparsers.add_parser('list', aliases=['ls'], help='List all available playbooks')
+    playbook_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed information')
+
+    # playbook show
+    playbook_show_parser = convert_playbook_subparsers.add_parser('show', aliases=['sh'], help='Show details of a specific playbook')
+    playbook_show_parser.add_argument('playbook_id', help='ID of the playbook to show')
+
+    # playbook use
+    playbook_use_parser = convert_playbook_subparsers.add_parser('use', aliases=['u'], help='Bind a playbook to current conversion')
+    playbook_use_parser.add_argument('playbook_id', help='ID of the playbook to bind')
+
+    # Add playbook-override command (not a subcommand, but a direct command)
+    playbook_override_parser = convert_subparsers.add_parser('playbook-override', help='Override a playbook constraint violation')
+    playbook_override_parser.add_argument('task_id', help='ID of the task with the violation')
+    playbook_override_parser.add_argument('--violation-type', help='Type of violation (e.g., forbidden_construct)')
+    playbook_override_parser.add_argument('--reason', required=True, help='Reason for the override')
+    playbook_override_parser.add_argument('--force', action='store_true', help='Force override without confirmation')
+
     # Add help/h subcommands for convert subparsers
     convert_subparsers.add_parser('help', aliases=['h'], help='Show help for conversion pipeline commands')
 
@@ -3571,11 +3594,14 @@ def main():
                     print_error(f"Error checking build targets: {e}", 2)
                     sys.exit(1)
     elif args.command == 'convert':
+        # Some convert commands don't need a session (playbook, replay, etc.)
+        needs_session = args.convert_subcommand not in ['playbook', 'playbook-override', 'replay', 'semantics']
+
         # Check if session is required for convert command
         # For convert commands that need sessions, try to find an active session first
         session_path = args.session
 
-        if not session_path:
+        if needs_session and not session_path:
             # Check for an active session first
             active_session_name = get_active_session_name()
             if active_session_name:
@@ -3779,6 +3805,55 @@ def main():
                     cmd.extend(['--max-replay-rounds', str(args.max_replay_rounds)])
                 if hasattr(args, 'fail_on_any_drift') and args.fail_on_any_drift:
                     cmd.append('--fail-on-any-drift')
+
+                result = subprocess.run(cmd)
+                sys.exit(result.returncode)
+            elif args.convert_subcommand == 'playbook':
+                # Handle playbook management commands
+                if hasattr(args, 'playbook_subcommand') and args.playbook_subcommand:
+                    import subprocess
+                    import sys
+                    cmd = [sys.executable, "convert_orchestrator.py", "playbook"]
+
+                    # Add the subcommand
+                    subcommand = args.playbook_subcommand
+                    if subcommand == 'list' or subcommand == 'ls':
+                        cmd.append('list')
+                    elif subcommand == 'show' or subcommand == 'sh':
+                        cmd.append('show')
+                        if hasattr(args, 'playbook_id') and args.playbook_id:
+                            cmd.append(args.playbook_id)
+                    elif subcommand == 'use' or subcommand == 'u':
+                        cmd.append('use')
+                        if hasattr(args, 'playbook_id') and args.playbook_id:
+                            cmd.append(args.playbook_id)
+                    else:
+                        print_error(f"Unknown playbook subcommand: {args.playbook_subcommand}", 2)
+                        import sys
+                        sys.exit(1)
+
+                    result = subprocess.run(cmd)
+                    sys.exit(result.returncode)
+                else:
+                    # If no subcommand, show help
+                    import sys
+                    convert_subparsers.add_parser('playbook').print_help()  # This will show a more specific error
+                    sys.exit(1)
+            elif args.convert_subcommand == 'playbook-override':
+                # Handle playbook-override command (single command, not subcommands)
+                import subprocess
+                import sys
+                cmd = [sys.executable, "convert_orchestrator.py", "playbook-override"]
+
+                # Add required arguments
+                if hasattr(args, 'task_id') and args.task_id:
+                    cmd.append(args.task_id)
+                if hasattr(args, 'reason') and args.reason:
+                    cmd.extend(['--reason', args.reason])
+                if hasattr(args, 'violation_type') and args.violation_type:
+                    cmd.extend(['--violation-type', args.violation_type])
+                if hasattr(args, 'force') and args.force:
+                    cmd.append('--force')
 
                 result = subprocess.run(cmd)
                 sys.exit(result.returncode)

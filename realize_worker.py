@@ -25,6 +25,7 @@ import hashlib
 import re
 import copy
 import datetime
+import playbook_manager
 
 
 def create_snapshot(content: str, snapshot_dir: str, prefix: str = "") -> str:
@@ -869,6 +870,43 @@ def execute_file_task(task: Dict, source_repo_path: str, target_repo_path: str,
                 return False
 
             files_to_write = parsed_result['files']
+
+            # Check if there's an active playbook and validate against its constraints
+            playbook_manager_instance = playbook_manager.PlaybookManager()
+            active_binding = playbook_manager_instance.get_active_playbook_binding()
+            active_playbook = None
+
+            if active_binding:
+                playbook_id = active_binding['playbook_id']
+                active_playbook = playbook_manager_instance.load_playbook(playbook_id)
+                if active_playbook:
+                    if verbose:
+                        print(f"[WORKER] Applying playbook constraints from: {active_playbook.id}")
+
+                    # Check for forbidden constructs in the output
+                    forbidden_constructs = active_playbook.forbidden_constructs.get('target', [])
+                    if forbidden_constructs:
+                        violations_found = []
+                        for file_info in files_to_write:
+                            content = file_info.get('content', '')
+                            for forbidden in forbidden_constructs:
+                                if forbidden in content:
+                                    violations_found.append({
+                                        'file': file_info.get('path', 'unknown'),
+                                        'construct': forbidden
+                                    })
+
+                        # If violations were found, check for overrides
+                        if violations_found:
+                            # Check if there's an override file with permission for this violation
+                            override_needed = True
+                            for violation in violations_found:
+                                print(f"[ERROR] Task {task_id} output contains forbidden construct: '{violation['construct']}' in file '{violation['file']}'")
+                                print(f"       Playbook {active_playbook.id} prohibits this construct in output files")
+
+                            # For now, we'll fail the task if forbidden constructs are found
+                            # In a more sophisticated system, this might prompt for an override decision
+                            return False
 
             # Get the write policy for this task
             write_policy = get_write_policy_for_task(task)
