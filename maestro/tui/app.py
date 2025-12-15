@@ -547,7 +547,7 @@ class MaestroTUI(App):
         }
 
         if screen_name in screen_map:
-            self.switch_screen(screen_map[screen_name]())
+            self._switch_main_content(screen_map[screen_name]())
 
     def action_switch_to_screen(self, screen_name: str) -> None:
         """Action to switch to a specific screen."""
@@ -555,7 +555,7 @@ class MaestroTUI(App):
 
     def action_show_help(self) -> None:
         """Action to show help screen."""
-        self.switch_to_screen("help")
+        self._switch_main_content(HelpScreen())
 
     def action_refresh_status(self) -> None:
         """Action to refresh status information."""
@@ -576,6 +576,7 @@ class MaestroTUI(App):
         """Action to show command palette."""
         # Get the active session ID for context
         session_id = self.active_session.id if self.active_session else None
+        from maestro.tui.widgets.command_palette import CommandPaletteScreen
         palette = CommandPaletteScreen(session_id=session_id)
         self.push_screen(palette)
 
