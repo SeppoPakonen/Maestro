@@ -10,6 +10,7 @@ from textual.screen import ModalScreen
 from maestro.ui_facade.sessions import list_sessions, get_active_session, create_session, set_active_session, remove_session
 from maestro.ui_facade.plans import list_plans, get_active_plan
 from maestro.ui_facade.build import get_active_build_target
+from maestro.ui_facade.runs import list_runs, get_run, get_run_manifest, replay_run, diff_runs, set_baseline
 
 
 class CommandPaletteScreen(ModalScreen):
@@ -40,6 +41,7 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Go to tasks", "action": "screen_tasks", "type": "navigation"},
             {"name": "Go to build", "action": "screen_build", "type": "navigation"},
             {"name": "Go to convert", "action": "screen_convert", "type": "navigation"},
+            {"name": "Go to replay", "action": "screen_replay", "type": "navigation"},
             {"name": "Go to arbitration", "action": "screen_arbitration", "type": "navigation"},
             {"name": "Go to logs", "action": "screen_logs", "type": "navigation"},
             {"name": "Go to help", "action": "screen_help", "type": "navigation"},
@@ -122,6 +124,16 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Semantic: Reject finding", "action": "semantic_reject", "type": "semantic"},
             {"name": "Semantic: Defer finding", "action": "semantic_defer", "type": "semantic"},
             {"name": "Go to semantic integrity panel", "action": "screen_semantic", "type": "navigation"},
+        ])
+
+        # Run operations (Replay & Baselines)
+        commands.extend([
+            {"name": "Runs: List all runs", "action": "runs_list", "type": "run"},
+            {"name": "Runs: Show run details", "action": "runs_show", "type": "run"},
+            {"name": "Runs: Replay run (dry)", "action": "runs_replay_dry", "type": "run"},
+            {"name": "Runs: Replay run (apply)", "action": "runs_replay_apply", "type": "run"},
+            {"name": "Runs: Diff run against baseline", "action": "runs_diff", "type": "run"},
+            {"name": "Runs: Set run as baseline", "action": "runs_baseline_set", "type": "run"},
         ])
 
         # Arbitration operations
@@ -272,6 +284,25 @@ class CommandPaletteScreen(ModalScreen):
                 else:
                     # For read-only operations like semantic_list
                     self.app.notify(f"Semantic operation: {result}", timeout=5)
+                    self.dismiss()
+            # Handle run operation commands that need special handling
+            elif command["action"] in ["runs_show", "runs_replay_dry", "runs_replay_apply", "runs_diff", "runs_baseline_set"]:
+                result = self.execute_action_command(command["action"])
+                if result == "INPUT_NEEDED":
+                    # Special handling for run operations that require input
+                    if command["action"] == "runs_show":
+                        self._handle_runs_show()
+                    elif command["action"] == "runs_replay_dry":
+                        self._handle_runs_replay_dry()
+                    elif command["action"] == "runs_replay_apply":
+                        self._handle_runs_replay_apply()
+                    elif command["action"] == "runs_diff":
+                        self._handle_runs_diff()
+                    elif command["action"] == "runs_baseline_set":
+                        self._handle_runs_baseline_set()
+                else:
+                    # For read-only operations like runs_list
+                    self.app.notify(f"Run operation: {result}", timeout=5)
                     self.dismiss()
             # Handle arbitration operation commands that need special handling
             elif command["action"] in ["arbitration_show", "arbitration_choose", "arbitration_explain"]:
@@ -968,6 +999,226 @@ class CommandPaletteScreen(ModalScreen):
         )
         self.app.push_screen(input_dialog, callback=on_finding_id_entered)
 
+    def _handle_runs_show(self):
+        """Handle the runs show operation."""
+        def on_run_id_entered(run_id: str):
+            if run_id:
+                try:
+                    run = get_run(run_id)
+                    if run:
+                        # Show the run details in an info dialog
+                        details = f"""
+                        Run ID: {run.run_id}
+
+                        Timestamp: {run.timestamp.strftime("%Y-%m-%d %H:%M:%S") if run.timestamp else "N/A"}
+                        Mode: {run.mode}
+                        Status: {run.status}
+                        Baseline Tag: {run.baseline_tag or 'N/A'}
+                        Plan Revision: {run.plan_revision or 'N/A'}
+                        Decision Fingerprint: {run.decision_fingerprint or 'N/A'}
+                        Playbook Hash: {run.playbook_hash or 'N/A'}
+                        Engines Used: {', '.join(run.engines_used) if run.engines_used else 'N/A'}
+                        Checkpoints Hit: {run.checkpoints_hit or 'N/A'}
+                        Semantic Warnings: {run.semantic_warnings_count or 'N/A'}
+                        Arbitration Usage: {run.arbitration_usage_count or 'N/A'}
+                        """
+                        from .modals import InfoDialog
+                        info_dialog = InfoDialog(
+                            message=details,
+                            title=f"Run Details - {run.run_id}"
+                        )
+                        self.app.push_screen(info_dialog)
+                    else:
+                        self.app.notify(f"No run found with ID: {run_id}", severity="error", timeout=3)
+                except Exception as e:
+                    self.app.notify(f"Error getting run: {str(e)}", severity="error", timeout=3)
+            self.dismiss()
+
+        # Show input dialog to ask for run ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter run ID to show details:",
+            title="Show Run Details"
+        )
+        self.app.push_screen(input_dialog, callback=on_run_id_entered)
+
+    def _handle_runs_replay_dry(self):
+        """Handle the runs replay dry operation."""
+        def on_run_id_entered(run_id: str):
+            if run_id:
+                # Confirm dry replay before proceeding
+                def on_confirmed(confirmed: bool):
+                    if confirmed:
+                        try:
+                            result = replay_run(run_id, apply=False)
+                            if result.get("success"):
+                                self.app.notify(f"Dry replay completed: {result.get('message', 'Success')}", timeout=5)
+                            else:
+                                self.app.notify(f"Dry replay failed: {result.get('message', 'Unknown error')}", severity="error", timeout=5)
+                        except Exception as e:
+                            self.app.notify(f"Error during dry replay: {str(e)}", severity="error", timeout=5)
+                    self.dismiss()
+
+                from .modals import ConfirmDialog
+                confirm_dialog = ConfirmDialog(
+                    message=f"Perform dry replay of run {run_id}?\n(Dry run - no files will be written)",
+                    title="Confirm Dry Replay"
+                )
+                self.app.push_screen(confirm_dialog, callback=on_confirmed)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for run ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter run ID to replay (dry run):",
+            title="Dry Replay Run"
+        )
+        self.app.push_screen(input_dialog, callback=on_run_id_entered)
+
+    def _handle_runs_replay_apply(self):
+        """Handle the runs replay apply operation."""
+        def on_run_id_entered(run_id: str):
+            if run_id:
+                # First try to replay without override
+                try:
+                    result = replay_run(run_id, apply=True)
+
+                    if result.get("requires_override", False):
+                        # Drift threshold exceeded, ask for confirmation to override
+                        def on_override_confirmed(confirmed: bool):
+                            if confirmed:
+                                try:
+                                    override_result = replay_run(run_id, apply=True, override_drift_threshold=True)
+                                    self.app.notify(f"Apply replay completed: {override_result.get('message', 'Success')}", timeout=5)
+                                except Exception as e:
+                                    self.app.notify(f"Error during apply replay: {str(e)}", severity="error", timeout=5)
+                            else:
+                                self.app.notify("Apply replay cancelled by user", timeout=3)
+                            self.dismiss()
+
+                        from .modals import ConfirmDialog
+                        confirm_dialog = ConfirmDialog(
+                            message=f"Drift threshold exceeded for run {run_id}!\n\n{result.get('message', 'Significant drift detected')}\n\nOverride and proceed with apply replay?",
+                            title="Drift Threshold Exceeded"
+                        )
+                        self.app.push_screen(confirm_dialog, callback=on_override_confirmed)
+                    elif result.get("success"):
+                        self.app.notify(f"Apply replay completed: {result.get('message', 'Success')}", timeout=5)
+                        self.dismiss()
+                    else:
+                        self.app.notify(f"Apply replay failed: {result.get('message', 'Unknown error')}", severity="error", timeout=5)
+                        self.dismiss()
+                except Exception as e:
+                    self.app.notify(f"Error during apply replay: {str(e)}", severity="error", timeout=5)
+                    self.dismiss()
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for run ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter run ID to replay (apply changes):",
+            title="Apply Replay Run"
+        )
+        self.app.push_screen(input_dialog, callback=on_run_id_entered)
+
+    def _handle_runs_diff(self):
+        """Handle the runs diff operation."""
+        def on_run_info_entered(run_info: str):
+            if run_info:
+                # Split the input to get run ID and baseline ID
+                parts = run_info.strip().split('\n', 1)
+                if len(parts) < 2:
+                    self.app.notify("Please provide both run ID and baseline ID (separate with newline)", severity="error", timeout=3)
+                    self.dismiss()
+                    return
+
+                run_id = parts[0].strip()
+                baseline_id = parts[1].strip()
+
+                if not baseline_id:
+                    self.app.notify("Baseline ID is required for comparison", severity="error", timeout=3)
+                    self.dismiss()
+                    return
+
+                try:
+                    diff_info = diff_runs(run_id, baseline_id)
+                    if diff_info:
+                        # Show diff results in an info dialog
+                        diff_details = f"""
+                        Run Diff Results:
+
+                        Run ID: {run_id}
+                        Baseline ID: {baseline_id}
+
+                        Structural Drift:
+                          Files Changed: {len(diff_info.structural_drift.get('files_changed', []))}
+                          Files Added: {len(diff_info.structural_drift.get('files_added', []))}
+                          Files Removed: {len(diff_info.structural_drift.get('files_removed', []))}
+
+                        Decision Drift:
+                          Fingerprint Delta: {diff_info.decision_drift.get('fingerprint_delta', 'N/A')}
+                          Decisions Different: {len(diff_info.decision_drift.get('decisions_different', []))}
+
+                        Semantic Drift:
+                          Summary: {diff_info.semantic_drift.get('summary', 'N/A')}
+                          Flags: {', '.join(diff_info.semantic_drift.get('flags', [])) if diff_info.semantic_drift.get('flags') else 'None'}
+                        """
+                        from .modals import InfoDialog
+                        info_dialog = InfoDialog(
+                            message=diff_details,
+                            title=f"Diff Results - {run_id} vs {baseline_id}"
+                        )
+                        self.app.push_screen(info_dialog)
+                    else:
+                        self.app.notify(f"Could not compare runs {run_id} and {baseline_id}", severity="error", timeout=3)
+                except Exception as e:
+                    self.app.notify(f"Error comparing runs: {str(e)}", severity="error", timeout=3)
+            self.dismiss()
+
+        # Show input dialog to ask for run ID and baseline ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter run ID and baseline ID (separate with newline):\nrun_id\nbaseline_id",
+            title="Diff Runs"
+        )
+        self.app.push_screen(input_dialog, callback=on_run_info_entered)
+
+    def _handle_runs_baseline_set(self):
+        """Handle the runs set baseline operation."""
+        def on_run_id_entered(run_id: str):
+            if run_id:
+                # Confirm setting as baseline before proceeding
+                def on_confirmed(confirmed: bool):
+                    if confirmed:
+                        try:
+                            result = set_baseline(run_id)
+                            if result.get("success"):
+                                self.app.notify(f"Run {run_id} set as baseline: {result.get('message', 'Success')}", timeout=5)
+                            else:
+                                self.app.notify(f"Failed to set baseline: {result.get('message', 'Unknown error')}", severity="error", timeout=5)
+                        except Exception as e:
+                            self.app.notify(f"Error setting baseline: {str(e)}", severity="error", timeout=5)
+                    self.dismiss()
+
+                from .modals import ConfirmDialog
+                confirm_dialog = ConfirmDialog(
+                    message=f"Set run {run_id} as baseline?\n(This marks it as an immutable reference point)",
+                    title="Confirm Set Baseline"
+                )
+                self.app.push_screen(confirm_dialog, callback=on_confirmed)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for run ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter run ID to set as baseline:",
+            title="Set Run as Baseline"
+        )
+        self.app.push_screen(input_dialog, callback=on_run_id_entered)
+
     def execute_action_command(self, action_name: str):
         """Execute a specific action command and return result."""
         try:
@@ -1292,6 +1543,13 @@ class CommandPaletteScreen(ModalScreen):
                 self.app._switch_main_content(MemoryScreen())
                 self.dismiss()
                 return "COMPLETED"
+            elif action_name == "screen_replay":
+                # Navigate to replay screen
+                from maestro.tui.screens.replay import ReplayScreen
+                # Switch to the replay screen content
+                self.app._switch_main_content(ReplayScreen())
+                self.dismiss()
+                return "COMPLETED"
             elif action_name == "memory_decisions":
                 from maestro.tui.screens.memory import MemoryScreen
                 self.app._switch_main_content(MemoryScreen(initial_category="decisions"))
@@ -1397,6 +1655,29 @@ class CommandPaletteScreen(ModalScreen):
                 return "INPUT_NEEDED"
             elif action_name == "arbitration_explain":
                 # This operation requires user input for selecting the task
+                return "INPUT_NEEDED"
+            elif action_name == "runs_list":
+                # List all runs
+                runs = list_runs()
+                if runs:
+                    run_list = [f"{r.run_id[:8]}...-{r.mode}-{r.status}" for r in runs]
+                    return f"Runs ({len(runs)}): {', '.join(run_list)}"
+                else:
+                    return "No runs found"
+            elif action_name == "runs_show":
+                # This operation requires user input for selecting the run
+                return "INPUT_NEEDED"
+            elif action_name == "runs_replay_dry":
+                # This operation requires user input for selecting the run
+                return "INPUT_NEEDED"
+            elif action_name == "runs_replay_apply":
+                # This operation requires user input for selecting the run
+                return "INPUT_NEEDED"
+            elif action_name == "runs_diff":
+                # This operation requires user input for selecting the runs
+                return "INPUT_NEEDED"
+            elif action_name == "runs_baseline_set":
+                # This operation requires user input for selecting the run
                 return "INPUT_NEEDED"
             else:
                 return f"Unknown command: {action_name}"

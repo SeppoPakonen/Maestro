@@ -20,6 +20,7 @@ from maestro.tui.screens.help import HelpScreen
 from maestro.tui.screens.memory import MemoryScreen
 from maestro.tui.screens.semantic import SemanticScreen
 from maestro.tui.screens.arbitration import ArbitrationScreen
+from maestro.tui.screens.replay import ReplayScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 
 
@@ -361,6 +362,7 @@ class MaestroTUI(App):
         ("t", "switch_to_screen('tasks')", "Tasks"),
         ("b", "switch_to_screen('build')", "Build"),
         ("c", "switch_to_screen('convert')", "Convert"),
+        ("y", "switch_to_screen('replay')", "Replay"),
         ("a", "switch_to_screen('arbitration')", "Arbitration Arena"),
         ("i", "switch_to_screen('semantic')", "Semantic Integrity"),
         ("m", "switch_to_screen('memory')", "Memory"),
@@ -434,6 +436,7 @@ class MaestroTUI(App):
                 Label("✅ Tasks", id="nav-tasks", classes="nav-item"),
                 Label("🔨 Build", id="nav-build", classes="nav-item"),
                 Label("🔄 Convert", id="nav-convert", classes="nav-item"),
+                Label("📺 Replay", id="nav-replay", classes="nav-item"),
                 Label("🏆 Arbitration", id="nav-arbitration", classes="nav-item"),
                 Label("🔍 Integrity", id="nav-semantic", classes="nav-item"),
                 Label("🧠 Memory", id="nav-memory", classes="nav-item"),
@@ -505,6 +508,10 @@ class MaestroTUI(App):
             convert_widget.styles.cursor = "pointer"
             self.query_one("#nav-convert").on("click", lambda: self._switch_main_content(ConvertScreen()))
 
+            replay_widget = self.query_one("#nav-replay", Label)
+            replay_widget.styles.cursor = "pointer"
+            self.query_one("#nav-replay").on("click", lambda: self._switch_main_content(ReplayScreen()))
+
             arbitration_widget = self.query_one("#nav-arbitration", Label)
             arbitration_widget.styles.cursor = "pointer"
             self.query_one("#nav-arbitration").on("click", lambda: self._switch_main_content(ArbitrationScreen()))
@@ -555,6 +562,7 @@ class MaestroTUI(App):
             "tasks": TasksScreen,
             "build": BuildScreen,
             "convert": ConvertScreen,
+            "replay": ReplayScreen,
             "arbitration": ArbitrationScreen,
             "semantic": SemanticScreen,
             "memory": MemoryScreen,
