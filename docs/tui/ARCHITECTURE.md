@@ -111,3 +111,38 @@ The smoke mode will:
 - Output `MAESTRO_TUI_SMOKE_OK` to stdout
 - Exit with code 0
 - Never hang or require user input
+
+## Decision Override Workshop
+
+The TUI includes a Decision Override Workshop that allows users to safely override conversion decisions with full audit trail.
+
+### Key Features
+
+- **3-Step Wizard**: Guided flow for safe decision overrides
+  - Step 1: Confirm decision to override
+  - Step 2: Enter new decision content and reason
+  - Step 3: Review and apply changes
+
+- **Audit Trail**: All overrides are recorded with:
+  - Original decision ID
+  - New decision ID
+  - Override reason
+  - Timestamp
+  - Human operator identification
+
+- **Superseding Model**: Overrides create new decision entries that supersede old ones, preserving immutable history
+
+- **Drift Detection**: Automatically detects when plan may be stale after overrides
+
+### Access Methods
+
+- Memory screen: Press `o` key when a decision is selected
+- Command palette: `decision override` command
+- Direct navigation: Through Memory → Decisions category
+
+### Safety Features
+
+- **Immutable History**: Old decisions remain accessible, marked as "superseded"
+- **Required Rationale**: Reason field is mandatory for all overrides
+- **Stale Plan Warnings**: Clear warnings when plan may require re-negotiation
+- **Auto Replan Option**: Toggle to automatically trigger plan refresh if needed

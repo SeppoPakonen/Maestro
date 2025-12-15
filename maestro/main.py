@@ -17463,43 +17463,14 @@ def get_conventions():
 
 def get_decisions():
     """Get decisions made during the conversion process."""
-    # This would typically load from decision logs
-    # For now, returning a placeholder with example decisions
-    return [
-        {
-            "id": "D-001",
-            "title": "Use snake_case for function names in Python conversion",
-            "status": "active",
-            "timestamp": "2023-10-15T10:30:00Z",
-            "origin": "planner",
-            "reason": "Python convention is to use snake_case for function names",
-            "evidence_refs": ["refactor_log_001", "style_guide_001"],
-            "impacted_files": ["**/*.py"],
-            "superseded_by": None,
-            "supersedes": []
-        },
-        {
-            "id": "D-002",
-            "title": "Convert U++ Vector to Python lists with type hints",
-            "status": "active",
-            "timestamp": "2023-10-16T14:22:00Z",
-            "origin": "converter",
-            "reason": "Python lists provide similar functionality with better integration",
-            "evidence_refs": ["conversion_log_002", "performance_test_001"],
-            "impacted_files": ["src/**/*.py"],
-            "superseded_by": None,
-            "supersedes": []
-        }
-    ]
+    from maestro.ui_facade.decisions import list_decisions
+    return list_decisions()
 
 
 def get_decision_by_id(decision_id: str):
     """Get a specific decision by its ID."""
-    decisions = get_decisions()
-    for decision in decisions:
-        if decision.get("id") == decision_id:
-            return decision
-    return None
+    from maestro.ui_facade.decisions import get_decision
+    return get_decision(decision_id)
 
 
 def get_baseline_info():

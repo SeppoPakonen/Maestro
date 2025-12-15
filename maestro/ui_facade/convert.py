@@ -8,6 +8,7 @@ from typing import List, Optional, Dict, Any
 import json
 import os
 from datetime import datetime
+import uuid
 from maestro.session_model import Session, load_session
 from maestro.main import (
     ConversionPipeline,
@@ -86,6 +87,17 @@ class RunHistory:
             self.stages = []
         if self.checkpoints is None:
             self.checkpoints = []
+
+
+@dataclass
+class OverrideResult:
+    """Result of a decision override operation."""
+    old_decision_id: str
+    new_decision_id: str
+    old_fingerprint: str
+    new_fingerprint: str
+    plan_is_stale: bool
+    message: str = ""
 
 
 def _get_conversion_dir() -> str:
@@ -773,9 +785,9 @@ def list_decisions() -> List[Dict[str, Any]]:
     Returns:
         List of decision dictionaries with id, title, status, etc.
     """
-    from maestro.main import get_decisions  # Import the function from main module
+    from .decisions import list_decisions as decisions_list
     try:
-        decisions = get_decisions()
+        decisions = decisions_list()
         return decisions if decisions else []
     except Exception as e:
         print(f"Error getting decisions: {e}")
@@ -792,13 +804,34 @@ def get_decision(decision_id: str) -> Optional[Dict[str, Any]]:
     Returns:
         Decision dictionary or None if not found
     """
-    from maestro.main import get_decision_by_id  # Import the function from main module
+    from .decisions import get_decision as get_specific_decision
     try:
-        decision = get_decision_by_id(decision_id)
+        decision = get_specific_decision(decision_id)
         return decision
     except Exception as e:
         print(f"Error getting decision {decision_id}: {e}")
         return None
+
+
+def override_decision(decision_id: str, new_value: str, reason: str, auto_replan: bool = True) -> OverrideResult:
+    """
+    Override a decision by creating a new version that supersedes the old one.
+
+    Args:
+        decision_id: ID of the decision to override
+        new_value: New decision content/value
+        reason: Reason for the override
+        auto_replan: Whether to automatically trigger replan after override
+
+    Returns:
+        OverrideResult with details of the operation
+    """
+    from .decisions import override_decision as decisions_override
+    try:
+        result = decisions_override(decision_id, new_value, reason, auto_replan)
+        return result
+    except Exception as e:
+        raise e
 
 
 def list_conventions() -> List[Dict[str, Any]]:

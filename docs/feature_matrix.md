@@ -12,6 +12,7 @@
 | Build orchestration | 0.3.0 | — | Coordinate complex build processes |
 | Confidence scoring | 0.2.5 | — | Evaluate reliability of automated changes |
 | Interactive mode | 0.4.0 | — | Prompt user during execution for decisions |
+| Decision override workshop | — | planned | TUI wizard to safely override conversion decisions with audit trail |
 | Diagnostics | 0.1.0 | — | System health and troubleshooting tools |
 | Plan generation | 0.2.0 | planned | Visual planning interface |
 | Apply/Revert operations | 0.3.5 | planned | Safe change application with rollback |

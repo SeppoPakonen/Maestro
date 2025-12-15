@@ -370,6 +370,7 @@ class MemoryScreen(Screen):
         ("/", "focus_search", "Search"),
         ("j", "select_next", "Next"),
         ("k", "select_prev", "Previous"),
+        ("o", "override_decision", "Override"),
         ("ctrl+c", "app.quit", "Quit"),
     ]
 
@@ -676,12 +677,66 @@ class MemoryScreen(Screen):
                         entry_label.remove_class("selected")
                 except:
                     continue  # Skip if label doesn't exist
-            
+
             self.selected_entry_index = new_index
-            
+
             # Update details panel
             if 0 <= self.selected_entry_index < len(entries):
                 self.update_entry_details(entries[self.selected_entry_index])
+
+    def action_override_decision(self) -> None:
+        """Action to override the selected decision."""
+        if self.selected_category != "decisions":
+            self.app.notify("Override only available for decisions", timeout=3, severity="error")
+            return
+
+        from maestro.ui_facade.convert import list_decisions
+        from maestro.tui.widgets.modals import DecisionOverrideWizard
+
+        decisions = list_decisions()
+        if not decisions or len(decisions) <= self.selected_entry_index:
+            self.app.notify("No decision selected or available", timeout=3, severity="error")
+            return
+
+        selected_decision = decisions[self.selected_entry_index]
+
+        # Prevent overriding decisions that are already superseded
+        if selected_decision.get('status') == 'superseded':
+            self.app.notify("Cannot override a decision that is already superseded", timeout=3, severity="error")
+            return
+
+        # Show the decision override wizard
+        def handle_override_result(result: dict) -> None:
+            if result and not result.get("cancelled"):
+                from maestro.ui_facade.convert import override_decision
+
+                try:
+                    # Apply the override
+                    override_result = override_decision(
+                        decision_id=result["old_decision_id"],
+                        new_value=result["new_value"],
+                        reason=result["reason"],
+                        auto_replan=result["auto_replan"]
+                    )
+
+                    # Show success notification
+                    self.app.notify(f"Decision overridden: {override_result.old_decision_id} → {override_result.new_decision_id}", timeout=5)
+
+                    # Show warning if plan is stale
+                    if override_result.plan_is_stale:
+                        self.app.notify("⚠ Plan may be stale. Consider running negotiation.", timeout=5, severity="warning")
+
+                    # Refresh the memory display to show updated decision
+                    self.refresh_memory_display()
+
+                except Exception as e:
+                    self.app.notify(f"Failed to override decision: {str(e)}", timeout=5, severity="error")
+            else:
+                self.app.notify("Decision override cancelled", timeout=3)
+
+        # Push the wizard modal
+        wizard = DecisionOverrideWizard(decision=selected_decision)
+        self.app.push_screen(wizard, callback=handle_override_result)
 
     def action_select_prev(self) -> None:
         """Select the previous entry in the list."""
@@ -715,9 +770,63 @@ class MemoryScreen(Screen):
                         entry_label.remove_class("selected")
                 except:
                     continue  # Skip if label doesn't exist
-            
+
             self.selected_entry_index = new_index
-            
+
             # Update details panel
             if 0 <= self.selected_entry_index < len(entries):
                 self.update_entry_details(entries[self.selected_entry_index])
+
+    def action_override_decision(self) -> None:
+        """Action to override the selected decision."""
+        if self.selected_category != "decisions":
+            self.app.notify("Override only available for decisions", timeout=3, severity="error")
+            return
+
+        from maestro.ui_facade.convert import list_decisions
+        from maestro.tui.widgets.modals import DecisionOverrideWizard
+
+        decisions = list_decisions()
+        if not decisions or len(decisions) <= self.selected_entry_index:
+            self.app.notify("No decision selected or available", timeout=3, severity="error")
+            return
+
+        selected_decision = decisions[self.selected_entry_index]
+
+        # Prevent overriding decisions that are already superseded
+        if selected_decision.get('status') == 'superseded':
+            self.app.notify("Cannot override a decision that is already superseded", timeout=3, severity="error")
+            return
+
+        # Show the decision override wizard
+        def handle_override_result(result: dict) -> None:
+            if result and not result.get("cancelled"):
+                from maestro.ui_facade.convert import override_decision
+
+                try:
+                    # Apply the override
+                    override_result = override_decision(
+                        decision_id=result["old_decision_id"],
+                        new_value=result["new_value"],
+                        reason=result["reason"],
+                        auto_replan=result["auto_replan"]
+                    )
+
+                    # Show success notification
+                    self.app.notify(f"Decision overridden: {override_result.old_decision_id} → {override_result.new_decision_id}", timeout=5)
+
+                    # Show warning if plan is stale
+                    if override_result.plan_is_stale:
+                        self.app.notify("⚠ Plan may be stale. Consider running negotiation.", timeout=5, severity="warning")
+
+                    # Refresh the memory display to show updated decision
+                    self.refresh_memory_display()
+
+                except Exception as e:
+                    self.app.notify(f"Failed to override decision: {str(e)}", timeout=5, severity="error")
+            else:
+                self.app.notify("Decision override cancelled", timeout=3)
+
+        # Push the wizard modal
+        wizard = DecisionOverrideWizard(decision=selected_decision)
+        self.app.push_screen(wizard, callback=handle_override_result)

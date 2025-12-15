@@ -103,6 +103,8 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Memory: Show glossary", "action": "memory_glossary", "type": "memory"},
             {"name": "Memory: Show issues", "action": "memory_issues", "type": "memory"},
             {"name": "Memory: Show summaries", "action": "memory_summaries", "type": "memory"},
+            {"name": "Decision: Override", "action": "decision_override", "type": "memory"},
+            {"name": "Decision: Show", "action": "decision_show", "type": "memory"},
         ])
 
         # Checkpoint operations
@@ -922,6 +924,23 @@ class CommandPaletteScreen(ModalScreen):
             elif action_name == "memory_summaries":
                 from maestro.tui.screens.memory import MemoryScreen
                 self.app._switch_main_content(MemoryScreen(initial_category="task_summaries"))
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "decision_override":
+                # Navigate to memory screen with decisions category and trigger the override command
+                from maestro.tui.screens.memory import MemoryScreen
+                memory_screen = MemoryScreen(initial_category="decisions")
+                self.app._switch_main_content(memory_screen)
+
+                # After switching to the memory screen, we need to trigger the override action
+                # This will be available if a decision is selected
+                # For now, we'll just navigate to the decisions screen
+                self.dismiss()
+                return "NAVIGATE_TO_MEMORY_DECISIONS"
+            elif action_name == "decision_show":
+                # Navigate to memory screen with decisions category
+                from maestro.tui.screens.memory import MemoryScreen
+                self.app._switch_main_content(MemoryScreen(initial_category="decisions"))
                 self.dismiss()
                 return "COMPLETED"
             else:
