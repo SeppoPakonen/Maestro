@@ -77,6 +77,15 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Task: Stop current execution", "action": "task_stop", "type": "task"},
         ])
 
+        # Build operations
+        commands.extend([
+            {"name": "Build: List all build targets", "action": "build_list", "type": "build"},
+            {"name": "Build: Set active build target", "action": "build_set", "type": "build"},
+            {"name": "Build: Run build", "action": "build_run", "type": "build"},
+            {"name": "Build: Run fix loop", "action": "build_fix", "type": "build"},
+            {"name": "Build: Get status", "action": "build_status", "type": "build"},
+        ])
+
         return commands
 
     def compose(self) -> ComposeResult:
@@ -188,6 +197,18 @@ class CommandPaletteScreen(ModalScreen):
                 else:
                     # For read-only operations like plan_list
                     self.app.notify(f"Plan info: {result}", timeout=5)
+                    self.dismiss()
+            # Handle build operation commands that need special handling
+            elif command["action"] in ["build_list", "build_set", "build_run", "build_fix", "build_status"]:
+                result = self.execute_action_command(command["action"])
+                if result == "INPUT_NEEDED":
+                    # Special handling for build operations that require input
+                    if command["action"] == "build_set":
+                        # Show list of build targets and let user select one to set as active
+                        self._handle_build_set()
+                else:
+                    # For operations that don't require input
+                    self.app.notify(f"Build operation: {result}", timeout=5)
                     self.dismiss()
             else:
                 self.app.post_message(command["action"])
@@ -359,6 +380,83 @@ class CommandPaletteScreen(ModalScreen):
 
         except Exception as e:
             self.app.notify(f"Error listing plans: {str(e)}", severity="error", timeout=5)
+            self.dismiss()
+
+    def _handle_build_set(self):
+        """Handle the build set operation."""
+        # Get list of build targets to show to user
+        if not self.session_id:
+            self.app.notify("No active session", timeout=3)
+            self.dismiss()
+            return
+
+        try:
+            from maestro.ui_facade.build import list_build_targets, set_active_build_target
+            targets = list_build_targets(self.session_id)
+            if not targets:
+                self.app.notify("No build targets available", timeout=3)
+                self.dismiss()
+                return
+
+            # Create a dialog to select build target
+            from .modals import InputDialog
+
+            def on_target_selected(target_id: str):
+                if target_id:
+                    # Find the target in the list
+                    selected_target = None
+                    for target in targets:
+                        if target.id == target_id or target.id.startswith(target_id):
+                            selected_target = target
+                            break
+
+                    if not selected_target:
+                        # If user didn't enter a full ID, try to match partial
+                        matching_targets = [t for t in targets if t.id.startswith(target_id)]
+                        if len(matching_targets) == 1:
+                            selected_target = matching_targets[0]
+                        elif len(matching_targets) > 1:
+                            self.app.notify(f"Multiple targets match '{target_id}'. Please be more specific.", timeout=5)
+                            self.dismiss()
+                            return
+                        else:
+                            self.app.notify(f"No build target found with ID '{target_id}'", timeout=5)
+                            self.dismiss()
+                            return
+
+                    # Confirm setting active build target
+                    def on_confirmed(confirmed: bool):
+                        if confirmed:
+                            try:
+                                set_active_build_target(self.session_id, selected_target.id)
+                                # Update app state
+                                self.app._load_status_state()
+                                self.app.query_one("#active-build").update(
+                                    f" | Build: {selected_target.id[:8]}..."
+                                )
+                                self.app.notify(f"Build target {selected_target.id[:8]}... set as active", timeout=3)
+                            except Exception as e:
+                                self.app.notify(f"Error setting active build target: {str(e)}", severity="error", timeout=5)
+                        self.dismiss()
+
+                    from .modals import ConfirmDialog
+                    confirm_dialog = ConfirmDialog(
+                        message=f"Set build target '{selected_target.name}' as active?\nID: {selected_target.id[:8]}...",
+                        title="Confirm Set Active Build Target"
+                    )
+                    self.app.push_screen(confirm_dialog, callback=on_confirmed)
+                else:
+                    self.dismiss()
+
+            # Show input dialog to ask for build target ID
+            input_dialog = InputDialog(
+                message="Enter build target ID to set as active:",
+                title="Set Active Build Target"
+            )
+            self.app.push_screen(input_dialog, callback=on_target_selected)
+
+        except Exception as e:
+            self.app.notify(f"Error listing build targets: {str(e)}", severity="error", timeout=5)
             self.dismiss()
 
     def _handle_plan_kill(self):
@@ -536,6 +634,9 @@ class CommandPaletteScreen(ModalScreen):
             elif action_name == "plan_kill":
                 # This operation requires user input for selecting the plan
                 return "INPUT_NEEDED"
+            elif action_name == "build_set":
+                # This operation requires user input for selecting the build target
+                return "INPUT_NEEDED"
             elif action_name == "task_run":
                 # Run all tasks
                 from maestro.ui_facade.tasks import run_tasks, get_current_execution_state
@@ -614,6 +715,69 @@ class CommandPaletteScreen(ModalScreen):
                     return "Stop request sent successfully"
                 else:
                     return "No running tasks to stop"
+            elif action_name == "build_list":
+                # List all build targets
+                from maestro.ui_facade.build import list_build_targets
+                session = self.app.active_session
+                if session:
+                    targets = list_build_targets(session.id)
+                    if targets:
+                        target_list = [f"{t.id[:8]}... - {t.name} ({t.status})" for t in targets]
+                        return f"Build targets ({len(targets)}): {', '.join(target_list)}"
+                    else:
+                        return "No build targets found"
+                else:
+                    return "No active session for build targets"
+            elif action_name == "build_set":
+                # This operation requires user input for selecting the build target
+                return "INPUT_NEEDED"
+            elif action_name == "build_run":
+                # Run build for active or selected target
+                from maestro.ui_facade.build import run_build
+                session = self.app.active_session
+                if not session:
+                    return "No active session to run build"
+
+                # For now, run build with default target
+                def run_build_in_thread():
+                    try:
+                        run_build(session.id)
+                    except Exception as e:
+                        self.app.notify(f"Error running build: {str(e)}", severity="error")
+
+                import threading
+                thread = threading.Thread(target=run_build_in_thread, daemon=True)
+                thread.start()
+
+                return "Build started successfully"
+            elif action_name == "build_fix":
+                # Run fix loop
+                from maestro.ui_facade.build import run_fix_loop
+                session = self.app.active_session
+                if not session:
+                    return "No active session to run fix loop"
+
+                # For now, run fix loop with default settings
+                def run_fix_in_thread():
+                    try:
+                        run_fix_loop(session.id)
+                    except Exception as e:
+                        self.app.notify(f"Error running fix loop: {str(e)}", severity="error")
+
+                import threading
+                thread = threading.Thread(target=run_fix_in_thread, daemon=True)
+                thread.start()
+
+                return "Fix loop started successfully"
+            elif action_name == "build_status":
+                # Get build status
+                from maestro.ui_facade.build import get_build_status
+                session = self.app.active_session
+                if session:
+                    status = get_build_status(session.id)
+                    return f"Build Status: {status.state}, Errors: {status.error_count}"
+                else:
+                    return "No active session for build status"
             else:
                 return f"Unknown command: {action_name}"
         except Exception as e:

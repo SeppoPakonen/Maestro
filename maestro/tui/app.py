@@ -68,7 +68,6 @@ class MaestroTUI(App):
     .control-buttons {
         height: 100%;
         align: center middle;
-        gap: 1;
     }
 
     .control-buttons Button {

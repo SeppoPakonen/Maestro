@@ -1,6 +1,7 @@
 """
 Tasks Screen for Maestro TUI - Task Runner Control Room
 """
+from __future__ import annotations
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Label, Button, RichLog
