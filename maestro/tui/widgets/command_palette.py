@@ -53,6 +53,14 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Show active build target", "action": "show_active_build_target", "type": "action"},
         ])
 
+        # Plan operations
+        commands.extend([
+            {"name": "Plan: List all plans", "action": "plan_list", "type": "plan"},
+            {"name": "Plan: Show plan tree", "action": "plan_tree", "type": "plan"},
+            {"name": "Plan: Set active plan", "action": "plan_set", "type": "plan"},
+            {"name": "Plan: Kill plan", "action": "plan_kill", "type": "plan"},
+        ])
+
         # Session operations
         commands.extend([
             {"name": "Session: List all sessions", "action": "session_list", "type": "session"},
@@ -152,6 +160,27 @@ class CommandPaletteScreen(ModalScreen):
                     # For read-only operations like session_list
                     self.app.notify(f"Session info: {result}", timeout=5)
                     self.dismiss()
+            # Handle plan operation commands that need special handling
+            elif command["action"] in ["plan_list", "plan_tree", "plan_set", "plan_kill"]:
+                result = self.execute_action_command(command["action"])
+                if result == "INPUT_NEEDED":
+                    # Special handling for plan operations that require input
+                    if command["action"] == "plan_set":
+                        # Show list of plans and let user select one to set as active
+                        self._handle_plan_set()
+                    elif command["action"] == "plan_kill":
+                        # Show list of plans and let user select one to kill
+                        self._handle_plan_kill()
+                elif result == "NAVIGATE_TO_PLANS":
+                    # Navigate to the plans screen
+                    from maestro.tui.screens.plans import PlansScreen
+                    # Switch to the plans screen content
+                    self.app._switch_main_content(PlansScreen())
+                    self.dismiss()
+                else:
+                    # For read-only operations like plan_list
+                    self.app.notify(f"Plan info: {result}", timeout=5)
+                    self.dismiss()
             else:
                 self.app.post_message(command["action"])
                 self.dismiss()
@@ -247,6 +276,174 @@ class CommandPaletteScreen(ModalScreen):
         )
         self.app.push_screen(input_dialog, callback=on_session_info_entered)
 
+    def _handle_plan_set(self):
+        """Handle the plan set operation."""
+        # Get list of plans to show to user
+        if not self.session_id:
+            self.app.notify("No active session", timeout=3)
+            self.dismiss()
+            return
+
+        try:
+            from maestro.ui_facade.plans import list_plans, set_active_plan
+            plans = list_plans(self.session_id)
+            if not plans:
+                self.app.notify("No plans available", timeout=3)
+                self.dismiss()
+                return
+
+            # Create a dialog to select plan
+            from .modals import InputDialog
+
+            def on_plan_selected(plan_id: str):
+                if plan_id:
+                    # Find the plan in the list
+                    selected_plan = None
+                    for plan in plans:
+                        if plan.plan_id == plan_id or plan.plan_id.startswith(plan_id):
+                            selected_plan = plan
+                            break
+
+                    if not selected_plan:
+                        # If user didn't enter a full ID, try to match partial
+                        matching_plans = [p for p in plans if p.plan_id.startswith(plan_id)]
+                        if len(matching_plans) == 1:
+                            selected_plan = matching_plans[0]
+                        elif len(matching_plans) > 1:
+                            self.app.notify(f"Multiple plans match '{plan_id}'. Please be more specific.", timeout=5)
+                            self.dismiss()
+                            return
+                        else:
+                            self.app.notify(f"No plan found with ID '{plan_id}'", timeout=5)
+                            self.dismiss()
+                            return
+
+                    # Confirm setting active plan
+                    def on_confirmed(confirmed: bool):
+                        if confirmed:
+                            try:
+                                set_active_plan(self.session_id, selected_plan.plan_id)
+                                # Update app state
+                                self.app._load_status_state()
+                                self.app.query_one("#active-plan").update(
+                                    f" | Plan: {selected_plan.plan_id[:8]}..."
+                                )
+                                self.app.notify(f"Plan {selected_plan.plan_id[:8]}... set as active", timeout=3)
+                            except Exception as e:
+                                self.app.notify(f"Error setting active plan: {str(e)}", severity="error", timeout=5)
+                        self.dismiss()
+
+                    from .modals import ConfirmDialog
+                    confirm_dialog = ConfirmDialog(
+                        message=f"Set plan '{selected_plan.label}' as active?\nID: {selected_plan.plan_id[:8]}...",
+                        title="Confirm Set Active Plan"
+                    )
+                    self.app.push_screen(confirm_dialog, callback=on_confirmed)
+                else:
+                    self.dismiss()
+
+            # Show input dialog to ask for plan ID
+            input_dialog = InputDialog(
+                message="Enter plan ID to set as active:",
+                title="Set Active Plan"
+            )
+            self.app.push_screen(input_dialog, callback=on_plan_selected)
+
+        except Exception as e:
+            self.app.notify(f"Error listing plans: {str(e)}", severity="error", timeout=5)
+            self.dismiss()
+
+    def _handle_plan_kill(self):
+        """Handle the plan kill operation."""
+        # Get list of plans to show to user
+        if not self.session_id:
+            self.app.notify("No active session", timeout=3)
+            self.dismiss()
+            return
+
+        try:
+            from maestro.ui_facade.plans import list_plans, kill_plan, get_plan_details
+            plans = list_plans(self.session_id)
+            if not plans:
+                self.app.notify("No plans available", timeout=3)
+                self.dismiss()
+                return
+
+            # Create a dialog to select plan
+            from .modals import InputDialog
+
+            def on_plan_selected(plan_id: str):
+                if plan_id:
+                    # Find the plan in the list
+                    selected_plan = None
+                    for plan in plans:
+                        if plan.plan_id == plan_id or plan.plan_id.startswith(plan_id):
+                            selected_plan = plan
+                            break
+
+                    if not selected_plan:
+                        # If user didn't enter a full ID, try to match partial
+                        matching_plans = [p for p in plans if p.plan_id.startswith(plan_id)]
+                        if len(matching_plans) == 1:
+                            selected_plan = matching_plans[0]
+                        elif len(matching_plans) > 1:
+                            self.app.notify(f"Multiple plans match '{plan_id}'. Please be more specific.", timeout=5)
+                            self.dismiss()
+                            return
+                        else:
+                            self.app.notify(f"No plan found with ID '{plan_id}'", timeout=5)
+                            self.dismiss()
+                            return
+
+                    # Check if this plan is the active one
+                    is_active = False
+                    try:
+                        active_plan = get_plan_details(self.session_id, selected_plan.plan_id)
+                        if active_plan and self.app.active_session and self.app.active_session.active_plan_id == selected_plan.plan_id:
+                            is_active = True
+                    except:
+                        pass  # If we can't determine if it's active, continue anyway
+
+                    # Confirm killing the plan
+                    def on_confirmed(confirmed: bool):
+                        if confirmed:
+                            try:
+                                kill_plan(self.session_id, selected_plan.plan_id)
+                                msg = f"Plan '{selected_plan.label}' killed"
+                                if is_active:
+                                    msg += " (was active plan)"
+                                self.app.notify(msg, timeout=3)
+                                # Update app state if needed
+                                self.app._load_status_state()
+                            except Exception as e:
+                                self.app.notify(f"Error killing plan: {str(e)}", severity="error", timeout=5)
+                        self.dismiss()
+
+                    # Prepare confirmation message based on whether it's active
+                    message = f"Kill plan '{selected_plan.label}'?\nID: {selected_plan.plan_id[:8]}..."
+                    if is_active:
+                        message += "\n\nWARNING: This is the active plan and will be deactivated."
+
+                    from .modals import ConfirmDialog
+                    confirm_dialog = ConfirmDialog(
+                        message=message,
+                        title="Confirm Kill Plan"
+                    )
+                    self.app.push_screen(confirm_dialog, callback=on_confirmed)
+                else:
+                    self.dismiss()
+
+            # Show input dialog to ask for plan ID
+            input_dialog = InputDialog(
+                message="Enter plan ID to kill:",
+                title="Kill Plan"
+            )
+            self.app.push_screen(input_dialog, callback=on_plan_selected)
+
+        except Exception as e:
+            self.app.notify(f"Error listing plans: {str(e)}", severity="error", timeout=5)
+            self.dismiss()
+
     def execute_action_command(self, action_name: str):
         """Execute a specific action command and return result."""
         try:
@@ -309,6 +506,27 @@ class CommandPaletteScreen(ModalScreen):
                 return "INPUT_NEEDED"
             elif action_name == "session_remove":
                 # This operation requires user input, so we return a special value
+                return "INPUT_NEEDED"
+            elif action_name == "plan_list":
+                # Return plan list
+                if self.session_id:
+                    from maestro.ui_facade.plans import list_plans
+                    plans = list_plans(self.session_id)
+                    if plans:
+                        plan_list = [f"{p.plan_id[:8]}... - {p.label}" for p in plans]
+                        return f"Plans ({len(plans)}): {', '.join(plan_list)}"
+                    else:
+                        return "No plans found for session"
+                else:
+                    return "No session context for plans"
+            elif action_name == "plan_tree":
+                # Navigate to plan tree screen
+                return "NAVIGATE_TO_PLANS"
+            elif action_name == "plan_set":
+                # This operation requires user input for selecting the plan
+                return "INPUT_NEEDED"
+            elif action_name == "plan_kill":
+                # This operation requires user input for selecting the plan
                 return "INPUT_NEEDED"
             else:
                 return f"Unknown command: {action_name}"
