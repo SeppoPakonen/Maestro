@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
 """
-Maestro TUI Entry Point
+Module entry point for Maestro TUI.
 
-This serves as the main entry point for the Text-based User Interface.
-It provides an interactive human interface that complements the CLI.
+This allows running the TUI with:
+  python -m maestro.tui [options]
 """
 
 import sys
 import argparse
-from maestro.tui.app import main
+from .app import main
 
 def parse_args():
     """Parse command line arguments."""
@@ -19,7 +18,8 @@ def parse_args():
 
     return parser.parse_args()
 
-if __name__ == "__main__":
+def main_module():
+    """Main function called when running as a module."""
     args = parse_args()
 
     # Set environment variable for success file if specified
@@ -27,4 +27,8 @@ if __name__ == "__main__":
         import os
         os.environ["MAESTRO_SMOKE_SUCCESS_FILE"] = args.smoke_out
 
+    # Call the app's main function with smoke parameters
     main(smoke_mode=args.smoke, smoke_seconds=args.smoke_seconds, smoke_out=args.smoke_out)
+
+if __name__ == "__main__":
+    main_module()

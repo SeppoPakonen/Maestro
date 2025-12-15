@@ -20,11 +20,11 @@ def test_tui_smoke_mode():
         stderr_filename = stderr_file.name
     
     try:
-        # Run the command, redirecting output to our temp files
-        cmd = [sys.executable, "maestro_tui.py", "--smoke", "--smoke-seconds", "0.2"]
-        
+        # Run the command, redirecting output to our temp files (using safe module entry point)
+        cmd = [sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.2"]
+
         # Use shell redirection to ensure output goes to the files
-        full_cmd = f'{sys.executable} maestro_tui.py --smoke --smoke-seconds 0.2 > {stdout_filename} 2> {stderr_filename}'
+        full_cmd = f'{sys.executable} -m maestro.tui --smoke --smoke-seconds 0.2 > {stdout_filename} 2> {stderr_filename}'
         
         result = subprocess.run(full_cmd, shell=True, timeout=5)
         
@@ -76,7 +76,7 @@ def test_tui_smoke_mode_alternative():
         pid, fd = pty.fork()
         
         if pid == 0:  # Child process
-            os.execlp(sys.executable, sys.executable, "maestro_tui.py", "--smoke", "--smoke-seconds", "0.2")
+            os.execlp(sys.executable, sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.2")
         else:  # Parent process
             output = ""
             start_time = time.time()

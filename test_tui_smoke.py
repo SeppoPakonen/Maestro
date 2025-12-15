@@ -14,9 +14,9 @@ def test_tui_smoke_mode():
     print("Testing TUI smoke mode...")
 
     try:
-        # Run the TUI in smoke mode with a short timeout
+        # Run the TUI in smoke mode with a short timeout (using safe module entry point)
         result = subprocess.run([
-            sys.executable, "maestro_tui.py", "--smoke", "--smoke-seconds", "0.3"
+            sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.3"
         ], capture_output=True, text=True, timeout=5)  # 5 second timeout to prevent hanging
 
         print(f"Return code: {result.returncode}")
@@ -47,9 +47,9 @@ def test_tui_smoke_mode_shorter():
     print("\nTesting TUI smoke mode with 0.1 seconds...")
 
     try:
-        # Run the TUI in smoke mode with a very short time
+        # Run the TUI in smoke mode with a very short time (using safe module entry point)
         result = subprocess.run([
-            sys.executable, "maestro_tui.py", "--smoke", "--smoke-seconds", "0.1"
+            sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.1"
         ], capture_output=True, text=True, timeout=3)  # 3 second timeout
 
         print(f"Return code: {result.returncode}")

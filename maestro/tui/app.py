@@ -363,10 +363,11 @@ class MaestroTUI(App):
         ("l", "switch_to_screen('logs')", "Logs"),
     ]
 
-    def __init__(self, smoke_mode=False, smoke_seconds=0.5, *args, **kwargs):
+    def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.smoke_mode = smoke_mode
         self.smoke_seconds = smoke_seconds
+        self.smoke_out = smoke_out
         self.active_session = None
         self.active_plan = None
         self.active_build_target = None
@@ -582,8 +583,8 @@ class MaestroTUI(App):
         """Handle the smoke mode exit."""
         import sys
         import os
-        # Write success indicator to file to avoid terminal output issues
-        smoke_success_file = os.environ.get("MAESTRO_SMOKE_SUCCESS_FILE", "/tmp/maestro_tui_smoke_success")
+        # Write success indicator to file if specified
+        smoke_success_file = self.smoke_out or os.environ.get("MAESTRO_SMOKE_SUCCESS_FILE", "/tmp/maestro_tui_smoke_success")
         try:
             with open(smoke_success_file, 'w') as f:
                 f.write("MAESTRO_TUI_SMOKE_OK\n")
@@ -597,9 +598,9 @@ class MaestroTUI(App):
         self.exit()
 
 
-def main(smoke_mode=False, smoke_seconds=0.5):
+def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None):
     """Run the TUI application."""
-    app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds)
+    app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
     app.run()
 
 

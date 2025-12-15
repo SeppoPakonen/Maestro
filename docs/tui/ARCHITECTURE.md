@@ -81,3 +81,33 @@ The TUI communicates with backend services exclusively through a dedicated facad
 - **No CLI shelling**: Never invokes maestro CLI or parses its output
 
 This ensures stability and predictable data exchange between TUI and backend.
+
+## Running the TUI
+
+### Interactive Mode (Manual Use Only)
+The standard interactive mode is intended for human use only:
+```bash
+python maestro_tui.py
+```
+**WARNING**: This will hang if used in automation scripts.
+
+### Safe Automation Mode (Smoke Test)
+For automation and CI, use smoke mode which exits cleanly:
+```bash
+python -m maestro.tui --smoke
+```
+
+Additional options:
+```bash
+# Fast smoke test with custom duration
+python -m maestro.tui --smoke --smoke-seconds 0.2
+
+# Smoke test with output file
+python -m maestro.tui --smoke --smoke-seconds 0.2 --smoke-out /tmp/tui_success
+```
+
+The smoke mode will:
+- Render the TUI interface briefly
+- Output `MAESTRO_TUI_SMOKE_OK` to stdout
+- Exit with code 0
+- Never hang or require user input

@@ -15,8 +15,8 @@ def test_tui_smoke_mode_with_pexpect():
     print("Testing TUI smoke mode with pexpect...")
     
     try:
-        # Start the TUI in smoke mode
-        child = pexpect.spawn(f'{sys.executable} maestro_tui.py --smoke --smoke-seconds 0.2')
+        # Start the TUI in smoke mode (using safe module entry point)
+        child = pexpect.spawn(f'{sys.executable} -m maestro.tui --smoke --smoke-seconds 0.2')
         
         # Wait for the expected output with a timeout
         index = child.expect(['MAESTRO_TUI_SMOKE_OK', pexpect.EOF, pexpect.TIMEOUT], timeout=3)
@@ -47,8 +47,9 @@ def test_no_smoke_mode():
     print("Testing that normal mode starts properly (quick test)...")
     
     try:
-        # Start the TUI in normal mode with a small timeout
-        child = pexpect.spawn(f'{sys.executable} maestro_tui.py', timeout=1)
+        # NOTE: This test is for normal mode (not smoke mode) - should only be used for functionality verification
+        # Start the TUI in normal mode with a small timeout - this is potentially risky in automation
+        child = pexpect.spawn(f'{sys.executable} -m maestro.tui', timeout=1)  # Use module entry point but note this can hang
         
         # Just check that it starts (we may not see specific output, but no crash is good)
         print("✅ Normal mode seems to start without immediate crash")

@@ -26,8 +26,8 @@ def test_tui_smoke_mode_with_file():
         env = os.environ.copy()
         env["MAESTRO_SMOKE_SUCCESS_FILE"] = smoke_success_file
         
-        # Run the command with timeout
-        cmd = [sys.executable, "maestro_tui.py", "--smoke", "--smoke-seconds", "0.3"]
+        # Run the command with timeout (using safe module entry point)
+        cmd = [sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.3"]
         result = subprocess.run(cmd, env=env, timeout=5)
         
         print(f"Return code: {result.returncode}")
@@ -72,8 +72,8 @@ def test_tui_smoke_mode_simple():
     print("Testing TUI smoke mode simple exit test...")
     
     try:
-        # Run the smoke test and ensure it exits with code 0 (doesn't hang)
-        cmd = [sys.executable, "maestro_tui.py", "--smoke", "--smoke-seconds", "0.1"]
+        # Run the smoke test and ensure it exits with code 0 (doesn't hang) using safe module entry point
+        cmd = [sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.1"]
         result = subprocess.run(cmd, timeout=3)
         
         if result.returncode == 0:
