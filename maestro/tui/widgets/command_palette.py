@@ -40,6 +40,7 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Go to tasks", "action": "screen_tasks", "type": "navigation"},
             {"name": "Go to build", "action": "screen_build", "type": "navigation"},
             {"name": "Go to convert", "action": "screen_convert", "type": "navigation"},
+            {"name": "Go to arbitration", "action": "screen_arbitration", "type": "navigation"},
             {"name": "Go to logs", "action": "screen_logs", "type": "navigation"},
             {"name": "Go to help", "action": "screen_help", "type": "navigation"},
             {"name": "Go to memory", "action": "screen_memory", "type": "navigation"},
@@ -121,6 +122,14 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Semantic: Reject finding", "action": "semantic_reject", "type": "semantic"},
             {"name": "Semantic: Defer finding", "action": "semantic_defer", "type": "semantic"},
             {"name": "Go to semantic integrity panel", "action": "screen_semantic", "type": "navigation"},
+        ])
+
+        # Arbitration operations
+        commands.extend([
+            {"name": "Arbitration: List tasks", "action": "arbitration_list", "type": "arbitration"},
+            {"name": "Arbitration: Show task", "action": "arbitration_show", "type": "arbitration"},
+            {"name": "Arbitration: Choose winner", "action": "arbitration_choose", "type": "arbitration"},
+            {"name": "Arbitration: Explain decision", "action": "arbitration_explain", "type": "arbitration"},
         ])
 
         return commands
@@ -263,6 +272,21 @@ class CommandPaletteScreen(ModalScreen):
                 else:
                     # For read-only operations like semantic_list
                     self.app.notify(f"Semantic operation: {result}", timeout=5)
+                    self.dismiss()
+            # Handle arbitration operation commands that need special handling
+            elif command["action"] in ["arbitration_show", "arbitration_choose", "arbitration_explain"]:
+                result = self.execute_action_command(command["action"])
+                if result == "INPUT_NEEDED":
+                    # Special handling for arbitration operations that require input
+                    if command["action"] == "arbitration_show":
+                        self._handle_arbitration_show()
+                    elif command["action"] == "arbitration_choose":
+                        self._handle_arbitration_choose()
+                    elif command["action"] == "arbitration_explain":
+                        self._handle_arbitration_explain()
+                else:
+                    # For read-only operations like arbitration_list
+                    self.app.notify(f"Arbitration operation: {result}", timeout=5)
                     self.dismiss()
             else:
                 self.app.post_message(command["action"])
@@ -512,6 +536,167 @@ class CommandPaletteScreen(ModalScreen):
         except Exception as e:
             self.app.notify(f"Error listing build targets: {str(e)}", severity="error", timeout=5)
             self.dismiss()
+
+    def _handle_arbitration_show(self):
+        """Handle the arbitration show operation."""
+        def on_task_id_entered(task_id: str):
+            if task_id:
+                try:
+                    from maestro.ui_facade.arbitration import get_arbitration
+                    arbitration_data = get_arbitration(task_id)
+                    if arbitration_data:
+                        # Show the arbitration details in an info dialog
+                        details = f"""
+                        Arbitration Task: {arbitration_data.task_id}
+
+                        Phase: {arbitration_data.phase}
+                        Status: {arbitration_data.status.value}
+                        Current Winner: {arbitration_data.current_winner or 'None'}
+
+                        Decision Rationale: {arbitration_data.decision_rationale or 'None'}
+
+                        Judge Output: {arbitration_data.judge_output or 'None'}
+
+                        Confidence Indicators: {', '.join(arbitration_data.confidence) if arbitration_data.confidence else 'None'}
+
+                        Candidates:
+                        """
+                        for candidate in arbitration_data.candidates:
+                            details += f"\n  - Engine: {candidate.engine}"
+                            details += f"\n    Score: {candidate.score:.2f}" if candidate.score is not None else "\n    Score: N/A"
+                            details += f"\n    Semantic Equivalence: {candidate.semantic_equivalence.value if candidate.semantic_equivalence else 'N/A'}"
+                            details += f"\n    Validation Passed: {'Yes' if candidate.validation_passed else 'No'}"
+                            details += f"\n    Flags: {', '.join(candidate.flags) if candidate.flags else 'None'}"
+
+                        from .modals import InfoDialog
+                        info_dialog = InfoDialog(
+                            message=details,
+                            title=f"Arbitration Details - {arbitration_data.task_id}"
+                        )
+                        self.app.push_screen(info_dialog)
+                    else:
+                        self.app.notify(f"No arbitration data found for task: {task_id}", severity="error", timeout=3)
+                except ImportError:
+                    self.app.notify("Arbitration facade not available", severity="error", timeout=3)
+                except Exception as e:
+                    self.app.notify(f"Error getting arbitration data: {str(e)}", severity="error", timeout=3)
+            self.dismiss()
+
+        # Show input dialog to ask for task ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter arbitrated task ID to show details:",
+            title="Show Arbitration Details"
+        )
+        self.app.push_screen(input_dialog, callback=on_task_id_entered)
+
+    def _handle_arbitration_choose(self):
+        """Handle the arbitration choose operation."""
+        def on_choice_info_entered(choice_info: str):
+            if choice_info:
+                # Split the input to get task ID, engine and reason
+                parts = choice_info.strip().split('\n', 2)
+                if len(parts) < 3:
+                    self.app.notify("Please provide task ID, engine, and reason (separate with newlines)", severity="error", timeout=3)
+                    self.dismiss()
+                    return
+
+                task_id = parts[0].strip()
+                engine = parts[1].strip()
+                reason = parts[2].strip()
+
+                if not reason:
+                    self.app.notify("Reason is required for winner selection", severity="error", timeout=3)
+                    self.dismiss()
+                    return
+
+                # Confirm selection before proceeding
+                def on_confirmed(confirmed: bool):
+                    if confirmed:
+                        try:
+                            from maestro.ui_facade.arbitration import choose_winner
+                            success = choose_winner(task_id, engine, reason)
+                            if success:
+                                self.app.notify(f"Winner {engine} selected for task {task_id}", timeout=3)
+                            else:
+                                self.app.notify(f"Failed to select winner for task {task_id}", severity="error", timeout=3)
+                        except ImportError:
+                            self.app.notify("Arbitration facade not available", severity="error", timeout=3)
+                        except Exception as e:
+                            self.app.notify(f"Error selecting winner: {str(e)}", severity="error", timeout=3)
+                    self.dismiss()
+
+                from .modals import ConfirmDialog
+                confirm_dialog = ConfirmDialog(
+                    message=f"Select {engine} as winner for task {task_id}?\n\nReason: {reason}",
+                    title="Confirm Winner Selection"
+                )
+                self.app.push_screen(confirm_dialog, callback=on_confirmed)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for task ID, engine, and reason
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter task ID, engine, and reason (separate with newlines):\ntask_id\nengine\nreason for selection",
+            title="Choose Arbitration Winner"
+        )
+        self.app.push_screen(input_dialog, callback=on_choice_info_entered)
+
+    def _handle_arbitration_explain(self):
+        """Handle the arbitration explain operation."""
+        def on_task_id_entered(task_id: str):
+            if task_id:
+                try:
+                    from maestro.ui_facade.arbitration import get_arbitration
+                    arbitration_data = get_arbitration(task_id)
+                    if arbitration_data:
+                        # Show the arbitration explanation in an info dialog
+                        explanation = f"""
+                        Full Arbitration Decision Trail for Task: {arbitration_data.task_id}
+
+                        Phase: {arbitration_data.phase}
+                        Status: {arbitration_data.status.value}
+                        Current Winner: {arbitration_data.current_winner or 'None'}
+
+                        Judge Output: {arbitration_data.judge_output or 'No judge output'}
+
+                        Decision Rationale: {arbitration_data.decision_rationale or 'No rationale provided'}
+
+                        Confidence Indicators: {', '.join(arbitration_data.confidence) if arbitration_data.confidence else 'None'}
+
+                        Candidates:
+                        """
+                        for candidate in arbitration_data.candidates:
+                            explanation += f"\n  - Engine: {candidate.engine}"
+                            explanation += f"\n    Score: {candidate.score:.2f}" if candidate.score is not None else "\n    Score: N/A"
+                            explanation += f"\n    Semantic Equivalence: {candidate.semantic_equivalence.value if candidate.semantic_equivalence else 'N/A'}"
+                            explanation += f"\n    Validation Passed: {'Yes' if candidate.validation_passed else 'No'}"
+                            explanation += f"\n    Flags: {', '.join(candidate.flags) if candidate.flags else 'None'}"
+                            explanation += f"\n    Files Written: {', '.join(candidate.files_written) if candidate.files_written else 'None'}"
+                            explanation += f"\n    Policy Used: {candidate.policy_used or 'None'}"
+
+                        from .modals import InfoDialog
+                        info_dialog = InfoDialog(
+                            message=explanation,
+                            title=f"Arbitration Explanation - {arbitration_data.task_id}"
+                        )
+                        self.app.push_screen(info_dialog)
+                    else:
+                        self.app.notify(f"No arbitration data found for task: {task_id}", severity="error", timeout=3)
+                except ImportError:
+                    self.app.notify("Arbitration facade not available", severity="error", timeout=3)
+                except Exception as e:
+                    self.app.notify(f"Error getting arbitration explanation: {str(e)}", severity="error", timeout=3)
+            self.dismiss()
+
+        # Show input dialog to ask for task ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter arbitrated task ID to explain decision:",
+            title="Explain Arbitration Decision"
+        )
+        self.app.push_screen(input_dialog, callback=on_task_id_entered)
 
     def _handle_plan_kill(self):
         """Handle the plan kill operation."""
@@ -1181,6 +1366,38 @@ class CommandPaletteScreen(ModalScreen):
                 self.app._switch_main_content(SemanticScreen())
                 self.dismiss()
                 return "COMPLETED"
+            elif action_name == "screen_arbitration":
+                # Navigate to arbitration screen
+                from maestro.tui.screens.arbitration import ArbitrationScreen
+                # Switch to the arbitration screen content
+                self.app._switch_main_content(ArbitrationScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "arbitration_list":
+                # List arbitrated tasks
+                try:
+                    from maestro.ui_facade.arbitration import list_arbitrated_tasks
+                    session = self.app.active_session
+                    if session:
+                        tasks = list_arbitrated_tasks(session.id)
+                        if tasks:
+                            task_list = [f"{t.id[:8]}...-{t.phase}-{t.status.value}" for t in tasks]
+                            return f"Arbitrated Tasks ({len(tasks)}): {', '.join(task_list)}"
+                        else:
+                            return "No arbitrated tasks found"
+                    else:
+                        return "No active session"
+                except ImportError:
+                    return "Arbitration facade not available"
+            elif action_name == "arbitration_show":
+                # This operation requires user input for selecting the task
+                return "INPUT_NEEDED"
+            elif action_name == "arbitration_choose":
+                # This operation requires user input for selecting the task and engine
+                return "INPUT_NEEDED"
+            elif action_name == "arbitration_explain":
+                # This operation requires user input for selecting the task
+                return "INPUT_NEEDED"
             else:
                 return f"Unknown command: {action_name}"
         except Exception as e:

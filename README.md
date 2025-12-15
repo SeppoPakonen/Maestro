@@ -262,6 +262,7 @@ The confidence scoring system assigns a numeric score (0-100) and letter grade (
 - Idempotency and drift detection
 - Checkpoint activity
 - Arbitration outcomes
+- Arbitration Arena TUI for comparing competing AI outputs
 - Open issues and warnings
 - Validation results
 
