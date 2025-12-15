@@ -1,0 +1,18 @@
+{
+  "scenario_name": "ts_to_cpp_lowering_basic",
+  "timestamp": "2024-01-01T00:00:00",
+  "intent": "high_to_low_level",
+  "expected_stages": [
+    "create",
+    "run",
+    "semantic_diff"
+  ],
+  "expected_success": true,
+  "expected_semantic_diff": true,
+  "expected_checkpoint": true,
+  "loss_count_threshold": 5,
+  "low_equivalence_threshold": 2,
+  "semantic_diff_required": true,
+  "verification_mode": "vectors_only",
+  "designed_checkpoint_scenario": true
+}

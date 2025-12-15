@@ -1,0 +1,35 @@
+{
+  "artifact_types": [
+    "semantic_mapping",
+    "conversion_plan",
+    "code_artifacts",
+    "semantic_reports",
+    "coverage_reports",
+    "diff_report"
+  ],
+  "required_artifacts": [
+    ".maestro/convert/plan.json",
+    ".maestro/convert/semantic_mapping.json",
+    ".maestro/convert/coverage.json",
+    ".maestro/convert/semantics/diff_report.json"
+  ],
+  "conversion_files_expected": [
+    "calculator.cpp",
+    "calculator.h",
+    "main.cpp",
+    "CMakeLists.txt"
+  ],
+  "semantic_artifacts_expected": [
+    "diff_report.json",
+    "diff_report.md",
+    "mapping_index.json"
+  ],
+  "expected_stages": [
+    "create",
+    "run",
+    "semantic_diff"
+  ],
+  "max_file_count": 20,
+  "requires_semantic_diff": true,
+  "designed_checkpoint_scenario": true
+}

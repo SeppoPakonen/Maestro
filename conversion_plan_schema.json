@@ -36,6 +36,13 @@
         "$ref": "#/definitions/task"
       }
     },
+    "checkpoints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/checkpoint"
+      },
+      "description": "Explicit checkpoints for human approval during execution"
+    },
     "metadata": {
       "type": "object",
       "properties": {
@@ -113,6 +120,45 @@
         "status": {
           "type": "string",
           "enum": ["pending", "running", "completed", "failed", "interrupted", "skipped"],
+          "default": "pending"
+        }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "required": ["checkpoint_id", "after_tasks", "label"],
+      "properties": {
+        "checkpoint_id": {
+          "type": "string",
+          "description": "Unique identifier for the checkpoint"
+        },
+        "after_tasks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of task IDs after which this checkpoint should be triggered"
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for the checkpoint"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["semantic_ok", "build_pass"]
+          },
+          "description": "Requirements that must be met before continuing past this checkpoint"
+        },
+        "auto_continue": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether execution should continue automatically after this checkpoint"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected", "skipped", "completed"],
           "default": "pending"
         }
       }

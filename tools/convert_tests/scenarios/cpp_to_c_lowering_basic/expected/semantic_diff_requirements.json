@@ -1,0 +1,25 @@
+{
+  "required_keys_in_diff_report": [
+    "loss_ledger",
+    "concept_coverage",
+    "file_equivalence",
+    "drift_threshold_analysis"
+  ],
+  "minimum_losses_required": 3,
+  "required_loss_types": [
+    "classes",
+    "smart_pointers", 
+    "RAII",
+    "STL_containers"
+  ],
+  "checkpoint_expected": false,
+  "minimum_risk_hotspots": 1,
+  "expected_concept_coverage": {
+    "lost_percentage_min": 10,
+    "preserved_percentage_min": 30
+  },
+  "drift_analysis_checks": {
+    "requires_checkpoint": false,
+    "low_equivalence_exceeds_threshold": false
+  }
+}

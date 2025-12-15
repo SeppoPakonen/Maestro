@@ -1,0 +1,27 @@
+{
+  "required_keys_in_diff_report": [
+    "loss_ledger",
+    "concept_coverage",
+    "file_equivalence",
+    "drift_threshold_analysis"
+  ],
+  "minimum_losses_required": 5,
+  "required_loss_types": [
+    "typescript_interfaces",
+    "async_await_patterns",
+    "type_annotations",
+    "module_system",
+    "optional_chaining"
+  ],
+  "checkpoint_expected": true,
+  "minimum_risk_hotspots": 3,
+  "expected_concept_coverage": {
+    "lost_percentage_min": 20,
+    "preserved_percentage_min": 25
+  },
+  "drift_analysis_checks": {
+    "requires_checkpoint": true,
+    "low_equivalence_exceeds_threshold": true,
+    "lost_concepts_exceeds_threshold": true
+  }
+}

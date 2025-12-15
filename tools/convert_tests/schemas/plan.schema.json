@@ -207,9 +207,33 @@
           "enum": ["convert", "copy", "skip", "merge"],
           "description": "Policy for handling files in file tasks"
         },
+        "write_policy": {
+          "type": "string",
+          "enum": ["overwrite", "merge", "skip_if_exists", "fail_if_exists"],
+          "description": "Policy for writing files to target with safety controls"
+        },
         "merge_into": {
           "type": "string",
           "description": "Target file to merge into when policy is merge"
+        },
+        "merge_strategy": {
+          "type": "string",
+          "enum": ["append_section", "replace_section_by_marker", "json_merge", "toml_merge"],
+          "description": "Strategy to use when merging content"
+        },
+        "merge_markers": {
+          "type": "object",
+          "description": "Markers to use with certain merge strategies",
+          "properties": {
+            "begin_marker": {
+              "type": "string",
+              "description": "Beginning marker for replace_section_by_marker strategy"
+            },
+            "end_marker": {
+              "type": "string",
+              "description": "Ending marker for replace_section_by_marker strategy"
+            }
+          }
         },
         "skip_reason": {
           "type": "string",

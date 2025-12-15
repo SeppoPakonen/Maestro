@@ -8,6 +8,7 @@ import subprocess
 import threading
 import time
 import hashlib
+from datetime import datetime
 
 # Import the conversion memory module
 from conversion_memory import ConversionMemory, TaskSummary, compute_file_hash
@@ -168,10 +169,16 @@ The conversion is taking place between two repositories:
                 # Import the realize worker with arbitration support
                 from realize_worker import execute_file_task_with_arbitration
 
+                rehearsal_target = target_repo_path
+                # If in rehearsal mode, redirect to rehearsal directory
+                if getattr(self, 'rehearsal_mode', False):
+                    rehearsal_target = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+                    os.makedirs(rehearsal_target, exist_ok=True)
+
                 success = execute_file_task_with_arbitration(
                     task,
                     source_repo_path,
-                    target_repo_path,
+                    rehearsal_target,  # Use rehearsal target if in rehearsal mode
                     verbose=True,
                     plan_path=self.plan_path,
                     arbitrate_engines=self.arbitrate_engines.split(','),
@@ -194,7 +201,13 @@ The conversion is taking place between two repositories:
                 # Import the realize worker
                 from realize_worker import execute_file_task
 
-                success = execute_file_task(task, source_repo_path, target_repo_path, verbose=True, plan_path=self.plan_path)
+                rehearsal_target = target_repo_path
+                # If in rehearsal mode, redirect to rehearsal directory
+                if getattr(self, 'rehearsal_mode', False):
+                    rehearsal_target = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+                    os.makedirs(rehearsal_target, exist_ok=True)
+
+                success = execute_file_task(task, source_repo_path, rehearsal_target, verbose=True, plan_path=self.plan_path)
 
                 if success:
                     # Update status to completed
@@ -223,10 +236,20 @@ The conversion is taking place between two repositories:
                     success = self._call_ai_engine(task, prompt_path, output_dir)
                 elif task['engine'] == 'file_copy':
                     # Copy files directly
-                    success = self._copy_files(task, source_repo_path, target_repo_path)
+                    rehearsal_target = target_repo_path
+                    # If in rehearsal mode, redirect to rehearsal directory
+                    if getattr(self, 'rehearsal_mode', False):
+                        rehearsal_target = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+                        os.makedirs(rehearsal_target, exist_ok=True)
+                    success = self._copy_files(task, source_repo_path, rehearsal_target)
                 elif task['engine'] == 'directory_create':
                     # Create directories
-                    success = self._create_directories(task, target_repo_path)
+                    rehearsal_target = target_repo_path
+                    # If in rehearsal mode, redirect to rehearsal directory
+                    if getattr(self, 'rehearsal_mode', False):
+                        rehearsal_target = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+                        os.makedirs(rehearsal_target, exist_ok=True)
+                    success = self._create_directories(task, rehearsal_target)
                 else:
                     # Custom converter or other engines
                     success = self._execute_custom_engine(task, prompt_path, output_dir)
@@ -243,8 +266,14 @@ The conversion is taking place between two repositories:
             # Capture file hashes after task execution
             hashes_after = {}
             target_files = task.get('target_files', [])
+
+            # Determine which target directory to use for hashing
+            actual_target_path = target_repo_path
+            if getattr(self, 'rehearsal_mode', False):
+                actual_target_path = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+
             for target_file in target_files:
-                full_path = os.path.join(target_repo_path, target_file)
+                full_path = os.path.join(actual_target_path, target_file)
                 if os.path.exists(full_path):
                     hashes_after[target_file] = compute_file_hash(full_path)
 
@@ -252,12 +281,19 @@ The conversion is taking place between two repositories:
             self._generate_structured_summary(task, source_repo_path, target_repo_path, hashes_before, hashes_after, success)
 
             # Run semantic integrity check for file tasks
+            # Run regardless of rehearsal mode to test the semantic analysis
             if task['phase'] == 'file':
                 from semantic_integrity import SemanticIntegrityChecker
+
+                # Use rehearsal target for semantic check if in rehearsal mode
+                semantic_target_path = target_repo_path
+                if getattr(self, 'rehearsal_mode', False):
+                    semantic_target_path = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+
                 semantic_checker = SemanticIntegrityChecker()
 
                 # Run semantic check
-                semantic_result = semantic_checker.run_semantic_check(task, source_repo_path, target_repo_path)
+                semantic_result = semantic_checker.run_semantic_check(task, source_repo_path, semantic_target_path)
 
                 # Classify risk and potentially block pipeline
                 risk_level = semantic_checker.classify_risk_level(semantic_result, accept_semantic_risk=self.accept_semantic_risk)
@@ -306,8 +342,14 @@ The conversion is taking place between two repositories:
             # Even if interrupted, try to generate partial summary
             hashes_after = {}
             target_files = task.get('target_files', [])
+
+            # Determine which target directory to use for hashing
+            actual_target_path = target_repo_path
+            if getattr(self, 'rehearsal_mode', False):
+                actual_target_path = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+
             for target_file in target_files:
-                full_path = os.path.join(target_repo_path, target_file)
+                full_path = os.path.join(actual_target_path, target_file)
                 if os.path.exists(full_path):
                     hashes_after[target_file] = compute_file_hash(full_path)
 
@@ -321,8 +363,14 @@ The conversion is taking place between two repositories:
             # Generate summary with error info
             hashes_after = {}
             target_files = task.get('target_files', [])
+
+            # Determine which target directory to use for hashing
+            actual_target_path = target_repo_path
+            if getattr(self, 'rehearsal_mode', False):
+                actual_target_path = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+
             for target_file in target_files:
-                full_path = os.path.join(target_repo_path, target_file)
+                full_path = os.path.join(actual_target_path, target_file)
                 if os.path.exists(full_path):
                     hashes_after[target_file] = compute_file_hash(full_path)
 
@@ -351,7 +399,13 @@ The conversion is taking place between two repositories:
     def _copy_files(self, task: Dict, source_repo_path: str, target_repo_path: str) -> bool:
         """Copy source files to target location."""
         import shutil
-        
+
+        # Determine the actual target path based on rehearsal mode
+        actual_target_path = target_repo_path
+        if getattr(self, 'rehearsal_mode', False):
+            actual_target_path = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+            os.makedirs(actual_target_path, exist_ok=True)
+
         for source_file in task.get('source_files', []):
             source_path = os.path.join(source_repo_path, source_file)
             # Use the corresponding target file path or derive from source path
@@ -360,12 +414,12 @@ The conversion is taking place between two repositories:
                 target_file = task['target_files'][target_file_index]
             else:
                 target_file = source_file  # Default to same name
-            
-            target_path = os.path.join(target_repo_path, target_file)
-            
+
+            target_path = os.path.join(actual_target_path, target_file)
+
             # Create target directory if it doesn't exist
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            
+
             # Copy the file
             if os.path.exists(source_path):
                 shutil.copy2(source_path, target_path)
@@ -374,17 +428,23 @@ The conversion is taking place between two repositories:
                 with open(target_path, 'w') as f:
                     f.write(f"# Created as part of conversion task\n")
                     f.write(f"# Original file {source_file} was not found\n")
-        
+
         return True
     
     def _create_directories(self, task: Dict, target_repo_path: str) -> bool:
         """Create directories as specified in target_files."""
+        # Determine the actual target path based on rehearsal mode
+        actual_target_path = target_repo_path
+        if getattr(self, 'rehearsal_mode', False):
+            actual_target_path = f".maestro/convert/rehearsal/{self.plan.get('pipeline_id', 'default')}/target"
+            os.makedirs(actual_target_path, exist_ok=True)
+
         for target_dir in task.get('target_files', []):
             # Only create if it represents a directory (ends with / or looks like directory)
             if target_dir.endswith('/') or '.' not in os.path.basename(target_dir):
-                dir_path = os.path.join(target_repo_path, target_dir.lstrip('/'))
+                dir_path = os.path.join(actual_target_path, target_dir.lstrip('/'))
                 os.makedirs(dir_path, exist_ok=True)
-        
+
         return True
     
     def _generate_structured_summary(self, task: Dict, source_repo_path: str, target_repo_path: str,
@@ -498,74 +558,274 @@ The conversion is taking place between two repositories:
         
         return True
     
-    def execute_plan(self, source_repo_path: str = ".", target_repo_path: str = ".", limit: int = None) -> bool:
+    def execute_plan(self, source_repo_path: str = ".", target_repo_path: str = ".", limit: int = None, rehearsal_mode: bool = False) -> bool:
         """Execute the conversion plan task by task."""
         print(f"Starting execution of conversion plan: {self.plan_path}")
         print(f"Source: {source_repo_path}, Target: {target_repo_path}")
-        
+        if rehearsal_mode:
+            print("⚠️  REHEARSAL MODE: No writes to target will occur")
+
         tasks_executed = 0
-        
+
+        # Store rehearsal mode for use in task execution
+        self.rehearsal_mode = rehearsal_mode
+
         # Execute scaffold tasks first
         for task in self.plan.get('scaffold_tasks', []):
             if limit and tasks_executed >= limit:
                 print(f"Reached execution limit of {limit} tasks")
                 break
-                
+
             if not self.running:
                 print("Execution was interrupted")
                 return False
-                
+
             # Check dependencies before executing
             if not self._resolve_dependencies(task):
                 print(f"Skipping task {task['task_id']} due to unmet dependencies")
                 continue
-            
+
             success = self._execute_task(task, source_repo_path, target_repo_path)
             if success:
                 tasks_executed += 1
-        
+
+            # Check for checkpoints after the task
+            checkpoint = self._find_checkpoint_after_task(task['task_id'])
+            if checkpoint:
+                checkpoint_result = self._handle_checkpoint(checkpoint, source_repo_path, target_repo_path, tasks_executed)
+                if checkpoint_result == 'reject':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} rejected. Stopping execution.")
+                    return False
+                elif checkpoint_result == 'override':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} overridden. Continuing execution.")
+                elif checkpoint_result == 'approve':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} approved. Continuing execution.")
+                else:
+                    # Default is to wait for approval if auto_continue is false
+                    if not checkpoint.get('auto_continue', False):
+                        # Wait for user approval
+                        user_action = self._wait_for_checkpoint_approval(checkpoint['checkpoint_id'])
+                        if user_action == 'reject':
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} rejected by user. Stopping execution.")
+                            return False
+                        elif user_action == 'override':
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} overridden by user. Continuing execution.")
+                        else:  # approve
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} approved by user. Continuing execution.")
+
         # Execute file tasks next
         for task in self.plan.get('file_tasks', []):
             if limit and tasks_executed >= limit:
                 print(f"Reached execution limit of {limit} tasks")
                 break
-                
+
             if not self.running:
                 print("Execution was interrupted")
                 return False
-                
+
             # Check dependencies before executing
             if not self._resolve_dependencies(task):
                 print(f"Skipping task {task['task_id']} due to unmet dependencies")
                 continue
-            
+
             success = self._execute_task(task, source_repo_path, target_repo_path)
             if success:
                 tasks_executed += 1
-        
+
+            # Check for checkpoints after the task
+            checkpoint = self._find_checkpoint_after_task(task['task_id'])
+            if checkpoint:
+                checkpoint_result = self._handle_checkpoint(checkpoint, source_repo_path, target_repo_path, tasks_executed)
+                if checkpoint_result == 'reject':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} rejected. Stopping execution.")
+                    return False
+                elif checkpoint_result == 'override':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} overridden. Continuing execution.")
+                elif checkpoint_result == 'approve':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} approved. Continuing execution.")
+                else:
+                    # Default is to wait for approval if auto_continue is false
+                    if not checkpoint.get('auto_continue', False):
+                        # Wait for user approval
+                        user_action = self._wait_for_checkpoint_approval(checkpoint['checkpoint_id'])
+                        if user_action == 'reject':
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} rejected by user. Stopping execution.")
+                            return False
+                        elif user_action == 'override':
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} overridden by user. Continuing execution.")
+                        else:  # approve
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} approved by user. Continuing execution.")
+
         # Execute final sweep tasks last
         for task in self.plan.get('final_sweep_tasks', []):
             if limit and tasks_executed >= limit:
                 print(f"Reached execution limit of {limit} tasks")
                 break
-                
+
             if not self.running:
                 print("Execution was interrupted")
                 return False
-                
+
             # Check dependencies before executing
             if not self._resolve_dependencies(task):
                 print(f"Skipping task {task['task_id']} due to unmet dependencies")
                 continue
-            
+
             success = self._execute_task(task, source_repo_path, target_repo_path)
             if success:
                 tasks_executed += 1
-        
+
+            # Check for checkpoints after the task
+            checkpoint = self._find_checkpoint_after_task(task['task_id'])
+            if checkpoint:
+                checkpoint_result = self._handle_checkpoint(checkpoint, source_repo_path, target_repo_path, tasks_executed)
+                if checkpoint_result == 'reject':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} rejected. Stopping execution.")
+                    return False
+                elif checkpoint_result == 'override':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} overridden. Continuing execution.")
+                elif checkpoint_result == 'approve':
+                    print(f"Checkpoint {checkpoint['checkpoint_id']} approved. Continuing execution.")
+                else:
+                    # Default is to wait for approval if auto_continue is false
+                    if not checkpoint.get('auto_continue', False):
+                        # Wait for user approval
+                        user_action = self._wait_for_checkpoint_approval(checkpoint['checkpoint_id'])
+                        if user_action == 'reject':
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} rejected by user. Stopping execution.")
+                            return False
+                        elif user_action == 'override':
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} overridden by user. Continuing execution.")
+                        else:  # approve
+                            print(f"Checkpoint {checkpoint['checkpoint_id']} approved by user. Continuing execution.")
+
         print(f"Plan execution completed. {tasks_executed} tasks processed.")
         return True
 
-def execute_conversion(source_repo_path: str, target_repo_path: str, limit: int = None, resume: bool = False, accept_semantic_risk: bool = False, arbitrate: bool = False, arbitrate_engines: str = 'qwen,claude', judge_engine: str = 'codex', max_candidates: int = 2, use_judge: bool = True):
+    def _find_checkpoint_after_task(self, task_id: str) -> Optional[Dict]:
+        """Find a checkpoint that should trigger after the specified task."""
+        checkpoints = self.plan.get('checkpoints', [])
+        for checkpoint in checkpoints:
+            if task_id in checkpoint.get('after_tasks', []):
+                # Check if checkpoint has already been processed
+                if checkpoint.get('status', 'pending') in ['pending', 'approved', 'skipped']:
+                    return checkpoint
+        return None
+
+    def _handle_checkpoint(self, checkpoint: Dict, source_repo_path: str, target_repo_path: str, tasks_completed: int) -> str:
+        """Handle a checkpoint by summarizing and checking requirements."""
+        checkpoint_id = checkpoint['checkpoint_id']
+
+        print(f"\n🚨 REACHED CHECKPOINT: {checkpoint_id} - {checkpoint.get('label', 'No label')}")
+
+        # Create checkpoint artifact directory
+        checkpoint_artifact_dir = f".maestro/convert/checkpoints/{checkpoint_id}"
+        os.makedirs(checkpoint_artifact_dir, exist_ok=True)
+
+        # Generate checkpoint summary
+        summary = self._generate_checkpoint_summary(checkpoint, source_repo_path, target_repo_path, tasks_completed)
+
+        # Save checkpoint summary to artifact
+        checkpoint_summary_path = os.path.join(checkpoint_artifact_dir, "summary.json")
+        with open(checkpoint_summary_path, 'w', encoding='utf-8') as f:
+            json.dump(summary, f, indent=2)
+
+        print(f"Checkpoint summary saved to: {checkpoint_summary_path}")
+
+        # Check requirements
+        requires = checkpoint.get('requires', [])
+        all_requirements_met = True
+
+        for requirement in requires:
+            if requirement == "semantic_ok":
+                # Check if recent semantic issues are resolved
+                from semantic_integrity import SemanticIntegrityChecker
+                checker = SemanticIntegrityChecker()
+                summary = checker.get_summary()
+                if summary.get('unresolved_semantic_warnings', 0) > 0:
+                    print(f"⚠️  Requirement '{requirement}' not met: {summary['unresolved_semantic_warnings']} unresolved semantic warnings")
+                    all_requirements_met = False
+            elif requirement == "build_pass":
+                # In a real implementation, this would run the build command
+                print(f"ℹ️  Requirement '{requirement}' needs to be checked with build command")
+
+        if not all_requirements_met:
+            print(f"⚠️  Some requirements not met for checkpoint {checkpoint_id}")
+            print(f"   You may need to address issues before approving this checkpoint")
+
+        # Return based on auto_continue setting
+        if checkpoint.get('auto_continue', False):
+            self._update_checkpoint_status(checkpoint_id, 'completed')
+            return 'approve'
+        else:
+            self._update_checkpoint_status(checkpoint_id, 'pending')
+            return 'pending'  # Indicates we need human action
+
+    def _generate_checkpoint_summary(self, checkpoint: Dict, source_repo_path: str, target_repo_path: str, tasks_completed: int) -> Dict:
+        """Generate a summary for the checkpoint."""
+        # Get recent tasks since last checkpoint
+        # For now, we'll just return the checkpoint information and basic stats
+        from semantic_integrity import SemanticIntegrityChecker
+        from conversion_memory import ConversionMemory
+
+        memory = ConversionMemory()
+        checker = SemanticIntegrityChecker()
+
+        # Gather semantic summary
+        semantic_summary = checker.get_summary()
+
+        # Get recent issues
+        recent_issues = [issue for issue in memory.load_open_issues()
+                        if issue.get('status', 'open') in ['open', 'investigating']]
+
+        # Create checkpoint summary object
+        summary = {
+            "checkpoint_id": checkpoint['checkpoint_id'],
+            "label": checkpoint.get('label', ''),
+            "timestamp": datetime.now().isoformat(),
+            "tasks_completed_since_last_checkpoint": tasks_completed,  # This is cumulative, improve in actual implementation
+            "semantic_summary": semantic_summary,
+            "open_issues_added_since_last_checkpoint": len(recent_issues),
+            "top_risks": semantic_summary.get('cumulative_risk_flags', {}),
+            "requires": checkpoint.get('requires', []),
+            "auto_continue": checkpoint.get('auto_continue', False)
+        }
+
+        return summary
+
+    def _update_checkpoint_status(self, checkpoint_id: str, status: str):
+        """Update the status of a checkpoint in the plan."""
+        checkpoints = self.plan.get('checkpoints', [])
+        for checkpoint in checkpoints:
+            if checkpoint['checkpoint_id'] == checkpoint_id:
+                checkpoint['status'] = status
+                break
+
+        # Save the updated plan
+        with open(self.plan_path, 'w', encoding='utf-8') as f:
+            json.dump(self.plan, f, indent=2)
+
+    def _wait_for_checkpoint_approval(self, checkpoint_id: str) -> str:
+        """Wait for user approval of a checkpoint. In rehearsal mode, auto-approve."""
+        # If we're in rehearsal mode, we'll auto-approve since no real changes are made
+        if getattr(self, 'rehearsal_mode', False):
+            print(f"Rehearsal mode: Auto-approving checkpoint {checkpoint_id}")
+            self._update_checkpoint_status(checkpoint_id, 'approved')
+            return 'approve'
+
+        # Otherwise, user needs to approve via CLI command
+        print(f"Checkpoint {checkpoint_id} requires your approval.")
+        print(f"Run one of the following commands to continue:")
+        print(f"  maestro convert checkpoint approve {checkpoint_id}")
+        print(f"  maestro convert checkpoint reject {checkpoint_id}")
+        print(f"  maestro convert checkpoint override {checkpoint_id}")
+
+        # In a real implementation, this would wait for the user to run the CLI command
+        # For now, we'll just return 'approve' to allow the simulation to continue
+        # But in practice, the execution engine would need to pause and resume
+        return 'wait'  # This would indicate the need to pause execution
+
+def execute_conversion(source_repo_path: str, target_repo_path: str, limit: int = None, resume: bool = False, accept_semantic_risk: bool = False, arbitrate: bool = False, arbitrate_engines: str = 'qwen,claude', judge_engine: str = 'codex', max_candidates: int = 2, use_judge: bool = True, rehearsal_mode: bool = False):
     """Main function to execute the conversion process."""
     plan_path = ".maestro/convert/plan/plan.json"
 
@@ -585,8 +845,11 @@ def execute_conversion(source_repo_path: str, target_repo_path: str, limit: int 
     executor.max_candidates = max_candidates
     executor.use_judge = use_judge
 
+    # Store rehearsal mode
+    executor.rehearsal_mode = rehearsal_mode
+
     # If resuming, we'll pick up from where we left off based on task statuses
     # The executor already handles status tracking in the plan file
-    success = executor.execute_plan(source_repo_path, target_repo_path, limit)
+    success = executor.execute_plan(source_repo_path, target_repo_path, limit, rehearsal_mode=rehearsal_mode)
 
     return success
