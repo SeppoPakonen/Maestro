@@ -11,6 +11,7 @@ from maestro.ui_facade.sessions import list_sessions, get_active_session, create
 from maestro.ui_facade.plans import list_plans, get_active_plan
 from maestro.ui_facade.build import get_active_build_target
 from maestro.ui_facade.runs import list_runs, get_run, get_run_manifest, replay_run, diff_runs, set_baseline
+from maestro.tui.utils import ErrorNormalizer, ErrorModal
 
 
 class CommandPaletteScreen(ModalScreen):
@@ -126,6 +127,17 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Go to semantic integrity panel", "action": "screen_semantic", "type": "navigation"},
         ])
 
+        # Semantic Diff operations
+        commands.extend([
+            {"name": "Semantics: Diff Explorer", "action": "semantics_diff", "type": "semantic_diff"},
+            {"name": "Semantics: Diff against baseline", "action": "semantics_diff_baseline", "type": "semantic_diff"},
+            {"name": "Semantics: Coverage report", "action": "semantics_coverage", "type": "semantic_diff"},
+            {"name": "Semantics: Show concept", "action": "semantics_show_concept", "type": "semantic_diff"},
+            {"name": "Semantics: Acknowledge loss", "action": "semantics_acknowledge", "type": "semantic_diff"},
+            {"name": "Semantics: Override loss", "action": "semantics_override", "type": "semantic_diff"},
+            {"name": "Go to semantic diff explorer", "action": "screen_semantic_diff", "type": "navigation"},
+        ])
+
         # Run operations (Replay & Baselines)
         commands.extend([
             {"name": "Runs: List all runs", "action": "runs_list", "type": "run"},
@@ -142,6 +154,30 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Arbitration: Show task", "action": "arbitration_show", "type": "arbitration"},
             {"name": "Arbitration: Choose winner", "action": "arbitration_choose", "type": "arbitration"},
             {"name": "Arbitration: Explain decision", "action": "arbitration_explain", "type": "arbitration"},
+        ])
+
+        # Confidence operations
+        commands.extend([
+            {"name": "Confidence: Show overall", "action": "confidence_show", "type": "confidence"},
+            {"name": "Confidence: Show for run", "action": "confidence_show_run", "type": "confidence"},
+            {"name": "Confidence: Show baseline", "action": "confidence_show_baseline", "type": "confidence"},
+            {"name": "Confidence: Show gates", "action": "confidence_gates", "type": "confidence"},
+            {"name": "Confidence: Explain component", "action": "confidence_explain", "type": "confidence"},
+            {"name": "Go to confidence scoreboard", "action": "screen_confidence", "type": "navigation"},
+        ])
+
+        # Vault operations
+        commands.extend([
+            {"name": "Vault: Open logs and artifacts vault", "action": "screen_vault", "type": "vault"},
+            {"name": "Vault: Browse logs", "action": "vault_logs", "type": "vault"},
+            {"name": "Vault: Browse artifacts", "action": "vault_artifacts", "type": "vault"},
+            {"name": "Vault: Browse diffs", "action": "vault_diffs", "type": "vault"},
+            {"name": "Vault: Browse snapshots", "action": "vault_snapshots", "type": "vault"},
+            {"name": "Vault: Browse summaries", "action": "vault_summaries", "type": "vault"},
+            {"name": "Vault: Search vault [text]", "action": "vault_search", "type": "vault"},
+            {"name": "Vault: Export items", "action": "vault_export", "type": "vault"},
+            {"name": "Vault: Export filtered items", "action": "vault_export_filtered", "type": "vault"},
+            {"name": "Vault: Export related to run [run_id]", "action": "vault_export_run", "type": "vault"},
         ])
 
         return commands
@@ -319,6 +355,23 @@ class CommandPaletteScreen(ModalScreen):
                     # For read-only operations like arbitration_list
                     self.app.notify(f"Arbitration operation: {result}", timeout=5)
                     self.dismiss()
+            # Handle vault operation commands that need special handling
+            elif command["action"].startswith("vault_"):
+                result = self.execute_action_command(command["action"])
+                if result == "INPUT_NEEDED":
+                    # Special handling for vault operations that require input
+                    if command["action"] == "vault_search":
+                        self._handle_vault_search()
+                    elif command["action"] == "vault_export":
+                        self._handle_vault_export()
+                    elif command["action"] == "vault_export_filtered":
+                        self._handle_vault_export_filtered()
+                    elif command["action"] == "vault_export_run":
+                        self._handle_vault_export_run()
+                else:
+                    # For navigation operations like screen_vault or other vault commands
+                    self.app.notify(f"Vault operation: {result}", timeout=5)
+                    self.dismiss()
             else:
                 self.app.post_message(command["action"])
                 self.dismiss()
@@ -356,7 +409,8 @@ class CommandPaletteScreen(ModalScreen):
             self.app.push_screen(input_dialog, callback=on_session_selected)
 
         except Exception as e:
-            self.app.notify(f"Error listing sessions: {str(e)}", severity="error", timeout=5)
+            error_msg = ErrorNormalizer.normalize_exception(e, "listing sessions")
+            self.app.push_screen(ErrorModal(error_msg))
             self.dismiss()
 
     def _handle_session_remove(self):
@@ -370,7 +424,8 @@ class CommandPaletteScreen(ModalScreen):
                             remove_session(session_name)
                             self.app.notify(f"Session {session_name} removed", timeout=3)
                         except Exception as e:
-                            self.app.notify(f"Error removing session: {str(e)}", severity="error", timeout=5)
+                            error_msg = ErrorNormalizer.normalize_exception(e, "removing session")
+                            self.app.push_screen(ErrorModal(error_msg))
                     self.dismiss()
 
                 from .modals import ConfirmDialog
@@ -403,7 +458,8 @@ class CommandPaletteScreen(ModalScreen):
                     created_session = create_session(name, root_task_text)
                     self.app.notify(f"Session '{name}' created successfully", timeout=3)
                 except Exception as e:
-                    self.app.notify(f"Error creating session: {str(e)}", severity="error", timeout=5)
+                    error_msg = ErrorNormalizer.normalize_exception(e, "creating session")
+                    self.app.push_screen(ErrorModal(error_msg))
             self.dismiss()
 
         # Show input dialog for session name and optional root task
@@ -1592,6 +1648,268 @@ class CommandPaletteScreen(ModalScreen):
                 self.app._switch_main_content(MemoryScreen(initial_category="decisions"))
                 self.dismiss()
                 return "COMPLETED"
+            elif action_name == "screen_semantic_diff":
+                # Navigate to semantic diff screen
+                from maestro.tui.screens.semantic_diff import SemanticDiffScreen
+                # Switch to the semantic diff screen content
+                self.app._switch_main_content(SemanticDiffScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "semantics_diff":
+                # Navigate to semantic diff screen
+                from maestro.tui.screens.semantic_diff import SemanticDiffScreen
+                # Switch to the semantic diff screen content
+                self.app._switch_main_content(SemanticDiffScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "semantics_diff_baseline":
+                # This would require user input for baseline selection
+                def on_baseline_info_entered(baseline_info: str):
+                    if baseline_info:
+                        try:
+                            from maestro.ui_facade.semantic import diff_semantics
+                            # Split the input to get run/baseline IDs
+                            parts = baseline_info.strip().split('\n', 1)
+                            if len(parts) < 2:
+                                self.app.notify("Please provide current run and baseline ID (separate with newline)", severity="error", timeout=3)
+                                self.dismiss()
+                                return
+
+                            current_run = parts[0].strip()
+                            baseline_id = parts[1].strip()
+
+                            diff_result = diff_semantics("current_baseline", current_run, baseline_id)
+                            if diff_result:
+                                from .modals import InfoDialog
+                                details = f"""
+                                Semantic Diff Results:
+
+                                Mode: {diff_result.get('mode', 'N/A')}
+                                LHS: {diff_result.get('lhs', 'N/A')}
+                                RHS: {diff_result.get('rhs', 'N/A')}
+
+                                Summary:
+                                  Total Concepts: {diff_result.get('summary', {}).get('total_concepts', 0)}
+                                  Preserved: {diff_result.get('summary', {}).get('preserved_concepts', 0)}
+                                  Changed: {diff_result.get('summary', {}).get('changed_concepts', 0)}
+                                  Degraded: {diff_result.get('summary', {}).get('degraded_concepts', 0)}
+                                  Lost: {diff_result.get('summary', {}).get('lost_concepts', 0)}
+
+                                  Aggregated Risk: {diff_result.get('summary', {}).get('aggregated_risk_score', 0):.2f}
+                                  Confidence: {diff_result.get('summary', {}).get('confidence_score', 0):.2f}
+                                """
+                                info_dialog = InfoDialog(
+                                    message=details,
+                                    title="Semantic Diff Results"
+                                )
+                                self.app.push_screen(info_dialog)
+                            else:
+                                self.app.notify("Could not perform semantic diff", severity="error", timeout=3)
+                        except ImportError:
+                            self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                        except Exception as e:
+                            self.app.notify(f"Error performing semantic diff: {str(e)}", severity="error", timeout=3)
+                    self.dismiss()
+
+                from .modals import InputDialog
+                input_dialog = InputDialog(
+                    message="Enter current run ID and baseline ID (separate with newline):\ncurrent_run_id\nbaseline_id",
+                    title="Semantic Diff Against Baseline"
+                )
+                self.app.push_screen(input_dialog, callback=on_baseline_info_entered)
+                return "INPUT_NEEDED"
+            elif action_name == "semantics_coverage":
+                # Show semantic coverage report
+                try:
+                    from maestro.ui_facade.semantic import get_semantic_coverage
+                    coverage = get_semantic_coverage()
+
+                    if coverage:
+                        coverage_report = f"""
+                        Semantic Coverage Report:
+
+                        Total Mappings: {coverage.get('total_mappings', 0)}
+                        Preserved: {coverage.get('preserved_mappings', 0)}
+                        Changed: {coverage.get('changed_mappings', 0)}
+                        Degraded: {coverage.get('degraded_mappings', 0)}
+                        Lost: {coverage.get('lost_mappings', 0)}
+
+                        Coverage Percentage: {coverage.get('coverage_percentage', 0):.2f}%
+
+                        Risk Distribution:
+                          Low Risk: {coverage.get('risk_distribution', {}).get('low_risk', 0)}
+                          Medium Risk: {coverage.get('risk_distribution', {}).get('medium_risk', 0)}
+                          High Risk: {coverage.get('risk_distribution', {}).get('high_risk', 0)}
+                        """
+                        from .modals import InfoDialog
+                        info_dialog = InfoDialog(
+                            message=coverage_report,
+                            title="Semantic Coverage Report"
+                        )
+                        self.app.push_screen(info_dialog)
+                        return "Coverage report displayed"
+                    else:
+                        return "No semantic coverage data available"
+                except ImportError:
+                    return "Semantic facade not available"
+            elif action_name == "semantics_show_concept":
+                # This would require user input for concept selection
+                def on_concept_id_entered(concept_id: str):
+                    if concept_id:
+                        try:
+                            from maestro.ui_facade.semantic import get_mapping_index
+                            mappings = get_mapping_index()
+
+                            # Find the concept in mappings
+                            found_concept = None
+                            for mapping in mappings:
+                                for concept in mapping.get('concepts', []):
+                                    if concept.get('id') == concept_id:
+                                        found_concept = concept
+                                        break
+                                if found_concept:
+                                    break
+
+                            if found_concept:
+                                concept_details = f"""
+                                Semantic Concept Details:
+
+                                ID: {found_concept.get('id', 'N/A')}
+                                Name: {found_concept.get('name', 'N/A')}
+                                Status: {found_concept.get('status', 'N/A')}
+                                Equivalence Level: {found_concept.get('equivalence_level', 'N/A')}
+                                Risk Score: {found_concept.get('risk_score', 0):.2f}
+                                Confidence: {found_concept.get('confidence', 0):.2f}
+
+                                Description:
+                                {found_concept.get('description', 'N/A')}
+
+                                Evidence Links:
+                                {', '.join(found_concept.get('evidence_links', []))}
+                                """
+                                from .modals import InfoDialog
+                                info_dialog = InfoDialog(
+                                    message=concept_details,
+                                    title=f"Semantic Concept - {found_concept.get('name', concept_id)}"
+                                )
+                                self.app.push_screen(info_dialog)
+                            else:
+                                self.app.notify(f"No concept found with ID: {concept_id}", severity="error", timeout=3)
+                        except ImportError:
+                            self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                        except Exception as e:
+                            self.app.notify(f"Error getting concept: {str(e)}", severity="error", timeout=3)
+                    self.dismiss()
+
+                from .modals import InputDialog
+                input_dialog = InputDialog(
+                    message="Enter semantic concept ID to show details:",
+                    title="Show Semantic Concept"
+                )
+                self.app.push_screen(input_dialog, callback=on_concept_id_entered)
+                return "INPUT_NEEDED"
+            elif action_name == "semantics_acknowledge":
+                # This would require user input for loss ID and reason
+                def on_loss_info_entered(loss_info: str):
+                    if loss_info:
+                        # Split the input to get loss ID and reason
+                        parts = loss_info.strip().split('\n', 1)
+                        if len(parts) < 2:
+                            self.app.notify("Please provide both loss ID and reason (separate with newline)", severity="error", timeout=3)
+                            self.dismiss()
+                            return
+
+                        loss_id = parts[0].strip()
+                        reason = parts[1].strip()
+
+                        if not reason:
+                            self.app.notify("Reason is required for acknowledgment", severity="error", timeout=3)
+                            self.dismiss()
+                            return
+
+                        # Confirm acknowledgment before proceeding
+                        def on_confirmed(confirmed: bool):
+                            if confirmed:
+                                try:
+                                    from maestro.ui_facade.semantic import acknowledge_loss
+                                    success = acknowledge_loss(loss_id, reason)
+                                    if success:
+                                        self.app.notify(f"Loss {loss_id} acknowledged", timeout=3)
+                                    else:
+                                        self.app.notify(f"Failed to acknowledge loss {loss_id}", severity="error", timeout=3)
+                                except ImportError:
+                                    self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                                except Exception as e:
+                                    self.app.notify(f"Error acknowledging loss: {str(e)}", severity="error", timeout=3)
+                            self.dismiss()
+
+                        from .modals import ConfirmDialog
+                        confirm_dialog = ConfirmDialog(
+                            message=f"Acknowledge semantic loss {loss_id}?\n\nReason: {reason}",
+                            title="Confirm Acknowledge Loss"
+                        )
+                        self.app.push_screen(confirm_dialog, callback=on_confirmed)
+                    else:
+                        self.dismiss()
+
+                from .modals import InputDialog
+                input_dialog = InputDialog(
+                    message="Enter semantic loss ID and reason (separate with newline):\nloss_id\nreason for acknowledgment",
+                    title="Acknowledge Semantic Loss"
+                )
+                self.app.push_screen(input_dialog, callback=on_loss_info_entered)
+                return "INPUT_NEEDED"
+            elif action_name == "semantics_override":
+                # This would require user input for loss ID and reason
+                def on_loss_info_entered(loss_info: str):
+                    if loss_info:
+                        # Split the input to get loss ID and reason
+                        parts = loss_info.strip().split('\n', 1)
+                        if len(parts) < 2:
+                            self.app.notify("Please provide both loss ID and reason (separate with newline)", severity="error", timeout=3)
+                            self.dismiss()
+                            return
+
+                        loss_id = parts[0].strip()
+                        reason = parts[1].strip()
+
+                        if not reason:
+                            self.app.notify("Reason is required for override", severity="error", timeout=3)
+                            self.dismiss()
+                            return
+
+                        # Confirm override before proceeding
+                        def on_confirmed(confirmed: bool):
+                            if confirmed:
+                                try:
+                                    from maestro.ui_facade.semantic import override_loss
+                                    success = override_loss(loss_id, reason)
+                                    if success:
+                                        self.app.notify(f"Loss {loss_id} overridden", timeout=3)
+                                    else:
+                                        self.app.notify(f"Failed to override loss {loss_id}", severity="error", timeout=3)
+                                except ImportError:
+                                    self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                                except Exception as e:
+                                    self.app.notify(f"Error overriding loss: {str(e)}", severity="error", timeout=3)
+                            self.dismiss()
+
+                        from .modals import ConfirmDialog
+                        confirm_dialog = ConfirmDialog(
+                            message=f"Override semantic loss {loss_id}?\n\nReason: {reason}",
+                            title="Confirm Override Loss"
+                        )
+                        self.app.push_screen(confirm_dialog, callback=on_confirmed)
+                    else:
+                        self.dismiss()
+
+                from .modals import InputDialog
+                input_dialog = InputDialog(
+                    message="Enter semantic loss ID and reason (separate with newline):\nloss_id\nreason for override",
+                    title="Override Semantic Loss"
+                )
+                self.app.push_screen(input_dialog, callback=on_loss_info_entered)
+                return "INPUT_NEEDED"
             elif action_name == "semantic_list":
                 # List semantic findings
                 try:
@@ -1679,7 +1997,170 @@ class CommandPaletteScreen(ModalScreen):
             elif action_name == "runs_baseline_set":
                 # This operation requires user input for selecting the run
                 return "INPUT_NEEDED"
+            elif action_name == "confidence_show":
+                # Show overall confidence
+                try:
+                    from maestro.ui_facade.confidence import get_confidence
+                    report = get_confidence(scope="repo")
+                    tier_symbol = {
+                        "green": "🟢",
+                        "yellow": "🟡",
+                        "red": "🔴"
+                    }.get(report.tier.value, "?")
+                    return f"Confidence: {tier_symbol} {int(report.overall_score * 100)}% - Gates: {report.promotion_ready.title()}"
+                except ImportError:
+                    return "Confidence facade not available"
+            elif action_name == "confidence_show_run":
+                # This would require user input for selecting run ID
+                return "INPUT_NEEDED"
+            elif action_name == "confidence_show_baseline":
+                # Show baseline confidence
+                try:
+                    from maestro.ui_facade.confidence import get_confidence
+                    report = get_confidence(scope="baseline")
+                    tier_symbol = {
+                        "green": "🟢",
+                        "yellow": "🟡",
+                        "red": "🔴"
+                    }.get(report.tier.value, "?")
+                    return f"Baseline Confidence: {tier_symbol} {int(report.overall_score * 100)}% - Gates: {report.promotion_ready.title()}"
+                except ImportError:
+                    return "Confidence facade not available"
+            elif action_name == "confidence_gates":
+                # Show confidence gates status
+                try:
+                    from maestro.ui_facade.confidence import get_confidence_gates, get_confidence
+                    gates = get_confidence_gates()
+                    report = get_confidence()
+                    passed_gates = [g for g in gates if g.status]
+                    blocked_gates = [g for g in gates if not g.status]
+                    return f"Gates: {len(passed_gates)} passed, {len(blocked_gates)} blocked - Ready: {report.promotion_ready.title()}"
+                except ImportError:
+                    return "Confidence facade not available"
+            elif action_name == "confidence_explain":
+                # This would require user input for selecting component
+                return "INPUT_NEEDED"
+            elif action_name == "screen_confidence":
+                # Navigate to confidence screen
+                from maestro.tui.screens.confidence import ConfidenceScreen
+                # Switch to the confidence screen content
+                self.app._switch_main_content(ConfidenceScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "screen_vault":
+                # Navigate to vault screen
+                from maestro.tui.screens.vault import VaultScreen
+                # Switch to the vault screen content
+                self.app._switch_main_content(VaultScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name.startswith("vault_"):
+                # Handle other vault commands that may need input
+                if action_name in ["vault_search", "vault_export", "vault_export_run", "vault_export_filtered"]:
+                    return "INPUT_NEEDED"
+                else:
+                    # For browsing commands, just navigate to vault with filter
+                    from maestro.tui.screens.vault import VaultScreen
+                    self.app._switch_main_content(VaultScreen())
+                    self.dismiss()
+                    return "COMPLETED"
             else:
                 return f"Unknown command: {action_name}"
         except Exception as e:
             return f"Error executing command: {str(e)}"
+
+    def _handle_vault_search(self):
+        """Handle the vault search operation."""
+        def on_search_text_entered(search_text: str):
+            if search_text:
+                try:
+                    from maestro.ui_facade.vault import search_items
+                    results = search_items(search_text)
+                    self.app.notify(f"Found {len(results)} items matching '{search_text}'", timeout=5)
+                    # Navigate to vault screen showing search results
+                    from maestro.tui.screens.vault import VaultScreen
+                    self.app._switch_main_content(VaultScreen())
+                    self.dismiss()
+                except Exception as e:
+                    self.app.notify(f"Error searching vault: {str(e)}", severity="error", timeout=5)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for search text
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter search text:",
+            title="Search Vault"
+        )
+        self.app.push_screen(input_dialog, callback=on_search_text_entered)
+
+    def _handle_vault_export(self):
+        """Handle the vault export operation."""
+        def on_export_choice(choice: str):
+            if choice and choice.lower() == 'yes':
+                try:
+                    from maestro.ui_facade.vault import export_items, list_items
+                    # Get selected items from vault screen or all items if none selected
+                    # For now, we'll just export all items with a simple confirmation
+                    all_items = list_items()
+                    item_ids = [item.id for item in all_items]
+                    export_path = export_items(item_ids)
+                    self.app.notify(f"Exported {len(item_ids)} items to: {export_path}", timeout=10)
+                    self.dismiss()
+                except Exception as e:
+                    self.app.notify(f"Error exporting vault items: {str(e)}", severity="error", timeout=5)
+            else:
+                self.dismiss()
+
+        # Show confirmation dialog
+        from .modals import ConfirmDialog
+        confirm_dialog = ConfirmDialog(
+            message="Export all vault items? This may take a while.",
+            title="Export Vault Items"
+        )
+        self.app.push_screen(confirm_dialog, callback=on_export_choice)
+
+    def _handle_vault_export_filtered(self):
+        """Handle the vault filtered export operation."""
+        def on_export_choice(choice: str):
+            if choice and choice.lower() == 'yes':
+                try:
+                    from maestro.ui_facade.vault import export_filtered
+                    # Export with current filters (for now, all items)
+                    export_path = export_filtered()
+                    self.app.notify(f"Exported filtered items to: {export_path}", timeout=10)
+                    self.dismiss()
+                except Exception as e:
+                    self.app.notify(f"Error exporting filtered vault items: {str(e)}", severity="error", timeout=5)
+            else:
+                self.dismiss()
+
+        # Show confirmation dialog
+        from .modals import ConfirmDialog
+        confirm_dialog = ConfirmDialog(
+            message="Export filtered vault items? This may take a while.",
+            title="Export Filtered Vault Items"
+        )
+        self.app.push_screen(confirm_dialog, callback=on_export_choice)
+
+    def _handle_vault_export_run(self):
+        """Handle the vault run-related export operation."""
+        def on_run_id_entered(run_id: str):
+            if run_id:
+                try:
+                    from maestro.ui_facade.vault import export_run_related
+                    export_path = export_run_related(run_id)
+                    self.app.notify(f"Exported run '{run_id}' related items to: {export_path}", timeout=10)
+                    self.dismiss()
+                except Exception as e:
+                    self.app.notify(f"Error exporting run '{run_id}' related items: {str(e)}", severity="error", timeout=5)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for run ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter run ID to export related items:",
+            title="Export Run-Related Items"
+        )
+        self.app.push_screen(input_dialog, callback=on_run_id_entered)

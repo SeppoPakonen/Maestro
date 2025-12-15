@@ -7,16 +7,19 @@ from textual.widgets import Header, Footer, Label, ListView, ListItem, Static
 from textual.containers import Horizontal, Vertical, ScrollableContainer
 from maestro.ui_facade.sessions import list_sessions, get_session_details, create_session, set_active_session, remove_session
 from maestro.tui.widgets import ConfirmDialog, InputDialog
+from maestro.tui.utils import ErrorNormalizer, ErrorModal, ErrorSeverity, ErrorMessage
 
 
 class SessionsScreen(Screen):
     """Sessions screen of the Maestro TUI with master-detail layout."""
 
     BINDINGS = [
-        ("r", "refresh", "Refresh"),
-        ("n", "create_session", "New"),
-        ("d", "delete_session", "Delete"),
-        ("enter", "set_active", "Set Active"),
+        ("r", "refresh", "Refresh [i](Read-only)[/i]"),
+        ("n", "create_session", "New [i](Will modify state)[/i]"),
+        ("d", "delete_session", "Delete [i](Destructive - requires confirmation)[/i]"),
+        ("enter", "set_active", "Set Active [i](Will modify state)[/i]"),
+        ("up", "cursor_up", "Up"),
+        ("down", "cursor_down", "Down"),
     ]
 
     def __init__(self):
@@ -59,9 +62,11 @@ class SessionsScreen(Screen):
                         item = ListItem(Label(session_label), id=f"session-{i}")
                         session_items.append(item)
                 except Exception as e:
-                    session_items = [ListItem(Label(f"Error loading sessions: {str(e)}"))]
+                    # Normalize and display the error using the new error presentation system
+                    error_msg = ErrorNormalizer.normalize_exception(e, "loading sessions")
+                    session_items = [ListItem(Label(f"[red]Error loading sessions: {error_msg.message}[/red]"))]
 
-                yield ListView(*session_items, id="sessions-list-view")
+                yield ListView(*session_items, id="sessions-list-view", initial_index=0)
 
             # Right pane - session details
             with Vertical(id="session-details-pane", classes="pane"):
@@ -74,9 +79,12 @@ class SessionsScreen(Screen):
                         self.current_session_details = get_session_details(session_id)
                         yield self._create_session_details_view()
                     except Exception as e:
-                        yield Label(f"Error loading session details: {str(e)}")
+                        # Normalize and display the error using the new error presentation system
+                        error_msg = ErrorNormalizer.normalize_exception(e, "loading session details")
+                        yield Label(f"[red]Error loading session details: {error_msg.message}[/red]")
                 else:
-                    yield Label("No sessions available", classes="placeholder")
+                    # Show a placeholder with consistent minimum height
+                    yield Label("No sessions available", classes="placeholder", id="session-details-placeholder")
 
         yield Footer()
 
@@ -140,22 +148,41 @@ class SessionsScreen(Screen):
 
             # Update the list view with new items
             list_view = self.query_one("#sessions-list-view", ListView)
+
+            # Preserve scroll position by getting current index before clearing
+            current_highlighted = list_view.highlighted if list_view.highlighted is not None else 0
+
             list_view.clear()
             for item in session_items:
                 list_view.append(item)
 
             # Restore selection if possible
-            if self.sessions_list and current_idx < len(self.sessions_list):
-                self.selected_session_idx = current_idx
+            if self.sessions_list:
+                # If previous selection is still valid, restore it
+                if current_idx < len(self.sessions_list):
+                    self.selected_session_idx = current_idx
+                    list_view.highlighted = current_idx
+                # Otherwise try to preserve the same scroll position
+                elif current_highlighted < len(self.sessions_list):
+                    self.selected_session_idx = current_highlighted
+                    list_view.highlighted = current_highlighted
+                # Otherwise select the first item
+                else:
+                    self.selected_session_idx = 0
+                    list_view.highlighted = 0
+
                 # Update the details panel for the selected session
-                self._update_selected_session(current_idx)
-            elif self.sessions_list:
+                self._update_selected_session(self.selected_session_idx)
+            else:
                 self.selected_session_idx = 0
-                # Update the details panel for the first session
-                self._update_selected_session(0)
+                # Update the details panel to show placeholder
+                details_container = self.query_one("#session-details-content", ScrollableContainer)
+                details_container.remove_children()
+                details_container.mount(Label("No sessions available", classes="placeholder-stable"))
         except Exception as e:
-            # Handle error in loading sessions
-            pass
+            # Handle error in loading sessions using the new error presentation system
+            error_msg = ErrorNormalizer.normalize_exception(e, "refreshing sessions")
+            self.app.push_screen(ErrorModal(error_msg))
 
     def on_list_view_highlighted(self, event):
         """Handle when a session in the list is highlighted/selected."""
@@ -166,6 +193,27 @@ class SessionsScreen(Screen):
             self.selected_session_idx = session_idx
             self._update_selected_session(session_idx)
         except ValueError:
+            pass
+
+    def action_cursor_up(self) -> None:
+        """Move selection cursor up in the list."""
+        if self.sessions_list:
+            self.selected_session_idx = max(0, self.selected_session_idx - 1)
+            self._update_list_selection()
+
+    def action_cursor_down(self) -> None:
+        """Move selection cursor down in the list."""
+        if self.sessions_list:
+            self.selected_session_idx = min(len(self.sessions_list) - 1, self.selected_session_idx + 1)
+            self._update_list_selection()
+
+    def _update_list_selection(self) -> None:
+        """Update the selection in the list view."""
+        try:
+            list_view = self.query_one("#sessions-list-view", ListView)
+            if 0 <= self.selected_session_idx < len(list_view.children):
+                list_view.highlighted = self.selected_session_idx
+        except Exception:
             pass
 
     def _update_selected_session(self, idx):
@@ -198,10 +246,11 @@ class SessionsScreen(Screen):
                 for content in details_content:
                     details_container.mount(content)
         except Exception as e:
-            # Handle error in loading session details
+            # Handle error in loading session details using the new error presentation system
+            error_msg = ErrorNormalizer.normalize_exception(e, "loading session details")
             details_container = self.query_one("#session-details-content", ScrollableContainer)
             details_container.remove_children()
-            details_container.mount(Label(f"Error loading session details: {str(e)}"))
+            details_container.mount(Label(f"[red]Error loading session details: {error_msg.message}[/red]"))
 
     def action_create_session(self):
         """Show the create session dialog."""
@@ -224,7 +273,8 @@ class SessionsScreen(Screen):
                     # Show success message
                     self.notify(f"Session '{name}' created successfully", timeout=3)
                 except Exception as e:
-                    self.notify(f"Error creating session: {str(e)}", severity="error", timeout=5)
+                    error_msg = ErrorNormalizer.normalize_exception(e, "creating session")
+                    self.app.push_screen(ErrorModal(error_msg))
 
         # Show input dialog for session name
         input_dialog = InputDialog(
@@ -260,7 +310,8 @@ class SessionsScreen(Screen):
 
                     self.notify(f"Session '{selected_session.root_task[:20]}...' set as active", timeout=3)
                 except Exception as e:
-                    self.notify(f"Error setting session as active: {str(e)}", severity="error", timeout=5)
+                    error_msg = ErrorNormalizer.normalize_exception(e, "setting session as active")
+                    self.app.push_screen(ErrorModal(error_msg))
 
         # Show confirmation dialog
         confirm_dialog = ConfirmDialog(
@@ -288,7 +339,8 @@ class SessionsScreen(Screen):
 
                     self.notify(f"Session '{selected_session.root_task[:20]}...' deleted", timeout=3)
                 except Exception as e:
-                    self.notify(f"Error deleting session: {str(e)}", severity="error", timeout=5)
+                    error_msg = ErrorNormalizer.normalize_exception(e, "deleting session")
+                    self.app.push_screen(ErrorModal(error_msg))
 
         # Show confirmation dialog
         confirm_dialog = ConfirmDialog(

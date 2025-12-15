@@ -478,7 +478,324 @@ def get_blocking_semantic_findings(pipeline_id: Optional[str] = None) -> List[Se
     """
     all_findings = list_semantic_findings(pipeline_id)
     blocking_findings = [
-        finding for finding in all_findings 
+        finding for finding in all_findings
         if finding.status == "blocking" or finding.blocks_pipeline
     ]
     return blocking_findings
+
+
+def get_mapping_index() -> List[Dict[str, Any]]:
+    """
+    Get the mapping index of concepts and files across source and target repositories.
+
+    Returns:
+        List of mapping information with source/target file paths and concept mappings
+    """
+    # This would typically load from a mapping index file
+    # For now, returning mock data based on the dataclasses in the semantic_diff screen
+    try:
+        # Import the required dataclasses from the semantic_diff screen
+        # For now, return placeholder data
+        mappings = [
+            {
+                'id': 'mapping_001',
+                'source_path': 'src/main.cpp',
+                'target_path': 'target/main.py',
+                'status': 'preserved',
+                'concepts': [
+                    {
+                        'id': 'concept_001',
+                        'name': 'Main Function',
+                        'source_file': 'src/main.cpp',
+                        'target_file': 'target/main.py',
+                        'status': 'preserved',
+                        'equivalence_level': 'high',
+                        'risk_score': 0.1,
+                        'confidence': 0.95,
+                        'description': 'The main entry point was preserved successfully',
+                        'evidence_links': ['task_summary_001', 'diff_001']
+                    }
+                ],
+                'risk_score': 0.1,
+                'confidence': 0.95,
+                'equivalence_level': 'high',
+                'heuristics_used': ['api_mapping', 'function_preservation']
+            },
+            {
+                'id': 'mapping_002',
+                'source_path': 'src/utils.cpp',
+                'target_path': 'target/utils.py',
+                'status': 'changed',
+                'concepts': [
+                    {
+                        'id': 'concept_002',
+                        'name': 'Logging Utility',
+                        'source_file': 'src/utils.cpp',
+                        'target_file': 'target/utils.py',
+                        'status': 'changed',
+                        'equivalence_level': 'medium',
+                        'risk_score': 0.4,
+                        'confidence': 0.8,
+                        'description': 'Logging interface changed from U++ style to Python logging',
+                        'evidence_links': ['task_summary_002', 'diff_002']
+                    }
+                ],
+                'risk_score': 0.4,
+                'confidence': 0.8,
+                'equivalence_level': 'medium',
+                'heuristics_used': ['interface_change', 'api_mapping']
+            }
+        ]
+        return mappings
+    except Exception as e:
+        print(f"Error getting mapping index: {e}")
+        return []
+
+
+def diff_semantics(mode: str, lhs: str, rhs: str) -> Dict[str, Any]:
+    """
+    Compare semantics between two entities based on mode.
+
+    Args:
+        mode: Comparison mode ("current_baseline", "run_run", "source_target")
+        lhs: Left-hand side identifier (e.g., run ID, source repo path)
+        rhs: Right-hand side identifier (e.g., baseline ID, target repo path)
+
+    Returns:
+        Dictionary containing semantic diff results
+    """
+    try:
+        # This would implement the actual semantic comparison logic
+        # For now, return mock data based on the mode
+        import random
+
+        if mode == "current_baseline":
+            # Compare current pipeline against a named baseline
+            result = {
+                'mode': mode,
+                'lhs': lhs,  # current run
+                'rhs': rhs,  # baseline
+                'mappings': get_mapping_index(),
+                'summary': {
+                    'total_concepts': 42,
+                    'preserved_concepts': 32,
+                    'changed_concepts': 7,
+                    'degraded_concepts': 2,
+                    'lost_concepts': 1,
+                    'total_files': 15,
+                    'preserved_files': 12,
+                    'changed_files': 2,
+                    'lost_files': 1,
+                    'aggregated_risk_score': 0.25,
+                    'confidence_score': 0.85,
+                    'heuristics_used': ['identifier_mapping', 'api_compatibility', 'function_preservation'],
+                    'drift_threshold_exceeded': False,
+                    'checkpoint_required': False
+                },
+                'hotspots': [
+                    {
+                        'file_path': 'src/core_module.cpp',
+                        'risk_score': 0.8,
+                        'description': 'Core module has significant API changes'
+                    }
+                ]
+            }
+        elif mode == "run_run":
+            # Compare one run against another
+            result = {
+                'mode': mode,
+                'lhs': lhs,  # first run
+                'rhs': rhs,  # second run
+                'mappings': get_mapping_index(),
+                'summary': {
+                    'total_concepts': 42,
+                    'preserved_concepts': 35,
+                    'changed_concepts': 5,
+                    'degraded_concepts': 1,
+                    'lost_concepts': 1,
+                    'total_files': 15,
+                    'preserved_files': 13,
+                    'changed_files': 1,
+                    'lost_files': 1,
+                    'aggregated_risk_score': 0.15,
+                    'confidence_score': 0.9,
+                    'heuristics_used': ['decision_fingerprint_comparison', 'artifact_comparison'],
+                    'drift_threshold_exceeded': False,
+                    'checkpoint_required': False
+                },
+                'hotspots': []
+            }
+        elif mode == "source_target":
+            # Compare source code repository against target code repository
+            result = {
+                'mode': mode,
+                'lhs': lhs,  # source repo
+                'rhs': rhs,  # target repo
+                'mappings': get_mapping_index(),
+                'summary': {
+                    'total_concepts': 42,
+                    'preserved_concepts': 28,
+                    'changed_concepts': 10,
+                    'degraded_concepts': 3,
+                    'lost_concepts': 1,
+                    'total_files': 15,
+                    'preserved_files': 10,
+                    'changed_files': 4,
+                    'lost_files': 1,
+                    'aggregated_risk_score': 0.35,
+                    'confidence_score': 0.75,
+                    'heuristics_used': ['code_structure_analysis', 'api_mapping', 'concept_extraction'],
+                    'drift_threshold_exceeded': True,  # Example of exceeding threshold
+                    'checkpoint_required': True
+                },
+                'hotspots': [
+                    {
+                        'file_path': 'src/core_module.cpp',
+                        'risk_score': 0.9,
+                        'description': 'Core functionality significantly altered'
+                    },
+                    {
+                        'file_path': 'src/utils.cpp',
+                        'risk_score': 0.6,
+                        'description': 'Utility functions have behavior changes'
+                    }
+                ]
+            }
+        else:
+            raise ValueError(f"Unknown comparison mode: {mode}")
+
+        return result
+    except Exception as e:
+        print(f"Error in diff_semantics: {e}")
+        raise
+
+
+def get_semantic_coverage() -> Dict[str, Any]:
+    """
+    Get semantic coverage metrics across all concepts and files.
+
+    Returns:
+        Dictionary containing semantic coverage analysis
+    """
+    try:
+        mappings = get_mapping_index()
+        total_mappings = len(mappings)
+
+        # Calculate coverage metrics
+        preserved = sum(1 for m in mappings if m.get('status') == 'preserved')
+        changed = sum(1 for m in mappings if m.get('status') == 'changed')
+        degraded = sum(1 for m in mappings if m.get('status') == 'degraded')
+        lost = sum(1 for m in mappings if m.get('status') == 'lost')
+
+        return {
+            'total_mappings': total_mappings,
+            'preserved_mappings': preserved,
+            'changed_mappings': changed,
+            'degraded_mappings': degraded,
+            'lost_mappings': lost,
+            'coverage_percentage': (preserved / total_mappings * 100) if total_mappings > 0 else 0,
+            'risk_distribution': {
+                'low_risk': sum(1 for m in mappings if m.get('risk_score', 0) < 0.3),
+                'medium_risk': sum(1 for m in mappings if 0.3 <= m.get('risk_score', 0) < 0.7),
+                'high_risk': sum(1 for m in mappings if m.get('risk_score', 0) >= 0.7)
+            }
+        }
+    except Exception as e:
+        print(f"Error getting semantic coverage: {e}")
+        return {}
+
+
+def get_semantic_hotspots() -> List[Dict[str, Any]]:
+    """
+    Get semantic hotspots - areas of code with highest semantic risk.
+
+    Returns:
+        List of semantic hotspots with file paths and risk scores
+    """
+    try:
+        # This would analyze the mappings to identify areas with highest risk
+        # For now, return mock data
+        return [
+            {
+                'file_path': 'src/core_module.cpp',
+                'risk_score': 0.85,
+                'description': 'Core functionality with significant semantic changes',
+                'concepts_affected': ['Concept A', 'Concept B'],
+                'last_changed': '2023-06-15T10:30:00Z'
+            },
+            {
+                'file_path': 'src/network_layer.cpp',
+                'risk_score': 0.72,
+                'description': 'Network communication patterns altered',
+                'concepts_affected': ['Network Concept 1', 'Network Concept 2'],
+                'last_changed': '2023-06-14T14:22:00Z'
+            },
+            {
+                'file_path': 'src/data_processor.cpp',
+                'risk_score': 0.68,
+                'description': 'Data processing logic changed significantly',
+                'concepts_affected': ['Data Concept 1'],
+                'last_changed': '2023-06-13T09:15:00Z'
+            }
+        ]
+    except Exception as e:
+        print(f"Error getting semantic hotspots: {e}")
+        return []
+
+
+def acknowledge_loss(id: str, reason: str) -> bool:
+    """
+    Acknowledge a specific semantic loss with a reason.
+
+    Args:
+        id: ID of the loss to acknowledge
+        reason: Reason for acknowledging the loss
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # In a real implementation, this would update the loss tracking system
+        # to mark the loss as acknowledged with the provided reason
+        # For this implementation, we'll just return True to simulate success
+
+        # This would likely involve:
+        # 1. Looking up the loss by ID
+        # 2. Creating an acknowledgment record
+        # 3. Updating any related checkpoints
+        # 4. Potentially updating pipeline status
+
+        print(f"Acknowledged loss {id} with reason: {reason}")
+        return True
+    except Exception as e:
+        print(f"Error acknowledging loss {id}: {e}")
+        return False
+
+
+def override_loss(id: str, reason: str) -> bool:
+    """
+    Override a specific semantic loss with a reason.
+
+    Args:
+        id: ID of the loss to override
+        reason: Reason for overriding the loss
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # In a real implementation, this would update the loss tracking system
+        # to mark the loss as overridden with the provided reason
+        # For this implementation, we'll just return True to simulate success
+
+        # This would likely involve:
+        # 1. Looking up the loss by ID
+        # 2. Creating an override record
+        # 3. Updating any related checkpoints
+        # 4. Potentially allowing pipeline to proceed
+
+        print(f"Overrode loss {id} with reason: {reason}")
+        return True
+    except Exception as e:
+        print(f"Error overriding loss {id}: {e}")
+        return False

@@ -1,6 +1,7 @@
 """
 Maestro TUI Application
 """
+import time
 from textual.app import App
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, Footer, Header
@@ -21,7 +22,11 @@ from maestro.tui.screens.memory import MemoryScreen
 from maestro.tui.screens.semantic import SemanticScreen
 from maestro.tui.screens.arbitration import ArbitrationScreen
 from maestro.tui.screens.replay import ReplayScreen
+from maestro.tui.screens.semantic_diff import SemanticDiffScreen
+from maestro.tui.screens.confidence import ConfidenceScreen
+from maestro.tui.screens.vault import VaultScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
+from maestro.tui.utils import global_status_manager, LoadingIndicator
 
 
 class MaestroTUI(App):
@@ -55,6 +60,26 @@ class MaestroTUI(App):
     #main-content {
         height: 1fr;
         width: 100%;
+    }
+
+    .min-height-stable {
+        height: 10;
+    }
+
+    .placeholder-stable {
+        height: 1fr;
+        content-align: center middle;
+    }
+
+    .task-list-container {
+        width: 60%;
+        height: 1fr;
+        border-right: solid $primary;
+    }
+
+    .log-viewer-container {
+        width: 40%;
+        height: 1fr;
     }
 
     .status-label {
@@ -348,6 +373,127 @@ class MaestroTUI(App):
     .filter-value {
         color: $text 90%;
     }
+
+    /* Vault Screen Styles */
+    #vault-layout {
+        height: 1fr;
+        width: 100%;
+    }
+
+    .panel {
+        height: 1fr;
+        border: solid $primary;
+    }
+
+    #source-selector-container {
+        width: 25%;
+        border-right: solid $primary;
+    }
+
+    #item-list-container {
+        width: 30%;
+        border-right: solid $primary;
+    }
+
+    #viewer-container {
+        width: 35%;
+        border-right: solid $primary;
+    }
+
+    #metadata-container {
+        width: 10%;
+    }
+
+    .filter-option {
+        height: 1;
+        padding: 0 1;
+        background: $surface;
+    }
+
+    .filter-option:hover {
+        background: $surface 20%;
+    }
+
+    .items-list {
+        height: 1fr;
+    }
+
+    .items-list ListItem {
+        height: 1;
+        padding: 0 1;
+    }
+
+    .items-list ListItem:hover {
+        background: $surface 20%;
+    }
+
+    .content-display {
+        height: 1fr;
+        width: 1fr;
+        border: solid $primary;
+        padding: 1;
+    }
+
+    .meta-field {
+        margin: 0 0 1 0;
+        color: $text 90%;
+    }
+
+    .actions-title {
+        text-style: bold;
+        color: $primary;
+        margin: 0 0 1 0;
+    }
+
+    .action-item {
+        margin: 0 0 1 0;
+        color: $text 80%;
+    }
+
+    .action-item:hover {
+        color: $text;
+        text-style: bold;
+    }
+
+    .panel {
+        padding: 1;
+    }
+
+    /* Trust Signal Colors - Consistent Color Discipline */
+    .safe { color: $success; }
+    .warning { color: $warning; }
+    .danger { color: $error; }
+    .info { color: $primary; }
+
+    /* Trust Signal Labels */
+    .trust-label {
+        text-style: italic;
+        color: $text 70%;
+    }
+
+    /* Explicit state indicators */
+    .read-only-indicator {
+        color: $success;
+        text-style: italic;
+    }
+
+    .mutation-indicator {
+        color: $warning;
+        text-style: bold;
+    }
+
+    .confirmation-required {
+        color: $warning;
+        text-style: bold;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    .visible {
+        display: block;
+    }
     """
 
     BINDINGS = [
@@ -365,8 +511,11 @@ class MaestroTUI(App):
         ("y", "switch_to_screen('replay')", "Replay"),
         ("a", "switch_to_screen('arbitration')", "Arbitration Arena"),
         ("i", "switch_to_screen('semantic')", "Semantic Integrity"),
+        ("d", "switch_to_screen('semantic_diff')", "Semantic Diff Explorer"),
         ("m", "switch_to_screen('memory')", "Memory"),
         ("l", "switch_to_screen('logs')", "Logs"),
+        ("f", "switch_to_screen('confidence')", "Confidence Scoreboard"),
+        ("v", "switch_to_screen('vault')", "Vault"),
     ]
 
     def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
@@ -378,6 +527,7 @@ class MaestroTUI(App):
         self.active_plan = None
         self.active_build_target = None
         self.repo_root = "./"  # Simplified for now
+        self.loading_indicator = LoadingIndicator()
         self._load_status_state()
 
     def _load_status_state(self) -> None:
@@ -418,7 +568,9 @@ class MaestroTUI(App):
         build_id_display = getattr(self, 'active_build_target', None)
         build_id_display = build_id_display.id[:8] + '...' if build_id_display else 'None'
 
+        # Create status bar with loading indicator
         yield Horizontal(
+            Label(" ⏳ ", id="global-loading-indicator", classes="status-label hidden"),
             Label(f"Root: {getattr(self, 'repo_root', 'unknown')}", id="repo-root", classes="status-label"),
             Label(f" | Session: {session_id_display}", id="active-session", classes="status-label"),
             Label(f" | Plan: {plan_id_display}", id="active-plan", classes="status-label"),
@@ -439,8 +591,11 @@ class MaestroTUI(App):
                 Label("📺 Replay", id="nav-replay", classes="nav-item"),
                 Label("🏆 Arbitration", id="nav-arbitration", classes="nav-item"),
                 Label("🔍 Integrity", id="nav-semantic", classes="nav-item"),
+                Label("🔍 Diff Explorer", id="nav-semantic-diff", classes="nav-item"),
                 Label("🧠 Memory", id="nav-memory", classes="nav-item"),
                 Label("📄 Logs", id="nav-logs", classes="nav-item"),
+                Label("📊 Confidence", id="nav-confidence", classes="nav-item"),
+                Label("📦 Vault", id="nav-vault", classes="nav-item"),
                 Label("❓ Help", id="nav-help", classes="nav-item"),
                 id="nav-menu"
             )
@@ -454,6 +609,10 @@ class MaestroTUI(App):
     def on_mount(self) -> None:
         """Called when the app is mounted."""
         self.title = "Maestro TUI"
+
+        # Set up global status manager
+        global_status_manager.set_status_bar_widget(self.query_one("#status-bar", Horizontal))
+
         # Mount the home screen content directly in the main content area
         main_content = self.query_one("#main-content", Vertical)
         home_screen = HomeScreen()
@@ -464,10 +623,26 @@ class MaestroTUI(App):
         # Bind click events for navigation items - need to wait a bit for the DOM to be ready
         self.call_after_refresh(self._bind_navigation_events)
 
+        # Set up periodic update for loading indicators
+        self.set_interval(0.2, self._update_loading_indicators)
+
         # If in smoke mode, set up a timer to exit after the specified time
         if self.smoke_mode:
             # Use a small delay to ensure the app starts rendering before exiting
             self.set_timer(self.smoke_seconds, self._smoke_exit)
+
+    def _update_loading_indicators(self) -> None:
+        """Update loading indicators based on active loaders."""
+        loading_indicator = self.query_one("#global-loading-indicator", Label)
+
+        if self.loading_indicator.global_loader_active:
+            # Show the loading indicator by removing the hidden class
+            loading_indicator.remove_class("hidden")
+            loading_indicator.add_class("visible")
+        else:
+            # Hide the loading indicator by adding the hidden class
+            loading_indicator.remove_class("visible")
+            loading_indicator.add_class("hidden")
 
     def _bind_navigation_events(self) -> None:
         """Bind navigation events after the DOM is loaded."""
@@ -520,6 +695,10 @@ class MaestroTUI(App):
             semantic_widget.styles.cursor = "pointer"
             self.query_one("#nav-semantic").on("click", lambda: self._switch_main_content(SemanticScreen()))
 
+            semantic_diff_widget = self.query_one("#nav-semantic-diff", Label)
+            semantic_diff_widget.styles.cursor = "pointer"
+            self.query_one("#nav-semantic-diff").on("click", lambda: self._switch_main_content(SemanticDiffScreen()))
+
             memory_widget = self.query_one("#nav-memory", Label)
             memory_widget.styles.cursor = "pointer"
             self.query_one("#nav-memory").on("click", lambda: self._switch_main_content(MemoryScreen()))
@@ -527,6 +706,14 @@ class MaestroTUI(App):
             logs_widget = self.query_one("#nav-logs", Label)
             logs_widget.styles.cursor = "pointer"
             self.query_one("#nav-logs").on("click", lambda: self._switch_main_content(LogsScreen()))
+
+            confidence_widget = self.query_one("#nav-confidence", Label)
+            confidence_widget.styles.cursor = "pointer"
+            self.query_one("#nav-confidence").on("click", lambda: self._switch_main_content(ConfidenceScreen()))
+
+            vault_widget = self.query_one("#nav-vault", Label)
+            vault_widget.styles.cursor = "pointer"
+            self.query_one("#nav-vault").on("click", lambda: self._switch_main_content(VaultScreen()))
 
             help_widget = self.query_one("#nav-help", Label)
             help_widget.styles.cursor = "pointer"
@@ -565,8 +752,11 @@ class MaestroTUI(App):
             "replay": ReplayScreen,
             "arbitration": ArbitrationScreen,
             "semantic": SemanticScreen,
+            "semantic_diff": SemanticDiffScreen,
             "memory": MemoryScreen,
             "logs": LogsScreen,
+            "confidence": ConfidenceScreen,
+            "vault": VaultScreen,
             "help": HelpScreen,
         }
 
@@ -583,18 +773,26 @@ class MaestroTUI(App):
 
     def action_refresh_status(self) -> None:
         """Action to refresh status information."""
-        self._load_status_state()
-        # Update the status bar labels with new information
-        self.query_one("#repo-root").update(f"Root: {self.repo_root}")
-        self.query_one("#active-session").update(
-            f" | Session: {self.active_session.id[:8] + '...' if self.active_session else 'None'}"
-        )
-        self.query_one("#active-plan").update(
-            f" | Plan: {self.active_plan.plan_id[:8] + '...' if self.active_plan else 'None'}"
-        )
-        self.query_one("#active-build").update(
-            f" | Build: {self.active_build_target.id[:8] + '...' if self.active_build_target else 'None'}"
-        )
+        # Start loader for refresh operation
+        refresh_call_id = f"refresh_{time.time()}"
+        self.loading_indicator.start_loader(refresh_call_id)
+
+        try:
+            self._load_status_state()
+            # Update the status bar labels with new information
+            self.query_one("#repo-root").update(f"Root: {self.repo_root}")
+            self.query_one("#active-session").update(
+                f" | Session: {self.active_session.id[:8] + '...' if self.active_session else 'None'}"
+            )
+            self.query_one("#active-plan").update(
+                f" | Plan: {self.active_plan.plan_id[:8] + '...' if self.active_plan else 'None'}"
+            )
+            self.query_one("#active-build").update(
+                f" | Build: {self.active_build_target.id[:8] + '...' if self.active_build_target else 'None'}"
+            )
+        finally:
+            # Stop loader for refresh operation
+            self.loading_indicator.stop_loader(refresh_call_id)
 
     def action_show_command_palette(self) -> None:
         """Action to show command palette."""

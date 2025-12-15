@@ -12,6 +12,7 @@ from textual.reactive import reactive
 from textual.widget import Widget
 from maestro.ui_facade.tasks import list_tasks, run_tasks, resume_tasks, stop_tasks, get_current_execution_state, get_task_logs
 from maestro.ui_facade.sessions import get_active_session
+from maestro.tui.utils import ErrorNormalizer, ErrorModal
 import asyncio
 
 
@@ -21,29 +22,78 @@ class TaskList(Widget):
     # Reactive attribute to track selected task
     selected_task_id = reactive(None)
 
+    BINDINGS = [
+        ("up", "cursor_up", "Up"),
+        ("down", "cursor_down", "Down"),
+        ("enter", "select_task", "Select"),
+    ]
+
     def __init__(self, tasks=None, **kwargs):
         super().__init__(**kwargs)
         self.tasks = tasks or []
+        self.focused_task_index = 0
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the task list."""
-        for i, task in enumerate(self.tasks):
-            task_classes = ["task-item"]
-            if task.id == self.selected_task_id:
-                task_classes.append("selected")
-            if task.status == "in_progress":
-                task_classes.append("running")
+        if not self.tasks:
+            # Show a stable placeholder when no tasks are available
+            yield Label("[i]Loading tasks...[/i]", id="loading-placeholder", classes="placeholder-stable")
+        else:
+            for i, task in enumerate(self.tasks):
+                task_classes = ["task-item"]
+                if task.id == self.selected_task_id:
+                    task_classes.append("selected")
+                if task.status == "in_progress":
+                    task_classes.append("running")
 
-            yield Label(
-                f"{task.id[:8]}... | {task.status.upper():>12} | {task.title}",
-                id=f"task-{task.id}",
-                classes=" ".join(task_classes)
-            )
+                yield Label(
+                    f"{task.id[:8]}... | {task.status.upper():>12} | {task.title}",
+                    id=f"task-{task.id}",
+                    classes=" ".join(task_classes)
+                )
+
+    def on_mount(self) -> None:
+        """Set up keyboard focus for navigation."""
+        self.focus()
 
     def update_tasks(self, tasks):
         """Update the task list."""
         self.tasks = tasks
+        # Reset index when tasks are updated
+        if self.tasks:
+            self.focused_task_index = 0
+            self.selected_task_id = self.tasks[0].id if self.tasks else None
+        else:
+            self.selected_task_id = None
+        # Refresh the whole widget to update the content
         self.refresh()
+
+    def action_cursor_up(self) -> None:
+        """Move selection cursor up in the task list."""
+        if self.tasks:
+            self.focused_task_index = max(0, self.focused_task_index - 1)
+            if self.focused_task_index < len(self.tasks):
+                self.selected_task_id = self.tasks[self.focused_task_index].id
+                self._notify_task_selection()
+
+    def action_cursor_down(self) -> None:
+        """Move selection cursor down in the task list."""
+        if self.tasks:
+            self.focused_task_index = min(len(self.tasks) - 1, self.focused_task_index + 1)
+            if self.focused_task_index < len(self.tasks):
+                self.selected_task_id = self.tasks[self.focused_task_index].id
+                self._notify_task_selection()
+
+    def action_select_task(self) -> None:
+        """Select the currently focused task."""
+        if self.tasks and 0 <= self.focused_task_index < len(self.tasks):
+            self.selected_task_id = self.tasks[self.focused_task_index].id
+            self._notify_task_selection()
+
+    def _notify_task_selection(self) -> None:
+        """Notify parent screen about task selection."""
+        if self.selected_task_id:
+            self.post_message(TaskSelected(self.selected_task_id))
 
     def on_label_clicked(self, event) -> None:
         """Handle clicking on a task to select it."""
@@ -51,6 +101,11 @@ class TaskList(Widget):
         if event.label.id and event.label.id.startswith("task-"):
             task_id = event.label.id[5:]  # Remove "task-" prefix
             self.selected_task_id = task_id
+            # Update focused index based on selected task
+            for i, task in enumerate(self.tasks):
+                if task.id == task_id:
+                    self.focused_task_index = i
+                    break
             # Notify parent screen about task selection
             self.post_message(TaskSelected(task_id))
 
@@ -108,10 +163,21 @@ class ControlBar(Widget):
     def compose(self) -> ComposeResult:
         """Create child widgets for the control bar."""
         with Horizontal(classes="control-buttons"):
-            yield Button("Run All (R)", id="run-all", variant="primary")
-            yield Button("Resume (Enter)", id="resume", variant="success")
-            yield Button("Run with Limit (L)", id="run-limit", variant="warning")
-            yield Button("Stop (S)", id="stop", variant="error")
+            run_all_btn = Button("Run All (R)", id="run-all", variant="primary")
+            run_all_btn.tooltip = "Will execute all pending tasks. [yellow]Requires confirmation[/yellow]"
+            yield run_all_btn
+
+            resume_btn = Button("Resume (Enter)", id="resume", variant="success")
+            resume_btn.tooltip = "Will resume previously interrupted task execution. [yellow]Requires confirmation[/yellow]"
+            yield resume_btn
+
+            run_limit_btn = Button("Run with Limit (L)", id="run-limit", variant="warning")
+            run_limit_btn.tooltip = "Will run a limited number of tasks. [yellow]Requires confirmation[/yellow]"
+            yield run_limit_btn
+
+            stop_btn = Button("Stop (S)", id="stop", variant="error")
+            stop_btn.tooltip = "Will stop current execution. [yellow]Safe operation[/yellow]"
+            yield stop_btn
 
     def _update_buttons_state(self):
         """Update button states based on execution state."""
@@ -142,11 +208,13 @@ class TasksScreen(Screen):
     execution_state = reactive("idle")  # idle, running, paused, interrupted
 
     BINDINGS = [
-        ("r", "run_tasks", "Run All"),
-        ("enter", "resume_tasks", "Resume"),
-        ("l", "run_with_limit", "Run with Limit"),
-        ("s", "stop_tasks", "Stop"),
-        ("ctrl+c", "interrupt_execution", "Interrupt"),
+        ("r", "run_tasks", "Run All [i](Will modify state)[/i]"),
+        ("enter", "resume_tasks", "Resume [i](Will modify state)[/i]"),
+        ("l", "run_with_limit", "Run with Limit [i](Will modify state)[/i]"),
+        ("s", "stop_tasks", "Stop [i](Will modify state)[/i]"),
+        ("ctrl+c", "interrupt_execution", "Interrupt [i](Will modify state)[/i]"),
+        ("up", "cursor_up", "Up"),
+        ("down", "cursor_down", "Down"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -190,8 +258,10 @@ class TasksScreen(Screen):
             else:
                 # No active session
                 self.call_later(lambda: self._update_task_list([]))
-        except Exception:
-            # If we can't load tasks, show empty list
+        except Exception as e:
+            # If we can't load tasks, show empty list and notify user
+            error_msg = ErrorNormalizer.normalize_exception(e, "loading tasks")
+            self.app.push_screen(ErrorModal(error_msg))
             self.call_later(lambda: self._update_task_list([]))
 
     def _update_task_list(self, tasks):
@@ -287,9 +357,10 @@ class TasksScreen(Screen):
             # For this implementation, we'll use the facade directly
             run_tasks(session.id, on_status_change=status_callback, on_output=output_callback)
         except Exception as e:
+            error_msg = ErrorNormalizer.normalize_exception(e, "running tasks")
             if status_label:
-                status_label.update(f"[bold red]ERROR[/bold red] - {str(e)}")
-            self.notify(f"Error running tasks: {str(e)}", severity="error", timeout=10)
+                status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
+            self.app.push_screen(ErrorModal(error_msg))
 
     def _update_status_safely(self, message: str):
         """Safely update the status message."""
@@ -355,10 +426,11 @@ class TasksScreen(Screen):
         except ValueError as e:
             # ValueError typically means no tasks to resume or session issues
             status_label.update(f"[bold red]NO TASKS TO RESUME[/bold red] - {str(e)}")
-            self.notify(f"No interrupted tasks to resume: {str(e)}", timeout=5)
+            self.app.push_screen(ErrorModal(ErrorNormalizer.normalize_exception(e, "resuming tasks")))
         except Exception as e:
-            status_label.update(f"[bold red]ERROR[/bold red] - {str(e)}")
-            self.notify(f"Error resuming tasks: {str(e)}", severity="error")
+            error_msg = ErrorNormalizer.normalize_exception(e, "resuming tasks")
+            status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
+            self.app.push_screen(ErrorModal(error_msg))
 
     def action_run_with_limit(self) -> None:
         """Run tasks with a limit."""
@@ -392,8 +464,9 @@ class TasksScreen(Screen):
             # For this implementation, we'll use the facade directly with limit=2
             run_tasks(session.id, limit=2, on_status_change=status_callback, on_output=output_callback)
         except Exception as e:
-            status_label.update(f"[bold red]ERROR[/bold red] - {str(e)}")
-            self.notify(f"Error running tasks with limit: {str(e)}", severity="error")
+            error_msg = ErrorNormalizer.normalize_exception(e, "running tasks with limit")
+            status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
+            self.app.push_screen(ErrorModal(error_msg))
 
     def action_stop_tasks(self) -> None:
         """Request graceful stop of current execution."""
@@ -426,6 +499,24 @@ class TasksScreen(Screen):
             if status_label:
                 status_label.update("Ready")
             self.notify("No running tasks to interrupt", timeout=3)
+
+    def action_cursor_up(self) -> None:
+        """Pass up arrow to task list if focused there."""
+        task_list = self.query_one("#task-list", TaskList)
+        if task_list.has_focus:
+            task_list.action_cursor_up()
+        else:
+            # If task list doesn't have focus, give it focus
+            task_list.focus()
+
+    def action_cursor_down(self) -> None:
+        """Pass down arrow to task list if focused there."""
+        task_list = self.query_one("#task-list", TaskList)
+        if task_list.has_focus:
+            task_list.action_cursor_down()
+        else:
+            # If task list doesn't have focus, give it focus
+            task_list.focus()
 
     def watch_execution_state(self, old_state: str, new_state: str) -> None:
         """Watch for changes in execution state."""

@@ -11,6 +11,8 @@ from datetime import datetime
 from maestro.session_model import Session, load_session, save_session
 import uuid
 
+from maestro.tui.utils import memoize_for, track_facade_call
+
 
 @dataclass
 class SessionInfo:
@@ -61,6 +63,8 @@ def _session_file_path(session_id: str, sessions_dir: str = "./.maestro/sessions
     return os.path.join(sessions_dir, f"{session_id}.json")
 
 
+@track_facade_call(duration_threshold=0.1)
+@memoize_for(30)  # Cache for 30 seconds
 def list_sessions(sessions_dir: str = "./.maestro/sessions") -> List[SessionInfo]:
     """
     List all available sessions with basic information.
@@ -92,6 +96,8 @@ def list_sessions(sessions_dir: str = "./.maestro/sessions") -> List[SessionInfo
     return sessions_info
 
 
+@track_facade_call(duration_threshold=0.1)
+@memoize_for(30)  # Cache for 30 seconds
 def get_active_session(sessions_dir: str = "./.maestro/sessions") -> Optional[SessionInfo]:
     """
     Get the most recently created or updated session.
@@ -111,6 +117,8 @@ def get_active_session(sessions_dir: str = "./.maestro/sessions") -> Optional[Se
     return most_recent
 
 
+@track_facade_call(duration_threshold=0.1)
+@memoize_for(30)  # Cache for 30 seconds
 def get_session_details(session_id: str, sessions_dir: str = "./.maestro/sessions") -> SessionDetails:
     """
     Get detailed information about a specific session.
