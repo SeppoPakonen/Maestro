@@ -248,3 +248,96 @@ For full technical details, see `docs/prompt_contract.md`.
 ## License
 
 New BSD
+
+## Confidence Scoring System
+
+Maestro includes a comprehensive confidence scoring system that provides numeric confidence scores for conversion runs, enabling data-driven decisions about conversion quality and readiness for deployment.
+
+### Overview
+
+The confidence scoring system assigns a numeric score (0-100) and letter grade (A-F) to each conversion run based on multiple quality indicators:
+
+- Semantic integrity results
+- Cross-repo semantic diff analysis
+- Idempotency and drift detection
+- Checkpoint activity
+- Arbitration outcomes
+- Open issues and warnings
+- Validation results
+
+### Configuration
+
+The scoring model is configured via `.maestro/convert/scoring/model.json`:
+
+```json
+{
+  "version": "1.0",
+  "scale": [0, 100],
+  "weights": {
+    "semantic_integrity": 0.35,
+    "semantic_diff": 0.20,
+    "drift_idempotency": 0.20,
+    "checkpoints": 0.10,
+    "open_issues": 0.10,
+    "validation": 0.05
+  },
+  "penalties": {
+    "semantic_low": 40,
+    "semantic_medium": 15,
+    "semantic_unknown": 8,
+    "lost_concept": 3,
+    "checkpoint_blocked": 10,
+    "checkpoint_overridden": 6,
+    "idempotency_failure": 20,
+    "drift_detected": 15,
+    "non_convergent": 25,
+    "open_issue": 2,
+    "validation_fail": 25
+  },
+  "floors": {
+    "any_semantic_low": 30
+  }
+}
+```
+
+### CLI Commands
+
+#### Show Confidence for a Run
+
+```bash
+maestro convert confidence show           # Show most recent run
+maestro convert confidence show --run-id run_1234567890  # Show specific run
+```
+
+#### Confidence History
+
+```bash
+maestro convert confidence history       # Show last 10 runs
+maestro convert confidence history --limit 20  # Show last 20 runs
+```
+
+#### CI Gate
+
+```bash
+maestro convert confidence gate --min-score 75  # Gate with minimum score
+```
+
+#### Batch Confidence
+
+```bash
+maestro convert batch report --spec batch.json  # Include confidence in report
+maestro convert batch gate --spec batch.json --min-score 75 --aggregate min  # Batch gate
+```
+
+#### Promotion with Confidence Check
+
+```bash
+maestro convert promote --min-score 80        # Promote with confidence check
+maestro convert promote --force-promote       # Force promotion regardless of score
+```
+
+### Integration
+
+Confidence scores are automatically computed after each successful conversion run and stored in `.maestro/convert/runs/<run_id>/confidence.json` and `.maestro/convert/runs/<run_id>/confidence.md`.
+
+Batch jobs also compute confidence scores, and batch-level confidence can be aggregated using mean, median, or min methods.

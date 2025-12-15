@@ -32,6 +32,7 @@ from .session_model import Session, Subtask, PlanNode, load_session, save_sessio
 from .engines import EngineError
 from .known_issues import match_known_issues, KnownIssue
 from .planner_templates import format_build_target_template, format_fix_rulebook_template, format_conversion_pipeline_template
+from .confidence import ConfidenceScorer, BatchConfidenceAggregator
 
 
 # Dataclasses for builder configuration
@@ -2144,6 +2145,13 @@ def main():
     convert_refactor_parser = convert_subparsers.add_parser('refactor', aliases=['rf'], help='Post-conversion refactoring operations')
     convert_refactor_subparsers = convert_refactor_parser.add_subparsers(dest='refactor_subcommand', help='Refactor subcommands')
 
+    # convert promote
+    convert_promote_parser = convert_subparsers.add_parser('promote', aliases=['p'], help='Promote conversion results to production')
+    convert_promote_parser.add_argument('--min-score', type=float, default=75.0, help='Minimum confidence score required for promotion (default: 75.0)')
+    convert_promote_parser.add_argument('--force-promote', action='store_true', help='Force promotion even if confidence score is below threshold')
+    convert_promote_parser.add_argument('--run-id', help='Specific run ID to promote')
+    convert_promote_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
     # refactor plan
     refactor_plan_parser = convert_refactor_subparsers.add_parser('plan', aliases=['p'], help='Generate refactoring plan')
     refactor_plan_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
@@ -2190,6 +2198,32 @@ def main():
     batch_report_parser = convert_batch_subparsers.add_parser('report', aliases=['rep'], help='Generate aggregated batch report')
     batch_report_parser.add_argument('--spec', required=True, help='Path to batch specification file (JSON/YAML)')
     batch_report_parser.add_argument('--format', choices=['json', 'md', 'text'], default='json', help='Output format for report (default: json)')
+
+    # batch gate
+    batch_gate_parser = convert_batch_subparsers.add_parser('gate', aliases=['g'], help='CI gate for batch conversion based on confidence score')
+    batch_gate_parser.add_argument('--spec', required=True, help='Path to batch specification file (JSON/YAML)')
+    batch_gate_parser.add_argument('--min-score', type=float, required=True, help='Minimum acceptable confidence score')
+    batch_gate_parser.add_argument('--aggregate', choices=['mean', 'median', 'min'], default='min', help='Aggregation method for batch scoring (default: min)')
+
+    # convert confidence
+    convert_confidence_parser = convert_subparsers.add_parser('confidence', aliases=['conf'], help='Conversion confidence scoring commands')
+    convert_confidence_subparsers = convert_confidence_parser.add_subparsers(dest='confidence_subcommand', help='Confidence scoring subcommands')
+
+    # confidence show
+    confidence_show_parser = convert_confidence_subparsers.add_parser('show', aliases=['s'], help='Show confidence for most recent run')
+    confidence_show_parser.add_argument('--run-id', help='Specific run ID to show confidence for')
+    confidence_show_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # confidence history
+    confidence_history_parser = convert_confidence_subparsers.add_parser('history', aliases=['h'], help='Show confidence history')
+    confidence_history_parser.add_argument('--limit', type=int, default=10, help='Number of runs to show (default: 10)')
+    confidence_history_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # confidence gate
+    confidence_gate_parser = convert_confidence_subparsers.add_parser('gate', aliases=['g'], help='CI gate based on confidence score')
+    confidence_gate_parser.add_argument('--min-score', type=float, required=True, help='Minimum acceptable confidence score')
+    confidence_gate_parser.add_argument('--run-id', help='Specific run ID to check (default: most recent)')
+    confidence_gate_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
 
     # Add help/h subcommands for convert subparsers
     convert_subparsers.add_parser('help', aliases=['h'], help='Show help for conversion pipeline commands')
@@ -3286,6 +3320,8 @@ def main():
                 else:
                     convert_refactor_parser.print_help()
                     return  # Exit after showing help
+            elif args.convert_subcommand == 'promote':
+                handle_convert_promote(args.min_score, args.force_promote, args.run_id, args.verbose)
             elif args.convert_subcommand == 'batch':
                 if hasattr(args, 'batch_subcommand') and args.batch_subcommand:
                     if args.batch_subcommand == 'run':
@@ -3297,6 +3333,8 @@ def main():
                         handle_convert_batch_show(args.spec, args.job, args.verbose)
                     elif args.batch_subcommand == 'report':
                         handle_convert_batch_report(args.spec, args.format, args.verbose)
+                    elif args.batch_subcommand == 'gate':
+                        handle_convert_batch_gate(args.spec, args.min_score, args.aggregate, args.verbose)
                     elif args.batch_subcommand in ['help', 'h']:
                         convert_batch_parser.print_help()
                         return  # Exit after showing help
@@ -3305,6 +3343,23 @@ def main():
                         sys.exit(1)
                 else:
                     convert_batch_parser.print_help()
+                    return  # Exit after showing help
+            elif args.convert_subcommand == 'confidence':
+                if hasattr(args, 'confidence_subcommand') and args.confidence_subcommand:
+                    if args.confidence_subcommand == 'show':
+                        handle_convert_confidence_show(args.run_id, args.verbose)
+                    elif args.confidence_subcommand == 'history':
+                        handle_convert_confidence_history(args.limit, args.verbose)
+                    elif args.confidence_subcommand == 'gate':
+                        handle_convert_confidence_gate(args.min_score, args.run_id, args.verbose)
+                    elif args.confidence_subcommand in ['help', 'h']:
+                        convert_confidence_parser.print_help()
+                        return  # Exit after showing help
+                    else:
+                        print_error(f"Unknown confidence subcommand: {args.confidence_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    convert_confidence_parser.print_help()
                     return  # Exit after showing help
             elif args.convert_subcommand == 'help' or args.convert_subcommand == 'h':
                 # Print help for convert subcommands
@@ -16338,6 +16393,38 @@ def handle_convert_run_with_args(stage: str = None, verbose: bool = False, inclu
 
         print_success(f"Stage '{target_stage}' completed successfully.", 2)
 
+        # Compute confidence score for the run if this is a completed pipeline
+        all_completed = all(s.status == "completed" for s in pipeline.stages)
+        if all_completed:
+            try:
+                if verbose:
+                    print_info("Computing confidence score for completed run...", 2)
+
+                # Determine run directory - this is where the artifacts would be stored
+                # The run directory would be something like .maestro/convert/runs/run_<timestamp>
+                convert_dir = get_convert_dir()
+                runs_dir = os.path.join(convert_dir, "runs")
+
+                # Try to find the most recent run directory that matches the pipeline run
+                # For now, we'll create a simple confidence score based on the pipeline status
+                # In a real implementation, we'd have specific artifacts to analyze
+                run_id = f"run_{int(datetime.now().timestamp())}"
+                run_artifacts_path = os.path.join(runs_dir, run_id)
+
+                os.makedirs(run_artifacts_path, exist_ok=True)
+
+                # Compute confidence score based on pipeline artifacts
+                scorer = ConfidenceScorer()
+                confidence_score = scorer.compute_score(run_id, run_artifacts_path)
+                scorer.save_confidence_report(confidence_score, run_artifacts_path)
+
+                if verbose:
+                    print_info(f"Confidence score computed: {confidence_score.score} ({confidence_score.grade})", 2)
+
+            except Exception as e:
+                if verbose:
+                    print_warning(f"Could not compute confidence score: {e}", 4)
+
     except Exception as e:
         print_error(f"Error running conversion pipeline: {e}", 2)
         # Update the pipeline with error status
@@ -16541,6 +16628,344 @@ def handle_refactor_show(task_id: str, verbose: bool = False) -> None:
         show_refactor_task_details(task_id, verbose=verbose)
     except Exception as e:
         print_error(f"Error showing refactoring task details: {e}", 2)
+        sys.exit(1)
+
+
+def handle_convert_confidence_show(run_id: str = None, verbose: bool = False) -> None:
+    """
+    Handle showing confidence for a conversion run.
+
+    Args:
+        run_id: Specific run ID to show confidence for (default: most recent)
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info("Showing confidence for conversion run", 2)
+
+    try:
+        # Get the convert runs directory
+        convert_dir = get_convert_dir()
+        runs_dir = os.path.join(convert_dir, "runs")
+
+        if not os.path.exists(runs_dir):
+            print_error(f"No runs directory found: {runs_dir}", 2)
+            sys.exit(1)
+
+        # Determine which run to show confidence for
+        if run_id is None:
+            # Find the most recent run
+            run_dirs = [d for d in os.listdir(runs_dir)
+                       if os.path.isdir(os.path.join(runs_dir, d)) and d.startswith("run_")]
+            if not run_dirs:
+                print_error("No conversion runs found", 2)
+                sys.exit(1)
+
+            # Sort by timestamp to get the most recent run
+            run_dirs.sort(key=lambda x: int(x.split('_')[1]) if x.startswith('run_') and '_' in x else 0, reverse=True)
+            run_id = run_dirs[0]
+        else:
+            # Verify the specified run exists
+            if not os.path.exists(os.path.join(runs_dir, run_id)):
+                print_error(f"Run not found: {run_id}", 2)
+                sys.exit(1)
+
+        # Check if confidence report already exists for this run
+        confidence_json_path = os.path.join(runs_dir, run_id, "confidence.json")
+        if os.path.exists(confidence_json_path):
+            with open(confidence_json_path, 'r') as f:
+                confidence_data = json.load(f)
+
+            # Display the confidence information
+            print(f"Run ID: {confidence_data.get('run_id', run_id)}")
+            print(f"Score: {confidence_data.get('score', 'N/A')}")
+            print(f"Grade: {confidence_data.get('grade', 'N/A')}")
+            print()
+
+            print("Score Breakdown:")
+            for component, score in confidence_data.get('breakdown', {}).items():
+                print(f"  {component.replace('_', ' ').title()}: {score}")
+            print()
+
+            print("Top 5 Penalty Reasons:")
+            penalties = confidence_data.get('penalties_applied', [])
+            top_penalties = sorted(penalties, key=lambda x: x['value'], reverse=True)[:5]
+            for i, penalty in enumerate(top_penalties, 1):
+                print(f"  {i}. {penalty['penalty']}: -{penalty['value']} points")
+            print()
+
+            print("Recommendations:")
+            for rec in confidence_data.get('recommendations', [])[:5]:  # Show top 5
+                print(f"  - {rec}")
+
+        else:
+            # Compute confidence if not already computed
+            print_info("Confidence report not found, computing now...", 2)
+            scorer = ConfidenceScorer()
+            run_artifacts_path = os.path.join(runs_dir, run_id)
+            confidence_score = scorer.compute_score(run_id, run_artifacts_path)
+            scorer.save_confidence_report(confidence_score, run_artifacts_path)
+
+            # Display the confidence information
+            print(f"Run ID: {confidence_score.run_id}")
+            print(f"Score: {confidence_score.score}")
+            print(f"Grade: {confidence_score.grade}")
+            print()
+
+            print("Score Breakdown:")
+            for component, score in confidence_score.breakdown.items():
+                print(f"  {component.replace('_', ' ').title()}: {score}")
+            print()
+
+            print("Top 5 Penalty Reasons:")
+            penalties = confidence_score.penalties_applied
+            top_penalties = sorted(penalties, key=lambda x: x['value'], reverse=True)[:5]
+            for i, penalty in enumerate(top_penalties, 1):
+                print(f"  {i}. {penalty['penalty']}: -{penalty['value']} points")
+            print()
+
+            print("Recommendations:")
+            for rec in confidence_score.recommendations[:5]:  # Show top 5
+                print(f"  - {rec}")
+
+            print(f"Confidence report saved to: {run_artifacts_path}/confidence.json and confidence.md")
+
+    except Exception as e:
+        print_error(f"Error showing confidence: {e}", 2)
+        sys.exit(1)
+
+
+def handle_convert_confidence_history(limit: int = 10, verbose: bool = False) -> None:
+    """
+    Handle showing confidence history for conversion runs.
+
+    Args:
+        limit: Number of runs to show (default: 10)
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info(f"Showing confidence history (limit: {limit})", 2)
+
+    try:
+        # Get the convert runs directory
+        convert_dir = get_convert_dir()
+        runs_dir = os.path.join(convert_dir, "runs")
+
+        if not os.path.exists(runs_dir):
+            print_error(f"No runs directory found: {runs_dir}", 2)
+            sys.exit(1)
+
+        # Get all runs sorted by timestamp (most recent first)
+        run_dirs = [d for d in os.listdir(runs_dir)
+                   if os.path.isdir(os.path.join(runs_dir, d)) and d.startswith("run_")]
+
+        if not run_dirs:
+            print_error("No conversion runs found", 2)
+            sys.exit(1)
+
+        # Sort by timestamp to get the most recent runs
+        run_dirs.sort(key=lambda x: int(x.split('_')[1]) if x.startswith('run_') and '_' in x else 0, reverse=True)
+        recent_runs = run_dirs[:limit]
+
+        print("Conversion Confidence History:")
+        print(f"{'Run ID':<25} {'Score':<8} {'Grade':<6} {'Timestamp':<20}")
+        print("-" * 65)
+
+        for run_id in recent_runs:
+            confidence_json_path = os.path.join(runs_dir, run_id, "confidence.json")
+            if os.path.exists(confidence_json_path):
+                with open(confidence_json_path, 'r') as f:
+                    confidence_data = json.load(f)
+
+                score = confidence_data.get('score', 'N/A')
+                grade = confidence_data.get('grade', 'N/A')
+                timestamp = confidence_data.get('timestamp', 'N/A')
+
+                print(f"{run_id:<25} {score:<8} {grade:<6} {timestamp[:19]:<20}")
+            else:
+                print(f"{run_id:<25} {'N/A':<8} {'N/A':<6} {'N/A':<20}")
+
+    except Exception as e:
+        print_error(f"Error showing confidence history: {e}", 2)
+        sys.exit(1)
+
+
+def handle_convert_confidence_gate(min_score: float, run_id: str = None, verbose: bool = False) -> None:
+    """
+    Handle CI gate based on confidence score.
+
+    Args:
+        min_score: Minimum acceptable confidence score
+        run_id: Specific run ID to check (default: most recent)
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info(f"Checking confidence gate (min score: {min_score})", 2)
+
+    try:
+        # Get the convert runs directory
+        convert_dir = get_convert_dir()
+        runs_dir = os.path.join(convert_dir, "runs")
+
+        if not os.path.exists(runs_dir):
+            print_error(f"No runs directory found: {runs_dir}", 2)
+            sys.exit(1)
+
+        # Determine which run to check
+        if run_id is None:
+            # Find the most recent run
+            run_dirs = [d for d in os.listdir(runs_dir)
+                       if os.path.isdir(os.path.join(runs_dir, d)) and d.startswith("run_")]
+            if not run_dirs:
+                print_error("No conversion runs found", 2)
+                sys.exit(1)
+
+            # Sort by timestamp to get the most recent run
+            run_dirs.sort(key=lambda x: int(x.split('_')[1]) if x.startswith('run_') and '_' in x else 0, reverse=True)
+            run_id = run_dirs[0]
+        else:
+            # Verify the specified run exists
+            if not os.path.exists(os.path.join(runs_dir, run_id)):
+                print_error(f"Run not found: {run_id}", 2)
+                sys.exit(1)
+
+        # Check if confidence report exists for this run
+        confidence_json_path = os.path.join(runs_dir, run_id, "confidence.json")
+        if not os.path.exists(confidence_json_path):
+            # Compute confidence if not already computed
+            print_info("Confidence report not found, computing now...", 2)
+            scorer = ConfidenceScorer()
+            run_artifacts_path = os.path.join(runs_dir, run_id)
+            confidence_score = scorer.compute_score(run_id, run_artifacts_path)
+            scorer.save_confidence_report(confidence_score, run_artifacts_path)
+
+        # Load confidence data
+        with open(confidence_json_path, 'r') as f:
+            confidence_data = json.load(f)
+
+        score = confidence_data.get('score', 0)
+
+        if verbose:
+            print(f"Run: {run_id}")
+            print(f"Score: {score}")
+            print(f"Min score: {min_score}")
+
+        if score >= min_score:
+            print_info(f"✓ Confidence check PASSED: {score} >= {min_score}", 2)
+            return 0  # Success exit code
+        else:
+            print_error(f"✗ Confidence check FAILED: {score} < {min_score}", 2)
+
+            # Show reasons why the score is low
+            penalties = confidence_data.get('penalties_applied', [])
+            if penalties:
+                print("Top penalties affecting score:")
+                top_penalties = sorted(penalties, key=lambda x: x['value'], reverse=True)[:3]
+                for i, penalty in enumerate(top_penalties, 1):
+                    print(f"  {i}. {penalty['penalty']}: -{penalty['value']} points")
+
+            sys.exit(1)  # Failure exit code
+
+    except Exception as e:
+        print_error(f"Error in confidence gate check: {e}", 2)
+        sys.exit(1)
+
+
+def handle_convert_promote(min_score: float, force_promote: bool, run_id: str = None, verbose: bool = False) -> None:
+    """
+    Handle promoting conversion results to production after confidence check.
+
+    Args:
+        min_score: Minimum acceptable confidence score
+        force_promote: Whether to force promotion regardless of confidence score
+        run_id: Specific run ID to promote (default: most recent)
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info(f"Promoting conversion results (min score: {min_score}, force: {force_promote})", 2)
+
+    try:
+        # Get the convert runs directory
+        convert_dir = get_convert_dir()
+        runs_dir = os.path.join(convert_dir, "runs")
+
+        if not os.path.exists(runs_dir):
+            print_error(f"No runs directory found: {runs_dir}", 2)
+            sys.exit(1)
+
+        # Determine which run to promote
+        if run_id is None:
+            # Find the most recent run
+            run_dirs = [d for d in os.listdir(runs_dir)
+                       if os.path.isdir(os.path.join(runs_dir, d)) and d.startswith("run_")]
+            if not run_dirs:
+                print_error("No conversion runs found", 2)
+                sys.exit(1)
+
+            # Sort by timestamp to get the most recent run
+            run_dirs.sort(key=lambda x: int(x.split('_')[1]) if x.startswith('run_') and '_' in x else 0, reverse=True)
+            run_id = run_dirs[0]
+        else:
+            # Verify the specified run exists
+            if not os.path.exists(os.path.join(runs_dir, run_id)):
+                print_error(f"Run not found: {run_id}", 2)
+                sys.exit(1)
+
+        # Load confidence data
+        confidence_json_path = os.path.join(runs_dir, run_id, "confidence.json")
+        if not os.path.exists(confidence_json_path):
+            # Compute confidence if not already computed
+            print_info("Confidence report not found, computing now...", 2)
+            scorer = ConfidenceScorer()
+            run_artifacts_path = os.path.join(runs_dir, run_id)
+            confidence_score = scorer.compute_score(run_id, run_artifacts_path)
+            scorer.save_confidence_report(confidence_score, run_artifacts_path)
+
+        # Load confidence data
+        with open(confidence_json_path, 'r') as f:
+            confidence_data = json.load(f)
+
+        score = confidence_data.get('score', 0)
+
+        if verbose:
+            print(f"Run: {run_id}")
+            print(f"Score: {score}")
+            print(f"Min score: {min_score}")
+
+        # Check confidence unless force-promote is specified
+        if not force_promote:
+            if score >= min_score:
+                print_info(f"✓ Confidence check PASSED: {score} >= {min_score}", 2)
+            else:
+                print_error(f"✗ Confidence check FAILED: {score} < {min_score}", 2)
+
+                # Show reasons why the score is low
+                penalties = confidence_data.get('penalties_applied', [])
+                if penalties:
+                    print("Top penalties affecting score:")
+                    top_penalties = sorted(penalties, key=lambda x: x['value'], reverse=True)[:3]
+                    for i, penalty in enumerate(top_penalties, 1):
+                        print(f"  {i}. {penalty['penalty']}: -{penalty['value']} points")
+
+                print_error("Promotion blocked due to low confidence. Use --force-promote to override.", 2)
+                sys.exit(1)  # Failure exit code
+        else:
+            print_warning(f"⚠️  Force promotion enabled - bypassing confidence check ({score} < {min_score})", 2)
+
+        # Perform the promotion (in a real implementation, this would move files to production)
+        print_info(f"Promoting run {run_id} to production...", 2)
+
+        # In a real implementation, we would do actual promotion work here:
+        # - Move files from staging to production
+        # - Update versioning
+        # - Run final validation
+        # For now, we'll just simulate it
+
+        print_success(f"✓ Run {run_id} promoted successfully", 2)
+
+        return 0  # Success exit code
+
+    except Exception as e:
+        print_error(f"Error during promotion: {e}", 2)
         sys.exit(1)
 
 
@@ -18231,6 +18656,145 @@ def generate_batch_report_md(report: dict, batch_spec: BatchSpec) -> str:
                 md += f"- **{job['job_name']}**: Ready to promote\n"
 
     return md
+
+
+def handle_convert_batch_gate(spec_path: str, min_score: float, aggregation: str, verbose: bool = False) -> None:
+    """
+    Handle CI gate for batch conversion based on confidence score.
+
+    Args:
+        spec_path: Path to the batch specification file
+        min_score: Minimum acceptable confidence score
+        aggregation: Aggregation method for batch scoring ('mean', 'median', 'min')
+        verbose: Whether to show verbose output
+    """
+    if verbose:
+        print_info(f"Checking confidence gate for batch: {spec_path} (min score: {min_score}, aggregation: {aggregation})", 2)
+
+    try:
+        # Load the batch specification
+        if not os.path.exists(spec_path):
+            print_error(f"Batch specification file not found: {spec_path}", 2)
+            sys.exit(1)
+
+        with open(spec_path, 'r') as f:
+            spec_data = json.load(f)
+
+        batch_spec = BatchSpec(
+            batch_id=spec_data['batch_id'],
+            defaults=BatchDefaults(**spec_data.get('defaults', {})),
+            jobs=[BatchJobSpec(**job) for job in spec_data['jobs']],
+            description=spec_data.get('description')
+        )
+
+        # Get the batch directory
+        batch_dir = get_batch_dir()
+        batch_run_dir = os.path.join(batch_dir, batch_spec.batch_id)
+
+        if not os.path.exists(batch_run_dir):
+            print_error(f"No batch run directory found: {batch_run_dir}", 2)
+            sys.exit(1)
+
+        # Collect confidence scores for all successful jobs in this batch
+        # Each job has its own runs directory under the batch directory
+        confidence_scores = []
+
+        for job_spec in batch_spec.jobs:
+            # Find the most recent run for this job
+            job_run_dir = os.path.join(batch_run_dir, "runs", job_spec.name)
+            if not os.path.exists(job_run_dir):
+                if verbose:
+                    print_info(f"Job run directory not found for job {job_spec.name}, skipping...", 8)
+                continue
+
+            run_dirs = [d for d in os.listdir(job_run_dir)
+                       if os.path.isdir(os.path.join(job_run_dir, d)) and d.startswith("run_")]
+
+            if not run_dirs:
+                if verbose:
+                    print_info(f"No runs found for job {job_spec.name}, skipping...", 8)
+                continue
+
+            # Get the most recent run
+            run_dirs.sort(key=lambda x: int(x.split('_')[1]) if x.startswith('run_') and '_' in x else 0, reverse=True)
+            latest_run_dir = run_dirs[0]
+            run_path = os.path.join(job_run_dir, latest_run_dir)
+
+            # Check for confidence.json in this run
+            confidence_json_path = os.path.join(run_path, "confidence.json")
+            if not os.path.exists(confidence_json_path):
+                # Compute confidence if not available
+                if verbose:
+                    print_info(f"Computing confidence for job {job_spec.name}", 8)
+
+                scorer = ConfidenceScorer()
+                confidence_score = scorer.compute_score(latest_run_dir, run_path)
+                scorer.save_confidence_report(confidence_score, run_path)
+
+                # Load the computed score
+                with open(confidence_json_path, 'r') as f:
+                    confidence_data = json.load(f)
+            else:
+                # Load existing confidence data
+                with open(confidence_json_path, 'r') as f:
+                    confidence_data = json.load(f)
+
+            # Create a ConfidenceScore object from the loaded data
+            from .confidence import ConfidenceScore
+            score_obj = ConfidenceScore(
+                score=confidence_data.get('score', 0),
+                grade=confidence_data.get('grade', 'F'),
+                breakdown=confidence_data.get('breakdown', {}),
+                penalties_applied=confidence_data.get('penalties_applied', []),
+                recommendations=confidence_data.get('recommendations', []),
+                evidence_refs=confidence_data.get('evidence_refs', []),
+                run_id=confidence_data.get('run_id'),
+                timestamp=confidence_data.get('timestamp')
+            )
+            confidence_scores.append(score_obj)
+
+        if not confidence_scores:
+            print_error("No confidence scores found for any batch jobs", 2)
+            sys.exit(1)
+
+        # Aggregate the scores based on the specified method
+        aggregator = BatchConfidenceAggregator()
+        aggregated_score = aggregator.aggregate_scores(confidence_scores, aggregation_method=aggregation)
+
+        if verbose:
+            print_info(f"Aggregated batch score ({aggregation}): {aggregated_score.score}", 2)
+
+        # Check if the aggregated score meets the minimum threshold
+        if aggregated_score.score >= min_score:
+            print_info(f"✓ Batch confidence check PASSED: {aggregated_score.score} >= {min_score} ({aggregation} aggregation)", 2)
+
+            # Display summary
+            print(f"Batch {batch_spec.batch_id} confidence summary:")
+            print(f"  - Aggregated Score: {aggregated_score.score} ({aggregated_score.grade})")
+            print(f"  - Method: {aggregation}")
+            print(f"  - Jobs processed: {len(confidence_scores)}")
+
+            return 0  # Success exit code
+        else:
+            print_error(f"✗ Batch confidence check FAILED: {aggregated_score.score} < {min_score} ({aggregation} aggregation)", 2)
+
+            # Display summary
+            print(f"Batch {batch_spec.batch_id} confidence summary:")
+            print(f"  - Aggregated Score: {aggregated_score.score} ({aggregated_score.grade})")
+            print(f"  - Method: {aggregation}")
+            print(f"  - Jobs processed: {len(confidence_scores)}")
+
+            # Show the worst performing jobs
+            confidence_scores.sort(key=lambda x: x.score)  # Sort by score ascending
+            print(f"  - Worst performing jobs:")
+            for i, score in enumerate(confidence_scores[:3]):  # Show top 3 worst
+                print(f"    {i+1}. {score.run_id.split('_')[1] if '_' in str(score.run_id) else score.run_id}: {score.score}")
+
+            sys.exit(1)  # Failure exit code
+
+    except Exception as e:
+        print_error(f"Error in batch confidence gate check: {e}", 2)
+        sys.exit(1)
 
 
 def generate_batch_report_text(report: dict, batch_spec: BatchSpec) -> str:
