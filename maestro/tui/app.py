@@ -18,6 +18,7 @@ from maestro.tui.screens.convert import ConvertScreen
 from maestro.tui.screens.logs import LogsScreen
 from maestro.tui.screens.help import HelpScreen
 from maestro.tui.screens.memory import MemoryScreen
+from maestro.tui.screens.semantic import SemanticScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 
 
@@ -359,6 +360,7 @@ class MaestroTUI(App):
         ("t", "switch_to_screen('tasks')", "Tasks"),
         ("b", "switch_to_screen('build')", "Build"),
         ("c", "switch_to_screen('convert')", "Convert"),
+        ("i", "switch_to_screen('semantic')", "Semantic Integrity"),
         ("m", "switch_to_screen('memory')", "Memory"),
         ("l", "switch_to_screen('logs')", "Logs"),
     ]
@@ -430,6 +432,7 @@ class MaestroTUI(App):
                 Label("✅ Tasks", id="nav-tasks", classes="nav-item"),
                 Label("🔨 Build", id="nav-build", classes="nav-item"),
                 Label("🔄 Convert", id="nav-convert", classes="nav-item"),
+                Label("🔍 Integrity", id="nav-semantic", classes="nav-item"),
                 Label("🧠 Memory", id="nav-memory", classes="nav-item"),
                 Label("📄 Logs", id="nav-logs", classes="nav-item"),
                 Label("❓ Help", id="nav-help", classes="nav-item"),
@@ -499,6 +502,10 @@ class MaestroTUI(App):
             convert_widget.styles.cursor = "pointer"
             self.query_one("#nav-convert").on("click", lambda: self._switch_main_content(ConvertScreen()))
 
+            semantic_widget = self.query_one("#nav-semantic", Label)
+            semantic_widget.styles.cursor = "pointer"
+            self.query_one("#nav-semantic").on("click", lambda: self._switch_main_content(SemanticScreen()))
+
             memory_widget = self.query_one("#nav-memory", Label)
             memory_widget.styles.cursor = "pointer"
             self.query_one("#nav-memory").on("click", lambda: self._switch_main_content(MemoryScreen()))
@@ -541,6 +548,7 @@ class MaestroTUI(App):
             "tasks": TasksScreen,
             "build": BuildScreen,
             "convert": ConvertScreen,
+            "semantic": SemanticScreen,
             "memory": MemoryScreen,
             "logs": LogsScreen,
             "help": HelpScreen,

@@ -26,6 +26,36 @@ from maestro.main import (
 
 
 @dataclass
+class SemanticFinding:
+    """Represents a semantic finding from code conversion analysis."""
+    id: str
+    task_id: str
+    files: List[str]
+    equivalence_level: str  # high, medium, low, unknown
+    risk_flags: List[str]  # [icon or tag names]
+    status: str  # pending, accepted, rejected, blocking
+    description: str
+    evidence_before: str
+    evidence_after: str
+    decision_reason: Optional[str] = None
+    checkpoint_id: Optional[str] = None
+    blocks_pipeline: bool = False
+
+
+@dataclass
+class SemanticSummary:
+    """Summary of semantic risks across all findings."""
+    total_findings: int
+    high_risk: int
+    medium_risk: int
+    low_risk: int
+    accepted: int
+    rejected: int
+    blocking: int
+    overall_health_score: float  # 0.0 to 1.0
+
+
+@dataclass
 class StageInfo:
     """Information about a conversion stage."""
     name: str

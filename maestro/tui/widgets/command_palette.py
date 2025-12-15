@@ -113,6 +113,16 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Convert: Reject checkpoint", "action": "convert_checkpoint_reject", "type": "checkpoint"},
         ])
 
+        # Semantic operations
+        commands.extend([
+            {"name": "Semantic: List findings", "action": "semantic_list", "type": "semantic"},
+            {"name": "Semantic: Show finding details", "action": "semantic_show", "type": "semantic"},
+            {"name": "Semantic: Accept finding", "action": "semantic_accept", "type": "semantic"},
+            {"name": "Semantic: Reject finding", "action": "semantic_reject", "type": "semantic"},
+            {"name": "Semantic: Defer finding", "action": "semantic_defer", "type": "semantic"},
+            {"name": "Go to semantic integrity panel", "action": "screen_semantic", "type": "navigation"},
+        ])
+
         return commands
 
     def compose(self) -> ComposeResult:
@@ -236,6 +246,23 @@ class CommandPaletteScreen(ModalScreen):
                 else:
                     # For operations that don't require input
                     self.app.notify(f"Build operation: {result}", timeout=5)
+                    self.dismiss()
+            # Handle semantic operation commands that need special handling
+            elif command["action"] in ["semantic_show", "semantic_accept", "semantic_reject", "semantic_defer"]:
+                result = self.execute_action_command(command["action"])
+                if result == "INPUT_NEEDED":
+                    # Special handling for semantic operations that require input
+                    if command["action"] == "semantic_show":
+                        self._handle_semantic_show()
+                    elif command["action"] == "semantic_accept":
+                        self._handle_semantic_accept()
+                    elif command["action"] == "semantic_reject":
+                        self._handle_semantic_reject()
+                    elif command["action"] == "semantic_defer":
+                        self._handle_semantic_defer()
+                else:
+                    # For read-only operations like semantic_list
+                    self.app.notify(f"Semantic operation: {result}", timeout=5)
                     self.dismiss()
             else:
                 self.app.post_message(command["action"])
@@ -576,6 +603,185 @@ class CommandPaletteScreen(ModalScreen):
         except Exception as e:
             self.app.notify(f"Error listing plans: {str(e)}", severity="error", timeout=5)
             self.dismiss()
+
+    def _handle_semantic_show(self):
+        """Handle the semantic show operation."""
+        def on_finding_id_entered(finding_id: str):
+            if finding_id:
+                try:
+                    from maestro.ui_facade.semantic import get_semantic_finding
+                    finding = get_semantic_finding(finding_id)
+                    if finding:
+                        # Show the finding details in an info dialog
+                        details = f"""
+                        Semantic Finding: {finding.id}
+
+                        Task ID: {finding.task_id}
+                        Files: {', '.join(finding.files)}
+                        Equivalence Level: {finding.equivalence_level}
+                        Risk Flags: {', '.join(finding.risk_flags) if finding.risk_flags else 'None'}
+                        Status: {finding.status}
+
+                        Description:
+                        {finding.description}
+
+                        Evidence (Before):
+                        {finding.evidence_before}
+
+                        Evidence (After):
+                        {finding.evidence_after}
+
+                        Decision Reason: {finding.decision_reason or 'None'}
+                        Blocks Pipeline: {'Yes' if finding.blocks_pipeline else 'No'}
+                        Checkpoint ID: {finding.checkpoint_id or 'None'}
+                        """
+                        from .modals import InfoDialog
+                        info_dialog = InfoDialog(
+                            message=details,
+                            title=f"Semantic Finding Details - {finding.id}"
+                        )
+                        self.app.push_screen(info_dialog)
+                    else:
+                        self.app.notify(f"No finding found with ID: {finding_id}", severity="error", timeout=3)
+                except ImportError:
+                    self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                except Exception as e:
+                    self.app.notify(f"Error getting finding: {str(e)}", severity="error", timeout=3)
+            self.dismiss()
+
+        # Show input dialog to ask for finding ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter semantic finding ID to show details:",
+            title="Show Semantic Finding"
+        )
+        self.app.push_screen(input_dialog, callback=on_finding_id_entered)
+
+    def _handle_semantic_accept(self):
+        """Handle the semantic accept operation."""
+        def on_finding_id_entered(finding_id: str):
+            if finding_id:
+                # Confirm acceptance before proceeding
+                def on_confirmed(confirmed: bool):
+                    if confirmed:
+                        try:
+                            from maestro.ui_facade.semantic import accept_semantic_finding
+                            success = accept_semantic_finding(finding_id)
+                            if success:
+                                self.app.notify(f"Finding {finding_id} accepted", timeout=3)
+                            else:
+                                self.app.notify(f"Failed to accept finding {finding_id}", severity="error", timeout=3)
+                        except ImportError:
+                            self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                        except Exception as e:
+                            self.app.notify(f"Error accepting finding: {str(e)}", severity="error", timeout=3)
+                    self.dismiss()
+
+                from .modals import ConfirmDialog
+                confirm_dialog = ConfirmDialog(
+                    message=f"Accept semantic finding {finding_id}?\n\nThis will mark the finding as reviewed and accepted.",
+                    title="Confirm Accept Finding"
+                )
+                self.app.push_screen(confirm_dialog, callback=on_confirmed)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for finding ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter semantic finding ID to accept:",
+            title="Accept Semantic Finding"
+        )
+        self.app.push_screen(input_dialog, callback=on_finding_id_entered)
+
+    def _handle_semantic_reject(self):
+        """Handle the semantic reject operation."""
+        def on_finding_info_entered(finding_info: str):
+            if finding_info:
+                # Split the input to get finding ID and reason
+                parts = finding_info.strip().split('\n', 1)
+                if len(parts) < 2:
+                    self.app.notify("Please provide both finding ID and reason (separate with newline)", severity="error", timeout=3)
+                    self.dismiss()
+                    return
+
+                finding_id = parts[0].strip()
+                reason = parts[1].strip()
+
+                if not reason:
+                    self.app.notify("Reason is required for rejection", severity="error", timeout=3)
+                    self.dismiss()
+                    return
+
+                # Confirm rejection before proceeding
+                def on_confirmed(confirmed: bool):
+                    if confirmed:
+                        try:
+                            from maestro.ui_facade.semantic import reject_semantic_finding
+                            success = reject_semantic_finding(finding_id, reason)
+                            if success:
+                                self.app.notify(f"Finding {finding_id} rejected", timeout=3)
+                            else:
+                                self.app.notify(f"Failed to reject finding {finding_id}", severity="error", timeout=3)
+                        except ImportError:
+                            self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                        except Exception as e:
+                            self.app.notify(f"Error rejecting finding: {str(e)}", severity="error", timeout=3)
+                    self.dismiss()
+
+                from .modals import ConfirmDialog
+                confirm_dialog = ConfirmDialog(
+                    message=f"Reject semantic finding {finding_id}?\n\nReason: {reason}",
+                    title="Confirm Reject Finding"
+                )
+                self.app.push_screen(confirm_dialog, callback=on_confirmed)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for finding ID and reason
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter semantic finding ID and reason (separate with newline):\nexample_id\nreason for rejection",
+            title="Reject Semantic Finding"
+        )
+        self.app.push_screen(input_dialog, callback=on_finding_info_entered)
+
+    def _handle_semantic_defer(self):
+        """Handle the semantic defer operation."""
+        def on_finding_id_entered(finding_id: str):
+            if finding_id:
+                # Confirm deferral before proceeding
+                def on_confirmed(confirmed: bool):
+                    if confirmed:
+                        try:
+                            from maestro.ui_facade.semantic import defer_semantic_finding
+                            success = defer_semantic_finding(finding_id)
+                            if success:
+                                self.app.notify(f"Finding {finding_id} deferred", timeout=3)
+                            else:
+                                self.app.notify(f"Failed to defer finding {finding_id}", severity="error", timeout=3)
+                        except ImportError:
+                            self.app.notify("Semantic facade not available", severity="error", timeout=3)
+                        except Exception as e:
+                            self.app.notify(f"Error deferring finding: {str(e)}", severity="error", timeout=3)
+                    self.dismiss()
+
+                from .modals import ConfirmDialog
+                confirm_dialog = ConfirmDialog(
+                    message=f"Defer semantic finding {finding_id}?\n\nThis will leave the finding unresolved.",
+                    title="Confirm Defer Finding"
+                )
+                self.app.push_screen(confirm_dialog, callback=on_confirmed)
+            else:
+                self.dismiss()
+
+        # Show input dialog to ask for finding ID
+        from .modals import InputDialog
+        input_dialog = InputDialog(
+            message="Enter semantic finding ID to defer:",
+            title="Defer Semantic Finding"
+        )
+        self.app.push_screen(input_dialog, callback=on_finding_id_entered)
 
     def execute_action_command(self, action_name: str):
         """Execute a specific action command and return result."""
@@ -941,6 +1147,38 @@ class CommandPaletteScreen(ModalScreen):
                 # Navigate to memory screen with decisions category
                 from maestro.tui.screens.memory import MemoryScreen
                 self.app._switch_main_content(MemoryScreen(initial_category="decisions"))
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "semantic_list":
+                # List semantic findings
+                try:
+                    from maestro.ui_facade.semantic import list_semantic_findings, get_semantic_summary
+                    findings = list_semantic_findings()
+                    summary = get_semantic_summary()
+
+                    if findings:
+                        return f"Semantic Findings: {len(findings)}, High Risk: {summary.high_risk}, Medium Risk: {summary.medium_risk}, Low Risk: {summary.low_risk}, Accepted: {summary.accepted}, Rejected: {summary.rejected}, Blocking: {summary.blocking}"
+                    else:
+                        return "No semantic findings found"
+                except ImportError:
+                    return "Semantic facade not available"
+            elif action_name == "semantic_show":
+                # This operation requires user input for selecting the finding
+                return "INPUT_NEEDED"
+            elif action_name == "semantic_accept":
+                # This operation requires user input for selecting the finding
+                return "INPUT_NEEDED"
+            elif action_name == "semantic_reject":
+                # This operation requires user input for selecting the finding
+                return "INPUT_NEEDED"
+            elif action_name == "semantic_defer":
+                # This operation requires user input for selecting the finding
+                return "INPUT_NEEDED"
+            elif action_name == "screen_semantic":
+                # Navigate to semantic screen
+                from maestro.tui.screens.semantic import SemanticScreen
+                # Switch to the semantic screen content
+                self.app._switch_main_content(SemanticScreen())
                 self.dismiss()
                 return "COMPLETED"
             else:

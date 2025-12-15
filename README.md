@@ -341,3 +341,68 @@ maestro convert promote --force-promote       # Force promotion regardless of sc
 Confidence scores are automatically computed after each successful conversion run and stored in `.maestro/convert/runs/<run_id>/confidence.json` and `.maestro/convert/runs/<run_id>/confidence.md`.
 
 Batch jobs also compute confidence scores, and batch-level confidence can be aggregated using mean, median, or min methods.
+
+---
+
+## Semantic Integrity Panel (TUI Feature)
+
+The Semantic Integrity Panel is a dedicated TUI screen that makes semantic risks visible, understandable, and actionable by humans during code conversion. It addresses the critical question:
+
+> "Yes, the code was converted — but did the intent survive?"
+
+### Accessing the Panel
+
+The Semantic Integrity Panel can be accessed through:
+
+* **TUI Navigation**: Press `i` or click "Integrity" in the navigation menu
+* **Command Palette**: `Ctrl+P` then select "Go to semantic integrity panel"
+* **Keyboard Shortcut**: Direct access via `Ctrl+I` (in TUI)
+
+### Three-Panel Layout
+
+The panel features a three-panel layout for efficient workflow:
+
+#### Left: Risk Summary
+* Overall semantic health score (0-100%)
+* Risk distribution: High, Medium, Low
+* Status counts: Accepted, Rejected, Blocking
+* Active gates/checkpoints (if any)
+
+#### Center: Findings List
+* Task ID, affected files, equivalence level
+* Risk flags and current status
+* Visual indicators for risk level
+* Selectable with keyboard navigation
+
+#### Right: Finding Details
+* Detailed explanation from semantic analysis
+* Before/after conversion evidence
+* Current disposition and decision reason
+* Impact assessment: blocks pipeline? checkpoint ID
+
+### Human Action Controls
+
+Each finding supports four human actions with safety measures:
+
+* **Accept (A)**: Mark as reviewed and accepted (with confirmation)
+* **Reject (R)**: Mark as rejected with required reason (blocks pipeline)
+* **Defer (D)**: Leave unresolved, keeps gate (with confirmation)
+* **Explain (E)**: Show detailed rationale history
+
+### Command Palette Integration
+
+Semantic operations are also available via command palette (`Ctrl+P`):
+
+* `semantic list` - Show summary of all findings
+* `semantic show <id>` - Show detailed finding information
+* `semantic accept <id>` - Accept a specific finding
+* `semantic reject <id>` - Reject a specific finding with reason
+* `semantic defer <id>` - Defer a specific finding
+
+### Gate & Checkpoint Integration
+
+The panel integrates directly with the conversion pipeline:
+* Shows which findings are currently blocking
+* Displays associated checkpoint IDs
+* Updates pipeline status immediately when findings are resolved
+* Maintains audit trail of all human decisions
