@@ -109,24 +109,27 @@ class MaestroTUI(App):
 
     def compose(self):
         """Create child widgets for the app."""
-        # Create status bar with global information
-        status_container = Horizontal(
-            Label(f"Root: {self.repo_root}", id="repo-root", classes="status-label"),
-            Label(f" | Session: {self.active_session.id[:8] + '...' if self.active_session else 'None'}",
-                  id="active-session", classes="status-label"),
-            Label(f" | Plan: {self.active_plan.plan_id[:8] + '...' if self.active_plan else 'None'}",
-                  id="active-plan", classes="status-label"),
-            Label(f" | Build: {self.active_build_target.id[:8] + '...' if self.active_build_target else 'None'}",
-                  id="active-build", classes="status-label"),
+        # Create status bar with global information - use getattr for safe access during initialization
+        session_id_display = getattr(self, 'active_session', None)
+        session_id_display = session_id_display.id[:8] + '...' if session_id_display else 'None'
+
+        plan_id_display = getattr(self, 'active_plan', None)
+        plan_id_display = plan_id_display.plan_id[:8] + '...' if plan_id_display else 'None'
+
+        build_id_display = getattr(self, 'active_build_target', None)
+        build_id_display = build_id_display.id[:8] + '...' if build_id_display else 'None'
+
+        yield Horizontal(
+            Label(f"Root: {getattr(self, 'repo_root', 'unknown')}", id="repo-root", classes="status-label"),
+            Label(f" | Session: {session_id_display}", id="active-session", classes="status-label"),
+            Label(f" | Plan: {plan_id_display}", id="active-plan", classes="status-label"),
+            Label(f" | Build: {build_id_display}", id="active-build", classes="status-label"),
             id="status-bar"
         )
 
-        yield status_container
-
-        # Create main layout
-        main_layout = Horizontal(id="main-container")
-        main_layout.mount(
-            Vertical(
+        # Create main layout with both navigation and content side by side
+        with Horizontal(id="main-container"):
+            yield Vertical(
                 Label("[b]Navigation[/b]", classes="nav-title"),
                 Label("🏠 Home", id="nav-home", classes="nav-item"),
                 Label("📋 Sessions", id="nav-sessions", classes="nav-item"),
@@ -138,31 +141,93 @@ class MaestroTUI(App):
                 Label("❓ Help", id="nav-help", classes="nav-item"),
                 id="nav-menu"
             )
-        )
 
-        main_content = Vertical(
-            id="main-content"
-        )
-        main_layout.mount(main_content)
+            yield Vertical(
+                id="main-content"
+            )
 
-        yield main_layout
         yield Footer(show_command_palette=False)
 
     def on_mount(self) -> None:
         """Called when the app is mounted."""
         self.title = "Maestro TUI"
-        # Start with home screen
-        self.switch_screen(HomeScreen())
+        # Mount the home screen content directly in the main content area
+        main_content = self.query_one("#main-content", Vertical)
+        home_screen = HomeScreen()
+        widgets = list(home_screen.compose())
+        for widget in widgets:
+            main_content.mount(widget)
 
-        # Bind click events for navigation items
-        self.query_one("#nav-home").on("click", lambda: self.switch_to_screen("home"))
-        self.query_one("#nav-sessions").on("click", lambda: self.switch_to_screen("sessions"))
-        self.query_one("#nav-plans").on("click", lambda: self.switch_to_screen("plans"))
-        self.query_one("#nav-tasks").on("click", lambda: self.switch_to_screen("tasks"))
-        self.query_one("#nav-build").on("click", lambda: self.switch_to_screen("build"))
-        self.query_one("#nav-convert").on("click", lambda: self.switch_to_screen("convert"))
-        self.query_one("#nav-logs").on("click", lambda: self.switch_to_screen("logs"))
-        self.query_one("#nav-help").on("click", lambda: self.switch_to_screen("help"))
+        # Bind click events for navigation items - need to wait a bit for the DOM to be ready
+        self.call_after_refresh(self._bind_navigation_events)
+
+    def _bind_navigation_events(self) -> None:
+        """Bind navigation events after the DOM is loaded."""
+        try:
+            self.query_one("#nav-home").can_focus = True
+            self.query_one("#nav-home").tooltip = "Go to Home"
+            # Set up click events using set_timer to ensure elements exist
+            self.set_timer(0.1, lambda: self._setup_click_handlers())
+        except:
+            # If immediate setup fails, try again after a short delay
+            self.set_timer(0.2, lambda: self._setup_click_handlers())
+
+    def _setup_click_handlers(self):
+        """Actually set up the click handlers."""
+        try:
+            # Replace the current content with new screen content
+            home_widget = self.query_one("#nav-home", Label)
+            home_widget.styles.cursor = "pointer"
+            self.query_one("#nav-home").on("click", lambda: self._switch_main_content(HomeScreen()))
+
+            sessions_widget = self.query_one("#nav-sessions", Label)
+            sessions_widget.styles.cursor = "pointer"
+            self.query_one("#nav-sessions").on("click", lambda: self._switch_main_content(SessionsScreen()))
+
+            plans_widget = self.query_one("#nav-plans", Label)
+            plans_widget.styles.cursor = "pointer"
+            self.query_one("#nav-plans").on("click", lambda: self._switch_main_content(PlansScreen()))
+
+            tasks_widget = self.query_one("#nav-tasks", Label)
+            tasks_widget.styles.cursor = "pointer"
+            self.query_one("#nav-tasks").on("click", lambda: self._switch_main_content(TasksScreen()))
+
+            build_widget = self.query_one("#nav-build", Label)
+            build_widget.styles.cursor = "pointer"
+            self.query_one("#nav-build").on("click", lambda: self._switch_main_content(BuildScreen()))
+
+            convert_widget = self.query_one("#nav-convert", Label)
+            convert_widget.styles.cursor = "pointer"
+            self.query_one("#nav-convert").on("click", lambda: self._switch_main_content(ConvertScreen()))
+
+            logs_widget = self.query_one("#nav-logs", Label)
+            logs_widget.styles.cursor = "pointer"
+            self.query_one("#nav-logs").on("click", lambda: self._switch_main_content(LogsScreen()))
+
+            help_widget = self.query_one("#nav-help", Label)
+            help_widget.styles.cursor = "pointer"
+            self.query_one("#nav-help").on("click", lambda: self._switch_main_content(HelpScreen()))
+        except Exception as e:
+            # If binding fails, just continue without it
+            pass
+
+    def _switch_main_content(self, screen_instance):
+        """Replace the main content area with a new screen."""
+        try:
+            # Clear the main content area
+            main_content = self.query_one("#main-content", Vertical)
+            main_content.remove_children()
+
+            # Use the screen's compose method to get widgets and mount them
+            # Since compose() returns a generator, we need to collect the widgets
+            widgets = list(screen_instance.compose())
+            for widget in widgets:
+                main_content.mount(widget)
+        except Exception as e:
+            # If all else fails, just display an error message
+            main_content = self.query_one("#main-content", Vertical)
+            main_content.remove_children()
+            main_content.mount(Label("Error loading screen content"))
 
     def switch_to_screen(self, screen_name: str) -> None:
         """Switch to a specific screen."""
