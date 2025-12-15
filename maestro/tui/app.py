@@ -2,7 +2,8 @@
 Maestro TUI Application
 """
 import time
-from textual.app import App
+import asyncio
+from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, Footer, Header
 from textual import on
@@ -25,8 +26,10 @@ from maestro.tui.screens.replay import ReplayScreen
 from maestro.tui.screens.semantic_diff import SemanticDiffScreen
 from maestro.tui.screens.confidence import ConfidenceScreen
 from maestro.tui.screens.vault import VaultScreen
+from maestro.tui.screens.onboarding import OnboardingScreen
+from maestro.tui.screens.help_index import HelpIndexScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
-from maestro.tui.utils import global_status_manager, LoadingIndicator
+from maestro.tui.utils import global_status_manager, LoadingIndicator, ErrorModal, ErrorNormalizer, ErrorMessage, ErrorSeverity
 
 
 class MaestroTUI(App):
@@ -47,6 +50,39 @@ class MaestroTUI(App):
         height: 1;
         background: $primary;
         color: $text;
+        text-style: bold;
+    }
+
+    .error-container {
+        height: 1fr;
+        width: 100%;
+        content-align: center middle;
+        background: $error 10%;
+        padding: 1;
+        border: solid $error;
+    }
+
+    .retry-button {
+        cursor: pointer;
+        text-style: bold;
+        color: $success;
+        content-align: center middle;
+        width: 30;
+        height: 1;
+        margin-top: 1;
+    }
+
+    .retry-button:hover {
+        background: $success 20%;
+    }
+
+    .clickable-nav-item {
+        cursor: pointer;
+        padding: 0 1;
+    }
+
+    .clickable-nav-item:hover {
+        background: $primary 20%;
         text-style: bold;
     }
 
@@ -494,12 +530,129 @@ class MaestroTUI(App):
     .visible {
         display: block;
     }
+
+    /* Help Panel Styles */
+    #help-panel {
+        height: auto;
+        width: 100%;
+        border-top: solid $primary;
+        background: $surface 80%;
+    }
+
+    #help-panel-header {
+        height: 1;
+        width: 100%;
+        dock: top;
+        content-align: left middle;
+        background: $primary;
+        color: $text;
+        text-style: bold;
+    }
+
+    #help-panel-header Label {
+        margin-left: 1;
+    }
+
+    #help-panel-header Button {
+        dock: right;
+    }
+
+    #help-panel-content {
+        width: 100%;
+        height: auto;
+        margin: 1;
+    }
+
+    #help-text {
+        height: 1fr;
+        width: 100%;
+    }
+
+    .help-content.hidden {
+        display: none;
+    }
+
+    .toggle-button {
+        dock: right;
+    }
+
+    #help-panel-title {
+        margin-left: 1;
+    }
+
+    /* Expandable Section Styles */
+    .expandable-section {
+        border: solid $primary;
+        margin: 1 0;
+        padding: 1;
+    }
+
+    .section-header {
+        height: 1;
+        content-align: left middle;
+        background: $surface;
+        border-bottom: solid $primary;
+    }
+
+    .section-header Label {
+        margin-left: 1;
+    }
+
+    .section-header Button {
+        dock: right;
+    }
+
+    .section-content {
+        margin: 1 0;
+    }
+
+    .section-content.hidden {
+        display: none;
+    }
+
+    .toggle-button {
+        dock: right;
+    }
+
+    /* Help Index Screen Styles */
+    .overview-section {
+        margin: 1 0;
+        padding: 1;
+        border: solid $primary;
+    }
+
+    .overview-content {
+        margin: 1 0;
+    }
+
+    .concept-title {
+        margin: 1 0 0 0;
+        color: $primary;
+        text-style: bold;
+    }
+
+    .concept-description {
+        margin: 0 0 1 1;
+        color: $text 90%;
+    }
+
+    .section-title {
+        text-style: bold;
+        color: $success;
+        margin: 0 0 1 0;
+    }
+
+    .help-button {
+        width: 100%;
+        margin: 1 0;
+    }
     """
 
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("ctrl+c", "quit", "Quit"),
         ("?", "show_help", "Help"),
+        ("h", "toggle_help_panel", "Toggle Help"),
         ("r", "refresh_status", "Refresh"),
         ("ctrl+p", "show_command_palette", "Palette"),
         ("home", "switch_to_screen('home')", "Home"),
@@ -518,6 +671,9 @@ class MaestroTUI(App):
         ("v", "switch_to_screen('vault')", "Vault"),
     ]
 
+    # Enable mouse support
+    ENABLE_MOUSE_SUPPORT = True
+
     def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.smoke_mode = smoke_mode
@@ -528,6 +684,9 @@ class MaestroTUI(App):
         self.active_build_target = None
         self.repo_root = "./"  # Simplified for now
         self.loading_indicator = LoadingIndicator()
+        # Track currently active screen and its loading task
+        self.current_screen = None
+        self.current_screen_task = None
         self._load_status_state()
 
     def _load_status_state(self) -> None:
@@ -556,7 +715,7 @@ class MaestroTUI(App):
         except Exception:
             self.active_build_target = None
 
-    def compose(self):
+    def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         # Create status bar with global information - use getattr for safe access during initialization
         session_id_display = getattr(self, 'active_session', None)
@@ -578,25 +737,25 @@ class MaestroTUI(App):
             id="status-bar"
         )
 
-        # Create main layout with both navigation and content side by side
+        # Create main layout with navigation and content
         with Horizontal(id="main-container"):
             yield Vertical(
                 Label("[b]Navigation[/b]", classes="nav-title"),
-                Label("🏠 Home", id="nav-home", classes="nav-item"),
-                Label("📋 Sessions", id="nav-sessions", classes="nav-item"),
-                Label("📊 Plans", id="nav-plans", classes="nav-item"),
-                Label("✅ Tasks", id="nav-tasks", classes="nav-item"),
-                Label("🔨 Build", id="nav-build", classes="nav-item"),
-                Label("🔄 Convert", id="nav-convert", classes="nav-item"),
-                Label("📺 Replay", id="nav-replay", classes="nav-item"),
-                Label("🏆 Arbitration", id="nav-arbitration", classes="nav-item"),
-                Label("🔍 Integrity", id="nav-semantic", classes="nav-item"),
-                Label("🔍 Diff Explorer", id="nav-semantic-diff", classes="nav-item"),
-                Label("🧠 Memory", id="nav-memory", classes="nav-item"),
-                Label("📄 Logs", id="nav-logs", classes="nav-item"),
-                Label("📊 Confidence", id="nav-confidence", classes="nav-item"),
-                Label("📦 Vault", id="nav-vault", classes="nav-item"),
-                Label("❓ Help", id="nav-help", classes="nav-item"),
+                Label("🏠 Home", id="nav-home", classes="nav-item clickable-nav-item"),
+                Label("📋 Sessions", id="nav-sessions", classes="nav-item clickable-nav-item"),
+                Label("📊 Plans", id="nav-plans", classes="nav-item clickable-nav-item"),
+                Label("✅ Tasks", id="nav-tasks", classes="nav-item clickable-nav-item"),
+                Label("🔨 Build", id="nav-build", classes="nav-item clickable-nav-item"),
+                Label("🔄 Convert", id="nav-convert", classes="nav-item clickable-nav-item"),
+                Label("📺 Replay", id="nav-replay", classes="nav-item clickable-nav-item"),
+                Label("🏆 Arbitration", id="nav-arbitration", classes="nav-item clickable-nav-item"),
+                Label("🔍 Integrity", id="nav-semantic", classes="nav-item clickable-nav-item"),
+                Label("🔍 Diff Explorer", id="nav-semantic-diff", classes="nav-item clickable-nav-item"),
+                Label("🧠 Memory", id="nav-memory", classes="nav-item clickable-nav-item"),
+                Label("📄 Logs", id="nav-logs", classes="nav-item clickable-nav-item"),
+                Label("📊 Confidence", id="nav-confidence", classes="nav-item clickable-nav-item"),
+                Label("📦 Vault", id="nav-vault", classes="nav-item clickable-nav-item"),
+                Label("❓ Help", id="nav-help", classes="nav-item clickable-nav-item"),
                 id="nav-menu"
             )
 
@@ -613,15 +772,21 @@ class MaestroTUI(App):
         # Set up global status manager
         global_status_manager.set_status_bar_widget(self.query_one("#status-bar", Horizontal))
 
-        # Mount the home screen content directly in the main content area
-        main_content = self.query_one("#main-content", Vertical)
-        home_screen = HomeScreen()
-        widgets = list(home_screen.compose())
-        for widget in widgets:
-            main_content.mount(widget)
+        # Check if onboarding should be shown (only if no prior TUI state exists)
+        from maestro.tui.utils.onboarding import onboarding_manager
+        if not onboarding_manager.is_onboarding_completed():
+            # Show onboarding screen first
+            self.push_screen(OnboardingScreen(), callback=self._on_onboarding_complete)
+        else:
+            # Mount the home screen content directly in the main content area
+            main_content = self.query_one("#main-content", Vertical)
+            home_screen = HomeScreen()
+            widgets = list(home_screen.compose())
+            for widget in widgets:
+                main_content.mount(widget)
 
-        # Bind click events for navigation items - need to wait a bit for the DOM to be ready
-        self.call_after_refresh(self._bind_navigation_events)
+            # Bind click events for navigation items - need to wait a bit for the DOM to be ready
+            self.call_after_refresh(self._bind_navigation_events)
 
         # Set up periodic update for loading indicators
         self.set_interval(0.2, self._update_loading_indicators)
@@ -630,6 +795,18 @@ class MaestroTUI(App):
         if self.smoke_mode:
             # Use a small delay to ensure the app starts rendering before exiting
             self.set_timer(self.smoke_seconds, self._smoke_exit)
+
+    def _on_onboarding_complete(self, result: bool = None) -> None:
+        """Callback when onboarding is completed."""
+        # Mount the home screen content in the main content area after onboarding
+        main_content = self.query_one("#main-content", Vertical)
+        home_screen = HomeScreen()
+        widgets = list(home_screen.compose())
+        for widget in widgets:
+            main_content.mount(widget)
+
+        # Bind click events for navigation items - need to wait a bit for the DOM to be ready
+        self.call_after_refresh(self._bind_navigation_events)
 
     def _update_loading_indicators(self) -> None:
         """Update loading indicators based on active loaders."""
@@ -661,84 +838,154 @@ class MaestroTUI(App):
             # Replace the current content with new screen content
             home_widget = self.query_one("#nav-home", Label)
             home_widget.styles.cursor = "pointer"
-            self.query_one("#nav-home").on("click", lambda: self._switch_main_content(HomeScreen()))
+            self.query_one("#nav-home", Label).on("click", lambda event: self._switch_main_content(HomeScreen()))
 
             sessions_widget = self.query_one("#nav-sessions", Label)
             sessions_widget.styles.cursor = "pointer"
-            self.query_one("#nav-sessions").on("click", lambda: self._switch_main_content(SessionsScreen()))
+            self.query_one("#nav-sessions", Label).on("click", lambda event: self._switch_main_content(SessionsScreen()))
 
             plans_widget = self.query_one("#nav-plans", Label)
             plans_widget.styles.cursor = "pointer"
-            self.query_one("#nav-plans").on("click", lambda: self._switch_main_content(PlansScreen()))
+            self.query_one("#nav-plans", Label).on("click", lambda event: self._switch_main_content(PlansScreen()))
 
             tasks_widget = self.query_one("#nav-tasks", Label)
             tasks_widget.styles.cursor = "pointer"
-            self.query_one("#nav-tasks").on("click", lambda: self._switch_main_content(TasksScreen()))
+            self.query_one("#nav-tasks", Label).on("click", lambda event: self._switch_main_content(TasksScreen()))
 
             build_widget = self.query_one("#nav-build", Label)
             build_widget.styles.cursor = "pointer"
-            self.query_one("#nav-build").on("click", lambda: self._switch_main_content(BuildScreen()))
+            self.query_one("#nav-build", Label).on("click", lambda event: self._switch_main_content(BuildScreen()))
 
             convert_widget = self.query_one("#nav-convert", Label)
             convert_widget.styles.cursor = "pointer"
-            self.query_one("#nav-convert").on("click", lambda: self._switch_main_content(ConvertScreen()))
+            self.query_one("#nav-convert", Label).on("click", lambda event: self._switch_main_content(ConvertScreen()))
 
             replay_widget = self.query_one("#nav-replay", Label)
             replay_widget.styles.cursor = "pointer"
-            self.query_one("#nav-replay").on("click", lambda: self._switch_main_content(ReplayScreen()))
+            self.query_one("#nav-replay", Label).on("click", lambda event: self._switch_main_content(ReplayScreen()))
 
             arbitration_widget = self.query_one("#nav-arbitration", Label)
             arbitration_widget.styles.cursor = "pointer"
-            self.query_one("#nav-arbitration").on("click", lambda: self._switch_main_content(ArbitrationScreen()))
+            self.query_one("#nav-arbitration", Label).on("click", lambda event: self._switch_main_content(ArbitrationScreen()))
 
             semantic_widget = self.query_one("#nav-semantic", Label)
             semantic_widget.styles.cursor = "pointer"
-            self.query_one("#nav-semantic").on("click", lambda: self._switch_main_content(SemanticScreen()))
+            self.query_one("#nav-semantic", Label).on("click", lambda event: self._switch_main_content(SemanticScreen()))
 
             semantic_diff_widget = self.query_one("#nav-semantic-diff", Label)
             semantic_diff_widget.styles.cursor = "pointer"
-            self.query_one("#nav-semantic-diff").on("click", lambda: self._switch_main_content(SemanticDiffScreen()))
+            self.query_one("#nav-semantic-diff", Label).on("click", lambda event: self._switch_main_content(SemanticDiffScreen()))
 
             memory_widget = self.query_one("#nav-memory", Label)
             memory_widget.styles.cursor = "pointer"
-            self.query_one("#nav-memory").on("click", lambda: self._switch_main_content(MemoryScreen()))
+            self.query_one("#nav-memory", Label).on("click", lambda event: self._switch_main_content(MemoryScreen()))
 
             logs_widget = self.query_one("#nav-logs", Label)
             logs_widget.styles.cursor = "pointer"
-            self.query_one("#nav-logs").on("click", lambda: self._switch_main_content(LogsScreen()))
+            self.query_one("#nav-logs", Label).on("click", lambda event: self._switch_main_content(LogsScreen()))
 
             confidence_widget = self.query_one("#nav-confidence", Label)
             confidence_widget.styles.cursor = "pointer"
-            self.query_one("#nav-confidence").on("click", lambda: self._switch_main_content(ConfidenceScreen()))
+            self.query_one("#nav-confidence", Label).on("click", lambda event: self._switch_main_content(ConfidenceScreen()))
 
             vault_widget = self.query_one("#nav-vault", Label)
             vault_widget.styles.cursor = "pointer"
-            self.query_one("#nav-vault").on("click", lambda: self._switch_main_content(VaultScreen()))
+            self.query_one("#nav-vault", Label).on("click", lambda event: self._switch_main_content(VaultScreen()))
 
             help_widget = self.query_one("#nav-help", Label)
             help_widget.styles.cursor = "pointer"
-            self.query_one("#nav-help").on("click", lambda: self._switch_main_content(HelpScreen()))
+            self.query_one("#nav-help", Label).on("click", lambda event: self._switch_main_content(HelpScreen()))
         except Exception as e:
             # If binding fails, just continue without it
             pass
 
     def _switch_main_content(self, screen_instance):
-        """Replace the main content area with a new screen."""
+        """Replace the main content area with a new screen with proper lifecycle management."""
         try:
+            # Cancel any ongoing task for the previous screen
+            if self.current_screen_task and not self.current_screen_task.done():
+                self.current_screen_task.cancel()
+                try:
+                    self.current_screen_task.result()  # This will raise CancelledError if not yet done
+                except (asyncio.CancelledError, RuntimeError):
+                    pass  # Task was cancelled, which is expected
+
             # Clear the main content area
             main_content = self.query_one("#main-content", Vertical)
             main_content.remove_children()
 
-            # Use the screen's compose method to get widgets and mount them
-            # Since compose() returns a generator, we need to collect the widgets
-            widgets = list(screen_instance.compose())
-            for widget in widgets:
-                main_content.mount(widget)
+            # Set up the new screen
+            self.current_screen = screen_instance
+
+
+            # Check if the screen has a load_data method and call it
+            if hasattr(screen_instance, 'load_data'):
+                # Create an async task to load data for the screen
+                self.current_screen_task = asyncio.create_task(screen_instance.load_data())
+            else:
+                # Just use the screen's compose method as before
+                widgets = list(screen_instance.compose())
+                for widget in widgets:
+                    main_content.mount(widget)
         except Exception as e:
-            # If all else fails, just display an error message
-            main_content = self.query_one("#main-content", Vertical)
-            main_content.remove_children()
-            main_content.mount(Label("Error loading screen content"))
+            # Create a more informative error message with screen name and exception details
+            screen_name = screen_instance.__class__.__name__ if hasattr(screen_instance, '__class__') else 'Unknown'
+            error_msg = ErrorNormalizer.normalize_exception(
+                e,
+                f"loading {screen_name} screen content"
+            )
+            error_msg.title = f"Error loading {screen_name}"
+            error_msg.actionable_hint = "Try refreshing the page (r) or check if an active session exists."
+
+            # Create error display with retry option
+            error_container = Vertical(id="error-container", classes="error-container")
+            error_container.mount(Label(f"[bold red]ERROR:[/bold red] {error_msg.message}", id="error-message"))
+
+            if error_msg.actionable_hint:
+                error_container.mount(Label(f"[i]Hint:[/i] {error_msg.actionable_hint}", id="error-hint"))
+
+            # Add details button for dev mode
+            if hasattr(self, 'dev_mode') and self.dev_mode:
+                error_container.mount(Label(f"[i]Exception: {type(e).__name__}: {str(e)}[/i]", id="error-details"))
+
+            # Add retry button
+            retry_button = Label("[bold blue]CLICK TO RETRY[/bold blue]", id="retry-button", classes="retry-button")
+            retry_button.styles.cursor = "pointer"
+            retry_button.tooltip = "Click to retry loading this screen"
+
+            # Add click handler for retry
+            def retry_handler(event):
+                if hasattr(screen_instance, 'load_data'):
+                    # Retry the load_data method
+                    try:
+                        if self.current_screen_task and not self.current_screen_task.done():
+                            self.current_screen_task.cancel()
+                        self.current_screen_task = asyncio.create_task(screen_instance.load_data())
+                    except Exception as retry_e:
+                        # If retry fails, keep showing error
+                        pass
+                else:
+                    # Retry the compose method
+                    try:
+                        main_content = self.query_one("#main-content", Vertical)
+                        main_content.remove_children()
+                        widgets = list(screen_instance.compose())
+                        for widget in widgets:
+                            main_content.mount(widget)
+                    except Exception:
+                        pass
+
+            retry_button.on("click", retry_handler)
+            error_container.mount(retry_button)
+
+            main_content.mount(error_container)
+
+    def _update_screen_menu(self, screen_instance):
+        """Update the screen-specific menu in the menu bar."""
+        # For now, we'll just log the active screen change
+        # In a real implementation, we would dynamically update the menu
+        # based on the screen instance's available actions
+        pass
 
     def switch_to_screen(self, screen_name: str) -> None:
         """Switch to a specific screen."""
@@ -758,6 +1005,7 @@ class MaestroTUI(App):
             "confidence": ConfidenceScreen,
             "vault": VaultScreen,
             "help": HelpScreen,
+            "help_index": HelpIndexScreen,
         }
 
         if screen_name in screen_map:
@@ -801,6 +1049,17 @@ class MaestroTUI(App):
         from maestro.tui.widgets.command_palette import CommandPaletteScreen
         palette = CommandPaletteScreen(session_id=session_id)
         self.push_screen(palette)
+
+    def action_toggle_help_panel(self) -> None:
+        """Action to toggle help panel on current screen."""
+        # Try to find a help panel in the current screen and toggle it
+        try:
+            help_panel = self.query_one("#main-content").query_one("#help-panel")
+            if hasattr(help_panel, 'toggle_collapsed'):
+                help_panel.toggle_collapsed()
+        except:
+            # If no help panel exists on current screen, show a notification
+            self.notify("No help panel available on current screen", timeout=3)
 
     def _smoke_exit(self):
         """Handle the smoke mode exit."""

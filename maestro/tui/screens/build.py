@@ -347,6 +347,13 @@ class BuildScreen(Screen):
         ("n", "create_new_target", "New Target"),
     ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Track scheduled intervals to cancel on unmount
+        self._refresh_handle = None
+        self._check_state_handle = None
+        self._diagnostics_handle = None
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the build screen."""
         yield Header()
@@ -377,16 +384,62 @@ class BuildScreen(Screen):
 
         yield Footer()
 
+    def load_data(self):
+        """Load screen data with proper lifecycle management."""
+        # Cancel any previous scheduled intervals
+        if self._refresh_handle:
+            self._refresh_handle()
+        if self._check_state_handle:
+            self._check_state_handle()
+        if self._diagnostics_handle:
+            self._diagnostics_handle()
+
+        try:
+            # Clear the main content area and recreate widgets
+            main_content = self.app.query_one("#main-content", Vertical)
+            main_content.remove_children()
+
+            # Mount the main widgets of the screen
+            widgets = list(self.compose())
+            for widget in widgets:
+                main_content.mount(widget)
+
+            # Load initial build target list
+            self.refresh_build_targets()
+
+            # Set up periodic refresh to update build statuses
+            self._refresh_handle = self.set_interval(2.0, self.refresh_build_targets)
+
+            # Set up periodic check for build state
+            self._check_state_handle = self.set_interval(1.0, self._check_build_state)
+
+        except Exception as e:
+            # Show error in the main content area
+            main_content = self.app.query_one("#main-content", Vertical)
+            main_content.remove_children()
+            error_msg = ErrorNormalizer.normalize_exception(e, "loading build screen")
+            main_content.mount(Label(f"[bold red]ERROR:[/bold red] {error_msg.message}"))
+            if error_msg.actionable_hint:
+                main_content.mount(Label(f"[i]Hint:[/i] {error_msg.actionable_hint}"))
+
     def on_mount(self) -> None:
         """Called when the screen is mounted."""
         # Load initial build target list
         self.refresh_build_targets()
 
         # Set up periodic refresh to update build statuses
-        self.set_interval(2.0, self.refresh_build_targets)
+        self._refresh_handle = self.set_interval(2.0, self.refresh_build_targets)
 
         # Set up periodic check for build state
-        self.set_interval(1.0, self._check_build_state)
+        self._check_state_handle = self.set_interval(1.0, self._check_build_state)
+
+    def on_unmount(self) -> None:
+        """Called when the screen is unmounted."""
+        # Cancel any scheduled intervals
+        if self._refresh_handle:
+            self._refresh_handle()
+        if self._check_state_handle:
+            self._check_state_handle()
 
     def refresh_build_targets(self) -> None:
         """Refresh the build target list from the backend."""

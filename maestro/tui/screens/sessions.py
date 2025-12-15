@@ -8,6 +8,7 @@ from textual.containers import Horizontal, Vertical, ScrollableContainer
 from maestro.ui_facade.sessions import list_sessions, get_session_details, create_session, set_active_session, remove_session
 from maestro.tui.widgets import ConfirmDialog, InputDialog
 from maestro.tui.utils import ErrorNormalizer, ErrorModal, ErrorSeverity, ErrorMessage
+from ..widgets.help_panel import HelpPanel, ScreenSpecificHelpData
 
 
 class SessionsScreen(Screen):
@@ -33,58 +34,68 @@ class SessionsScreen(Screen):
         yield Header()
 
         # Master-detail layout - horizontal split
-        with Horizontal(id="sessions-main-container"):
-            # Left pane - sessions list
-            with Vertical(id="sessions-list-pane", classes="pane"):
-                yield Label("[b]Sessions[/b]", classes="title")
+        with Vertical(id="sessions-main-container", classes="main-container"):
+            with Horizontal(id="sessions-content"):
+                # Left pane - sessions list
+                with Vertical(id="sessions-list-pane", classes="pane"):
+                    yield Label("[b]Sessions[/b]", classes="title")
 
-                # Create the session list view
-                session_items = []
-                try:
-                    self.sessions_list = list_sessions()
-                    for i, session in enumerate(self.sessions_list):
-                        # Check if this session is the active one
-                        active_marker = "●" if self.app.active_session and self.app.active_session.id == session.id else "○"
-
-                        # Format last modified time
-                        import datetime
-                        try:
-                            # Parse the datetime string and format it nicely
-                            dt = datetime.datetime.fromisoformat(session.updated_at.replace('Z', '+00:00'))
-                            formatted_time = dt.strftime("%m/%d %H:%M")
-                        except:
-                            formatted_time = session.updated_at
-
-                        # Shorten the ID for display
-                        short_id = session.id[:8] + "..."
-
-                        session_label = f"{active_marker} {session.root_task[:30]}{'...' if len(session.root_task) > 30 else ''} ({short_id}) [{formatted_time}]"
-                        item = ListItem(Label(session_label), id=f"session-{i}")
-                        session_items.append(item)
-                except Exception as e:
-                    # Normalize and display the error using the new error presentation system
-                    error_msg = ErrorNormalizer.normalize_exception(e, "loading sessions")
-                    session_items = [ListItem(Label(f"[red]Error loading sessions: {error_msg.message}[/red]"))]
-
-                yield ListView(*session_items, id="sessions-list-view", initial_index=0)
-
-            # Right pane - session details
-            with Vertical(id="session-details-pane", classes="pane"):
-                yield Label("[b]Session Details[/b]", classes="title")
-
-                if self.sessions_list and len(self.sessions_list) > 0:
-                    # Show details for the first session by default
+                    # Create the session list view
+                    session_items = []
                     try:
-                        session_id = self.sessions_list[0].id
-                        self.current_session_details = get_session_details(session_id)
-                        yield self._create_session_details_view()
+                        self.sessions_list = list_sessions()
+                        for i, session in enumerate(self.sessions_list):
+                            # Check if this session is the active one
+                            active_marker = "●" if self.app.active_session and self.app.active_session.id == session.id else "○"
+
+                            # Format last modified time
+                            import datetime
+                            try:
+                                # Parse the datetime string and format it nicely
+                                dt = datetime.datetime.fromisoformat(session.updated_at.replace('Z', '+00:00'))
+                                formatted_time = dt.strftime("%m/%d %H:%M")
+                            except:
+                                formatted_time = session.updated_at
+
+                            # Shorten the ID for display
+                            short_id = session.id[:8] + "..."
+
+                            session_label = f"{active_marker} {session.root_task[:30]}{'...' if len(session.root_task) > 30 else ''} ({short_id}) [{formatted_time}]"
+                            item = ListItem(Label(session_label), id=f"session-{i}")
+                            session_items.append(item)
                     except Exception as e:
                         # Normalize and display the error using the new error presentation system
-                        error_msg = ErrorNormalizer.normalize_exception(e, "loading session details")
-                        yield Label(f"[red]Error loading session details: {error_msg.message}[/red]")
-                else:
-                    # Show a placeholder with consistent minimum height
-                    yield Label("No sessions available", classes="placeholder", id="session-details-placeholder")
+                        error_msg = ErrorNormalizer.normalize_exception(e, "loading sessions")
+                        session_items = [ListItem(Label(f"[red]Error loading sessions: {error_msg.message}[/red]"))]
+
+                    yield ListView(*session_items, id="sessions-list-view", initial_index=0)
+
+                # Right pane - session details
+                with Vertical(id="session-details-pane", classes="pane"):
+                    yield Label("[b]Session Details[/b]", classes="title")
+
+                    if self.sessions_list and len(self.sessions_list) > 0:
+                        # Show details for the first session by default
+                        try:
+                            session_id = self.sessions_list[0].id
+                            self.current_session_details = get_session_details(session_id)
+                            yield self._create_session_details_view()
+                        except Exception as e:
+                            # Normalize and display the error using the new error presentation system
+                            error_msg = ErrorNormalizer.normalize_exception(e, "loading session details")
+                            yield Label(f"[red]Error loading session details: {error_msg.message}[/red]")
+                    else:
+                        # Show a placeholder with consistent minimum height
+                        yield Label("No sessions available", classes="placeholder", id="session-details-placeholder")
+
+            # Add the help panel
+            help_content = ScreenSpecificHelpData.get_help_content("sessions")
+            yield HelpPanel(
+                title="Sessions Management Help",
+                help_content=help_content,
+                screen_name="sessions",
+                id="help-panel"
+            )
 
         yield Footer()
 
@@ -342,9 +353,40 @@ class SessionsScreen(Screen):
                     error_msg = ErrorNormalizer.normalize_exception(e, "deleting session")
                     self.app.push_screen(ErrorModal(error_msg))
 
-        # Show confirmation dialog
+        # Show confirmation dialog with detailed explanation
+        message = f"Permanently remove session '{selected_session.root_task[:30]}...'?\n\n"
+        message += "[b][red]IRREVERSIBLE ACTION[/red][/b]\n"
+        message += "• Session data will be permanently deleted\n"
+        message += "• All associated plans, tasks, and artifacts will be removed\n"
+        message += "• This action cannot be undone\n\n"
+        message += "[i]Action evidence will be logged in system logs.[/i]"
+
         confirm_dialog = ConfirmDialog(
-            message=f"Permanently remove session '{selected_session.root_task[:30]}...'?\nThis cannot be undone.",
-            title="Confirm Delete"
+            message=message,
+            title="Confirm Delete Session (IRREVERSIBLE)"
         )
         self.app.push_screen(confirm_dialog, callback=on_confirmed)
+
+    def load_data(self):
+        """Load screen data with proper lifecycle management."""
+        try:
+            # Clear the main content area and recreate widgets
+            main_content = self.app.query_one("#main-content", Vertical)
+            main_content.remove_children()
+
+            # Mount the main widgets of the screen
+            widgets = list(self.compose())
+            for widget in widgets:
+                main_content.mount(widget)
+
+            # Refresh the session list
+            self.refresh_sessions_list()
+
+        except Exception as e:
+            # Show error in the main content area
+            main_content = self.app.query_one("#main-content", Vertical)
+            main_content.remove_children()
+            error_msg = ErrorNormalizer.normalize_exception(e, "loading sessions screen")
+            main_content.mount(Label(f"[bold red]ERROR:[/bold red] {error_msg.message}"))
+            if error_msg.actionable_hint:
+                main_content.mount(Label(f"[i]Hint:[/i] {error_msg.actionable_hint}"))

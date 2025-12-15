@@ -14,6 +14,7 @@ from maestro.ui_facade.tasks import list_tasks, run_tasks, resume_tasks, stop_ta
 from maestro.ui_facade.sessions import get_active_session
 from maestro.tui.utils import ErrorNormalizer, ErrorModal
 import asyncio
+from maestro.tui.utils import track_facade_call
 
 
 class TaskList(Widget):
@@ -51,6 +52,16 @@ class TaskList(Widget):
                     id=f"task-{task.id}",
                     classes=" ".join(task_classes)
                 )
+
+    def on_mouse_scroll_down(self, event) -> None:
+        """Handle mouse scroll down."""
+        event.stop()
+        self.action_cursor_down()
+
+    def on_mouse_scroll_up(self, event) -> None:
+        """Handle mouse scroll up."""
+        event.stop()
+        self.action_cursor_up()
 
     def on_mount(self) -> None:
         """Set up keyboard focus for navigation."""
@@ -217,6 +228,13 @@ class TasksScreen(Screen):
         ("down", "cursor_down", "Down"),
     ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Track async tasks to cancel when screen changes
+        self.load_task = None
+        self.refresh_task = None
+        self.execution_check_task = None
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the tasks screen."""
         yield Header()
@@ -236,16 +254,61 @@ class TasksScreen(Screen):
 
         yield Footer()
 
+    def load_data(self):
+        """Load screen data with proper lifecycle management."""
+        # Cancel any previous refresh tasks by cancelling the scheduled intervals
+        if hasattr(self, '_refresh_handle') and self._refresh_handle:
+            self._refresh_handle()
+        if hasattr(self, '_execution_check_handle') and self._execution_check_handle:
+            self._execution_check_handle()
+
+        try:
+            # Clear the main content area and recreate widgets
+            main_content = self.app.query_one("#main-content", Vertical)
+            main_content.remove_children()
+
+            # Mount the main widgets of the screen
+            widgets = list(self.compose())
+            for widget in widgets:
+                main_content.mount(widget)
+
+            # Load initial task list
+            self.refresh_task_list()
+
+            # Set up periodic refresh to update task statuses
+            self._refresh_handle = self.set_interval(2.0, self.refresh_task_list)
+
+            # Set up periodic check for execution state
+            self._execution_check_handle = self.set_interval(0.5, self._check_execution_state)
+
+        except Exception as e:
+            # Show error in the main content area
+            main_content = self.app.query_one("#main-content", Vertical)
+            main_content.remove_children()
+            error_msg = ErrorNormalizer.normalize_exception(e, "loading tasks screen")
+            main_content.mount(Label(f"[bold red]ERROR:[/bold red] {error_msg.message}"))
+            if error_msg.actionable_hint:
+                main_content.mount(Label(f"[i]Hint:[/i] {error_msg.actionable_hint}"))
+
     def on_mount(self) -> None:
         """Called when the screen is mounted."""
         # Load initial task list
         self.refresh_task_list()
 
         # Set up periodic refresh to update task statuses
-        self.set_interval(2.0, self.refresh_task_list)
+        # Store the handle so we can cancel later
+        self._refresh_handle = self.set_interval(2.0, self.refresh_task_list)
 
         # Set up periodic check for execution state
-        self.set_interval(0.5, self._check_execution_state)
+        self._execution_check_handle = self.set_interval(0.5, self._check_execution_state)
+
+    def on_unmount(self) -> None:
+        """Called when the screen is unmounted."""
+        # Cancel any scheduled intervals
+        if hasattr(self, '_refresh_handle') and self._refresh_handle:
+            self._refresh_handle()
+        if hasattr(self, '_execution_check_handle') and self._execution_check_handle:
+            self._execution_check_handle()
 
     def refresh_task_list(self) -> None:
         """Refresh the task list from the backend."""
@@ -333,34 +396,54 @@ class TasksScreen(Screen):
             self.notify("Tasks are already running - stop current execution first", severity="warning")
             return
 
-        # Update status message
-        status_label = self.query_one("#status-message", Label)
-        if status_label:
-            status_label.update("[bold yellow]RUNNING[/bold yellow] - Starting task execution... (Press S to stop, Ctrl+C to interrupt)")
+        # Show confirmation dialog with detailed explanation before starting
+        def on_confirmed(confirmed: bool):
+            if confirmed:
+                # Update status message
+                status_label = self.query_one("#status-message", Label)
+                if status_label:
+                    status_label.update("[bold yellow]RUNNING[/bold yellow] - Starting task execution... (Press S to stop, Ctrl+C to interrupt)")
 
-        # Run tasks in a separate thread to not block UI
-        def status_callback(message):
-            try:
-                self.call_from_thread(lambda: self._update_status_safely(f"[bold yellow]RUNNING[/bold yellow] - {message}"))
-            except:
-                pass
+                # Run tasks in a separate thread to not block UI
+                def status_callback(message):
+                    try:
+                        self.call_from_thread(lambda: self._update_status_safely(f"[bold yellow]RUNNING[/bold yellow] - {message}"))
+                    except:
+                        pass
 
-        def output_callback(output):
-            # Stream output to the log viewer
-            try:
-                self.call_from_thread(lambda: self._stream_output_to_viewer(output))
-            except:
-                pass
+                def output_callback(output):
+                    # Stream output to the log viewer
+                    try:
+                        self.call_from_thread(lambda: self._stream_output_to_viewer(output))
+                    except:
+                        pass
 
-        try:
-            # This would be done in a background thread in a real implementation
-            # For this implementation, we'll use the facade directly
-            run_tasks(session.id, on_status_change=status_callback, on_output=output_callback)
-        except Exception as e:
-            error_msg = ErrorNormalizer.normalize_exception(e, "running tasks")
-            if status_label:
-                status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
-            self.app.push_screen(ErrorModal(error_msg))
+                try:
+                    # This would be done in a background thread in a real implementation
+                    # For this implementation, we'll use the facade directly
+                    run_tasks(session.id, on_status_change=status_callback, on_output=output_callback)
+                except Exception as e:
+                    error_msg = ErrorNormalizer.normalize_exception(e, "running tasks")
+                    if status_label:
+                        status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
+                    self.app.push_screen(ErrorModal(error_msg))
+            else:
+                self.notify("Task execution cancelled", timeout=2)
+
+        from maestro.tui.widgets.modals import ConfirmDialog
+        message = "Start execution of all tasks in the active plan?\n\n"
+        message += "[b][yellow]MUTATING OPERATION[/yellow][/b]\n"
+        message += "• May execute multiple AI tasks sequentially\n"
+        message += "• Will potentially modify code files\n"
+        message += "• Can take significant time to complete\n"
+        message += "• Some changes may be irreversible\n\n"
+        message += "[i]Action evidence will be logged in the artifacts vault.[/i]"
+
+        confirm_dialog = ConfirmDialog(
+            message=message,
+            title="Confirm Run All Tasks"
+        )
+        self.app.push_screen(confirm_dialog, callback=on_confirmed)
 
     def _update_status_safely(self, message: str):
         """Safely update the status message."""
@@ -407,35 +490,52 @@ class TasksScreen(Screen):
             self.notify("Tasks are already running", severity="warning")
             return
 
-        # Update status message
-        status_label = self.query_one("#status-message", Label)
-        status_label.update("[bold yellow]RUNNING[/bold yellow] - Resuming interrupted tasks...")
+        # Show confirmation dialog with detailed explanation before resuming
+        def on_confirmed(confirmed: bool):
+            if confirmed:
+                # Update status message
+                status_label = self.query_one("#status-message", Label)
+                status_label.update("[bold yellow]RUNNING[/bold yellow] - Resuming interrupted tasks...")
 
-        # Resume tasks in a separate thread to not block UI
-        def status_callback(message):
-            self.call_from_thread(lambda: status_label.update(f"[bold yellow]RUNNING[/bold yellow] - {message}"))
+                # Resume tasks in a separate thread to not block UI
+                def status_callback(message):
+                    self.call_from_thread(lambda: status_label.update(f"[bold yellow]RUNNING[/bold yellow] - {message}"))
 
-        def output_callback(output):
-            # Stream output to the log viewer
-            self.call_from_thread(lambda: self._stream_output_to_viewer(output))
+                def output_callback(output):
+                    # Stream output to the log viewer
+                    self.call_from_thread(lambda: self._stream_output_to_viewer(output))
 
-        try:
-            # This would be done in a background thread in a real implementation
-            # For this implementation, we'll use the facade directly
-            resume_tasks(session.id, on_status_change=status_callback, on_output=output_callback)
-        except ValueError as e:
-            # ValueError typically means no tasks to resume or session issues
-            status_label.update(f"[bold red]NO TASKS TO RESUME[/bold red] - {str(e)}")
-            self.app.push_screen(ErrorModal(ErrorNormalizer.normalize_exception(e, "resuming tasks")))
-        except Exception as e:
-            error_msg = ErrorNormalizer.normalize_exception(e, "resuming tasks")
-            status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
-            self.app.push_screen(ErrorModal(error_msg))
+                try:
+                    # This would be done in a background thread in a real implementation
+                    # For this implementation, we'll use the facade directly
+                    resume_tasks(session.id, on_status_change=status_callback, on_output=output_callback)
+                except ValueError as e:
+                    # ValueError typically means no tasks to resume or session issues
+                    status_label.update(f"[bold red]NO TASKS TO RESUME[/bold red] - {str(e)}")
+                    self.app.push_screen(ErrorModal(ErrorNormalizer.normalize_exception(e, "resuming tasks")))
+                except Exception as e:
+                    error_msg = ErrorNormalizer.normalize_exception(e, "resuming tasks")
+                    status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
+                    self.app.push_screen(ErrorModal(error_msg))
+            else:
+                self.notify("Task resume cancelled", timeout=2)
+
+        from maestro.tui.widgets.modals import ConfirmDialog
+        message = "Resume interrupted tasks in the active plan?\n\n"
+        message += "[b][yellow]MUTATING OPERATION[/yellow][/b]\n"
+        message += "• Will continue previously interrupted AI tasks\n"
+        message += "• Will potentially modify code files\n"
+        message += "• May continue from where it left off\n\n"
+        message += "[i]Action evidence will be logged in the artifacts vault.[/i]"
+
+        confirm_dialog = ConfirmDialog(
+            message=message,
+            title="Confirm Resume Tasks"
+        )
+        self.app.push_screen(confirm_dialog, callback=on_confirmed)
 
     def action_run_with_limit(self) -> None:
         """Run tasks with a limit."""
-        # In a real implementation, this would show a dialog to get the limit value
-        # For now, we'll just run with a default limit of 2
         session = get_active_session()
         if not session:
             self.notify("No active session found", severity="error")
@@ -447,26 +547,45 @@ class TasksScreen(Screen):
             self.notify("Tasks are already running", severity="warning")
             return
 
-        # Update status message
-        status_label = self.query_one("#status-message", Label)
-        status_label.update("[bold yellow]RUNNING[/bold yellow] - Running tasks with limit...")
+        # Show confirmation dialog with detailed explanation before running with limit
+        def on_confirmed(confirmed: bool):
+            if confirmed:
+                # Update status message
+                status_label = self.query_one("#status-message", Label)
+                status_label.update("[bold yellow]RUNNING[/bold yellow] - Running tasks with limit...")
 
-        # Run tasks with limit in a separate thread to not block UI
-        def status_callback(message):
-            self.call_from_thread(lambda: status_label.update(f"[bold yellow]RUNNING[/bold yellow] - {message}"))
+                # Run tasks with limit in a separate thread to not block UI
+                def status_callback(message):
+                    self.call_from_thread(lambda: status_label.update(f"[bold yellow]RUNNING[/bold yellow] - {message}"))
 
-        def output_callback(output):
-            # Stream output to the log viewer
-            self.call_from_thread(lambda: self._stream_output_to_viewer(output))
+                def output_callback(output):
+                    # Stream output to the log viewer
+                    self.call_from_thread(lambda: self._stream_output_to_viewer(output))
 
-        try:
-            # This would be done in a background thread in a real implementation
-            # For this implementation, we'll use the facade directly with limit=2
-            run_tasks(session.id, limit=2, on_status_change=status_callback, on_output=output_callback)
-        except Exception as e:
-            error_msg = ErrorNormalizer.normalize_exception(e, "running tasks with limit")
-            status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
-            self.app.push_screen(ErrorModal(error_msg))
+                try:
+                    # This would be done in a background thread in a real implementation
+                    # For this implementation, we'll use the facade directly with limit=2
+                    run_tasks(session.id, limit=2, on_status_change=status_callback, on_output=output_callback)
+                except Exception as e:
+                    error_msg = ErrorNormalizer.normalize_exception(e, "running tasks with limit")
+                    status_label.update(f"[bold red]ERROR[/bold red] - {error_msg.message}")
+                    self.app.push_screen(ErrorModal(error_msg))
+            else:
+                self.notify("Task execution cancelled", timeout=2)
+
+        from maestro.tui.widgets.modals import ConfirmDialog
+        message = "Start execution of limited tasks in the active plan?\n\n"
+        message += "[b][yellow]MUTATING OPERATION[/yellow][/b]\n"
+        message += "• Will execute only a limited number of AI tasks\n"
+        message += "• Will potentially modify code files\n"
+        message += "• Number of tasks to execute: 2 (hardcoded limit)\n\n"
+        message += "[i]Action evidence will be logged in the artifacts vault.[/i]"
+
+        confirm_dialog = ConfirmDialog(
+            message=message,
+            title="Confirm Run Tasks with Limit"
+        )
+        self.app.push_screen(confirm_dialog, callback=on_confirmed)
 
     def action_stop_tasks(self) -> None:
         """Request graceful stop of current execution."""
