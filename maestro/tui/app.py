@@ -73,8 +73,10 @@ class MaestroTUI(App):
         ("l", "switch_to_screen('logs')", "Logs"),
     ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, smoke_mode=False, smoke_seconds=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.smoke_mode = smoke_mode
+        self.smoke_seconds = smoke_seconds
         self.active_session = None
         self.active_plan = None
         self.active_build_target = None
@@ -160,6 +162,11 @@ class MaestroTUI(App):
 
         # Bind click events for navigation items - need to wait a bit for the DOM to be ready
         self.call_after_refresh(self._bind_navigation_events)
+
+        # If in smoke mode, set up a timer to exit after the specified time
+        if self.smoke_mode:
+            # Use a small delay to ensure the app starts rendering before exiting
+            self.set_timer(self.smoke_seconds, self._smoke_exit)
 
     def _bind_navigation_events(self) -> None:
         """Bind navigation events after the DOM is loaded."""
@@ -275,10 +282,28 @@ class MaestroTUI(App):
         palette = CommandPaletteScreen(session_id=session_id)
         self.push_screen(palette)
 
+    def _smoke_exit(self):
+        """Handle the smoke mode exit."""
+        import sys
+        import os
+        # Write success indicator to file to avoid terminal output issues
+        smoke_success_file = os.environ.get("MAESTRO_SMOKE_SUCCESS_FILE", "/tmp/maestro_tui_smoke_success")
+        try:
+            with open(smoke_success_file, 'w') as f:
+                f.write("MAESTRO_TUI_SMOKE_OK\n")
+        except:
+            # If file writing fails, try standard output as backup
+            print("MAESTRO_TUI_SMOKE_OK")
 
-def main():
+        # Also print to stdout as backup (though may not be visible in full-screen apps)
+        print("MAESTRO_TUI_SMOKE_OK", flush=True)
+        sys.stdout.flush()
+        self.exit()
+
+
+def main(smoke_mode=False, smoke_seconds=0.5):
     """Run the TUI application."""
-    app = MaestroTUI()
+    app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds)
     app.run()
 
 
