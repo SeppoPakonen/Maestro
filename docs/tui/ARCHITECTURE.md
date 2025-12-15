@@ -69,3 +69,15 @@ TUI-specific dependencies are managed separately from core Maestro logic:
 - Dependencies pinned to specific versions
 - Clear separation in requirements or setup.py
 - Independent upgrade cycles from core logic
+
+## UI Facade Contract
+
+The TUI communicates with backend services exclusively through a dedicated facade:
+
+- **Only structured data**: Dicts, lists, dataclasses (no formatted strings)
+- **Python exceptions**: Machine-meaningful error types (no user-facing prose)
+- **Read-only operations**: Initial implementation supports viewing only
+- **Direct access**: Reads session files, build targets, and plan artifacts directly
+- **No CLI shelling**: Never invokes maestro CLI or parses its output
+
+This ensures stability and predictable data exchange between TUI and backend.
