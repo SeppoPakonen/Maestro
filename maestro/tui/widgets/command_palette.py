@@ -69,6 +69,14 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Session: Remove session", "action": "session_remove", "type": "session"},
         ])
 
+        # Task operations
+        commands.extend([
+            {"name": "Task: Run all tasks", "action": "task_run", "type": "task"},
+            {"name": "Task: Resume interrupted tasks", "action": "task_resume", "type": "task"},
+            {"name": "Task: Run tasks with limit", "action": "task_run_limit", "type": "task"},
+            {"name": "Task: Stop current execution", "action": "task_stop", "type": "task"},
+        ])
+
         return commands
 
     def compose(self) -> ComposeResult:
@@ -528,6 +536,84 @@ class CommandPaletteScreen(ModalScreen):
             elif action_name == "plan_kill":
                 # This operation requires user input for selecting the plan
                 return "INPUT_NEEDED"
+            elif action_name == "task_run":
+                # Run all tasks
+                from maestro.ui_facade.tasks import run_tasks, get_current_execution_state
+                session = self.app.active_session
+                if not session:
+                    return "No active session to run tasks"
+
+                exec_state = get_current_execution_state()
+                if exec_state.get("is_running", False):
+                    return "Tasks are already running"
+
+                # Call run_tasks in a separate thread to prevent blocking
+                def run_in_thread():
+                    try:
+                        run_tasks(session.id)
+                    except Exception as e:
+                        self.app.notify(f"Error running tasks: {str(e)}", severity="error")
+
+                import threading
+                thread = threading.Thread(target=run_in_thread, daemon=True)
+                thread.start()
+
+                return "Tasks started successfully"
+            elif action_name == "task_resume":
+                # Resume interrupted tasks
+                from maestro.ui_facade.tasks import resume_tasks, get_current_execution_state
+                session = self.app.active_session
+                if not session:
+                    return "No active session to resume tasks"
+
+                exec_state = get_current_execution_state()
+                if exec_state.get("is_running", False):
+                    return "Tasks are already running"
+
+                # Call resume_tasks in a separate thread to prevent blocking
+                def resume_in_thread():
+                    try:
+                        resume_tasks(session.id)
+                    except Exception as e:
+                        self.app.notify(f"Error resuming tasks: {str(e)}", severity="error")
+
+                import threading
+                thread = threading.Thread(target=resume_in_thread, daemon=True)
+                thread.start()
+
+                return "Resume started successfully"
+            elif action_name == "task_run_limit":
+                # Run tasks with limit
+                from maestro.ui_facade.tasks import run_tasks, get_current_execution_state
+                session = self.app.active_session
+                if not session:
+                    return "No active session to run tasks"
+
+                exec_state = get_current_execution_state()
+                if exec_state.get("is_running", False):
+                    return "Tasks are already running"
+
+                # For now, we'll just run with a default limit of 2
+                # In a real implementation, this would prompt for the limit value
+                def run_with_limit_in_thread():
+                    try:
+                        run_tasks(session.id, limit=2)
+                    except Exception as e:
+                        self.app.notify(f"Error running tasks with limit: {str(e)}", severity="error")
+
+                import threading
+                thread = threading.Thread(target=run_with_limit_in_thread, daemon=True)
+                thread.start()
+
+                return "Tasks with limit started successfully"
+            elif action_name == "task_stop":
+                # Stop current execution
+                from maestro.ui_facade.tasks import stop_tasks
+                success = stop_tasks()
+                if success:
+                    return "Stop request sent successfully"
+                else:
+                    return "No running tasks to stop"
             else:
                 return f"Unknown command: {action_name}"
         except Exception as e:

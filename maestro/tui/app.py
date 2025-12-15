@@ -56,6 +56,70 @@ class MaestroTUI(App):
     .status-label {
         margin: 0 1;
     }
+
+    /* Task Screen Styles */
+    #control-bar {
+        height: 3;
+        dock: top;
+        background: $surface;
+        border-bottom: solid $primary;
+    }
+
+    .control-buttons {
+        height: 100%;
+        align: center middle;
+        gap: 1;
+    }
+
+    .control-buttons Button {
+        width: 20;
+    }
+
+    #main-content {
+        layout: horizontal;
+        height: 1fr;
+    }
+
+    .task-list-container {
+        width: 60%;
+        height: 1fr;
+        border-right: solid $primary;
+    }
+
+    .log-viewer-container {
+        width: 40%;
+        height: 1fr;
+    }
+
+    .task-item {
+        height: 1;
+        padding: 0 1;
+    }
+
+    .task-item.running {
+        background: $success 10%;
+        text-style: bold;
+    }
+
+    .task-item.selected {
+        background: $accent 20%;
+        text-style: reverse;
+    }
+
+    #log-viewer {
+        height: 1fr;
+        width: 1fr;
+        border: solid $primary;
+    }
+
+    .status-message {
+        height: 1;
+        dock: bottom;
+        background: $surface;
+        border-top: solid $primary;
+        content-align: left middle;
+        padding: 0 1;
+    }
     """
 
     BINDINGS = [
