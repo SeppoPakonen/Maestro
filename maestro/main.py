@@ -376,12 +376,22 @@ class UnknownPath:
 
 
 @dataclass
+class InternalPackage:
+    """Maestro internal package grouping for non-U++ paths."""
+    name: str
+    root_path: str
+    guessed_type: str  # 'docs', 'tooling', 'scripts', 'assets', 'third_party', 'misc'
+    members: List[str] = field(default_factory=list)  # Relative paths of members
+
+
+@dataclass
 class RepoScanResult:
     """Result of scanning a U++ repository for packages, assemblies, and unknown paths."""
     assemblies_detected: List[AssemblyInfo] = field(default_factory=list)
     packages_detected: List[PackageInfo] = field(default_factory=list)
     unknown_paths: List[UnknownPath] = field(default_factory=list)
     user_assemblies: List[Dict[str, Any]] = field(default_factory=list)  # From ~/.config/u++/ide/*.var
+    internal_packages: List[InternalPackage] = field(default_factory=list)  # Inferred from unknown paths
 
 
 # Dataclasses for structure fix operations
@@ -2079,11 +2089,15 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: 
             if verbose:
                 print(f"[maestro] Warning: Failed to read user assemblies: {e}")
 
+    # Infer internal packages from unknown paths
+    internal_packages = infer_internal_packages(unknown_paths, root_dir)
+
     return RepoScanResult(
         assemblies_detected=assembly_infos,
         packages_detected=discovered_packages,
         unknown_paths=unknown_paths,
-        user_assemblies=user_assemblies
+        user_assemblies=user_assemblies,
+        internal_packages=internal_packages
     )
 
 
@@ -2114,6 +2128,77 @@ def guess_path_kind(path: str) -> str:
         return 'config'
 
     return 'unknown'
+
+
+def infer_internal_packages(unknown_paths: List[UnknownPath], repo_root: str) -> List[InternalPackage]:
+    """
+    Create Maestro internal packages from unknown paths.
+
+    Groups paths by top-level directory or into 'root_misc' for single files.
+
+    Args:
+        unknown_paths: List of unknown paths from repo scan
+        repo_root: Repository root path
+
+    Returns:
+        List of InternalPackage objects
+    """
+    from collections import defaultdict
+    from pathlib import Path
+
+    # Group paths by top-level directory
+    groups = defaultdict(list)
+
+    for unknown in unknown_paths:
+        path_parts = Path(unknown.path).parts
+
+        if len(path_parts) == 1:
+            # Single file/dir in root - goes to root_misc
+            groups['root_misc'].append(unknown)
+        else:
+            # Group by first directory component
+            top_dir = path_parts[0]
+            groups[top_dir].append(unknown)
+
+    # Create internal packages from groups
+    internal_packages = []
+
+    for group_name, members in sorted(groups.items()):
+        # Determine package type from members
+        member_kinds = [m.guessed_kind for m in members]
+
+        # Choose dominant type
+        kind_counts = {}
+        for kind in member_kinds:
+            kind_counts[kind] = kind_counts.get(kind, 0) + 1
+
+        # Sort by count descending, then by type name
+        sorted_kinds = sorted(kind_counts.items(), key=lambda x: (-x[1], x[0]))
+
+        if sorted_kinds:
+            dominant_kind = sorted_kinds[0][0]
+            # Map 'config' and 'unknown' to 'misc'
+            if dominant_kind in ('config', 'unknown'):
+                dominant_kind = 'misc'
+        else:
+            dominant_kind = 'misc'
+
+        # Build root path
+        if group_name == 'root_misc':
+            root_path = repo_root
+        else:
+            root_path = str(Path(repo_root) / group_name)
+
+        internal_pkg = InternalPackage(
+            name=group_name,
+            root_path=root_path,
+            guessed_type=dominant_kind,
+            members=[m.path for m in members]
+        )
+
+        internal_packages.append(internal_pkg)
+
+    return internal_packages
 
 
 def find_repo_root(start_path: str = None) -> str:
@@ -2201,7 +2286,15 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
                 "guessed_kind": unknown.guessed_kind
             } for unknown in scan_result.unknown_paths
         ],
-        "user_assemblies": scan_result.user_assemblies
+        "user_assemblies": scan_result.user_assemblies,
+        "internal_packages": [
+            {
+                "name": ipkg.name,
+                "root_path": ipkg.root_path,
+                "guessed_type": ipkg.guessed_type,
+                "members": ipkg.members
+            } for ipkg in scan_result.internal_packages
+        ]
     }
 
     # Write index.json atomically
@@ -2225,6 +2318,7 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
     summary_lines.append(f"Packages: {len(scan_result.packages_detected)}")
     summary_lines.append(f"Assemblies: {len(scan_result.assemblies_detected)}")
     summary_lines.append(f"User assemblies: {len(scan_result.user_assemblies)}")
+    summary_lines.append(f"Internal packages: {len(scan_result.internal_packages)}")
     summary_lines.append(f"Unknown paths: {len(scan_result.unknown_paths)}")
     summary_lines.append("")
 
@@ -2232,6 +2326,12 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         summary_lines.append("Top packages:")
         for pkg in sorted(scan_result.packages_detected, key=lambda p: p.name)[:10]:
             summary_lines.append(f"  - {pkg.name} ({len(pkg.files)} files)")
+
+    if scan_result.internal_packages:
+        summary_lines.append("")
+        summary_lines.append("Internal packages:")
+        for ipkg in sorted(scan_result.internal_packages, key=lambda p: p.name)[:10]:
+            summary_lines.append(f"  - {ipkg.name} ({ipkg.guessed_type}, {len(ipkg.members)} members)")
 
     summary_content = '\n'.join(summary_lines) + '\n'
 
@@ -2254,8 +2354,9 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         "packages_count": len(scan_result.packages_detected),
         "assemblies_count": len(scan_result.assemblies_detected),
         "user_assemblies_count": len(scan_result.user_assemblies),
+        "internal_packages_count": len(scan_result.internal_packages),
         "unknown_count": len(scan_result.unknown_paths),
-        "scanner_version": "0.5.0"
+        "scanner_version": "0.6.0"
     }
 
     with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
@@ -3263,7 +3364,7 @@ def main():
     repo_subparsers = repo_parser.add_subparsers(dest='repo_subcommand', help='Repository subcommands')
 
     # repo resolve
-    repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan U++ repo for packages, assemblies, and unknown paths (v0.3)')
+    repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan U++ repo for packages, assemblies, and internal packages (v0.6)')
     repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: auto-detect via .maestro/)')
     repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to .maestro/repo/')
@@ -4937,6 +5038,14 @@ def main():
                                 "files": pkg.files
                             } for pkg in repo_result.packages_detected
                         ],
+                        "internal_packages": [
+                            {
+                                "name": ipkg.name,
+                                "root_path": ipkg.root_path,
+                                "guessed_type": ipkg.guessed_type,
+                                "members": ipkg.members
+                            } for ipkg in repo_result.internal_packages
+                        ],
                         "unknown_paths": [
                             {
                                 "path": unknown.path,
@@ -4953,6 +5062,7 @@ def main():
                     print(f"\nRepository: {scan_path}")
                     print(f"Packages: {len(repo_result.packages_detected)}")
                     print(f"Assemblies: {len(repo_result.assemblies_detected)}")
+                    print(f"Internal packages: {len(repo_result.internal_packages)}")
                     print(f"Unknown paths: {len(repo_result.unknown_paths)}")
 
                     if not args.no_write:
@@ -4998,6 +5108,7 @@ def main():
                     print(f"\nRepository: {repo_root}")
                     print(f"Packages: {len(index_data['packages_detected'])}")
                     print(f"Assemblies: {len(index_data['assemblies_detected'])}")
+                    print(f"Internal packages: {len(index_data.get('internal_packages', []))}")
                     print(f"Unknown paths: {len(index_data['unknown_paths'])}")
 
                     if index_data['packages_detected']:

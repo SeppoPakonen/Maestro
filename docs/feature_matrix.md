@@ -24,7 +24,8 @@
 | Live execution view | — | planned | Real-time process monitoring |
 | Hot-reloading | — | planned | Automatic UI refresh during development |
 | UPP parser | CLI v0.1.0 | — | Tolerant parser for .upp package descriptor files extracting metadata |
-| Repo resolve | CLI v0.5.0 | — | U++ repository scanning with auto-detection, pruning, artifact persistence, .upp parsing, and user assembly reading from ~/.config/u++/ide/*.var |
+| Repo resolve | CLI v0.6.0 | — | U++ repository scanning with auto-detection, pruning, artifact persistence, .upp parsing, user assembly reading, and internal package inference |
+| CLI: internal package inference | CLI v0.1.0 | — | Group unknown paths into structured Maestro internal packages by top-level directory |
 | Repo show | CLI v0.1.0 | — | Display persisted repository scan results from .maestro/repo/ |
 | Repo pkg | CLI v0.1.0 | — | Package query commands: list, info, search, tree (with cycle detection) |
 | Repo resolve integration test (ai-upp) | test v0.1 | — | Integration test for U++ repository scanning |
