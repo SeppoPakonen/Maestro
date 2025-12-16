@@ -348,6 +348,39 @@ class UppRepoIndex:
     packages: List[UppPackage]
 
 
+@dataclass
+class PackageInfo:
+    """Information about a detected U++ package."""
+    name: str
+    dir: str
+    upp_path: str
+    files: List[str] = field(default_factory=list)
+
+
+@dataclass
+class AssemblyInfo:
+    """Information about a detected assembly."""
+    name: str
+    root_path: str
+    package_folders: List[str] = field(default_factory=list)
+
+
+@dataclass
+class UnknownPath:
+    """Information about an unknown path in the repository."""
+    path: str
+    type: str  # 'file' or 'dir'
+    guessed_kind: str  # 'docs', 'tooling', 'third_party', 'scripts', 'assets', 'config', 'unknown'
+
+
+@dataclass
+class RepoScanResult:
+    """Result of scanning a U++ repository for packages, assemblies, and unknown paths."""
+    assemblies_detected: List[AssemblyInfo] = field(default_factory=list)
+    packages_detected: List[PackageInfo] = field(default_factory=list)
+    unknown_paths: List[UnknownPath] = field(default_factory=list)
+
+
 # Dataclasses for structure fix operations
 @dataclass
 class FixOperation:
@@ -1707,6 +1740,229 @@ def resolve_upp_dependencies(repo_index: UppRepoIndex, main_package_name: str, v
     return resolved_deps
 
 
+def is_under_any(path: str, roots: set) -> bool:
+    """
+    Check if a path is under any of the given root directories.
+
+    Args:
+        path: Path to check
+        roots: Set of root directories
+
+    Returns:
+        True if path is equal to or under any root, False otherwise
+    """
+    from pathlib import Path
+
+    # Normalize the path
+    path_obj = Path(path).resolve()
+
+    for root in roots:
+        root_obj = Path(root).resolve()
+        # Check if path equals root or is a child of root
+        if path_obj == root_obj:
+            return True
+        try:
+            # This will raise ValueError if path is not relative to root
+            path_obj.relative_to(root_obj)
+            return True
+        except ValueError:
+            continue
+
+    return False
+
+
+def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
+    """
+    Scan a U++ repository and identify:
+    - packages: directories containing <Name>/<Name>.upp
+    - probable assembly roots: directories that contain multiple package folders/packages
+    - unknown paths: everything that is not part of any detected package dir
+
+    Args:
+        root_dir: Root directory of the U++ repository to scan
+        verbose: If True, print verbose scan information
+
+    Returns:
+        RepoScanResult: Object containing assemblies_detected, packages_detected, and unknown_paths
+    """
+    import os
+    from pathlib import Path
+    import fnmatch
+
+    # Define source file extensions commonly used in U++
+    source_extensions = {'.cpp', '.cppi', '.icpp', '.h', '.hpp', '.inl', '.c', '.cc', '.cxx', '.upl', '.upp', '.t'}
+
+    discovered_packages = []
+    all_package_dirs = set()
+
+    # First, scan for packages: directories with <Name>/<Name>.upp pattern
+    for root, dirs, files in os.walk(root_dir):
+        # Sort for deterministic order
+        dirs.sort()
+        files.sort()
+
+        # Extract the package name from the directory name
+        pkg_name = os.path.basename(root)
+
+        # Check if this directory contains a .upp file with the same name as the directory
+        upp_file_path = os.path.join(root, f"{pkg_name}.upp")
+
+        if os.path.exists(upp_file_path) and os.path.isfile(upp_file_path):
+            # This directory is a valid U++ package
+            if verbose:
+                print(f"[maestro] package: {pkg_name} at {root}")
+
+            # Collect source and header files for this package
+            pkg_files = []
+
+            for pkg_root, pkg_dirs, pkg_files_in_dir in os.walk(root):
+                # Sort for deterministic order
+                pkg_dirs.sort()
+                pkg_files_in_dir.sort()
+
+                for file in pkg_files_in_dir:
+                    _, ext = os.path.splitext(file)
+                    rel_path = os.path.relpath(os.path.join(pkg_root, file), root)
+
+                    if ext.lower() in source_extensions:
+                        pkg_files.append(rel_path)
+
+            package_info = PackageInfo(
+                name=pkg_name,
+                dir=root,
+                upp_path=upp_file_path,
+                files=sorted(pkg_files)
+            )
+            discovered_packages.append(package_info)
+            all_package_dirs.add(os.path.normpath(root))
+
+    # Identify package folders (directories containing multiple package dirs)
+    package_folders = set()
+    for pkg_info in discovered_packages:
+        parent_dir = os.path.dirname(os.path.normpath(pkg_info.dir))
+        if parent_dir != os.path.normpath(root_dir):  # Only consider if not directly under root
+            package_folders.add(parent_dir)
+
+    # For each directory that contains packages, consider it as a potential assembly
+    potential_assemblies = set()
+    assembly_package_counts = {}
+
+    for pkg_info in discovered_packages:
+        parent_dir = os.path.dirname(os.path.normpath(pkg_info.dir))
+        if parent_dir not in assembly_package_counts:
+            assembly_package_counts[parent_dir] = []
+        assembly_package_counts[parent_dir].append(pkg_info)
+
+    # Identify assemblies: directories that contain 2 or more packages
+    for parent_dir, packages_in_dir in assembly_package_counts.items():
+        if len(packages_in_dir) >= 2:
+            potential_assemblies.add(parent_dir)
+
+    # Create assembly info
+    assembly_infos = []
+    for asm_path in sorted(potential_assemblies):
+        # Find all package folders in this assembly
+        asm_packages = [
+            os.path.normpath(p.dir) for p in discovered_packages
+            if os.path.dirname(os.path.normpath(p.dir)) == asm_path
+        ]
+        # Use unique package directories as package folders
+        unique_pkg_dirs = sorted(set(asm_packages))
+
+        assembly_info = AssemblyInfo(
+            name=os.path.basename(asm_path),
+            root_path=asm_path,
+            package_folders=unique_pkg_dirs
+        )
+        assembly_infos.append(assembly_info)
+
+    # If the root itself contains multiple packages, consider it as an assembly too
+    # Only add if it's not already in potential assemblies to avoid duplicates
+    root_packages = [p for p in discovered_packages if os.path.dirname(os.path.normpath(p.dir)) == os.path.normpath(root_dir)]
+    if len(root_packages) > 1 and os.path.normpath(root_dir) not in potential_assemblies:
+        root_asm_packages = sorted([os.path.normpath(p.dir) for p in root_packages])
+        root_asm = AssemblyInfo(
+            name=os.path.basename(root_dir),
+            root_path=root_dir,
+            package_folders=root_asm_packages
+        )
+        assembly_infos.append(root_asm)
+
+    # Now find unknown paths (everything not in or under any package directory)
+    unknown_paths = []
+
+    for root, dirs, files in os.walk(root_dir):
+        # Check if this directory is under any package directory
+        is_under_package = is_under_any(root, all_package_dirs)
+
+        # Only mark as unknown if it's not under any package
+        if not is_under_package:
+            # This directory is not under any package, so it's unknown
+            rel_path = os.path.relpath(root, root_dir)
+            if rel_path != '.':
+                unknown_paths.append(UnknownPath(
+                    path=rel_path,
+                    type='dir',
+                    guessed_kind=guess_path_kind(rel_path)
+                ))
+
+        # Check files in this directory
+        for file in files:
+            file_path = os.path.join(root, file)
+            rel_file_path = os.path.relpath(file_path, root_dir)
+
+            # Check if this file is under any package directory
+            is_file_in_package = is_under_any(file_path, all_package_dirs)
+
+            if not is_file_in_package:
+                # This file is not in any package, so it's unknown
+                unknown_paths.append(UnknownPath(
+                    path=rel_file_path,
+                    type='file',
+                    guessed_kind=guess_path_kind(rel_file_path)
+                ))
+
+    # Sort results for stability
+    assembly_infos.sort(key=lambda x: x.root_path)
+    discovered_packages.sort(key=lambda x: (x.name, x.dir))
+    unknown_paths.sort(key=lambda x: x.path)
+
+    return RepoScanResult(
+        assemblies_detected=assembly_infos,
+        packages_detected=discovered_packages,
+        unknown_paths=unknown_paths
+    )
+
+
+def guess_path_kind(path: str) -> str:
+    """
+    Basic heuristics to guess the kind of path.
+
+    Args:
+        path: Path to analyze
+
+    Returns:
+        Guessed kind: 'docs', 'tooling', 'third_party', 'scripts', 'assets', 'config', 'unknown'
+    """
+    path_lower = path.lower()
+
+    # Check directory names first
+    if 'doc' in path_lower or 'readme' in path_lower:
+        return 'docs'
+    elif 'tool' in path_lower or 'script' in path_lower or 'bin' in path_lower:
+        return 'tooling'
+    elif 'third_party' in path_lower or 'vendor' in path_lower or 'external' in path_lower:
+        return 'third_party'
+    elif 'script' in path_lower or path_lower.endswith('.sh') or path_lower.endswith('.py'):
+        return 'scripts'
+    elif any(ext in path_lower for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.bmp', '.ico']):
+        return 'assets'
+    elif any(ext in path_lower for ext in ['.json', '.xml', '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf']):
+        return 'config'
+
+    return 'unknown'
+
+
 def handle_structure_conformance(session_path: str, verbose: bool = False) -> int:
     """
     Handle conformance check mode that compares Maestro discovery output against expected fixture outputs.
@@ -2361,6 +2617,19 @@ def main():
 
     # Add help/h subcommands for root subparsers
     root_subparsers.add_parser('help', aliases=['h'], help='Show help for root commands')
+
+    # Repository command group
+    repo_parser = subparsers.add_parser('repo', help='Repository analysis and resolution commands')
+    repo_subparsers = repo_parser.add_subparsers(dest='repo_subcommand', help='Repository subcommands')
+
+    # repo resolve
+    repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan U++ repo for packages, assemblies, and unknown paths (v0.2)')
+    repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: current directory)')
+    repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    repo_resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information')
+
+    # repo help
+    repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
 
     # Conversion pipeline command group
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
@@ -3976,6 +4245,120 @@ def main():
         else:
             # Default to status if no subcommand specified
             handle_convert_status(args.verbose)
+    elif args.command == 'repo':
+        # Handle repository analysis and resolution commands (no session required)
+        if hasattr(args, 'repo_subcommand') and args.repo_subcommand:
+            if args.repo_subcommand == 'resolve':
+                # Get the path to scan - default to current directory or use provided path
+                scan_path = args.path or os.getcwd()
+
+                # Ensure the path exists
+                if not os.path.exists(scan_path):
+                    print_error(f"Path does not exist: {scan_path}", 2)
+                    sys.exit(1)
+
+                # Ensure the path is a directory
+                if not os.path.isdir(scan_path):
+                    print_error(f"Path is not a directory: {scan_path}", 2)
+                    sys.exit(1)
+
+                # Perform the repo scan
+                repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose)
+
+                # Output format varies based on the flag
+                if args.json:
+                    # Output in JSON format
+                    import json
+                    result = {
+                        "assemblies_detected": [
+                            {
+                                "name": asm.name,
+                                "root_path": asm.root_path,
+                                "package_folders": asm.package_folders
+                            } for asm in repo_result.assemblies_detected
+                        ],
+                        "packages_detected": [
+                            {
+                                "name": pkg.name,
+                                "dir": pkg.dir,
+                                "upp_path": pkg.upp_path,
+                                "files": pkg.files
+                            } for pkg in repo_result.packages_detected
+                        ],
+                        "unknown_paths": [
+                            {
+                                "path": unknown.path,
+                                "type": unknown.type,
+                                "guessed_kind": unknown.guessed_kind
+                            } for unknown in repo_result.unknown_paths
+                        ]
+                    }
+                    print(json.dumps(result, indent=2))
+                else:
+                    # Output in human-readable format
+                    print_header(f"U++ REPO SCAN RESULTS: {scan_path}")
+
+                    print(f"\nDiscovered {len(repo_result.assemblies_detected)} assemblies:")
+                    for asm in repo_result.assemblies_detected:
+                        print_info(f"  Assembly: {asm.name} at {asm.root_path}", 2)
+                        print_info(f"    Package folders: {len(asm.package_folders)}", 2)
+                        for pkg_folder in asm.package_folders:
+                            print_info(f"      - {os.path.basename(pkg_folder)}/", 3)
+
+                    print(f"\nDiscovered {len(repo_result.packages_detected)} packages:")
+                    for pkg in repo_result.packages_detected:
+                        print_info(f"  Package: {pkg.name}", 2)
+                        print_info(f"    Directory: {pkg.dir}", 2)
+                        print_info(f"    .upp file: {pkg.upp_path}", 2)
+                        print_info(f"    Source files: {len(pkg.files)}", 2)
+                        for file in pkg.files[:5]:  # Show first 5 files
+                            print_info(f"      - {file}", 3)
+                        if len(pkg.files) > 5:
+                            print_info(f"      ... and {len(pkg.files) - 5} more", 3)
+
+                    print(f"\nFound {len(repo_result.unknown_paths)} unknown paths:")
+                    for unknown in repo_result.unknown_paths[:10]:  # Show first 10 unknown paths
+                        print_info(f"  {unknown.type}: {unknown.path} ({unknown.guessed_kind})", 2)
+                    if len(repo_result.unknown_paths) > 10:
+                        print_info(f"  ... and {len(repo_result.unknown_paths) - 10} more", 2)
+            elif args.repo_subcommand in ['help', 'h']:
+                # Print help for repo subcommands
+                repo_parser.print_help()
+                return  # Exit after showing help
+            else:
+                print_error(f"Unknown repo subcommand: {args.repo_subcommand}", 2)
+                sys.exit(1)
+        else:
+            # If no subcommand specified, default to resolve
+            scan_path = os.getcwd()  # Default to current directory
+            repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose)
+
+            # Output in human-readable format
+            print_header(f"U++ REPO SCAN RESULTS: {scan_path}")
+
+            print(f"\nDiscovered {len(repo_result.assemblies_detected)} assemblies:")
+            for asm in repo_result.assemblies_detected:
+                print_info(f"  Assembly: {asm.name} at {asm.root_path}", 2)
+                print_info(f"    Package folders: {len(asm.package_folders)}", 2)
+                for pkg_folder in asm.package_folders:
+                    print_info(f"      - {os.path.basename(pkg_folder)}/", 3)
+
+            print(f"\nDiscovered {len(repo_result.packages_detected)} packages:")
+            for pkg in repo_result.packages_detected:
+                print_info(f"  Package: {pkg.name}", 2)
+                print_info(f"    Directory: {pkg.dir}", 2)
+                print_info(f"    .upp file: {pkg.upp_path}", 2)
+                print_info(f"    Source files: {len(pkg.files)}", 2)
+                for file in pkg.files[:5]:  # Show first 5 files
+                    print_info(f"      - {file}", 3)
+                if len(pkg.files) > 5:
+                    print_info(f"      ... and {len(pkg.files) - 5} more", 3)
+
+            print(f"\nFound {len(repo_result.unknown_paths)} unknown paths:")
+            for unknown in repo_result.unknown_paths[:10]:  # Show first 10 unknown paths
+                print_info(f"  {unknown.type}: {unknown.path} ({unknown.guessed_kind})", 2)
+            if len(repo_result.unknown_paths) > 10:
+                print_info(f"  ... and {len(repo_result.unknown_paths) - 10} more", 2)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)

@@ -23,6 +23,9 @@
 | Rulebook creation wizard | — | planned | Guided rulebook authoring |
 | Live execution view | — | planned | Real-time process monitoring |
 | Hot-reloading | — | planned | Automatic UI refresh during development |
+| Repo resolve | CLI v0.2.1 | — | U++ repository scanning with fixed unknown-path filtering |
+| Repo resolve integration test (ai-upp) | test v0.1 | — | Integration test for U++ repository scanning |
+| CLI init → repo resolve E2E test | test v0.1 | — | End-to-end test for init and resolve workflow |
 
 ## Development Philosophy
 
@@ -30,3 +33,12 @@
 - TUI will provide human-first interactive experience
 - Feature parity is tracked but not assumed
 - TUI development will focus on workflow improvements for manual operations
+
+## Running Integration Tests
+
+To run the U++ repository integration test:
+
+```bash
+export MAESTRO_TEST_AI_UPP_PATH="$HOME/Dev/ai-upp"
+pytest -q tests/test_repo_resolve_ai_upp.py
+```
