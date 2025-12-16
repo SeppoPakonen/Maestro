@@ -23,6 +23,7 @@ from maestro.tui.panes.base import PaneFocusRequest, PaneMenuRequest, PaneStatus
 from maestro.tui.panes.registry import create_pane
 from maestro.tui.utils import ErrorModal, ErrorNormalizer, write_smoke_success
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
+from maestro.tui.widgets.status_line import StatusLine
 from maestro.tui.widgets.text_viewer import TextViewerModal
 import maestro.tui.panes.sessions  # noqa: F401 - ensure pane is registered
 
@@ -31,7 +32,7 @@ class MainShellScreen(Screen):
     """MC-style two-pane shell with focus + navigation scaffolding."""
 
     CAPTURE_TAB = True
-    status_message: reactive[str] = reactive("Ready")
+    status_message: reactive[str] = reactive("Ready")  # Maintained for compatibility with tests
     show_key_hints: reactive[bool] = reactive(True)
 
     BINDINGS = [
@@ -44,6 +45,11 @@ class MainShellScreen(Screen):
         ("escape", "soft_back", "Back"),
         ("r", "refresh_view", "Refresh"),
         ("f1", "open_help", "Help"),
+        ("f2", "pane_actions", "Actions"),
+        ("f3", "view_menu", "View"),
+        ("f5", "run_action", "Run"),
+        ("f7", "new_action", "New"),
+        ("f8", "delete_action", "Delete"),
         ("f9", "toggle_menu", "Menu"),
         ("f10", "quit_app", "Quit"),
     ]
@@ -53,8 +59,9 @@ class MainShellScreen(Screen):
         layout: vertical;
     }
 
-    #panes {
+    #main-content {
         height: 1fr;
+        layout: horizontal;
     }
 
     .pane {
@@ -80,40 +87,6 @@ class MainShellScreen(Screen):
         border: solid $primary 50%;
         padding: 1;
     }
-
-    #status-area {
-        height: 3;
-        background: $surface;
-        border-top: solid $primary;
-        padding: 0 1;
-    }
-
-    #status-bar {
-        height: 2;
-    }
-
-    #status-hints {
-        width: 55%;
-        content-align: left middle;
-    }
-
-    #focus-indicator {
-        width: 20%;
-        content-align: center middle;
-        text-style: bold;
-    }
-
-    #status-message {
-        width: 25%;
-        content-align: right middle;
-        color: $text 80%;
-    }
-
-    #function-strip {
-        height: 1;
-        content-align: center middle;
-        color: $text 70%;
-    }
     """
 
     def __init__(self) -> None:
@@ -135,6 +108,7 @@ class MainShellScreen(Screen):
         self.session_summary: str = "Session: None | Plan: None | Build: None"
         self.menu_bar_model: MenuBar = MenuBar()
         self.menubar: Optional[MenuBarWidget] = None
+        self.status_line: Optional[StatusLine] = None
         self._pane_menu: Optional[Menu] = None
         self._menu_focus_restore: Optional[str] = None
         self.current_view: Optional[PaneView] = None
@@ -150,7 +124,7 @@ class MainShellScreen(Screen):
         self.menubar = MenuBarWidget(self.menu_bar_model)
         yield self.menubar
 
-        with Horizontal(id="panes"):
+        with Horizontal(id="main-content"):
             with Vertical(id="left-pane", classes="pane focused"):
                 yield Label("Sections", id="left-title")
                 section_items = [ListItem(Label(name)) for name in self.sections]
@@ -163,18 +137,14 @@ class MainShellScreen(Screen):
                     placeholder.can_focus = True
                     yield placeholder
 
-            with Vertical(id="status-area"):
-                with Horizontal(id="status-bar"):
-                    yield Label(
-                        "Tab Switch Pane | Enter Open | Esc Back | F9 Menu | F10 Quit",
-                        id="status-hints",
-                    )
-                    yield Label("FOCUS: LEFT", id="focus-indicator")
-                    yield Label(self.status_message, id="status-message")
-                yield Label(
-                    "F1 Help  F3 New  F5 Refresh  F8 Delete  F9 Menu  F10 Quit",
-                    id="function-strip",
-                )
+        self.status_line = StatusLine(
+            initial_message="Ready",
+            initial_hints="Tab Switch | Enter Open | Esc Back | F9 Menu | F10 Quit",
+            initial_focus="FOCUS: LEFT",
+            initial_sticky_status=self.session_summary,
+            id="status-line"
+        )
+        yield self.status_line
 
     def on_mount(self) -> None:
         """Initialize state after mounting."""
@@ -191,7 +161,7 @@ class MainShellScreen(Screen):
             print("MC_SHELL_READY", flush=True)
 
     def _load_status_state(self) -> None:
-        """Load session/plan/build summary for the menubar."""
+        """Load session/plan/build summary for the menubar and status line."""
         try:
             session = get_active_session()
         except Exception:
@@ -214,6 +184,8 @@ class MainShellScreen(Screen):
         self.session_summary = f"Session: {session_display} | Plan: {plan_display} | Build: {build_display}"
         if self.menubar:
             self.menubar.set_session_summary(self.session_summary)
+        if self.status_line:
+            self.status_line.set_sticky_status(self.session_summary)
 
     def _update_focus(self, target: str) -> None:
         """Switch focus to the requested pane."""
@@ -234,7 +206,8 @@ class MainShellScreen(Screen):
                 except Exception:
                     pass
 
-        self.query_one("#focus-indicator", Label).update(f"FOCUS: {target.upper()}")
+        if self.status_line:
+            self.status_line.set_focus_indicator(f"FOCUS: {target.upper()}")
 
     def _content_placeholder(self, section_name: str) -> str:
         """Render placeholder content for a section."""
@@ -328,9 +301,12 @@ class MainShellScreen(Screen):
             self._handle_view_error(exc, f"refreshing {self.current_section}")
 
     def _update_status(self, message: str) -> None:
-        """Update status message in status bar."""
+        """Update status message in status line."""
+        # Update the reactive attribute for compatibility with tests
         self.status_message = message
-        self.query_one("#status-message", Label).update(message)
+        # Also update the status line widget
+        if self.status_line:
+            self.status_line.set_message(message, ttl=3.0)  # Auto-clear after 3 seconds
 
     def action_focus_right(self) -> None:
         """Tab to right pane."""
@@ -422,6 +398,15 @@ class MainShellScreen(Screen):
         self._menu_focus_restore = self.focus_pane
         self.menubar.activate()
         self._update_status("Menubar active - Left/Right switch, Enter/Down opens")
+        self._update_status_line_for_menubar(True)
+
+    def _update_status_line_for_menubar(self, active: bool) -> None:
+        """Update status line to show menubar active state."""
+        if self.status_line:
+            if active:
+                self.status_line.set_hints("F9 Menu | ← → select | ↓ open | Enter run | Esc close")
+            else:
+                self.status_line.set_hints("Tab Switch | Enter Open | Esc Back | F9 Menu | F10 Quit")
 
     def _restore_focus_after_menu(self, status: Optional[str] = "Menubar closed") -> None:
         """Restore focus to the prior pane after closing the menubar."""
@@ -430,6 +415,7 @@ class MainShellScreen(Screen):
         self._menu_focus_restore = None
         if status:
             self._update_status(status)
+        self._update_status_line_for_menubar(False)
 
     def action_refresh_view(self) -> None:
         """Refresh the current view or reload placeholder."""
@@ -602,11 +588,12 @@ class MainShellScreen(Screen):
     def _update_status_hints(self) -> None:
         """Show or hide verbose key hints."""
         hints = (
-            "Tab Switch Pane | Enter Open | Esc Back | F9 Menu | F10 Quit"
+            "Tab Switch | Enter Open | Esc Back | F9 Menu | F10 Quit"
             if self.show_key_hints
             else "Hints hidden"
         )
-        self.query_one("#status-hints", Label).update(hints)
+        if self.status_line:
+            self.status_line.set_hints(hints)
 
     def _handle_view_error(self, exc: Exception, context: str) -> None:
         """Normalize and display view errors without crashing."""
@@ -624,7 +611,11 @@ class MainShellScreen(Screen):
         for entry in self._pane_menu.items:
             if not isinstance(entry, MenuItem):
                 continue
-            if entry.key_hint and self._normalize_key_hint(entry.key_hint) == normalized and entry.enabled:
+            # check legacy key_hint or explicit fkey
+            if (
+                (entry.key_hint and self._normalize_key_hint(entry.key_hint) == normalized)
+                or (entry.fkey and self._normalize_key_hint(entry.fkey) == normalized)
+            ) and entry.enabled:
                 asyncio.create_task(self._execute_pane_menu_item(entry))
                 return True
         return False
@@ -633,15 +624,155 @@ class MainShellScreen(Screen):
         """Normalize textual keys and labels for comparison."""
         return key.lower().replace("+", "").strip()
 
+    def _dispatch_fkey(self, key: str) -> None:
+        """Dispatch an F-key to the active pane's menu if supported.
+
+        Searches for entries with matching key_hint or fkey and executes the first enabled one.
+        If none found, shows a non-modal status message.
+        """
+        if not self._pane_menu or not self.current_view:
+            self._update_status("Not available in this pane")
+            return
+        normalized = self._normalize_key_hint(key)
+        for entry in self._pane_menu.items:
+            if not isinstance(entry, MenuItem):
+                continue
+            if not entry.enabled:
+                continue
+            if (entry.key_hint and self._normalize_key_hint(entry.key_hint) == normalized) or (
+                entry.fkey and self._normalize_key_hint(entry.fkey) == normalized
+            ):
+                asyncio.create_task(self._execute_pane_menu_item(entry))
+                return
+        # No matching menu item found
+        self._update_status("Not available in this pane")
+
+    def action_run_action(self) -> None:
+        """F5 action - run the default action for the current pane."""
+        self._dispatch_fkey("f5")
+
+    def action_new_action(self) -> None:
+        """F7 action - create new item in the current pane."""
+        self._dispatch_fkey("f7")
+
+    def action_delete_action(self) -> None:
+        """F8 action - delete selected item in the current pane."""
+        self._dispatch_fkey("f8")
+
+    async def _dispatch_fkey_by_action_id(self, action_id: str) -> None:
+        """Dispatch an action by its action_id to the active pane."""
+        if not self.current_view or not hasattr(self.current_view, 'get_action'):
+            self._update_status(f"Action {action_id} not available in current pane")
+            return
+
+        try:
+            action = await self.current_view.get_action(action_id)
+            if action:
+                # Execute the action - the action could be a callable or a coroutine
+                if asyncio.iscoroutinefunction(action):
+                    await action()
+                else:
+                    action()
+            else:
+                self._update_status(f"Action {action_id} not found in current pane")
+        except Exception as exc:
+            self._handle_view_error(exc, f"executing action {action_id}")
+
     def on_key(self, event: events.Key) -> None:
         """Ensure global keys always reach the shell."""
-        if event.key == "f9":
+        key = event.key
+
+        # If menubar is active, only process F9 (which toggles it) - other keys go to menubar
+        if self.menubar and self.menubar.is_active:
+            if key == "f9":
+                # F9 is allowed to toggle the active menubar back off
+                self.action_toggle_menu()
+                event.stop()
+            # For other keys when menubar is active, don't process them here
+            # The menubar widget has its own on_key method to handle them
+            return
+
+        # F9 handled specially to toggle menubar (when not active)
+        if key == "f9":
             self.action_toggle_menu()
             event.stop()
             return
-        if self.menubar and self.menubar.is_active:
+
+        # F1 -> help
+        if key == "f1":
+            self.action_open_help()
+            event.stop()
             return
-        if self._handle_key_hint(event.key):
+
+        # F10 -> quit
+        if key == "f10":
+            self.action_quit_app()
+            event.stop()
+            return
+
+        # F2 -> open the active pane's menu directly
+        if key == "f2":
+            if self.menubar:
+                self._menu_focus_restore = self.focus_pane
+                # try to focus the pane menu if present
+                try:
+                    menus = self.menubar.menu_bar.menus
+                    for idx, m in enumerate(menus):
+                        if self._pane_menu and m.label == self._pane_menu.label:
+                            self.menubar.activate()
+                            # set active menu index then open
+                            self.menubar.active_menu_index = idx
+                            self.menubar.open_current_menu()
+                            self._update_status("Pane actions opened")
+                            self._update_status_line_for_menubar(True)
+                            event.stop()
+                            return
+                except Exception:
+                    pass
+            self._update_status("No pane actions available")
+            event.stop()
+            return
+
+        # F3 -> View menu
+        if key == "f3":
+            if self.menubar:
+                self._menu_focus_restore = self.focus_pane
+                # Try to find the View menu
+                try:
+                    menus = self.menubar.menu_bar.menus
+                    for idx, m in enumerate(menus):
+                        if m.label.lower() == "view":
+                            self.menubar.activate()
+                            # set active menu index then open
+                            self.menubar.active_menu_index = idx
+                            self.menubar.open_current_menu()
+                            self._update_status("View menu opened")
+                            self._update_status_line_for_menubar(True)
+                            event.stop()
+                            return
+                    # If no View menu exists, try to find a view-related action in pane menu
+                    self._dispatch_fkey(key)
+                except Exception:
+                    self._dispatch_fkey(key)
+            else:
+                self._dispatch_fkey(key)
+            event.stop()
+            return
+
+        # Function keys may route to pane menu entries if no specific action is bound
+        # The bound actions (f5 -> run_action, f7 -> new_action, f8 -> delete_action)
+        # should be allowed to execute normally
+        # Only fall back to menu dispatch if the bound action is not found or doesn't exist
+
+        # Check if we should dispatch F-keys to the pane menu
+        # Only do this if the key isn't handled by a bound action or if the bound action
+        # doesn't exist for the current pane
+        if key in ("f5", "f7", "f8"):
+            # Let the bound action execute first, if it exists
+            # If we need to dispatch F-keys to menus, we should do it in the respective action methods
+            pass
+
+        if self._handle_key_hint(key):
             event.stop()
 
     def on_pane_status(self, message: PaneStatus) -> None:
