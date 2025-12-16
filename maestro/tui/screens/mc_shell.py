@@ -38,9 +38,11 @@ class MainShellScreen(Screen):
     BINDINGS = [
         ("up", "move_up", "Up"),
         ("down", "move_down", "Down"),
+        ("left", "move_left", "Left"),
+        ("right", "move_right", "Right"),
         ("tab", "cycle_focus", "Switch pane"),
-        ("shift+tab", "focus_left", "Focus left"),
-        ("backtab", "focus_left", "Focus left"),
+        ("shift+tab", "cycle_focus_reverse", "Focus previous"),
+        ("backtab", "cycle_focus_reverse", "Focus previous"),
         ("enter", "open_selection", "Open"),
         ("escape", "soft_back", "Back"),
         ("r", "refresh_view", "Refresh"),
@@ -216,6 +218,16 @@ class MainShellScreen(Screen):
             "This is a placeholder view. Future tasks will embed the real module here."
         )
 
+    def _safe_facade_call(self, func, context: str = "operation"):
+        """Safe wrapper for facade calls that returns stable empty states on failure."""
+        try:
+            result = func()
+            return result, None
+        except Exception as exc:
+            error_msg = ErrorNormalizer.normalize_exception(exc, context)
+            self._update_status(error_msg.message)
+            return None, error_msg
+
     def _open_current_selection(self) -> None:
         """Open the currently selected section into the right pane."""
         content_title = self.query_one("#content-title", Label)
@@ -223,11 +235,15 @@ class MainShellScreen(Screen):
         host = self.query_one("#content-host", Vertical)
         self._clear_current_view(host)
 
-        try:
-            view = create_pane(self.current_section)
-        except Exception as exc:
+        # Use safe facade call for creating pane
+        view, error = self._safe_facade_call(
+            lambda: create_pane(self.current_section),
+            f"creating {self.current_section} pane"
+        )
+
+        if error:
             content_title.update(title_text)
-            self._handle_view_error(exc, f"loading {self.current_section}")
+            self._handle_normalized_error(error, f"loading {self.current_section}")
             self._show_placeholder(host, self.current_section)
             self._refresh_menu_bar(self._placeholder_menu(self.current_section))
             return
@@ -284,21 +300,32 @@ class MainShellScreen(Screen):
     def _refresh_current_view_data(self) -> None:
         """Invoke refresh on the current pane if it supports it."""
         if not self.current_view:
+            # Show a placeholder if there's no current view
+            self._update_status("No active pane to refresh")
             return
-        try:
-            result = self.current_view.refresh_data()
-        except Exception as exc:
-            self._handle_view_error(exc, f"refreshing {self.current_section}")
+
+        # Use safe facade call to refresh the view data
+        def do_refresh():
+            return self.current_view.refresh_data()
+
+        result, error = self._safe_facade_call(do_refresh, f"refreshing {self.current_section}")
+
+        if error:
+            self._handle_normalized_error(error, f"refreshing {self.current_section}")
+            # Even if refresh fails, we still want to maintain the shell state
             return
 
         if asyncio.iscoroutine(result):
             asyncio.create_task(self._run_view_refresh(result))
+        # If it's not a coroutine, the refresh completed synchronously
 
     async def _run_view_refresh(self, coro) -> None:
         try:
             await coro
         except Exception as exc:
-            self._handle_view_error(exc, f"refreshing {self.current_section}")
+            # Use safe error handling to prevent crashes
+            error_msg = ErrorNormalizer.normalize_exception(exc, f"refreshing {self.current_section}")
+            self._handle_normalized_error(error_msg, f"refreshing {self.current_section}")
 
     def _update_status(self, message: str) -> None:
         """Update status message in status line."""
@@ -308,13 +335,95 @@ class MainShellScreen(Screen):
         if self.status_line:
             self.status_line.set_message(message, ttl=3.0)  # Auto-clear after 3 seconds
 
+    def _get_focusables(self) -> list:
+        """Return list of focusable elements in the proper order for the focus ring."""
+        focusables = []
+
+        # Add left pane (section list)
+        focusables.append(self.query_one("#section-list", ListView))
+
+        # Add right pane (current view content) or placeholder
+        if self.current_view:
+            # Check if the current view can be focused
+            if self.current_view.can_focus:
+                focusables.append(self.current_view)
+        else:
+            # If no current view, add the content host as fallback (which has placeholder inside)
+            content_host = self.query_one("#content-host", Vertical)
+            if content_host and content_host.can_focus:
+                focusables.append(content_host)
+
+        # Add menubar if it's open/active
+        if self.menubar and self.menubar.is_active:
+            focusables.append(self.menubar)
+
+        return focusables
+
+    def _focus_next(self) -> None:
+        """Move focus to the next element in the focus ring."""
+        focusables = self._get_focusables()
+        if not focusables:
+            return
+
+        # Find current focused widget
+        current_focus = self.focused
+        try:
+            current_idx = next(i for i, widget in enumerate(focusables) if widget == current_focus)
+            next_idx = (current_idx + 1) % len(focusables)
+        except (StopIteration, ValueError):
+            # If current focus isn't in our list, focus first element
+            next_idx = 0
+
+        target = focusables[next_idx]
+
+        # Handle special cases for switching panes
+        if target == self.query_one("#section-list", ListView):
+            self._update_focus("left")
+        elif target == self.current_view or (not self.current_view and self.query_one("#content-host", Vertical) == target):
+            self._update_focus("right")
+        elif target == self.menubar:
+            # If menubar is already active, don't change pane focus
+            target.focus()
+
+        target.focus()
+
+    def _focus_prev(self) -> None:
+        """Move focus to the previous element in the focus ring."""
+        focusables = self._get_focusables()
+        if not focusables:
+            return
+
+        # Find current focused widget
+        current_focus = self.focused
+        try:
+            current_idx = next(i for i, widget in enumerate(focusables) if widget == current_focus)
+            prev_idx = (current_idx - 1) % len(focusables)
+        except (StopIteration, ValueError):
+            # If current focus isn't in our list, focus first element backwards
+            prev_idx = -1  # Last element
+
+        target = focusables[prev_idx]
+
+        # Handle special cases for switching panes
+        if target == self.query_one("#section-list", ListView):
+            self._update_focus("left")
+        elif target == self.current_view or (not self.current_view and self.query_one("#content-host", Vertical) == target):
+            self._update_focus("right")
+        elif target == self.menubar:
+            # If menubar is already active, don't change pane focus
+            target.focus()
+
+        target.focus()
+
     def action_focus_right(self) -> None:
-        """Tab to right pane."""
+        """Focus right pane."""
+        self._suppress_select_open = True
         self._update_focus("right")
         self._update_status("Focused right pane")
+        self.call_after_refresh(lambda: setattr(self, "_suppress_select_open", False))
 
     def action_focus_left(self) -> None:
-        """Shift+Tab to left pane."""
+        """Focus left pane."""
         self._suppress_select_open = True
         self._update_focus("left")
         self._update_status("Focused left pane")
@@ -322,19 +431,51 @@ class MainShellScreen(Screen):
 
     def action_move_up(self) -> None:
         """Move selection up in focused list."""
-        if self.focus_pane != "left":
-            return
-        section_list = self.query_one("#section-list", ListView)
-        section_list.action_cursor_up()
-        self._update_status("Moved up")
+        if self.focus_pane == "left":
+            section_list = self.query_one("#section-list", ListView)
+            section_list.action_cursor_up()
+            self._update_status("Moved up in sections")
+        elif self.current_view:
+            # Let the current view handle the up arrow
+            self.current_view.action_cursor_up() if hasattr(self.current_view, 'action_cursor_up') else None
+            self._update_status("Moved up in current pane")
+        else:
+            # If no current view, try to handle the up arrow on the placeholder/host
+            pass
 
     def action_move_down(self) -> None:
         """Move selection down in focused list."""
-        if self.focus_pane != "left":
-            return
-        section_list = self.query_one("#section-list", ListView)
-        section_list.action_cursor_down()
-        self._update_status("Moved down")
+        if self.focus_pane == "left":
+            section_list = self.query_one("#section-list", ListView)
+            section_list.action_cursor_down()
+            self._update_status("Moved down in sections")
+        elif self.current_view:
+            # Let the current view handle the down arrow
+            self.current_view.action_cursor_down() if hasattr(self.current_view, 'action_cursor_down') else None
+            self._update_status("Moved down in current pane")
+        else:
+            # If no current view, try to handle the down arrow on the placeholder/host
+            pass
+
+    def action_move_right(self) -> None:
+        """Move focus from left pane to right pane."""
+        if self.focus_pane == "left":
+            self._update_focus("right")
+            self._update_status("Moved focus to right pane")
+        else:
+            # On right pane, let the current view handle the right arrow
+            if self.current_view and hasattr(self.current_view, 'action_cursor_right'):
+                self.current_view.action_cursor_right()
+                self._update_status("Right arrow in current pane")
+
+    def action_move_left(self) -> None:
+        """Move focus from right pane to left pane."""
+        if self.focus_pane == "right":
+            self._update_focus("left")
+            self._update_status("Moved focus to left pane")
+        else:
+            # On left pane, left arrow does nothing (per requirements)
+            self._update_status("Left arrow does nothing in left pane")
 
     def action_open_selection(self) -> None:
         """Enter to open selection or show safe no-op on right pane."""
@@ -379,13 +520,14 @@ class MainShellScreen(Screen):
         self.app.exit()
 
     def action_cycle_focus(self) -> None:
-        """Tab cycles between left and right panes."""
-        target = "right" if self.focus_pane == "left" else "left"
-        if target == "right":
-            self._update_focus("right")
-            self._update_status("Focused right pane")
-        else:
-            self.action_focus_left()
+        """Tab cycles through the focus ring."""
+        self._focus_next()
+        self._update_status("Cycled focus forward")
+
+    def action_cycle_focus_reverse(self) -> None:
+        """Shift+Tab cycles through the focus ring in reverse."""
+        self._focus_prev()
+        self._update_status("Cycled focus backward")
 
     def action_toggle_menu(self) -> None:
         """Toggle the menubar (F9 style)."""
@@ -519,12 +661,19 @@ class MainShellScreen(Screen):
     def _pane_menu_for_current(self) -> Menu:
         """Return the active pane's menu, falling back to a placeholder."""
         if self.current_view:
-            try:
-                menu = self.current_view.menu()
+            # Use safe facade call for menu creation
+            def get_menu():
+                return self.current_view.menu() if self.current_view else None
+
+            menu, error = self._safe_facade_call(get_menu, f"building menu for {self.current_section}")
+
+            if error:
+                self._update_status(f"Error getting menu: {error.message}")
+                # Still return the menu if we got one despite the error
                 if menu:
                     return menu
-            except Exception as exc:
-                self._handle_view_error(exc, f"building menu for {self.current_section}")
+            elif menu:
+                return menu
         return self._placeholder_menu(self.current_section)
 
     def _refresh_menu_bar(self, pane_menu: Optional[Menu] = None) -> None:
@@ -598,6 +747,11 @@ class MainShellScreen(Screen):
     def _handle_view_error(self, exc: Exception, context: str) -> None:
         """Normalize and display view errors without crashing."""
         error_msg = ErrorNormalizer.normalize_exception(exc, context)
+        self._update_status(error_msg.message)
+        self.app.push_screen(ErrorModal(error_msg))
+
+    def _handle_normalized_error(self, error_msg: ErrorMessage, context: str) -> None:
+        """Handle pre-normalized error messages."""
         self._update_status(error_msg.message)
         self.app.push_screen(ErrorModal(error_msg))
 

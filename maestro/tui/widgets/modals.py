@@ -14,6 +14,10 @@ class ConfirmDialog(ModalScreen[bool]):
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
         ("enter", "confirm", "Confirm"),
+        ("left", "focus_prev_button", "Prev button"),
+        ("right", "focus_next_button", "Next button"),
+        ("tab", "focus_next_button", "Next button"),
+        ("shift+tab", "focus_prev_button", "Prev button"),
     ]
 
     def __init__(self, message: str = "Are you sure?", title: str = "Confirmation"):
@@ -33,6 +37,21 @@ class ConfirmDialog(ModalScreen[bool]):
         """Focus the cancel button by default."""
         self.query_one("#cancel-button").focus()
 
+    def on_key(self, event: events.Key) -> None:
+        """Handle keyboard navigation."""
+        # Arrow keys for button selection
+        if event.key in ["left", "right"]:
+            current = self.focused
+            buttons = self.query("Button").results()
+            if current in buttons and len(buttons) > 1:
+                idx = buttons.index(current)
+                if event.key == "right":
+                    next_idx = (idx + 1) % len(buttons)
+                else:  # left
+                    next_idx = (idx - 1) % len(buttons)
+                buttons[next_idx].focus()
+                event.stop()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
         if event.button.id == "confirm-button":
@@ -48,6 +67,28 @@ class ConfirmDialog(ModalScreen[bool]):
         """Action to confirm the action."""
         self.dismiss(True)
 
+    def action_focus_next_button(self) -> None:
+        """Move focus to next button."""
+        current = self.focused
+        buttons = self.query("Button").results()
+        if current in buttons and len(buttons) > 1:
+            idx = buttons.index(current)
+            next_idx = (idx + 1) % len(buttons)
+            buttons[next_idx].focus()
+        elif buttons:
+            buttons[0].focus()
+
+    def action_focus_prev_button(self) -> None:
+        """Move focus to previous button."""
+        current = self.focused
+        buttons = self.query("Button").results()
+        if current in buttons and len(buttons) > 1:
+            idx = buttons.index(current)
+            prev_idx = (idx - 1) % len(buttons)
+            buttons[prev_idx].focus()
+        elif buttons:
+            buttons[-1].focus()
+
 
 class InputDialog(ModalScreen[str]):
     """An input dialog modal."""
@@ -55,6 +96,8 @@ class InputDialog(ModalScreen[str]):
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
         ("enter", "submit", "Submit"),
+        ("tab", "focus_next_field", "Next field"),
+        ("shift+tab", "focus_prev_field", "Prev field"),
     ]
 
     def __init__(self, message: str = "Enter value:", title: str = "Input", initial_value: str = ""):
@@ -76,6 +119,16 @@ class InputDialog(ModalScreen[str]):
         """Focus the input field when mounted."""
         self.query_one("#input-field").focus()
 
+    def on_key(self, event: events.Key) -> None:
+        """Handle keyboard navigation."""
+        # Handle Tab navigation between input and buttons
+        if event.key in ["tab"]:
+            if not event.shift:
+                self.action_focus_next_field()
+            else:
+                self.action_focus_prev_field()
+            event.stop()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
         if event.button.id == "submit-button":
@@ -96,12 +149,50 @@ class InputDialog(ModalScreen[str]):
         input_widget = self.query_one("#input-field", Input)
         self.dismiss(input_widget.value)
 
+    def action_focus_next_field(self) -> None:
+        """Move focus to next field."""
+        current = self.focused
+        input_field = self.query_one("#input-field", Input)
+        buttons = self.query("Button").results()
+
+        if current == input_field and buttons:
+            buttons[0].focus()  # Focus first button
+        elif current in buttons and current != buttons[-1]:
+            # Move to next button if exists
+            idx = buttons.index(current)
+            if idx + 1 < len(buttons):
+                buttons[idx + 1].focus()
+        else:
+            # If at last button or no other elements, go back to first
+            input_field.focus()
+
+    def action_focus_prev_field(self) -> None:
+        """Move focus to previous field."""
+        current = self.focused
+        input_field = self.query_one("#input-field", Input)
+        buttons = self.query("Button").results()
+
+        if current in buttons and current != buttons[0]:
+            # Move to previous button if exists
+            idx = buttons.index(current)
+            if idx - 1 >= 0:
+                buttons[idx - 1].focus()
+        elif current in buttons and current == buttons[0]:
+            # If at first button, go back to input
+            input_field.focus()
+        else:
+            # If at input field or no other elements, go to last button
+            if buttons:
+                buttons[-1].focus()
+
 
 class DecisionOverrideWizard(ModalScreen[dict]):
     """A 3-step wizard for overriding conversion decisions."""
 
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
+        ("tab", "focus_next_field", "Next field"),
+        ("shift+tab", "focus_prev_field", "Prev field"),
     ]
 
     def __init__(self, decision: dict, title: str = "Decision Override Wizard"):
@@ -248,3 +339,81 @@ class DecisionOverrideWizard(ModalScreen[dict]):
             self.call_after_refresh(lambda: self.query_one("#new-value-input", Input).focus())
         elif self.step == 3:
             self.call_after_refresh(lambda: self.query_one("#apply-button", Button).focus())
+
+    def action_focus_next_field(self) -> None:
+        """Move focus to next field based on current step."""
+        if self.step == 1:
+            # Step 1: Only buttons available
+            current = self.focused
+            buttons = self.query("Button").results()
+            if current in buttons and len(buttons) > 1:
+                idx = buttons.index(current)
+                next_idx = (idx + 1) % len(buttons)
+                buttons[next_idx].focus()
+            elif buttons:
+                buttons[0].focus()
+        elif self.step == 2:
+            # Step 2: Input fields and buttons
+            current = self.focused
+            new_value_input = self.query_one("#new-value-input", Input) if self.query("#new-value-input") else None
+            reason_input = self.query_one("#reason-input", Input) if self.query("#reason-input") else None
+            replan_button = self.query_one("#replan-toggle", Button) if self.query("#replan-toggle") else None
+            back_button = self.query_one("#back-button", Button) if self.query("#back-button") else None
+            continue_button = self.query_one("#continue-button", Button) if self.query("#continue-button") else None
+
+            all_widgets = [w for w in [new_value_input, reason_input, replan_button, back_button, continue_button] if w is not None]
+            if current in all_widgets:
+                idx = all_widgets.index(current)
+                next_idx = (idx + 1) % len(all_widgets)
+                all_widgets[next_idx].focus()
+            elif all_widgets:
+                all_widgets[0].focus()
+        elif self.step == 3:
+            # Step 3: Buttons only
+            current = self.focused
+            buttons = self.query("Button").results()
+            if current in buttons and len(buttons) > 1:
+                idx = buttons.index(current)
+                next_idx = (idx + 1) % len(buttons)
+                buttons[next_idx].focus()
+            elif buttons:
+                buttons[0].focus()
+
+    def action_focus_prev_field(self) -> None:
+        """Move focus to previous field based on current step."""
+        if self.step == 1:
+            # Step 1: Only buttons available
+            current = self.focused
+            buttons = self.query("Button").results()
+            if current in buttons and len(buttons) > 1:
+                idx = buttons.index(current)
+                prev_idx = (idx - 1) % len(buttons)
+                buttons[prev_idx].focus()
+            elif buttons:
+                buttons[-1].focus()  # Last button
+        elif self.step == 2:
+            # Step 2: Input fields and buttons
+            current = self.focused
+            new_value_input = self.query_one("#new-value-input", Input) if self.query("#new-value-input") else None
+            reason_input = self.query_one("#reason-input", Input) if self.query("#reason-input") else None
+            replan_button = self.query_one("#replan-toggle", Button) if self.query("#replan-toggle") else None
+            back_button = self.query_one("#back-button", Button) if self.query("#back-button") else None
+            continue_button = self.query_one("#continue-button", Button) if self.query("#continue-button") else None
+
+            all_widgets = [w for w in [new_value_input, reason_input, replan_button, back_button, continue_button] if w is not None]
+            if current in all_widgets:
+                idx = all_widgets.index(current)
+                prev_idx = (idx - 1) % len(all_widgets)
+                all_widgets[prev_idx].focus()
+            elif all_widgets:
+                all_widgets[-1].focus()  # Last widget
+        elif self.step == 3:
+            # Step 3: Buttons only
+            current = self.focused
+            buttons = self.query("Button").results()
+            if current in buttons and len(buttons) > 1:
+                idx = buttons.index(current)
+                prev_idx = (idx - 1) % len(buttons)
+                buttons[prev_idx].focus()
+            elif buttons:
+                buttons[-1].focus()  # Last button

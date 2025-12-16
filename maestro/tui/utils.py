@@ -115,6 +115,8 @@ class ErrorModal(ModalScreen[bool]):
     BINDINGS = [
         ("escape", "dismiss", "Close"),
         ("enter", "dismiss", "Close"),
+        ("tab", "focus_next_field", "Next field"),
+        ("shift+tab", "focus_prev_field", "Prev field"),
     ]
 
     def __init__(self, error_msg: ErrorMessage):
@@ -130,11 +132,11 @@ class ErrorModal(ModalScreen[bool]):
             title_text = f"{self.error_msg.severity.value.upper()}: {self.error_msg.title}"
             yield Label(title_text, id="error-title")
             yield Label(self.error_msg.message, id="error-message")
-            
+
             # Add actionable hint if available
             if self.error_msg.actionable_hint:
                 yield Label(f"[bold]Hint:[/bold] {self.error_msg.actionable_hint}", id="actionable-hint")
-            
+
             # Button to show technical details
             if self.error_msg.technical_details:
                 with Horizontal(id="details-controls"):
@@ -145,7 +147,7 @@ class ErrorModal(ModalScreen[bool]):
                 details = Static(self.error_msg.technical_details, id="technical-details")
                 details.display = False
                 yield details
-            
+
             with Horizontal(id="error-buttons"):
                 yield Button("OK", variant="primary", id="ok-button")
 
@@ -164,10 +166,10 @@ class ErrorModal(ModalScreen[bool]):
         """Toggle the visibility of technical details."""
         details_container = self.query_one("#technical-details", Static)
         toggle_button = self.query_one("#toggle-details", Button)
-        
+
         self.show_technical_details = not self.show_technical_details
         details_container.visible = self.show_technical_details
-        
+
         if self.show_technical_details:
             toggle_button.label = "Hide Technical Details"
         else:
@@ -176,6 +178,36 @@ class ErrorModal(ModalScreen[bool]):
     def action_dismiss(self) -> None:
         """Action to dismiss the modal."""
         self.dismiss(True)
+
+    def action_focus_next_field(self) -> None:
+        """Move focus to next field."""
+        current = self.focused
+        ok_button = self.query_one("#ok-button", Button)
+        toggle_button = self.query_one("#toggle-details", Button) if self.query("#toggle-details") else None
+
+        all_buttons = [b for b in [toggle_button, ok_button] if b is not None]
+
+        if current in all_buttons:
+            idx = all_buttons.index(current)
+            next_idx = (idx + 1) % len(all_buttons)
+            all_buttons[next_idx].focus()
+        elif all_buttons:
+            all_buttons[0].focus()  # Focus first available button
+
+    def action_focus_prev_field(self) -> None:
+        """Move focus to previous field."""
+        current = self.focused
+        ok_button = self.query_one("#ok-button", Button)
+        toggle_button = self.query_one("#toggle-details", Button) if self.query("#toggle-details") else None
+
+        all_buttons = [b for b in [toggle_button, ok_button] if b is not None]
+
+        if current in all_buttons:
+            idx = all_buttons.index(current)
+            prev_idx = (idx - 1) % len(all_buttons)
+            all_buttons[prev_idx].focus()
+        elif all_buttons:
+            all_buttons[-1].focus()  # Focus last available button
 
 
 class ErrorNormalizer:
