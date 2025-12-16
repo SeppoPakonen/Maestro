@@ -2430,6 +2430,12 @@ def main():
     refactor_show_parser.add_argument('task_id', help='Task ID to show details for')
     refactor_show_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
 
+    # convert promote
+    convert_promote_parser = convert_subparsers.add_parser('promote', aliases=['pr'], help='Promote conversion results to production')
+    convert_promote_parser.add_argument('--min-score', type=float, default=75.0, help='Minimum confidence score required for promotion (default: 75.0)')
+    convert_promote_parser.add_argument('--force-promote', action='store_true', help='Force promotion even if confidence score is below threshold')
+    convert_promote_parser.add_argument('--run-id', help='Specific run ID to promote')
+    convert_promote_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
     # convert batch
     convert_batch_parser = convert_subparsers.add_parser('batch', aliases=['b'], help='Multi-repo batch conversion commands')
     convert_batch_subparsers = convert_batch_parser.add_subparsers(dest='batch_subcommand', help='Batch conversion subcommands')
@@ -3717,6 +3723,95 @@ def main():
                     elif args.batch_subcommand == 'show':
                         handle_convert_batch_show(args.spec, args.job, args.verbose)
                     elif args.batch_subcommand == 'report':
+                        handle_convert_batch_report(args.spec, args.format, args.verbose)
+                    elif args.batch_subcommand == 'gate':
+                        handle_convert_batch_gate(args.spec, args.min_score, args.aggregate, args.verbose)
+                    elif args.batch_subcommand in ['help', 'h']:
+                        convert_batch_parser.print_help()
+                        return  # Exit after showing help
+                    else:
+                        print_error(f"Unknown batch subcommand: {args.batch_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    convert_batch_parser.print_help()
+                    return  # Exit after showing help
+            elif args.convert_subcommand == 'confidence':
+                if hasattr(args, 'confidence_subcommand') and args.confidence_subcommand:
+                    if args.confidence_subcommand == 'show':
+                        handle_convert_confidence_show(args.run_id, args.verbose)
+                    elif args.confidence_subcommand == 'history':
+                        handle_convert_confidence_history(args.limit, args.verbose)
+                    elif args.confidence_subcommand == 'gate':
+                        handle_convert_confidence_gate(args.min_score, args.run_id, args.verbose)
+                    elif args.confidence_subcommand in ['help', 'h']:
+                        convert_confidence_parser.print_help()
+                        return  # Exit after showing help
+                    else:
+                        print_error(f"Unknown confidence subcommand: {args.confidence_subcommand}", 2)
+                        sys.exit(1)
+                else:
+            elif args.convert_subcommand == 'runs':
+                # Handle runs subcommands
+                if hasattr(args, 'runs_subcommand') and args.runs_subcommand:
+                    if args.runs_subcommand == 'list':
+                        # Use subprocess to call the convert orchestrator
+                        import subprocess
+                        import sys
+                        result = subprocess.run([
+                            sys.executable, "convert_orchestrator.py", "runs", "list"
+                        ])
+                        sys.exit(result.returncode)
+                    elif args.runs_subcommand == 'show':
+                        import subprocess
+                        import sys
+                        result = subprocess.run([
+                            sys.executable, "convert_orchestrator.py", "runs", "show", args.run_id
+                        ])
+                        sys.exit(result.returncode)
+                    elif args.runs_subcommand == 'diff':
+                        import subprocess
+                        import sys
+                        cmd = [sys.executable, "convert_orchestrator.py", "runs", "diff", args.run_id]
+                        if args.against:
+                            cmd.extend(["--against", args.against])
+                        result = subprocess.run(cmd)
+                        sys.exit(result.returncode)
+                    else:
+                        print_error(f"Unknown runs subcommand: {args.runs_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    # If no subcommand, show help
+                    convert_runs_parser.print_help()
+                    sys.exit(1)
+            elif args.convert_subcommand == 'replay':
+                # Handle replay command
+                import subprocess
+                import sys
+                cmd = [
+                    sys.executable, "convert_orchestrator.py", "replay",
+                    args.run_id, args.source, args.target
+                ]
+
+                # Add optional arguments
+                if hasattr(args, 'dry') and args.dry:
+                    cmd.append('--dry')
+                if hasattr(args, 'apply') and args.apply:
+                    cmd.append('--apply')
+                if hasattr(args, 'limit') and args.limit:
+                    cmd.extend(['--limit', str(args.limit)])
+                if hasattr(args, 'only') and args.only:
+                    cmd.extend(['--only', args.only])
+                if hasattr(args, 'use_recorded_engines') and args.use_recorded_engines:
+                    cmd.append('--use-recorded-engines')
+                if hasattr(args, 'allow_engine_change') and args.allow_engine_change:
+                    cmd.append('--allow-engine-change')
+                if hasattr(args, 'max_replay_rounds') and args.max_replay_rounds != 2:
+                    cmd.extend(['--max-replay-rounds', str(args.max_replay_rounds)])
+                if hasattr(args, 'fail_on_any_drift') and args.fail_on_any_drift:
+                    cmd.append('--fail-on-any-drift')
+
+                result = subprocess.run(cmd)
+                sys.exit(result.returncode)
                         handle_convert_batch_report(args.spec, args.format, args.verbose)
                     elif args.batch_subcommand == 'gate':
                         handle_convert_batch_gate(args.spec, args.min_score, args.aggregate, args.verbose)
