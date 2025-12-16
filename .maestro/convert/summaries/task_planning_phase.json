@@ -1,0 +1,20 @@
+{
+  "task_id": "planning_phase",
+  "source_files": [
+    ".maestro/convert/inventory/source_files.json"
+  ],
+  "target_files": [
+    "test_plan.json"
+  ],
+  "timestamp": "2025-12-16T16:38:31.921975",
+  "write_policy": null,
+  "merge_strategy": null,
+  "semantic_decisions_taken": [
+    "Generated conversion plan with memory guidance (rehearsal_mode: False)"
+  ],
+  "warnings": [],
+  "errors": [],
+  "hashes_before": {},
+  "hashes_after": {},
+  "diff_references": []
+}

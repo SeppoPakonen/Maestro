@@ -1,0 +1,37 @@
+{
+  "id": "cpp_to_c",
+  "title": "C++ → C lowering (no runtime)",
+  "version": "1.0",
+  "applies_to": {
+    "source_language": "C++",
+    "target_language": "C"
+  },
+  "intent": "high_to_low_level",
+  "principles": [
+    "No hidden runtime",
+    "Explicit memory ownership",
+    "No exceptions; use error codes",
+    "No templates in output"
+  ],
+  "required_losses": [
+    "RAII",
+    "exceptions",
+    "templates"
+  ],
+  "forbidden_constructs": {
+    "target": ["new", "delete", "throw", "try", "catch"]
+  },
+  "preferred_patterns": [
+    "init/cleanup pairs",
+    "opaque structs",
+    "manual vtables"
+  ],
+  "checkpoint_policy": {
+    "after_files": 5,
+    "on_semantic_loss": true
+  },
+  "validation_policy": {
+    "mode": "vectors_only",
+    "require_behavior_envelope": true
+  }
+}

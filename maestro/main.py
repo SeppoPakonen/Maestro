@@ -2403,7 +2403,7 @@ def main():
     convert_refactor_subparsers = convert_refactor_parser.add_subparsers(dest='refactor_subcommand', help='Refactor subcommands')
 
     # convert promote
-    convert_promote_parser = convert_subparsers.add_parser('promote', aliases=['p'], help='Promote conversion results to production')
+    convert_promote_parser = convert_subparsers.add_parser('promote', aliases=['pr'], help='Promote conversion results to production')
     convert_promote_parser.add_argument('--min-score', type=float, default=75.0, help='Minimum confidence score required for promotion (default: 75.0)')
     convert_promote_parser.add_argument('--force-promote', action='store_true', help='Force promotion even if confidence score is below threshold')
     convert_promote_parser.add_argument('--run-id', help='Specific run ID to promote')
@@ -2430,12 +2430,6 @@ def main():
     refactor_show_parser.add_argument('task_id', help='Task ID to show details for')
     refactor_show_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
 
-    # convert promote
-    convert_promote_parser = convert_subparsers.add_parser('promote', aliases=['pr'], help='Promote conversion results to production')
-    convert_promote_parser.add_argument('--min-score', type=float, default=75.0, help='Minimum confidence score required for promotion (default: 75.0)')
-    convert_promote_parser.add_argument('--force-promote', action='store_true', help='Force promotion even if confidence score is below threshold')
-    convert_promote_parser.add_argument('--run-id', help='Specific run ID to promote')
-    convert_promote_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
     # convert batch
     convert_batch_parser = convert_subparsers.add_parser('batch', aliases=['b'], help='Multi-repo batch conversion commands')
     convert_batch_subparsers = convert_batch_parser.add_subparsers(dest='batch_subcommand', help='Batch conversion subcommands')
@@ -3749,7 +3743,6 @@ def main():
                     else:
                         print_error(f"Unknown confidence subcommand: {args.confidence_subcommand}", 2)
                         sys.exit(1)
-                else:
             elif args.convert_subcommand == 'runs':
                 # Handle runs subcommands
                 if hasattr(args, 'runs_subcommand') and args.runs_subcommand:
@@ -3812,18 +3805,6 @@ def main():
 
                 result = subprocess.run(cmd)
                 sys.exit(result.returncode)
-                        handle_convert_batch_report(args.spec, args.format, args.verbose)
-                    elif args.batch_subcommand == 'gate':
-                        handle_convert_batch_gate(args.spec, args.min_score, args.aggregate, args.verbose)
-                    elif args.batch_subcommand in ['help', 'h']:
-                        convert_batch_parser.print_help()
-                        return  # Exit after showing help
-                    else:
-                        print_error(f"Unknown batch subcommand: {args.batch_subcommand}", 2)
-                        sys.exit(1)
-                else:
-                    convert_batch_parser.print_help()
-                    return  # Exit after showing help
             elif args.convert_subcommand == 'confidence':
                 if hasattr(args, 'confidence_subcommand') and args.confidence_subcommand:
                     if args.confidence_subcommand == 'show':

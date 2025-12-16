@@ -1,0 +1,6 @@
+{
+  "no_hidden_runtime": "No runtime library dependencies",
+  "explicit_memory": "Manual memory management required",
+  "error_codes": "Error handling with return codes instead of exceptions",
+  "no_templates": "Replace C++ templates with function macros or void* patterns"
+}

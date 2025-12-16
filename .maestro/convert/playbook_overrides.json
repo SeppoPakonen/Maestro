@@ -1,0 +1,16 @@
+[
+  {
+    "task_id": "task_test123",
+    "violation_type": null,
+    "reason": "Testing override functionality",
+    "timestamp": 1765798746,
+    "overridden_by": "sblo"
+  },
+  {
+    "task_id": "test_task_456",
+    "violation_type": null,
+    "reason": "Test override command",
+    "timestamp": 1765799274,
+    "overridden_by": "sblo"
+  }
+]

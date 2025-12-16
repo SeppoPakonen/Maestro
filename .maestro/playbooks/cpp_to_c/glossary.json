@@ -1,0 +1,6 @@
+{
+  "cpp_exceptions": "C++ exception handling mechanism",
+  "RAII": "Resource Acquisition Is Initialization",
+  "templates": "C++ generic programming feature",
+  "vtables": "Virtual function tables for polymorphism"
+}
