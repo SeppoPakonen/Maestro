@@ -2410,8 +2410,25 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
         if pkg_name in visited:
             return [{'name': pkg_name, 'circular': True}]
 
-        # Find the package
+        # Find the package - try multiple strategies
+        pkg_dict = None
+        import os
+
+        # Strategy 1: Exact name match
         pkg_dict = next((p for p in all_packages if p['name'] == pkg_name), None)
+
+        # Strategy 2: Path-based match (e.g., api/MidiFile matches uppsrc/api/MidiFile)
+        if not pkg_dict and '/' in pkg_name:
+            for p in all_packages:
+                if p['dir'].endswith(pkg_name) or p['dir'].endswith('/' + pkg_name):
+                    pkg_dict = p
+                    break
+
+        # Strategy 3: Basename match (extract last component)
+        if not pkg_dict and '/' in pkg_name:
+            basename = pkg_name.split('/')[-1]
+            pkg_dict = next((p for p in all_packages if p['name'] == basename), None)
+
         if not pkg_dict:
             return [{'name': pkg_name, 'error': 'not_found'}]
 
