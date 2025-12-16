@@ -1094,13 +1094,14 @@ class MaestroTUI(App):
         self.exit()
 
 
-def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None, mc_shell: bool = False):
+def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None, mc_shell: bool = True):
     """Run the TUI application."""
     if mc_shell:
         from maestro.tui.screens.mc_shell import MaestroMCShellApp
 
         app = MaestroMCShellApp(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
     else:
+        # Legacy TUI kept for fallback/debug
         app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
     app.run()
 

@@ -22,7 +22,6 @@ def parse_args():
         help="Time to keep smoke mode alive before exiting (default: 0.5)",
     )
     parser.add_argument("--smoke-out", type=str, help="File path to write success marker (optional)")
-    parser.add_argument("--mc", action="store_true", help="Start in Midnight Commander shell")
     return parser.parse_args()
 
 
@@ -31,7 +30,7 @@ def run_tui():
     args = parse_args()
     if args.smoke_out:
         os.environ["MAESTRO_SMOKE_SUCCESS_FILE"] = args.smoke_out
-    main(smoke_mode=args.smoke, smoke_seconds=args.smoke_seconds, smoke_out=args.smoke_out, mc_shell=args.mc)
+    main(smoke_mode=args.smoke, smoke_seconds=args.smoke_seconds, smoke_out=args.smoke_out)
 
 
 if __name__ == "__main__":
