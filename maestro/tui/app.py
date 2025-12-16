@@ -915,16 +915,33 @@ class MaestroTUI(App):
             # Set up the new screen
             self.current_screen = screen_instance
 
-
             # Check if the screen has a load_data method and call it
             if hasattr(screen_instance, 'load_data'):
                 # Create an async task to load data for the screen
                 self.current_screen_task = asyncio.create_task(screen_instance.load_data())
             else:
-                # Just use the screen's compose method as before
-                widgets = list(screen_instance.compose())
-                for widget in widgets:
-                    main_content.mount(widget)
+                # The issue is that some screens use context managers in compose() which can't be
+                # called outside of the proper app context. For this architecture to work, screens
+                # need to be able to have their widgets extracted. Let's push the actual screen
+                # instead of trying to extract its widgets.
+                # However, since the existing architecture expects widget mounting, we'll try
+                # an alternative approach: temporarily attach the screen to this app so compose
+                # can be called properly.
+
+                # For now, since the current architecture doesn't properly support screens
+                # with context managers, we'll handle this with a try-catch and more specific error
+                try:
+                    widgets = list(screen_instance.compose())
+                    for widget in widgets:
+                        main_content.mount(widget)
+                except IndexError as ie:
+                    # This is likely the context manager issue - the screen uses 'with' statements
+                    # in compose method that require proper app context
+                    error_container = Vertical(id="error-container", classes="error-container")
+                    main_content.mount(error_container)  # Mount container first
+                    error_container.mount(Label(f"[bold red]ERROR:[/bold red] Screen composition error: {str(ie)}", id="error-message"))
+                    error_container.mount(Label("This screen can't be loaded in the current architecture", id="error-details"))
+                    return
         except Exception as e:
             # Create a more informative error message with screen name and exception details
             screen_name = screen_instance.__class__.__name__ if hasattr(screen_instance, '__class__') else 'Unknown'
@@ -972,9 +989,16 @@ class MaestroTUI(App):
                     try:
                         main_content = self.query_one("#main-content", Vertical)
                         main_content.remove_children()
-                        widgets = list(screen_instance.compose())
-                        for widget in widgets:
-                            main_content.mount(widget)
+                        try:
+                            widgets = list(screen_instance.compose())
+                            for widget in widgets:
+                                main_content.mount(widget)
+                        except IndexError:
+                            # Handle context manager issue
+                            error_container = Vertical(id="error-container", classes="error-container")
+                            main_content.mount(error_container)
+                            error_container.mount(Label("[bold red]ERROR:[/bold red] Screen composition error", id="error-message"))
+                            error_container.mount(Label("This screen can't be loaded in the current architecture", id="error-details"))
                     except Exception:
                         pass
 
