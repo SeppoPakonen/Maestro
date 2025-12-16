@@ -364,6 +364,7 @@ class AssemblyInfo:
     name: str
     root_path: str
     package_folders: List[str] = field(default_factory=list)
+    evidence_refs: List[str] = field(default_factory=list)  # References like "found in xyz.var"
 
 
 @dataclass
@@ -380,6 +381,7 @@ class RepoScanResult:
     assemblies_detected: List[AssemblyInfo] = field(default_factory=list)
     packages_detected: List[PackageInfo] = field(default_factory=list)
     unknown_paths: List[UnknownPath] = field(default_factory=list)
+    user_assemblies: List[Dict[str, Any]] = field(default_factory=list)  # From ~/.config/u++/ide/*.var
 
 
 # Dataclasses for structure fix operations
@@ -1772,12 +1774,13 @@ def is_under_any(path: str, roots: set) -> bool:
     return False
 
 
-def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
+def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: bool = True) -> RepoScanResult:
     """
     Scan a U++ repository and identify:
     - packages: directories containing <Name>/<Name>.upp
     - probable assembly roots: directories that contain multiple package folders/packages
     - unknown paths: everything that is not part of any detected package dir
+    - user assemblies: from ~/.config/u++/ide/*.var (if include_user_config=True)
 
     Uses pruning to avoid descending into package directories except along ancestor paths
     leading to nested package roots.
@@ -1785,9 +1788,10 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
     Args:
         root_dir: Root directory of the U++ repository to scan
         verbose: If True, print verbose scan information
+        include_user_config: If True, read user assemblies from ~/.config/u++/ide/*.var
 
     Returns:
-        RepoScanResult: Object containing assemblies_detected, packages_detected, and unknown_paths
+        RepoScanResult: Object containing assemblies_detected, packages_detected, unknown_paths, and user_assemblies
     """
     import os
     from pathlib import Path
@@ -2046,10 +2050,40 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
     discovered_packages.sort(key=lambda x: (x.name, x.dir))
     unknown_paths.sort(key=lambda x: x.path)
 
+    # Read user assemblies from ~/.config/u++/ide/*.var if requested
+    user_assemblies = []
+    if include_user_config:
+        try:
+            from maestro.repo.uplusplus_var_reader import read_user_assemblies
+            user_assemblies = read_user_assemblies(repo_root=root_dir)
+
+            if verbose and user_assemblies:
+                print(f"[maestro] Found {len(user_assemblies)} user assembly configurations")
+
+            # Add evidence_refs to assemblies_detected based on user_assemblies
+            for user_asm in user_assemblies:
+                for repo_path in user_asm.get('repo_paths', []):
+                    # Find matching assembly in assembly_infos
+                    repo_path_resolved = os.path.realpath(repo_path)
+                    for asm_info in assembly_infos:
+                        asm_path_resolved = os.path.realpath(asm_info.root_path)
+                        # Check if paths match or are related
+                        if repo_path_resolved.startswith(asm_path_resolved) or asm_path_resolved.startswith(repo_path_resolved):
+                            evidence_ref = f"found in {user_asm['var_filename']}"
+                            if evidence_ref not in asm_info.evidence_refs:
+                                asm_info.evidence_refs.append(evidence_ref)
+        except ImportError:
+            if verbose:
+                print("[maestro] Warning: Could not import uplusplus_var_reader")
+        except Exception as e:
+            if verbose:
+                print(f"[maestro] Warning: Failed to read user assemblies: {e}")
+
     return RepoScanResult(
         assemblies_detected=assembly_infos,
         packages_detected=discovered_packages,
-        unknown_paths=unknown_paths
+        unknown_paths=unknown_paths,
+        user_assemblies=user_assemblies
     )
 
 
@@ -2147,7 +2181,8 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
             {
                 "name": asm.name,
                 "root_path": asm.root_path,
-                "package_folders": asm.package_folders
+                "package_folders": asm.package_folders,
+                "evidence_refs": asm.evidence_refs
             } for asm in scan_result.assemblies_detected
         ],
         "packages_detected": [
@@ -2165,7 +2200,8 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
                 "type": unknown.type,
                 "guessed_kind": unknown.guessed_kind
             } for unknown in scan_result.unknown_paths
-        ]
+        ],
+        "user_assemblies": scan_result.user_assemblies
     }
 
     # Write index.json atomically
@@ -2188,6 +2224,7 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
     summary_lines.append("")
     summary_lines.append(f"Packages: {len(scan_result.packages_detected)}")
     summary_lines.append(f"Assemblies: {len(scan_result.assemblies_detected)}")
+    summary_lines.append(f"User assemblies: {len(scan_result.user_assemblies)}")
     summary_lines.append(f"Unknown paths: {len(scan_result.unknown_paths)}")
     summary_lines.append("")
 
@@ -2216,8 +2253,9 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         "index_path": str(index_path),
         "packages_count": len(scan_result.packages_detected),
         "assemblies_count": len(scan_result.assemblies_detected),
+        "user_assemblies_count": len(scan_result.user_assemblies),
         "unknown_count": len(scan_result.unknown_paths),
-        "scanner_version": "0.4.0"
+        "scanner_version": "0.5.0"
     }
 
     with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
@@ -3144,6 +3182,8 @@ def main():
     repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: auto-detect via .maestro/)')
     repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to .maestro/repo/')
+    repo_resolve_parser.add_argument('--include-user-config', action='store_true', default=True, help='Include user assemblies from ~/.config/u++/ide/*.var (default: true)')
+    repo_resolve_parser.add_argument('--no-user-config', dest='include_user_config', action='store_false', help='Skip reading user assembly config')
     repo_resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information')
 
     # repo show
@@ -4785,7 +4825,7 @@ def main():
                         print_debug(f"Detected repository root: {scan_path}", 2)
 
                 # Perform the repo scan
-                repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose)
+                repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose, include_user_config=args.include_user_config)
 
                 # Write artifacts unless --no-write is specified
                 if not args.no_write:
@@ -4967,7 +5007,7 @@ def main():
         else:
             # If no subcommand specified, default to resolve
             scan_path = os.getcwd()  # Default to current directory
-            repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose)
+            repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose, include_user_config=True)
 
             # Output in human-readable format
             print_header(f"U++ REPO SCAN RESULTS: {scan_path}")
