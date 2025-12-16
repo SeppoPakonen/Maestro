@@ -2401,43 +2401,85 @@ def load_repo_index(repo_root: str = None) -> dict:
 
 
 def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = False, repo_root: str = None):
-    """List all packages in the repository."""
+    """List all packages in the repository (U++ and internal)."""
     import json
     import os
 
     if json_output:
-        # JSON output with package names, numbers, and file counts
+        # JSON output with package names, numbers, and type info
         output = []
         for i, p in enumerate(packages, 1):
-            rel_path = os.path.relpath(p['dir'], repo_root) if repo_root else p['dir']
-            output.append({
+            pkg_type = p.get('_type', 'upp')
+            entry = {
                 'number': i,
                 'name': p['name'],
-                'files': len(p['files']),
-                'dir': p['dir'],
-                'rel_path': rel_path
-            })
+                'type': pkg_type
+            }
+
+            if pkg_type == 'internal':
+                entry['members'] = len(p.get('members', []))
+                entry['guessed_type'] = p.get('guessed_type', 'misc')
+                entry['root_path'] = p.get('root_path', '')
+                if repo_root:
+                    entry['rel_path'] = os.path.relpath(p['root_path'], repo_root)
+            else:
+                entry['files'] = len(p.get('files', []))
+                entry['dir'] = p.get('dir', '')
+                if repo_root and p.get('dir'):
+                    entry['rel_path'] = os.path.relpath(p['dir'], repo_root)
+
+            output.append(entry)
         print(json.dumps(output, indent=2))
     else:
         # Human-readable output with numbers and relative paths
         print_header(f"PACKAGES ({len(packages)} total)")
         sorted_packages = sorted(packages, key=lambda p: p['name'].lower())
         for i, pkg in enumerate(sorted_packages, 1):
-            rel_path = os.path.relpath(pkg['dir'], repo_root) if repo_root else pkg['dir']
-            print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {rel_path}", 2)
+            pkg_type = pkg.get('_type', 'upp')
+
+            if pkg_type == 'internal':
+                # Internal package display
+                guessed_type = pkg.get('guessed_type', 'misc')
+                members_count = len(pkg.get('members', []))
+                root_path = pkg.get('root_path', '')
+                rel_path = os.path.relpath(root_path, repo_root) if repo_root else root_path
+                print_info(f"[{i:4d}] {pkg['name']:30s} {members_count:4d} items  [{guessed_type}] {rel_path}", 2)
+            else:
+                # U++ package display
+                rel_path = os.path.relpath(pkg['dir'], repo_root) if repo_root else pkg['dir']
+                print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {rel_path}", 2)
 
 
 def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False):
-    """Show detailed information about a package."""
+    """Show detailed information about a package (U++ or internal)."""
     import json
+
+    pkg_type = pkg.get('_type', 'upp')
 
     if json_output:
         print(json.dumps(pkg, indent=2))
     else:
-        print_header(f"PACKAGE: {pkg['name']}")
-        print(f"\nDirectory: {pkg['dir']}")
-        print(f"UPP file: {pkg['upp_path']}")
-        print(f"Files: {len(pkg['files'])}")
+        if pkg_type == 'internal':
+            # Internal package info
+            print_header(f"INTERNAL PACKAGE: {pkg['name']}")
+            print(f"\nRoot path: {pkg.get('root_path', 'N/A')}")
+            print(f"Type: {pkg.get('guessed_type', 'misc')}")
+            print(f"Members: {len(pkg.get('members', []))}")
+
+            # Show members
+            if pkg.get('members'):
+                print("\n" + "─" * 60)
+                print_info("MEMBERS", 2)
+                for member in sorted(pkg['members'])[:50]:
+                    print_info(member, 2)
+                if len(pkg['members']) > 50:
+                    print_info(f"... and {len(pkg['members']) - 50} more", 2)
+        else:
+            # U++ package info
+            print_header(f"PACKAGE: {pkg['name']}")
+            print(f"\nDirectory: {pkg['dir']}")
+            print(f"UPP file: {pkg['upp_path']}")
+            print(f"Files: {len(pkg['files'])}")
 
         # Show parsed .upp metadata if available
         if pkg.get('upp'):
@@ -5133,9 +5175,19 @@ def main():
                 if repo_root is None:
                     repo_root = find_repo_root()
 
+                # Combine U++ packages and internal packages
                 packages = index_data['packages_detected']
-                # Create sorted package list for consistent numbering
-                sorted_packages = sorted(packages, key=lambda p: p['name'].lower())
+                internal_packages = index_data.get('internal_packages', [])
+
+                # Add type marker to distinguish package types
+                for p in packages:
+                    p['_type'] = 'upp'
+                for p in internal_packages:
+                    p['_type'] = 'internal'
+
+                # Combine and sort all packages
+                all_packages = packages + internal_packages
+                sorted_packages = sorted(all_packages, key=lambda p: p['name'].lower())
 
                 # Case 1: No package name provided - list all packages
                 if not args.package_name:
@@ -5154,12 +5206,12 @@ def main():
                             print_error(f"Package number {pkg_num} out of range (1-{len(sorted_packages)})", 2)
                             sys.exit(1)
                     else:
-                        # Try exact match first
-                        pkg = next((p for p in packages if p['name'] == args.package_name), None)
+                        # Try exact match first in all packages
+                        pkg = next((p for p in all_packages if p['name'] == args.package_name), None)
 
                         # If no exact match, try partial match
                         if not pkg:
-                            matches = [p for p in packages if args.package_name.lower() in p['name'].lower()]
+                            matches = [p for p in all_packages if args.package_name.lower() in p['name'].lower()]
                             if len(matches) == 0:
                                 print_error(f"No package found matching: {args.package_name}", 2)
                                 sys.exit(1)
@@ -5171,7 +5223,11 @@ def main():
                                 # Find numbers for matched packages in sorted list
                                 for m in matches[:20]:
                                     pkg_num = sorted_packages.index(m) + 1
-                                    rel_path = os.path.relpath(m['dir'], repo_root)
+                                    pkg_type = m.get('_type', 'upp')
+                                    if pkg_type == 'internal':
+                                        rel_path = os.path.relpath(m['root_path'], repo_root) if repo_root else m['root_path']
+                                    else:
+                                        rel_path = os.path.relpath(m['dir'], repo_root) if repo_root else m['dir']
                                     print_info(f"  [{pkg_num:4d}] {m['name']:30s} {rel_path}", 2)
                                 if len(matches) > 20:
                                     print_info(f"  ... and {len(matches) - 20} more", 2)
