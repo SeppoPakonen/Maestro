@@ -63,7 +63,6 @@ class MaestroTUI(App):
     }
 
     .retry-button {
-        cursor: pointer;
         text-style: bold;
         color: $success;
         content-align: center middle;
@@ -77,7 +76,6 @@ class MaestroTUI(App):
     }
 
     .clickable-nav-item {
-        cursor: pointer;
         padding: 0 1;
     }
 
