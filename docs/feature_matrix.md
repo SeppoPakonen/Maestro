@@ -26,6 +26,7 @@
 | UPP parser | CLI v0.1.0 | — | Tolerant parser for .upp package descriptor files extracting metadata |
 | Repo resolve | CLI v0.4.0 | — | U++ repository scanning with auto-detection, pruning, artifact persistence, and .upp parsing |
 | Repo show | CLI v0.1.0 | — | Display persisted repository scan results from .maestro/repo/ |
+| Repo pkg | CLI v0.1.0 | — | Package query commands: list, info, search, tree (with cycle detection) |
 | Repo resolve integration test (ai-upp) | test v0.1 | — | Integration test for U++ repository scanning |
 | CLI repo workflow E2E (ai-upp) | test v0.1 | — | End-to-end test for init → repo resolve → repo show workflow |
 

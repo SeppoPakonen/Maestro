@@ -2261,6 +2261,196 @@ def load_repo_index(repo_root: str = None) -> dict:
         return json.load(f)
 
 
+def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = False):
+    """List all packages in the repository."""
+    import json
+
+    if json_output:
+        # JSON output with package names and file counts
+        output = [{'name': p['name'], 'files': len(p['files']), 'dir': p['dir']} for p in packages]
+        print(json.dumps(output, indent=2))
+    else:
+        # Human-readable output
+        print_header(f"PACKAGES ({len(packages)} total)")
+        for pkg in sorted(packages, key=lambda p: p['name']):
+            print_info(f"{pkg['name']:40s} {len(pkg['files']):4d} files", 2)
+
+
+def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False):
+    """Show detailed information about a package."""
+    import json
+
+    if json_output:
+        print(json.dumps(pkg, indent=2))
+    else:
+        print_header(f"PACKAGE: {pkg['name']}")
+        print(f"\nDirectory: {pkg['dir']}")
+        print(f"UPP file: {pkg['upp_path']}")
+        print(f"Files: {len(pkg['files'])}")
+
+        # Show parsed .upp metadata if available
+        if pkg.get('upp'):
+            upp = pkg['upp']
+            print("\n" + "─" * 60)
+            print_info("UPP METADATA", 2)
+
+            if upp.get('description_text'):
+                print_info(f"Description: {upp['description_text']}", 2)
+
+            if upp.get('description_color'):
+                r, g, b = upp['description_color']
+                print_info(f"Color: RGB({r}, {g}, {b})", 2)
+
+            if upp.get('uses'):
+                print_info(f"Dependencies ({len(upp['uses'])}):", 2)
+                for dep in upp['uses'][:10]:
+                    print_info(f"  - {dep}", 2)
+                if len(upp['uses']) > 10:
+                    print_info(f"  ... and {len(upp['uses']) - 10} more", 2)
+
+            if upp.get('acceptflags'):
+                print_info(f"Accept flags: {', '.join(upp['acceptflags'])}", 2)
+
+            if upp.get('libraries'):
+                print_info(f"Libraries ({len(upp['libraries'])}):", 2)
+                for lib in upp['libraries'][:5]:
+                    print_info(f"  [{lib['condition']}] {lib['libs']}", 2)
+                if len(upp['libraries']) > 5:
+                    print_info(f"  ... and {len(upp['libraries']) - 5} more", 2)
+
+            if upp.get('files'):
+                print_info(f"Files declared in .upp: {len(upp['files'])}", 2)
+
+
+def handle_repo_pkg_files(pkg: Dict[str, Any], json_output: bool = False):
+    """List all files in a package."""
+    import json
+
+    if json_output:
+        output = {
+            'package': pkg['name'],
+            'files': pkg['files'],
+            'upp_files': pkg.get('upp', {}).get('files', [])
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        print_header(f"PACKAGE FILES: {pkg['name']}")
+
+        # Show files from .upp if available
+        if pkg.get('upp') and pkg['upp'].get('files'):
+            upp_files = pkg['upp']['files']
+            print(f"\n" + "─" * 60)
+            print_info(f"Files from .upp ({len(upp_files)}):", 2)
+            for file_entry in upp_files:
+                file_info = file_entry['path']
+                modifiers = []
+                if file_entry.get('readonly'):
+                    modifiers.append('readonly')
+                if file_entry.get('separator'):
+                    modifiers.append('separator')
+                if file_entry.get('highlight'):
+                    modifiers.append(f"highlight:{file_entry['highlight']}")
+                if file_entry.get('options'):
+                    modifiers.append(f"options:{file_entry['options']}")
+
+                if modifiers:
+                    file_info += f" [{', '.join(modifiers)}]"
+
+                print_info(f"  {file_info}", 2)
+
+        # Show all filesystem files
+        print(f"\n" + "─" * 60)
+        print_info(f"All files in package ({len(pkg['files'])}):", 2)
+        for file in sorted(pkg['files']):
+            print_info(f"  {file}", 2)
+
+
+def handle_repo_pkg_search(pkg: Dict[str, Any], query: str, json_output: bool = False):
+    """Search for files in a package matching a query."""
+    import json
+
+    # Filter files matching the query
+    matches = [f for f in pkg['files'] if query.lower() in f.lower()]
+
+    if json_output:
+        output = {
+            'package': pkg['name'],
+            'query': query,
+            'matches': matches
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        print_header(f"SEARCH: {pkg['name']} / {query}")
+        print(f"\nFound {len(matches)} matches:")
+        for file in sorted(matches):
+            print_info(f"  {file}", 2)
+
+
+def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]], json_output: bool = False):
+    """Show dependency tree for a package (with cycle detection)."""
+    import json
+
+    def build_tree(pkg_name: str, visited: set, depth: int = 0, max_depth: int = 10) -> List[Dict[str, Any]]:
+        """Recursively build dependency tree with cycle detection."""
+        if depth > max_depth:
+            return [{'name': pkg_name, 'error': 'max_depth_exceeded'}]
+
+        if pkg_name in visited:
+            return [{'name': pkg_name, 'circular': True}]
+
+        # Find the package
+        pkg_dict = next((p for p in all_packages if p['name'] == pkg_name), None)
+        if not pkg_dict:
+            return [{'name': pkg_name, 'error': 'not_found'}]
+
+        # Get dependencies from parsed .upp
+        deps = []
+        if pkg_dict.get('upp') and pkg_dict['upp'].get('uses'):
+            deps = pkg_dict['upp']['uses']
+
+        visited_copy = visited.copy()
+        visited_copy.add(pkg_name)
+
+        tree_node = {
+            'name': pkg_name,
+            'dependencies': []
+        }
+
+        for dep in deps:
+            child_tree = build_tree(dep, visited_copy, depth + 1, max_depth)
+            tree_node['dependencies'].extend(child_tree)
+
+        return [tree_node]
+
+    tree = build_tree(pkg['name'], set())
+
+    if json_output:
+        print(json.dumps(tree, indent=2))
+    else:
+        print_header(f"DEPENDENCY TREE: {pkg['name']}")
+
+        def print_tree(nodes: List[Dict[str, Any]], prefix: str = ""):
+            """Print tree in human-readable format."""
+            for i, node in enumerate(nodes):
+                is_last = i == len(nodes) - 1
+                connector = "└── " if is_last else "├── "
+
+                name = node['name']
+                suffix = ""
+                if node.get('circular'):
+                    suffix = " [CIRCULAR]"
+                elif node.get('error'):
+                    suffix = f" [ERROR: {node['error']}]"
+
+                print(prefix + connector + name + suffix)
+
+                if node.get('dependencies'):
+                    extension = "    " if is_last else "│   "
+                    print_tree(node['dependencies'], prefix + extension)
+
+        print_tree(tree)
+
+
 def handle_structure_conformance(session_path: str, verbose: bool = False) -> int:
     """
     Handle conformance check mode that compares Maestro discovery output against expected fixture outputs.
@@ -2931,6 +3121,15 @@ def main():
     repo_show_parser = repo_subparsers.add_parser('show', aliases=['sh'], help='Show repository scan results from .maestro/repo/')
     repo_show_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_show_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
+
+    # repo pkg
+    repo_pkg_parser = repo_subparsers.add_parser('pkg', help='Package query and inspection commands')
+    repo_pkg_parser.add_argument('package_name', nargs='?', help='Package name to inspect (supports partial match)')
+    repo_pkg_parser.add_argument('action', nargs='?', choices=['info', 'list', 'search', 'tree'], default='info',
+                                 help='Action: info (default), list (files), search (file search), tree (deps)')
+    repo_pkg_parser.add_argument('query', nargs='?', help='Search query (for search action)')
+    repo_pkg_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
+    repo_pkg_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
 
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
@@ -4322,21 +4521,18 @@ def main():
                     if args.runs_subcommand == 'list':
                         # Use subprocess to call the convert orchestrator
                         import subprocess
-                        import sys
                         result = subprocess.run([
                             sys.executable, "convert_orchestrator.py", "runs", "list"
                         ])
                         sys.exit(result.returncode)
                     elif args.runs_subcommand == 'show':
                         import subprocess
-                        import sys
                         result = subprocess.run([
                             sys.executable, "convert_orchestrator.py", "runs", "show", args.run_id
                         ])
                         sys.exit(result.returncode)
                     elif args.runs_subcommand == 'diff':
                         import subprocess
-                        import sys
                         cmd = [sys.executable, "convert_orchestrator.py", "runs", "diff", args.run_id]
                         if args.against:
                             cmd.extend(["--against", args.against])
@@ -4352,7 +4548,6 @@ def main():
             elif args.convert_subcommand == 'replay':
                 # Handle replay command
                 import subprocess
-                import sys
                 cmd = [
                     sys.executable, "convert_orchestrator.py", "replay",
                     args.run_id, args.source, args.target
@@ -4401,21 +4596,18 @@ def main():
                     if args.runs_subcommand == 'list':
                         # Use subprocess to call the convert orchestrator
                         import subprocess
-                        import sys
                         result = subprocess.run([
                             sys.executable, "convert_orchestrator.py", "runs", "list"
                         ])
                         sys.exit(result.returncode)
                     elif args.runs_subcommand == 'show':
                         import subprocess
-                        import sys
                         result = subprocess.run([
                             sys.executable, "convert_orchestrator.py", "runs", "show", args.run_id
                         ])
                         sys.exit(result.returncode)
                     elif args.runs_subcommand == 'diff':
                         import subprocess
-                        import sys
                         cmd = [sys.executable, "convert_orchestrator.py", "runs", "diff", args.run_id]
                         if args.against:
                             cmd.extend(["--against", args.against])
@@ -4431,7 +4623,6 @@ def main():
             elif args.convert_subcommand == 'replay':
                 # Handle replay command
                 import subprocess
-                import sys
                 cmd = [
                     sys.executable, "convert_orchestrator.py", "replay",
                     args.run_id, args.source, args.target
@@ -4461,7 +4652,6 @@ def main():
                 # Handle playbook management commands
                 if hasattr(args, 'playbook_subcommand') and args.playbook_subcommand:
                     import subprocess
-                    import sys
                     cmd = [sys.executable, "convert_orchestrator.py", "playbook"]
 
                     # Add the subcommand
@@ -4478,20 +4668,17 @@ def main():
                             cmd.append(args.playbook_id)
                     else:
                         print_error(f"Unknown playbook subcommand: {args.playbook_subcommand}", 2)
-                        import sys
                         sys.exit(1)
 
                     result = subprocess.run(cmd)
                     sys.exit(result.returncode)
                 else:
                     # If no subcommand, show help
-                    import sys
                     convert_subparsers.add_parser('playbook').print_help()  # This will show a more specific error
                     sys.exit(1)
             elif args.convert_subcommand == 'playbook-override':
                 # Handle playbook-override command (single command, not subcommands)
                 import subprocess
-                import sys
                 cmd = [sys.executable, "convert_orchestrator.py", "playbook-override"]
 
                 # Add required arguments
@@ -4511,7 +4698,6 @@ def main():
                 if hasattr(args, 'semantics_subcommand') and args.semantics_subcommand:
                     if args.semantics_subcommand == 'diff':
                         import subprocess
-                        import sys
                         cmd = [sys.executable, "cross_repo_semantic_diff.py"]
 
                         # Add optional arguments
@@ -4528,7 +4714,6 @@ def main():
                         sys.exit(result.returncode)
                     elif args.semantics_subcommand == 'coverage':
                         import subprocess
-                        import sys
                         cmd = [sys.executable, "cross_repo_semantic_diff.py", "coverage"]
                         result = subprocess.run(cmd)
                         sys.exit(result.returncode)
@@ -4673,6 +4858,58 @@ def main():
                         print_info("ASSEMBLIES", 2)
                         for asm in index_data['assemblies_detected']:
                             print_info(f"{asm['name']}: {len(asm['package_folders'])} packages", 2)
+
+            elif args.repo_subcommand == 'pkg':
+                # Package query and inspection
+                repo_root = args.path if hasattr(args, 'path') and args.path else None
+                index_data = load_repo_index(repo_root)
+
+                if repo_root is None:
+                    repo_root = find_repo_root()
+
+                packages = index_data['packages_detected']
+
+                # Case 1: No package name provided - list all packages or search
+                if not args.package_name:
+                    # List all packages
+                    handle_repo_pkg_list(packages, args.json)
+
+                # Case 2: Package name provided
+                else:
+                    # Try exact match first
+                    pkg = next((p for p in packages if p['name'] == args.package_name), None)
+
+                    # If no exact match, try partial match
+                    if not pkg:
+                        matches = [p for p in packages if args.package_name.lower() in p['name'].lower()]
+                        if len(matches) == 0:
+                            print_error(f"No package found matching: {args.package_name}", 2)
+                            sys.exit(1)
+                        elif len(matches) == 1:
+                            pkg = matches[0]
+                        else:
+                            # Multiple matches - show them and ask user to be more specific
+                            print_error(f"Multiple packages match '{args.package_name}':", 2)
+                            for m in matches[:10]:
+                                print_info(f"  - {m['name']}", 2)
+                            if len(matches) > 10:
+                                print_info(f"  ... and {len(matches) - 10} more", 2)
+                            sys.exit(1)
+
+                    # Perform action on the package
+                    action = args.action or 'info'
+
+                    if action == 'info':
+                        handle_repo_pkg_info(pkg, args.json)
+                    elif action == 'list':
+                        handle_repo_pkg_files(pkg, args.json)
+                    elif action == 'search':
+                        if not args.query:
+                            print_error("Search query required for 'search' action", 2)
+                            sys.exit(1)
+                        handle_repo_pkg_search(pkg, args.query, args.json)
+                    elif action == 'tree':
+                        handle_repo_pkg_tree(pkg, packages, args.json)
 
             elif args.repo_subcommand in ['help', 'h']:
                 # Print help for repo subcommands
@@ -5665,7 +5902,6 @@ def render_plan_tree(plans, active_plan_id):
 
     # Determine terminal colors if supported
     try:
-        import sys
         import os
         # Check if we're in a terminal that supports colors
         supports_color = (hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()) or os.getenv('TERM')
