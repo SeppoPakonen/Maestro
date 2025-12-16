@@ -271,12 +271,10 @@ class MenuBarWidget(Widget):
                         # If clicked on the currently open menu, close it
                         self.close_menu()
                     else:
-                        # Open the clicked menu
-                        self.is_open = True
-                        self.active_item_index = 0
-                        self._set_items_visible(True)
-                        self._refresh_items()
-                        self._sync_list_index()
+                        # Close any existing dropdown first
+                        self._close_dropdown_modal()
+                        # Open the clicked menu as a modal overlay
+                        self.open_current_menu()
                     self._refresh_titles()
                     event.stop()
                     return
