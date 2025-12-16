@@ -25,6 +25,7 @@ def test_mc_shell_focus_and_navigation():
             await pilot.press("enter")
             await pilot.pause()
             assert shell.current_section == "Sessions"
+            assert shell.focus_pane == "right"
 
             # Tab to right pane and confirm focus indicator updates
             await pilot.press("tab")
@@ -32,7 +33,7 @@ def test_mc_shell_focus_and_navigation():
             assert shell.focus_pane == "right"
 
             await pilot.press("enter")
-            assert "No action yet" in shell.status_message
+            assert shell.current_section == "Sessions"
 
             # Shift+Tab back and ensure list navigation still works
             await pilot.press("shift+tab")

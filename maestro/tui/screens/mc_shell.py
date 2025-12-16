@@ -3,9 +3,11 @@ Midnight Commander–style shell skeleton for Maestro TUI.
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import List, Optional
 
+from textual import events
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
@@ -15,22 +17,24 @@ from textual.widgets import Label, ListItem, ListView, Static
 from maestro.ui_facade.build import get_active_build_target
 from maestro.ui_facade.plans import get_active_plan
 from maestro.ui_facade.sessions import get_active_session
-from maestro.tui.utils import write_smoke_success
+from maestro.tui.panes.base import PaneFocusRequest, PaneStatus, PaneView, ensure_iterable
+from maestro.tui.panes.registry import create_pane
+from maestro.tui.utils import ErrorModal, ErrorNormalizer, write_smoke_success
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 from maestro.tui.widgets.menubar import MenuItem, MenuItemActivated, Menubar
 from maestro.tui.widgets.text_viewer import TextViewerModal
+import maestro.tui.panes.sessions  # noqa: F401 - ensure pane is registered
 
 
 class MainShellScreen(Screen):
     """MC-style two-pane shell with focus + navigation scaffolding."""
 
+    CAPTURE_TAB = True
     status_message: reactive[str] = reactive("Ready")
     show_help_panel: reactive[bool] = reactive(False)
     show_key_hints: reactive[bool] = reactive(True)
 
     BINDINGS = [
-        ("tab", "focus_right", "Focus right pane"),
-        ("shift+tab", "focus_left", "Focus left pane"),
         ("up", "move_up", "Up"),
         ("down", "move_down", "Down"),
         ("enter", "open_selection", "Open"),
@@ -76,7 +80,7 @@ class MainShellScreen(Screen):
         margin-top: 1;
     }
 
-    #content-body {
+    #content-host {
         height: 1fr;
         border: solid $primary 50%;
         padding: 1;
@@ -136,6 +140,9 @@ class MainShellScreen(Screen):
         self.session_summary: str = "Session: None | Plan: None | Build: None"
         self.menubar: Optional[Menubar] = None
         self._menu_focus_restore: Optional[str] = None
+        self.current_view: Optional[PaneView] = None
+        self._placeholder_counter: int = 0
+        self._suppress_select_open: bool = False
 
     def compose(self) -> ComposeResult:
         """Compose MC shell layout."""
@@ -150,9 +157,10 @@ class MainShellScreen(Screen):
 
             with Vertical(id="right-pane", classes="pane"):
                 yield Label(self.current_section, id="content-title")
-                content_body = Static(self._content_placeholder(self.current_section), id="content-body")
-                content_body.can_focus = True
-                yield content_body
+                with Vertical(id="content-host"):
+                    placeholder = Static(self._content_placeholder(self.current_section), id="content-placeholder")
+                    placeholder.can_focus = True
+                    yield placeholder
 
         with Vertical(id="status-area"):
             with Horizontal(id="status-bar"):
@@ -217,7 +225,13 @@ class MainShellScreen(Screen):
         if target == "left":
             self.query_one("#section-list", ListView).focus()
         else:
-            self.query_one("#content-body", Static).focus()
+            if self.current_view:
+                self.current_view.focus()
+            else:
+                try:
+                    self.query_one("#content-placeholder", Static).focus()
+                except Exception:
+                    pass
 
         self.query_one("#focus-indicator", Label).update(f"FOCUS: {target.upper()}")
 
@@ -231,9 +245,33 @@ class MainShellScreen(Screen):
     def _open_current_selection(self) -> None:
         """Open the currently selected section into the right pane."""
         content_title = self.query_one("#content-title", Label)
-        content_body = self.query_one("#content-body", Static)
-        content_title.update(self.current_section)
-        content_body.update(self._content_placeholder(self.current_section))
+        title_text = self.current_section
+        host = self.query_one("#content-host", Vertical)
+        self._clear_current_view(host)
+
+        try:
+            view = create_pane(self.current_section)
+        except Exception as exc:
+            content_title.update(title_text)
+            self._handle_view_error(exc, f"loading {self.current_section}")
+            self._show_placeholder(host, self.current_section)
+            self._refresh_actions_menu()
+            return
+
+        if view is None:
+            content_title.update(title_text)
+            self._show_placeholder(host, self.current_section)
+            self.current_view = None
+            self._refresh_actions_menu()
+            return
+
+        self.current_view = view
+        try:
+            title_text = view.title()
+        except Exception:
+            title_text = self.current_section
+        content_title.update(title_text)
+        host.mount(view)
         self._refresh_actions_menu()
 
     def _selected_section_name(self) -> Optional[str]:
@@ -243,6 +281,50 @@ class MainShellScreen(Screen):
         if index < 0 or index >= len(self.sections):
             return None
         return self.sections[index]
+
+    def _clear_current_view(self, host: Vertical) -> None:
+        """Remove the current view and clean up."""
+        if self.current_view:
+            try:
+                self.current_view.remove()
+            except Exception:
+                pass
+        try:
+            host.remove_children(*list(host.children))
+        except Exception:
+            for child in list(host.children):
+                try:
+                    child.remove()
+                except Exception:
+                    continue
+        self.current_view = None
+
+    def _show_placeholder(self, host: Vertical, section: str) -> None:
+        """Render placeholder content into the host."""
+        self._placeholder_counter += 1
+        placeholder_id = f"content-placeholder-{self._placeholder_counter}"
+        placeholder = Static(self._content_placeholder(section), id=placeholder_id)
+        placeholder.can_focus = True
+        host.mount(placeholder)
+
+    def _refresh_current_view_data(self) -> None:
+        """Invoke refresh on the current pane if it supports it."""
+        if not self.current_view:
+            return
+        try:
+            result = self.current_view.refresh_data()
+        except Exception as exc:
+            self._handle_view_error(exc, f"refreshing {self.current_section}")
+            return
+
+        if asyncio.iscoroutine(result):
+            asyncio.create_task(self._run_view_refresh(result))
+
+    async def _run_view_refresh(self, coro) -> None:
+        try:
+            await coro
+        except Exception as exc:
+            self._handle_view_error(exc, f"refreshing {self.current_section}")
 
     def _update_status(self, message: str) -> None:
         """Update status message in status bar."""
@@ -256,8 +338,10 @@ class MainShellScreen(Screen):
 
     def action_focus_left(self) -> None:
         """Shift+Tab to left pane."""
+        self._suppress_select_open = True
         self._update_focus("left")
         self._update_status("Focused left pane")
+        self.call_after_refresh(lambda: setattr(self, "_suppress_select_open", False))
 
     def action_move_up(self) -> None:
         """Move selection up in focused list."""
@@ -283,9 +367,12 @@ class MainShellScreen(Screen):
                 return
             self.current_section = selected
             self._open_current_selection()
+            self._update_focus("right")
             self._update_status(f"Opened {selected}")
         else:
-            self._update_status("No action yet in right pane")
+            if not self.current_view:
+                self._update_status("No action yet in right pane")
+            # Let the pane handle Enter on its own
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Mirror ListView selection into the content pane."""
@@ -294,8 +381,12 @@ class MainShellScreen(Screen):
         selected = self._selected_section_name()
         if not selected:
             return
+        if self._suppress_select_open:
+            self._suppress_select_open = False
+            return
         self.current_section = selected
         self._open_current_selection()
+        self._update_focus("right")
         self._update_status(f"Opened {selected}")
 
     def action_soft_back(self) -> None:
@@ -336,9 +427,13 @@ class MainShellScreen(Screen):
             self._update_status(status)
 
     def action_refresh_view(self) -> None:
-        """Refresh the current placeholder content."""
-        self._open_current_selection()
-        self._update_status(f"Refreshed {self.current_section}")
+        """Refresh the current view or reload placeholder."""
+        if self.current_view:
+            self._refresh_current_view_data()
+            self._update_status(f"Refreshed {self.current_section}")
+        else:
+            self._open_current_selection()
+            self._update_status(f"Loaded {self.current_section}")
 
     def action_open_help(self) -> None:
         """Open the help surface."""
@@ -463,6 +558,11 @@ class MainShellScreen(Screen):
         """Update the Actions menu to reflect the current section."""
         if not self.menubar:
             return
+        if self.current_view:
+            custom_actions = self.current_view.menu_actions()
+            if custom_actions:
+                self.menubar.set_menu_items("Actions", ensure_iterable(custom_actions))
+                return
         actions = self._actions_menu_items(self.current_section)
         self.menubar.set_menu_items("Actions", actions)
 
@@ -474,6 +574,7 @@ class MainShellScreen(Screen):
             section_list.index = self.sections.index(section)
             self.current_section = section
             self._open_current_selection()
+            self._update_focus("right")
             self._update_status(f"Opened {section} from Navigation menu")
         else:
             self._update_status(f"Unknown section {section}")
@@ -495,6 +596,9 @@ class MainShellScreen(Screen):
 
     def _handle_actions_menu(self, item: MenuItem) -> None:
         """Handle dynamic action menu items safely."""
+        if self.current_view and self.current_view.handle_action(item.id):
+            self._update_status(f"{self.current_section}: {item.label}")
+            return
         self._update_status(f"{self.current_section}: {item.label} not wired yet")
 
     def _handle_help_menu(self, item: MenuItem) -> None:
@@ -525,10 +629,38 @@ class MainShellScreen(Screen):
         )
         self.query_one("#status-hints", Label).update(hints)
 
+    def _cycle_focus(self) -> None:
+        """Move focus to the right pane when requested."""
+        if self.focus_pane != "right":
+            self.action_focus_right()
+
+    def _handle_view_error(self, exc: Exception, context: str) -> None:
+        """Normalize and display view errors without crashing."""
+        error_msg = ErrorNormalizer.normalize_exception(exc, context)
+        self._update_status(error_msg.message)
+        self.app.push_screen(ErrorModal(error_msg))
+
+    def on_key(self, event: events.Key) -> None:
+        """Ensure global keys always reach the shell."""
+        if event.key in ("f9", "m"):
+            self.action_toggle_menu()
+            event.stop()
+
+    def on_pane_status(self, message: PaneStatus) -> None:
+        """Update shell status from a pane."""
+        self._update_status(message.message)
+        self._load_status_state()
+
+    def on_pane_focus_request(self, message: PaneFocusRequest) -> None:
+        """Honor pane focus requests (e.g., Tab back to sections)."""
+        if message.target == "left":
+            self._update_focus("left")
+
 
 class MaestroMCShellApp(App):
     """Minimal app wrapper for MC shell mode."""
 
+    CAPTURE_TAB = True
     CSS = """
     Screen {
         background: $background;
@@ -538,6 +670,7 @@ class MaestroMCShellApp(App):
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
         ("ctrl+p", "show_command_palette", "Palette"),
+        ("tab", "cycle_focus", "Focus cycle"),
     ]
 
     ENABLE_MOUSE_SUPPORT = True
@@ -565,6 +698,34 @@ class MaestroMCShellApp(App):
 
         palette = CommandPaletteScreen(session_id=session_id)
         self.push_screen(palette)
+    
+    def action_focus_left(self) -> None:
+        """Proxy focus back to shell when Shift+Tab pressed globally."""
+        if isinstance(self.screen, MainShellScreen):
+            self.screen.action_focus_left()
+
+    def action_cycle_focus(self) -> None:
+        """Cycle focus between panes."""
+        if isinstance(self.screen, MainShellScreen):
+            self.screen._cycle_focus()
+
+    def on_key(self, event: events.Key) -> None:
+        """Catch global navigation keys at the app level."""
+        if event.key == "tab":
+            if isinstance(self.screen, MainShellScreen):
+                self.screen._cycle_focus()
+            event.stop()
+        elif event.key in ("shift+tab", "backtab"):
+            self.action_focus_left()
+            event.stop()
+        elif event.key == "enter":
+            if isinstance(self.screen, MainShellScreen):
+                self.screen.action_open_selection()
+            event.stop()
+        elif event.key in ("f9", "m"):
+            if isinstance(self.screen, MainShellScreen):
+                self.screen.action_toggle_menu()
+            event.stop()
 
     def _smoke_exit(self) -> None:
         """Exit cleanly for smoke runs."""

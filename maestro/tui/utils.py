@@ -127,15 +127,8 @@ class ErrorModal(ModalScreen[bool]):
         """Create child widgets for the error modal."""
         with Vertical(id="error-modal-container"):
             # Header with severity-appropriate styling
-            severity_colors = {
-                ErrorSeverity.INFO: "[bold blue]",
-                ErrorSeverity.WARNING: "[bold yellow]",
-                ErrorSeverity.ERROR: "[bold red]",
-                ErrorSeverity.BLOCKED: "[bold red]"
-            }
-            color = severity_colors.get(self.error_msg.severity, "[bold]")
-            
-            yield Label(f"{color}ERROR: {self.error_msg.title}[/bold]", id="error-title")
+            title_text = f"{self.error_msg.severity.value.upper()}: {self.error_msg.title}"
+            yield Label(title_text, id="error-title")
             yield Label(self.error_msg.message, id="error-message")
             
             # Add actionable hint if available
@@ -146,10 +139,12 @@ class ErrorModal(ModalScreen[bool]):
             if self.error_msg.technical_details:
                 with Horizontal(id="details-controls"):
                     yield Button("Show Technical Details", variant="default", id="toggle-details")
-            
+
             # Technical details section (initially hidden)
             if self.error_msg.technical_details:
-                yield Static(self.error_msg.technical_details, id="technical-details", visible=False)
+                details = Static(self.error_msg.technical_details, id="technical-details")
+                details.display = False
+                yield details
             
             with Horizontal(id="error-buttons"):
                 yield Button("OK", variant="primary", id="ok-button")
