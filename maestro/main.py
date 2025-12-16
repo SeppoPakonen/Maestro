@@ -2053,6 +2053,184 @@ def guess_path_kind(path: str) -> str:
     return 'unknown'
 
 
+def find_repo_root(start_path: str = None) -> str:
+    """
+    Find the repository root by searching for .maestro/ directory.
+
+    Args:
+        start_path: Directory to start searching from (default: current directory)
+
+    Returns:
+        Path to the repository root
+
+    Raises:
+        SystemExit: If .maestro/ directory is not found
+    """
+    from pathlib import Path
+
+    current = Path(start_path or os.getcwd()).resolve()
+
+    # Walk up the directory tree looking for .maestro/
+    while current != current.parent:
+        maestro_dir = current / '.maestro'
+        if maestro_dir.is_dir():
+            return str(current)
+        current = current.parent
+
+    # Also check the start path itself
+    start_maestro = Path(start_path or os.getcwd()).resolve() / '.maestro'
+    if start_maestro.is_dir():
+        return str(Path(start_path or os.getcwd()).resolve())
+
+    print_error("Could not find .maestro/ directory.", 2)
+    print_error("Run 'maestro init' first to initialize the repository.", 2)
+    sys.exit(1)
+
+
+def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: bool = False):
+    """
+    Write repository scan artifacts to .maestro/repo/ directory.
+
+    Creates:
+    - index.json: Full structured scan result
+    - index.summary.txt: Human-readable summary
+    - state.json: Repository state metadata
+
+    All writes are atomic (temp + rename).
+
+    Args:
+        repo_root: Path to repository root
+        scan_result: Scan result to persist
+        verbose: If True, print paths being written
+    """
+    import json
+    import tempfile
+    from datetime import datetime
+    from pathlib import Path
+
+    # Ensure .maestro/repo directory exists
+    repo_dir = Path(repo_root) / '.maestro' / 'repo'
+    repo_dir.mkdir(parents=True, exist_ok=True)
+
+    # Prepare JSON data
+    index_data = {
+        "assemblies_detected": [
+            {
+                "name": asm.name,
+                "root_path": asm.root_path,
+                "package_folders": asm.package_folders
+            } for asm in scan_result.assemblies_detected
+        ],
+        "packages_detected": [
+            {
+                "name": pkg.name,
+                "dir": pkg.dir,
+                "upp_path": pkg.upp_path,
+                "files": pkg.files
+            } for pkg in scan_result.packages_detected
+        ],
+        "unknown_paths": [
+            {
+                "path": unknown.path,
+                "type": unknown.type,
+                "guessed_kind": unknown.guessed_kind
+            } for unknown in scan_result.unknown_paths
+        ]
+    }
+
+    # Write index.json atomically
+    index_path = repo_dir / 'index.json'
+    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
+        json.dump(index_data, tmp, indent=2)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_path = tmp.name
+    os.replace(tmp_path, index_path)
+
+    if verbose:
+        print_debug(f"Wrote {index_path}", 2)
+
+    # Write index.summary.txt atomically
+    summary_path = repo_dir / 'index.summary.txt'
+    summary_lines = []
+    summary_lines.append(f"Repository: {repo_root}")
+    summary_lines.append(f"Scanned: {datetime.now().isoformat()}")
+    summary_lines.append("")
+    summary_lines.append(f"Packages: {len(scan_result.packages_detected)}")
+    summary_lines.append(f"Assemblies: {len(scan_result.assemblies_detected)}")
+    summary_lines.append(f"Unknown paths: {len(scan_result.unknown_paths)}")
+    summary_lines.append("")
+
+    if scan_result.packages_detected:
+        summary_lines.append("Top packages:")
+        for pkg in sorted(scan_result.packages_detected, key=lambda p: p.name)[:10]:
+            summary_lines.append(f"  - {pkg.name} ({len(pkg.files)} files)")
+
+    summary_content = '\n'.join(summary_lines) + '\n'
+
+    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
+        tmp.write(summary_content)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_path = tmp.name
+    os.replace(tmp_path, summary_path)
+
+    if verbose:
+        print_debug(f"Wrote {summary_path}", 2)
+
+    # Write state.json atomically
+    state_path = repo_dir / 'state.json'
+    state_data = {
+        "last_resolved_at": datetime.now().isoformat(),
+        "repo_root": repo_root,
+        "index_path": str(index_path),
+        "packages_count": len(scan_result.packages_detected),
+        "assemblies_count": len(scan_result.assemblies_detected),
+        "unknown_count": len(scan_result.unknown_paths),
+        "scanner_version": "0.3.0"
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
+        json.dump(state_data, tmp, indent=2)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_path = tmp.name
+    os.replace(tmp_path, state_path)
+
+    if verbose:
+        print_debug(f"Wrote {state_path}", 2)
+
+
+def load_repo_index(repo_root: str = None) -> dict:
+    """
+    Load repository index from .maestro/repo/index.json
+
+    Args:
+        repo_root: Path to repository root (default: auto-detect)
+
+    Returns:
+        Dictionary containing the repo index
+
+    Raises:
+        SystemExit: If index file doesn't exist
+    """
+    import json
+    from pathlib import Path
+
+    if repo_root is None:
+        repo_root = find_repo_root()
+
+    index_path = Path(repo_root) / '.maestro' / 'repo' / 'index.json'
+
+    if not index_path.exists():
+        print_error(f"Repository index not found: {index_path}", 2)
+        print_error("Run 'maestro repo resolve' first to scan the repository.", 2)
+        sys.exit(1)
+
+    with open(index_path, 'r') as f:
+        return json.load(f)
+
+
 def handle_structure_conformance(session_path: str, verbose: bool = False) -> int:
     """
     Handle conformance check mode that compares Maestro discovery output against expected fixture outputs.
@@ -2713,10 +2891,16 @@ def main():
     repo_subparsers = repo_parser.add_subparsers(dest='repo_subcommand', help='Repository subcommands')
 
     # repo resolve
-    repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan U++ repo for packages, assemblies, and unknown paths (v0.2)')
-    repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: current directory)')
+    repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan U++ repo for packages, assemblies, and unknown paths (v0.3)')
+    repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: auto-detect via .maestro/)')
     repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to .maestro/repo/')
     repo_resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information')
+
+    # repo show
+    repo_show_parser = repo_subparsers.add_parser('show', aliases=['sh'], help='Show repository scan results from .maestro/repo/')
+    repo_show_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    repo_show_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
 
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
@@ -4339,21 +4523,29 @@ def main():
         # Handle repository analysis and resolution commands (no session required)
         if hasattr(args, 'repo_subcommand') and args.repo_subcommand:
             if args.repo_subcommand == 'resolve':
-                # Get the path to scan - default to current directory or use provided path
-                scan_path = args.path or os.getcwd()
-
-                # Ensure the path exists
-                if not os.path.exists(scan_path):
-                    print_error(f"Path does not exist: {scan_path}", 2)
-                    sys.exit(1)
-
-                # Ensure the path is a directory
-                if not os.path.isdir(scan_path):
-                    print_error(f"Path is not a directory: {scan_path}", 2)
-                    sys.exit(1)
+                # Get the path to scan - auto-detect or use provided path
+                if args.path:
+                    scan_path = args.path
+                    # Ensure the path exists
+                    if not os.path.exists(scan_path):
+                        print_error(f"Path does not exist: {scan_path}", 2)
+                        sys.exit(1)
+                    # Ensure the path is a directory
+                    if not os.path.isdir(scan_path):
+                        print_error(f"Path is not a directory: {scan_path}", 2)
+                        sys.exit(1)
+                else:
+                    # Auto-detect repo root
+                    scan_path = find_repo_root()
+                    if args.verbose:
+                        print_debug(f"Detected repository root: {scan_path}", 2)
 
                 # Perform the repo scan
                 repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose)
+
+                # Write artifacts unless --no-write is specified
+                if not args.no_write:
+                    write_repo_artifacts(scan_path, repo_result, verbose=args.verbose)
 
                 # Output format varies based on the flag
                 if args.json:
@@ -4386,31 +4578,72 @@ def main():
                     print(json.dumps(result, indent=2))
                 else:
                     # Output in human-readable format
-                    print_header(f"U++ REPO SCAN RESULTS: {scan_path}")
+                    print_header(f"REPOSITORY SCAN COMPLETE")
 
-                    print(f"\nDiscovered {len(repo_result.assemblies_detected)} assemblies:")
-                    for asm in repo_result.assemblies_detected:
-                        print_info(f"  Assembly: {asm.name} at {asm.root_path}", 2)
-                        print_info(f"    Package folders: {len(asm.package_folders)}", 2)
-                        for pkg_folder in asm.package_folders:
-                            print_info(f"      - {os.path.basename(pkg_folder)}/", 3)
+                    print(f"\nRepository: {scan_path}")
+                    print(f"Packages: {len(repo_result.packages_detected)}")
+                    print(f"Assemblies: {len(repo_result.assemblies_detected)}")
+                    print(f"Unknown paths: {len(repo_result.unknown_paths)}")
 
-                    print(f"\nDiscovered {len(repo_result.packages_detected)} packages:")
-                    for pkg in repo_result.packages_detected:
-                        print_info(f"  Package: {pkg.name}", 2)
-                        print_info(f"    Directory: {pkg.dir}", 2)
-                        print_info(f"    .upp file: {pkg.upp_path}", 2)
-                        print_info(f"    Source files: {len(pkg.files)}", 2)
-                        for file in pkg.files[:5]:  # Show first 5 files
-                            print_info(f"      - {file}", 3)
-                        if len(pkg.files) > 5:
-                            print_info(f"      ... and {len(pkg.files) - 5} more", 3)
+                    if not args.no_write:
+                        from pathlib import Path
+                        index_path = Path(scan_path) / '.maestro' / 'repo' / 'index.json'
+                        print(f"\nIndex written to: {index_path}")
 
-                    print(f"\nFound {len(repo_result.unknown_paths)} unknown paths:")
-                    for unknown in repo_result.unknown_paths[:10]:  # Show first 10 unknown paths
-                        print_info(f"  {unknown.type}: {unknown.path} ({unknown.guessed_kind})", 2)
-                    if len(repo_result.unknown_paths) > 10:
-                        print_info(f"  ... and {len(repo_result.unknown_paths) - 10} more", 2)
+                    # Print next steps
+                    print("\n" + "─" * 60)
+                    print_header("NEXT STEPS", level=2)
+                    print_info("View detailed results:", 2)
+                    print_info("  maestro repo show", 3)
+                    print_info("\nExplore packages:", 2)
+                    print_info("  cat .maestro/repo/index.summary.txt", 3)
+                    print_info("\nContinue with build planning or conversion setup", 2)
+
+            elif args.repo_subcommand in ['show', 'sh']:
+                # Show repository scan results from .maestro/repo/
+                repo_root = args.path if hasattr(args, 'path') and args.path else None
+                index_data = load_repo_index(repo_root)
+
+                if args.json:
+                    # Output in JSON format
+                    import json
+                    print(json.dumps(index_data, indent=2))
+                else:
+                    # Output in human-readable format
+                    if repo_root is None:
+                        repo_root = find_repo_root()
+
+                    print_header("REPOSITORY INDEX")
+
+                    # Load state file for metadata
+                    from pathlib import Path
+                    state_path = Path(repo_root) / '.maestro' / 'repo' / 'state.json'
+                    if state_path.exists():
+                        import json
+                        with open(state_path, 'r') as f:
+                            state_data = json.load(f)
+                        print(f"\nLast resolved: {state_data.get('last_resolved_at', 'unknown')}")
+                        print(f"Scanner version: {state_data.get('scanner_version', 'unknown')}")
+
+                    print(f"\nRepository: {repo_root}")
+                    print(f"Packages: {len(index_data['packages_detected'])}")
+                    print(f"Assemblies: {len(index_data['assemblies_detected'])}")
+                    print(f"Unknown paths: {len(index_data['unknown_paths'])}")
+
+                    if index_data['packages_detected']:
+                        print("\n" + "─" * 60)
+                        print_header("PACKAGES", level=2)
+                        for pkg in sorted(index_data['packages_detected'], key=lambda p: p['name'])[:15]:
+                            print_info(f"{pkg['name']}: {len(pkg['files'])} files", 2)
+                        if len(index_data['packages_detected']) > 15:
+                            print_info(f"... and {len(index_data['packages_detected']) - 15} more", 2)
+
+                    if index_data['assemblies_detected']:
+                        print("\n" + "─" * 60)
+                        print_header("ASSEMBLIES", level=2)
+                        for asm in index_data['assemblies_detected']:
+                            print_info(f"{asm['name']}: {len(asm['package_folders'])} packages", 2)
+
             elif args.repo_subcommand in ['help', 'h']:
                 # Print help for repo subcommands
                 repo_parser.print_help()
