@@ -771,7 +771,7 @@ class MaestroTUI(App):
         global_status_manager.set_status_bar_widget(self.query_one("#status-bar", Horizontal))
 
         # Check if onboarding should be shown (only if no prior TUI state exists)
-        from maestro.tui.utils.onboarding import onboarding_manager
+        from maestro.tui.onboarding import onboarding_manager
         if not onboarding_manager.is_onboarding_completed():
             # Show onboarding screen first
             self.push_screen(OnboardingScreen(), callback=self._on_onboarding_complete)
