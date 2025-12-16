@@ -1795,6 +1795,15 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
     # Define source file extensions commonly used in U++
     source_extensions = {'.cpp', '.cppi', '.icpp', '.h', '.hpp', '.inl', '.c', '.cc', '.cxx', '.upl', '.upp', '.t'}
 
+    # Directories to skip during scanning (common non-U++ directories)
+    skip_dirs = {
+        'node_modules', '.git', '.svn', '.hg', '__pycache__', '.pytest_cache',
+        '.tox', '.venv', 'venv', 'env', '.env', 'build', 'dist', '.maestro',
+        '.idea', '.vscode', '.vs', 'CMakeFiles', '.mypy_cache', '.coverage',
+        'bin', 'obj', 'out', 'target', 'Debug', 'Release', 'x64', 'x86',
+        '.cache', 'cache', 'tmp', 'temp', '.tmp', '.temp'
+    }
+
     discovered_packages = []
     all_package_dirs_resolved = set()  # Set of resolved Path objects for package roots
     repo_root_resolved = Path(root_dir).resolve()
@@ -1802,6 +1811,9 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
     # First pass: scan for packages to identify all package roots
     # We do a full walk first to find all packages, then use that info to prune the unknown scan
     for root, dirs, files in os.walk(root_dir):
+        # Prune directories we want to skip
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
+
         # Sort for deterministic order
         dirs.sort()
         files.sort()
@@ -1823,6 +1835,9 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
             pkg_files = []
 
             for pkg_root, pkg_dirs, pkg_files_in_dir in os.walk(root):
+                # Prune directories we want to skip
+                pkg_dirs[:] = [d for d in pkg_dirs if d not in skip_dirs]
+
                 # Sort for deterministic order
                 pkg_dirs.sort()
                 pkg_files_in_dir.sort()
@@ -1910,6 +1925,9 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
     unknown_paths = []
 
     for root, dirs, files in os.walk(root_dir):
+        # First, prune common non-U++ directories
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
+
         # Sort for deterministic order
         dirs.sort()
         files.sort()
@@ -2187,7 +2205,7 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         "packages_count": len(scan_result.packages_detected),
         "assemblies_count": len(scan_result.assemblies_detected),
         "unknown_count": len(scan_result.unknown_paths),
-        "scanner_version": "0.3.0"
+        "scanner_version": "0.3.1"
     }
 
     with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
