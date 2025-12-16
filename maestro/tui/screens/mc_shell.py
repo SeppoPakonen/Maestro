@@ -84,10 +84,24 @@ class MainShellScreen(Screen):
         margin-top: 1;
     }
 
+    #section-list ListItem:hover {
+        background: $primary 20%;
+        text-style: bold;
+    }
+
     #content-host {
         height: 1fr;
         border: solid $primary 50%;
         padding: 1;
+    }
+
+    #content-host .content-item:hover {
+        background: $primary 10%;
+    }
+
+    #content-host .content-item {
+        height: 1;
+        padding: 0 1;
     }
     """
 
@@ -599,6 +613,8 @@ class MainShellScreen(Screen):
                 self._open_contract()
             else:
                 self._update_status(f"{item.label} selected")
+        elif menu_label == "View":
+            self._handle_view_menu(item)
         elif self._pane_menu and menu_label == self._pane_menu.label:
             asyncio.create_task(self._execute_pane_menu_item(item))
 
@@ -611,16 +627,26 @@ class MainShellScreen(Screen):
         return [
             self._maestro_menu(),
             self._navigation_menu(),
+            self._view_menu(),
             pane_menu,
             self._help_menu(),
         ]
+
+    def _view_menu(self) -> Menu:
+        """View menu for pane switching."""
+        return Menu(
+            label="View",
+            items=[
+                MenuItem(id=section, label=section, action_id=f"view.{section.lower()}", trust_label="[RO]") for section in self.sections
+            ],
+        )
 
     def _navigation_menu(self) -> Menu:
         """Menu entries mirroring the navigation list."""
         return Menu(
             label="Navigation",
             items=[
-                MenuItem(id=section, label=section, key_hint=None, trust_label="[RO]") for section in self.sections
+                MenuItem(id=section, label=section, action_id=f"nav.{section.lower()}", key_hint=None, trust_label="[RO]") for section in self.sections
             ],
         )
 
@@ -696,6 +722,20 @@ class MainShellScreen(Screen):
             self._open_current_selection()
             self._update_focus("right")
             self._update_status(f"Opened {section} from Navigation menu")
+        else:
+            self._update_status(f"Unknown section {section}")
+
+    def _handle_view_menu(self, item: MenuItem) -> None:
+        """Handle view menu selections to switch between panes."""
+        section = getattr(item, "payload", None) or item.id
+        if section in self.sections:
+            # Find and select the section in the left list
+            section_list = self.query_one("#section-list", ListView)
+            section_list.index = self.sections.index(section)
+            self.current_section = section
+            self._open_current_selection()
+            self._update_focus("right")
+            self._update_status(f"Switched to {section} via View menu")
         else:
             self._update_status(f"Unknown section {section}")
 
@@ -904,7 +944,7 @@ class MainShellScreen(Screen):
                             self._update_status_line_for_menubar(True)
                             event.stop()
                             return
-                    # If no View menu exists, try to find a view-related action in pane menu
+                    # If no View menu doesn't exist, try to find a view-related action in pane menu
                     self._dispatch_fkey(key)
                 except Exception:
                     self._dispatch_fkey(key)
@@ -928,6 +968,69 @@ class MainShellScreen(Screen):
 
         if self._handle_key_hint(key):
             event.stop()
+
+    def on_click(self, event: events.Click) -> None:
+        """Handle mouse clicks for pane interaction."""
+        # Handle clicking on the menubar to activate it
+        if self.menubar and self.menubar.region.contains(event.x, event.y):
+            # Activate menubar if not already active
+            if not self.menubar.is_active:
+                self._menu_focus_restore = self.focus_pane
+                self.menubar.activate()
+                self._update_status("Menubar activated via mouse")
+                self._update_status_line_for_menubar(True)
+            # Let the menubar handle the click
+            return
+
+        # Determine which pane was clicked
+        left_pane = self.query_one("#left-pane", Vertical)
+        right_pane = self.query_one("#right-pane", Vertical)
+
+        # Check if click is in left pane (section list)
+        if left_pane.region.contains(event.x, event.y):
+            self._update_focus("left")
+            self._update_status("Left pane clicked - focus set to sections")
+            # The ListView will handle its own item selection and trigger on_list_view_selected
+            # event, so we don't need to handle that here
+
+        # Check if click is in right pane (content)
+        elif right_pane.region.contains(event.x, event.y):
+            if self.current_view:
+                # Let the current pane handle the click - delegate to pane-specific behavior
+                self._update_focus("right")
+                self._update_status("Right pane clicked")
+                # Trigger a click event that the current view might handle
+                if hasattr(self.current_view, 'on_click'):
+                    try:
+                        self.current_view.on_click(event)
+                    except Exception:
+                        # If the view doesn't handle click properly, just focus it
+                        pass
+            else:
+                # Click on right pane placeholder
+                self._update_focus("right")
+
+    def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
+        """Handle mouse scroll up in the currently focused pane."""
+        if self.focus_pane == "left":
+            # Scroll the section list
+            section_list = self.query_one("#section-list", ListView)
+            section_list.action_cursor_up()
+        elif self.current_view and hasattr(self.current_view, 'action_cursor_up'):
+            # Let the current view handle scroll
+            self.current_view.action_cursor_up()
+        event.stop()
+
+    def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
+        """Handle mouse scroll down in the currently focused pane."""
+        if self.focus_pane == "left":
+            # Scroll the section list
+            section_list = self.query_one("#section-list", ListView)
+            section_list.action_cursor_down()
+        elif self.current_view and hasattr(self.current_view, 'action_cursor_down'):
+            # Let the current view handle scroll
+            self.current_view.action_cursor_down()
+        event.stop()
 
     def on_pane_status(self, message: PaneStatus) -> None:
         """Update shell status from a pane."""

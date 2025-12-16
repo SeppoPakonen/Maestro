@@ -38,7 +38,22 @@ This document defines the baseline interaction contract for Maestro's new Midnig
 ## Function Key Policy
 For complete function key policy and binding rules, see [KEYBINDINGS_MC.md](./KEYBINDINGS_MC.md).
 
-## Mouse Baseline (Planned)
+## Mouse Baseline (Implemented)
 - Single click selects items.
 - Wheel scroll scrolls lists.
 - Double-click mirrors `Enter` and is never destructive.
+- Click on menubar activates and opens menu dropdown
+- Click on menubar entries opens corresponding menu
+- Click outside menubar closes open menu
+- Hover highlights menu entries and list items for visual feedback
+- Left pane: Clicking a section in the list opens that section in the right pane
+- Right pane: Clicking in content area focuses that pane for keyboard interaction
+
+## Menubar Navigation
+- F9 toggles menubar activation
+- Click on menubar also activates it
+- Arrow keys navigate between top-level menu options when menubar is active
+- Enter or Down opens the selected menu
+- Menu items execute the same actions as keyboard shortcuts
+- "View" menu provides access to all pane switching options
+- "Navigation" menu provides access to all section navigation options

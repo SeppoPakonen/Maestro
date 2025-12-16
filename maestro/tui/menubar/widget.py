@@ -59,6 +59,11 @@ class MenuBarWidget(Widget):
         padding-right: 2;
     }
 
+    #menu-row Label:hover {
+        background: $primary 20%;
+        text-style: bold;
+    }
+
     #menu-summary {
         content-align: right middle;
         width: 1fr;
@@ -69,6 +74,16 @@ class MenuBarWidget(Widget):
         height: 4;
         border: solid $primary 50%;
         background: $panel;
+    }
+
+    #menu-items ListItem {
+        height: 1;
+        padding: 0 1;
+    }
+
+    #menu-items ListItem:hover {
+        background: $primary 20%;
+        text-style: bold;
     }
 
     .menu-title--active {
@@ -200,6 +215,58 @@ class MenuBarWidget(Widget):
         if key == "enter":
             self._activate_current()
             event.stop()
+
+    def on_click(self, event: events.Click) -> None:
+        """Handle mouse clicks on the menubar."""
+        # Check if click is on the top menu row using the widget's region
+        menu_row = self.query_one("#menu-row", Horizontal)
+        # Use the widget's region to check if click is within the menu row area
+        if menu_row.region.contains(event.x, event.y):
+            # Find which menu was clicked
+            for idx, (menu, label) in enumerate(zip(self.menu_bar.menus, self._menu_labels.values())):
+                # Get the position and size of the label widget
+                if label.region.contains(event.x, event.y):
+                    self.active_menu_index = idx
+                    if self.is_open and idx == self.active_menu_index:
+                        # If clicked on the currently open menu, close it
+                        self.close_menu()
+                    else:
+                        # Open the clicked menu
+                        self.is_open = True
+                        self.active_item_index = 0
+                        self._set_items_visible(True)
+                        self._refresh_items()
+                        self._sync_list_index()
+                    self._refresh_titles()
+                    event.stop()
+                    return
+            # If click was in the menu row but not on a label, close menu
+            if self.is_open:
+                self.close_menu()
+        # Click outside the menu row - close the menu if it's open
+        elif self.is_open:
+            self.close_menu()
+
+    async def on_mouse_move(self, event: events.MouseMove) -> None:
+        """Handle mouse hover over menu items to highlight them."""
+        if not self.is_open:
+            return
+
+        list_view = self.query_one("#menu-items", ListView)
+        # Check if mouse is over the list view area
+        if list_view.region.contains(event.x, event.y):
+            # Find which list item the mouse is over
+            for idx, child in enumerate(list_view.children):
+                if child.region.contains(event.x, event.y):
+                    # Get the selectable items only (not separators)
+                    menu = self.current_menu
+                    if not menu:
+                        return
+                    selectable = [i for i in menu.items if isinstance(i, MenuItem)]
+                    if idx < len(selectable):
+                        self.active_item_index = idx
+                        self._sync_list_index()
+                    break
 
     def _move_menu(self, delta: int) -> None:
         """Switch top-level menus."""
