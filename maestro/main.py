@@ -2436,9 +2436,10 @@ def handle_repo_pkg_search(pkg: Dict[str, Any], query: str, json_output: bool = 
             print_info(f"  {file}", 2)
 
 
-def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]], json_output: bool = False, deep: bool = False):
+def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]], json_output: bool = False, deep: bool = False, config_flags: List[str] = None):
     """Show dependency tree for a package (with cycle detection and duplicate suppression)."""
     import json
+    from maestro.repo.upp_conditions import match_when
 
     def build_tree(pkg_name: str, path_visited: set, global_visited: set, depth: int = 0, max_depth: int = 10) -> List[Dict[str, Any]]:
         """
@@ -2511,6 +2512,12 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
             dep_name = dep_info['package']
             dep_condition = dep_info.get('condition')
 
+            # If config_flags is provided, filter dependencies based on conditions
+            if config_flags is not None and dep_condition:
+                # Skip this dependency if condition doesn't match the config flags
+                if not match_when(dep_condition, config_flags):
+                    continue
+
             child_tree = build_tree(dep_name, path_visited_copy, global_visited, depth + 1, max_depth)
 
             # Add condition to each child node
@@ -2560,6 +2567,40 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
                     print_tree(node['dependencies'], prefix + extension)
 
         print_tree(tree)
+
+
+def handle_repo_pkg_conf(pkg: Dict[str, Any], json_output: bool = False):
+    """Show mainconfig configurations for a package."""
+    import json
+
+    pkg_name = pkg['name']
+    mainconfigs = pkg.get('upp', {}).get('mainconfigs', [])
+
+    if json_output:
+        output = {
+            'package': pkg_name,
+            'configurations': mainconfigs
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    if not mainconfigs:
+        print(f"Package '{pkg_name}' has no mainconfig configurations")
+        return
+
+    print(f"Build configurations for package '{pkg_name}':\n")
+
+    for i, config in enumerate(mainconfigs):
+        config_num = i + 1
+        name = config.get('name', '')
+        param = config.get('param', '')
+
+        # Format name and param for display
+        name_display = f'"{name}"' if name else '(default)'
+        param_display = f'"{param}"' if param else '(none)'
+
+        print(f"  [{config_num}] {name_display}")
+        print(f"      Flags: {param_display}")
 
 
 def handle_structure_conformance(session_path: str, verbose: bool = False) -> int:
@@ -3238,9 +3279,9 @@ def main():
     # repo pkg
     repo_pkg_parser = repo_subparsers.add_parser('pkg', help='Package query and inspection commands')
     repo_pkg_parser.add_argument('package_name', nargs='?', help='Package name to inspect (supports partial match)')
-    repo_pkg_parser.add_argument('action', nargs='?', choices=['info', 'list', 'search', 'tree'], default='info',
-                                 help='Action: info (default), list (files), search (file search), tree (deps)')
-    repo_pkg_parser.add_argument('query', nargs='?', help='Search query (for search action)')
+    repo_pkg_parser.add_argument('action', nargs='?', choices=['info', 'list', 'search', 'tree', 'conf'], default='info',
+                                 help='Action: info (default), list (files), search (file search), tree (deps), conf (configurations)')
+    repo_pkg_parser.add_argument('query', nargs='?', help='Search query (for search action) or config number (for tree with config filter)')
     repo_pkg_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
     repo_pkg_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_pkg_parser.add_argument('--deep', action='store_true', help='Show full tree with all duplicates (for tree action)')
@@ -5040,7 +5081,38 @@ def main():
                         handle_repo_pkg_search(pkg, args.query, args.json)
                     elif action == 'tree':
                         deep_mode = hasattr(args, 'deep') and args.deep
-                        handle_repo_pkg_tree(pkg, packages, args.json, deep=deep_mode)
+
+                        # Check if config number provided in query
+                        config_flags = None
+                        if args.query:
+                            try:
+                                config_num = int(args.query)
+                                mainconfigs = pkg.get('upp', {}).get('mainconfigs', [])
+
+                                if config_num < 1 or config_num > len(mainconfigs):
+                                    print_error(f"Invalid config number: {config_num}. Package has {len(mainconfigs)} configurations.", 2)
+                                    sys.exit(1)
+
+                                # Get flags from selected config
+                                config = mainconfigs[config_num - 1]
+                                param = config.get('param', '')
+
+                                # Parse flags from param (space or comma separated)
+                                if param:
+                                    import re
+                                    config_flags = [f.strip() for f in re.split(r'[,\s]+', param) if f.strip()]
+                                else:
+                                    config_flags = []
+
+                                config_name = config.get('name', '') or '(default)'
+                                print_info(f"Filtering tree with config [{config_num}] {config_name}: {param or '(none)'}", 1)
+                            except ValueError:
+                                print_error(f"Invalid config number: '{args.query}'. Expected integer.", 2)
+                                sys.exit(1)
+
+                        handle_repo_pkg_tree(pkg, packages, args.json, deep=deep_mode, config_flags=config_flags)
+                    elif action == 'conf':
+                        handle_repo_pkg_conf(pkg, args.json)
 
             elif args.repo_subcommand in ['help', 'h']:
                 # Print help for repo subcommands

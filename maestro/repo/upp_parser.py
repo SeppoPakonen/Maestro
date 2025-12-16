@@ -59,7 +59,7 @@ class UppParser:
             - description_color: RGB tuple if present
             - uses: list of package dependencies
             - files: list of dicts with {path, options, readonly, separator, highlight, charset}
-            - mainconfigs: list of dicts with {key, value}
+            - mainconfigs: list of dicts with {name, param} (name can be empty string)
             - acceptflags: list of flag names
             - libraries: list of dicts with {condition, libs}
             - static_libraries: list of dicts with {condition, libs}
@@ -288,11 +288,12 @@ class UppParser:
                 break
             i += 1
 
-        # Pattern: mainconfig "KEY" = "value";
-        for match in re.finditer(r'"([^"]+)"\s*=\s*"([^"]*)"', accumulated):
+        # Pattern: mainconfig "KEY" = "value"; (KEY can be empty string "")
+        # Allow empty strings in both key and value
+        for match in re.finditer(r'"([^"]*)"\s*=\s*"([^"]*)"', accumulated):
             self.mainconfigs.append({
-                'key': match.group(1),
-                'value': match.group(2)
+                'name': match.group(1),  # Changed from 'key' to 'name' to match U++ terminology
+                'param': match.group(2)   # Changed from 'value' to 'param' to match U++ terminology
             })
 
         return i + 1
