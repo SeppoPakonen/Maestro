@@ -4592,7 +4592,7 @@ def main():
 
                     # Print next steps
                     print("\n" + "─" * 60)
-                    print_header("NEXT STEPS", level=2)
+                    print_info("NEXT STEPS", 2)
                     print_info("View detailed results:", 2)
                     print_info("  maestro repo show", 3)
                     print_info("\nExplore packages:", 2)
@@ -4632,7 +4632,7 @@ def main():
 
                     if index_data['packages_detected']:
                         print("\n" + "─" * 60)
-                        print_header("PACKAGES", level=2)
+                        print_info("PACKAGES", 2)
                         for pkg in sorted(index_data['packages_detected'], key=lambda p: p['name'])[:15]:
                             print_info(f"{pkg['name']}: {len(pkg['files'])} files", 2)
                         if len(index_data['packages_detected']) > 15:
@@ -4640,7 +4640,7 @@ def main():
 
                     if index_data['assemblies_detected']:
                         print("\n" + "─" * 60)
-                        print_header("ASSEMBLIES", level=2)
+                        print_info("ASSEMBLIES", 2)
                         for asm in index_data['assemblies_detected']:
                             print_info(f"{asm['name']}: {len(asm['package_folders'])} packages", 2)
 
@@ -8536,7 +8536,7 @@ def get_active_build_target(session_path: str) -> Optional[BuildTarget]:
     return None
 
 
-def find_repo_root(start_path: str, verbose: bool = False) -> str:
+def find_repo_root_from_path(start_path: str, verbose: bool = False) -> str:
     """
     Find the repository root which is the nearest directory containing .maestro/
 
@@ -8680,7 +8680,7 @@ def run_pipeline_from_build_target(target: BuildTarget, session_path: str, dry_r
         return PipelineRunResult(timestamp=time.time(), step_results=[], success=True)
 
     # Get repo root
-    repo_root = find_repo_root(session_path)
+    repo_root = find_repo_root_from_path(session_path)
 
     # Print verbose info if requested
     if verbose:
@@ -10101,7 +10101,7 @@ def run_pipeline(config: BuilderConfig, session_path: str, dry_run: bool = False
                 step_config.cmd,
                 capture_output=True,
                 text=True,
-                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
+                cwd=find_repo_root_from_path(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             duration = time.time() - start_time
@@ -10212,7 +10212,7 @@ def run_pipeline(config: BuilderConfig, session_path: str, dry_run: bool = False
                 config.valgrind.cmd,
                 capture_output=True,
                 text=True,
-                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
+                cwd=find_repo_root_from_path(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             duration = time.time() - start_time
@@ -10331,7 +10331,7 @@ def run_pipeline_with_streaming(config: BuilderConfig, session_path: str, dry_ru
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
+                cwd=find_repo_root_from_path(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             # Stream output in real-time
@@ -10461,7 +10461,7 @@ def run_pipeline_with_streaming(config: BuilderConfig, session_path: str, dry_ru
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=find_repo_root(session_path)  # Run in the repo root (nearest directory with .maestro/)
+                cwd=find_repo_root_from_path(session_path)  # Run in the repo root (nearest directory with .maestro/)
             )
 
             # Stream valgrind output
@@ -11410,7 +11410,7 @@ def handle_build_run(session_path, verbose=False, stop_after_step=None, limit_st
         print_debug(f"Running build pipeline for session: {session_path}", 2)
 
     # Find repo root
-    repo_root = find_repo_root(session_path, verbose=verbose)
+    repo_root = find_repo_root_from_path(session_path, verbose=verbose)
 
     # Load the session
     try:
@@ -12811,7 +12811,7 @@ def handle_build_list(session_path, verbose=False):
         print_debug(f"Listing build targets for session: {session_path}", 2)
 
     # Find repo root for verbose output
-    repo_root = find_repo_root(session_path, verbose=False)  # Only show if specifically verbose
+    repo_root = find_repo_root_from_path(session_path, verbose=False)  # Only show if specifically verbose
 
     try:
         targets = list_build_targets(session_path)
@@ -12870,7 +12870,7 @@ def handle_build_set(session_path, target_name, verbose=False):
         targets = list_build_targets(session_path)
 
         # Find repo root for verbose output
-        repo_root = find_repo_root(session_path, verbose=False)  # Only show if specifically verbose
+        repo_root = find_repo_root_from_path(session_path, verbose=False)  # Only show if specifically verbose
 
         # Check if target_name is a number (index)
         target_to_set = None

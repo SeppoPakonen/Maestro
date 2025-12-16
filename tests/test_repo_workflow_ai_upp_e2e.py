@@ -40,27 +40,31 @@ def test_repo_workflow_e2e():
     created_maestro = False
 
     try:
-        # Step 1: Run maestro init
-        init_cmd = ['python', '-m', 'maestro', 'init', '--dir', repo_path]
-        init_result = subprocess.run(init_cmd, capture_output=True, text=True, timeout=30, cwd=repo_path)
+        # Step 1: Run maestro init (if .maestro doesn't exist)
+        if not os.path.exists(maestro_dir):
+            init_cmd = ['python', '-m', 'maestro', 'init', '--dir', repo_path]
+            init_result = subprocess.run(init_cmd, capture_output=True, text=True, timeout=30, cwd=repo_path)
 
-        assert init_result.returncode == 0, f"maestro init failed: {init_result.stderr}"
+            assert init_result.returncode == 0, f"maestro init failed: {init_result.stderr}"
 
-        # Check that .maestro directory was created
-        assert os.path.exists(maestro_dir), f".maestro directory was not created at {maestro_dir}"
+            # Check that .maestro directory was created
+            assert os.path.exists(maestro_dir), f".maestro directory was not created at {maestro_dir}"
 
-        # Create marker file to indicate this was created by test
-        with open(marker_file, 'w') as f:
-            f.write('created-by-test')
-        created_maestro = True
+            # Create marker file to indicate this was created by test
+            with open(marker_file, 'w') as f:
+                f.write('created-by-test')
+            created_maestro = True
+        else:
+            print(f"\nℹ️  .maestro already exists at {maestro_dir}, skipping init")
 
         # Step 2: Run maestro repo resolve (no --path argument, should auto-detect)
+        # Note: ai-upp is large (1400+ packages), so we use a generous timeout
         resolve_cmd = ['python', '-m', 'maestro', 'repo', 'resolve']
         resolve_result = subprocess.run(
             resolve_cmd,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=300,  # 5 minutes for large repos
             cwd=repo_path
         )
 
