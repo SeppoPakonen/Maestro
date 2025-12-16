@@ -5098,14 +5098,36 @@ def main():
                                 param = config.get('param', '')
 
                                 # Parse flags from param (space or comma separated)
+                                import re
                                 if param:
-                                    import re
                                     config_flags = [f.strip() for f in re.split(r'[,\s]+', param) if f.strip()]
                                 else:
                                     config_flags = []
 
+                                # Add automatic platform flags based on current OS
+                                import platform
+                                system = platform.system().lower()
+                                platform_flags = []
+
+                                if system == 'linux':
+                                    platform_flags = ['LINUX', 'POSIX']
+                                elif system == 'windows':
+                                    platform_flags = ['WIN32']
+                                elif system == 'freebsd':
+                                    platform_flags = ['FREEBSD', 'POSIX']
+                                elif system == 'darwin':  # macOS
+                                    platform_flags = ['MACOS', 'POSIX']
+
+                                # Combine config flags with platform flags
+                                all_flags = config_flags + platform_flags
+                                config_flags = list(set(all_flags))  # Remove duplicates
+
                                 config_name = config.get('name', '') or '(default)'
-                                print_info(f"Filtering tree with config [{config_num}] {config_name}: {param or '(none)'}", 1)
+                                platform_str = ', '.join(platform_flags) if platform_flags else 'none'
+                                print_info(f"Filtering tree with config [{config_num}] {config_name}", 1)
+                                print_info(f"  Config flags: {param or '(none)'}", 1)
+                                print_info(f"  Platform flags: {platform_str} ({system})", 1)
+                                print_info(f"  Combined: {', '.join(sorted(config_flags)) if config_flags else '(none)'}", 1)
                             except ValueError:
                                 print_error(f"Invalid config number: '{args.query}'. Expected integer.", 2)
                                 sys.exit(1)
