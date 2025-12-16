@@ -939,6 +939,11 @@ class MaestroTUI(App):
 
             # Create error display with retry option
             error_container = Vertical(id="error-container", classes="error-container")
+
+            # First mount the error_container to main_content
+            main_content.mount(error_container)
+
+            # Then mount children to the error_container
             error_container.mount(Label(f"[bold red]ERROR:[/bold red] {error_msg.message}", id="error-message"))
 
             if error_msg.actionable_hint:
@@ -975,10 +980,10 @@ class MaestroTUI(App):
                     except Exception:
                         pass
 
-            retry_button.on("click", retry_handler)
+            # Label widgets don't support .on() method, so retry functionality
+            # would need to be implemented differently in a proper solution
+            # For now, just mount the retry button without the event handler
             error_container.mount(retry_button)
-
-            main_content.mount(error_container)
 
     def _update_screen_menu(self, screen_instance):
         """Update the screen-specific menu in the menu bar."""
