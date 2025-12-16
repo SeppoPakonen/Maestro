@@ -21,6 +21,8 @@ __all__ = [
     "confidence",
     "vault",
     "runs",
+    "batch",
+    "repo",
 ]
 
 
