@@ -3750,6 +3750,8 @@ def main():
                         print_error(f"Unknown confidence subcommand: {args.confidence_subcommand}", 2)
                         sys.exit(1)
                 else:
+                    convert_confidence_parser.print_help()
+                    return  # Exit after showing help
             elif args.convert_subcommand == 'runs':
                 # Handle runs subcommands
                 if hasattr(args, 'runs_subcommand') and args.runs_subcommand:

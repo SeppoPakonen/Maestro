@@ -4,16 +4,15 @@ Pane view contract for MC shell panes.
 from __future__ import annotations
 
 import asyncio
-from typing import Callable, Iterable, List, Optional, Set
+from typing import Callable, Optional, Set
 
 from textual.message import Message
 from textual.widget import Widget
 
 try:
-    # Reuse existing menu item definition when available
-    from maestro.tui.widgets.menubar import MenuItem  # type: ignore
+    from maestro.tui.menubar.model import Menu  # type: ignore
 except Exception:  # pragma: no cover - defensive import
-    MenuItem = None  # type: ignore
+    Menu = None  # type: ignore
 
 
 class PaneStatus(Message):
@@ -30,6 +29,13 @@ class PaneFocusRequest(Message):
     def __init__(self, sender: Widget, target: str) -> None:
         super().__init__()
         self.target = target
+
+
+class PaneMenuRequest(Message):
+    """Notify the shell that the pane's menu definition changed."""
+
+    def __init__(self, sender: Widget) -> None:
+        super().__init__()
 
 
 class PaneView(Widget):
@@ -49,13 +55,9 @@ class PaneView(Widget):
         """Return the display title for this pane."""
         return self.__class__.__name__
 
-    def menu_actions(self) -> Optional[List["MenuItem"]]:  # pragma: no cover - interface
-        """Optional menu actions specific to this pane."""
+    def menu(self) -> Optional["Menu"]:  # pragma: no cover - interface
+        """Optional menu owned by this pane."""
         return None
-
-    def handle_action(self, action_id: str) -> bool:
-        """Handle an action triggered from the menubar. Return True if handled."""
-        return False
 
     def notify_status(self, message: str) -> None:
         """Send a status update to the hosting shell."""
@@ -64,6 +66,10 @@ class PaneView(Widget):
     def request_focus_left(self) -> None:
         """Ask the shell to move focus back to the left navigation."""
         self.post_message(PaneFocusRequest(self, "left"))
+
+    def request_menu_refresh(self) -> None:
+        """Notify the shell to rebuild the pane-owned menu."""
+        self.post_message(PaneMenuRequest(self))
 
     def add_background_task(self, coro: asyncio.Future) -> None:
         """Track a background coroutine and ensure cleanup on unmount."""
@@ -79,8 +85,3 @@ class PaneView(Widget):
 
 
 PaneFactory = Callable[[], PaneView]
-
-
-def ensure_iterable(items: Optional[Iterable["MenuItem"]]) -> List["MenuItem"]:
-    """Utility to normalize optional iterable results."""
-    return list(items) if items else []

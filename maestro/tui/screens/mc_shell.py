@@ -17,11 +17,12 @@ from textual.widgets import Label, ListItem, ListView, Static
 from maestro.ui_facade.build import get_active_build_target
 from maestro.ui_facade.plans import get_active_plan
 from maestro.ui_facade.sessions import get_active_session
-from maestro.tui.panes.base import PaneFocusRequest, PaneStatus, PaneView, ensure_iterable
+from maestro.tui.menubar import Menu, MenuActionRequested, MenuBar, MenuBarDeactivated, MenuBarWidget, MenuItem
+from maestro.tui.menubar.actions import execute_menu_action
+from maestro.tui.panes.base import PaneFocusRequest, PaneMenuRequest, PaneStatus, PaneView
 from maestro.tui.panes.registry import create_pane
 from maestro.tui.utils import ErrorModal, ErrorNormalizer, write_smoke_success
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
-from maestro.tui.widgets.menubar import MenuItem, MenuItemActivated, Menubar
 from maestro.tui.widgets.text_viewer import TextViewerModal
 import maestro.tui.panes.sessions  # noqa: F401 - ensure pane is registered
 
@@ -31,25 +32,19 @@ class MainShellScreen(Screen):
 
     CAPTURE_TAB = True
     status_message: reactive[str] = reactive("Ready")
-    show_help_panel: reactive[bool] = reactive(False)
     show_key_hints: reactive[bool] = reactive(True)
 
     BINDINGS = [
         ("up", "move_up", "Up"),
         ("down", "move_down", "Down"),
+        ("tab", "cycle_focus", "Switch pane"),
+        ("shift+tab", "focus_left", "Focus left"),
+        ("backtab", "focus_left", "Focus left"),
         ("enter", "open_selection", "Open"),
         ("escape", "soft_back", "Back"),
         ("r", "refresh_view", "Refresh"),
         ("f1", "open_help", "Help"),
-        ("f2", "reserved('F2 Actions')", "Actions"),
-        ("f3", "reserved('F3 View')", "View"),
-        ("f4", "reserved('F4 Edit')", "Edit"),
-        ("f5", "reserved('F5 Run')", "Run"),
-        ("f6", "reserved('F6 Switch')", "Switch"),
-        ("f7", "reserved('F7 New')", "New"),
-        ("f8", "reserved('F8 Delete')", "Delete"),
         ("f9", "toggle_menu", "Menu"),
-        ("m", "toggle_menu", "Menu"),
         ("f10", "quit_app", "Quit"),
     ]
 
@@ -138,7 +133,9 @@ class MainShellScreen(Screen):
         self.focus_pane: str = "left"
         self.current_section: str = self.sections[0]
         self.session_summary: str = "Session: None | Plan: None | Build: None"
-        self.menubar: Optional[Menubar] = None
+        self.menu_bar_model: MenuBar = MenuBar()
+        self.menubar: Optional[MenuBarWidget] = None
+        self._pane_menu: Optional[Menu] = None
         self._menu_focus_restore: Optional[str] = None
         self.current_view: Optional[PaneView] = None
         self._placeholder_counter: int = 0
@@ -146,7 +143,11 @@ class MainShellScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Compose MC shell layout."""
-        self.menubar = Menubar(session_summary=self.session_summary)
+        self.menu_bar_model = MenuBar(
+            menus=self._base_menus(self._placeholder_menu(self.current_section)),
+            session_summary=self.session_summary,
+        )
+        self.menubar = MenuBarWidget(self.menu_bar_model)
         yield self.menubar
 
         with Horizontal(id="panes"):
@@ -162,18 +163,18 @@ class MainShellScreen(Screen):
                     placeholder.can_focus = True
                     yield placeholder
 
-        with Vertical(id="status-area"):
-            with Horizontal(id="status-bar"):
+            with Vertical(id="status-area"):
+                with Horizontal(id="status-bar"):
+                    yield Label(
+                        "Tab Switch Pane | Enter Open | Esc Back | F9 Menu | F10 Quit",
+                        id="status-hints",
+                    )
+                    yield Label("FOCUS: LEFT", id="focus-indicator")
+                    yield Label(self.status_message, id="status-message")
                 yield Label(
-                    "Tab Switch Pane | Enter Open | Esc Back | F1 Help | F10 Quit",
-                    id="status-hints",
+                    "F1 Help  F3 New  F5 Refresh  F8 Delete  F9 Menu  F10 Quit",
+                    id="function-strip",
                 )
-                yield Label("FOCUS: LEFT", id="focus-indicator")
-                yield Label(self.status_message, id="status-message")
-            yield Label(
-                "F1 Help  F2 Actions  F3 View  F4 Edit  F5 Run  F6 Switch  F7 New  F8 Delete  F9 Menu  F10 Quit",
-                id="function-strip",
-            )
 
     def on_mount(self) -> None:
         """Initialize state after mounting."""
@@ -181,7 +182,7 @@ class MainShellScreen(Screen):
         section_list = self.query_one("#section-list", ListView)
         section_list.index = 0
         self._update_focus("left")
-        self._prepare_menus()
+        self._refresh_menu_bar()
         self._open_current_selection()
         self._update_status_hints()
 
@@ -255,14 +256,14 @@ class MainShellScreen(Screen):
             content_title.update(title_text)
             self._handle_view_error(exc, f"loading {self.current_section}")
             self._show_placeholder(host, self.current_section)
-            self._refresh_actions_menu()
+            self._refresh_menu_bar(self._placeholder_menu(self.current_section))
             return
 
         if view is None:
             content_title.update(title_text)
             self._show_placeholder(host, self.current_section)
             self.current_view = None
-            self._refresh_actions_menu()
+            self._refresh_menu_bar(self._placeholder_menu(self.current_section))
             return
 
         self.current_view = view
@@ -272,7 +273,7 @@ class MainShellScreen(Screen):
             title_text = self.current_section
         content_title.update(title_text)
         host.mount(view)
-        self._refresh_actions_menu()
+        self._refresh_menu_bar()
 
     def _selected_section_name(self) -> Optional[str]:
         """Get the current highlighted section name."""
@@ -391,8 +392,9 @@ class MainShellScreen(Screen):
 
     def action_soft_back(self) -> None:
         """Esc to cancel/back hint."""
-        if self.menubar and self.menubar.is_open:
-            self._close_menubar_restore_focus()
+        if self.menubar and self.menubar.is_active:
+            self.menubar.deactivate()
+            self._restore_focus_after_menu()
             return
         self._update_status("Back (no modal to close)")
 
@@ -400,26 +402,29 @@ class MainShellScreen(Screen):
         """F10 quits the application."""
         self.app.exit()
 
-    def action_reserved(self, label: str) -> None:
-        """Placeholder for reserved function keys."""
-        self._update_status(f"{label} reserved for future use")
+    def action_cycle_focus(self) -> None:
+        """Tab cycles between left and right panes."""
+        target = "right" if self.focus_pane == "left" else "left"
+        if target == "right":
+            self._update_focus("right")
+            self._update_status("Focused right pane")
+        else:
+            self.action_focus_left()
 
     def action_toggle_menu(self) -> None:
         """Toggle the menubar (F9 style)."""
         if not self.menubar:
             return
-        if self.menubar.is_open:
-            self._close_menubar_restore_focus()
-        else:
-            self._menu_focus_restore = self.focus_pane
-            self.menubar.open()
-            self.menubar.focus()
-            self._update_status("Menubar open - arrows to navigate, Esc to close")
+        if self.menubar.is_active:
+            self.menubar.deactivate()
+            self._restore_focus_after_menu()
+            return
+        self._menu_focus_restore = self.focus_pane
+        self.menubar.activate()
+        self._update_status("Menubar active - Left/Right switch, Enter/Down opens")
 
-    def _close_menubar_restore_focus(self, status: Optional[str] = "Menubar closed") -> None:
-        """Close the menubar and restore pane focus."""
-        if self.menubar:
-            self.menubar.close()
+    def _restore_focus_after_menu(self, status: Optional[str] = "Menubar closed") -> None:
+        """Restore focus to the prior pane after closing the menubar."""
         if self._menu_focus_restore:
             self._update_focus(self._menu_focus_restore)
         self._menu_focus_restore = None
@@ -447,128 +452,108 @@ class MainShellScreen(Screen):
         else:
             self._update_status("Help screen not available yet")
 
-    def on_menu_item_activated(self, message: MenuItemActivated) -> None:
-        """Handle activated items from the menubar."""
-        menu = message.menu
+    def on_menu_action_requested(self, message: MenuActionRequested) -> None:
+        """Handle activation events coming from the menubar widget."""
+        menu_label = message.menu.label
         item = message.item
+        if not message.enabled:
+            self._update_status(f"{item.label} is disabled")
+            return
 
-        if menu == "Navigation":
+        if menu_label == "Navigation":
             self._select_navigation_from_menu(item)
-        elif menu == "View":
-            self._handle_view_menu(item)
-        elif menu == "Actions":
-            self._handle_actions_menu(item)
-        elif menu == "Help":
+        elif menu_label == "Help":
             self._handle_help_menu(item)
-        elif menu == "Maestro":
+        elif menu_label == "Maestro":
             if item.id == "status":
                 self._update_status(self.session_summary)
+            elif item.id == "contract":
+                self._open_contract()
             else:
                 self._update_status(f"{item.label} selected")
-        self._close_menubar_restore_focus(status=None)
+        elif self._pane_menu and menu_label == self._pane_menu.label:
+            asyncio.create_task(self._execute_pane_menu_item(item))
 
-    def _prepare_menus(self) -> None:
-        """Load menu contents once the menubar exists."""
-        if not self.menubar:
-            return
-        self.menubar.set_menu_items("Navigation", self._navigation_menu_items())
-        self.menubar.set_menu_items("View", self._view_menu_items())
-        self.menubar.set_menu_items("Help", self._help_menu_items())
-        self.menubar.set_menu_items("Maestro", self._maestro_menu_items())
-        self._refresh_actions_menu()
+    def on_menu_bar_deactivated(self, message: MenuBarDeactivated) -> None:
+        """Return focus when the menubar closes."""
+        self._restore_focus_after_menu(status=None)
 
-    def _navigation_menu_items(self) -> List[MenuItem]:
+    def _base_menus(self, pane_menu: Menu) -> List[Menu]:
+        """Construct the ordered menus with the pane-owned entry."""
+        return [
+            self._maestro_menu(),
+            self._navigation_menu(),
+            pane_menu,
+            self._help_menu(),
+        ]
+
+    def _navigation_menu(self) -> Menu:
         """Menu entries mirroring the navigation list."""
-        return [MenuItem(id=section, label=section, trust="[RO]") for section in self.sections]
+        return Menu(
+            label="Navigation",
+            items=[
+                MenuItem(id=section, label=section, key_hint=None, trust_label="[RO]") for section in self.sections
+            ],
+        )
 
-    def _view_menu_items(self) -> List[MenuItem]:
-        """Safe view actions."""
-        return [
-            MenuItem(id="refresh", label="Refresh", trust="[RO]"),
-            MenuItem(id="toggle_help_panel", label="Toggle Help Panel", trust="[RO]"),
-            MenuItem(id="toggle_key_hints", label="Toggle Key Hints", trust="[RO]"),
-        ]
-
-    def _help_menu_items(self) -> List[MenuItem]:
+    def _help_menu(self) -> Menu:
         """Help menu actions."""
-        return [
-            MenuItem(id="help", label="F1 Help", trust="[RO]"),
-            MenuItem(id="contract", label="Keys & Contract", trust="[RO]"),
-        ]
+        return Menu(
+            label="Help",
+            items=[
+                MenuItem(id="help", label="F1 Help", key_hint="F1", trust_label="[RO]"),
+                MenuItem(id="contract", label="Keys & Contract", trust_label="[RO]"),
+            ],
+        )
 
-    def _maestro_menu_items(self) -> List[MenuItem]:
+    def _maestro_menu(self) -> Menu:
         """Base Maestro menu with safe items."""
-        return [
-            MenuItem(id="about", label="About Maestro", trust="[RO]"),
-            MenuItem(id="status", label="Status Summary", trust="[RO]"),
-        ]
+        return Menu(
+            label="Maestro",
+            items=[
+                MenuItem(id="status", label="Status Summary", trust_label="[RO]"),
+                MenuItem(id="contract", label="MC Contract", trust_label="[RO]"),
+            ],
+        )
 
-    def _actions_menu_items(self, section: str) -> List[MenuItem]:
-        """Dynamic actions based on current section."""
-        mapping = {
-            "Sessions": [
-                MenuItem("list", "List", "[RO]"),
-                MenuItem("set_active", "Set Active", "[MUT][CONF]"),
-                MenuItem("new", "New", "[MUT][CONF]"),
-                MenuItem("remove", "Remove", "[MUT][CONF]"),
+    def _placeholder_menu(self, section: str) -> Menu:
+        """Fallback menu when a pane does not expose its own."""
+        return Menu(
+            label=section,
+            items=[
+                MenuItem(
+                    id="noop",
+                    label="No actions available",
+                    enabled=False,
+                    trust_label="[RO]",
+                )
             ],
-            "Plans": [
-                MenuItem("tree", "Tree", "[RO]"),
-                MenuItem("set_active", "Set Active", "[MUT][CONF]"),
-                MenuItem("kill_branch", "Kill Branch", "[MUT][CONF]"),
-            ],
-            "Tasks": [
-                MenuItem("run", "Run", "[MUT][CONF]"),
-                MenuItem("run_limit", "Run Limit", "[MUT][CONF]"),
-                MenuItem("stop", "Stop", "[MUT][CONF]"),
-            ],
-            "Build": [
-                MenuItem("run", "Run", "[MUT][CONF]"),
-                MenuItem("status", "Status", "[RO]"),
-                MenuItem("fix_loop", "Fix Loop", "[MUT][CONF]"),
-            ],
-            "Convert": [
-                MenuItem("status", "Status", "[RO]"),
-                MenuItem("run_next", "Run Next", "[MUT][CONF]"),
-                MenuItem("rehearse", "Rehearse", "[MUT][CONF]"),
-                MenuItem("promote", "Promote", "[MUT][CONF]"),
-            ],
-            "Vault": [
-                MenuItem("search", "Search", "[RO]"),
-                MenuItem("export_selected", "Export Selected", "[RO]"),
-            ],
-            "Replay": [
-                MenuItem("list_runs", "List Runs", "[RO]"),
-                MenuItem("replay_dry", "Replay Dry", "[MUT][CONF]"),
-                MenuItem("replay_apply", "Replay Apply", "[MUT][CONF]"),
-            ],
-            "Confidence": [
-                MenuItem("open", "Open", "[RO]"),
-            ],
-            "Integrity": [
-                MenuItem("open", "Open", "[RO]"),
-            ],
-            "Arbitration": [
-                MenuItem("open", "Open", "[RO]"),
-            ],
-        }
-        return mapping.get(section, [MenuItem("open", "Open", "[RO]")])
+        )
 
-    def _refresh_actions_menu(self) -> None:
-        """Update the Actions menu to reflect the current section."""
+    def _pane_menu_for_current(self) -> Menu:
+        """Return the active pane's menu, falling back to a placeholder."""
+        if self.current_view:
+            try:
+                menu = self.current_view.menu()
+                if menu:
+                    return menu
+            except Exception as exc:
+                self._handle_view_error(exc, f"building menu for {self.current_section}")
+        return self._placeholder_menu(self.current_section)
+
+    def _refresh_menu_bar(self, pane_menu: Optional[Menu] = None) -> None:
+        """Refresh the menubar with the latest pane menu and summary."""
         if not self.menubar:
             return
-        if self.current_view:
-            custom_actions = self.current_view.menu_actions()
-            if custom_actions:
-                self.menubar.set_menu_items("Actions", ensure_iterable(custom_actions))
-                return
-        actions = self._actions_menu_items(self.current_section)
-        self.menubar.set_menu_items("Actions", actions)
+        self._pane_menu = pane_menu or self._pane_menu_for_current()
+        menus = self._base_menus(self._pane_menu)
+        self.menu_bar_model = MenuBar(menus=menus, session_summary=self.session_summary)
+        self.menubar.set_session_summary(self.session_summary)
+        self.menubar.set_menus(menus)
 
     def _select_navigation_from_menu(self, item: MenuItem) -> None:
         """Update section selection based on a menu activation."""
-        section = item.payload or item.id
+        section = getattr(item, "payload", None) or item.id
         if section in self.sections:
             section_list = self.query_one("#section-list", ListView)
             section_list.index = self.sections.index(section)
@@ -579,28 +564,6 @@ class MainShellScreen(Screen):
         else:
             self._update_status(f"Unknown section {section}")
 
-    def _handle_view_menu(self, item: MenuItem) -> None:
-        """Execute a view menu selection."""
-        if item.id == "refresh":
-            self.action_refresh_view()
-        elif item.id == "toggle_help_panel":
-            self.show_help_panel = not self.show_help_panel
-            state = "shown" if self.show_help_panel else "hidden"
-            self._update_status(f"Help panel {state} (placeholder)")
-        elif item.id == "toggle_key_hints":
-            self.show_key_hints = not self.show_key_hints
-            self._update_status(f"Key hints {'shown' if self.show_key_hints else 'hidden'}")
-            self._update_status_hints()
-        else:
-            self._update_status(f"{item.label} not wired yet")
-
-    def _handle_actions_menu(self, item: MenuItem) -> None:
-        """Handle dynamic action menu items safely."""
-        if self.current_view and self.current_view.handle_action(item.id):
-            self._update_status(f"{self.current_section}: {item.label}")
-            return
-        self._update_status(f"{self.current_section}: {item.label} not wired yet")
-
     def _handle_help_menu(self, item: MenuItem) -> None:
         """Open help or contract viewer."""
         if item.id == "help":
@@ -609,6 +572,22 @@ class MainShellScreen(Screen):
             self._open_contract()
         else:
             self._update_status(f"{item.label} not wired yet")
+
+    async def _execute_pane_menu_item(self, item: MenuItem) -> None:
+        """Execute a pane-owned menu item with error discipline."""
+        if not item.enabled:
+            self._update_status(f"{item.label} is disabled")
+            return
+
+        if not item.action:
+            self._update_status(f"{self.current_section}: {item.label} not wired yet")
+            return
+
+        error = await execute_menu_action(item)
+        if error:
+            self._handle_view_error(error, f"executing {item.label}")
+            return
+        self._update_status(f"{self.current_section}: {item.label}")
 
     def _open_contract(self) -> None:
         """Open the MC contract file in a viewer modal."""
@@ -623,16 +602,11 @@ class MainShellScreen(Screen):
     def _update_status_hints(self) -> None:
         """Show or hide verbose key hints."""
         hints = (
-            "Tab Switch Pane | Enter Open | Esc Back | F1 Help | F10 Quit"
+            "Tab Switch Pane | Enter Open | Esc Back | F9 Menu | F10 Quit"
             if self.show_key_hints
-            else "Hints hidden (View > Toggle Key Hints)"
+            else "Hints hidden"
         )
         self.query_one("#status-hints", Label).update(hints)
-
-    def _cycle_focus(self) -> None:
-        """Move focus to the right pane when requested."""
-        if self.focus_pane != "right":
-            self.action_focus_right()
 
     def _handle_view_error(self, exc: Exception, context: str) -> None:
         """Normalize and display view errors without crashing."""
@@ -640,16 +614,44 @@ class MainShellScreen(Screen):
         self._update_status(error_msg.message)
         self.app.push_screen(ErrorModal(error_msg))
 
+    def _handle_key_hint(self, key: str) -> bool:
+        """Allow direct function key activation for the active pane menu."""
+        if not self._pane_menu:
+            return False
+        normalized = self._normalize_key_hint(key)
+        if normalized == "enter":
+            return False
+        for entry in self._pane_menu.items:
+            if not isinstance(entry, MenuItem):
+                continue
+            if entry.key_hint and self._normalize_key_hint(entry.key_hint) == normalized and entry.enabled:
+                asyncio.create_task(self._execute_pane_menu_item(entry))
+                return True
+        return False
+
+    def _normalize_key_hint(self, key: str) -> str:
+        """Normalize textual keys and labels for comparison."""
+        return key.lower().replace("+", "").strip()
+
     def on_key(self, event: events.Key) -> None:
         """Ensure global keys always reach the shell."""
-        if event.key in ("f9", "m"):
+        if event.key == "f9":
             self.action_toggle_menu()
+            event.stop()
+            return
+        if self.menubar and self.menubar.is_active:
+            return
+        if self._handle_key_hint(event.key):
             event.stop()
 
     def on_pane_status(self, message: PaneStatus) -> None:
         """Update shell status from a pane."""
         self._update_status(message.message)
         self._load_status_state()
+
+    def on_pane_menu_request(self, message: PaneMenuRequest) -> None:
+        """Refresh menubar when a pane signals a menu change."""
+        self._refresh_menu_bar()
 
     def on_pane_focus_request(self, message: PaneFocusRequest) -> None:
         """Honor pane focus requests (e.g., Tab back to sections)."""
@@ -670,7 +672,6 @@ class MaestroMCShellApp(App):
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
         ("ctrl+p", "show_command_palette", "Palette"),
-        ("tab", "cycle_focus", "Focus cycle"),
     ]
 
     ENABLE_MOUSE_SUPPORT = True
@@ -698,34 +699,6 @@ class MaestroMCShellApp(App):
 
         palette = CommandPaletteScreen(session_id=session_id)
         self.push_screen(palette)
-    
-    def action_focus_left(self) -> None:
-        """Proxy focus back to shell when Shift+Tab pressed globally."""
-        if isinstance(self.screen, MainShellScreen):
-            self.screen.action_focus_left()
-
-    def action_cycle_focus(self) -> None:
-        """Cycle focus between panes."""
-        if isinstance(self.screen, MainShellScreen):
-            self.screen._cycle_focus()
-
-    def on_key(self, event: events.Key) -> None:
-        """Catch global navigation keys at the app level."""
-        if event.key == "tab":
-            if isinstance(self.screen, MainShellScreen):
-                self.screen._cycle_focus()
-            event.stop()
-        elif event.key in ("shift+tab", "backtab"):
-            self.action_focus_left()
-            event.stop()
-        elif event.key == "enter":
-            if isinstance(self.screen, MainShellScreen):
-                self.screen.action_open_selection()
-            event.stop()
-        elif event.key in ("f9", "m"):
-            if isinstance(self.screen, MainShellScreen):
-                self.screen.action_toggle_menu()
-            event.stop()
 
     def _smoke_exit(self) -> None:
         """Exit cleanly for smoke runs."""

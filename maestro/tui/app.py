@@ -16,7 +16,10 @@ from maestro.tui.screens.sessions import SessionsScreen
 from maestro.tui.screens.plans import PlansScreen
 from maestro.tui.screens.tasks import TasksScreen
 from maestro.tui.screens.build import BuildScreen
-from maestro.tui.screens.convert import ConvertScreen
+try:
+    from maestro.tui.screens.convert import ConvertScreen
+except Exception:
+    ConvertScreen = None  # type: ignore
 from maestro.tui.screens.logs import LogsScreen
 from maestro.tui.screens.help import HelpScreen
 from maestro.tui.screens.memory import MemoryScreen

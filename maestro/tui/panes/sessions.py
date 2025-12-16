@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import asyncio
 from typing import List, Optional
-
-from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, ListItem, ListView, Static
@@ -22,8 +20,8 @@ from maestro.ui_facade.sessions import (
     set_active_session,
 )
 from maestro.tui.panes.base import PaneView
+from maestro.tui.menubar.model import Menu, MenuItem
 from maestro.tui.utils import ErrorModal, ErrorNormalizer, memoization_cache
-from maestro.tui.widgets.menubar import MenuItem
 from maestro.tui.widgets.modals import ConfirmDialog, InputDialog
 from maestro.tui.panes.registry import register_pane
 
@@ -35,6 +33,9 @@ class SessionsPane(PaneView):
         ("up", "cursor_up", "Up"),
         ("down", "cursor_down", "Down"),
         ("enter", "set_active", "Set active [CONF]"),
+        ("f3", "new_session", "New session [CONF]"),
+        ("f5", "refresh_data", "Refresh"),
+        ("f8", "delete_session", "Delete session [CONF]"),
         ("n", "new_session", "New session [CONF]"),
         ("d", "delete_session", "Delete session [CONF]"),
         ("r", "refresh_data", "Refresh"),
@@ -89,14 +90,46 @@ class SessionsPane(PaneView):
     def title(self) -> str:
         return "Sessions"
 
-    def menu_actions(self):
-        """Expose actions to the menubar."""
-        return [
-            MenuItem("list", "List", "[RO]"),
-            MenuItem("set_active", "Set Active", "[MUT][CONF]"),
-            MenuItem("new", "New", "[MUT][CONF]"),
-            MenuItem("remove", "Remove", "[MUT][CONF]"),
-        ]
+    def menu(self) -> Menu:
+        """Provide the pane-owned menu definition."""
+        has_selection = bool(self._get_selected_session())
+        return Menu(
+            label=self.title(),
+            items=[
+                MenuItem(
+                    "new",
+                    "New",
+                    action=self.action_new_session,
+                    key_hint="F3",
+                    trust_label="[MUT][CONF]",
+                ),
+                MenuItem(
+                    "set_active",
+                    "Set Active",
+                    action=self.action_set_active,
+                    key_hint="Enter",
+                    enabled=has_selection,
+                    trust_label="[MUT][CONF]",
+                    requires_confirmation=True,
+                ),
+                MenuItem(
+                    "delete",
+                    "Delete",
+                    action=self.action_delete_session,
+                    key_hint="F8",
+                    enabled=has_selection,
+                    trust_label="[MUT][CONF]",
+                    requires_confirmation=True,
+                ),
+                MenuItem(
+                    "refresh",
+                    "Refresh",
+                    action=self.refresh_data,
+                    key_hint="F5",
+                    trust_label="[RO]",
+                ),
+            ],
+        )
 
     def compose(self) -> ComposeResult:
         yield Label("Sessions", id="sessions-header")
@@ -133,6 +166,7 @@ class SessionsPane(PaneView):
         self._render_list()
         await self._load_details_for_selection()
         self.notify_status("Sessions refreshed")
+        self.request_menu_refresh()
 
     def _render_list(self) -> None:
         """Render the ListView from session data."""
@@ -148,6 +182,7 @@ class SessionsPane(PaneView):
             list_view.append(ListItem(Label("No sessions found [RO]")))
             list_view.index = 0
             self.selected_id = None
+            self.request_menu_refresh()
             return
 
         # Restore selection
@@ -155,6 +190,7 @@ class SessionsPane(PaneView):
         if self.selected_id not in ids:
             self.selected_id = ids[0]
         list_view.index = ids.index(self.selected_id)
+        self.request_menu_refresh()
 
     async def _load_details_for_selection(self) -> None:
         """Load details for the currently selected session."""
@@ -218,6 +254,7 @@ class SessionsPane(PaneView):
         idx = max(0, min(list_view.index, len(self.sessions) - 1))
         self.selected_id = self.sessions[idx].id
         await self._load_details_for_selection()
+        self.request_menu_refresh()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle mouse/enter selection."""
@@ -243,13 +280,14 @@ class SessionsPane(PaneView):
             except Exception as exc:
                 asyncio.create_task(self._show_error(exc, "setting active session"))
                 return
-            asyncio.create_task(self.refresh_data())
+                asyncio.create_task(self.refresh_data())
 
         confirm = ConfirmDialog(
             message=f"Set session {session.id[:8]} as active?",
             title="Confirm Set Active",
         )
         self.app.push_screen(confirm, callback=lambda res: on_confirmed(bool(res)))
+        self.request_menu_refresh()
 
     async def action_new_session(self) -> None:
         """Create a new session."""
@@ -280,6 +318,7 @@ class SessionsPane(PaneView):
 
         dialog = InputDialog(message="Enter new session name:", title="New Session")
         self.app.push_screen(dialog, callback=on_input)
+        self.request_menu_refresh()
 
     async def action_delete_session(self) -> None:
         """Delete the selected session."""
@@ -307,6 +346,7 @@ class SessionsPane(PaneView):
             title="Confirm Delete Session",
         )
         self.app.push_screen(confirm, callback=lambda res: on_confirmed(bool(res)))
+        self.request_menu_refresh()
 
     async def action_refresh_data(self) -> None:
         """Allow BINDINGS to call the refresh coroutine."""
@@ -324,22 +364,6 @@ class SessionsPane(PaneView):
         except Exception:
             pass
 
-    def handle_action(self, action_id: str) -> bool:
-        """Hook for menubar Actions menu."""
-        if action_id == "list":
-            asyncio.create_task(self.refresh_data())
-            return True
-        if action_id == "set_active":
-            asyncio.create_task(self.action_set_active())
-            return True
-        if action_id == "new":
-            asyncio.create_task(self.action_new_session())
-            return True
-        if action_id == "remove":
-            asyncio.create_task(self.action_delete_session())
-            return True
-        return False
-
     def notify_status(self, message: str) -> None:
         """Update local status and inform shell."""
         try:
@@ -347,6 +371,7 @@ class SessionsPane(PaneView):
         except Exception:
             pass
         super().notify_status(message)
+        self.request_menu_refresh()
 
     async def _show_error(self, exc: Exception, context: str) -> None:
         """Normalize and show an error modal."""

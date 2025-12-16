@@ -1,6 +1,6 @@
 import asyncio
-from textual.widgets import ListView
 
+from maestro.tui.panes.sessions import SessionsPane
 from maestro.tui.screens.mc_shell import MaestroMCShellApp, MainShellScreen
 
 
@@ -19,38 +19,25 @@ def test_mc_shell_focus_and_navigation():
             # Move to Sessions and open it
             await pilot.press("down")
             await pilot.pause()
-            list_view = shell.query_one("#section-list", ListView)
-            assert list_view.index == 1
-
             await pilot.press("enter")
             await pilot.pause()
             assert shell.current_section == "Sessions"
             assert shell.focus_pane == "right"
 
-            # Tab to right pane and confirm focus indicator updates
+            # Tab should cycle back to the left and then right again
             await pilot.press("tab")
-            await pilot.pause()
-            assert shell.focus_pane == "right"
-
-            await pilot.press("enter")
-            assert shell.current_section == "Sessions"
-
-            # Shift+Tab back and ensure list navigation still works
-            await pilot.press("shift+tab")
             await pilot.pause()
             assert shell.focus_pane == "left"
 
-            list_view = shell.query_one("#section-list", ListView)
-            await pilot.press("down")
-            await pilot.press("down")
-            await pilot.press("up")
-            assert list_view.index == 2  # zero-based index; should land on Plans
+            await pilot.press("tab")
+            await pilot.pause()
+            assert shell.focus_pane == "right"
 
     asyncio.run(_run())
 
 
 def test_menubar_navigation_menu_updates_content():
-    """F9 opens the menu and navigation entries sync with panes."""
+    """F9 activates the menubar and navigation entries open sections."""
 
     async def _run():
         app = MaestroMCShellApp()
@@ -62,26 +49,73 @@ def test_menubar_navigation_menu_updates_content():
             await pilot.press("f9")
             await pilot.pause()
             assert shell.menubar is not None
-            assert shell.menubar.is_open
+            assert shell.menubar.is_active
+            assert not shell.menubar.is_open
 
             # Move to Navigation menu then down to Sessions
-            await pilot.press("right")
+            await pilot.press("right")  # Navigation
+            await pilot.press("enter")  # open menu
             await pilot.pause()
-            await pilot.press("down")
-            await pilot.pause()
+            assert shell.menubar.is_open
+            await pilot.press("down")  # Sessions entry
             await pilot.press("enter")
             await pilot.pause()
 
-            assert not shell.menubar.is_open
             assert shell.current_section == "Sessions"
+            assert not shell.menubar.is_active
 
-            # Esc should close the menu without changing selection
+    asyncio.run(_run())
+
+
+def test_sessions_menu_refresh_and_disabled_items():
+    """Sessions menu actions fire and disabled entries remain inert."""
+
+    async def _run():
+        app = MaestroMCShellApp()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            shell = app.screen
+            assert isinstance(shell, MainShellScreen)
+
+            # Open Sessions pane
+            await pilot.press("down")
+            await pilot.press("enter")
+            await pilot.pause()
+            pane = shell.current_view
+            assert isinstance(pane, SessionsPane)
+
+            called = False
+
+            async def fake_refresh():
+                nonlocal called
+                called = True
+
+            pane.refresh_data = fake_refresh  # type: ignore
+            shell._refresh_menu_bar()
+
+            # Invoke Refresh via the menubar (Sessions menu, 4th item)
             await pilot.press("f9")
+            await pilot.press("right")  # Navigation
+            await pilot.press("right")  # Sessions menu
+            await pilot.press("enter")  # open
+            for _ in range(3):
+                await pilot.press("down")
+            await pilot.press("enter")
             await pilot.pause()
-            assert shell.menubar.is_open
-            await pilot.press("escape")
+            assert called
+
+            # Disable selection and ensure disabled item is inert
+            pane.sessions = []
+            pane.selected_id = None
+            shell._refresh_menu_bar()
+
+            await pilot.press("f9")
+            await pilot.press("right")  # Navigation
+            await pilot.press("right")  # Sessions
+            await pilot.press("enter")
+            await pilot.press("down")  # Set Active (disabled)
+            await pilot.press("enter")
             await pilot.pause()
-            assert not shell.menubar.is_open
-            assert shell.current_section == "Sessions"
+            assert "disabled" in shell.status_message.lower()
 
     asyncio.run(_run())

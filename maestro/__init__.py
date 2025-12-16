@@ -2,6 +2,12 @@
 Maestro package - AI Task Management & Orchestration
 """
 
-from .main import main, __version__
+try:
+    from .main import main, __version__  # type: ignore
+except Exception:
+    __version__ = "unknown"
 
-__all__ = ['main', '__version__']
+    def main(*args, **kwargs):  # type: ignore
+        raise RuntimeError("maestro.main could not be imported") from None
+
+__all__ = ["main", "__version__"]
