@@ -20,12 +20,18 @@ from maestro.ui_facade.sessions import get_active_session
 from maestro.tui.menubar import Menu, MenuActionRequested, MenuBar, MenuBarDeactivated, MenuBarWidget, MenuItem
 from maestro.tui.menubar.actions import execute_menu_action
 from maestro.tui.panes.base import PaneFocusRequest, PaneMenuRequest, PaneStatus, PaneView
-from maestro.tui.panes.registry import create_pane
+from maestro.tui.panes.registry import create_pane, create_pane_safe
 from maestro.tui.utils import ErrorModal, ErrorNormalizer, write_smoke_success
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 from maestro.tui.widgets.status_line import StatusLine
 from maestro.tui.widgets.text_viewer import TextViewerModal
 import maestro.tui.panes.sessions  # noqa: F401 - ensure pane is registered
+import maestro.tui.panes.plans  # noqa: F401 - ensure pane is registered
+import maestro.tui.panes.tasks  # noqa: F401 - ensure pane is registered
+import maestro.tui.panes.build  # noqa: F401 - ensure pane is registered
+import maestro.tui.panes.convert  # noqa: F401 - ensure pane is registered
+import maestro.tui.panes.semantic  # noqa: F401 - ensure pane is registered
+import maestro.tui.panes.batch  # noqa: F401 - ensure pane is registered
 
 
 class MainShellScreen(Screen):
@@ -107,9 +113,12 @@ class MainShellScreen(Screen):
 
     def __init__(self) -> None:
         super().__init__()
-        self.sections: List[str] = [
+        # Use the pane registry to get available sections, with default fallback
+        from maestro.tui.panes.registry import registered_pane_ids
+        registry_sections = registered_pane_ids()
+        # Add some default sections that may not be in the registry yet
+        self.sections: List[str] = registry_sections + [
             "Home",
-            "Sessions",
             "Plans",
             "Tasks",
             "Build",
@@ -119,8 +128,16 @@ class MainShellScreen(Screen):
             "Confidence",
             "Integrity",
         ]
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_sections = []
+        for s in self.sections:
+            if s.lower() not in {sec.lower() for sec in unique_sections}:
+                unique_sections.append(s)
+        self.sections = unique_sections
+
         self.focus_pane: str = "left"
-        self.current_section: str = self.sections[0]
+        self.current_section: str = self.sections[0] if self.sections else "Home"
         self.session_summary: str = "Session: None | Plan: None | Build: None"
         self.menu_bar_model: MenuBar = MenuBar()
         self.menubar: Optional[MenuBarWidget] = None
@@ -205,6 +222,15 @@ class MainShellScreen(Screen):
 
     def _update_focus(self, target: str) -> None:
         """Switch focus to the requested pane."""
+        # Handle blur of current view if switching from right pane
+        if self.focus_pane == "right" and target == "left" and self.current_view:
+            if hasattr(self.current_view, 'on_blur') and callable(self.current_view.on_blur):
+                try:
+                    self.current_view.on_blur()
+                except Exception as e:
+                    self._handle_pane_error(e, "blurring current pane")
+
+        # Update focus state
         self.focus_pane = target
         left_pane = self.query_one("#left-pane", Vertical)
         right_pane = self.query_one("#right-pane", Vertical)
@@ -215,6 +241,12 @@ class MainShellScreen(Screen):
             self.query_one("#section-list", ListView).focus()
         else:
             if self.current_view:
+                # Handle focus of current view if switching to right pane
+                if hasattr(self.current_view, 'on_focus') and callable(self.current_view.on_focus):
+                    try:
+                        self.current_view.on_focus()
+                    except Exception as e:
+                        self._handle_pane_error(e, "focusing current pane")
                 self.current_view.focus()
             else:
                 try:
@@ -249,16 +281,15 @@ class MainShellScreen(Screen):
         host = self.query_one("#content-host", Vertical)
         self._clear_current_view(host)
 
-        # Use safe facade call for creating pane
-        view, error = self._safe_facade_call(
-            lambda: create_pane(self.current_section),
-            f"creating {self.current_section} pane"
-        )
+        # Use hard failure containment for pane creation
+        view, error = create_pane_safe(self.current_section)
 
         if error:
             content_title.update(title_text)
-            self._handle_normalized_error(error, f"loading {self.current_section}")
-            self._show_placeholder(host, self.current_section)
+            self._handle_pane_error(error, f"loading {self.current_section}")
+            # Show pane error widget instead of crashing
+            self._show_pane_error(host, error, self.current_section)
+            self.current_view = None
             self._refresh_menu_bar(self._placeholder_menu(self.current_section))
             return
 
@@ -269,13 +300,34 @@ class MainShellScreen(Screen):
             self._refresh_menu_bar(self._placeholder_menu(self.current_section))
             return
 
+        # Set up proper lifecycle
         self.current_view = view
         try:
-            title_text = view.title()
+            title_text = view.title() if hasattr(view, 'title') and callable(view.title) else getattr(view, 'pane_title', self.current_section)
         except Exception:
             title_text = self.current_section
         content_title.update(title_text)
+
+        # Follow deterministic lifecycle: construct -> mount -> focus
         host.mount(view)
+        if hasattr(view, 'on_mount') and callable(view.on_mount):
+            try:
+                view.on_mount()
+            except Exception as mount_error:
+                self._handle_pane_error(mount_error, f"mounting {self.current_section}")
+                # Replace with error widget
+                self._clear_current_view(host)
+                self._show_pane_error(host, mount_error, self.current_section)
+                self.current_view = None
+                self._refresh_menu_bar(self._placeholder_menu(self.current_section))
+                return
+
+        if hasattr(view, 'on_focus') and callable(view.on_focus):
+            try:
+                view.on_focus()
+            except Exception as focus_error:
+                self._handle_pane_error(focus_error, f"focusing {self.current_section}")
+
         self._refresh_menu_bar()
 
     def _selected_section_name(self) -> Optional[str]:
@@ -312,26 +364,35 @@ class MainShellScreen(Screen):
         host.mount(placeholder)
 
     def _refresh_current_view_data(self) -> None:
-        """Invoke refresh on the current pane if it supports it."""
+        """Invoke refresh on the current pane if it supports the new contract."""
         if not self.current_view:
             # Show a placeholder if there's no current view
             self._update_status("No active pane to refresh")
             return
 
-        # Use safe facade call to refresh the view data
-        def do_refresh():
-            return self.current_view.refresh_data()
+        # Check if the current view implements the new contract
+        if hasattr(self.current_view, 'refresh') and callable(self.current_view.refresh):
+            # Use the new contract refresh method
+            try:
+                self.current_view.refresh()
+                self._update_status(f"Refreshed {self.current_section}")
+            except Exception as e:
+                self._handle_pane_error(e, f"refreshing {self.current_section}")
+        else:
+            # Fallback to the old refresh_data method for backward compatibility
+            def do_refresh():
+                return self.current_view.refresh_data()
 
-        result, error = self._safe_facade_call(do_refresh, f"refreshing {self.current_section}")
+            result, error = self._safe_facade_call(do_refresh, f"refreshing {self.current_section}")
 
-        if error:
-            self._handle_normalized_error(error, f"refreshing {self.current_section}")
-            # Even if refresh fails, we still want to maintain the shell state
-            return
+            if error:
+                self._handle_normalized_error(error, f"refreshing {self.current_section}")
+                # Even if refresh fails, we still want to maintain the shell state
+                return
 
-        if asyncio.iscoroutine(result):
-            asyncio.create_task(self._run_view_refresh(result))
-        # If it's not a coroutine, the refresh completed synchronously
+            if asyncio.iscoroutine(result):
+                asyncio.create_task(self._run_view_refresh(result))
+            # If it's not a coroutine, the refresh completed synchronously
 
     async def _run_view_refresh(self, coro) -> None:
         try:
@@ -602,7 +663,9 @@ class MainShellScreen(Screen):
             self._update_status(f"{item.label} is disabled")
             return
 
-        if menu_label == "Navigation":
+        if menu_label == "Sections":
+            self._select_section_from_menu(item)
+        elif menu_label == "Navigation":
             self._select_navigation_from_menu(item)
         elif menu_label == "Help":
             self._handle_help_menu(item)
@@ -625,6 +688,7 @@ class MainShellScreen(Screen):
     def _base_menus(self, pane_menu: Menu) -> List[Menu]:
         """Construct the ordered menus with the pane-owned entry."""
         return [
+            self._sections_menu(),  # New: Sections menu added to menubar
             self._maestro_menu(),
             self._navigation_menu(),
             self._view_menu(),
@@ -660,6 +724,15 @@ class MainShellScreen(Screen):
             ],
         )
 
+    def _sections_menu(self) -> Menu:
+        """Sections menu for switching between panes from the menubar."""
+        return Menu(
+            label="Sections",
+            items=[
+                MenuItem(id=section, label=section, action_id=f"sections.{section.lower()}", trust_label="[RO]") for section in self.sections
+            ],
+        )
+
     def _maestro_menu(self) -> Menu:
         """Base Maestro menu with safe items."""
         return Menu(
@@ -687,7 +760,23 @@ class MainShellScreen(Screen):
     def _pane_menu_for_current(self) -> Menu:
         """Return the active pane's menu, falling back to a placeholder."""
         if self.current_view:
-            # Use safe facade call for menu creation
+            # Check for the new contract method first
+            if hasattr(self.current_view, 'get_menu_spec') and callable(self.current_view.get_menu_spec):
+                try:
+                    menu_spec = self.current_view.get_menu_spec()
+                    # Convert the menu spec to the old Menu format for compatibility
+                    from maestro.tui.menubar.model import Menu as NewMenu, MenuItem as NewMenuItem
+                    if isinstance(menu_spec, NewMenu):
+                        return menu_spec
+                    # If it's a different format or needs conversion, create a compatible menu
+                    menu_label = getattr(self.current_view, 'pane_title', self.current_section)
+                    return NewMenu(label=menu_label, items=getattr(menu_spec, 'items', []))
+                except Exception as e:
+                    self._handle_pane_error(e, f"getting menu spec for {self.current_section}")
+                    # Fall back to old method
+                    pass
+
+            # Use safe facade call for old menu creation as fallback
             def get_menu():
                 return self.current_view.menu() if self.current_view else None
 
@@ -711,6 +800,19 @@ class MainShellScreen(Screen):
         self.menu_bar_model = MenuBar(menus=menus, session_summary=self.session_summary)
         self.menubar.set_session_summary(self.session_summary)
         self.menubar.set_menus(menus)
+
+    def _select_section_from_menu(self, item: MenuItem) -> None:
+        """Update section selection based on a menu activation."""
+        section = getattr(item, "payload", None) or item.id
+        if section in self.sections:
+            section_list = self.query_one("#section-list", ListView)
+            section_list.index = self.sections.index(section)
+            self.current_section = section
+            self._open_current_selection()
+            self._update_focus("right")
+            self._update_status(f"Opened {section} from Sections menu")
+        else:
+            self._update_status(f"Unknown section {section}")
 
     def _select_navigation_from_menu(self, item: MenuItem) -> None:
         """Update section selection based on a menu activation."""
@@ -784,6 +886,11 @@ class MainShellScreen(Screen):
         if self.status_line:
             self.status_line.set_hints(hints)
 
+    def _handle_pane_error(self, exc: Exception, context: str) -> None:
+        """Normalize and display pane errors without crashing."""
+        error_msg = ErrorNormalizer.normalize_exception(exc, context)
+        self._update_status(error_msg.message)
+
     def _handle_view_error(self, exc: Exception, context: str) -> None:
         """Normalize and display view errors without crashing."""
         error_msg = ErrorNormalizer.normalize_exception(exc, context)
@@ -794,6 +901,35 @@ class MainShellScreen(Screen):
         """Handle pre-normalized error messages."""
         self._update_status(error_msg.message)
         self.app.push_screen(ErrorModal(error_msg))
+
+    def _show_pane_error(self, host: Vertical, error: Exception, section_name: str) -> None:
+        """Show a pane error widget in place of the pane content."""
+        # Import the error widget
+        from maestro.tui.widgets.pane_error_widget import PaneErrorWidget, PaneRetryRequest
+        from textual.containers import Vertical
+
+        # Clear the host first
+        self._clear_current_view(host)
+
+        # Create the error widget
+        error_widget = PaneErrorWidget(
+            error_message=f"Error loading {section_name} pane: {str(error)}",
+            error_exception=error,
+            pane_id=section_name
+        )
+
+        # Mount the error widget
+        host.mount(error_widget)
+
+        # Set up event handler for retries
+        self.bind(PaneRetryRequest, self._on_pane_retry, selector="*")
+
+    def _on_pane_retry(self, event: PaneRetryRequest) -> None:
+        """Handle pane retry requests."""
+        self.current_section = event.pane_id
+        self._open_current_selection()
+        self._update_focus("right")
+        self._update_status(f"Retried loading {event.pane_id}")
 
     def _handle_key_hint(self, key: str) -> bool:
         """Allow direct function key activation for the active pane menu."""

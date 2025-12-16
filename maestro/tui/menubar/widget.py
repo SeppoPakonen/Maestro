@@ -8,13 +8,14 @@ from typing import Dict, List, Optional
 
 from textual import events
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.message import Message
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Label, ListItem, ListView, Static
+from textual.widgets import Label
 
 from maestro.tui.menubar.model import Menu, MenuBar, MenuEntry, MenuItem, Separator
+from maestro.tui.menubar.dropdown_modal import MenuDropdownModal
 
 
 class MenuActionRequested(Message):
@@ -39,10 +40,10 @@ class MenuBarWidget(Widget):
 
     DEFAULT_CSS = """
     MenuBarWidget {
-        layout: vertical;
+        layout: horizontal;
         background: $surface;
         color: $text;
-        height: 5;
+        height: 1;
         border-bottom: solid $primary 50%;
     }
 
@@ -51,6 +52,7 @@ class MenuBarWidget(Widget):
         padding: 0 1;
         text-style: bold;
         background: $panel 80%;
+        width: 1fr;
     }
 
     #menu-row Label {
@@ -68,22 +70,6 @@ class MenuBarWidget(Widget):
         content-align: right middle;
         width: 1fr;
         color: $text 80%;
-    }
-
-    #menu-items {
-        height: 4;
-        border: solid $primary 50%;
-        background: $panel;
-    }
-
-    #menu-items ListItem {
-        height: 1;
-        padding: 0 1;
-    }
-
-    #menu-items ListItem:hover {
-        background: $primary 20%;
-        text-style: bold;
     }
 
     .menu-title--active {
@@ -108,24 +94,21 @@ class MenuBarWidget(Widget):
         self.active_item_index: int = 0
         self._summary_label: Optional[Label] = None
         self._render_serial: int = 0
+        self._current_dropdown_modal: Optional[MenuDropdownModal] = None
 
     def compose(self) -> ComposeResult:
-        """Compose the menubar rows."""
-        with Vertical():
-            with Horizontal(id="menu-row"):
-                for idx, menu in enumerate(self.menu_bar.menus):
-                    label = Label(menu.label, id=self._title_id(idx))
-                    self._menu_labels[menu.label] = label
-                    yield label
-                self._summary_label = Label(self.menu_bar.session_summary, id="menu-summary")
-                yield self._summary_label
-            yield ListView(id="menu-items")
+        """Compose the menubar row."""
+        with Horizontal(id="menu-row"):
+            for idx, menu in enumerate(self.menu_bar.menus):
+                label = Label(menu.label, id=self._title_id(idx))
+                self._menu_labels[menu.label] = label
+                yield label
+            self._summary_label = Label(self.menu_bar.session_summary, id="menu-summary")
+            yield self._summary_label
 
     def on_mount(self) -> None:
-        """Ensure the list view starts closed."""
+        """Initial setup."""
         self._refresh_titles()
-        self._refresh_items()
-        self._set_items_visible(False)
 
     def set_menus(self, menus: List[Menu]) -> None:
         """Replace the menus and refresh visuals."""
@@ -133,7 +116,6 @@ class MenuBarWidget(Widget):
         self.active_menu_index = min(self.active_menu_index, max(len(menus) - 1, 0))
         if self.is_mounted:
             self._render_titles()
-            self._refresh_items()
 
     def set_session_summary(self, summary: str) -> None:
         """Update the session summary label."""
@@ -150,7 +132,6 @@ class MenuBarWidget(Widget):
         self.active_item_index = 0
         self.focus()
         self._refresh_titles()
-        self._set_items_visible(False)
 
     def deactivate(self) -> None:
         """Close any open menu and relinquish focus."""
@@ -158,23 +139,82 @@ class MenuBarWidget(Widget):
         self.is_open = False
         self.active_item_index = 0
         self._refresh_titles()
-        self._set_items_visible(False)
+        self._close_dropdown_modal()
         self.post_message(MenuBarDeactivated(self))
 
     def open_current_menu(self) -> None:
-        """Open the active menu."""
+        """Open the active menu as a modal overlay."""
         if not self.menu_bar.menus:
             return
+        menu = self.current_menu
+        if not menu:
+            return
+
         self.active_item_index = 0
+
+        # Prepare menu items for the modal and track mappings
+        items = []
+        disabled_indices = []
+        item_to_original_index = {}  # Maps modal item index to original menu item index
+        modal_item_idx = 0
+
+        for orig_idx, entry in enumerate(menu.items):
+            if isinstance(entry, Separator):
+                items.append(entry.label)
+                modal_item_idx += 1
+            elif isinstance(entry, MenuItem):
+                items.append(entry.display_label())
+                item_to_original_index[modal_item_idx] = orig_idx
+                if not entry.enabled:
+                    disabled_indices.append(modal_item_idx)
+                modal_item_idx += 1
+
+        if not items:
+            # No items to show, just return
+            return
+
+        # Create and show the modal dropdown
+        self._current_dropdown_modal = MenuDropdownModal(
+            items=items,
+            disabled_indices=disabled_indices,
+            initial_index=0
+        )
+
+        def handle_selection(result: Optional[int]) -> None:
+            if result is not None and result in item_to_original_index:
+                orig_idx = item_to_original_index[result]
+                original_item = menu.items[orig_idx]
+                if isinstance(original_item, MenuItem):
+                    self.post_message(MenuActionRequested(self, menu, original_item, original_item.enabled))
+                    # If an action was selected, deactivate the menubar completely
+                    self.is_active = False
+                    self.is_open = False
+            else:
+                # Menu was closed without selection (e.g., via escape) -
+                # deactivate the entire menubar to match expected behavior
+                self.is_active = False
+                self.is_open = False
+            self._refresh_titles()
+
+        self.app.push_screen(self._current_dropdown_modal, callback=handle_selection)
         self.is_open = True
-        self._set_items_visible(True)
-        self._refresh_items()
+        self._refresh_titles()
 
     def close_menu(self) -> None:
         """Close the currently open menu."""
+        self._close_dropdown_modal()
         self.is_open = False
-        self._set_items_visible(False)
         self._refresh_titles()
+
+    def _close_dropdown_modal(self) -> None:
+        """Close any open dropdown modal."""
+        if self._current_dropdown_modal:
+            try:
+                self.app.pop_screen()
+            except Exception:
+                # Modal might already be closed
+                pass
+            self._current_dropdown_modal = None
 
     @property
     def current_menu(self) -> Optional[Menu]:
@@ -346,58 +386,6 @@ class MenuBarWidget(Widget):
         self._summary_label = Label(self.menu_bar.session_summary, id="menu-summary")
         row.mount(self._summary_label)
         self._refresh_titles()
-
-    def _refresh_items(self) -> None:
-        """Populate the ListView with the current menu items."""
-        if not self.is_mounted:
-            return
-        self._render_serial += 1
-        list_view = self.query_one("#menu-items", ListView)
-        cleared = list_view.clear()
-        if hasattr(cleared, "wait"):
-            try:
-                cleared.wait()
-            except Exception:
-                pass
-        menu = self.current_menu
-        if not menu or not menu.items:
-            list_view.append(ListItem(Label("No items [RO]")))
-            list_view.index = 0
-            return
-
-        selectable_index = 0
-        for entry in menu.items:
-            if isinstance(entry, Separator):
-                list_view.append(ListItem(Static(entry.label)))
-                continue
-
-            label = Label(entry.display_label())
-            classes = []
-            if not entry.enabled:
-                classes.append("menu-item--disabled")
-            item_id = f"menu-item-{self._render_serial}-{entry.id}"
-            list_view.append(ListItem(label, classes=" ".join(classes) if classes else None, id=item_id))
-            selectable_index += 1
-
-        self._sync_list_index()
-
-    def _sync_list_index(self) -> None:
-        """Ensure the ListView cursor matches active_item_index."""
-        list_view = self.query_one("#menu-items", ListView)
-        menu = self.current_menu
-        selectable = [i for i in (menu.items if menu else []) if isinstance(i, MenuItem)]
-        if not selectable:
-            list_view.index = 0
-            return
-        self.active_item_index = max(0, min(self.active_item_index, len(selectable) - 1))
-        list_view.index = self.active_item_index
-
-    def _set_items_visible(self, visible: bool) -> None:
-        """Show or hide the dropdown area without changing height."""
-        if not self.is_mounted:
-            return
-        list_view = self.query_one("#menu-items", ListView)
-        list_view.display = "block" if visible else "none"
 
     def _title_id(self, index: int) -> str:
         """Create a stable id for a menu label."""
