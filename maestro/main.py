@@ -2489,7 +2489,14 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
         # Get dependencies from parsed .upp
         deps = []
         if pkg_dict.get('upp') and pkg_dict['upp'].get('uses'):
-            deps = pkg_dict['upp']['uses']
+            uses_list = pkg_dict['upp']['uses']
+            # Handle both old format (list of strings) and new format (list of dicts)
+            for use in uses_list:
+                if isinstance(use, dict):
+                    deps.append({'package': use['package'], 'condition': use.get('condition')})
+                else:
+                    # Backward compatibility with old format
+                    deps.append({'package': use, 'condition': None})
 
         # Add to current path for circular detection
         path_visited_copy = path_visited.copy()
@@ -2500,8 +2507,17 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
             'dependencies': []
         }
 
-        for dep in deps:
-            child_tree = build_tree(dep, path_visited_copy, global_visited, depth + 1, max_depth)
+        for dep_info in deps:
+            dep_name = dep_info['package']
+            dep_condition = dep_info.get('condition')
+
+            child_tree = build_tree(dep_name, path_visited_copy, global_visited, depth + 1, max_depth)
+
+            # Add condition to each child node
+            for child in child_tree:
+                if dep_condition:
+                    child['condition'] = dep_condition
+
             tree_node['dependencies'].extend(child_tree)
 
         return [tree_node]
@@ -2521,6 +2537,15 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
 
                 name = node['name']
                 suffix = ""
+                condition_text = ""
+
+                # Handle condition display
+                if node.get('condition'):
+                    # ANSI dark gray color code
+                    dark_gray = "\033[90m"
+                    reset = "\033[0m"
+                    condition_text = f" {dark_gray}({node['condition']}){reset}"
+
                 if node.get('circular'):
                     suffix = " [CIRCULAR]"
                 elif node.get('already_shown'):
@@ -2528,7 +2553,7 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
                 elif node.get('error'):
                     suffix = f" [ERROR: {node['error']}]"
 
-                print(prefix + connector + name + suffix)
+                print(prefix + connector + name + condition_text + suffix)
 
                 if node.get('dependencies') and not node.get('already_shown'):
                     extension = "    " if is_last else "│   "

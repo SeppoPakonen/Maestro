@@ -85,7 +85,7 @@ class UppParser:
             # Parse multi-line blocks
             if stripped.startswith('description'):
                 i = self._parse_description(lines, i)
-            elif stripped.startswith('uses'):
+            elif stripped.startswith('uses') or stripped.startswith('uses('):
                 i = self._parse_uses(lines, i)
             elif stripped.startswith('file'):
                 i = self._parse_files(lines, i)
@@ -150,28 +150,45 @@ class UppParser:
             i += 1
 
         # Extract package names - they can be quoted or unquoted
-        content = accumulated.replace('uses', '').replace(';', '')
+        content = accumulated.replace('uses', '').replace(';', '').strip()
 
-        # First, extract all quoted strings
-        quoted_packages = re.findall(r'"([^"]+)"', content)
-        for pkg in quoted_packages:
-            self.uses.append(pkg)
+        # Check for conditional uses: uses(CONDITION) package;
+        conditional_match = re.match(r'\(([^)]+)\)\s+(.+)', content)
+        if conditional_match:
+            condition = conditional_match.group(1).strip()
+            packages_part = conditional_match.group(2).strip()
 
-        # Remove quoted strings to process unquoted identifiers
-        content_no_quotes = re.sub(r'"[^"]*"', '', content)
+            # Parse packages from the conditional part
+            for pkg in self._extract_package_names(packages_part):
+                self.uses.append({'package': pkg, 'condition': condition})
+        else:
+            # No condition - parse normally
+            # First, extract all quoted strings
+            quoted_packages = re.findall(r'"([^"]+)"', content)
+            for pkg in quoted_packages:
+                self.uses.append({'package': pkg, 'condition': None})
 
-        # Handle conditional uses like: uses(WIN32 | NOSO) plugin\z;
-        # Extract unquoted identifiers
-        for token in re.split(r'[,\s\(\)]+', content_no_quotes):
+            # Remove quoted strings to process unquoted identifiers
+            content_no_quotes = re.sub(r'"[^"]*"', '', content)
+
+            # Extract unquoted package names
+            for pkg in self._extract_package_names(content_no_quotes):
+                self.uses.append({'package': pkg, 'condition': None})
+
+        return i + 1
+
+    def _extract_package_names(self, text: str) -> List[str]:
+        """Extract package names from text, handling paths and identifiers."""
+        packages = []
+        for token in re.split(r'[,\s]+', text):
             token = token.strip()
             # Skip empty, operators, and platform flags
-            if token and token not in ('', '|', '&', '!') and not token.isupper():
+            if token and token not in ('', '|', '&', '!', '(', ')') and not token.isupper():
                 # Handle qualified paths like plugin\z
                 if '\\' in token:
                     token = token.replace('\\', '/')
-                self.uses.append(token)
-
-        return i + 1
+                packages.append(token)
+        return packages
 
     def _parse_files(self, lines: List[str], start_idx: int) -> int:
         """Parse file directive (can be single-line or multi-line block)."""
