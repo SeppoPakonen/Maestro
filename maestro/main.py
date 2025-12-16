@@ -2436,21 +2436,34 @@ def handle_repo_pkg_search(pkg: Dict[str, Any], query: str, json_output: bool = 
             print_info(f"  {file}", 2)
 
 
-def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]], json_output: bool = False):
-    """Show dependency tree for a package (with cycle detection)."""
+def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]], json_output: bool = False, deep: bool = False):
+    """Show dependency tree for a package (with cycle detection and duplicate suppression)."""
     import json
 
-    def build_tree(pkg_name: str, visited: set, depth: int = 0, max_depth: int = 10) -> List[Dict[str, Any]]:
-        """Recursively build dependency tree with cycle detection."""
+    def build_tree(pkg_name: str, path_visited: set, global_visited: set, depth: int = 0, max_depth: int = 10) -> List[Dict[str, Any]]:
+        """
+        Recursively build dependency tree with cycle detection and duplicate suppression.
+
+        Args:
+            pkg_name: Name of package to process
+            path_visited: Set of packages visited in current path (for circular detection)
+            global_visited: Set of packages already expanded (for duplicate suppression)
+            depth: Current depth in tree
+            max_depth: Maximum depth to traverse
+        """
         if depth > max_depth:
             return [{'name': pkg_name, 'error': 'max_depth_exceeded'}]
 
-        if pkg_name in visited:
+        # Check for circular dependency in current path
+        if pkg_name in path_visited:
             return [{'name': pkg_name, 'circular': True}]
+
+        # Check if already shown (unless in deep mode)
+        if not deep and pkg_name in global_visited:
+            return [{'name': pkg_name, 'already_shown': True}]
 
         # Find the package - try multiple strategies
         pkg_dict = None
-        import os
 
         # Strategy 1: Exact name match
         pkg_dict = next((p for p in all_packages if p['name'] == pkg_name), None)
@@ -2470,13 +2483,17 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
         if not pkg_dict:
             return [{'name': pkg_name, 'error': 'not_found'}]
 
+        # Mark as visited globally (so we don't expand it again)
+        global_visited.add(pkg_name)
+
         # Get dependencies from parsed .upp
         deps = []
         if pkg_dict.get('upp') and pkg_dict['upp'].get('uses'):
             deps = pkg_dict['upp']['uses']
 
-        visited_copy = visited.copy()
-        visited_copy.add(pkg_name)
+        # Add to current path for circular detection
+        path_visited_copy = path_visited.copy()
+        path_visited_copy.add(pkg_name)
 
         tree_node = {
             'name': pkg_name,
@@ -2484,12 +2501,12 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
         }
 
         for dep in deps:
-            child_tree = build_tree(dep, visited_copy, depth + 1, max_depth)
+            child_tree = build_tree(dep, path_visited_copy, global_visited, depth + 1, max_depth)
             tree_node['dependencies'].extend(child_tree)
 
         return [tree_node]
 
-    tree = build_tree(pkg['name'], set())
+    tree = build_tree(pkg['name'], set(), set())
 
     if json_output:
         print(json.dumps(tree, indent=2))
@@ -2506,12 +2523,14 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
                 suffix = ""
                 if node.get('circular'):
                     suffix = " [CIRCULAR]"
+                elif node.get('already_shown'):
+                    suffix = " [see above]"
                 elif node.get('error'):
                     suffix = f" [ERROR: {node['error']}]"
 
                 print(prefix + connector + name + suffix)
 
-                if node.get('dependencies'):
+                if node.get('dependencies') and not node.get('already_shown'):
                     extension = "    " if is_last else "│   "
                     print_tree(node['dependencies'], prefix + extension)
 
@@ -3199,6 +3218,7 @@ def main():
     repo_pkg_parser.add_argument('query', nargs='?', help='Search query (for search action)')
     repo_pkg_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
     repo_pkg_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    repo_pkg_parser.add_argument('--deep', action='store_true', help='Show full tree with all duplicates (for tree action)')
 
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
@@ -4970,7 +4990,6 @@ def main():
                                 pkg = matches[0]
                             else:
                                 # Multiple matches - show them with numbers and relative paths
-                                import os
                                 print_error(f"Multiple packages match '{args.package_name}':", 2)
                                 # Find numbers for matched packages in sorted list
                                 for m in matches[:20]:
@@ -4995,7 +5014,8 @@ def main():
                             sys.exit(1)
                         handle_repo_pkg_search(pkg, args.query, args.json)
                     elif action == 'tree':
-                        handle_repo_pkg_tree(pkg, packages, args.json)
+                        deep_mode = hasattr(args, 'deep') and args.deep
+                        handle_repo_pkg_tree(pkg, packages, args.json, deep=deep_mode)
 
             elif args.repo_subcommand in ['help', 'h']:
                 # Print help for repo subcommands
