@@ -1778,6 +1778,9 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
     - probable assembly roots: directories that contain multiple package folders/packages
     - unknown paths: everything that is not part of any detected package dir
 
+    Uses pruning to avoid descending into package directories except along ancestor paths
+    leading to nested package roots.
+
     Args:
         root_dir: Root directory of the U++ repository to scan
         verbose: If True, print verbose scan information
@@ -1793,9 +1796,11 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
     source_extensions = {'.cpp', '.cppi', '.icpp', '.h', '.hpp', '.inl', '.c', '.cc', '.cxx', '.upl', '.upp', '.t'}
 
     discovered_packages = []
-    all_package_dirs = set()
+    all_package_dirs_resolved = set()  # Set of resolved Path objects for package roots
+    repo_root_resolved = Path(root_dir).resolve()
 
-    # First, scan for packages: directories with <Name>/<Name>.upp pattern
+    # First pass: scan for packages to identify all package roots
+    # We do a full walk first to find all packages, then use that info to prune the unknown scan
     for root, dirs, files in os.walk(root_dir):
         # Sort for deterministic order
         dirs.sort()
@@ -1809,6 +1814,8 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
 
         if os.path.exists(upp_file_path) and os.path.isfile(upp_file_path):
             # This directory is a valid U++ package
+            root_resolved = Path(root).resolve()
+
             if verbose:
                 print(f"[maestro] package: {pkg_name} at {root}")
 
@@ -1834,7 +1841,17 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
                 files=sorted(pkg_files)
             )
             discovered_packages.append(package_info)
-            all_package_dirs.add(os.path.normpath(root))
+            all_package_dirs_resolved.add(root_resolved)
+
+    # Precompute ancestor paths: all directories that are ancestors of any package root
+    # This allows us to traverse through parent directories that lead to nested packages
+    ancestor_paths_resolved = set()
+    for pkg_dir_resolved in all_package_dirs_resolved:
+        # Walk up from package dir to repo root, adding all ancestors
+        current = pkg_dir_resolved.parent
+        while current != repo_root_resolved and current not in ancestor_paths_resolved:
+            ancestor_paths_resolved.add(current)
+            current = current.parent
 
     # Identify package folders (directories containing multiple package dirs)
     package_folders = set()
@@ -1888,16 +1905,83 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
         )
         assembly_infos.append(root_asm)
 
-    # Now find unknown paths (everything not in or under any package directory)
+    # Second pass: find unknown paths with pruning
+    # We prune (skip descending into) package directories unless they're ancestors of other packages
     unknown_paths = []
 
     for root, dirs, files in os.walk(root_dir):
-        # Check if this directory is under any package directory
-        is_under_package = is_under_any(root, all_package_dirs)
+        # Sort for deterministic order
+        dirs.sort()
+        files.sort()
 
-        # Only mark as unknown if it's not under any package
-        if not is_under_package:
-            # This directory is not under any package, so it's unknown
+        current_resolved = Path(root).resolve()
+
+        # Determine if we should prune this directory's subdirectories
+        # We need to check each subdirectory and decide whether to descend into it
+        dirs_to_prune = []
+
+        for dir_name in dirs:
+            dir_path = Path(root) / dir_name
+            dir_resolved = dir_path.resolve()
+
+            # Check if this directory is a package root
+            is_package_root = dir_resolved in all_package_dirs_resolved
+
+            # Check if this directory is an ancestor of any package
+            is_ancestor = dir_resolved in ancestor_paths_resolved
+
+            # Prune if:
+            # - It's a package root AND not an ancestor of another package
+            # - It's under a package root (use pathlib containment check)
+            if is_package_root and not is_ancestor:
+                # This is a package root with no nested packages -> prune
+                dirs_to_prune.append(dir_name)
+                if verbose:
+                    print(f"[maestro] pruning package: {dir_path}")
+            else:
+                # Check if this directory is under any package root
+                is_under_package = False
+                for pkg_dir in all_package_dirs_resolved:
+                    try:
+                        dir_resolved.relative_to(pkg_dir)
+                        # If we get here, dir is under pkg_dir
+                        # Only prune if it's not an ancestor path
+                        if not is_ancestor:
+                            is_under_package = True
+                            break
+                    except ValueError:
+                        # Not under this package
+                        continue
+
+                if is_under_package:
+                    # This directory is under a package but not an ancestor -> prune
+                    dirs_to_prune.append(dir_name)
+                    if verbose:
+                        print(f"[maestro] pruning under package: {dir_path}")
+
+        # Remove pruned directories from the dirs list (modifies os.walk behavior)
+        for dir_to_prune in dirs_to_prune:
+            dirs.remove(dir_to_prune)
+
+        # Check if current directory should be marked as unknown
+        # A directory is unknown if:
+        # - It's not a package root
+        # - It's not under any package root
+        # - It's not an ancestor of any package root
+        # - It's not the repo root itself
+        is_package_root = current_resolved in all_package_dirs_resolved
+        is_ancestor = current_resolved in ancestor_paths_resolved
+        is_under_package_root = False
+
+        for pkg_dir in all_package_dirs_resolved:
+            try:
+                current_resolved.relative_to(pkg_dir)
+                is_under_package_root = True
+                break
+            except ValueError:
+                continue
+
+        if not is_package_root and not is_under_package_root and not is_ancestor:
             rel_path = os.path.relpath(root, root_dir)
             if rel_path != '.':
                 unknown_paths.append(UnknownPath(
@@ -1906,16 +1990,22 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
                     guessed_kind=guess_path_kind(rel_path)
                 ))
 
-        # Check files in this directory
+        # Check files - files are unknown if not under any package root
         for file in files:
-            file_path = os.path.join(root, file)
-            rel_file_path = os.path.relpath(file_path, root_dir)
+            file_path = Path(root) / file
+            file_resolved = file_path.resolve()
 
-            # Check if this file is under any package directory
-            is_file_in_package = is_under_any(file_path, all_package_dirs)
+            is_file_in_package = False
+            for pkg_dir in all_package_dirs_resolved:
+                try:
+                    file_resolved.relative_to(pkg_dir)
+                    is_file_in_package = True
+                    break
+                except ValueError:
+                    continue
 
             if not is_file_in_package:
-                # This file is not in any package, so it's unknown
+                rel_file_path = os.path.relpath(file_path, root_dir)
                 unknown_paths.append(UnknownPath(
                     path=rel_file_path,
                     type='file',
