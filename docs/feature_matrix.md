@@ -28,6 +28,11 @@
 | CLI: internal package inference | CLI v0.1.0 | — | Group unknown paths into structured Maestro internal packages by top-level directory |
 | Repo show | CLI v0.1.0 | — | Display persisted repository scan results from .maestro/repo/ |
 | Repo pkg | CLI v0.1.0 | — | Package query commands: list, info, search, tree (with cycle detection) |
+| Repo pkg: internal package integration | CLI v0.1.0 | — | Integration of internal packages into repo pkg query interface, allowing both U++ packages and internal packages in queries |
+| Repo pkg: platform flag detection | CLI v0.1.0 | — | Automatic platform flag detection (LINUX, WIN32, MACOS) for conditional dependency filtering |
+| Repo pkg: mainconfig support | CLI v0.1.0 | — | Support for U++ mainconfig entries and conditional dependency filtering with numbered config selection |
+| Repo pkg: numbered package selection | CLI v0.1.0 | — | Numbered package selection and relative paths in repo pkg command |
+| Repo pkg: conditional dependency visualization | CLI v0.1.0 | — | Display of conditional package dependencies in tree view with visual indication |
 | Repo resolve integration test (ai-upp) | test v0.1 | — | Integration test for U++ repository scanning |
 | CLI repo workflow E2E (ai-upp) | test v0.1 | — | End-to-end test for init → repo resolve → repo show workflow |
 
