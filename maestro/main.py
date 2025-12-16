@@ -5050,36 +5050,9 @@ def main():
                 print_error(f"Unknown repo subcommand: {args.repo_subcommand}", 2)
                 sys.exit(1)
         else:
-            # If no subcommand specified, default to resolve
-            scan_path = os.getcwd()  # Default to current directory
-            repo_result = scan_upp_repo_v2(scan_path, verbose=args.verbose, include_user_config=True)
-
-            # Output in human-readable format
-            print_header(f"U++ REPO SCAN RESULTS: {scan_path}")
-
-            print(f"\nDiscovered {len(repo_result.assemblies_detected)} assemblies:")
-            for asm in repo_result.assemblies_detected:
-                print_info(f"  Assembly: {asm.name} at {asm.root_path}", 2)
-                print_info(f"    Package folders: {len(asm.package_folders)}", 2)
-                for pkg_folder in asm.package_folders:
-                    print_info(f"      - {os.path.basename(pkg_folder)}/", 3)
-
-            print(f"\nDiscovered {len(repo_result.packages_detected)} packages:")
-            for pkg in repo_result.packages_detected:
-                print_info(f"  Package: {pkg.name}", 2)
-                print_info(f"    Directory: {pkg.dir}", 2)
-                print_info(f"    .upp file: {pkg.upp_path}", 2)
-                print_info(f"    Source files: {len(pkg.files)}", 2)
-                for file in pkg.files[:5]:  # Show first 5 files
-                    print_info(f"      - {file}", 3)
-                if len(pkg.files) > 5:
-                    print_info(f"      ... and {len(pkg.files) - 5} more", 3)
-
-            print(f"\nFound {len(repo_result.unknown_paths)} unknown paths:")
-            for unknown in repo_result.unknown_paths[:10]:  # Show first 10 unknown paths
-                print_info(f"  {unknown.type}: {unknown.path} ({unknown.guessed_kind})", 2)
-            if len(repo_result.unknown_paths) > 10:
-                print_info(f"  ... and {len(repo_result.unknown_paths) - 10} more", 2)
+            # If no subcommand specified, show help instead of running expensive scan
+            repo_parser.print_help()
+            return  # Exit after showing help
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
