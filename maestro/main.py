@@ -13668,7 +13668,17 @@ def handle_structure_scan(session_path: str, verbose: bool = False, target: str 
             print_info(f"Skipping rules: {skip_list}", 2)
 
     # Get the root directory and scan U++ packages
-    repo_root = os.path.dirname(session_path) or os.getcwd()
+    # If session is in a .maestro/sessions subdirectory, go up to find the project root
+    session_dir = os.path.dirname(session_path) or os.getcwd()
+    if '.maestro' in session_dir and session_dir.endswith(os.path.join('.maestro', 'sessions')):
+        # The session is in .maestro/sessions, so the project root is two levels up
+        repo_root = os.path.dirname(os.path.dirname(session_dir))
+    elif '.maestro' in session_dir and session_dir.endswith('.maestro'):
+        # The session is directly in a .maestro directory, project root is one level up
+        repo_root = os.path.dirname(session_dir)
+    else:
+        # Normal case - session directory is the repo root
+        repo_root = session_dir
 
     try:
         # Use scan_upp_repo with verbose mode to show discovery trace
@@ -13817,7 +13827,17 @@ def handle_structure_show(session_path: str, verbose: bool = False, target: str 
         scan_report = json.load(f)
 
     # Get the scan report enhanced with package statistics
-    repo_root = os.path.dirname(session_path) or os.getcwd()
+    # If session is in a .maestro/sessions subdirectory, go up to find the project root
+    session_dir = os.path.dirname(session_path) or os.getcwd()
+    if '.maestro' in session_dir and session_dir.endswith(os.path.join('.maestro', 'sessions')):
+        # The session is in .maestro/sessions, so the project root is two levels up
+        repo_root = os.path.dirname(os.path.dirname(session_dir))
+    elif '.maestro' in session_dir and session_dir.endswith('.maestro'):
+        # The session is directly in a .maestro directory, project root is one level up
+        repo_root = os.path.dirname(session_dir)
+    else:
+        # Normal case - session directory is the repo root
+        repo_root = session_dir
     try:
         repo_index = scan_upp_repo(repo_root, verbose=verbose)
 
@@ -14015,9 +14035,20 @@ def handle_structure_fix(session_path: str, verbose: bool = False, apply_directl
     from pathlib import Path
 
     # Get the root directory (either from session_path or current directory)
-    repo_root = os.getcwd()  # Default to current working directory
+    # If session is in a .maestro/sessions subdirectory, go up to find the project root
     if session_path:
-        repo_root = os.path.dirname(session_path) or os.getcwd()
+        session_dir = os.path.dirname(session_path) or os.getcwd()
+        if '.maestro' in session_dir and session_dir.endswith(os.path.join('.maestro', 'sessions')):
+            # The session is in .maestro/sessions, so the project root is two levels up
+            repo_root = os.path.dirname(os.path.dirname(session_dir))
+        elif '.maestro' in session_dir and session_dir.endswith('.maestro'):
+            # The session is directly in a .maestro directory, project root is one level up
+            repo_root = os.path.dirname(session_dir)
+        else:
+            # Normal case - session directory is the repo root
+            repo_root = session_dir
+    else:
+        repo_root = os.getcwd()  # Default to current working directory
 
     # Scan U++ packages to get the current state
     try:
@@ -14391,19 +14422,32 @@ def rule_ensure_upp_exists(repo_index: UppRepoIndex, repo_root: str, verbose: bo
     # So this rule might not generate operations unless there's inconsistency
     for assembly in repo_index.assemblies:
         # Look for directories that don't have corresponding .upp files
+        # But only consider them as packages if they contain source files
         for item in os.listdir(assembly):
+            # Skip directories that start with '.' (like .git, .maestro)
+            if item.startswith('.'):
+                continue
+
             item_path = os.path.join(assembly, item)
             if os.path.isdir(item_path):
                 upp_file_path = os.path.join(item_path, f"{item}.upp")
                 if not os.path.exists(upp_file_path):
-                    # Create minimal .upp file
-                    minimal_upp_content = f'/* {item} package configuration */\nuses ;\n'
-                    operations.append(WriteFileOperation(
-                        op="write_file",
-                        reason=f"Create minimal .upp file for package '{item}'",
-                        path=upp_file_path,
-                        content=minimal_upp_content
-                    ))
+                    # Check if the directory contains source files that suggest it's a package
+                    has_source_files = False
+                    for file_item in os.listdir(item_path):
+                        if any(file_item.lower().endswith(ext) for ext in ['.cpp', '.h', '.hpp', '.hxx', '.cc', '.cxx', '.c', '.icpp', '.cppi']):
+                            has_source_files = True
+                            break
+
+                    if has_source_files:
+                        # Create minimal .upp file
+                        minimal_upp_content = f'/* {item} package configuration */\nuses ;\n'
+                        operations.append(WriteFileOperation(
+                            op="write_file",
+                            reason=f"Create minimal .upp file for package '{item}'",
+                            path=upp_file_path,
+                            content=minimal_upp_content
+                        ))
 
     return operations
 
@@ -14693,6 +14737,7 @@ def handle_structure_apply(session_path: str, verbose: bool = False, dry_run: bo
     # Get structure directory
     structure_dir = get_structure_dir(session_path)
     fix_plan_file = os.path.join(structure_dir, "last_fix_plan.json")
+    apply_report_file = os.path.join(structure_dir, "last_apply.json")
 
     if not os.path.exists(fix_plan_file):
         print_error("No fix plan found. Run 'maestro build structure fix' first to generate a fix plan.", 2)
@@ -14791,10 +14836,26 @@ def handle_structure_apply(session_path: str, verbose: bool = False, dry_run: bo
         verbose=verbose
     )
 
+    # Create apply report with detailed information
+    apply_report = {
+        "timestamp": datetime.now().isoformat(),
+        "fix_plan_used": fix_plan_file,
+        "dry_run": dry_run,
+        "limit": limit,
+        "target": target,
+        "revert_on_fail": revert_on_fail,
+        "applied_operations_count": applied_count,
+        "total_operations_count": len(fix_plan.operations),
+        "repo_root": fix_plan.repo_root
+    }
+
     if dry_run:
         print_info(f"DRY RUN: Would have applied {applied_count} operations", 2)
+        apply_report["status"] = "dry_run_completed"
+        apply_report["success"] = True
     else:
         print_success(f"Applied {applied_count} operations successfully", 2)
+        apply_report["status"] = "completed"
 
         # Run verification if target is specified
         if target and applied_count > 0:
@@ -14812,8 +14873,24 @@ def handle_structure_apply(session_path: str, verbose: bool = False, dry_run: bo
                     # Verify that targeted "structure signatures" decreased or key errors went away
                     verification_result = check_verification_improvement(diagnostics_before, diagnostics_after)
 
+                    # Add diagnostics comparison to the apply report
+                    apply_report["diagnostics_before"] = {
+                        "total": len(diagnostics_before),
+                        "errors": verification_result.get('errors_before', 0),
+                        "warnings": verification_result.get('warnings_before', 0)
+                    }
+                    apply_report["diagnostics_after"] = {
+                        "total": len(diagnostics_after),
+                        "errors": verification_result.get('errors_after', 0),
+                        "warnings": verification_result.get('warnings_after', 0)
+                    }
+                    apply_report["verification_improved"] = verification_result.get('improved', False)
+
                     if not verification_result['improved'] and revert_on_fail:
                         print_warning("Build got worse after applying fixes, reverting changes...", 2)
+                        apply_report["status"] = "completed_with_revert"
+                        apply_report["success"] = False
+                        apply_report["revert_reason"] = "Build verification failed - changes reverted"
 
                         # Revert via git checkout or patch reversal
                         if is_git_repo(session_path):
@@ -14827,24 +14904,47 @@ def handle_structure_apply(session_path: str, verbose: bool = False, dry_run: bo
                             print_error("Not in git repo, cannot revert changes", 2)
                     elif verification_result['improved']:
                         print_success("Verification successful - build improved after fixes", 2)
+                        apply_report["status"] = "completed_success"
+                        apply_report["success"] = True
                         if verbose:
                             print_info(f"Before: {len(diagnostics_before)} diagnostics, After: {len(diagnostics_after)} diagnostics", 2)
                     else:
                         print_info("Verification completed - no significant improvement, but no regression", 2)
+                        apply_report["status"] = "completed_no_change"
+                        apply_report["success"] = True
                 else:
                     print_warning(f"Could not load target: {target}", 2)
+                    apply_report["status"] = "completed_no_target"
+                    apply_report["success"] = True
             except Exception as e:
                 print_error(f"Error during verification: {e}", 2)
+                apply_report["verification_error"] = str(e)
+                apply_report["success"] = False
 
                 # If revert_on_fail is True and we had an error during verification, revert changes
                 if revert_on_fail:
                     print_warning("Error during verification, reverting changes...", 2)
+                    apply_report["status"] = "completed_with_revert_error"
+                    apply_report["revert_reason"] = "Verification error - changes reverted"
                     if is_git_repo(session_path):
                         if restore_from_git(session_path):
                             print_success("Successfully reverted changes using git after verification error", 2)
                             report_revert_action(structure_dir, "Verification error - changes reverted")
                         else:
                             print_error("Failed to revert changes using git", 2)
+
+    # Save the apply report to last_apply.json
+    try:
+        with open(apply_report_file, 'w', encoding='utf-8') as f:
+            json.dump(apply_report, f, indent=2)
+        if verbose:
+            print_info(f"Apply report saved to: {apply_report_file}", 2)
+    except Exception as e:
+        print_error(f"Failed to save apply report to {apply_report_file}: {e}", 2)
+
+    # Print summary of the apply operation
+    if not dry_run:
+        styled_print(f"Apply report: {apply_report_file}", Colors.BRIGHT_CYAN, None, 2)
 
 
 def extract_diagnostics_from_pipeline_result(pipeline_result: PipelineRunResult, session_path: str):

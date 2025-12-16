@@ -2,7 +2,4 @@ sessions
 __pycache__
 tmp
 trash
-
-.maestro/
 venv
-
