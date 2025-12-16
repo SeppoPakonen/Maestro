@@ -355,6 +355,7 @@ class PackageInfo:
     dir: str
     upp_path: str
     files: List[str] = field(default_factory=list)
+    upp: Optional[Dict[str, Any]] = None  # Parsed .upp metadata
 
 
 @dataclass
@@ -1849,11 +1850,21 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False) -> RepoScanResult:
                     if ext.lower() in source_extensions:
                         pkg_files.append(rel_path)
 
+            # Parse .upp file to extract metadata
+            parsed_upp = None
+            try:
+                from maestro.repo.upp_parser import parse_upp_file
+                parsed_upp = parse_upp_file(upp_file_path)
+            except Exception as e:
+                if verbose:
+                    print(f"[maestro] Warning: Failed to parse {upp_file_path}: {e}")
+
             package_info = PackageInfo(
                 name=pkg_name,
                 dir=root,
                 upp_path=upp_file_path,
-                files=sorted(pkg_files)
+                files=sorted(pkg_files),
+                upp=parsed_upp
             )
             discovered_packages.append(package_info)
             all_package_dirs_resolved.add(root_resolved)
@@ -2144,7 +2155,8 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
                 "name": pkg.name,
                 "dir": pkg.dir,
                 "upp_path": pkg.upp_path,
-                "files": pkg.files
+                "files": pkg.files,
+                "upp": pkg.upp
             } for pkg in scan_result.packages_detected
         ],
         "unknown_paths": [
@@ -2205,7 +2217,7 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         "packages_count": len(scan_result.packages_detected),
         "assemblies_count": len(scan_result.assemblies_detected),
         "unknown_count": len(scan_result.unknown_paths),
-        "scanner_version": "0.3.1"
+        "scanner_version": "0.4.0"
     }
 
     with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
