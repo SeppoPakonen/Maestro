@@ -28,6 +28,10 @@ class MenuItem:
     trust_label: str = ""
     requires_confirmation: bool = False
     confirmation_label: Optional[str] = None
+    # Optional standardized action identifier (e.g. "sessions.new")
+    action_id: Optional[str] = None
+    # Optional explicit F-key hint separate from legacy key_hint
+    fkey: Optional[str] = None
 
     def display_label(self) -> str:
         """Compose the visible label with key hints and trust indicators."""

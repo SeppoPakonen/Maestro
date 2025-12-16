@@ -24,12 +24,69 @@ class CommandPaletteScreen(ModalScreen):
         ("down", "cursor_down", "Down"),
     ]
 
+    DEFAULT_CSS = """
+    #palette-container {
+        width: 80%;
+        height: 70%;
+        background: $surface 70%;
+        border: solid $surface;
+        padding: 1;
+    }
+
+    #palette-title {
+        text-style: italic;
+        color: $text 70%;
+        margin-bottom: 1;
+    }
+
+    #palette-input {
+        margin-bottom: 1;
+        border: solid $primary 30%;
+    }
+
+    #palette-results {
+        height: 1fr;
+        border: solid $primary 20%;
+        margin-bottom: 1;
+    }
+
+    #palette-results Label {
+        padding: 0 1;
+        height: 1;
+    }
+
+    #palette-results Label.selected {
+        background: $accent 20%;
+        text-style: bold;
+    }
+
+    #palette-footer {
+        color: $text 60%;
+        text-style: italic;
+    }
+    """
+
     def __init__(self, session_id=None):
         super().__init__()
         self.session_id = session_id
         self.commands = self._setup_commands()
         self.active_index = 0
         self.filtered_commands = self.commands
+        # Map action names to standardized action IDs where applicable
+        self.action_id_map = {
+            "session_new": "sessions.new",
+            "session_set": "sessions.set_active",
+            "session_remove": "sessions.delete",
+            "session_list": "sessions.refresh",
+            "plan_list": "plans.refresh",
+            "plan_set": "plans.set_active",
+            "task_run": "tasks.run",
+            "task_resume": "tasks.resume",
+            "build_run": "build.run",
+            "build_list": "build.refresh",
+            "convert_run": "convert.run",
+            "convert_status": "convert.status",
+        }
 
     def _setup_commands(self):
         """Setup all available commands."""
@@ -185,11 +242,14 @@ class CommandPaletteScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         """Create child widgets for the command palette."""
         with Container(id="palette-container"):
+            yield Label("[i]Command Palette (Advanced)[/i]", id="palette-title", classes="palette-title")
             yield Input(placeholder="Type command or search...", id="palette-input")
             with VerticalScroll(id="palette-results"):
                 for i, cmd in enumerate(self.filtered_commands):
                     css_class = "selected" if i == self.active_index else ""
                     yield Label(cmd["name"], id=f"cmd-{i}", classes=css_class)
+            # Footer hint to promote F-keys and menubar
+            yield Label("[i]Prefer F-keys and F9 menu for common actions[/i]", id="palette-footer", classes="palette-footer")
 
     def on_mount(self) -> None:
         """Focus the input when mounted."""

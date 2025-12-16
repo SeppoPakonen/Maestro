@@ -649,28 +649,53 @@ class MaestroTUI(App):
     }
     """
 
-    BINDINGS = [
-        ("q", "quit", "Quit"),
-        ("ctrl+c", "quit", "Quit"),
-        ("?", "show_help", "Help"),
-        ("h", "toggle_help_panel", "Toggle Help"),
-        ("r", "refresh_status", "Refresh"),
-        ("ctrl+p", "show_command_palette", "Palette"),
-        ("home", "switch_to_screen('home')", "Home"),
-        ("s", "switch_to_screen('sessions')", "Sessions"),
-        ("p", "switch_to_screen('plans')", "Plans"),
-        ("t", "switch_to_screen('tasks')", "Tasks"),
-        ("b", "switch_to_screen('build')", "Build"),
-        ("c", "switch_to_screen('convert')", "Convert"),
-        ("y", "switch_to_screen('replay')", "Replay"),
-        ("a", "switch_to_screen('arbitration')", "Arbitration Arena"),
-        ("i", "switch_to_screen('semantic')", "Semantic Integrity"),
-        ("d", "switch_to_screen('semantic_diff')", "Semantic Diff Explorer"),
-        ("m", "switch_to_screen('memory')", "Memory"),
-        ("l", "switch_to_screen('logs')", "Logs"),
-        ("f", "switch_to_screen('confidence')", "Confidence Scoreboard"),
-        ("v", "switch_to_screen('vault')", "Vault"),
-    ]
+    def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
+        # Check if legacy mode is enabled
+        from maestro.tui.onboarding import onboarding_manager
+        self.legacy_mode_enabled = onboarding_manager.is_legacy_mode_enabled()
+
+        # Set bindings conditionally based on legacy mode
+        self.BINDINGS = [
+            ("q", "quit", "Quit"),
+            ("ctrl+c", "quit", "Quit"),
+            ("?", "show_help", "Help"),
+            ("h", "toggle_help_panel", "Toggle Help"),
+            ("r", "refresh_status", "Refresh"),
+            ("ctrl+p", "show_command_palette", "Palette"),
+            ("home", "switch_to_screen('home')", "Home"),
+        ]
+
+        # Add legacy navigation bindings only if legacy mode is enabled
+        if self.legacy_mode_enabled:
+            self.BINDINGS.extend([
+                ("s", "switch_to_screen('sessions')", "Sessions"),
+                ("p", "switch_to_screen('plans')", "Plans"),
+                ("t", "switch_to_screen('tasks')", "Tasks"),
+                ("b", "switch_to_screen('build')", "Build"),
+                ("c", "switch_to_screen('convert')", "Convert"),
+                ("y", "switch_to_screen('replay')", "Replay"),
+                ("a", "switch_to_screen('arbitration')", "Arbitration Arena"),
+                ("i", "switch_to_screen('semantic')", "Semantic Integrity"),
+                ("d", "switch_to_screen('semantic_diff')", "Semantic Diff Explorer"),
+                ("m", "switch_to_screen('memory')", "Memory"),
+                ("l", "switch_to_screen('logs')", "Logs"),
+                ("f", "switch_to_screen('confidence')", "Confidence Scoreboard"),
+                ("v", "switch_to_screen('vault')", "Vault"),
+            ])
+
+        super().__init__(*args, **kwargs)
+        self.smoke_mode = smoke_mode
+        self.smoke_seconds = smoke_seconds
+        self.smoke_out = smoke_out
+        self.active_session = None
+        self.active_plan = None
+        self.active_build_target = None
+        self.repo_root = "./"  # Simplified for now
+        self.loading_indicator = LoadingIndicator()
+        # Track currently active screen and its loading task
+        self.current_screen = None
+        self.current_screen_task = None
+        self._load_status_state()
 
     # Enable mouse support
     ENABLE_MOUSE_SUPPORT = True

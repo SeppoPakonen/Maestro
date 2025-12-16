@@ -10,9 +10,10 @@ from textual.message import Message
 from textual.widget import Widget
 
 try:
-    from maestro.tui.menubar.model import Menu  # type: ignore
+    from maestro.tui.menubar.model import Menu, MenuItem  # type: ignore
 except Exception:  # pragma: no cover - defensive import
     Menu = None  # type: ignore
+    MenuItem = None  # type: ignore
 
 
 class PaneStatus(Message):
@@ -57,6 +58,24 @@ class PaneView(Widget):
 
     def menu(self) -> Optional["Menu"]:  # pragma: no cover - interface
         """Optional menu owned by this pane."""
+        return None
+
+    def get_action(self, action_id: str) -> Optional[MenuItem]:
+        """Lookup a menu item by standardized action_id or id.
+
+        Returns the MenuItem if found, otherwise None.
+        """
+        try:
+            menu = self.menu()
+        except Exception:
+            menu = None
+        if not menu or not getattr(menu, "items", None):
+            return None
+        for entry in menu.items:
+            if not isinstance(entry, MenuItem):
+                continue
+            if entry.action_id == action_id or entry.id == action_id:
+                return entry
         return None
 
     def notify_status(self, message: str) -> None:

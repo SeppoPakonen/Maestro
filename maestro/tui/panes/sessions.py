@@ -33,14 +33,8 @@ class SessionsPane(PaneView):
         ("up", "cursor_up", "Up"),
         ("down", "cursor_down", "Down"),
         ("enter", "set_active", "Set active [CONF]"),
-        ("f3", "new_session", "New session [CONF]"),
-        ("f5", "refresh_data", "Refresh"),
-        ("f8", "delete_session", "Delete session [CONF]"),
-        ("n", "new_session", "New session [CONF]"),
-        ("d", "delete_session", "Delete session [CONF]"),
-        ("r", "refresh_data", "Refresh"),
         ("shift+tab", "focus_left", "Back to sections"),
-        ("f9", "open_menu", "Menu"),
+        ("f9", "open_menu", "Menu"),  # Menu still handled directly by pane
     ]
 
     DEFAULT_CSS = """
@@ -100,7 +94,9 @@ class SessionsPane(PaneView):
                     "new",
                     "New",
                     action=self.action_new_session,
-                    key_hint="F3",
+                    key_hint="F7",
+                    fkey="F7",
+                    action_id="sessions.new",
                     trust_label="[MUT][CONF]",
                 ),
                 MenuItem(
@@ -108,6 +104,8 @@ class SessionsPane(PaneView):
                     "Set Active",
                     action=self.action_set_active,
                     key_hint="Enter",
+                    fkey="Enter",
+                    action_id="sessions.set_active",
                     enabled=has_selection,
                     trust_label="[MUT][CONF]",
                     requires_confirmation=True,
@@ -117,6 +115,8 @@ class SessionsPane(PaneView):
                     "Delete",
                     action=self.action_delete_session,
                     key_hint="F8",
+                    fkey="F8",
+                    action_id="sessions.delete",
                     enabled=has_selection,
                     trust_label="[MUT][CONF]",
                     requires_confirmation=True,
@@ -126,6 +126,8 @@ class SessionsPane(PaneView):
                     "Refresh",
                     action=self.refresh_data,
                     key_hint="F5",
+                    fkey="F5",
+                    action_id="sessions.refresh",
                     trust_label="[RO]",
                 ),
             ],

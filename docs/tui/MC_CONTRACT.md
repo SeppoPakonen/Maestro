@@ -35,17 +35,8 @@ This document defines the baseline interaction contract for Maestro's new Midnig
 - `Esc` cancels/closes modals or steps back/close menu; never destructive and never quits directly.
 - `F10` remains the explicit quit path (with the app handling confirmation if needed).
 
-## Function Key Policy (Reserved Now, Implement Later)
-- `F1` Help
-- `F2` Actions menu
-- `F3` View
-- `F4` Edit (future)
-- `F5` Run/Execute (contextual)
-- `F6` Switch/Focus (contextual)
-- `F7` New (contextual)
-- `F8` Delete/Kill (always confirm)
-- `F9` Menu
-- `F10` Quit
+## Function Key Policy
+For complete function key policy and binding rules, see [KEYBINDINGS_MC.md](./KEYBINDINGS_MC.md).
 
 ## Mouse Baseline (Planned)
 - Single click selects items.
