@@ -2,6 +2,8 @@
 Utilities for Maestro TUI - Loading states, Error handling, Performance, and UX Trust Signals
 """
 import time
+import os
+import sys
 import asyncio
 from enum import Enum
 from dataclasses import dataclass
@@ -91,6 +93,20 @@ class GlobalStatusManager:
                 print(f"WARNING: Function '{func_name}' appears to be called rapidly ({len(recent_calls)} times in quick succession). Consider throttling or memoization.")
                 return True
         return False
+
+
+def write_smoke_success(smoke_out: Optional[str] = None) -> None:
+    """Persist and print a consistent smoke-test success marker."""
+    smoke_success_file = smoke_out or os.environ.get("MAESTRO_SMOKE_SUCCESS_FILE", "/tmp/maestro_tui_smoke_success")
+    try:
+        with open(smoke_success_file, "w") as file_handle:
+            file_handle.write("MAESTRO_TUI_SMOKE_OK\n")
+    except Exception:
+        # File writes may fail in restricted environments; stdout still carries the marker.
+        pass
+
+    print("MAESTRO_TUI_SMOKE_OK", flush=True)
+    sys.stdout.flush()
 
 
 class ErrorModal(ModalScreen[bool]):

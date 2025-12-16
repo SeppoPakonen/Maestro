@@ -4,86 +4,103 @@ Smoke test for Maestro TUI
 This script tests that the TUI can be started and exits correctly in smoke mode.
 """
 
+import re
 import subprocess
 import sys
+import tempfile
 import time
+from pathlib import Path
 
 
-def test_tui_smoke_mode():
-    """Test that the TUI smoke mode works correctly."""
-    print("Testing TUI smoke mode...")
+def _run_smoke(smoke_seconds: float = 0.3, mc: bool = False) -> bool:
+    """Execute a smoke run and return True on success."""
+    flag_line = ["--mc"] if mc else []
+    label = "MC shell smoke mode" if mc else "TUI smoke mode"
+    print(f"\nTesting {label} with {smoke_seconds} seconds...")
 
+    with tempfile.NamedTemporaryFile(delete=False) as marker:
+        marker_path = Path(marker.name)
+
+    marker_text = ""
     try:
-        # Run the TUI in smoke mode with a short timeout (using safe module entry point)
-        result = subprocess.run([
-            sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.3"
-        ], capture_output=True, text=True, timeout=5)  # 5 second timeout to prevent hanging
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "maestro.tui",
+                *(flag_line),
+                "--smoke",
+                "--smoke-seconds",
+                str(smoke_seconds),
+                "--smoke-out",
+                str(marker_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
 
         print(f"Return code: {result.returncode}")
         print(f"STDOUT: {result.stdout}")
         print(f"STDERR: {result.stderr}")
 
-        # Check if the expected output was produced (in either stdout or stderr)
         combined_output = result.stdout + result.stderr
-        if "MAESTRO_TUI_SMOKE_OK" in combined_output:
-            print("✅ TUI smoke test PASSED: Correct output found")
+        combined_output_clean = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", combined_output)
+        marker_text = marker_path.read_text() if marker_path.exists() else ""
+
+        if mc:
+            rendered = ("Navigator" in combined_output_clean) or ("Sections" in combined_output_clean)
+            if not rendered:
+                print("❌ MC shell smoke test FAILED: Shell UI markers not seen")
+                return False
+
+        if ("MAESTRO_TUI_SMOKE_OK" in combined_output) or ("MAESTRO_TUI_SMOKE_OK" in marker_text):
+            print("✅ Smoke test PASSED: Correct output found")
             return True
         else:
-            print("❌ TUI smoke test FAILED: Expected output not found")
+            print("❌ Smoke test FAILED: Expected output not found")
             print(f"Expected: MAESTRO_TUI_SMOKE_OK")
             print(f"Got combined: {combined_output}")
             return False
 
     except subprocess.TimeoutExpired:
-        print("❌ TUI smoke test FAILED: Process timed out")
+        print("❌ Smoke test FAILED: Process timed out")
         return False
     except Exception as e:
-        print(f"❌ TUI smoke test FAILED with exception: {e}")
+        print(f"❌ Smoke test FAILED with exception: {e}")
         return False
+    finally:
+        marker_path.unlink(missing_ok=True)
+
+
+def test_tui_smoke_mode():
+    """Test that the TUI smoke mode works correctly."""
+    assert _run_smoke(smoke_seconds=0.3, mc=False)
 
 
 def test_tui_smoke_mode_shorter():
     """Test that the TUI smoke mode works with shorter time."""
-    print("\nTesting TUI smoke mode with 0.1 seconds...")
+    assert _run_smoke(smoke_seconds=0.1, mc=False)
 
-    try:
-        # Run the TUI in smoke mode with a very short time (using safe module entry point)
-        result = subprocess.run([
-            sys.executable, "-m", "maestro.tui", "--smoke", "--smoke-seconds", "0.1"
-        ], capture_output=True, text=True, timeout=3)  # 3 second timeout
 
-        print(f"Return code: {result.returncode}")
-        print(f"STDOUT: {result.stdout}")
-        print(f"STDERR: {result.stderr}")
-
-        # Check if the expected output was produced (in either stdout or stderr)
-        combined_output = result.stdout + result.stderr
-        if "MAESTRO_TUI_SMOKE_OK" in combined_output:
-            print("✅ TUI smoke test (short) PASSED: Correct output found")
-            return True
-        else:
-            print("❌ TUI smoke test (short) FAILED: Expected output not found")
-            return False
-
-    except subprocess.TimeoutExpired:
-        print("❌ TUI smoke test (short) FAILED: Process timed out")
-        return False
-    except Exception as e:
-        print(f"❌ TUI smoke test (short) FAILED with exception: {e}")
-        return False
+def test_tui_mc_smoke_mode():
+    """Test that the MC shell smoke path renders and exits."""
+    assert _run_smoke(smoke_seconds=0.3, mc=True)
 
 
 if __name__ == "__main__":
     print("Starting TUI smoke tests...\n")
     
-    test1_passed = test_tui_smoke_mode()
-    test2_passed = test_tui_smoke_mode_shorter()
+    test1_passed = _run_smoke(smoke_seconds=0.3, mc=False)
+    test2_passed = _run_smoke(smoke_seconds=0.1, mc=False)
+    test3_passed = _run_smoke(smoke_seconds=0.3, mc=True)
     
     print(f"\nTest results:")
     print(f"Standard smoke test: {'PASSED' if test1_passed else 'FAILED'}")
     print(f"Short smoke test: {'PASSED' if test2_passed else 'FAILED'}")
+    print(f"MC shell smoke test: {'PASSED' if test3_passed else 'FAILED'}")
     
-    if test1_passed and test2_passed:
+    if test1_passed and test2_passed and test3_passed:
         print("\n🎉 All TUI smoke tests PASSED!")
         sys.exit(0)
     else:

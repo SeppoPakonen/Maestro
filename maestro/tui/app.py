@@ -29,7 +29,7 @@ from maestro.tui.screens.vault import VaultScreen
 from maestro.tui.screens.onboarding import OnboardingScreen
 from maestro.tui.screens.help_index import HelpIndexScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
-from maestro.tui.utils import global_status_manager, LoadingIndicator, ErrorModal, ErrorNormalizer, ErrorMessage, ErrorSeverity
+from maestro.tui.utils import global_status_manager, LoadingIndicator, ErrorModal, ErrorNormalizer, ErrorMessage, ErrorSeverity, write_smoke_success
 
 
 class MaestroTUI(App):
@@ -1090,26 +1090,18 @@ class MaestroTUI(App):
 
     def _smoke_exit(self):
         """Handle the smoke mode exit."""
-        import sys
-        import os
-        # Write success indicator to file if specified
-        smoke_success_file = self.smoke_out or os.environ.get("MAESTRO_SMOKE_SUCCESS_FILE", "/tmp/maestro_tui_smoke_success")
-        try:
-            with open(smoke_success_file, 'w') as f:
-                f.write("MAESTRO_TUI_SMOKE_OK\n")
-        except:
-            # If file writing fails, try standard output as backup
-            print("MAESTRO_TUI_SMOKE_OK")
-
-        # Also print to stdout as backup (though may not be visible in full-screen apps)
-        print("MAESTRO_TUI_SMOKE_OK", flush=True)
-        sys.stdout.flush()
+        write_smoke_success(self.smoke_out)
         self.exit()
 
 
-def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None):
+def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None, mc_shell: bool = False):
     """Run the TUI application."""
-    app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
+    if mc_shell:
+        from maestro.tui.screens.mc_shell import MaestroMCShellApp
+
+        app = MaestroMCShellApp(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
+    else:
+        app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
     app.run()
 
 
