@@ -2261,19 +2261,31 @@ def load_repo_index(repo_root: str = None) -> dict:
         return json.load(f)
 
 
-def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = False):
+def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = False, repo_root: str = None):
     """List all packages in the repository."""
     import json
+    import os
 
     if json_output:
-        # JSON output with package names and file counts
-        output = [{'name': p['name'], 'files': len(p['files']), 'dir': p['dir']} for p in packages]
+        # JSON output with package names, numbers, and file counts
+        output = []
+        for i, p in enumerate(packages, 1):
+            rel_path = os.path.relpath(p['dir'], repo_root) if repo_root else p['dir']
+            output.append({
+                'number': i,
+                'name': p['name'],
+                'files': len(p['files']),
+                'dir': p['dir'],
+                'rel_path': rel_path
+            })
         print(json.dumps(output, indent=2))
     else:
-        # Human-readable output
+        # Human-readable output with numbers and relative paths
         print_header(f"PACKAGES ({len(packages)} total)")
-        for pkg in sorted(packages, key=lambda p: p['name']):
-            print_info(f"{pkg['name']:40s} {len(pkg['files']):4d} files", 2)
+        sorted_packages = sorted(packages, key=lambda p: p['name'].lower())
+        for i, pkg in enumerate(sorted_packages, 1):
+            rel_path = os.path.relpath(pkg['dir'], repo_root) if repo_root else pkg['dir']
+            print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {rel_path}", 2)
 
 
 def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False):
@@ -4868,33 +4880,50 @@ def main():
                     repo_root = find_repo_root()
 
                 packages = index_data['packages_detected']
+                # Create sorted package list for consistent numbering
+                sorted_packages = sorted(packages, key=lambda p: p['name'].lower())
 
-                # Case 1: No package name provided - list all packages or search
+                # Case 1: No package name provided - list all packages
                 if not args.package_name:
-                    # List all packages
-                    handle_repo_pkg_list(packages, args.json)
+                    handle_repo_pkg_list(sorted_packages, args.json, repo_root)
 
-                # Case 2: Package name provided
+                # Case 2: Package name/number provided
                 else:
-                    # Try exact match first
-                    pkg = next((p for p in packages if p['name'] == args.package_name), None)
+                    pkg = None
 
-                    # If no exact match, try partial match
-                    if not pkg:
-                        matches = [p for p in packages if args.package_name.lower() in p['name'].lower()]
-                        if len(matches) == 0:
-                            print_error(f"No package found matching: {args.package_name}", 2)
-                            sys.exit(1)
-                        elif len(matches) == 1:
-                            pkg = matches[0]
+                    # Check if it's a numeric selection
+                    if args.package_name.isdigit():
+                        pkg_num = int(args.package_name)
+                        if 1 <= pkg_num <= len(sorted_packages):
+                            pkg = sorted_packages[pkg_num - 1]
                         else:
-                            # Multiple matches - show them and ask user to be more specific
-                            print_error(f"Multiple packages match '{args.package_name}':", 2)
-                            for m in matches[:10]:
-                                print_info(f"  - {m['name']}", 2)
-                            if len(matches) > 10:
-                                print_info(f"  ... and {len(matches) - 10} more", 2)
+                            print_error(f"Package number {pkg_num} out of range (1-{len(sorted_packages)})", 2)
                             sys.exit(1)
+                    else:
+                        # Try exact match first
+                        pkg = next((p for p in packages if p['name'] == args.package_name), None)
+
+                        # If no exact match, try partial match
+                        if not pkg:
+                            matches = [p for p in packages if args.package_name.lower() in p['name'].lower()]
+                            if len(matches) == 0:
+                                print_error(f"No package found matching: {args.package_name}", 2)
+                                sys.exit(1)
+                            elif len(matches) == 1:
+                                pkg = matches[0]
+                            else:
+                                # Multiple matches - show them with numbers and relative paths
+                                import os
+                                print_error(f"Multiple packages match '{args.package_name}':", 2)
+                                # Find numbers for matched packages in sorted list
+                                for m in matches[:20]:
+                                    pkg_num = sorted_packages.index(m) + 1
+                                    rel_path = os.path.relpath(m['dir'], repo_root)
+                                    print_info(f"  [{pkg_num:4d}] {m['name']:30s} {rel_path}", 2)
+                                if len(matches) > 20:
+                                    print_info(f"  ... and {len(matches) - 20} more", 2)
+                                print_info("\nUse: maestro repo pkg <number> [action]", 2)
+                                sys.exit(1)
 
                     # Perform action on the package
                     action = args.action or 'info'
