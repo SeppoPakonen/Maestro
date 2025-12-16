@@ -1,0 +1,190 @@
+{
+  "plan_version": "1.0",
+  "pipeline_id": "conversion-plan-f348d0f7",
+  "intent": "high_to_low_level: Convert test_source_dir to test_target_dir using playbook cpp_to_c",
+  "created_at": "2025-12-16T14:38:31.917951",
+  "source": {
+    "path": "test_source_dir"
+  },
+  "target": {
+    "path": "test_target_dir"
+  },
+  "scaffold_tasks": [
+    {
+      "task_id": "task_2fbf802d",
+      "phase": "scaffold",
+      "title": "Set up basic project files",
+      "source_files": [],
+      "target_files": [
+        "README.md",
+        "package.json",
+        "requirements.txt",
+        ".gitignore"
+      ],
+      "engine": "gemini",
+      "prompt_ref": "inputs/scaffold_project_setup.txt",
+      "acceptance_criteria": [
+        "Basic project files created with appropriate content"
+      ],
+      "deliverables": [
+        "README.md",
+        "package.json",
+        "requirements.txt",
+        ".gitignore"
+      ],
+      "depends_on": [],
+      "status": "pending"
+    },
+    {
+      "task_id": "task_cfe7cca8",
+      "phase": "scaffold",
+      "title": "Create directory structure",
+      "source_files": [],
+      "target_files": [
+        "src/",
+        "tests/",
+        "docs/"
+      ],
+      "engine": "qwen",
+      "prompt_ref": "inputs/scaffold_directory_structure.txt",
+      "acceptance_criteria": [
+        "Directory structure created according to best practices for target language"
+      ],
+      "deliverables": [
+        "src/",
+        "tests/",
+        "docs/"
+      ],
+      "depends_on": [],
+      "status": "pending"
+    }
+  ],
+  "file_tasks": [
+    {
+      "task_id": "task_ac371cd4",
+      "phase": "file",
+      "title": "Convert py files",
+      "source_files": [
+        "test.py"
+      ],
+      "target_files": [
+        "test.py"
+      ],
+      "engine": "codex",
+      "prompt_ref": "inputs/convert_files_py.txt",
+      "acceptance_criteria": [
+        "Source files converted appropriately to target technology stack"
+      ],
+      "deliverables": [
+        "test.py"
+      ],
+      "depends_on": [],
+      "status": "pending"
+    }
+  ],
+  "final_sweep_tasks": [
+    {
+      "task_id": "task_5883be48",
+      "phase": "sweep",
+      "title": "Verify conversion coverage",
+      "source_files": [
+        "test.py"
+      ],
+      "target_files": [],
+      "engine": "gemini",
+      "prompt_ref": "inputs/verify_conversion_coverage.txt",
+      "acceptance_criteria": [
+        "All source files have been accounted for in target conversion"
+      ],
+      "deliverables": [
+        ".maestro/convert/reports/coverage.json"
+      ],
+      "depends_on": [],
+      "status": "pending"
+    },
+    {
+      "task_id": "task_82c3c605",
+      "phase": "sweep",
+      "title": "Generate final summary report",
+      "source_files": [],
+      "target_files": [
+        ".maestro/convert/reports/final_summary.md"
+      ],
+      "engine": "gemini",
+      "prompt_ref": "inputs/generate_final_report.txt",
+      "acceptance_criteria": [
+        "Comprehensive report of conversion process and results"
+      ],
+      "deliverables": [
+        ".maestro/convert/reports/final_summary.md"
+      ],
+      "depends_on": [],
+      "status": "pending"
+    }
+  ],
+  "source_inventory": ".maestro/convert/inventory/source_files.json",
+  "target_inventory": ".maestro/convert/inventory/target_files.json",
+  "checkpoint_policy": {
+    "after_files": 5,
+    "on_semantic_loss": true
+  },
+  "semantic_summary": {
+    "total_files_checked": 0,
+    "equivalence_counts": {
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0
+    },
+    "cumulative_risk_flags": {
+      "control_flow": 0,
+      "memory": 0,
+      "concurrency": 0,
+      "io": 0,
+      "lifetime": 0
+    },
+    "unresolved_semantic_warnings": 0,
+    "last_updated": "2025-12-15T01:57:13.188047"
+  },
+  "checkpoints": [
+    {
+      "checkpoint_id": "CP-Scaffold-Setup",
+      "after_tasks": [
+        "task_2fbf802d",
+        "task_cfe7cca8"
+      ],
+      "label": "Scaffold tasks completed - Basic structure in place",
+      "requires": [
+        "semantic_ok"
+      ],
+      "auto_continue": false,
+      "status": "pending"
+    },
+    {
+      "checkpoint_id": "CP-FileBatch-1",
+      "after_tasks": [
+        "task_ac371cd4"
+      ],
+      "label": "File conversion batch 1 completed",
+      "requires": [
+        "semantic_ok"
+      ],
+      "auto_continue": false,
+      "status": "pending"
+    },
+    {
+      "checkpoint_id": "CP-Final-Sweep",
+      "after_tasks": [
+        "task_5883be48",
+        "task_82c3c605"
+      ],
+      "label": "Final sweep tasks completed",
+      "requires": [
+        "build_pass",
+        "semantic_ok"
+      ],
+      "auto_continue": false,
+      "status": "pending"
+    }
+  ]
+}
