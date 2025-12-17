@@ -1329,6 +1329,237 @@ $ maestro make build MyApp
 - Consider Cython for critical code
 - Option to use native umk as backend
 
+### Phase 11: Internal Package Groups
+
+**Goal**: Implement internal package grouping for better organization and navigation.
+
+**Background**:
+U++ packages use **separators** to organize files into logical groups within a package. A separator is a file entry with the `separator` flag that acts as a group title. Files following a separator belong to that group until the next separator.
+
+**Example from CtrlCore.upp**:
+```
+file
+    Core readonly separator,        # Group title: "Core"
+    CtrlCore.h,                      # → belongs to "Core" group
+    MKeys.h,                         # → belongs to "Core" group
+    ...
+    Win32 readonly separator,        # Group title: "Win32"
+    Win32Gui.h,                      # → belongs to "Win32" group
+    ...
+    X11 readonly separator,          # Group title: "X11"
+    X11Gui.h,                        # → belongs to "X11" group
+    ...
+```
+
+**Use Cases**:
+1. **U++ packages**: Display and navigate file groups in TUI
+2. **Misc packages**: Auto-group files by extension/type
+3. **Multi-language packages**: Organize by language (Python, C++, Java)
+4. **Documentation packages**: Group by topic
+5. **Build support**: Build specific groups only
+
+**Tasks**:
+
+1. **Group representation in package metadata**:
+   ```python
+   @dataclass
+   class FileGroup:
+       """Internal package file group."""
+       name: str                    # Group name/title
+       files: List[str]             # Files in this group
+       readonly: bool = False       # From separator flags
+       auto_generated: bool = False # True if auto-grouped
+
+   @dataclass
+   class PackageInfo:
+       # ... existing fields ...
+       groups: List[FileGroup] = field(default_factory=list)
+       ungrouped_files: List[str] = field(default_factory=list)
+   ```
+
+2. **U++ separator parsing enhancement**:
+   - Already detected in `upp_parser.py:262-263`
+   - Extract separator name (first token in file entry)
+   - Build group structure from separator markers
+   - Preserve readonly and other flags
+   - Handle multiple separators
+   - Support quoted separator names with spaces
+
+3. **Auto-grouping for misc packages**:
+   ```python
+   class AutoGrouper:
+       """Automatically group files by patterns."""
+
+       GROUP_RULES = {
+           'Documentation': ['.md', '.txt', '.rst', '.adoc'],
+           'Scripts': ['.sh', '.bash', '.zsh', '.py', '.js'],
+           'Configuration': ['.toml', '.yaml', '.yml', '.json', '.ini', '.conf'],
+           'Build Files': ['Makefile', '.gradle', '.gradle.kts', 'pom.xml',
+                          'CMakeLists.txt', 'configure.ac'],
+           'Python': ['.py'],
+           'C/C++': ['.c', '.cpp', '.cc', '.cxx', '.h', '.hpp'],
+           'Java': ['.java'],
+           'Kotlin': ['.kt', '.kts'],
+           'Web': ['.html', '.css', '.js', '.ts', '.jsx', '.tsx'],
+           'Data': ['.json', '.xml', '.csv', '.tsv', '.sql'],
+           'Images': ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico'],
+           'Other': [],  # Catch-all
+       }
+
+       def auto_group(self, files: List[str]) -> List[FileGroup]:
+           """Group files by extension/pattern."""
+           groups = defaultdict(list)
+
+           for file in files:
+               matched = False
+               for group_name, patterns in self.GROUP_RULES.items():
+                   if group_name == 'Other':
+                       continue
+                   if any(file.endswith(ext) for ext in patterns):
+                       groups[group_name].append(file)
+                       matched = True
+                       break
+                   if any(pattern in file for pattern in patterns):
+                       groups[group_name].append(file)
+                       matched = True
+                       break
+
+               if not matched:
+                   groups['Other'].append(file)
+
+           return [
+               FileGroup(name=name, files=sorted(files), auto_generated=True)
+               for name, files in sorted(groups.items())
+               if files  # Only include non-empty groups
+           ]
+   ```
+
+4. **CLI support**:
+   ```
+   maestro repo pkg [ID] --show-groups
+       Show package with file groups
+
+   maestro repo pkg [ID] --group [GROUP]
+       Filter to specific group
+
+   Example output:
+   ============================================================
+                   PACKAGE: CtrlCore (U++)
+   ============================================================
+
+   Root path: /home/sblo/upp/uppsrc/CtrlCore
+   Groups: 6
+   Total files: 135
+
+   ────────────────────────────────────────────────────────────
+     GROUP: Core (21 files)
+     CtrlCore.h
+     MKeys.h
+     stdids.h
+     SystemDraw.cpp
+     Frame.cpp
+     ... (16 more)
+
+   ────────────────────────────────────────────────────────────
+     GROUP: Win32 (22 files)
+     Win32Gui.h
+     Win32GuiA.h
+     Win32Keys.h
+     DrawWin32.cpp
+     ... (18 more)
+
+   ────────────────────────────────────────────────────────────
+     GROUP: X11 (22 files)
+     X11Gui.h
+     X11GuiA.h
+     X11Keys.h
+     ... (19 more)
+   ```
+
+5. **TUI support**:
+   - Show groups in package view (collapsible tree)
+   - Navigate between groups (Tab/Shift+Tab)
+   - Filter/search within group
+   - Show group statistics (file count, LOC)
+   - Syntax highlighting for group headers
+
+6. **Build integration**:
+   - `maestro make build [PACKAGE] --group [GROUP]` - Build specific group only
+   - Useful for platform-specific builds (build only Win32 group, only X11 group)
+   - Dependency tracking per group
+
+7. **Export support**:
+   - Export groups to IDE project structures
+   - Visual Studio filters (.vcxproj.filters)
+   - CMake source_group()
+   - IntelliJ modules
+
+**Example: Misc Package Auto-Grouping**:
+```
+maestro repo pkg 19 --show-groups
+
+============================================================
+            INTERNAL PACKAGE: root_misc
+============================================================
+
+Root path: /common/active/sblo/Dev/RainbowGame/trash
+Type: misc
+Groups: 7 (auto-generated)
+Total files: 67
+
+────────────────────────────────────────────────────────────
+  GROUP: Documentation (25 files)
+  AGENTS.md
+  COMPLETION_NOTICE.md
+  CONVERSION_COMMITS.md
+  CPP_NOTES.txt
+  CPP_TASKS.md
+  ... (20 more)
+
+────────────────────────────────────────────────────────────
+  GROUP: Scripts (4 files)
+  build-cpp.sh
+  build.sh
+  create_all_stubs.sh
+  create_all_stubs_final.sh
+
+────────────────────────────────────────────────────────────
+  GROUP: Python (3 files)
+  extract_ast.py
+  format_commits_md.py
+  full_pseudocode_generator.py
+
+────────────────────────────────────────────────────────────
+  GROUP: Build Files (2 files)
+  build.gradle.kts
+  env.sh
+
+────────────────────────────────────────────────────────────
+  GROUP: Data (2 files)
+  codex-history.txt
+  file_list.txt
+
+────────────────────────────────────────────────────────────
+  GROUP: Other (31 files)
+  .gradle
+  Book
+  LICENSE
+  README.md
+  android
+  ... (26 more)
+```
+
+**Deliverables**:
+- Group representation in package metadata
+- U++ separator parsing with group extraction
+- Auto-grouping for misc packages
+- CLI support for viewing and filtering groups
+- TUI integration with collapsible group view
+- Build support for group-specific compilation
+- Export to IDE project structures
+
+**Estimated Complexity**: Medium (2-3 weeks)
+
 ## Timeline Estimate
 
 | Phase | Duration | Dependencies |
@@ -1344,8 +1575,9 @@ $ maestro make build MyApp
 | Phase 8: Advanced Features | 6-8 weeks | Phase 7 |
 | Phase 9: TUI Integration | 3-4 weeks | Phase 7 |
 | Phase 10: Universal Hub System | 4-5 weeks | Phases 2-7 |
+| Phase 11: Internal Package Groups | 2-3 weeks | Phase 7 |
 
-**Total Estimate**: 31-46 weeks (7-11 months)
+**Total Estimate**: 33-49 weeks (8-11 months)
 
 **Minimum Viable Product (MVP)**: Phases 1-2 (6-9 weeks)
 - Core builder framework
@@ -1356,6 +1588,12 @@ $ maestro make build MyApp
 - All builder types
 - Universal configuration
 - Complete CLI
+
+**Full Feature Set**: Phases 1-11 (33-49 weeks)
+- Advanced features (Android, Java, Blitz, PCH)
+- TUI integration
+- Universal Hub system
+- Internal package groups
 
 ## Future Extensions
 
