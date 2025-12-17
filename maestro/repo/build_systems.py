@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+import xml.etree.ElementTree as ET
 
 
 @dataclass
@@ -30,7 +31,7 @@ class BuildSystemPackage:
 def detect_build_system(repo_root: str) -> List[str]:
     """
     Detect which build systems are present in the repository.
-    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp']
+    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp', 'msvs']
     """
     systems = []
 
@@ -48,6 +49,15 @@ def detect_build_system(repo_root: str) -> List[str]:
     for autoconf_file in ['configure.ac', 'configure.in', 'Makefile.am']:
         if os.path.exists(os.path.join(repo_root, autoconf_file)):
             systems.append('autoconf')
+            break
+
+    # Check for Visual Studio (*.sln files)
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        if any(f.endswith('.sln') for f in files):
+            systems.append('msvs')
             break
 
     # Check for U++ (*.upp files)
@@ -369,6 +379,248 @@ def scan_autoconf_packages(repo_root: str, verbose: bool = False) -> List[BuildS
     return packages
 
 
+def scan_msvs_packages(repo_root: str, verbose: bool = False) -> List[BuildSystemPackage]:
+    """
+    Scan Microsoft Visual Studio build system for packages.
+
+    Visual Studio package detection strategy:
+    1. Find all .sln (solution) files
+    2. Parse solution files to extract project references
+    3. Parse project files (.vcxproj, .vcproj, .csproj) to extract:
+       - Project name, GUID, type
+       - Configuration platforms (Debug/Release, Win32/x64, etc.)
+       - Source files (ClCompile, ClInclude for C++; Compile for C#)
+       - Project dependencies
+       - Compiler/linker settings
+    4. Support both new format (.vcxproj, .csproj - XML-based) and old format (.vcproj)
+    """
+    packages = []
+
+    # Find all .sln files
+    sln_files = []
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        for file in files:
+            if file.endswith('.sln'):
+                sln_path = os.path.join(root, file)
+                sln_files.append(sln_path)
+
+    # Parse each solution file
+    for sln_path in sln_files:
+        sln_dir = os.path.dirname(sln_path)
+
+        try:
+            with open(sln_path, 'r', encoding='utf-8', errors='ignore') as f:
+                sln_content = f.read()
+
+            # Extract solution format version
+            version_match = re.search(r'Format Version\s+([\d.]+)', sln_content)
+            format_version = version_match.group(1) if version_match else 'unknown'
+
+            # Extract Visual Studio version
+            vs_version_match = re.search(r'# Visual Studio (.+)', sln_content)
+            vs_version = vs_version_match.group(1).strip() if vs_version_match else 'unknown'
+
+            # Extract project references from solution
+            # Pattern: Project("{TYPE-GUID}") = "Name", "Path", "{PROJECT-GUID}"
+            project_pattern = r'Project\("{([^}]+)}"\)\s*=\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"{([^}]+)}"'
+            project_matches = re.findall(project_pattern, sln_content)
+
+            if verbose:
+                print(f"[msvs] found solution '{os.path.basename(sln_path)}' (VS {vs_version}, format {format_version}) with {len(project_matches)} projects")
+
+            # Parse each project file
+            for type_guid, proj_name, proj_path, proj_guid in project_matches:
+                # Resolve project path relative to solution directory
+                if proj_path.startswith('$('):
+                    # Skip variable references
+                    continue
+
+                # Convert Windows backslash paths to forward slashes
+                proj_path_normalized = proj_path.replace('\\', '/')
+                proj_file_path = os.path.normpath(os.path.join(sln_dir, proj_path_normalized))
+
+                if not os.path.exists(proj_file_path):
+                    if verbose:
+                        print(f"[msvs] warning: project file not found: {proj_path}")
+                    continue
+
+                proj_dir = os.path.dirname(proj_file_path)
+                proj_ext = os.path.splitext(proj_file_path)[1].lower()
+
+                # Parse project file based on extension
+                source_files = []
+                project_metadata = {
+                    'solution': os.path.relpath(sln_path, repo_root),
+                    'project_file': os.path.relpath(proj_file_path, repo_root),
+                    'project_guid': proj_guid,
+                    'type_guid': type_guid,
+                    'format_version': format_version,
+                    'vs_version': vs_version
+                }
+
+                try:
+                    if proj_ext in ['.vcxproj', '.csproj']:
+                        # New XML-based format
+                        source_files = _parse_msbuild_project(proj_file_path, proj_dir, repo_root, verbose)
+                        project_metadata['format'] = 'MSBuild'
+                    elif proj_ext == '.vcproj':
+                        # Old XML format
+                        source_files = _parse_vcproj_project(proj_file_path, proj_dir, repo_root, verbose)
+                        project_metadata['format'] = 'VC++ 2005/2008'
+                    else:
+                        if verbose:
+                            print(f"[msvs] unsupported project format: {proj_ext}")
+                        continue
+
+                    # Determine project type
+                    if type_guid.upper() == '8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942':
+                        project_metadata['project_type'] = 'C++'
+                    elif type_guid.upper() == 'FAE04EC0-301F-11D3-BF4B-00C04F79EFBC':
+                        project_metadata['project_type'] = 'C#'
+                    else:
+                        project_metadata['project_type'] = 'unknown'
+
+                    # Create package
+                    pkg = BuildSystemPackage(
+                        name=proj_name,
+                        build_system='msvs',
+                        dir=proj_dir,
+                        files=source_files,
+                        metadata=project_metadata
+                    )
+                    packages.append(pkg)
+
+                    if verbose:
+                        print(f"[msvs] found {project_metadata.get('project_type', 'unknown')} project '{proj_name}' ({len(source_files)} sources)")
+
+                except Exception as e:
+                    if verbose:
+                        print(f"[msvs] error parsing project {proj_path}: {e}")
+
+        except Exception as e:
+            if verbose:
+                print(f"[msvs] error parsing solution {sln_path}: {e}")
+
+    return packages
+
+
+def _parse_msbuild_project(proj_path: str, proj_dir: str, repo_root: str, verbose: bool = False) -> List[str]:
+    """
+    Parse MSBuild-based project file (.vcxproj, .csproj) to extract source files.
+
+    Returns list of source file paths relative to repo root.
+    """
+    source_files = []
+
+    try:
+        tree = ET.parse(proj_path)
+        root = tree.getroot()
+
+        # MSBuild uses XML namespaces
+        ns = {'msbuild': 'http://schemas.microsoft.com/developer/msbuild/2003'}
+
+        # Find all source file elements
+        # For C++: ClCompile (C++ source), ClInclude (headers)
+        # For C#: Compile (C# source)
+        for elem_name in ['ClCompile', 'ClInclude', 'Compile']:
+            for elem in root.findall(f'.//msbuild:{elem_name}', ns):
+                include = elem.get('Include')
+                if include:
+                    source_files.append(include)
+
+            # Also try without namespace (some files don't use it)
+            for elem in root.findall(f'.//{elem_name}'):
+                include = elem.get('Include')
+                if include:
+                    source_files.append(include)
+
+        # Resolve paths and convert to repo-relative
+        resolved_files = []
+        for src_file in source_files:
+            # Skip variable references
+            if src_file.startswith('$(') or src_file.startswith('%'):
+                continue
+
+            # Convert Windows backslash to forward slash
+            src_file_normalized = src_file.replace('\\', '/')
+
+            # Handle wildcards (e.g., "**/*.cs")
+            if '*' in src_file_normalized:
+                # Expand wildcard pattern relative to project directory
+                from pathlib import Path
+                proj_path = Path(proj_dir)
+
+                try:
+                    # Use glob to expand wildcards
+                    for matched_file in proj_path.glob(src_file_normalized):
+                        if matched_file.is_file():
+                            rel_src = os.path.relpath(str(matched_file), repo_root)
+                            resolved_files.append(rel_src)
+                except Exception:
+                    # Invalid glob pattern - skip
+                    pass
+            else:
+                # Resolve relative to project directory
+                src_path = os.path.normpath(os.path.join(proj_dir, src_file_normalized))
+
+                if os.path.exists(src_path):
+                    rel_src = os.path.relpath(src_path, repo_root)
+                    resolved_files.append(rel_src)
+
+        return resolved_files
+
+    except Exception as e:
+        if verbose:
+            print(f"[msvs] error parsing MSBuild project {proj_path}: {e}")
+        return []
+
+
+def _parse_vcproj_project(proj_path: str, proj_dir: str, repo_root: str, verbose: bool = False) -> List[str]:
+    """
+    Parse old Visual C++ project file (.vcproj) to extract source files.
+
+    Returns list of source file paths relative to repo root.
+    """
+    source_files = []
+
+    try:
+        tree = ET.parse(proj_path)
+        root = tree.getroot()
+
+        # Find all File elements (no namespace in old format)
+        for file_elem in root.findall('.//File'):
+            rel_path = file_elem.get('RelativePath')
+            if rel_path:
+                source_files.append(rel_path)
+
+        # Resolve paths and convert to repo-relative
+        resolved_files = []
+        for src_file in source_files:
+            # Skip variable references
+            if src_file.startswith('$(') or src_file.startswith('%'):
+                continue
+
+            # Convert Windows backslash to forward slash
+            src_file_normalized = src_file.replace('\\', '/')
+
+            # Resolve relative to project directory
+            src_path = os.path.normpath(os.path.join(proj_dir, src_file_normalized))
+
+            if os.path.exists(src_path):
+                rel_src = os.path.relpath(src_path, repo_root)
+                resolved_files.append(rel_src)
+
+        return resolved_files
+
+    except Exception as e:
+        if verbose:
+            print(f"[msvs] error parsing vcproj project {proj_path}: {e}")
+        return []
+
+
 def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, List[BuildSystemPackage]]:
     """
     Scan all detected build systems and return packages grouped by build system.
@@ -392,6 +644,9 @@ def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, L
 
     if 'autoconf' in detected:
         results['autoconf'] = scan_autoconf_packages(repo_root, verbose)
+
+    if 'msvs' in detected:
+        results['msvs'] = scan_msvs_packages(repo_root, verbose)
 
     # Note: U++ scanning is handled separately in scan_uplusplus_repo()
 
