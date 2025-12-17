@@ -2454,7 +2454,7 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         "user_assemblies_count": len(scan_result.user_assemblies),
         "internal_packages_count": len(scan_result.internal_packages),
         "unknown_count": len(scan_result.unknown_paths),
-        "scanner_version": "0.7.0"
+        "scanner_version": "0.8.0"
     }
 
     with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:

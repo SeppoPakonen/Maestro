@@ -206,54 +206,165 @@ def scan_autoconf_packages(repo_root: str, verbose: bool = False) -> List[BuildS
     """
     Scan Autoconf/Automake build system for packages.
 
-    This is a stub implementation. Full Autoconf parsing is complex.
-    For now, we just detect presence and create a placeholder package.
+    Autoconf package detection strategy:
+    1. Find configure.ac/configure.in to extract package name
+    2. Find all Makefile.am files in repository
+    3. Parse bin_PROGRAMS and lib_LTLIBRARIES targets
+    4. Extract source files from *_SOURCES variables
+    5. Resolve source paths relative to Makefile.am location
     """
     packages = []
 
     # Check for Autoconf files in root
-    autoconf_files = ['configure.ac', 'configure.in', 'Makefile.am', 'Makefile.in']
-    found_files = []
+    autoconf_files = ['configure.ac', 'configure.in']
+    configure_ac_path = None
 
     for ac_file in autoconf_files:
         ac_path = os.path.join(repo_root, ac_file)
         if os.path.exists(ac_path):
-            found_files.append(ac_file)
+            configure_ac_path = ac_path
+            break
 
-    if found_files:
-        # Try to extract package name from configure.ac
-        pkg_name = os.path.basename(repo_root)
+    if not configure_ac_path:
+        return packages  # No autoconf detected
 
-        for ac_file in ['configure.ac', 'configure.in']:
-            ac_path = os.path.join(repo_root, ac_file)
-            if os.path.exists(ac_path):
-                try:
-                    with open(ac_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
+    # Extract package name from configure.ac
+    pkg_name = os.path.basename(repo_root)
+    try:
+        with open(configure_ac_path, 'r', encoding='utf-8', errors='ignore') as f:
+            configure_content = f.read()
 
-                    # Look for AC_INIT(package, version)
-                    init_pattern = r'AC_INIT\s*\(\s*\[?(\w+)\]?'
-                    matches = re.findall(init_pattern, content)
-                    if matches:
-                        pkg_name = matches[0]
-                        break
-                except Exception:
-                    pass
+        # Look for AC_INIT(package, version) - handles [brackets] and quotes
+        init_pattern = r'AC_INIT\s*\(\s*\[?([^\],\s)]+)\]?'
+        matches = re.findall(init_pattern, configure_content)
+        if matches:
+            pkg_name = matches[0]
+    except Exception as e:
+        if verbose:
+            print(f"[autoconf] warning: could not parse {configure_ac_path}: {e}")
 
+    # Find all Makefile.am files
+    makefile_am_files = []
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        if 'Makefile.am' in files:
+            makefile_am_path = os.path.join(root, 'Makefile.am')
+            makefile_am_files.append(makefile_am_path)
+
+    # Parse each Makefile.am for targets
+    for makefile_am_path in makefile_am_files:
+        makefile_dir = os.path.dirname(makefile_am_path)
+
+        try:
+            with open(makefile_am_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+
+            # Extract bin_PROGRAMS targets (executables)
+            # Pattern: bin_PROGRAMS = target1 target2 ...
+            bin_programs_pattern = r'bin_PROGRAMS\s*[+]?=\s*([^\n]+)'
+            bin_programs_matches = re.findall(bin_programs_pattern, content)
+
+            # Extract lib_LTLIBRARIES targets (libraries)
+            lib_pattern = r'lib_LTLIBRARIES\s*[+]?=\s*([^\n]+)'
+            lib_matches = re.findall(lib_pattern, content)
+
+            # Combine all targets
+            targets = []
+            for match in bin_programs_matches:
+                # Split on whitespace and filter out line continuations
+                targets.extend([t.strip() for t in match.split() if t.strip() and not t.strip().endswith('\\')])
+
+            for match in lib_matches:
+                targets.extend([t.strip() for t in match.split() if t.strip() and not t.strip().endswith('\\')])
+
+            # For each target, find its sources
+            for target in targets:
+                # Clean target name: remove .la suffix from libraries
+                target_clean = target.replace('.la', '').replace('-', '_').replace('.', '_')
+
+                # Pattern: target_SOURCES = file1.cpp file2.cpp ...
+                # Note: Automake converts - and . to _ in variable names
+                sources_pattern = rf'{re.escape(target_clean)}_SOURCES\s*[+]?=\s*([^#]*?)(?=\n\S|\n*$)'
+                sources_matches = re.findall(sources_pattern, content, re.DOTALL)
+
+                source_files = []
+                for sources_match in sources_matches:
+                    # Extract individual source files
+                    # Pattern matches file extensions: .c, .cpp, .cc, .cxx, .h, .hpp, etc.
+                    file_pattern = r'(?:^|\s)([\w/.-]+\.(?:c|cpp|cc|cxx|C|h|hpp|hxx|hh|H|inl|inc|pkg))(?:\s|\\|\n|$)'
+                    source_matches = re.findall(file_pattern, sources_match, re.MULTILINE)
+
+                    for src_file in source_matches:
+                        src_file = src_file.strip()
+                        if not src_file:
+                            continue
+
+                        # Resolve path relative to Makefile.am location or repo root
+                        if src_file.startswith('/'):
+                            # Absolute path (rare)
+                            if os.path.exists(src_file):
+                                rel_src = os.path.relpath(src_file, repo_root)
+                                source_files.append(rel_src)
+                        elif src_file.startswith('$(') or src_file.startswith('@'):
+                            # Variable reference - skip
+                            continue
+                        else:
+                            # Relative path - try both repo root and Makefile.am directory
+                            # Some projects use repo-relative paths even in subdirectory Makefile.am
+                            src_path_from_root = os.path.normpath(os.path.join(repo_root, src_file))
+                            src_path_from_makefile = os.path.normpath(os.path.join(makefile_dir, src_file))
+
+                            if os.path.exists(src_path_from_root):
+                                # Path is relative to repo root
+                                rel_src = os.path.relpath(src_path_from_root, repo_root)
+                                source_files.append(rel_src)
+                            elif os.path.exists(src_path_from_makefile):
+                                # Path is relative to Makefile.am directory
+                                rel_src = os.path.relpath(src_path_from_makefile, repo_root)
+                                source_files.append(rel_src)
+
+                # Create package for this target
+                if source_files or targets:  # Create package even if no sources found (might be generated)
+                    pkg = BuildSystemPackage(
+                        name=target.replace('.la', ''),  # Clean library names
+                        build_system='autoconf',
+                        dir=makefile_dir,
+                        files=source_files,
+                        metadata={
+                            'configure_ac': os.path.relpath(configure_ac_path, repo_root),
+                            'makefile_am': os.path.relpath(makefile_am_path, repo_root),
+                            'target_type': 'executable' if target in bin_programs_matches else 'library',
+                            'project_name': pkg_name
+                        }
+                    )
+                    packages.append(pkg)
+
+                    if verbose:
+                        target_type = 'executable' if any(target in m for m in bin_programs_matches) else 'library'
+                        print(f"[autoconf] found {target_type} '{target}' in {os.path.relpath(makefile_dir, repo_root)} ({len(source_files)} sources)")
+
+        except Exception as e:
+            if verbose:
+                print(f"[autoconf] error parsing {makefile_am_path}: {e}")
+
+    # If no packages found but autoconf detected, create a project-level package
+    if not packages and configure_ac_path:
         pkg = BuildSystemPackage(
             name=pkg_name,
             build_system='autoconf',
             dir=repo_root,
-            files=[],  # TODO: Parse Makefile.am for sources
+            files=[],
             metadata={
-                'autoconf_files': found_files,
-                'status': 'stub'
+                'configure_ac': os.path.relpath(configure_ac_path, repo_root),
+                'target_type': 'project'
             }
         )
         packages.append(pkg)
 
         if verbose:
-            print(f"[autoconf] found package '{pkg_name}'")
+            print(f"[autoconf] found project '{pkg_name}' (no targets in Makefile.am)")
 
     return packages
 
