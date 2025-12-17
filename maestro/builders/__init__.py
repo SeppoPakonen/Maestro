@@ -20,6 +20,7 @@ from .cmake import CMakeBuilder
 from .autotools import AutotoolsBuilder
 from .msbuild import MsBuildBuilder
 from .maven import MavenBuilder
+from .gradle import GradleBuilder
 from .android import AndroidBuilder
 from .java import JavaBuilder
 from .upp import UppBuilder, UppPackage, BlitzBuilder
@@ -27,6 +28,9 @@ from .workspace import Workspace, PackageResolver, CircularDependencyError
 from .cache import BuildCache, PPInfoCache, IncrementalBuilder
 from .ppinfo import PPInfo
 from .export import Exporter, NinjaExporter
+from .builder_selector import select_builder, get_builder_by_name, get_available_builders, validate_builder_compatibility, select_builder_function
+from .build_session import BuildSession, BuildSessionManager, BuildStepResult, BuildStatus, should_continue_on_error, get_resume_package
+from .artifact_manager import ArtifactManager, ArtifactRegistry, BuildArtifact, ArtifactType, get_global_artifact_manager
 
 __all__ = [
     'Builder',
@@ -57,6 +61,7 @@ __all__ = [
     'AutotoolsBuilder',
     'MsBuildBuilder',
     'MavenBuilder',
+    'GradleBuilder',
     'AndroidBuilder',
     'JavaBuilder',
     'UppBuilder',
@@ -71,6 +76,22 @@ __all__ = [
     'IncrementalBuilder',
     'Exporter',
     'NinjaExporter',
+    'select_builder',
+    'get_builder_by_name',
+    'get_available_builders',
+    'validate_builder_compatibility',
+    'select_builder_function',
+    'BuildSession',
+    'BuildSessionManager',
+    'BuildStepResult',
+    'BuildStatus',
+    'should_continue_on_error',
+    'get_resume_package',
+    'ArtifactManager',
+    'ArtifactRegistry',
+    'BuildArtifact',
+    'ArtifactType',
+    'get_global_artifact_manager',
     'CrossCompilationConfig',
     'CrossCompilationHelper',
     'enhance_method_config_with_cross_compilation',

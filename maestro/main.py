@@ -2334,12 +2334,29 @@ def infer_internal_packages(unknown_paths: List[UnknownPath], repo_root: str) ->
         else:
             root_path = str(Path(repo_root) / group_name)
 
+        # Apply auto-grouping to internal packages
+        from maestro.repo.grouping import AutoGrouper
+        grouper = AutoGrouper()
+        groups = grouper.auto_group([m.path for m in members])
+
+        # Identify ungrouped files
+        grouped_files = set()
+        for group in groups:
+            grouped_files.update(group.files)
+        ungrouped_files = [m.path for m in members if m.path not in grouped_files]
+
         internal_pkg = InternalPackage(
             name=group_name,
             root_path=root_path,
             guessed_type=dominant_kind,
             members=[m.path for m in members]
         )
+
+        # Add groups info as additional attributes that will be serialized
+        # Since InternalPackage doesn't have groups by default, we need to handle it differently
+        # We'll add these as attributes to the dict when serializing
+        internal_pkg._groups = groups
+        internal_pkg._ungrouped_files = ungrouped_files
 
         internal_packages.append(internal_pkg)
 
@@ -2448,7 +2465,16 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
                 "name": ipkg.name,
                 "root_path": ipkg.root_path,
                 "guessed_type": ipkg.guessed_type,
-                "members": ipkg.members
+                "members": ipkg.members,
+                "groups": [
+                    {
+                        "name": group.name,
+                        "files": group.files,
+                        "readonly": group.readonly,
+                        "auto_generated": group.auto_generated
+                    } for group in getattr(ipkg, '_groups', [])
+                ],
+                "ungrouped_files": getattr(ipkg, '_ungrouped_files', ipkg.members)
             } for ipkg in scan_result.internal_packages
         ]
     }
@@ -2798,37 +2824,56 @@ def handle_repo_pkg_groups(pkg: Dict[str, Any], json_output: bool = False, show_
 
         print(f"Root path: {pkg.get('dir', pkg.get('root_path', 'N/A'))}")
 
-        # Count groups and files
+        # Count groups and files - handle both object and dict formats for groups
         groups = pkg.get('groups', [])
         ungrouped_files = pkg.get('ungrouped_files', pkg.get('files', []))
-        total_files = len(ungrouped_files) + sum(len(group.files) for group in groups)
 
-        print(f"Groups: {len(groups)} (auto-generated)" if any(
+        # Calculate total files - handle group files as both objects and dicts
+        total_files = len(ungrouped_files)
+        for group in groups:
+            if isinstance(group, dict):
+                total_files += len(group.get('files', []))
+            else:
+                total_files += len(group.files)
+
+        # Check if any groups are auto-generated
+        has_auto_groups = any(
             (hasattr(g, 'auto_generated') and g.auto_generated) or
-            (g.get('auto_generated', False) if isinstance(g, dict) else False)
+            (isinstance(g, dict) and g.get('auto_generated', False))
             for g in groups
-        ) else f"Groups: {len(groups)}")
+        )
+        print(f"Groups: {len(groups)} (auto-generated)" if has_auto_groups else f"Groups: {len(groups)}")
         print(f"Total files: {total_files}")
 
         # Show groups
         if groups:
             print("\n" + "─" * 80)
             for i, group in enumerate(groups):
-                group_name = group.name if hasattr(group, 'name') else group.get('name', 'Unknown')
+                # Handle both object and dict formats
+                if isinstance(group, dict):
+                    group_name = group.get('name', 'Unknown')
+                    files_list = group.get('files', [])
+                    readonly_val = group.get('readonly', False)
+                    auto_val = group.get('auto_generated', False)
+                else:
+                    group_name = getattr(group, 'name', 'Unknown')
+                    files_list = getattr(group, 'files', [])
+                    readonly_val = getattr(group, 'readonly', False)
+                    auto_val = getattr(group, 'auto_generated', False)
 
                 # Skip if filtering and doesn't match
                 if group_filter and group_filter.lower() not in group_name.lower():
                     continue
 
-                readonly_flag = " readonly" if (hasattr(group, 'readonly') and group.readonly) or (group.get('readonly', False)) else ""
-                auto_flag = " (auto-generated)" if (hasattr(group, 'auto_generated') and group.auto_generated) or (group.get('auto_generated', False)) else ""
+                readonly_flag = " readonly" if readonly_val else ""
+                auto_flag = " (auto-generated)" if auto_val else ""
 
-                print_info(f"  GROUP: {group_name} ({len(group.files)} files){readonly_flag}{auto_flag}", 2)
+                print_info(f"  GROUP: {group_name} ({len(files_list)} files){readonly_flag}{auto_flag}", 2)
 
-                for j, file in enumerate(sorted(group.files)):
+                for j, file in enumerate(sorted(files_list)):
                     print_info(f"    {file}", 2)
                     if j >= 19:  # Show first 20 files per group
-                        print_info(f"    ... ({len(group.files) - 20} more)", 2)
+                        print_info(f"    ... ({len(files_list) - 20} more)", 2)
                         break
 
         # Show ungrouped files if any
@@ -3012,37 +3057,165 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
 
 
 def handle_repo_pkg_conf(pkg: Dict[str, Any], json_output: bool = False):
-    """Show mainconfig configurations for a package."""
+    """Show build configurations for a package across all build systems."""
     import json
 
-    pkg_name = pkg['name']
-    mainconfigs = pkg.get('upp', {}).get('mainconfigs', [])
+    # Import the build configuration discovery functionality
+    try:
+        from maestro.repo.build_config import get_package_config
 
-    if json_output:
-        output = {
-            'package': pkg_name,
-            'configurations': mainconfigs
-        }
-        print(json.dumps(output, indent=2))
-        return
+        # Convert the pkg dict to PackageInfo object for compatibility
+        from maestro.repo.package import PackageInfo, FileGroup
 
-    if not mainconfigs:
-        print(f"Package '{pkg_name}' has no mainconfig configurations")
-        return
+        # Create groups from the dict data
+        groups = []
+        for group_data in pkg.get('groups', []):
+            groups.append(FileGroup(
+                name=group_data.get('name', ''),
+                files=group_data.get('files', []),
+                readonly=group_data.get('readonly', False),
+                auto_generated=group_data.get('auto_generated', False)
+            ))
 
-    print(f"Build configurations for package '{pkg_name}':\n")
+        # Create PackageInfo object from the dictionary
+        package_info = PackageInfo(
+            name=pkg['name'],
+            dir=pkg['dir'],
+            upp_path=pkg.get('upp_path', ''),
+            files=pkg.get('files', []),
+            upp=pkg.get('upp'),
+            build_system=pkg.get('build_system', 'upp'),
+            dependencies=pkg.get('dependencies', []),
+            groups=groups,
+            ungrouped_files=pkg.get('ungrouped_files', pkg.get('files', []))
+        )
 
-    for i, config in enumerate(mainconfigs):
-        config_num = i + 1
-        name = config.get('name', '')
-        param = config.get('param', '')
+        # Get complete configuration using the new build_config module
+        config = get_package_config(package_info)
 
-        # Format name and param for display
-        name_display = f'"{name}"' if name else '(default)'
-        param_display = f'"{param}"' if param else '(none)'
+        if json_output:
+            print(json.dumps(config, indent=2))
+            return
 
-        print(f"  [{config_num}] {name_display}")
-        print(f"      Flags: {param_display}")
+        # Display configuration in a human-readable format
+        print(f"Build configurations for package '{pkg['name']}' ({pkg.get('build_system', 'upp').upper()}):")
+        print(f"  Directory: {config.get('directory', 'N/A')}")
+
+        # Display U++ specific configurations
+        if pkg.get('build_system') == 'upp':
+            uses = config.get('uses', [])
+            if uses:
+                print(f"  Dependencies ({len(uses)}):")
+                for dep in uses[:10]:  # Show first 10
+                    print(f"    - {dep}")
+                if len(uses) > 10:
+                    print(f"    ... and {len(uses) - 10} more")
+
+            mainconfigs = config.get('mainconfigs', [])
+            if mainconfigs:
+                print(f"  Build configurations:")
+                for i, cfg in enumerate(mainconfigs):
+                    print(f"    [{i+1}] {cfg}")
+
+        # Display CMake specific configurations
+        elif pkg.get('build_system') == 'cmake':
+            targets = config.get('targets', [])
+            if targets:
+                print(f"  Build targets ({len(targets)}):")
+                for target in targets[:10]:
+                    print(f"    - {target}")
+                if len(targets) > 10:
+                    print(f"    ... and {len(targets) - 10} more")
+
+            includes = config.get('include_directories', [])
+            if includes:
+                print(f"  Include directories ({len(includes)}):")
+                for inc in includes[:5]:
+                    print(f"    - {inc}")
+                if len(includes) > 5:
+                    print(f"    ... and {len(includes) - 5} more")
+
+        # Display Gradle specific configurations
+        elif pkg.get('build_system') == 'gradle':
+            plugins = config.get('plugins', [])
+            if plugins:
+                print(f"  Plugins ({len(plugins)}):")
+                for plugin in plugins[:10]:
+                    print(f"    - {plugin}")
+                if len(plugins) > 10:
+                    print(f"    ... and {len(plugins) - 10} more")
+
+            dependencies = config.get('dependencies', [])
+            if dependencies:
+                print(f"  Dependencies ({len(dependencies)}):")
+                for dep in dependencies[:10]:
+                    print(f"    - {dep}")
+                if len(dependencies) > 10:
+                    print(f"    ... and {len(dependencies) - 10} more")
+
+        # Display Maven specific configurations
+        elif pkg.get('build_system') == 'maven':
+            dependencies = config.get('dependencies', [])
+            if dependencies:
+                print(f"  Dependencies ({len(dependencies)}):")
+                for dep in dependencies[:10]:
+                    print(f"    - {dep}")
+                if len(dependencies) > 10:
+                    print(f"    ... and {len(dependencies) - 10} more")
+
+            modules = config.get('modules', [])
+            if modules:
+                print(f"  Modules ({len(modules)}):")
+                for module in modules[:10]:
+                    print(f"    - {module}")
+                if len(modules) > 10:
+                    print(f"    ... and {len(modules) - 10} more")
+
+        # Display generic information for other build systems
+        else:
+            dependencies = config.get('dependencies', [])
+            if dependencies:
+                print(f"  Dependencies ({len(dependencies)}):")
+                for dep in dependencies[:10]:
+                    print(f"    - {dep}")
+                if len(dependencies) > 10:
+                    print(f"    ... and {len(dependencies) - 10} more")
+
+            files = config.get('files', [])
+            if files:
+                print(f"  Files ({len(files)}):")
+                print(f"    Total files: {len(files)}")
+
+    except ImportError as e:
+        # Fallback to original U++ only functionality if build_config module is not available
+        pkg_name = pkg['name']
+        mainconfigs = pkg.get('upp', {}).get('mainconfigs', [])
+
+        if json_output:
+            output = {
+                'package': pkg_name,
+                'configurations': mainconfigs
+            }
+            print(json.dumps(output, indent=2))
+            return
+
+        if not mainconfigs:
+            print(f"Package '{pkg_name}' has no mainconfig configurations")
+            return
+
+        print(f"Build configurations for package '{pkg_name}':\n")
+
+        for i, config in enumerate(mainconfigs):
+            config_num = i + 1
+            name = config.get('name', '')
+            param = config.get('param', '')
+
+            # Format name and param for display
+            name_display = f'"{name}"' if name else '(default)'
+            param_display = f'"{param}"' if param else '(none)'
+
+            print(f"  [{config_num}] {name_display}")
+            print(f"      Flags: {param_display}")
 
 
 def handle_structure_conformance(session_path: str, verbose: bool = False) -> int:
@@ -3729,6 +3902,12 @@ def main():
     repo_pkg_parser.add_argument('--deep', action='store_true', help='Show full tree with all duplicates (for tree action)')
     repo_pkg_parser.add_argument('--show-groups', action='store_true', help='Show package file groups')
     repo_pkg_parser.add_argument('--group', help='Filter to specific group (use with --show-groups)')
+
+    # repo conf
+    repo_conf_parser = repo_subparsers.add_parser('conf', aliases=['c'], help='Show build configurations for a package')
+    repo_conf_parser.add_argument('package_name', nargs='?', help='Package name to show configurations for')
+    repo_conf_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
+    repo_conf_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
 
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
@@ -5476,6 +5655,80 @@ def main():
                         for asm in index_data['assemblies_detected']:
                             print_info(f"{asm['name']}: {len(asm['package_folders'])} packages", 2)
 
+            elif args.repo_subcommand in ['conf', 'c']:
+                # Show build configurations for a package
+                repo_root = args.path if hasattr(args, 'path') and args.path else None
+                index_data = load_repo_index(repo_root)
+
+                if repo_root is None:
+                    repo_root = find_repo_root()
+
+                # Combine U++ packages and internal packages
+                packages = index_data['packages_detected']
+                internal_packages = index_data.get('internal_packages', [])
+
+                # Add type marker to distinguish package types
+                for p in packages:
+                    p['_type'] = 'upp'
+                for p in internal_packages:
+                    p['_type'] = 'internal'
+
+                # Combine and sort all packages
+                all_packages = packages + internal_packages
+                sorted_packages = sorted(all_packages, key=lambda p: p['name'].lower())
+
+                # If no package name provided, show available packages
+                if not args.package_name:
+                    print_error("Package name required for conf command", 2)
+                    print_info("Available packages:", 2)
+                    for i, pkg in enumerate(sorted_packages[:20], 1):  # Show first 20 packages
+                        print_info(f"  [{i:3d}] {pkg['name']}", 2)
+                    if len(sorted_packages) > 20:
+                        print_info(f"  ... and {len(sorted_packages) - 20} more", 2)
+                    sys.exit(1)
+
+                # Find the package
+                pkg = None
+
+                # Check if it's a numeric selection
+                if args.package_name.isdigit():
+                    pkg_num = int(args.package_name)
+                    if 1 <= pkg_num <= len(sorted_packages):
+                        pkg = sorted_packages[pkg_num - 1]
+                    else:
+                        print_error(f"Package number {pkg_num} out of range (1-{len(sorted_packages)})", 2)
+                        sys.exit(1)
+                else:
+                    # Try exact match first in all packages
+                    pkg = next((p for p in all_packages if p['name'] == args.package_name), None)
+
+                    # If no exact match, try partial match
+                    if not pkg:
+                        matches = [p for p in all_packages if args.package_name.lower() in p['name'].lower()]
+                        if len(matches) == 0:
+                            print_error(f"No package found matching: {args.package_name}", 2)
+                            sys.exit(1)
+                        elif len(matches) == 1:
+                            pkg = matches[0]
+                        else:
+                            # Multiple matches - show them with numbers and relative paths
+                            print_error(f"Multiple packages match '{args.package_name}':", 2)
+                            # Find numbers for matched packages in sorted list
+                            for m in matches[:20]:
+                                pkg_num = sorted_packages.index(m) + 1
+                                pkg_type = m.get('_type', 'upp')
+                                if pkg_type == 'internal':
+                                    rel_path = os.path.relpath(m['root_path'], repo_root) if repo_root else m['root_path']
+                                else:
+                                    rel_path = os.path.relpath(m['dir'], repo_root) if repo_root else m['dir']
+                                print_info(f"  [{pkg_num:4d}] {m['name']:30s} {rel_path}", 2)
+                            if len(matches) > 20:
+                                print_info(f"  ... and {len(matches) - 20} more", 2)
+                            print_info("\nUse: maestro repo conf <number>", 2)
+                            sys.exit(1)
+
+                # Show build configuration for the package
+                handle_repo_pkg_conf(pkg, args.json)
             elif args.repo_subcommand == 'pkg':
                 # Package query and inspection
                 repo_root = args.path if hasattr(args, 'path') and args.path else None

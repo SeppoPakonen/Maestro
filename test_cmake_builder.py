@@ -99,9 +99,13 @@ class TestCMakeBuilder(unittest.TestCase):
         # Configure is called first, then build
         self.assertEqual(mock_execute.call_count, 2)
 
-    def test_is_multi_config_generator(self):
-        """Test the multi-config generator detection."""
-        result = self.builder._is_multi_config_generator()
+    def test_detect_generator_type(self):
+        """Test the improved multi-config generator detection."""
+        # Create a temporary build directory for testing
+        build_dir = os.path.join(self.temp_dir, "build")
+        os.makedirs(build_dir, exist_ok=True)
+
+        result = self.builder._detect_generator_type(self.config, build_dir)
         # The actual result depends on the platform running the test
         self.assertIsInstance(result, bool)
 

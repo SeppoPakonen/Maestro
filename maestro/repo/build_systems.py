@@ -6,6 +6,7 @@ Supports multiple build systems:
 - GNU Make
 - BSD Make
 - Autoconf/Automake
+- Gradle
 - Maven
 - Visual Studio
 
@@ -33,7 +34,7 @@ class BuildSystemPackage:
 def detect_build_system(repo_root: str) -> List[str]:
     """
     Detect which build systems are present in the repository.
-    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp', 'msvs', 'maven']
+    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp', 'msvs', 'maven', 'gradle']
     """
     systems = []
 
@@ -52,6 +53,11 @@ def detect_build_system(repo_root: str) -> List[str]:
         if os.path.exists(os.path.join(repo_root, autoconf_file)):
             systems.append('autoconf')
             break
+
+    # Check for Gradle (build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts)
+    gradle_files = ['build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts']
+    if any(os.path.exists(os.path.join(repo_root, gf)) for gf in gradle_files):
+        systems.append('gradle')
 
     # Check for Maven (pom.xml files)
     for root, dirs, files in os.walk(repo_root):
@@ -771,6 +777,166 @@ def scan_maven_packages(repo_root: str, verbose: bool = False) -> List[BuildSyst
     return packages
 
 
+def scan_gradle_packages(repo_root: str, verbose: bool = False) -> List[BuildSystemPackage]:
+    """
+    Scan Gradle build system for packages/modules.
+
+    Gradle package detection strategy:
+    1. Find all build.gradle/build.gradle.kts files in repository
+    2. Parse each build file to extract:
+       - Project/module name (from settings.gradle or directory name)
+       - Dependencies (project dependencies and external dependencies)
+    3. Extract source files from standard Gradle directories (src/main/java, src/main/kotlin, etc.)
+    4. Handle multi-module projects
+    """
+    packages = []
+
+    # First, try to find settings.gradle or settings.gradle.kts to get module structure
+    settings_file = None
+    for sf in ['settings.gradle.kts', 'settings.gradle']:
+        sf_path = os.path.join(repo_root, sf)
+        if os.path.exists(sf_path):
+            settings_file = sf_path
+            break
+
+    # Parse settings file to get included modules
+    included_modules = []
+    root_project_name = os.path.basename(repo_root)
+
+    if settings_file:
+        try:
+            with open(settings_file, 'r', encoding='utf-8', errors='ignore') as f:
+                settings_content = f.read()
+
+            # Extract root project name
+            # Pattern: rootProject.name = "name" or rootProject.name="name"
+            root_name_pattern = r'rootProject\.name\s*=\s*["\']([^"\']+)["\']'
+            root_name_match = re.search(root_name_pattern, settings_content)
+            if root_name_match:
+                root_project_name = root_name_match.group(1)
+
+            # Extract included modules
+            # Pattern: include("module") or include(":module") or include(":module1", ":module2")
+            include_pattern = r'include\s*\([^)]+\)'
+            includes = re.findall(include_pattern, settings_content)
+
+            for inc in includes:
+                # Extract module names from the include statement
+                module_pattern = r'["\']([^"\']+)["\']'
+                modules = re.findall(module_pattern, inc)
+                for mod in modules:
+                    # Remove leading colon if present
+                    mod_clean = mod.lstrip(':')
+                    included_modules.append(mod_clean)
+
+            if verbose:
+                print(f"[gradle] found settings file with root project '{root_project_name}' and {len(included_modules)} modules")
+
+        except Exception as e:
+            if verbose:
+                print(f"[gradle] error parsing {settings_file}: {e}")
+
+    # Find all build.gradle and build.gradle.kts files
+    build_files = []
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories and common build directories
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['build', '.gradle']]
+
+        for file in files:
+            if file in ['build.gradle', 'build.gradle.kts']:
+                build_path = os.path.join(root, file)
+                build_files.append(build_path)
+
+    # Parse each build.gradle file
+    for build_path in build_files:
+        build_dir = os.path.dirname(build_path)
+        rel_dir = os.path.relpath(build_dir, repo_root)
+
+        # Determine module name
+        if build_dir == repo_root:
+            module_name = root_project_name
+        else:
+            # Use relative path as module name (matches Gradle convention)
+            module_name = rel_dir.replace(os.sep, ':')
+
+        try:
+            with open(build_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+
+            # Extract dependencies
+            dependencies = []
+
+            # Pattern for project dependencies: project(":module") or project(':module')
+            project_dep_pattern = r'project\s*\(\s*["\']([^"\']+)["\']\s*\)'
+            project_deps = re.findall(project_dep_pattern, content)
+
+            for dep in project_deps:
+                # Remove leading colon and convert to path-like format
+                dep_clean = dep.lstrip(':')
+                dependencies.append({
+                    'type': 'project',
+                    'name': dep_clean,
+                    'raw': dep
+                })
+
+            # Collect source files from standard Gradle directory structure
+            source_files = []
+            source_dirs = [
+                'src/main/java',
+                'src/main/kotlin',
+                'src/main/groovy',
+                'src/main/scala',
+                'src/main/resources',
+                'src/test/java',
+                'src/test/kotlin',
+                'src/test/groovy',
+                'src/test/scala',
+                'src/test/resources'
+            ]
+
+            for src_dir in source_dirs:
+                src_path = os.path.join(build_dir, src_dir)
+                if os.path.exists(src_path):
+                    for src_root, src_dirs, src_files in os.walk(src_path):
+                        # Skip hidden directories
+                        src_dirs[:] = [d for d in src_dirs if not d.startswith('.')]
+
+                        for file in src_files:
+                            file_path = os.path.join(src_root, file)
+                            rel_file = os.path.relpath(file_path, repo_root)
+                            source_files.append(rel_file)
+
+            # Metadata
+            metadata = {
+                'build_file': os.path.relpath(build_path, repo_root),
+                'module_name': module_name,
+                'dependencies': dependencies
+            }
+
+            if settings_file:
+                metadata['settings_file'] = os.path.relpath(settings_file, repo_root)
+                metadata['root_project'] = root_project_name
+
+            # Create package
+            pkg = BuildSystemPackage(
+                name=module_name,
+                build_system='gradle',
+                dir=build_dir,
+                files=source_files,
+                metadata=metadata
+            )
+            packages.append(pkg)
+
+            if verbose:
+                print(f"[gradle] found module '{module_name}' in {rel_dir} ({len(source_files)} sources, {len(dependencies)} project deps)")
+
+        except Exception as e:
+            if verbose:
+                print(f"[gradle] error parsing {build_path}: {e}")
+
+    return packages
+
+
 def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, List[BuildSystemPackage]]:
     """
     Scan all detected build systems and return packages grouped by build system.
@@ -794,6 +960,9 @@ def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, L
 
     if 'autoconf' in detected:
         results['autoconf'] = scan_autoconf_packages(repo_root, verbose)
+
+    if 'gradle' in detected:
+        results['gradle'] = scan_gradle_packages(repo_root, verbose)
 
     if 'maven' in detected:
         results['maven'] = scan_maven_packages(repo_root, verbose)

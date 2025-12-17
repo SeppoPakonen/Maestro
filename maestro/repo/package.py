@@ -30,3 +30,39 @@ class PackageInfo:
     dependencies: List[str] = field(default_factory=list)  # Project dependencies
     groups: List[FileGroup] = field(default_factory=list)  # Internal package groups
     ungrouped_files: List[str] = field(default_factory=list)  # Files not in any group
+
+    def to_builder_package(self):
+        """
+        Convert this PackageInfo to a format suitable for builder consumption.
+
+        Returns:
+            A dictionary with package information formatted for builder usage.
+        """
+        from maestro.builders.base import Package as BuilderPackage
+
+        # Create the builder package with essential information
+        builder_package = BuilderPackage(
+            name=self.name,
+            directory=self.dir,
+            build_system=self.build_system,
+            source_files=self.files,
+            dependencies=self.dependencies
+        )
+
+        # Add additional metadata based on build system type
+        if self.upp:
+            builder_package.metadata = self.upp
+
+        # Add file groups information
+        builder_package.groups = [
+            {
+                'name': group.name,
+                'files': group.files,
+                'readonly': group.readonly,
+                'auto_generated': group.auto_generated
+            } for group in self.groups
+        ]
+
+        builder_package.ungrouped_files = self.ungrouped_files
+
+        return builder_package

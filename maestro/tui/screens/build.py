@@ -12,7 +12,7 @@ from textual.reactive import reactive
 from textual.widget import Widget
 from textual.css.query import NoMatches
 from maestro.ui_facade.build import list_build_targets, get_active_build_target, set_active_build_target
-from maestro.ui_facade.build import run_build, get_build_status, run_fix_loop, get_diagnostics, BuildTargetInfo, DiagnosticInfo
+from maestro.ui_facade.build import run_build, get_build_status, run_fix_loop, get_diagnostics, stop_build, list_build_methods, detect_build_methods, get_active_build_method, set_active_build_method, BuildTargetInfo, DiagnosticInfo, BuildMethod
 from maestro.ui_facade.sessions import get_active_session
 import asyncio
 from typing import List, Optional
@@ -92,6 +92,187 @@ class TargetDetails(Widget):
         self.refresh()
 
 
+class MethodSelectionWidget(Widget):
+    """Widget for build method selection."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.methods = []
+        self.selected_method_id = None
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for method selection."""
+        yield Label("[b]Build Methods[/b]", classes="method-header")
+
+        # Initialize the method list
+        self.update_methods(self.methods)
+
+        # Add a button to detect methods
+        yield Button("Detect Methods", id="detect-methods", variant="default")
+
+    def update_methods(self, methods):
+        """Update the list of build methods."""
+        self.methods = methods
+        # Clear existing children and rebuild them
+        self.mount_all(self._create_method_widgets(), before=0)
+
+    def _create_method_widgets(self):
+        """Create widgets for each build method."""
+        widgets = []
+        for method in self.methods:
+            status_symbol = "✓" if method.available else "✗"
+            method_classes = ["method-item"]
+            if method.available:
+                method_classes.append("available")
+            else:
+                method_classes.append("unavailable")
+
+            widgets.append(
+                Label(
+                    f"{method.name} ({status_symbol}) - {method.description}",
+                    id=f"method-{method.id}",
+                    classes=" ".join(method_classes)
+                )
+            )
+        if not widgets:
+            widgets.append(Label("No methods available", id="no-methods", classes="no-methods"))
+        return widgets
+
+    def on_label_clicked(self, event) -> None:
+        """Handle clicking on a build method to select it."""
+        if event.label.id and event.label.id.startswith("method-"):
+            method_id = event.label.id[7:]  # Remove "method-" prefix
+            self.selected_method_id = method_id
+            # Notify parent screen about method selection
+            self.post_message(BuildMethodSelected(method_id))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "detect-methods":
+            self.post_message(DetectMethodsRequested())
+
+class BuildMethodSelected(Message):
+    """Message sent when a build method is selected."""
+
+    def __init__(self, method_id: str) -> None:
+        super().__init__()
+        self.method_id = method_id
+
+class DetectMethodsRequested(Message):
+    """Message sent when user requests to detect build methods."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+
+class BuildOptionsWidget(Widget):
+    """Widget for build options configuration."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for build options."""
+        yield Label("[b]Build Options[/b]", classes="options-header")
+
+        with Vertical(classes="options-container"):
+            yield Label("Parallel Jobs:")
+            yield Input(placeholder="Number of parallel jobs", value="4", id="parallel-jobs", type="integer")
+
+            yield Label("Build Type:")
+            # For now using a simple input; in a real implementation this would be a dropdown
+            yield Input(placeholder="Build type (Debug/Release)", value="Debug", id="build-type")
+
+            yield Label("Verbose Output:")
+            from textual.widgets import Checkbox
+            yield Checkbox("Enable verbose output", id="verbose-output", value=False)
+
+    def get_options(self) -> dict:
+        """Get the current build options."""
+        try:
+            parallel_jobs_input = self.query_one("#parallel-jobs", Input)
+            build_type_input = self.query_one("#build-type", Input)
+            verbose_checkbox = self.query_one("#verbose-output", Checkbox)
+
+            # Attempt to parse parallel jobs, default to 4 if invalid
+            try:
+                parallel_jobs = int(parallel_jobs_input.value) if parallel_jobs_input.value else 4
+            except ValueError:
+                parallel_jobs = 4
+
+            return {
+                "parallel_jobs": parallel_jobs,
+                "build_type": build_type_input.value or "Debug",
+                "verbose": verbose_checkbox.value
+            }
+        except Exception:
+            # Return defaults if widgets are not available
+            return {
+                "parallel_jobs": 4,
+                "build_type": "Debug",
+                "verbose": False
+            }
+
+
+class BuildOutputLog(Widget):
+    """Widget to display build output in real-time."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.output_lines = []
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for the build output."""
+        from textual.widgets import RichLog
+        yield RichLog(id="build-output-log", max_lines=1000, classes="build-output-log")
+
+    def write_output(self, text: str):
+        """Write output text to the log."""
+        try:
+            log_widget = self.query_one("#build-output-log", RichLog)
+            log_widget.write(text)
+        except NoMatches:
+            pass
+
+    def clear_output(self):
+        """Clear the build output."""
+        try:
+            log_widget = self.query_one("#build-output-log", RichLog)
+            log_widget.clear()
+        except NoMatches:
+            pass
+
+
+class FilterControls(Widget):
+    """Widget for diagnostic filtering controls."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for the filter controls."""
+        from textual.widgets import Checkbox
+        with Horizontal(classes="filter-controls"):
+            yield Checkbox("Show Errors", id="filter-errors", value=True)
+            yield Checkbox("Show Warnings", id="filter-warnings", value=True)
+            yield Checkbox("Show Notes", id="filter-notes", value=True)
+
+    def get_filter_settings(self) -> dict:
+        """Get the current filter settings."""
+        try:
+            error_cb = self.query_one("#filter-errors", Checkbox)
+            warning_cb = self.query_one("#filter-warnings", Checkbox)
+            note_cb = self.query_one("#filter-notes", Checkbox)
+
+            return {
+                "errors": error_cb.value,
+                "warnings": warning_cb.value,
+                "notes": note_cb.value
+            }
+        except NoMatches:
+            return {"errors": True, "warnings": True, "notes": True}
+
+
 class DiagnosticGroup(Widget):
     """Widget to display diagnostics grouped by severity."""
 
@@ -118,7 +299,7 @@ class DiagnosticGroup(Widget):
                 yield Label(
                     f"• {message}",
                     id=f"diagnostic-{diag.id}",
-                    classes="diagnostic-item"
+                    classes="diagnostic-item clickable"
                 )
 
     def toggle_collapse(self):
@@ -141,19 +322,34 @@ class DiagnosticsViewer(Widget):
     def compose(self) -> ComposeResult:
         """Create child widgets for the diagnostics viewer."""
         if self.diagnostics:
-            # Group diagnostics by level
-            error_diags = [d for d in self.diagnostics if d.level == "error"]
-            warning_diags = [d for d in self.diagnostics if d.level == "warning"]
-            note_diags = [d for d in self.diagnostics if d.level == "note"]
+            # Get filter settings from the parent container
+            try:
+                filter_controls = self.parent.query_one("#filter-controls", FilterControls)
+                filters = filter_controls.get_filter_settings()
+            except:
+                # If filter controls not available, show all
+                filters = {"errors": True, "warnings": True, "notes": True}
 
-            # Only create groups for levels that have diagnostics
+            # Group diagnostics by level and apply filters
+            error_diags = [d for d in self.diagnostics if d.level == "error" and filters.get("errors", True)]
+            warning_diags = [d for d in self.diagnostics if d.level == "warning" and filters.get("warnings", True)]
+            note_diags = [d for d in self.diagnostics if d.level == "note" and filters.get("notes", True)]
+
+            # Only create groups for levels that have diagnostics and are filtered to show
             if error_diags:
                 yield DiagnosticGroup("error", error_diags)
             if warning_diags:
                 yield DiagnosticGroup("warning", warning_diags)
             if note_diags:
                 yield DiagnosticGroup("note", note_diags)
-        else:
+
+        # If no diagnostics match the filters, show a message
+        if not any([
+            d for d in self.diagnostics
+            if (d.level == "error" and True) or
+               (d.level == "warning" and True) or
+               (d.level == "note" and True)
+        ]):
             yield Label("No diagnostics to display", classes="placeholder")
 
     def update_diagnostics(self, diagnostics):
@@ -165,9 +361,12 @@ class DiagnosticsViewer(Widget):
         """Handle clicking on a diagnostic message."""
         if event.label.id and event.label.id.startswith("diagnostic-"):
             diag_id = event.label.id[11:]  # Remove "diagnostic-" prefix
-            self.selected_diagnostic_id = diag_id
-            # Notify parent screen about diagnostic selection
-            self.post_message(DiagnosticSelected(diag_id))
+            # Find the diagnostic info to get file path and line number
+            selected_diag = next((d for d in self.diagnostics if d.id == diag_id), None)
+            if selected_diag:
+                self.selected_diagnostic_id = diag_id
+                # Notify parent screen about diagnostic selection with file/line info
+                self.post_message(DiagnosticSelected(diag_id, selected_diag.file_path, selected_diag.line_number))
         elif event.label.id and event.label.id.startswith("diagnostic-group-header-"):
             # Toggle the group when header is clicked
             level = event.label.id[24:]  # Remove "diagnostic-group-header-" prefix
@@ -189,6 +388,7 @@ class BuildControlBar(Widget):
         """Create child widgets for the control bar."""
         with Horizontal(classes="build-control-buttons"):
             yield Button("Run (R)", id="run-build", variant="primary")
+            yield Button("Stop (X)", id="stop-build", variant="error")
             yield Button("Fix Loop (F)", id="run-fix-loop", variant="warning")
             yield Button("Status (S)", id="get-status", variant="default")
             yield Button("Refresh (r)", id="refresh", variant="success")
@@ -205,11 +405,13 @@ class BuildControlBar(Widget):
 
             # Update button states
             run_btn = self.query_one("#run-build", Button)
+            stop_btn = self.query_one("#stop-build", Button)
             fix_btn = self.query_one("#run-fix-loop", Button)
             status_btn = self.query_one("#get-status", Button)
             refresh_btn = self.query_one("#refresh", Button)
 
             run_btn.disabled = is_running
+            stop_btn.disabled = not is_running
             fix_btn.disabled = is_running
             status_btn.disabled = is_running
             refresh_btn.disabled = is_running
@@ -255,30 +457,52 @@ class BuildScreen(Screen):
         height: 1fr;
     }
 
-    .build-target-list-container {
-        width: 30%;
+    .build-target-and-config-container {
+        width: 20%;
         height: 1fr;
         border-right: solid $primary;
     }
 
-    .center-panel {
-        width: 50%;
-        height: 1fr;
-    }
-
-    .target-details-container {
+    .build-target-list-container {
         height: 50%;
         border-bottom: solid $primary;
     }
 
-    .diagnostics-container {
+    .build-config-container {
         height: 50%;
     }
 
-    .actions-status-container {
-        width: 20%;
+    .center-panel {
+        width: 55%;
+        height: 1fr;
+    }
+
+    .target-details-container {
+        height: 40%;
+        border-bottom: solid $primary;
+    }
+
+    .diagnostics-container {
+        height: 60%;
+    }
+
+    .build-output-and-controls-container {
+        width: 25%;
         height: 1fr;
         border-left: solid $primary;
+    }
+
+    .build-output-container {
+        height: 40%;
+        border-bottom: solid $primary;
+    }
+
+    .build-output-log {
+        height: 1fr;
+    }
+
+    .actions-status-container {
+        height: 60%;
     }
 
     .build-control-buttons {
@@ -332,6 +556,72 @@ class BuildScreen(Screen):
         padding: 0 1;
         margin: 0.2 0;
     }
+
+    .method-header {
+        text-style: bold;
+        margin: 0.5 0;
+    }
+
+    .options-header {
+        text-style: bold;
+        margin: 0.5 0;
+    }
+
+    .options-container {
+        margin: 0.5 0;
+    }
+
+    .options-container Label {
+        margin: 0.3 0;
+    }
+
+    .options-container Input {
+        width: 100%;
+        margin: 0.2 0;
+    }
+
+    .options-container Checkbox {
+        margin: 0.3 0;
+    }
+
+    .method-item {
+        height: auto;
+        padding: 0.3 0.5;
+        margin: 0.1 0;
+        background: $surface;
+    }
+
+    .method-item.available {
+        color: $success;
+    }
+
+    .method-item.unavailable {
+        color: $error;
+    }
+
+    .method-item.selected {
+        background: $accent 20%;
+        text-style: reverse;
+    }
+
+    .no-methods {
+        color: $text-muted;
+        text-style: italic;
+        padding: 1 0;
+    }
+
+    .filter-controls {
+        padding: 0.5 0;
+        border-bottom: solid $primary 1;
+    }
+
+    .diagnostic-item.clickable {
+        cursor: pointer;
+    }
+
+    .diagnostic-item.clickable:hover {
+        background: $accent 20%;
+    }
     """
 
     # Reactive attribute to track execution state
@@ -353,16 +643,24 @@ class BuildScreen(Screen):
         self._refresh_handle = None
         self._check_state_handle = None
         self._diagnostics_handle = None
+        self._build_methods_handle = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the build screen."""
         yield Header()
 
-        # Four-panel layout: Left (Targets), Center-Top (Details), Center-Bottom (Diagnostics), Right (Controls)
+        # Six-panel layout: Left-Left (Targets), Left-Right (Config), Center-Top (Details), Center-Bottom (Diagnostics), Right-Top (Build Output), Right-Bottom (Controls)
         with Horizontal(id="main-content"):
-            # Left: Build Target List
-            with Vertical(classes="build-target-list-container"):
-                yield BuildTargetList(id="build-target-list")
+            # Left section: Build Target List + Build Config
+            with Vertical(classes="build-target-and-config-container"):
+                # Left-Top: Build Target List
+                with Container(classes="build-target-list-container"):
+                    yield BuildTargetList(id="build-target-list")
+
+                # Left-Bottom: Build Configuration
+                with Container(classes="build-config-container"):
+                    yield MethodSelectionWidget(id="method-selection")
+                    yield BuildOptionsWidget(id="build-options")
 
             # Center: Details (top) and Diagnostics (bottom)
             with Vertical(classes="center-panel"):
@@ -372,12 +670,19 @@ class BuildScreen(Screen):
 
                 # Center-Bottom: Diagnostics Viewer
                 with Container(classes="diagnostics-container"):
+                    yield FilterControls(id="filter-controls")
                     yield DiagnosticsViewer(id="diagnostics-viewer")
 
-            # Right: Actions & Status
-            with Vertical(classes="actions-status-container"):
-                yield BuildControlBar(id="control-bar")
-                yield StatusInfo(id="status-info")
+            # Right: Build Output (top) and Actions & Status (bottom)
+            with Vertical(classes="build-output-and-controls-container"):
+                # Right-Top: Build Output
+                with Container(classes="build-output-container"):
+                    yield BuildOutputLog(id="build-output-log")
+
+                # Right-Bottom: Actions & Status
+                with Vertical(classes="actions-status-container"):
+                    yield BuildControlBar(id="control-bar")
+                    yield StatusInfo(id="status-info")
 
         # Status message area
         yield Label("Ready", id="status-message", classes="status-message")
@@ -427,8 +732,14 @@ class BuildScreen(Screen):
         # Load initial build target list
         self.refresh_build_targets()
 
+        # Load build methods
+        self.refresh_build_methods()
+
         # Set up periodic refresh to update build statuses
         self._refresh_handle = self.set_interval(2.0, self.refresh_build_targets)
+
+        # Set up periodic refresh for build methods
+        self._build_methods_handle = self.set_interval(5.0, self.refresh_build_methods)
 
         # Set up periodic check for build state
         self._check_state_handle = self.set_interval(1.0, self._check_build_state)
@@ -440,6 +751,8 @@ class BuildScreen(Screen):
             self._refresh_handle()
         if self._check_state_handle:
             self._check_state_handle()
+        if self._build_methods_handle:
+            self._build_methods_handle()
 
     def refresh_build_targets(self) -> None:
         """Refresh the build target list from the backend."""
@@ -462,6 +775,31 @@ class BuildScreen(Screen):
             target_list = self.query_one("#build-target-list", BuildTargetList)
             if target_list:
                 target_list.update_targets(targets)
+        except Exception:
+            # If query fails, silently continue
+            pass
+
+    def refresh_build_methods(self) -> None:
+        """Refresh the build methods list from the backend."""
+        try:
+            session = get_active_session()
+            if session:
+                methods = list_build_methods(session.id)
+                # Use call_later to ensure UI is ready before updating
+                self.call_later(lambda: self._update_build_methods(methods))
+            else:
+                # No active session
+                self.call_later(lambda: self._update_build_methods([]))
+        except Exception:
+            # If we can't load methods, show empty list
+            self.call_later(lambda: self._update_build_methods([]))
+
+    def _update_build_methods(self, methods):
+        """Safely update the build methods list."""
+        try:
+            method_selection = self.query_one("#method-selection", MethodSelectionWidget)
+            if method_selection:
+                method_selection.update_methods(methods)
         except Exception:
             # If query fails, silently continue
             pass
@@ -505,6 +843,11 @@ class BuildScreen(Screen):
     def on_run_build_pressed(self) -> None:
         """Handle Run Build button press."""
         self.action_run_build()
+
+    @on(Button.Pressed, "#stop-build")
+    def on_stop_build_pressed(self) -> None:
+        """Handle Stop Build button press."""
+        self.action_stop_build()
 
     @on(Button.Pressed, "#run-fix-loop")
     def on_run_fix_loop_pressed(self) -> None:
@@ -565,13 +908,21 @@ class BuildScreen(Screen):
             target_list = self.query_one("#build-target-list", BuildTargetList)
             selected_target_id = target_list.selected_target_id
 
+            # Get build options
+            build_options_widget = self.query_one("#build-options", BuildOptionsWidget)
+            build_options = build_options_widget.get_options() if build_options_widget else {}
+
             # Check if build is already running
             build_status = get_build_status(session.id)
             if build_status.state == "running":
                 self.notify("Build is already running - wait for completion", severity="warning")
                 return
 
-            # Update status message
+            # Clear build output and update status message
+            build_output_widget = self.query_one("#build-output-log", BuildOutputLog)
+            if build_output_widget:
+                build_output_widget.clear_output()
+
             status_label = self.query_one("#status-message", Label)
             if status_label:
                 status_label.update(f"[bold yellow]RUNNING[/bold yellow] - Starting build for {selected_target_id or 'active target'}... (Press S to check status)")
@@ -579,7 +930,15 @@ class BuildScreen(Screen):
             # Run build in a separate thread to not block UI
             def run_build_in_thread():
                 try:
-                    result = run_build(session.id, selected_target_id)
+                    # Call run_build with build options and callback to capture output
+                    result = run_build(
+                        session.id,
+                        selected_target_id,
+                        output_callback=self._write_build_output,
+                        parallel_jobs=build_options.get('parallel_jobs', 4),
+                        build_type=build_options.get('build_type', 'Debug'),
+                        verbose=build_options.get('verbose', False)
+                    )
                     if result.get("status") == "success":
                         self.call_from_thread(lambda: self._on_build_success(result))
                     else:
@@ -592,6 +951,15 @@ class BuildScreen(Screen):
             thread.start()
         except NoMatches:
             self.notify("Build target list not found", severity="error", timeout=3)
+
+    def _write_build_output(self, text: str):
+        """Write text to the build output widget."""
+        try:
+            build_output_widget = self.query_one("#build-output-log", BuildOutputLog)
+            if build_output_widget:
+                build_output_widget.write_output(text)
+        except NoMatches:
+            pass
 
     def _on_build_success(self, result):
         """Handle successful build completion."""
@@ -628,6 +996,10 @@ class BuildScreen(Screen):
             target_list = self.query_one("#build-target-list", BuildTargetList)
             selected_target_id = target_list.selected_target_id
 
+            # Get build options
+            build_options_widget = self.query_one("#build-options", BuildOptionsWidget)
+            build_options = build_options_widget.get_options() if build_options_widget else {}
+
             # Check if build is already running
             build_status = get_build_status(session.id)
             if build_status.state == "running":
@@ -642,7 +1014,14 @@ class BuildScreen(Screen):
             # Run fix loop in a separate thread to not block UI
             def run_fix_loop_in_thread():
                 try:
-                    result = run_fix_loop(session.id, selected_target_id, limit=None)
+                    result = run_fix_loop(
+                        session.id,
+                        selected_target_id,
+                        limit=None,
+                        parallel_jobs=build_options.get('parallel_jobs', 4),
+                        build_type=build_options.get('build_type', 'Debug'),
+                        verbose=build_options.get('verbose', False)
+                    )
                     self.call_from_thread(lambda: self._on_fix_loop_complete(result))
                 except Exception as e:
                     self.call_from_thread(lambda: self._on_fix_loop_error(str(e)))
@@ -669,6 +1048,44 @@ class BuildScreen(Screen):
         if status_label:
             status_label.update(f"[bold red]FIX LOOP ERROR[/bold red] - {error_msg}")
         self.notify(f"Fix loop error: {error_msg}", severity="error", timeout=5)
+
+    def action_stop_build(self) -> None:
+        """Stop the currently running build."""
+        try:
+            session = get_active_session()
+            if not session:
+                self.notify("No active session found", severity="error")
+                return
+
+            # Check if build is running
+            build_status = get_build_status(session.id)
+            if build_status.state != "running":
+                self.notify("No build is currently running", severity="warning")
+                return
+
+            # Update status message
+            status_label = self.query_one("#status-message", Label)
+            if status_label:
+                status_label.update("[bold yellow]STOPPING[/bold yellow] - Stopping build...")
+
+            # Stop the build
+            success = stop_build(session.id)
+            if success:
+                status_label = self.query_one("#status-message", Label)
+                if status_label:
+                    status_label.update("[bold green]STOPPED[/bold green] - Build stopped successfully")
+                self.notify("Build stopped successfully", timeout=3)
+            else:
+                status_label = self.query_one("#status-message", Label)
+                if status_label:
+                    status_label.update("[bold red]ERROR[/bold red] - Failed to stop build")
+                self.notify("Failed to stop build", severity="error", timeout=5)
+
+        except Exception as e:
+            status_label = self.query_one("#status-message", Label)
+            if status_label:
+                status_label.update(f"[bold red]ERROR[/bold red] - {str(e)}")
+            self.notify(f"Error stopping build: {str(e)}", severity="error", timeout=5)
 
     def action_get_status(self) -> None:
         """Get current build status."""
@@ -729,10 +1146,52 @@ class BuildScreen(Screen):
             # If query fails, silently continue
             pass
 
+    def on_checkbox_changed(self, event) -> None:
+        """Handle changes in diagnostic filter checkboxes."""
+        # Refresh diagnostics when filters change
+        # Get the session and selected target to refresh diagnostics
+        session = get_active_session()
+        if session:
+            try:
+                target_list = self.query_one("#build-target-list", BuildTargetList)
+                selected_target_id = target_list.selected_target_id if target_list.selected_target_id else None
+                diags = get_diagnostics(session.id, selected_target_id)
+                self.call_later(lambda: self._update_diagnostics(diags))
+            except Exception:
+                # If there's an issue refreshing diagnostics, silently continue
+                pass
+
     def on_diagnostic_selected(self, message: DiagnosticSelected) -> None:
         """Handle when a diagnostic is selected."""
         diag_id = message.diag_id
-        self.notify(f"Diagnostic selected: {diag_id}", timeout=2)
+        if message.file_path and message.line_number:
+            self.notify(f"Diagnostic selected: {diag_id} - {message.file_path}:{message.line_number}", timeout=2)
+            # In a real implementation, this would open the file in an editor at the specified line
+            # For now, just show a notification about the file and line
+        else:
+            self.notify(f"Diagnostic selected: {diag_id}", timeout=2)
+
+    def on_build_method_selected(self, message: BuildMethodSelected) -> None:
+        """Handle when a build method is selected."""
+        method_id = message.method_id
+        session = get_active_session()
+        if session:
+            success = set_active_build_method(session.id, method_id)
+            if success:
+                self.app._load_status_state()  # Refresh app state
+                self.notify(f"Build method {method_id} set as active", timeout=3)
+            else:
+                self.notify(f"Failed to set {method_id} as active method", severity="error", timeout=3)
+
+    def on_detect_methods_requested(self, message: DetectMethodsRequested) -> None:
+        """Handle request to detect build methods."""
+        try:
+            detected_methods = detect_build_methods()
+            # Update the UI with detected methods
+            self.call_later(lambda: self._update_build_methods(detected_methods))
+            self.notify(f"Detected {len(detected_methods)} build methods", timeout=3)
+        except Exception as e:
+            self.notify(f"Error detecting build methods: {str(e)}", severity="error", timeout=5)
 
 
 class BuildTargetSelected(Message):
@@ -746,6 +1205,8 @@ class BuildTargetSelected(Message):
 class DiagnosticSelected(Message):
     """Message sent when a diagnostic is selected in the diagnostics viewer."""
 
-    def __init__(self, diag_id: str) -> None:
+    def __init__(self, diag_id: str, file_path: str = None, line_number: int = None) -> None:
         super().__init__()
         self.diag_id = diag_id
+        self.file_path = file_path
+        self.line_number = line_number

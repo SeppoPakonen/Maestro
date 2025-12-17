@@ -6,13 +6,18 @@ from ..builders.config import MethodConfig
 class Package:
     """Class representing a package to be built."""
 
-    def __init__(self, name: str, path: str, metadata: Dict[str, Any] = None):
+    def __init__(self, name: str, directory: str = "", build_system: str = "upp",
+                 source_files: List[str] = None, dependencies: List[str] = None,
+                 metadata: Dict[str, Any] = None):
         self.name = name
-        self.path = path
+        self.directory = directory  # Changed from 'path' to 'directory' to match to_builder_package
+        self.build_system = build_system
+        self.source_files = source_files or []
+        self.dependencies = dependencies or []
         self.metadata = metadata or {}
-        self.dependencies = []
-        self.files = []
         self.config = {}
+        self.groups = []  # Will store file groups
+        self.ungrouped_files = []  # Will store ungrouped files
 
 
 class Builder(ABC):

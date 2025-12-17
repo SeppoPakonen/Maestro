@@ -1,90 +1,87 @@
-# Midnight Commander-Style Keyboard Bindings
+# Maestro TUI Key Bindings - Midnight Commander Style
 
-This document details the complete keyboard binding policy for Maestro's MC-style shell.
+This document establishes the single source of truth for key binding policy in Maestro's Midnight Commander-style TUI.
 
-## Function Key Bindings (F-keys)
+## Global Rules (Always Available)
 
-### Global Navigation (Available in all panes)
-- **F1**: Open Help screen
-- **F2**: Open active pane's action menu (if available)
-- **F3**: Open "View" menu for pane switching
-- **F5**: Run default action (pane-specific)
-- **F7**: New item (pane-specific)
-- **F8**: Delete selected item (pane-specific)
-- **F9**: Toggle menubar (activate/deactivate)
-- **F10**: Quit application
+These key bindings work across all screens and panes:
 
-### Pane-Specific Actions
-- **F-keys may map to pane menu items** when the pane defines them with corresponding key hints
-- **F5/F7/F8** will execute actions defined in the active pane's menu with matching key hints or fkey properties
+- **Tab** - Switch focus between panes/elements
+- **Shift+Tab** - Switch focus in reverse direction between panes/elements
+- **Up/Down/Left/Right Arrows** - Navigate within focused lists, trees, and containers
+- **Enter** - Perform primary action on currently selected item (never destructive)
+- **Esc** - Cancel current operation, close menus/popups, or return to safe state (never destructive)
+- **F9** - Open/close menubar for discoverability
+- **F10** - Quit application
 
-### BatchPane Specific Actions
-- **F3**: Open repo in single-repo MC view
-- **F5**: Run batch (respects rehearsal/checkpoint mode)
-- **F6**: Resume batch
-- **F7**: Skip job (requires reason, logged as evidence)
-- **F8**: Abort job
-- **F9**: Open menu
-- **F10**: Quit/Back to main navigation
+## Function Key Map (F1-F10)
 
-### TimelinePane Specific Actions
-- **F3**: Jump to state before this event (read-only preview)
-- **F5**: Replay from this event (dry-run)
-- **F6**: Replay & apply from this event (with confirmation)
-- **F7**: Mark event as "explained" (requires note, stored as evidence)
-- **F8**: Create recovery branch (new plan/run lineage)
-- **F9**: Open timeline menu
-- **F10**: Quit/Back to main navigation
+These keys provide consistent, primary access to common actions:
 
-## Standard Navigation Keys
+- **F1** - Help (open help modal/view)
+- **F2** - Actions menu (open the active pane's menu directly)
+- **F3** - View (open View menu, context-dependent)
+- **F5** - Run/Execute (pane-defined; if none, show "not available" message)
+- **F6** - Switch/Focus (contextual - future use)
+- **F7** - New (pane-defined; if none, show "not available" message)
+- **F8** - Delete/Kill (pane-defined; must confirm, or show "not available" message)
+- **F9** - Menubar focus/open (canonical discoverability surface)
+- **F10** - Quit (exit application)
 
-### Focus Management
-- **Tab**: Cycle focus between left pane, right pane, and menubar (when active)
-- **Shift+Tab**: Cycle focus in reverse order
-- **Ctrl+Tab**: Switch focus between panes (alternative to Tab)
+## Pane-Specific Action Rules
 
-### Pane Navigation
-- **Up/Down arrows**: Move selection in focused list/view
-- **Left arrow**: Move focus from right pane to left pane (does nothing in left pane)
-- **Right arrow**: Move focus from left pane to right pane (may expand details in right pane)
+When an F-key is pressed:
 
-### Action Keys
-- **Enter**: Execute default action on selected item (view/open in left pane, context-specific in right pane)
-- **Escape**: Cancel/close modal, close open menu, or return to previous state (never quits)
+1. The MC shell checks if the active pane has an associated action for that F-key
+2. If available and enabled, the action is executed
+3. If not available or disabled, a status message is shown: "Not available in this pane"
+4. No error modal is displayed for unavailable actions
 
-## Menubar Navigation
+## Action Addressability
 
-When menubar is active (via F9 or mouse click):
-- **Left/Right arrows**: Move between top-level menus
-- **Down arrow**: Open currently selected menu
-- **Enter**: Open currently selected menu or execute selected menu item
-- **Up/Down arrows**: Navigate within open menu items
-- **Enter**: Execute selected menu item
-- **Escape**: Close menubar and return focus
-- **F9**: Close menubar (when active)
+All actions that should be accessible via F-keys must:
 
-## Mouse Interaction
+1. Be exposed in the pane's menu definition
+2. Have an `action_id` for programmatic access
+3. Optionally have an `fkey` hint indicating preferred function key
 
-### Click Behavior
-- **Left click on menubar**: Activate menubar
-- **Left click on menubar menu**: Open that menu
-- **Left click on menu item**: Execute that action
-- **Left click on section list**: Select that section and switch focus to right pane
-- **Left click on content pane**: Focus that pane for keyboard input
-- **Double-click anywhere**: Equivalent to Enter on selected item
+## Temporary Legacy Support
 
-### Scroll Behavior
-- **Mouse wheel in left pane**: Scroll through section list
-- **Mouse wheel in right pane**: Scroll through content (pane-specific behavior)
+The following single-letter shortcuts are temporarily allowed for backward compatibility but will be phased out:
 
-### Hover Behavior
-- **Hover over menubar items**: Visual highlight
-- **Hover over menu items**: Visual highlight and potential preview
-- **Hover over list items**: Visual highlight
+- **s** - Sessions screen
+- **p** - Plans screen
+- **t** - Tasks screen
+- **b** - Build screen
+- **c** - Convert screen
+- **r** - Refresh current view
 
-## Keyboard-First Philosophy
+These will eventually be gated behind a "legacy mode" toggle.
 
-- **Mouse is always optional** - every action accessible via mouse is also accessible via keyboard
-- **Menu actions correspond to F-key bindings** when applicable
-- **Keypad navigation follows MC conventions** for familiar workflow
-- **No hidden actions** - all functionality is discoverable through menubar or keyboard
+## Hard Rule: No Conflicting Global Bindings
+
+**NO screen or pane may define conflicting global bindings.** Specifically:
+
+- Panes cannot override Tab, Enter, Esc, or arrow key behavior without special coordination
+- Panes cannot override F1, F9, or F10 behavior
+- Any pane that needs to handle these keys must do so in a way that respects the global contract
+- Panes cannot define their own F-key bindings that conflict with the global map (F1-F10)
+
+## Navigation Consistency Policy
+
+Navigation within the TUI adheres to this consistent pattern:
+
+- **Arrows** - Move cursor/selection within focused container
+- **Tab/Shift+Tab** - Switch focus between major UI elements
+- **Enter** - Activate/confirm current selection
+- **Esc** - Cancel/exit/close
+- **F-keys** - Direct access to primary functions
+
+## Enforcement
+
+This policy will be enforced through:
+
+1. Documentation and team awareness
+2. Code-level checks to prevent conflicting bindings
+3. Test coverage to ensure compliance
+4. Regular audits of key binding usage

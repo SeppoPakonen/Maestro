@@ -40,6 +40,15 @@ class DiagnosticInfo:
 
 
 @dataclass
+class BuildMethod:
+    """Information about a build method."""
+    id: str
+    name: str
+    builder: str  # e.g., "gcc", "msvc", "cmake", etc.
+    description: str = ""
+    available: bool = True
+
+@dataclass
 class BuildStatus:
     """Information about the current build status."""
     state: str  # "idle", "running", "failed", "ok"
@@ -181,18 +190,30 @@ def set_active_build_target(session_id: str, target_id: str, targets_dir: str = 
     return True
 
 
-def run_build(session_id: str, target_id: str = None) -> Dict[str, Any]:
+def run_build(session_id: str, target_id: str = None, output_callback=None, parallel_jobs: int = 4, build_type: str = "Debug", verbose: bool = False) -> Dict[str, Any]:
     """
     Run a build for the specified target.
 
     Args:
         session_id: ID of the session
         target_id: ID of the target to build (if None, use active target)
+        output_callback: Optional callback to send build output to UI
+        parallel_jobs: Number of parallel jobs to use (default: 4)
+        build_type: Build type (Debug/Release) (default: Debug)
+        verbose: Enable verbose output (default: False)
 
     Returns:
         Dictionary with build results
     """
     # Simulated build execution - in a real implementation, this would execute actual build commands
+    if output_callback:
+        output_callback(f"Starting build process (parallel jobs: {parallel_jobs}, build type: {build_type})...\n")
+        if verbose:
+            output_callback("Verbose output enabled\n")
+        output_callback("Compiling source files...\n")
+        output_callback("Linking libraries...\n")
+        output_callback("Build completed successfully!\n")
+
     return {
         "status": "success",
         "target_id": target_id or "default_target",
@@ -218,7 +239,7 @@ def get_build_status(session_id: str, target_id: str = None) -> BuildStatus:
     return BuildStatus(state="idle", error_count=0)
 
 
-def run_fix_loop(session_id: str, target_id: str = None, limit: int = None) -> Dict[str, Any]:
+def run_fix_loop(session_id: str, target_id: str = None, limit: int = None, parallel_jobs: int = 4, build_type: str = "Debug", verbose: bool = False) -> Dict[str, Any]:
     """
     Run the fix loop for the specified target.
 
@@ -226,6 +247,9 @@ def run_fix_loop(session_id: str, target_id: str = None, limit: int = None) -> D
         session_id: ID of the session
         target_id: ID of the target to fix (if None, use active target)
         limit: Optional limit on number of iterations
+        parallel_jobs: Number of parallel jobs to use (default: 4)
+        build_type: Build type (Debug/Release) (default: Debug)
+        verbose: Enable verbose output (default: False)
 
     Returns:
         Dictionary with fix loop results
@@ -242,11 +266,133 @@ def run_fix_loop(session_id: str, target_id: str = None, limit: int = None) -> D
     }
 
 
-def get_diagnostics(
-    session_id: str,
-    target_id: str = None,
-    include_samples: bool = True,
-) -> List[DiagnosticInfo]:
+def list_build_methods(session_id: str) -> List[BuildMethod]:
+    """
+    List all available build methods.
+
+    Args:
+        session_id: ID of the session
+
+    Returns:
+        List of available build methods
+    """
+    # For now, return some sample build methods
+    # In a real implementation, this would load from actual method configuration files
+    methods = [
+        BuildMethod(id="gcc-debug", name="GCC Debug", builder="gcc", description="Debug build with GCC", available=True),
+        BuildMethod(id="gcc-release", name="GCC Release", builder="gcc", description="Release build with GCC", available=True),
+        BuildMethod(id="clang-debug", name="Clang Debug", builder="clang", description="Debug build with Clang", available=True),
+        BuildMethod(id="msvc-debug", name="MSVC Debug", builder="msvc", description="Debug build with MSVC", available=False),  # Not available on this system
+        BuildMethod(id="cmake-default", name="CMake Default", builder="cmake", description="Default CMake build", available=True),
+    ]
+
+    return methods
+
+
+def detect_build_methods() -> List[BuildMethod]:
+    """
+    Auto-detect available build methods on the system.
+
+    Returns:
+        List of detected build methods
+    """
+    # In a real implementation, this would scan the system for available compilers and build tools
+    import platform
+    import subprocess
+    import shutil
+
+    detected_methods = []
+
+    # Check for GCC
+    if shutil.which("gcc"):
+        detected_methods.append(
+            BuildMethod(id="gcc-auto", name="Auto-detected GCC", builder="gcc", description="Auto-detected GCC compiler", available=True)
+        )
+
+    # Check for Clang
+    if shutil.which("clang"):
+        detected_methods.append(
+            BuildMethod(id="clang-auto", name="Auto-detected Clang", builder="clang", description="Auto-detected Clang compiler", available=True)
+        )
+
+    # Check for CMake
+    if shutil.which("cmake"):
+        detected_methods.append(
+            BuildMethod(id="cmake-auto", name="Auto-detected CMake", builder="cmake", description="Auto-detected CMake build system", available=True)
+        )
+
+    # On Windows, check for MSVC
+    if platform.system() == "Windows":
+        if shutil.which("cl"):
+            detected_methods.append(
+                BuildMethod(id="msvc-auto", name="Auto-detected MSVC", builder="msvc", description="Auto-detected MSVC compiler", available=True)
+            )
+
+    # If no methods were detected, return some defaults that could be available
+    if not detected_methods:
+        detected_methods = [
+            BuildMethod(id="gcc-debug", name="GCC Debug", builder="gcc", description="Debug build with GCC", available=False),
+            BuildMethod(id="cmake-default", name="CMake Default", builder="cmake", description="Default CMake build", available=False),
+        ]
+
+    return detected_methods
+
+
+def get_active_build_method(session_id: str) -> Optional[BuildMethod]:
+    """
+    Get the currently active build method for a session.
+
+    Args:
+        session_id: ID of the session
+
+    Returns:
+        Active build method or None
+    """
+    # In a real implementation, this would read the session's active build method
+    # For now, return the first available method
+    methods = list_build_methods(session_id)
+    for method in methods:
+        if method.available:
+            return method
+    return None
+
+
+def set_active_build_method(session_id: str, method_id: str) -> bool:
+    """
+    Set the active build method for a session.
+
+    Args:
+        session_id: ID of the session
+        method_id: ID of the method to set as active
+
+    Returns:
+        True if successful, False otherwise
+    """
+    # In a real implementation, this would store the active build method in session state
+    methods = list_build_methods(session_id)
+    for method in methods:
+        if method.id == method_id:
+            return True
+    return False
+
+
+def stop_build(session_id: str, target_id: str = None) -> bool:
+    """
+    Stop the currently running build.
+
+    Args:
+        session_id: ID of the session
+        target_id: ID of the target (if None, stop active target build)
+
+    Returns:
+        True if stop was successful, False otherwise
+    """
+    # In a real implementation, this would signal the build process to stop
+    # For now, we'll simulate the stop functionality
+    return True
+
+
+def get_diagnostics(session_id: str, target_id: str = None, include_samples: bool = True) -> List[DiagnosticInfo]:
     """
     Get diagnostics for the specified target.
 
