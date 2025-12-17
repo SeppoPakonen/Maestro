@@ -67,13 +67,15 @@ def main(argv=None):
     if args.mc2:
         from maestro.tui_mc2.app import main as mc2_main
 
-        mc2_main(
+        status = mc2_main(
             smoke_mode=args.smoke,
             smoke_seconds=args.smoke_seconds,
             smoke_out=args.smoke_out,
             mc2_mode=True,
             render_debug=args.render_debug,
         )
+        if isinstance(status, int) and status != 0:
+            raise SystemExit(status)
         return
 
     _run_textual(args)

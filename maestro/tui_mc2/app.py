@@ -13,14 +13,19 @@ import curses
 import os
 import sys
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from dataclasses import dataclass
 
 from maestro.tui_mc2.ui.menubar import Menubar
 from maestro.tui_mc2.ui.status import StatusLine
 from maestro.tui_mc2.ui.modals import ModalDialog
 from maestro.tui_mc2.panes.sessions import SessionsPane
-from maestro.tui_mc2.util.smoke import SmokeMode
+from maestro.tui_mc2.util.smoke import (
+    SmokeMode,
+    write_smoke_success,
+    write_smoke_timeout,
+    SMOKE_WATCHDOG_GRACE_SECONDS,
+)
 
 
 @dataclass
@@ -56,6 +61,8 @@ class MC2App:
         self.left_pane = None
         self.right_pane = None
         self.render_debug = render_debug or os.getenv("MAESTRO_TUI_RENDER_DEBUG") == "1"
+        self.force_curses_smoke = os.getenv("MAESTRO_MC2_SMOKE_USE_CURSES") == "1"
+        self.fault_inject = os.getenv("MAESTRO_MC2_FAULT_INJECT")
         self.dirty_regions: Dict[str, bool] = {
             "menubar": True,
             "left": True,
@@ -71,6 +78,11 @@ class MC2App:
         self.last_dirty_snapshot = []
         self.last_input_time = None
         self.last_timeout_ms = None
+        self.loop_wakeups = 0
+        self.loop_wakeups_per_sec = 0.0
+        self.loop_sample_time = time.time()
+        self.smoke_exit_status: Optional[int] = None
+        self._teardown_called = False
         
         # Initialize panes
         self.left_pane = SessionsPane(position="left", context=self.context)
@@ -80,38 +92,65 @@ class MC2App:
         self.smoke_manager = SmokeMode(
             enabled=smoke_mode,
             seconds=smoke_seconds,
-            success_file=smoke_out
+            success_file=smoke_out,
+            watchdog_grace=SMOKE_WATCHDOG_GRACE_SECONDS,
         )
 
     def run(self):
         """Main application entry point"""
-        if self.context.smoke_mode:
-            # For smoke mode, don't actually start curses to avoid hanging
-            # Instead, run a minimal smoke test and print success
-            self.smoke_manager.start(None)  # Initialize smoke timer
-            # Simulate basic initialization
-            try:
-                # Initialize panes with basic data
-                self.left_pane.refresh_data()
-                self.right_pane.refresh_data()
+        if self.context.smoke_mode and not self.force_curses_smoke:
+            return self._run_smoke()
+        return self._run_curses()
 
-                # Wait for smoke timer to complete
-                import time
-                start_time = time.time()
-                while not self.smoke_manager.should_exit() and (time.time() - start_time < self.context.smoke_seconds + 0.1):
-                    time.sleep(0.05)  # Small delay to allow timer to work
+    def _run_smoke(self) -> int:
+        """Run smoke mode without curses."""
+        self.smoke_manager.start(None)
+        try:
+            self.left_pane.refresh_data()
+            self.right_pane.refresh_data()
 
-                # Ensure success marker is written
-                if not self.smoke_manager.should_exit_flag:
-                    self.smoke_manager.should_exit_flag = True
-                    from maestro.tui_mc2.util.smoke import write_smoke_success
+            while True:
+                now = time.time()
+                if self.smoke_manager.timed_out(now):
+                    write_smoke_timeout(self.context.smoke_out)
+                    return 1
+                if self.smoke_manager.should_exit(now):
                     write_smoke_success(self.context.smoke_out)
+                    return 0
+                time.sleep(0.02)
+        except Exception as e:
+            print(f"Smoke test error: {e}", file=sys.stderr)
+            return 1
 
-            except Exception as e:
-                print(f"Smoke test error: {e}", file=sys.stderr)
-        else:
-            # For interactive mode, use curses
-            curses.wrapper(self._main_loop)
+    def _run_curses(self) -> int:
+        """Run the interactive curses loop with guaranteed teardown."""
+        stdscr = None
+        try:
+            stdscr = curses.initscr()
+            curses.noecho()
+            curses.cbreak()
+            stdscr.keypad(True)
+            self._main_loop(stdscr)
+            return self.smoke_exit_status or 0
+        finally:
+            if stdscr is not None:
+                try:
+                    stdscr.keypad(False)
+                except Exception:
+                    pass
+            try:
+                curses.nocbreak()
+            except Exception:
+                pass
+            try:
+                curses.echo()
+            except Exception:
+                pass
+            try:
+                curses.endwin()
+            except Exception:
+                pass
+            self._teardown_called = True
 
     def _setup_ui(self, stdscr):
         """Setup the UI components"""
@@ -177,11 +216,17 @@ class MC2App:
         self._mark_all_dirty()
 
     def _compute_timeout_ms(self, now: float) -> int:
+        timeout_ms: Optional[int] = None
         if self.status_line:
             remaining = self.status_line.time_until_expire(now)
             if remaining is not None:
-                return max(0, int(remaining * 1000))
-        return -1
+                timeout_ms = max(0, int(remaining * 1000))
+        if self.context.smoke_mode:
+            smoke_remaining = self.smoke_manager.time_until_exit(now)
+            if smoke_remaining is not None:
+                smoke_ms = max(0, int(smoke_remaining * 1000))
+                timeout_ms = smoke_ms if timeout_ms is None else min(timeout_ms, smoke_ms)
+        return -1 if timeout_ms is None else timeout_ms
 
     def _sync_status_message(self):
         if not self.status_line:
@@ -341,6 +386,8 @@ class MC2App:
     def _main_loop(self, stdscr):
         """Main curses event loop"""
         self._setup_ui(stdscr)
+        self.loop_sample_time = time.time()
+        self.loop_wakeups = 0
         
         # Start smoke mode if enabled
         if self.context.smoke_mode:
@@ -352,11 +399,24 @@ class MC2App:
         # Main event loop
         while not self.context.should_exit:
             try:
+                now = time.time()
+                self.loop_wakeups += 1
+                if now - self.loop_sample_time >= 1.0:
+                    elapsed = now - self.loop_sample_time
+                    self.loop_wakeups_per_sec = self.loop_wakeups / elapsed
+                    self.loop_wakeups = 0
+                    self.loop_sample_time = now
+
                 # Check for smoke mode exit
-                if self.smoke_manager.should_exit():
+                if self.context.smoke_mode and self.smoke_manager.timed_out(now):
+                    self.smoke_exit_status = 1
+                    write_smoke_timeout(self.context.smoke_out)
+                    break
+                if self.context.smoke_mode and self.smoke_manager.should_exit(now):
+                    self.smoke_exit_status = 0
+                    write_smoke_success(self.context.smoke_out)
                     break
 
-                now = time.time()
                 timeout_ms = self._compute_timeout_ms(now)
                 if timeout_ms != self.last_timeout_ms:
                     stdscr.timeout(timeout_ms)
@@ -387,6 +447,8 @@ class MC2App:
             except KeyboardInterrupt:
                 break
             except Exception as e:
+                if self.fault_inject:
+                    raise
                 # Log error and continue
                 self.context.status_message = f"Error: {str(e)}"
                 self._sync_status_message()
@@ -416,7 +478,11 @@ class MC2App:
                 last_input = f"{max(0.0, time.time() - self.last_input_time):.1f}s"
             timeout_label = "block" if self.last_timeout_ms is None or self.last_timeout_ms < 0 else f"{self.last_timeout_ms}ms"
             dirty_label = ",".join(self.last_dirty_snapshot)
-            debug_info = f"DBG f={self.frames} d={self.doupdate_calls} dirty={dirty_label} input={last_input} timeout={timeout_label}"
+            wakeups = f"{self.loop_wakeups_per_sec:.1f}/s"
+            debug_info = (
+                f"DBG f={self.frames} d={self.doupdate_calls} dirty={dirty_label} "
+                f"input={last_input} timeout={timeout_label} wake={wakeups}"
+            )
 
         if self.status_line:
             self.status_line.set_debug_info(self.render_debug, debug_info)
@@ -454,12 +520,12 @@ def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None, mc2_mode=True, ren
             smoke_out=smoke_out,
             render_debug=render_debug,
         )
-        app.run()
+        return app.run()
     else:
         # Fallback to existing TUI
         from maestro.tui.app import main as textual_main
-        textual_main(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out, mc_shell=False)
+        return textual_main(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out, mc_shell=False)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main() or 0)

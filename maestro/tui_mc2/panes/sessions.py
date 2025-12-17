@@ -3,6 +3,7 @@ Sessions pane for MC2 Curses TUI
 Shows list of sessions in left pane and session details in right pane
 """
 import curses
+import os
 from typing import Optional, List
 from dataclasses import dataclass
 
@@ -190,6 +191,8 @@ class SessionsPane:
     
     def render(self):
         """Render the sessions pane"""
+        if os.getenv("MAESTRO_MC2_FAULT_INJECT") == "pane_render":
+            raise RuntimeError("Injected pane render failure")
         if not self.window:
             return
             
