@@ -412,7 +412,7 @@ class UppParser:
         Returns:
             tuple: (groups, ungrouped_files)
         """
-        from ..main import FileGroup  # Import here to avoid circular imports
+        from .package import FileGroup  # Import here to avoid circular imports
 
         groups = []
         ungrouped_files = []
