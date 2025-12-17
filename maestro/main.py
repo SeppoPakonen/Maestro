@@ -35,6 +35,7 @@ from .planner_templates import format_build_target_template, format_fix_rulebook
 from .confidence import ConfidenceScorer, BatchConfidenceAggregator
 from .commands.make import MakeCommand, add_make_parser
 from .repo.package import PackageInfo, FileGroup
+from .hub.cli import create_hub_parser, handle_hub_command
 
 
 # Dataclasses for builder configuration
@@ -3915,6 +3916,9 @@ def main():
     # Make command group (Universal Build Orchestration)
     make_parser = add_make_parser(subparsers)
 
+    # Hub command (Universal Package Hub)
+    hub_parser = create_hub_parser(subparsers)
+
     # Conversion pipeline command group
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
     convert_subparsers = convert_parser.add_subparsers(dest='convert_subcommand', help='Conversion pipeline subcommands')
@@ -5891,6 +5895,8 @@ def main():
             # If no subcommand specified, show help
             make_parser.print_help()
             sys.exit(0)
+    elif args.command == 'hub':
+        handle_hub_command(args)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)

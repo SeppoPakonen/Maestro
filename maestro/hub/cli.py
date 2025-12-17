@@ -12,14 +12,14 @@ from .client import MaestroHub
 from .resolver import HubResolver
 
 
-def create_hub_parser():
+def create_hub_parser(subparsers):
     """Create the argument parser for hub commands."""
-    parser = argparse.ArgumentParser(
-        prog="maestro hub",
-        description="Manage package hubs and dependencies"
-    )
-    
-    subparsers = parser.add_subparsers(dest="hub_command", help="Hub commands")
+    parser = subparsers.add_parser('hub', aliases=['h'], help="Manage package hubs and dependencies")
+
+    hub_subparsers = parser.add_subparsers(dest="hub_command", help="Hub commands")
+
+    # Update local references in the rest of the function
+    subparsers = hub_subparsers
     
     # hub list
     list_parser = subparsers.add_parser("list", help="List all registered hubs and nests")
@@ -227,16 +227,12 @@ def cmd_hub_info(hub: MaestroHub, args: argparse.Namespace):
     print("\n" + "=" * 80)
 
 
-def main_hub_command(args: argparse.Namespace = None):
-    """Main entry point for hub commands."""
-    if args is None:
-        parser = create_hub_parser()
-        args = parser.parse_args()
-    
+def handle_hub_command(args: argparse.Namespace):
+    """Handler for hub commands called from main CLI."""
     # Initialize hub system
     hub = MaestroHub()
     resolver = HubResolver(hub)
-    
+
     # Route to appropriate command handler
     command_map = {
         "list": cmd_hub_list,
@@ -247,12 +243,84 @@ def main_hub_command(args: argparse.Namespace = None):
         "sync": cmd_hub_sync,
         "info": cmd_hub_info,
     }
-    
+
+    if args.hub_command is None:
+        # If no subcommand provided, show help
+        parser = create_hub_parser()
+        parser.print_help()
+        sys.exit(1)
+
+    if args.hub_command in command_map:
+        command_map[args.hub_command](hub, args)
+    else:
+        print(f"Unknown command: {args.hub_command}")
+        parser = create_hub_parser()
+        parser.print_help()
+        sys.exit(1)
+
+
+def main_hub_command(args: argparse.Namespace = None):
+    """Main entry point for hub commands."""
+    if args is None:
+        # For standalone use
+        parser = argparse.ArgumentParser(
+            prog="maestro hub",
+            description="Manage package hubs and dependencies"
+        )
+        hub_subparsers = parser.add_subparsers(dest="hub_command", help="Hub commands")
+
+        # hub list
+        list_parser = hub_subparsers.add_parser("list", help="List all registered hubs and nests")
+        list_parser.add_argument("--format", choices=["table", "json"], default="table",
+                                help="Output format (default: table)")
+
+        # hub search
+        search_parser = hub_subparsers.add_parser("search", help="Search for package in registered hubs")
+        search_parser.add_argument("package", help="Package name to search for")
+
+        # hub install
+        install_parser = hub_subparsers.add_parser("install", help="Install repository nest from hub")
+        install_parser.add_argument("nest", help="Nest name to install")
+        install_parser.add_argument("--update", "-u", action="store_true",
+                                   help="Update if nest already exists")
+
+        # hub update
+        update_parser = hub_subparsers.add_parser("update", help="Update repository nest to latest version")
+        update_parser.add_argument("nest", help="Nest name to update")
+
+        # hub add
+        add_parser = hub_subparsers.add_parser("add", help="Add custom hub registry")
+        add_parser.add_argument("url", help="URL to hub registry JSON file")
+
+        # hub sync
+        sync_parser = hub_subparsers.add_parser("sync", help="Sync all hub metadata")
+
+        # hub info
+        info_parser = hub_subparsers.add_parser("info", help="Show detailed information about nest")
+        info_parser.add_argument("nest", help="Nest name to show info for")
+
+        args = parser.parse_args()
+
+    # Initialize hub system
+    hub = MaestroHub()
+    resolver = HubResolver(hub)
+
+    # Route to appropriate command handler
+    command_map = {
+        "list": cmd_hub_list,
+        "search": cmd_hub_search,
+        "install": cmd_hub_install,
+        "update": cmd_hub_update,
+        "add": cmd_hub_add,
+        "sync": cmd_hub_sync,
+        "info": cmd_hub_info,
+    }
+
     if args.hub_command is None:
         # If no subcommand provided, show help
         parser.print_help()
         sys.exit(1)
-    
+
     if args.hub_command in command_map:
         command_map[args.hub_command](hub, args)
     else:
