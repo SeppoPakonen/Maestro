@@ -9,3 +9,8 @@ build/
 test_repo/
 test_repo2/
 complex_test/
+
+# Ignore .maestro directories (contains generated session/build data)
+.maestro/
+tests/fixtures/**/.maestro/
+
