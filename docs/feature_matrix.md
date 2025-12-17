@@ -24,13 +24,14 @@
 | Live execution view | — | planned | Real-time process monitoring |
 | Hot-reloading | — | planned | Automatic UI refresh during development |
 | UPP parser | CLI v0.1.0 | — | Tolerant parser for .upp package descriptor files extracting metadata |
-| Repo resolve | CLI v0.9.0 | — | Universal repository scanning with multi-build-system support (U++, CMake, Make, Autoconf, Visual Studio), auto-detection, pruning, artifact persistence, and internal package inference |
+| Repo resolve | CLI v0.9.0 | — | Universal repository scanning with multi-build-system support (U++, CMake, Make, Autoconf, Maven, Visual Studio), auto-detection, pruning, artifact persistence, and internal package inference |
 | CLI: internal package inference | CLI v0.1.0 | — | Group unknown paths into structured Maestro internal packages by top-level directory |
-| Build system detection | CLI v0.2.0 | — | Auto-detect build systems: U++, CMake, GNU Make, BSD Make, Autoconf/Automake, Visual Studio |
+| Build system detection | CLI v0.2.0 | — | Auto-detect build systems: U++, CMake, GNU Make, BSD Make, Autoconf/Automake, Maven, Visual Studio |
 | CMake package scanner | CLI v0.1.0 | — | Parse CMakeLists.txt files to extract targets, sources, and project metadata |
 | Makefile detector | CLI v0.1.0 | — | Detect Makefile-based build systems (stub implementation) |
 | Autoconf package scanner | CLI v0.2.0 | — | Parse configure.ac and Makefile.am files to extract targets (bin_PROGRAMS, lib_LTLIBRARIES) and source files with dual-path resolution |
 | Visual Studio scanner | CLI v0.1.0 | — | Parse Visual Studio solution (.sln) and project files (.vcxproj, .vcproj, .csproj) to extract projects, configurations, source files, dependencies, and metadata with wildcard expansion support |
+| Maven package scanner | CLI v0.1.0 | — | Parse pom.xml files to extract Maven modules (groupId:artifactId), packaging types, parent/child relationships, and source files from standard Maven directory structure (src/main/java, src/test/java) |
 | Repo show | CLI v0.1.0 | — | Display persisted repository scan results from .maestro/repo/ |
 | Repo pkg | CLI v0.1.0 | — | Package query commands: list, info, search, tree (with cycle detection) |
 | Repo pkg: internal package integration | CLI v0.1.0 | — | Integration of internal packages into repo pkg query interface, allowing both U++ packages and internal packages in queries |

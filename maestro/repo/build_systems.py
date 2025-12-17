@@ -6,6 +6,8 @@ Supports multiple build systems:
 - GNU Make
 - BSD Make
 - Autoconf/Automake
+- Maven
+- Visual Studio
 
 Each build system scanner returns packages in a universal format.
 """
@@ -31,7 +33,7 @@ class BuildSystemPackage:
 def detect_build_system(repo_root: str) -> List[str]:
     """
     Detect which build systems are present in the repository.
-    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp', 'msvs']
+    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp', 'msvs', 'maven']
     """
     systems = []
 
@@ -49,6 +51,15 @@ def detect_build_system(repo_root: str) -> List[str]:
     for autoconf_file in ['configure.ac', 'configure.in', 'Makefile.am']:
         if os.path.exists(os.path.join(repo_root, autoconf_file)):
             systems.append('autoconf')
+            break
+
+    # Check for Maven (pom.xml files)
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        if 'pom.xml' in files:
+            systems.append('maven')
             break
 
     # Check for Visual Studio (*.sln files)
@@ -621,11 +632,150 @@ def _parse_vcproj_project(proj_path: str, proj_dir: str, repo_root: str, verbose
         return []
 
 
+def scan_maven_packages(repo_root: str, verbose: bool = False) -> List[BuildSystemPackage]:
+    """
+    Scan Maven build system for packages/modules.
+
+    Maven package detection strategy:
+    1. Find all pom.xml files in repository
+    2. Parse each pom.xml to extract:
+       - groupId, artifactId, version (GAV coordinates)
+       - packaging type (jar, war, pom, etc.)
+       - parent POM relationships
+       - module hierarchy
+    3. Extract source files from standard Maven directories (src/main/java, src/main/resources, etc.)
+    4. Handle multi-module projects
+    """
+    packages = []
+
+    # Find all pom.xml files
+    pom_files = []
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories and common Maven build/target directories
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['target', 'build']]
+
+        if 'pom.xml' in files:
+            pom_path = os.path.join(root, 'pom.xml')
+            pom_files.append(pom_path)
+
+    # Parse each pom.xml
+    for pom_path in pom_files:
+        pom_dir = os.path.dirname(pom_path)
+        rel_dir = os.path.relpath(pom_dir, repo_root)
+
+        try:
+            tree = ET.parse(pom_path)
+            root = tree.getroot()
+
+            # Maven POMs use XML namespaces
+            ns = {'mvn': 'http://maven.apache.org/POM/4.0.0'}
+
+            # Extract project metadata (try with and without namespace)
+            def get_text(elem_name, default='unknown'):
+                # Try with namespace
+                elem = root.find(f'mvn:{elem_name}', ns)
+                if elem is not None and elem.text:
+                    return elem.text.strip()
+                # Try without namespace
+                elem = root.find(elem_name)
+                if elem is not None and elem.text:
+                    return elem.text.strip()
+                return default
+
+            group_id = get_text('groupId', '')
+            artifact_id = get_text('artifactId', os.path.basename(pom_dir))
+            version = get_text('version', '')
+            packaging = get_text('packaging', 'jar')
+
+            # Check for parent POM
+            parent_elem = root.find('mvn:parent', ns) or root.find('parent')
+            parent_group_id = None
+            parent_artifact_id = None
+            if parent_elem is not None:
+                parent_group_elem = parent_elem.find('mvn:groupId', ns) or parent_elem.find('groupId')
+                parent_artifact_elem = parent_elem.find('mvn:artifactId', ns) or parent_elem.find('artifactId')
+                if parent_group_elem is not None:
+                    parent_group_id = parent_group_elem.text.strip()
+                if parent_artifact_elem is not None:
+                    parent_artifact_id = parent_artifact_elem.text.strip()
+
+            # Check for modules (multi-module project)
+            modules = []
+            modules_elem = root.find('mvn:modules', ns) or root.find('modules')
+            if modules_elem is not None:
+                for module_elem in modules_elem.findall('mvn:module', ns) or modules_elem.findall('module'):
+                    if module_elem.text:
+                        modules.append(module_elem.text.strip())
+
+            # Collect source files from standard Maven directory structure
+            source_files = []
+            source_dirs = [
+                'src/main/java',
+                'src/main/resources',
+                'src/test/java',
+                'src/test/resources'
+            ]
+
+            for src_dir in source_dirs:
+                src_path = os.path.join(pom_dir, src_dir)
+                if os.path.exists(src_path):
+                    for src_root, src_dirs, src_files in os.walk(src_path):
+                        # Skip hidden directories
+                        src_dirs[:] = [d for d in src_dirs if not d.startswith('.')]
+
+                        for file in src_files:
+                            file_path = os.path.join(src_root, file)
+                            rel_file = os.path.relpath(file_path, repo_root)
+                            source_files.append(rel_file)
+
+            # Build package name from groupId:artifactId
+            if group_id:
+                pkg_name = f"{group_id}:{artifact_id}"
+            else:
+                pkg_name = artifact_id
+
+            # Metadata
+            metadata = {
+                'pom_file': os.path.relpath(pom_path, repo_root),
+                'group_id': group_id,
+                'artifact_id': artifact_id,
+                'version': version,
+                'packaging': packaging,
+            }
+
+            if parent_group_id or parent_artifact_id:
+                metadata['parent'] = f"{parent_group_id}:{parent_artifact_id}" if parent_group_id else parent_artifact_id
+
+            if modules:
+                metadata['modules'] = modules
+                metadata['is_parent'] = True
+
+            # Create package
+            pkg = BuildSystemPackage(
+                name=pkg_name,
+                build_system='maven',
+                dir=pom_dir,
+                files=source_files,
+                metadata=metadata
+            )
+            packages.append(pkg)
+
+            if verbose:
+                module_info = f" (parent with {len(modules)} modules)" if modules else ""
+                print(f"[maven] found {packaging} '{pkg_name}'{module_info} in {rel_dir} ({len(source_files)} sources)")
+
+        except Exception as e:
+            if verbose:
+                print(f"[maven] error parsing {pom_path}: {e}")
+
+    return packages
+
+
 def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, List[BuildSystemPackage]]:
     """
     Scan all detected build systems and return packages grouped by build system.
 
-    Returns dict: {'cmake': [...], 'make': [...], 'autoconf': [...]}
+    Returns dict: {'cmake': [...], 'make': [...], 'autoconf': [...], 'maven': [...]}
     """
     results = {}
 
@@ -644,6 +794,9 @@ def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, L
 
     if 'autoconf' in detected:
         results['autoconf'] = scan_autoconf_packages(repo_root, verbose)
+
+    if 'maven' in detected:
+        results['maven'] = scan_maven_packages(repo_root, verbose)
 
     if 'msvs' in detected:
         results['msvs'] = scan_msvs_packages(repo_root, verbose)

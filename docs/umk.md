@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-This document outlines the integration plan for **umk** (U++ make) build system into Maestro, creating a universal build orchestration system that extends beyond U++ to support CMake, Autotools, and Visual Studio projects.
+This document outlines the integration plan for **umk** (U++ make) build system into Maestro, creating a universal build orchestration system that extends beyond U++ to support CMake, Autotools, Maven, and Visual Studio projects.
 
-**Vision**: `maestro make` becomes a universal build command that can build any package detected by `maestro repo resolve`, regardless of the underlying build system (U++, CMake, Autotools, Visual Studio, Make).
+**Vision**: `maestro make` becomes a universal build command that can build any package detected by `maestro repo resolve`, regardless of the underlying build system (U++, CMake, Autotools, Maven, Visual Studio, Make).
 
 ## Source Code Locations
 
@@ -59,7 +59,7 @@ This document outlines the integration plan for **umk** (U++ make) build system 
 ### Current State (Maestro v1.2.1)
 
 ```
-maestro repo resolve  → Scans for packages (U++, CMake, Autotools, MSVS)
+maestro repo resolve  → Scans for packages (U++, CMake, Autotools, Maven, MSVS)
                       → Outputs .maestro/repo/index.json
                       → Outputs .maestro/repo/state.json
 
@@ -356,6 +356,7 @@ $ maestro make build MyProject
    ├── cmake.py         # CMake builder (new)
    ├── autotools.py     # Autotools builder (new)
    ├── msbuild.py       # MSBuild builder (new)
+   ├── maven.py         # Maven builder (new)
    ├── android.py       # Android builder (NDK + SDK)
    ├── java.py          # Java/JAR builder
    ├── host.py          # Host abstraction (local, remote, docker)
@@ -586,6 +587,67 @@ $ maestro make build MyProject
 - Solution-level builds with dependency ordering
 
 **Estimated Complexity**: Medium (2-3 weeks)
+
+### Phase 5.5: Maven Builder
+
+**Goal**: Build Maven projects detected by `maestro repo resolve`.
+
+**Tasks**:
+1. Implement Maven builder:
+   ```python
+   class MavenBuilder(Builder):
+       def build_package(self, package, config):
+           """Build using Maven (mvn)."""
+           mvn_args = ['mvn']
+
+           # Build goals
+           if config.clean:
+               mvn_args.append('clean')
+           mvn_args.append('package')  # or install, compile, etc.
+
+           # Configuration
+           if config.skip_tests:
+               mvn_args.append('-DskipTests')
+
+           # Parallel builds
+           if config.jobs > 1:
+               mvn_args.append(f'-T{config.jobs}')
+
+           # Profile activation
+           if config.profile:
+               mvn_args.append(f'-P{config.profile}')
+
+           # Offline mode
+           if config.offline:
+               mvn_args.append('--offline')
+
+           # Execute from pom.xml directory
+           return self.execute(mvn_args, cwd=package.dir)
+   ```
+
+2. Support Maven features:
+   - Multi-module builds (reactor builds)
+   - Profile activation (-P flag)
+   - Offline mode (--offline)
+   - Parallel module builds (-T flag)
+   - Lifecycle phases (clean, compile, test, package, install, deploy)
+   - Plugin goals (e.g., mvn native:compile for native modules)
+   - Property overrides (-D flags)
+
+3. Handle Maven-specific packaging:
+   - JAR packaging (standard Java libraries)
+   - WAR packaging (web applications)
+   - AAR packaging (Android libraries)
+   - POM packaging (parent POMs)
+   - Native module builds (JNI, FluidSynth, etc.)
+
+**Deliverables**:
+- Maven builder that can build Maven projects
+- Support for multi-module reactor builds
+- Profile and property configuration
+- Native plugin support for JNI modules
+
+**Estimated Complexity**: Low-Medium (1-2 weeks)
 
 ### Phase 6: Universal Build Configuration
 
@@ -1223,6 +1285,7 @@ $ maestro make build MyApp
 - Test complete build workflows
 - Use test repositories:
   - ai-upp (U++ project)
+  - TopGuitar/TuxGuitar (Maven multi-module project)
   - StuntCarStadium (Unity/CMake/Visual Studio)
   - Tesseract-Sauerbraten (Autotools)
   - CodexSandbox projects (various)
@@ -1275,13 +1338,14 @@ $ maestro make build MyApp
 | Phase 3: CMake Builder | 2-3 weeks | Phase 1 |
 | Phase 4: Autotools Builder | 2-3 weeks | Phase 1 |
 | Phase 5: MSBuild Builder | 2-3 weeks | Phase 1 |
-| Phase 6: Universal Build Configuration | 2-3 weeks | Phases 2-5 |
+| Phase 5.5: Maven Builder | 1-2 weeks | Phase 1 |
+| Phase 6: Universal Build Configuration | 2-3 weeks | Phases 2-5.5 |
 | Phase 7: CLI Integration | 3-4 weeks | Phases 2-6 |
 | Phase 8: Advanced Features | 6-8 weeks | Phase 7 |
 | Phase 9: TUI Integration | 3-4 weeks | Phase 7 |
 | Phase 10: Universal Hub System | 4-5 weeks | Phases 2-7 |
 
-**Total Estimate**: 30-44 weeks (7-11 months)
+**Total Estimate**: 31-46 weeks (7-11 months)
 
 **Minimum Viable Product (MVP)**: Phases 1-2 (6-9 weeks)
 - Core builder framework
