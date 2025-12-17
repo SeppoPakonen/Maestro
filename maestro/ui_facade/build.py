@@ -19,6 +19,12 @@ class BuildTargetInfo:
     last_build_time: Optional[str]
     dependencies: List[str]
     description: Optional[str] = ""
+    categories: List[str] = None
+    pipeline: Dict[str, Any] = None
+    patterns: Dict[str, Any] = None
+    environment: Dict[str, Any] = None
+    why: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 @dataclass
@@ -66,6 +72,10 @@ def _find_diagnostics_files(diagnostics_dir: str = "./.maestro/build_diagnostics
     return diag_files
 
 
+def _active_target_path(targets_dir: str = "./.maestro/build_targets") -> str:
+    return os.path.join(targets_dir, "active_target.txt")
+
+
 def list_build_targets(session_id: str, targets_dir: str = "./.maestro/build_targets") -> List[BuildTargetInfo]:
     """
     List all build targets for a specific session.
@@ -85,14 +95,21 @@ def list_build_targets(session_id: str, targets_dir: str = "./.maestro/build_tar
             with open(target_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 # Filter targets by session if needed, though exact implementation depends on data structure
+                target_id = data.get("id") or data.get("target_id") or os.path.basename(target_file).replace('.json', '')
                 target_info = BuildTargetInfo(
-                    id=data.get("id", os.path.basename(target_file).replace('.json', '')),
+                    id=target_id,
                     name=data.get("name", "Unknown"),
                     path=data.get("path", target_file),
                     status=data.get("status", "unknown"),
                     last_build_time=data.get("last_build_time"),
                     dependencies=data.get("dependencies", []),
-                    description=data.get("description", "")
+                    description=data.get("description", ""),
+                    categories=data.get("categories", []) or [],
+                    pipeline=data.get("pipeline", {}) or {},
+                    patterns=data.get("patterns", {}) or {},
+                    environment=data.get("environment", {}) or {},
+                    why=data.get("why"),
+                    created_at=data.get("created_at"),
                 )
                 targets_info.append(target_info)
         except Exception:
@@ -115,8 +132,22 @@ def get_active_build_target(session_id: str, targets_dir: str = "./.maestro/buil
     """
     all_targets = list_build_targets(session_id, targets_dir)
 
-    # For now, return the first target as "active" - in a real implementation,
-    # this would identify the target that's currently being built or most recently built
+    if not all_targets:
+        return None
+
+    active_path = _active_target_path(targets_dir)
+    if os.path.exists(active_path):
+        try:
+            with open(active_path, "r", encoding="utf-8") as handle:
+                active_id = handle.read().strip()
+            if active_id:
+                for target in all_targets:
+                    if target.id == active_id:
+                        return target
+        except Exception:
+            pass
+
+    # Fall back to first target if no active marker stored.
     if all_targets:
         return all_targets[0]
 
@@ -139,10 +170,15 @@ def set_active_build_target(session_id: str, target_id: str, targets_dir: str = 
     all_targets = list_build_targets(session_id, targets_dir)
     target_exists = any(t.id == target_id for t in all_targets)
 
-    if target_exists:
-        # In a real implementation, this would store the active target in session state
-        return True
-    return False
+    if not target_exists:
+        return False
+    try:
+        os.makedirs(targets_dir, exist_ok=True)
+        with open(_active_target_path(targets_dir), "w", encoding="utf-8") as handle:
+            handle.write(target_id)
+    except Exception:
+        return False
+    return True
 
 
 def run_build(session_id: str, target_id: str = None) -> Dict[str, Any]:
@@ -206,7 +242,11 @@ def run_fix_loop(session_id: str, target_id: str = None, limit: int = None) -> D
     }
 
 
-def get_diagnostics(session_id: str, target_id: str = None) -> List[DiagnosticInfo]:
+def get_diagnostics(
+    session_id: str,
+    target_id: str = None,
+    include_samples: bool = True,
+) -> List[DiagnosticInfo]:
     """
     Get diagnostics for the specified target.
 
@@ -241,8 +281,8 @@ def get_diagnostics(session_id: str, target_id: str = None) -> List[DiagnosticIn
             # Skip corrupted or inaccessible diagnostic files
             continue
 
-    # If no diagnostics found in files, return some sample diagnostics
-    if not diagnostics:
+    # If no diagnostics found in files, return some sample diagnostics if allowed.
+    if not diagnostics and include_samples:
         diagnostics = [
             DiagnosticInfo(
                 id="diag-001",
@@ -265,3 +305,8 @@ def get_diagnostics(session_id: str, target_id: str = None) -> List[DiagnosticIn
         ]
 
     return diagnostics
+
+
+def list_diagnostics_sources(diagnostics_dir: str = "./.maestro/build_diagnostics") -> List[str]:
+    """Return available diagnostics source paths for evidence display."""
+    return _find_diagnostics_files(diagnostics_dir)

@@ -58,6 +58,13 @@ class Menubar:
                 MenuItem("tasks.stop", "Stop", key_hint="F8"),
                 MenuItem("tasks.refresh", "Refresh", key_hint="Menu"),
             ]),
+            Menu("Build", [
+                MenuItem("build.set_active", "Set Active", key_hint="Enter"),
+                MenuItem("build.run", "Run", key_hint="F5"),
+                MenuItem("build.status", "Status", key_hint="F6"),
+                MenuItem("build.fix_loop", "Fix Loop (DANGEROUS)", key_hint="F7"),
+                MenuItem("build.refresh", "Refresh", key_hint="Menu"),
+            ]),
             Menu("File", [
                 MenuItem("quit", "Quit", key_hint="F10"),
                 MenuItem("refresh", "Refresh", key_hint="F5"),
@@ -70,6 +77,7 @@ class Menubar:
                 MenuItem("view.sessions", "Sessions", key_hint="F9"),
                 MenuItem("view.plans", "Plans", key_hint="F9"),
                 MenuItem("view.tasks", "Tasks", key_hint="F9"),
+                MenuItem("view.build", "Build", key_hint="F9"),
                 MenuItem("toggle_menu", "Toggle Menu", key_hint="F9"),
             ]),
             Menu("Help", [

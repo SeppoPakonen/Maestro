@@ -22,6 +22,7 @@ from maestro.tui_mc2.ui.modals import ModalDialog
 from maestro.tui_mc2.panes.sessions import SessionsPane
 from maestro.tui_mc2.panes.plans import PlansPane
 from maestro.tui_mc2.panes.tasks import TasksPane
+from maestro.tui_mc2.panes.build import BuildPane
 from maestro.ui_facade.tasks import get_current_execution_state, stop_tasks
 from maestro.tui_mc2.util.smoke import (
     SmokeMode,
@@ -46,11 +47,15 @@ class AppContext:
     active_plan_id: Optional[str] = None
     selected_plan_id: Optional[str] = None
     selected_task_id: Optional[str] = None
+    active_build_target_id: Optional[str] = None
+    selected_build_target_id: Optional[str] = None
     sessions_filter_text: str = ""
     sessions_filter_visible: int = 0
     sessions_filter_total: int = 0
     plan_status_text: str = ""
     task_status_text: str = ""
+    build_status_text: str = ""
+    build_is_running: bool = False
     task_log_buffers: Dict[str, object] = field(default_factory=dict)
     modal_parent: Optional[object] = None
 
@@ -92,6 +97,7 @@ class MC2App:
         self.last_plan_status_text = self.context.plan_status_text
         self.last_active_plan_id = self.context.active_plan_id
         self.last_task_status_text = self.context.task_status_text
+        self.last_build_status_text = self.context.build_status_text
         self.last_filter_status = (
             self.context.sessions_filter_text,
             self.context.sessions_filter_visible,
@@ -229,6 +235,8 @@ class MC2App:
             return PlansPane(position=position, context=self.context)
         if view == "tasks":
             return TasksPane(position=position, context=self.context)
+        if view == "build":
+            return BuildPane(position=position, context=self.context)
         return SessionsPane(position=position, context=self.context)
 
     def _set_view(self, view: str):
@@ -272,6 +280,9 @@ class MC2App:
         if state.get("is_running"):
             task_ms = 200
             timeout_ms = task_ms if timeout_ms is None else min(timeout_ms, task_ms)
+        if self.context.build_is_running:
+            build_ms = 200
+            timeout_ms = build_ms if timeout_ms is None else min(timeout_ms, build_ms)
         return -1 if timeout_ms is None else timeout_ms
 
     def _sync_status_message(self):
@@ -302,6 +313,9 @@ class MC2App:
             changed = True
         if self.context.task_status_text != self.last_task_status_text:
             self.last_task_status_text = self.context.task_status_text
+            changed = True
+        if self.context.build_status_text != self.last_build_status_text:
+            self.last_build_status_text = self.context.build_status_text
             changed = True
         current_filter = (
             self.context.sessions_filter_text,
@@ -419,6 +433,54 @@ class MC2App:
                 return
             self.left_pane.handle_stop()
             self._mark_dirty("left", "right", "status")
+        elif action_id in ("build.refresh",):
+            if self.context.active_view != "build":
+                self.context.status_message = "Switch to Build view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.refresh_data()
+            self.right_pane.refresh_data()
+            self.context.status_message = "Build refreshed"
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("build.set_active",):
+            if self.context.active_view != "build":
+                self.context.status_message = "Switch to Build view"
+                self._mark_dirty("status")
+                return
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_set_active()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("build.run",):
+            if self.context.active_view != "build":
+                self.context.status_message = "Switch to Build view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.handle_run()
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("build.status",):
+            if self.context.active_view != "build":
+                self.context.status_message = "Switch to Build view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.handle_status()
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("build.fix_loop",):
+            if self.context.active_view != "build":
+                self.context.status_message = "Switch to Build view"
+                self._mark_dirty("status")
+                return
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_fix_loop()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("build.stop",):
+            if self.context.active_view != "build":
+                self.context.status_message = "Switch to Build view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.handle_stop()
+            self._mark_dirty("left", "right", "status")
         elif action_id in ("view.sessions", "view.plans"):
             view = "sessions" if action_id.endswith("sessions") else "plans"
             self._set_view(view)
@@ -427,6 +489,10 @@ class MC2App:
         elif action_id == "view.tasks":
             self._set_view("tasks")
             self.context.status_message = "View: Tasks"
+            self._mark_dirty("menubar", "status")
+        elif action_id == "view.build":
+            self._set_view("build")
+            self.context.status_message = "View: Build"
             self._mark_dirty("menubar", "status")
         elif action_id == "help":
             self.dirty_regions["modal"] = True
@@ -490,7 +556,7 @@ class MC2App:
             return True
 
         elif key in (curses.KEY_PPAGE, 21):  # PageUp or Ctrl+U
-            if key == 21 and self.context.active_view == "tasks" and self.context.focus_pane == "left":
+            if key == 21 and self.context.active_view in ("tasks", "build") and self.context.focus_pane == "left":
                 if self.left_pane.clear_filter():
                     self._mark_dirty("left", "right", "status")
                     return True
@@ -560,6 +626,8 @@ class MC2App:
         elif key == curses.KEY_F5:
             if self.context.active_view == "tasks":
                 self._handle_menu_action("tasks.run")
+            elif self.context.active_view == "build":
+                self._handle_menu_action("build.run")
             else:
                 # Refresh both panes
                 self.left_pane.refresh_data()
@@ -567,10 +635,17 @@ class MC2App:
                 self.context.status_message = "Refreshed"
                 self._mark_dirty("left", "right", "status")
             return True
+
+        elif key == curses.KEY_F6:
+            if self.context.active_view == "build":
+                self._handle_menu_action("build.status")
+                return True
             
         elif key == curses.KEY_F7:
             if self.context.active_view == "tasks":
                 self._handle_menu_action("tasks.run_limit")
+            elif self.context.active_view == "build":
+                self._handle_menu_action("build.fix_loop")
             elif self.context.active_view == "sessions":
                 self._handle_menu_action("sessions.new")
             else:
@@ -581,6 +656,8 @@ class MC2App:
         elif key == curses.KEY_F8:
             if self.context.active_view == "tasks":
                 self._handle_menu_action("tasks.stop")
+            elif self.context.active_view == "build":
+                self._handle_menu_action("build.stop")
             elif self.context.active_view == "plans":
                 self._handle_menu_action("plans.kill")
             else:
@@ -625,7 +702,7 @@ class MC2App:
             return True
 
         elif key == ord('/'):
-            if self.context.active_view == "tasks" and self.context.focus_pane == "left":
+            if self.context.active_view in ("tasks", "build") and self.context.focus_pane == "left":
                 self.dirty_regions["modal"] = True
                 self.left_pane.handle_filter_input()
                 self.dirty_regions["modal"] = False
@@ -728,6 +805,10 @@ class MC2App:
                 self._render()
 
     def _handle_ctrl_c(self) -> bool:
+        if self.context.active_view == "build" and hasattr(self.left_pane, "handle_stop"):
+            if self.left_pane.handle_stop():
+                self._mark_dirty("status")
+                return True
         if stop_tasks():
             self.context.status_message = "Stop requested... finishing current step safely"
             self._mark_dirty("status")
