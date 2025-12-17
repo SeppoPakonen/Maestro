@@ -4,6 +4,7 @@ tmp
 trash
 venv
 maestro_ai.egg-info/
+build/
 
 test_repo/
 test_repo2/
