@@ -78,6 +78,7 @@ class Menubar:
                 MenuItem("view.plans", "Plans", key_hint="F9"),
                 MenuItem("view.tasks", "Tasks", key_hint="F9"),
                 MenuItem("view.build", "Build", key_hint="F9"),
+                MenuItem("view.convert", "Convert", key_hint="F9"),
                 MenuItem("toggle_menu", "Toggle Menu", key_hint="F9"),
             ]),
             Menu("Help", [

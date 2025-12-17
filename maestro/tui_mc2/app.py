@@ -23,6 +23,7 @@ from maestro.tui_mc2.panes.sessions import SessionsPane
 from maestro.tui_mc2.panes.plans import PlansPane
 from maestro.tui_mc2.panes.tasks import TasksPane
 from maestro.tui_mc2.panes.build import BuildPane
+from maestro.tui_mc2.panes.convert import ConvertPane
 from maestro.ui_facade.tasks import get_current_execution_state, stop_tasks
 from maestro.tui_mc2.util.smoke import (
     SmokeMode,
@@ -49,12 +50,14 @@ class AppContext:
     selected_task_id: Optional[str] = None
     active_build_target_id: Optional[str] = None
     selected_build_target_id: Optional[str] = None
+    selected_convert_stage: Optional[str] = None
     sessions_filter_text: str = ""
     sessions_filter_visible: int = 0
     sessions_filter_total: int = 0
     plan_status_text: str = ""
     task_status_text: str = ""
     build_status_text: str = ""
+    convert_status_text: str = ""
     build_is_running: bool = False
     task_log_buffers: Dict[str, object] = field(default_factory=dict)
     modal_parent: Optional[object] = None
@@ -98,6 +101,7 @@ class MC2App:
         self.last_active_plan_id = self.context.active_plan_id
         self.last_task_status_text = self.context.task_status_text
         self.last_build_status_text = self.context.build_status_text
+        self.last_convert_status_text = self.context.convert_status_text
         self.last_filter_status = (
             self.context.sessions_filter_text,
             self.context.sessions_filter_visible,
@@ -237,6 +241,8 @@ class MC2App:
             return TasksPane(position=position, context=self.context)
         if view == "build":
             return BuildPane(position=position, context=self.context)
+        if view == "convert":
+            return ConvertPane(position=position, context=self.context)
         return SessionsPane(position=position, context=self.context)
 
     def _set_view(self, view: str):
@@ -316,6 +322,9 @@ class MC2App:
             changed = True
         if self.context.build_status_text != self.last_build_status_text:
             self.last_build_status_text = self.context.build_status_text
+            changed = True
+        if self.context.convert_status_text != self.last_convert_status_text:
+            self.last_convert_status_text = self.context.convert_status_text
             changed = True
         current_filter = (
             self.context.sessions_filter_text,
@@ -481,6 +490,15 @@ class MC2App:
                 return
             self.left_pane.handle_stop()
             self._mark_dirty("left", "right", "status")
+        elif action_id in ("convert.refresh",):
+            if self.context.active_view != "convert":
+                self.context.status_message = "Switch to Convert view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.refresh_data()
+            self.right_pane.refresh_data()
+            self.context.status_message = "Convert refreshed"
+            self._mark_dirty("left", "right", "status")
         elif action_id in ("view.sessions", "view.plans"):
             view = "sessions" if action_id.endswith("sessions") else "plans"
             self._set_view(view)
@@ -494,6 +512,13 @@ class MC2App:
             self._set_view("build")
             self.context.status_message = "View: Build"
             self._mark_dirty("menubar", "status")
+        elif action_id == "view.convert":
+            self._set_view("convert")
+            self.context.status_message = "View: Convert"
+            self._mark_dirty("menubar", "status")
+        elif action_id == "view.vault":
+            self.context.status_message = "Vault view not implemented"
+            self._mark_dirty("status")
         elif action_id == "help":
             self.dirty_regions["modal"] = True
             modal = ModalDialog(self.stdscr, "Help", [
@@ -556,7 +581,7 @@ class MC2App:
             return True
 
         elif key in (curses.KEY_PPAGE, 21):  # PageUp or Ctrl+U
-            if key == 21 and self.context.active_view in ("tasks", "build") and self.context.focus_pane == "left":
+            if key == 21 and self.context.active_view in ("tasks", "build", "convert") and self.context.focus_pane == "left":
                 if self.left_pane.clear_filter():
                     self._mark_dirty("left", "right", "status")
                     return True
@@ -628,6 +653,8 @@ class MC2App:
                 self._handle_menu_action("tasks.run")
             elif self.context.active_view == "build":
                 self._handle_menu_action("build.run")
+            elif self.context.active_view == "convert":
+                self._handle_menu_action("convert.refresh")
             else:
                 # Refresh both panes
                 self.left_pane.refresh_data()
@@ -689,6 +716,16 @@ class MC2App:
             self._mark_all_dirty()
             return True
 
+        elif key == curses.KEY_F3:
+            if self.context.active_view == "convert":
+                self._handle_menu_action("view.vault")
+                return True
+
+        elif key == curses.KEY_F4:
+            if self.context.active_view == "convert":
+                self._handle_menu_action("view.tasks")
+                return True
+
         elif key == curses.KEY_LEFT:
             if self.context.focus_pane == "left" and hasattr(self.left_pane, "handle_left"):
                 if self.left_pane.handle_left():
@@ -702,7 +739,7 @@ class MC2App:
             return True
 
         elif key == ord('/'):
-            if self.context.active_view in ("tasks", "build") and self.context.focus_pane == "left":
+            if self.context.active_view in ("tasks", "build", "convert") and self.context.focus_pane == "left":
                 self.dirty_regions["modal"] = True
                 self.left_pane.handle_filter_input()
                 self.dirty_regions["modal"] = False

@@ -18,6 +18,7 @@ class StatusLine:
         self.default_hints = "Tab=Switch | Enter=Open | Esc=Back | F1=Help | F5=Refresh | F7=New | F8=Delete | F9=Menu | F10=Quit"
         self.tasks_hints = "Tab=Switch | Enter=Open | / Filter | F5=Run | F7=Limit | F8=Stop | F9=Menu | F10=Quit"
         self.build_hints = "Tab=Switch | Enter=Set Active/Preview | / Filter | F5=Run | F6=Status | F7=Fix (DANGER) | F8=Stop | F9=Menu | F10=Quit"
+        self.convert_hints = "Tab=Switch | / Filter | F3=Vault | F4=Tasks | F5=Refresh | F9=Menu | F10=Quit"
 
     def set_window(self, window):
         """Update the curses window for the status line."""
@@ -82,6 +83,10 @@ class StatusLine:
                 build_status = getattr(self.context, "build_status_text", "")
                 if build_status:
                     status_text = build_status
+            if not status_text and active_view == "convert":
+                convert_status = getattr(self.context, "convert_status_text", "")
+                if convert_status:
+                    status_text = convert_status
             if not status_text and active_view == "sessions":
                 filter_text = getattr(self.context, "sessions_filter_text", "")
                 visible = getattr(self.context, "sessions_filter_visible", 0)
@@ -131,6 +136,8 @@ class StatusLine:
                 hints = self.tasks_hints
             if getattr(self.context, "active_view", "") == "build":
                 hints = self.build_hints
+            if getattr(self.context, "active_view", "") == "convert":
+                hints = self.convert_hints
             if len(hints) <= width:
                 try:
                     self.window.addstr(0, 0, hints[:width])
