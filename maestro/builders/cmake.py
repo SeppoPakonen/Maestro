@@ -9,64 +9,95 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from .base import Builder, Package, BuildConfig
+from .base import Builder, Package
+from .config import MethodConfig
 from .console import execute_command
 
 
 class CMakeBuilder(Builder):
     """CMake builder implementation."""
 
-    def __init__(self):
-        super().__init__("cmake")
+    def __init__(self, config: MethodConfig = None):
+        super().__init__("cmake", config)
 
-    def configure(self, package: Package, config: BuildConfig) -> bool:
+    def configure(self, package: Package) -> bool:
         """Run cmake configuration."""
         # Determine build directory
-        build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
+        build_dir = os.path.join(
+            self.config.config.target_dir,
+            self.config.name,
+            package.name,
+            "build"
+        )
         os.makedirs(build_dir, exist_ok=True)
 
-        # Determine CMake generator based on platform
+        # Determine CMake generator based on platform or user specification
         cmake_args = [
             'cmake',
             '-S', package.path,  # Source directory containing CMakeLists.txt
             '-B', build_dir,     # Build directory
-            f'-DCMAKE_BUILD_TYPE={self._get_cmake_build_type(config.build_type)}',
-            f'-DCMAKE_INSTALL_PREFIX={config.install_prefix}',
         ]
 
-        # Add compiler flags if present
-        if 'CC' in config.flags:
-            cmake_args.append(f'-DCMAKE_C_COMPILER={config.flags["CC"]}')
-        if 'CXX' in config.flags:
-            cmake_args.append(f'-DCMAKE_CXX_COMPILER={config.flags["CXX"]}')
+        # Add build type for single-config generators
+        # For multi-config generators, build type is specified at build time
+        is_multi_config = self._detect_generator_type(build_dir)
+        if not is_multi_config:
+            # For single-config generators, set build type during configuration
+            cmake_args.append(f'-DCMAKE_BUILD_TYPE={self._get_cmake_build_type(self.config.config.build_type.value)}')
+
+        # Add install prefix
+        cmake_args.append(f'-DCMAKE_INSTALL_PREFIX={self.config.config.install_prefix}')
+
+        # Add compiler flags from config
+        if self.config.compiler.cc:
+            cmake_args.append(f'-DCMAKE_C_COMPILER={self.config.compiler.cc}')
+        if self.config.compiler.cxx:
+            cmake_args.append(f'-DCMAKE_CXX_COMPILER={self.config.compiler.cxx}')
 
         # Add custom flags from build method
-        if 'CMAKE_C_FLAGS' in config.flags:
-            cmake_args.append(f'-DCMAKE_C_FLAGS={config.flags["CMAKE_C_FLAGS"]}')
-        if 'CMAKE_CXX_FLAGS' in config.flags:
-            cmake_args.append(f'-DCMAKE_CXX_FLAGS={config.flags["CMAKE_CXX_FLAGS"]}')
-        if 'CMAKE_EXE_LINKER_FLAGS' in config.flags:
-            cmake_args.append(f'-DCMAKE_EXE_LINKER_FLAGS={config.flags["CMAKE_EXE_LINKER_FLAGS"]}')
+        # Convert config lists to strings
+        c_flags_str = " ".join(self.config.compiler.cflags)
+        cxx_flags_str = " ".join(self.config.compiler.cxxflags)
+        linker_flags_str = " ".join(self.config.compiler.ldflags)
+
+        if c_flags_str:
+            cmake_args.append(f'-DCMAKE_C_FLAGS={c_flags_str}')
+        if cxx_flags_str:
+            cmake_args.append(f'-DCMAKE_CXX_FLAGS={cxx_flags_str}')
+        if linker_flags_str:
+            cmake_args.append(f'-DCMAKE_EXE_LINKER_FLAGS={linker_flags_str}')
+        if self.config.platform.toolchain_file:
+            cmake_args.append(f'-DCMAKE_TOOLCHAIN_FILE={self.config.platform.toolchain_file}')
+
+        # Add custom CMake options from package metadata or config
+        cmake_options = package.config.get('cmake_options', {})
+        for key, value in cmake_options.items():
+            cmake_args.append(f'-D{key}={value}')
 
         # Add verbose flag if enabled
-        if config.verbose:
+        if self.config.config.verbose:
             cmake_args.append('-Wdev')  # Enable developer warnings
 
         try:
-            result = execute_command(cmake_args, cwd=package.path, verbose=config.verbose)
+            result = execute_command(cmake_args, cwd=package.path, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"CMake configuration failed: {str(e)}")
             return False
 
-    def build_package(self, package: Package, config: BuildConfig) -> bool:
+    def build_package(self, package: Package) -> bool:
         """Build using cmake --build."""
         # First run configure to ensure cmake files are generated
-        if not self.configure(package, config):
+        if not self.configure(package):
             return False
 
         # Determine build directory
-        build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
+        build_dir = os.path.join(
+            self.config.config.target_dir,
+            self.config.name,
+            package.name,
+            "build"
+        )
 
         # Prepare cmake build arguments
         cmake_args = [
@@ -76,8 +107,8 @@ class CMakeBuilder(Builder):
 
         # Add configuration for multi-config generators like Visual Studio and Xcode
         # For single-config generators (Makefiles, Ninja), build type is set during configure
-        if self._is_multi_config_generator():
-            cmake_args.extend(['--config', self._get_cmake_build_type(config.build_type)])
+        if self._detect_generator_type(build_dir):
+            cmake_args.extend(['--config', self._get_cmake_build_type(self.config.config.build_type.value)])
 
         # Check if a specific target is requested in package config
         target = package.config.get('target')
@@ -85,12 +116,13 @@ class CMakeBuilder(Builder):
             cmake_args.extend(['--target', target])
 
         # Add parallel build option
-        if config.parallel and config.jobs > 0:
-            cmake_args.extend(['--parallel', str(config.jobs)])
+        jobs = self.config.config.jobs if self.config.config.jobs > 0 else os.cpu_count() or 4
+        if self.config.config.parallel:
+            cmake_args.extend(['--parallel', str(jobs)])
 
         # Execute the build
         try:
-            result = execute_command(cmake_args, verbose=config.verbose)
+            result = execute_command(cmake_args, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"CMake build failed: {str(e)}")
@@ -128,37 +160,52 @@ class CMakeBuilder(Builder):
         # If build directory doesn't exist, clean is considered successful
         return True
 
-    def install_package(self, package: Package, config: BuildConfig) -> bool:
+    def install_package(self, package: Package) -> bool:
         """Install the package using cmake --install."""
-        build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
+        build_dir = os.path.join(
+            self.config.config.target_dir,
+            self.config.name,
+            package.name,
+            "build"
+        )
+
+        # Ensure the build directory exists and is configured
+        if not os.path.exists(build_dir):
+            if not self.configure(package):
+                return False
 
         cmake_install_args = [
             'cmake',
             '--install', build_dir,
-            '--prefix', config.install_prefix
+            '--prefix', self.config.config.install_prefix
         ]
 
         # Add configuration for multi-config generators
-        if self._is_multi_config_generator():
+        if self._detect_generator_type(build_dir):
             cmake_install_args.extend([
-                '--config', self._get_cmake_build_type(config.build_type)
+                '--config', self._get_cmake_build_type(self.config.config.build_type.value)
             ])
 
         try:
-            result = execute_command(cmake_install_args, verbose=config.verbose)
+            result = execute_command(cmake_install_args, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"CMake install failed: {str(e)}")
             return False
 
-    def build_target(self, package: Package, target: str, config: BuildConfig) -> bool:
+    def build_target(self, package: Package, target: str) -> bool:
         """Build a specific CMake target."""
         # First run configure to ensure cmake files are generated
-        if not self.configure(package, config):
+        if not self.configure(package):
             return False
 
         # Determine build directory
-        build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
+        build_dir = os.path.join(
+            self.config.config.target_dir,
+            self.config.name,
+            package.name,
+            "build"
+        )
 
         # Prepare cmake build arguments for specific target
         cmake_args = [
@@ -168,51 +215,22 @@ class CMakeBuilder(Builder):
         ]
 
         # Add configuration for multi-config generators like Visual Studio and Xcode
-        if self._is_multi_config_generator():
-            cmake_args.extend(['--config', self._get_cmake_build_type(config.build_type)])
+        if self._detect_generator_type(build_dir):
+            cmake_args.extend(['--config', self._get_cmake_build_type(self.config.config.build_type.value)])
 
         # Add parallel build option
-        if config.parallel and config.jobs > 0:
-            cmake_args.extend(['--parallel', str(config.jobs)])
+        jobs = self.config.config.jobs if self.config.config.jobs > 0 else os.cpu_count() or 4
+        if self.config.config.parallel:
+            cmake_args.extend(['--parallel', str(jobs)])
 
         # Execute the build
         try:
-            result = execute_command(cmake_args, verbose=config.verbose)
+            result = execute_command(cmake_args, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"CMake build for target '{target}' failed: {str(e)}")
             return False
 
-    def get_available_targets(self, package: Package, config: BuildConfig) -> List[str]:
-        """Get list of available CMake targets."""
-        # First run configure to ensure cmake files are generated
-        if not self.configure(package, config):
-            return []
-
-        build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
-
-        # Use cmake --build to get target list (on some generators)
-        # Alternative: parse the build files directly or use cmake --target help
-        try:
-            # Use verbose makefile output or check build system files to get targets
-            # For now, we'll return a common list based on CMake conventions
-            # In a full implementation, we would parse the actual build files
-            common_targets = ['all', 'clean', 'install', 'test']
-
-            # For Makefiles, we can try to get targets using make help
-            import platform
-            system = platform.system().lower()
-            if system in ['linux', 'darwin']:
-                # Try to get actual targets from Makefile
-                makefile_path = os.path.join(build_dir, 'Makefile')
-                if os.path.exists(makefile_path):
-                    targets = self._parse_makefile_targets(makefile_path)
-                    return targets or common_targets
-
-            return common_targets
-        except Exception as e:
-            print(f"Could not retrieve CMake targets: {str(e)}")
-            return []
 
     def _parse_makefile_targets(self, makefile_path: str) -> List[str]:
         """Parse Makefile to extract target names."""
@@ -263,13 +281,48 @@ class CMakeBuilder(Builder):
 
         return build_type_mapping.get(build_type.lower(), 'Debug')
 
-    def _is_multi_config_generator(self) -> bool:
-        """Detect if the current system uses multi-config generators by default.
+    def _detect_generator_type(self, build_dir: str) -> bool:
+        """Detect if the active CMake generator is multi-config or single-config.
 
         Multi-config generators (Visual Studio, Xcode) allow multiple build types
         in the same build directory, while single-config generators (Makefiles, Ninja)
         require separate build directories per build type.
+
+        Args:
+            config: Build configuration
+            build_dir: Build directory where CMake files are generated
+
+        Returns:
+            True if generator is multi-config, False if single-config
         """
+        # Try to determine the generator type by checking the generated files
+        # in the build directory after configuration
+
+        # Look for solution files (Visual Studio) or project files (Xcode)
+        import os
+        cmake_cache_path = os.path.join(build_dir, "CMakeCache.txt")
+
+        if os.path.exists(cmake_cache_path):
+            try:
+                with open(cmake_cache_path, 'r') as f:
+                    content = f.read()
+
+                    # Look for generator information in CMakeCache.txt
+                    if "Visual Studio" in content:
+                        return True  # Visual Studio is multi-config
+                    elif "Xcode" in content:
+                        return True  # Xcode is multi-config
+                    elif "Ninja Multi-Config" in content:
+                        return True  # Ninja Multi-Config is multi-config
+                    else:
+                        # Most other generators (Unix Makefiles, regular Ninja) are single-config
+                        return False
+            except:
+                # If we can't read the cache, fall back to platform-based detection
+                pass
+
+        # Fall back to platform-based detection if cache isn't available yet
+        # This is used when detecting before initial configuration
         import platform
         system = platform.system().lower()
 
@@ -282,3 +335,117 @@ class CMakeBuilder(Builder):
             return True  # Xcode is multi-config
         else:
             return False  # Make/Ninja are single-config
+
+    def get_available_targets(self, package: Package) -> List[str]:
+        """Get list of available CMake targets using cmake --build help or parsing generators."""
+        # First run configure to ensure cmake files are generated
+        if not self.configure(package):
+            return []
+
+        build_dir = os.path.join(
+            self.config.config.target_dir,
+            self.config.name,
+            package.name,
+            "build"
+        )
+
+        try:
+            # Try to get targets from CMake if generator supports it
+            # For multi-config generators, we need to specify a config
+            is_multi_config = self._detect_generator_type(build_dir)
+            cmake_args = ['cmake', '--build', build_dir, '--target', 'help']
+
+            if is_multi_config:
+                cmake_args.extend(['--config', self._get_cmake_build_type(self.config.config.build_type.value)])
+
+            # Try to execute and parse help output to extract targets
+            result = execute_command(cmake_args, verbose=False)
+
+            if result.returncode != 0:
+                # If help target doesn't work, try parsing generated files
+                return self._get_targets_from_generated_files(build_dir, is_multi_config)
+
+            # Parse the output to extract targets
+            output = result.stdout.decode('utf-8') if result.stdout else ""
+            return self._parse_targets_from_output(output)
+
+        except Exception as e:
+            # If cmake help doesn't work, try parsing generated files directly
+            return self._get_targets_from_generated_files(build_dir, is_multi_config)
+
+    def _get_targets_from_generated_files(self, build_dir: str, is_multi_config: bool) -> List[str]:
+        """Extract targets from generated build files."""
+        import platform
+        system = platform.system().lower()
+
+        try:
+            # For Makefiles, parse Makefile
+            makefile_path = os.path.join(build_dir, 'Makefile')
+            if os.path.exists(makefile_path):
+                return self._parse_makefile_targets(makefile_path)
+
+            # For Visual Studio solutions
+            if system == 'windows':
+                for file in os.listdir(build_dir):
+                    if file.endswith('.sln'):
+                        return self._parse_visual_studio_solution_targets(
+                            os.path.join(build_dir, file)
+                        )
+
+            # For Xcode projects
+            if system == 'darwin':
+                xcodeproj_path = os.path.join(build_dir, '*.xcodeproj')
+                import glob
+                xcode_projects = glob.glob(xcodeproj_path)
+                if xcode_projects:
+                    return self._parse_xcode_project_targets(xcode_projects[0])
+
+            # Default targets if no specific files found
+            return ['all', 'clean', 'install', 'test']
+        except:
+            return ['all', 'clean', 'install', 'test']
+
+    def _parse_targets_from_output(self, output: str) -> List[str]:
+        """Parse CMake output to extract available targets."""
+        targets = []
+        import re
+
+        # Look for target names in output (varies by generator)
+        # Common patterns for target extraction
+        lines = output.split('\n')
+        for line in lines:
+            # Look for lines that mention targets
+            if 'target' in line.lower():
+                # Extract potential target names
+                matches = re.findall(r'[a-zA-Z][a-zA-Z0-9_-]*', line)
+                for match in matches:
+                    if len(match) > 1 and not match.startswith('-') and match.islower():
+                        targets.append(match)
+
+        return list(set(targets))  # Remove duplicates
+
+    def _parse_visual_studio_solution_targets(self, solution_path: str) -> List[str]:
+        """Parse Visual Studio solution file to extract targets."""
+        # This is a simplified implementation, a full implementation would
+        # parse the .sln file structure properly
+        try:
+            with open(solution_path, 'r') as f:
+                content = f.read()
+            # Look for project definitions in solution file
+            import re
+            project_pattern = r'Project\(".*"\)\s*=\s*".*",\s*".*",\s*"{.*}"'
+            projects = re.findall(project_pattern, content)
+            # Extract project names as targets
+            targets = []
+            for project in projects:
+                # Basic extraction - in practice would be more sophisticated
+                targets.extend(['build', 'rebuild', 'clean'])
+            return list(set(targets))
+        except:
+            return ['build', 'rebuild', 'clean']
+
+    def _parse_xcode_project_targets(self, project_path: str) -> List[str]:
+        """Parse Xcode project file to extract targets."""
+        # This would integrate with Xcode command line tools in a full implementation
+        # For now, return common Xcode targets
+        return ['build', 'clean', 'install', 'test']

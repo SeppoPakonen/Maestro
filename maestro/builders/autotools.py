@@ -10,31 +10,37 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import platform
 
-from .base import Builder, Package, BuildConfig
+from .base import Builder, Package
+from .config import MethodConfig
 from .console import execute_command
 
 
 class AutotoolsBuilder(Builder):
     """Autotools builder implementation."""
 
-    def __init__(self):
-        super().__init__("autotools")
+    def __init__(self, config: MethodConfig = None):
+        super().__init__("autotools", config)
 
-    def configure(self, package: Package, config: BuildConfig) -> bool:
+    def configure(self, package: Package) -> bool:
         """Run ./configure script for autotools-based package."""
         # Determine if we need to run autoreconf to generate configure script
         if not self._needs_autoreconf(package.path):
             print(f"Using existing configure script for {package.name}")
         else:
             print(f"Running autoreconf for {package.name}")
-            if not self._run_autoreconf(package.path, config):
+            if not self._run_autoreconf(package.path):
                 return False
 
         # Determine if we should use out-of-source build
-        use_out_of_source = config.flags.get('out_of_source', False)
+        use_out_of_source = self.config.custom.get('out_of_source', False)
         if use_out_of_source:
             # Create build directory for out-of-source build
-            build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
+            build_dir = os.path.join(
+                self.config.config.target_dir,
+                self.config.name,
+                package.name,
+                "build"
+            )
             os.makedirs(build_dir, exist_ok=True)
             configure_dir = build_dir  # Configuration will run in build directory
             configure_script_path = os.path.join(package.path, 'configure')  # Configure script still in source
@@ -47,37 +53,44 @@ class AutotoolsBuilder(Builder):
         configure_args = [configure_script_path]
 
         # Add installation prefix
-        configure_args.append(f'--prefix={config.install_prefix}')
+        configure_args.append(f'--prefix={self.config.config.install_prefix}')
 
         # Add build type flags for debug/release
-        if config.build_type.lower() == 'debug':
+        if self.config.config.build_type.value.lower() == 'debug':
             configure_args.append('--enable-debug')
             # Additional debug flags
-            if 'CFLAGS' not in config.flags:
-                config.flags['CFLAGS'] = '-g -O0'
-            if 'CXXFLAGS' not in config.flags:
-                config.flags['CXXFLAGS'] = '-g -O0'
+            # Add compiler flags from config
+            cflags = " ".join(self.config.compiler.cflags)
+            cxxflags = " ".join(self.config.compiler.cxxflags)
+            ldflags = " ".join(self.config.compiler.ldflags)
+
+            if cflags:
+                configure_args.append(f'CFLAGS={cflags}')
+            if cxxflags:
+                configure_args.append(f'CXXFLAGS={cxxflags}')
+            if ldflags:
+                configure_args.append(f'LDFLAGS={ldflags}')
         else:
             configure_args.append('--disable-debug')
             # Additional release flags
-            if 'CFLAGS' not in config.flags:
-                config.flags['CFLAGS'] = '-O2'
-            if 'CXXFLAGS' not in config.flags:
-                config.flags['CXXFLAGS'] = '-O2'
+            cflags = " ".join(self.config.compiler.cflags)
+            cxxflags = " ".join(self.config.compiler.cxxflags)
+            ldflags = " ".join(self.config.compiler.ldflags)
 
-        # Add compiler flags if specified in config
-        if 'CC' in config.flags:
-            configure_args.append(f'CC={config.flags["CC"]}')
-        if 'CXX' in config.flags:
-            configure_args.append(f'CXX={config.flags["CXX"]}')
-        if 'CFLAGS' in config.flags:
-            configure_args.append(f'CFLAGS={config.flags["CFLAGS"]}')
-        if 'CXXFLAGS' in config.flags:
-            configure_args.append(f'CXXFLAGS={config.flags["CXXFLAGS"]}')
-        if 'LDFLAGS' in config.flags:
-            configure_args.append(f'LDFLAGS={config.flags["LDFLAGS"]}')
+            if cflags:
+                configure_args.append(f'CFLAGS={cflags}')
+            if cxxflags:
+                configure_args.append(f'CXXFLAGS={cxxflags}')
+            if ldflags:
+                configure_args.append(f'LDFLAGS={ldflags}')
 
-        # Add cross-compilation support if specified
+        # Add compiler from config
+        if self.config.compiler.cc:
+            configure_args.append(f'CC={self.config.compiler.cc}')
+        if self.config.compiler.cxx:
+            configure_args.append(f'CXX={self.config.compiler.cxx}')
+
+        # Add cross-compilation support if specified in package config
         if 'host' in package.config:
             configure_args.append(f'--host={package.config["host"]}')
         if 'build' in package.config:
@@ -100,22 +113,27 @@ class AutotoolsBuilder(Builder):
             ])
 
         try:
-            result = execute_command(configure_args, cwd=configure_dir, verbose=config.verbose)
+            result = execute_command(configure_args, cwd=configure_dir, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"Autotools configure failed: {str(e)}")
             return False
 
-    def build_package(self, package: Package, config: BuildConfig) -> bool:
+    def build_package(self, package: Package) -> bool:
         """Build using make."""
         # First run configure to ensure the environment is set up
-        if not self.configure(package, config):
+        if not self.configure(package):
             return False
 
         # Determine build directory based on out-of-source setting
-        use_out_of_source = config.flags.get('out_of_source', False)
+        use_out_of_source = self.config.custom.get('out_of_source', False)
         if use_out_of_source:
-            build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
+            build_dir = os.path.join(
+                self.config.config.target_dir,
+                self.config.name,
+                package.name,
+                "build"
+            )
             build_cwd = build_dir
         else:
             build_cwd = package.path
@@ -127,9 +145,10 @@ class AutotoolsBuilder(Builder):
         make_args = [make_cmd]
 
         # Add parallel build support if enabled
-        if config.parallel and config.jobs > 0:
+        jobs = self.config.config.jobs if self.config.config.jobs > 0 else os.cpu_count() or 4
+        if self.config.config.parallel:
             # GNU make uses -j, BSD make uses -j too for parallel jobs
-            make_args.extend(['-j', str(config.jobs)])
+            make_args.extend(['-j', str(jobs)])
 
         # Add specific target if requested
         target = package.config.get('target')
@@ -137,7 +156,7 @@ class AutotoolsBuilder(Builder):
             make_args.append(target)
 
         try:
-            result = execute_command(make_args, cwd=build_cwd, verbose=config.verbose)
+            result = execute_command(make_args, cwd=build_cwd, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"Autotools build failed: {str(e)}")
@@ -188,16 +207,21 @@ class AutotoolsBuilder(Builder):
             print(f"Autotools clean failed: {str(e)}")
             return False
 
-    def install_package(self, package: Package, config: BuildConfig) -> bool:
+    def install_package(self, package: Package) -> bool:
         """Install the package using make install."""
         # Installation is typically done from the build directory for out-of-source builds
         # but the make install command doesn't need to be run from the build directory
         # since it knows where the built files are
 
         # Determine directory based on out-of-source setting
-        use_out_of_source = config.flags.get('out_of_source', False)
+        use_out_of_source = self.config.custom.get('out_of_source', False)
         if use_out_of_source:
-            build_dir = os.path.join(config.target_dir, config.method, package.name, "build")
+            build_dir = os.path.join(
+                self.config.config.target_dir,
+                self.config.name,
+                package.name,
+                "build"
+            )
             if os.path.exists(build_dir):
                 install_cwd = build_dir
             else:
@@ -211,7 +235,7 @@ class AutotoolsBuilder(Builder):
         make_args = [make_cmd, 'install']
 
         try:
-            result = execute_command(make_args, cwd=install_cwd, verbose=config.verbose)
+            result = execute_command(make_args, cwd=install_cwd, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"Autotools install failed: {str(e)}")
@@ -322,16 +346,16 @@ class AutotoolsBuilder(Builder):
         except:
             return 'make'  # Default fallback
 
-    def _run_autoreconf(self, package_path: str, config: BuildConfig) -> bool:
+    def _run_autoreconf(self, package_path: str) -> bool:
         """Run autoreconf to generate configure script from configure.ac."""
         autoreconf_args = ['autoreconf', '-i', '-f']  # -i for install aux files, -f for force
 
         # Add verbose flag if needed
-        if config.verbose:
+        if self.config.config.verbose:
             autoreconf_args.append('-v')
 
         try:
-            result = execute_command(autoreconf_args, cwd=package_path, verbose=config.verbose)
+            result = execute_command(autoreconf_args, cwd=package_path, verbose=self.config.config.verbose)
             return result.returncode == 0
         except Exception as e:
             print(f"Autoreconf failed: {str(e)}")
