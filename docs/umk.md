@@ -1560,6 +1560,89 @@ Total files: 67
 
 **Estimated Complexity**: Medium (2-3 weeks)
 
+### Phase 12: Retroactive Fixes and Missing Components 🚧 **CURRENT - BLOCKING**
+
+**Goal**: Fix critical blockers and gaps in Phases 1-7 discovered during Phase 10+ development.
+
+**Background**: Development of Phase 10 and beyond revealed critical missing infrastructure from earlier phases. These must be fixed retroactively before development can continue.
+
+**Status**: **BLOCKING** - Must complete before other work
+
+**Tasks**:
+
+#### Critical Blockers (Week 1)
+
+1. **Fix Broken Import Chain** (P0 - 1 day)
+   - Fix `ModuleNotFoundError: No module named 'maestro.repo.package'`
+   - Audit all imports, fix broken references
+   - Current status: **maestro command completely broken**
+
+2. **Package Metadata Bridge** (P0 - 2 days)
+   - Create canonical `maestro/repo/package.py` with `PackageInfo`
+   - Implement `PackageInfo.to_builder_package()` conversion
+   - Bridge repo scanning to build system
+
+#### Missing Phase Components (Week 2-3)
+
+3. **Phase 5.75: Gradle Builder** (P1 - 1-2 weeks)
+   - Implement `maestro/builders/gradle.py`
+   - Support gradle/gradlew, multi-module projects
+   - Support Kotlin DSL and Groovy DSL
+   - **Gap**: Gradle packages scanned (100%) but can't be built
+   - **Test**: Build `~/Dev/RainbowGame/trash`
+
+4. **Phase 6.5: Build Configuration Discovery** (P0 - 1-2 weeks)
+   - Extract build config from CMake (compile_commands.json)
+   - Extract config from Autotools (Makefile parsing)
+   - Extract config from Gradle/Maven (build file parsing)
+   - Resolve U++ config (uses, mainconfig)
+   - Implement **`maestro repo conf [PACKAGE]` command**
+   - **Critical**: Can't build or generate AST without knowing flags
+
+#### Phase 7 Gaps (Week 4-5)
+
+5. **Builder Selection Logic** (from Phase 7.3)
+   - Implement `select_builder(package, config)` function
+   - Priority: explicit → package type → error
+   - **Gap**: "Auto-detect" mentioned but not specified
+
+6. **Dependency Build Order** (from Phase 7.5)
+   - Implement topological sort (Kahn's algorithm)
+   - Build dependency graph
+   - Detect circular dependencies
+   - **Gap**: "Build in order" mentioned but no algorithm
+
+7. **Error Recovery and Build Sessions** (new for Phase 7)
+   - Implement `BuildSession` class
+   - Support `--keep-going` flag
+   - Support `--resume` flag
+   - Track completed/failed packages
+   - **Gap**: No error recovery when builds fail
+
+8. **Build Artifact Management** (from Phase 7.5)
+   - Define artifact storage structure
+   - Create artifact registry `.maestro/build/artifacts.json`
+   - Track targets, timestamps, config hashes
+   - **Gap**: No spec for where outputs go
+
+**Deliverables**:
+- Working maestro command (no import errors)
+- Canonical package representation with conversion
+- Gradle builder implementation
+- Build configuration discovery (`maestro repo conf`)
+- Complete Phase 7 implementation with all gaps filled
+- Comprehensive integration test suite
+
+**Test Criteria**:
+- All maestro commands work
+- Can build Gradle projects
+- `maestro repo conf` shows correct configuration
+- Multi-package builds work in dependency order
+- Error recovery works (--keep-going, --resume)
+- Build artifacts properly tracked
+
+**Estimated Complexity**: High (3-5 weeks)
+
 ## Timeline Estimate
 
 | Phase | Duration | Dependencies |
@@ -1576,8 +1659,11 @@ Total files: 67
 | Phase 9: TUI Integration | 3-4 weeks | Phase 7 |
 | Phase 10: Universal Hub System | 4-5 weeks | Phases 2-7 |
 | Phase 11: Internal Package Groups | 2-3 weeks | Phase 7 |
+| **Phase 12: Retroactive Fixes** | **3-5 weeks** | **None (fixes 1-7)** |
 
-**Total Estimate**: 33-49 weeks (8-11 months)
+**Total Estimate**: 36-54 weeks (8-13 months)
+
+**CRITICAL NOTE**: Phase 12 is a BLOCKING retroactive fix phase that must complete before other phases can continue. It addresses critical gaps and missing infrastructure from Phases 1-7 discovered during Phase 10+ development.
 
 **Minimum Viable Product (MVP)**: Phases 1-2 (6-9 weeks)
 - Core builder framework
