@@ -24,15 +24,21 @@
 | Live execution view | — | planned | Real-time process monitoring |
 | Hot-reloading | — | planned | Automatic UI refresh during development |
 | UPP parser | CLI v0.1.0 | — | Tolerant parser for .upp package descriptor files extracting metadata |
-| Repo resolve | CLI v0.6.0 | 0.6.0 | U++ repository scanning with auto-detection, pruning, artifact persistence, .upp parsing, user assembly reading, and internal package inference |
-| CLI: internal package inference | CLI v0.1.0 | 0.1.0 | Group unknown paths into structured Maestro internal packages by top-level directory |
-| Repo show | CLI v0.1.0 | 0.1.0 | Display persisted repository scan results from .maestro/repo/ |
-| Repo pkg | CLI v0.1.0 | 0.1.0 | Package query commands: list, info, search, tree (with cycle detection) |
-| Repo pkg: internal package integration | CLI v0.1.0 | 0.1.0 | Integration of internal packages into repo pkg query interface, allowing both U++ packages and internal packages in queries |
-| Repo pkg: platform flag detection | CLI v0.1.0 | planned | Automatic platform flag detection (LINUX, WIN32, MACOS) for conditional dependency filtering |
-| Repo pkg: mainconfig support | CLI v0.1.0 | planned | Support for U++ mainconfig entries and conditional dependency filtering with numbered config selection |
-| Repo pkg: numbered package selection | CLI v0.1.0 | planned | Numbered package selection and relative paths in repo pkg command |
-| Repo pkg: conditional dependency visualization | CLI v0.1.0 | planned | Display of conditional package dependencies in tree view with visual indication |
+| Repo resolve | CLI v0.7.0 | — | Universal repository scanning with multi-build-system support (U++, CMake, Make, Autoconf), auto-detection, pruning, artifact persistence, and internal package inference |
+| CLI: internal package inference | CLI v0.1.0 | — | Group unknown paths into structured Maestro internal packages by top-level directory |
+| Build system detection | CLI v0.1.0 | — | Auto-detect build systems: U++, CMake, GNU Make, BSD Make, Autoconf/Automake |
+| CMake package scanner | CLI v0.1.0 | — | Parse CMakeLists.txt files to extract targets, sources, and project metadata |
+| Makefile detector | CLI v0.1.0 | — | Detect Makefile-based build systems (stub implementation) |
+| Autoconf detector | CLI v0.1.0 | — | Detect Autoconf/Automake build systems (stub implementation) |
+| Repo show | CLI v0.1.0 | — | Display persisted repository scan results from .maestro/repo/ |
+| Repo pkg | CLI v0.1.0 | — | Package query commands: list, info, search, tree (with cycle detection) |
+| Repo pkg: internal package integration | CLI v0.1.0 | — | Integration of internal packages into repo pkg query interface, allowing both U++ packages and internal packages in queries |
+| Repo pkg: platform flag detection | CLI v0.1.0 | — | Automatic platform flag detection (LINUX, WIN32, MACOS) for conditional dependency filtering |
+| Repo pkg: mainconfig support | CLI v0.1.0 | — | Support for U++ mainconfig entries and conditional dependency filtering with numbered config selection |
+| Repo pkg: numbered package selection | CLI v0.1.0 | — | Numbered package selection and relative paths in repo pkg command |
+| Repo pkg: conditional dependency visualization | CLI v0.1.0 | — | Display of conditional package dependencies in tree view with visual indication |
+| CLI: repo index artifact | CLI v0.1 | — | Persist resolved repository model to .maestro/repo/ artifacts for reuse |
+| CLI: shared repo workflow guardrails | CLI v0.1 | — | Git hygiene warnings in verbose mode and recommended development practices documentation |
 | Repo resolve integration test (ai-upp) | test v0.1 | — | Integration test for U++ repository scanning |
 | CLI repo workflow E2E (ai-upp) | test v0.1 | — | End-to-end test for init → repo resolve → repo show workflow |
 | Run history management | CLI v0.1.0 | 0.1.0 | List, show, replay, and compare runs with baseline support |

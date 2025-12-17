@@ -350,12 +350,13 @@ class UppRepoIndex:
 
 @dataclass
 class PackageInfo:
-    """Information about a detected U++ package."""
+    """Information about a detected package (U++, CMake, Make, etc.)."""
     name: str
     dir: str
     upp_path: str
     files: List[str] = field(default_factory=list)
     upp: Optional[Dict[str, Any]] = None  # Parsed .upp metadata
+    build_system: str = 'upp'  # 'upp', 'cmake', 'make', 'autoconf'
 
 
 @dataclass
@@ -1219,6 +1220,72 @@ class StyledArgumentParser(argparse.ArgumentParser):
         styled_print(f" maestro v{__version__} - AI Task Orchestrator ", Colors.BRIGHT_MAGENTA, Colors.UNDERLINE, 0)
         styled_print(" Conductor of AI symphonies 🎼 ", Colors.BRIGHT_RED, Colors.BOLD, 0)
         styled_print(" Copyright 2025 Seppo Pakonen ", Colors.BRIGHT_YELLOW, Colors.BOLD, 0)
+
+
+def check_git_hygiene():
+    """
+    Check git hygiene and warn about potential issues in shared repository.
+    Only produces output when verbose flag is set.
+    """
+    import subprocess
+    import os
+
+    try:
+        # Check if we're in a git repository
+        result = subprocess.run(['git', 'rev-parse', '--is-inside-work-tree'],
+                              capture_output=True, text=True, cwd=os.getcwd())
+        if result.returncode != 0:
+            # Not in a git repo, skip checks
+            return
+
+        # Check if working tree is dirty
+        result = subprocess.run(['git', 'status', '--porcelain'],
+                              capture_output=True, text=True, cwd=os.getcwd())
+        if result.returncode == 0 and result.stdout.strip():
+            print_warning("Working tree is dirty. Consider committing or stashing changes before proceeding.", 2)
+            print_warning("Files with changes:", 3)
+            for line in result.stdout.strip().split('\n')[:10]:  # Show first 10 files
+                print_info(f"  {line}", 4)
+            if len(result.stdout.strip().split('\n')) > 10:
+                print_info("  ... and more", 4)
+
+        # Check if local is behind upstream (optional check)
+        try:
+            # Get current branch name
+            branch_result = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                                         capture_output=True, text=True, cwd=os.getcwd())
+            if branch_result.returncode == 0:
+                current_branch = branch_result.stdout.strip()
+
+                # Check if remote tracking branch exists
+                upstream_result = subprocess.run(['git', 'rev-parse', '--abbrev-ref', f'@{{u}}'],
+                                               capture_output=True, text=True, cwd=os.getcwd())
+                if upstream_result.returncode == 0:
+                    # Check if local is behind upstream
+                    upstream_branch = upstream_result.stdout.strip()
+                    merge_base_result = subprocess.run(['git', 'merge-base', f'{upstream_branch}', 'HEAD'],
+                                                     capture_output=True, text=True, cwd=os.getcwd())
+                    rev_parse_result = subprocess.run(['git', 'rev-parse', 'HEAD'],
+                                                    capture_output=True, text=True, cwd=os.getcwd())
+
+                    if merge_base_result.returncode == 0 and rev_parse_result.returncode == 0:
+                        merge_base = merge_base_result.stdout.strip()
+                        current_commit = rev_parse_result.stdout.strip()
+
+                        if merge_base != current_commit:
+                            # Check if we're behind (upstream has commits we don't have)
+                            rev_list_result = subprocess.run(['git', 'rev-list', '--count', f'HEAD..{upstream_branch}'],
+                                                           capture_output=True, text=True, cwd=os.getcwd())
+                            if rev_list_result.returncode == 0 and rev_list_result.stdout.strip() != '0':
+                                behind_count = rev_list_result.stdout.strip()
+                                print_warning(f"Local branch is {behind_count} commit(s) behind upstream '{upstream_branch}'. Consider running 'git pull' or 'git rebase'.", 2)
+        except Exception:
+            # If upstream check fails, just skip it without error
+            pass
+
+    except Exception:
+        # If git is not available or any other error occurs, skip checks
+        pass
 
 
 class PlannerError(Exception):
@@ -2089,12 +2156,42 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: 
             if verbose:
                 print(f"[maestro] Warning: Failed to read user assemblies: {e}")
 
+    # Scan for other build systems (CMake, Make, Autoconf, etc.)
+    build_system_packages = []
+    try:
+        from maestro.repo.build_systems import scan_all_build_systems
+
+        bs_results = scan_all_build_systems(root_dir, verbose=verbose)
+
+        # Convert BuildSystemPackage to PackageInfo for universal handling
+        for build_system, bs_pkgs in bs_results.items():
+            for bs_pkg in bs_pkgs:
+                # Convert to PackageInfo format
+                pkg_info = PackageInfo(
+                    name=bs_pkg.name,
+                    dir=bs_pkg.dir,
+                    upp_path=bs_pkg.metadata.get('cmake_file', bs_pkg.metadata.get('makefile', bs_pkg.metadata.get('autoconf_files', [''])[0] if bs_pkg.metadata.get('autoconf_files') else '')) if bs_pkg.metadata else '',
+                    files=bs_pkg.files,
+                    build_system=bs_pkg.build_system  # Store build system type
+                )
+                build_system_packages.append(pkg_info)
+
+    except ImportError as e:
+        if verbose:
+            print(f"[maestro] Warning: Could not import build_systems: {e}")
+    except Exception as e:
+        if verbose:
+            print(f"[maestro] Warning: Failed to scan build systems: {e}")
+
+    # Combine U++ packages with other build system packages
+    all_packages = discovered_packages + build_system_packages
+
     # Infer internal packages from unknown paths
     internal_packages = infer_internal_packages(unknown_paths, root_dir)
 
     return RepoScanResult(
         assemblies_detected=assembly_infos,
-        packages_detected=discovered_packages,
+        packages_detected=all_packages,
         unknown_paths=unknown_paths,
         user_assemblies=user_assemblies,
         internal_packages=internal_packages
@@ -2276,7 +2373,8 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
                 "dir": pkg.dir,
                 "upp_path": pkg.upp_path,
                 "files": pkg.files,
-                "upp": pkg.upp
+                "upp": pkg.upp,
+                "build_system": pkg.build_system
             } for pkg in scan_result.packages_detected
         ],
         "unknown_paths": [
@@ -2356,7 +2454,7 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         "user_assemblies_count": len(scan_result.user_assemblies),
         "internal_packages_count": len(scan_result.internal_packages),
         "unknown_count": len(scan_result.unknown_paths),
-        "scanner_version": "0.6.0"
+        "scanner_version": "0.7.0"
     }
 
     with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
@@ -2425,6 +2523,7 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
             else:
                 entry['files'] = len(p.get('files', []))
                 entry['dir'] = p.get('dir', '')
+                entry['build_system'] = p.get('build_system', 'upp')
                 if repo_root and p.get('dir'):
                     entry['rel_path'] = os.path.relpath(p['dir'], repo_root)
 
@@ -2445,9 +2544,15 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
                 rel_path = os.path.relpath(root_path, repo_root) if repo_root else root_path
                 print_info(f"[{i:4d}] {pkg['name']:30s} {members_count:4d} items  [{guessed_type}] {rel_path}", 2)
             else:
-                # U++ package display
+                # Build system package display (U++, CMake, Make, etc.)
+                build_system = pkg.get('build_system', 'upp')
                 rel_path = os.path.relpath(pkg['dir'], repo_root) if repo_root else pkg['dir']
-                print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {rel_path}", 2)
+
+                if build_system == 'upp':
+                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {rel_path}", 2)
+                else:
+                    # Show build system label for non-U++ packages
+                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  [{build_system}] {rel_path}", 2)
 
 
 def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False):
@@ -2475,10 +2580,20 @@ def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False):
                 if len(pkg['members']) > 50:
                     print_info(f"... and {len(pkg['members']) - 50} more", 2)
         else:
-            # U++ package info
-            print_header(f"PACKAGE: {pkg['name']}")
+            # Build system package info (U++, CMake, etc.)
+            build_system = pkg.get('build_system', 'upp')
+
+            if build_system == 'upp':
+                print_header(f"PACKAGE: {pkg['name']}")
+            else:
+                print_header(f"{build_system.upper()} PACKAGE: {pkg['name']}")
+
             print(f"\nDirectory: {pkg['dir']}")
-            print(f"UPP file: {pkg['upp_path']}")
+            print(f"Build system: {build_system}")
+
+            if build_system == 'upp':
+                print(f"UPP file: {pkg['upp_path']}")
+
             print(f"Files: {len(pkg['files'])}")
 
         # Show parsed .upp metadata if available
@@ -3406,7 +3521,7 @@ def main():
     repo_subparsers = repo_parser.add_subparsers(dest='repo_subcommand', help='Repository subcommands')
 
     # repo resolve
-    repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan U++ repo for packages, assemblies, and internal packages (v0.6)')
+    repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan repository for packages across build systems: U++, CMake, Make, Autoconf (v0.7)')
     repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: auto-detect via .maestro/)')
     repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to .maestro/repo/')
@@ -3798,6 +3913,10 @@ def main():
         }
         # Map alias to main command name if present
         args.command = command_alias_map.get(args.command, args.command)
+
+    # Preflight checks for shared repo hygiene (only in verbose mode)
+    if args.verbose and args.command not in [None, 'help']:
+        check_git_hygiene()
 
     # Normalize subcommand aliases based on the main command
     if args.command and hasattr(args, 'session_subcommand') and args.session_subcommand:
@@ -5077,7 +5196,8 @@ def main():
                                 "name": pkg.name,
                                 "dir": pkg.dir,
                                 "upp_path": pkg.upp_path,
-                                "files": pkg.files
+                                "files": pkg.files,
+                                "build_system": pkg.build_system
                             } for pkg in repo_result.packages_detected
                         ],
                         "internal_packages": [
