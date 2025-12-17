@@ -29,8 +29,14 @@ from maestro.tui.screens.replay import ReplayScreen
 from maestro.tui.screens.semantic_diff import SemanticDiffScreen
 from maestro.tui.screens.confidence import ConfidenceScreen
 from maestro.tui.screens.vault import VaultScreen
-from maestro.tui.screens.onboarding import OnboardingScreen
-from maestro.tui.screens.help_index import HelpIndexScreen
+try:
+    from maestro.tui.screens.onboarding import OnboardingScreen
+except ImportError:
+    OnboardingScreen = None  # type: ignore
+try:
+    from maestro.tui.screens.help_index import HelpIndexScreen
+except ImportError:
+    HelpIndexScreen = None  # type: ignore
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 from maestro.tui.utils import global_status_manager, LoadingIndicator, ErrorModal, ErrorNormalizer, ErrorMessage, ErrorSeverity, write_smoke_success
 
@@ -650,9 +656,12 @@ class MaestroTUI(App):
     """
 
     def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
-        # Check if legacy mode is enabled
-        from maestro.tui.onboarding import onboarding_manager
-        self.legacy_mode_enabled = onboarding_manager.is_legacy_mode_enabled()
+        # Check if legacy mode is enabled - handle missing onboarding
+        try:
+            from maestro.tui.onboarding import onboarding_manager
+            self.legacy_mode_enabled = onboarding_manager.is_legacy_mode_enabled()
+        except ImportError:
+            self.legacy_mode_enabled = True  # Default to legacy mode if onboarding is not available
 
         # Set bindings conditionally based on legacy mode
         self.BINDINGS = [
@@ -799,11 +808,18 @@ class MaestroTUI(App):
         global_status_manager.set_status_bar_widget(self.query_one("#status-bar", Horizontal))
 
         # Check if onboarding should be shown (only if no prior TUI state exists)
-        from maestro.tui.onboarding import onboarding_manager
-        if not onboarding_manager.is_onboarding_completed():
-            # Show onboarding screen first
-            self.push_screen(OnboardingScreen(), callback=self._on_onboarding_complete)
-        else:
+        onboarding_available = OnboardingScreen is not None
+        if onboarding_available:
+            try:
+                from maestro.tui.onboarding import onboarding_manager
+                if not onboarding_manager.is_onboarding_completed():
+                    # Show onboarding screen first
+                    self.push_screen(OnboardingScreen(), callback=self._on_onboarding_complete)
+                    return  # Early return if showing onboarding
+            except ImportError:
+                onboarding_available = False
+
+        if not onboarding_available:
             # Mount the home screen content directly in the main content area
             main_content = self.query_one("#main-content", Vertical)
             home_screen = HomeScreen()
@@ -1060,8 +1076,11 @@ class MaestroTUI(App):
             "confidence": ConfidenceScreen,
             "vault": VaultScreen,
             "help": HelpScreen,
-            "help_index": HelpIndexScreen,
         }
+
+        # Only add help_index if it's available
+        if HelpIndexScreen is not None:
+            screen_map["help_index"] = HelpIndexScreen
 
         if screen_name in screen_map:
             self._switch_main_content(screen_map[screen_name]())
@@ -1122,16 +1141,21 @@ class MaestroTUI(App):
         self.exit()
 
 
-def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None, mc_shell: bool = True):
+def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None, mc_shell: bool = True, mc2_mode: bool = False):
     """Run the TUI application."""
-    if mc_shell:
-        from maestro.tui.screens.mc_shell import MaestroMCShellApp
-
-        app = MaestroMCShellApp(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
+    if mc2_mode:
+        # MC2 Curses-based TUI - call its main function directly
+        from maestro.tui_mc2.app import main as mc2_main
+        mc2_main(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out, mc2_mode=True)
     else:
-        # Legacy TUI kept for fallback/debug
-        app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
-    app.run()
+        # For non-MC2 mode, create and run the appropriate app
+        if mc_shell:
+            from maestro.tui.screens.mc_shell import MaestroMCShellApp
+            app = MaestroMCShellApp(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
+        else:
+            # Legacy TUI kept for fallback/debug
+            app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
+        app.run()
 
 
 if __name__ == "__main__":
