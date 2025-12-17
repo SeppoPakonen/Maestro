@@ -1,0 +1,39 @@
+{
+  "name": "TestHub-Main",
+  "description": "Test Maestro package hub for development",
+  "nests": [
+    {
+      "name": "test-ai-upp",
+      "description": "Test AI fork of Ultimate++ framework",
+      "repository": "https://github.com/testuser/test-ai-upp.git",
+      "branch": "main",
+      "packages": ["Core", "Draw", "CtrlCore", "Painter", "Sql", "RichText"],
+      "category": "framework",
+      "status": "stable",
+      "website": "https://github.com/testuser/test-ai-upp",
+      "readme": "https://raw.githubusercontent.com/testuser/test-ai-upp/main/README.md",
+      "build_system": "upp"
+    },
+    {
+      "name": "test-cmake-libs",
+      "description": "Test collection of CMake-based libraries",
+      "repository": "https://github.com/testuser/test-cmake-libs.git",
+      "packages": ["libfoo", "libbar", "libbaz"],
+      "category": "libraries",
+      "status": "stable",
+      "build_system": "cmake"
+    },
+    {
+      "name": "test-maven-proj",
+      "description": "Test Maven multi-module project",
+      "repository": "https://github.com/testuser/test-maven-proj.git",
+      "packages": ["common", "api", "impl", "app"],
+      "category": "application",
+      "status": "beta",
+      "build_system": "maven"
+    }
+  ],
+  "links": [
+    "https://raw.githubusercontent.com/testcommunity/test-maestro-hub-community/main/nests.json"
+  ]
+}
