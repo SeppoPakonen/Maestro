@@ -32,6 +32,10 @@ class Menubar:
         self.menus: List[Menu] = self._create_default_menus()
         self.active_menu_index: int = -1  # -1 means no active menu
         self.menu_items = []  # List of (start_col, end_col, menu_index) for click detection
+
+    def set_window(self, window):
+        """Update the curses window for the menubar."""
+        self.window = window
         
     def _create_default_menus(self) -> List[Menu]:
         """Create default menu structure"""
@@ -137,7 +141,7 @@ class Menubar:
     
     def render(self):
         """Render the menubar"""
-        self.window.clear()
+        self.window.erase()
         height, width = self.window.getmaxyx()
         
         # Initialize color pair for menubar
@@ -177,4 +181,4 @@ class Menubar:
         except:
             pass
         
-        self.window.refresh()
+        self.window.noutrefresh()

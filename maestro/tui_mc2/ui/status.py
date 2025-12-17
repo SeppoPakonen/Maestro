@@ -2,6 +2,7 @@
 Status line for MC2 Curses TUI
 """
 import curses
+import time
 from typing import Optional
 
 
@@ -9,24 +10,53 @@ class StatusLine:
     def __init__(self, window, context):
         self.window = window
         self.context = context
-        self.message_timeout = 3.0  # seconds
-        self.message_start_time = 0
+        self.default_ttl = 3.0  # seconds
+        self.message_expires_at = None
         self.current_message = ""
+        self.debug_enabled = False
+        self.debug_info = ""
         self.default_hints = "Tab=Switch | Enter=Open | Esc=Back | F1=Help | F5=Refresh | F7=New | F8=Delete | F9=Menu | F10=Quit"
+
+    def set_window(self, window):
+        """Update the curses window for the status line."""
+        self.window = window
     
     def set_message(self, message: str, ttl: Optional[float] = None):
         """Set a status message with optional timeout"""
-        self.current_message = message
+        self.current_message = message or ""
         if ttl is not None:
-            self.message_timeout = ttl
-            self.message_start_time = __import__('time').time()
+            self.message_expires_at = time.time() + ttl
         else:
-            # Don't auto-clear if no TTL specified
-            self.message_start_time = 0
+            self.message_expires_at = None
+
+    def set_debug_info(self, enabled: bool, info: str):
+        """Set debug text for render diagnostics."""
+        self.debug_enabled = enabled
+        self.debug_info = info
+
+    def has_active_ttl(self) -> bool:
+        """Return True if there's an active expiring status message."""
+        return self.message_expires_at is not None and bool(self.current_message)
+
+    def time_until_expire(self, now: float) -> Optional[float]:
+        """Return seconds until expiry for active message, else None."""
+        if not self.has_active_ttl():
+            return None
+        return max(0.0, self.message_expires_at - now)
+
+    def maybe_expire(self, now: float) -> bool:
+        """Expire the current message if its TTL has elapsed."""
+        if self.message_expires_at is None:
+            return False
+        if now >= self.message_expires_at and self.current_message:
+            self.current_message = ""
+            self.message_expires_at = None
+            return True
+        return False
     
     def render(self):
         """Render the status line"""
-        self.window.clear()
+        self.window.erase()
         height, width = self.window.getmaxyx()
         
         # Initialize color pair for status line
@@ -34,17 +64,9 @@ class StatusLine:
             self.window.bkgd(' ', curses.color_pair(2))
         
         # Prepare the status text
-        current_time = __import__('time').time()
-        elapsed = current_time - self.message_start_time if self.message_start_time > 0 else float('inf')
-        
-        # Use custom message if it's still active, otherwise use default
-        if elapsed < self.message_timeout:
-            status_text = self.current_message
-        else:
-            status_text = self.current_message  # Keep showing the last message even after TTL
-            # Reset to empty to show default hints again
-            if elapsed >= self.message_timeout:
-                status_text = ""
+        status_text = self.current_message
+        if not status_text and self.debug_enabled and self.debug_info:
+            status_text = self.debug_info
         
         # Add focus indicator
         focus_indicator = f"FOCUS: {self.context.focus_pane.upper()}"
@@ -81,7 +103,7 @@ class StatusLine:
                 except:
                     pass
         
-        # Add default hints at the bottom if no message or space allows
+        # Add default hints if no message/debug info is shown
         if not status_text:
             hints = self.default_hints
             if len(hints) <= width:
@@ -95,4 +117,4 @@ class StatusLine:
                 except:
                     pass
         
-        self.window.refresh()
+        self.window.noutrefresh()

@@ -55,11 +55,10 @@ class ModalDialog:
                 except:
                     pass
         
-        # Refresh the modal
-        modal_win.refresh()
-        
-        # Refresh parent to make sure it's still visible behind
-        self.parent_window.refresh()
+        # Batch refresh to avoid flicker
+        modal_win.noutrefresh()
+        self.parent_window.noutrefresh()
+        curses.doupdate()
         
         # Wait for user input
         try:
@@ -132,7 +131,9 @@ class InputModal:
         except:
             pass
             
-        modal_win.refresh()
+        modal_win.noutrefresh()
+        self.parent_window.noutrefresh()
+        curses.doupdate()
         
         # Move cursor to input position and enable echoing
         modal_win.move(input_y, input_x)

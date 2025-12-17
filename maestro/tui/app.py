@@ -1141,12 +1141,25 @@ class MaestroTUI(App):
         self.exit()
 
 
-def main(smoke_mode=False, smoke_seconds=0.5, smoke_out=None, mc_shell: bool = True, mc2_mode: bool = False):
+def main(
+    smoke_mode=False,
+    smoke_seconds=0.5,
+    smoke_out=None,
+    mc_shell: bool = True,
+    mc2_mode: bool = False,
+    render_debug: bool = False,
+):
     """Run the TUI application."""
     if mc2_mode:
         # MC2 Curses-based TUI - call its main function directly
         from maestro.tui_mc2.app import main as mc2_main
-        mc2_main(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out, mc2_mode=True)
+        mc2_main(
+            smoke_mode=smoke_mode,
+            smoke_seconds=smoke_seconds,
+            smoke_out=smoke_out,
+            mc2_mode=True,
+            render_debug=render_debug,
+        )
     else:
         # For non-MC2 mode, create and run the appropriate app
         if mc_shell:

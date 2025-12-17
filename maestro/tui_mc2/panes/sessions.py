@@ -193,12 +193,14 @@ class SessionsPane:
         if not self.window:
             return
             
-        self.window.clear()
+        self.window.erase()
         height, width = self.window.getmaxyx()
         
         # Set visual style based on focus
         if self.is_focused and curses.has_colors():
             self.window.bkgd(' ', curses.color_pair(3))
+        elif curses.has_colors():
+            self.window.bkgd(' ', curses.color_pair(0))
         
         title = "Sessions" if self.position == "left" else f"Session Details: {self.sessions[self.selected_index].display_name if self.sessions and self.selected_index < len(self.sessions) else 'None'}"
         
@@ -217,7 +219,7 @@ class SessionsPane:
         
         # Draw border if we want one
         # self.window.border()
-        self.window.refresh()
+        self.window.noutrefresh()
     
     def _render_sessions_list(self, height, width):
         """Render the sessions list in the left pane"""

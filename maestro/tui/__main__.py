@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument("--smoke-out", type=str, help="File path to write success marker (optional)")
     parser.add_argument("--mc", action="store_true", help="Run in MC shell mode")
     parser.add_argument("--mc2", action="store_true", help="Run in MC2 curses mode (alternative MC implementation)")
+    parser.add_argument("--render-debug", action="store_true", help="Show MC2 render debug overlay/counters")
 
     return parser.parse_args()
 
@@ -30,7 +31,14 @@ def main_module():
         os.environ["MAESTRO_SMOKE_SUCCESS_FILE"] = args.smoke_out
 
     # Call the app's main function with smoke parameters and mc mode
-    main(smoke_mode=args.smoke, smoke_seconds=args.smoke_seconds, smoke_out=args.smoke_out, mc_shell=args.mc, mc2_mode=args.mc2)
+    main(
+        smoke_mode=args.smoke,
+        smoke_seconds=args.smoke_seconds,
+        smoke_out=args.smoke_out,
+        mc_shell=args.mc,
+        mc2_mode=args.mc2,
+        render_debug=args.render_debug,
+    )
 
 if __name__ == "__main__":
     main_module()
