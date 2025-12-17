@@ -33,6 +33,8 @@ from .engines import EngineError
 from .known_issues import match_known_issues, KnownIssue
 from .planner_templates import format_build_target_template, format_fix_rulebook_template, format_conversion_pipeline_template
 from .confidence import ConfidenceScorer, BatchConfidenceAggregator
+from .commands.make import MakeCommand, add_make_parser
+from .repo.package import PackageInfo, FileGroup
 
 
 # Dataclasses for builder configuration
@@ -356,7 +358,10 @@ class PackageInfo:
     upp_path: str
     files: List[str] = field(default_factory=list)
     upp: Optional[Dict[str, Any]] = None  # Parsed .upp metadata
-    build_system: str = 'upp'  # 'upp', 'cmake', 'make', 'autoconf'
+    build_system: str = 'upp'  # 'upp', 'cmake', 'make', 'autoconf', 'gradle', 'maven'
+    dependencies: List[str] = field(default_factory=list)  # Project dependencies
+    groups: List[FileGroup] = field(default_factory=list)  # Internal package groups
+    ungrouped_files: List[str] = field(default_factory=list)  # Files not in any group
 
 
 @dataclass
@@ -1933,9 +1938,21 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: 
 
             # Parse .upp file to extract metadata
             parsed_upp = None
+            groups = []
+            ungrouped_files = sorted(pkg_files)  # Default: all files are ungrouped
+
             try:
                 from maestro.repo.upp_parser import parse_upp_file
                 parsed_upp = parse_upp_file(upp_file_path)
+
+                # Extract groups and ungrouped files from parsed UPP data
+                if parsed_upp and 'groups' in parsed_upp:
+                    groups = parsed_upp['groups']
+
+                if parsed_upp and 'ungrouped_files' in parsed_upp:
+                    # For ungrouped files, include only those that are also in pkg_files
+                    ungrouped_files = [f for f in parsed_upp['ungrouped_files'] if f in pkg_files]
+
             except Exception as e:
                 if verbose:
                     print(f"[maestro] Warning: Failed to parse {upp_file_path}: {e}")
@@ -1945,7 +1962,9 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: 
                 dir=root,
                 upp_path=upp_file_path,
                 files=sorted(pkg_files),
-                upp=parsed_upp
+                upp=parsed_upp,
+                groups=groups,
+                ungrouped_files=ungrouped_files
             )
             discovered_packages.append(package_info)
             all_package_dirs_resolved.add(root_resolved)
@@ -2164,15 +2183,44 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: 
         bs_results = scan_all_build_systems(root_dir, verbose=verbose)
 
         # Convert BuildSystemPackage to PackageInfo for universal handling
+        from maestro.repo.grouping import AutoGrouper
+
         for build_system, bs_pkgs in bs_results.items():
             for bs_pkg in bs_pkgs:
+                # Extract dependencies from metadata
+                deps = []
+                if bs_pkg.metadata and 'dependencies' in bs_pkg.metadata:
+                    # For Gradle: extract project dependency names
+                    for dep in bs_pkg.metadata['dependencies']:
+                        if dep.get('type') == 'project':
+                            deps.append(dep['name'])
+
+                # For non-U++ packages, apply auto-grouping
+                groups = []
+                ungrouped_files = sorted(bs_pkg.files)
+
+                if bs_pkg.build_system != 'upp':
+                    # Apply auto-grouping for non-U++ packages
+                    grouper = AutoGrouper()
+                    groups = grouper.auto_group(bs_pkg.files)
+
+                    # Identify files that are not in any group
+                    grouped_files = set()
+                    for group in groups:
+                        grouped_files.update(group.files)
+
+                    ungrouped_files = [f for f in bs_pkg.files if f not in grouped_files]
+
                 # Convert to PackageInfo format
                 pkg_info = PackageInfo(
                     name=bs_pkg.name,
                     dir=bs_pkg.dir,
                     upp_path=bs_pkg.metadata.get('cmake_file', bs_pkg.metadata.get('makefile', bs_pkg.metadata.get('autoconf_files', [''])[0] if bs_pkg.metadata.get('autoconf_files') else '')) if bs_pkg.metadata else '',
-                    files=bs_pkg.files,
-                    build_system=bs_pkg.build_system  # Store build system type
+                    files=sorted(bs_pkg.files),
+                    build_system=bs_pkg.build_system,  # Store build system type
+                    dependencies=deps,
+                    groups=groups,
+                    ungrouped_files=ungrouped_files
                 )
                 build_system_packages.append(pkg_info)
 
@@ -2374,7 +2422,17 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
                 "upp_path": pkg.upp_path,
                 "files": pkg.files,
                 "upp": pkg.upp,
-                "build_system": pkg.build_system
+                "build_system": pkg.build_system,
+                "dependencies": pkg.dependencies,
+                "groups": [
+                    {
+                        "name": group.name,
+                        "files": group.files,
+                        "readonly": group.readonly,
+                        "auto_generated": group.auto_generated
+                    } for group in pkg.groups
+                ],
+                "ungrouped_files": pkg.ungrouped_files
             } for pkg in scan_result.packages_detected
         ],
         "unknown_paths": [
@@ -2634,64 +2692,185 @@ def handle_repo_pkg_files(pkg: Dict[str, Any], json_output: bool = False):
     """List all files in a package."""
     import json
 
+    pkg_type = pkg.get('_type', 'upp')
+
     if json_output:
         output = {
             'package': pkg['name'],
-            'files': pkg['files'],
-            'upp_files': pkg.get('upp', {}).get('files', [])
+            'type': pkg_type
         }
+        if pkg_type == 'internal':
+            output['members'] = pkg.get('members', [])
+        else:
+            output['files'] = pkg.get('files', [])
+            output['upp_files'] = pkg.get('upp', {}).get('files', [])
         print(json.dumps(output, indent=2))
     else:
         print_header(f"PACKAGE FILES: {pkg['name']}")
 
-        # Show files from .upp if available
-        if pkg.get('upp') and pkg['upp'].get('files'):
-            upp_files = pkg['upp']['files']
+        # For internal packages, show members
+        if pkg_type == 'internal':
+            members = pkg.get('members', [])
             print(f"\n" + "─" * 60)
-            print_info(f"Files from .upp ({len(upp_files)}):", 2)
-            for file_entry in upp_files:
-                file_info = file_entry['path']
-                modifiers = []
-                if file_entry.get('readonly'):
-                    modifiers.append('readonly')
-                if file_entry.get('separator'):
-                    modifiers.append('separator')
-                if file_entry.get('highlight'):
-                    modifiers.append(f"highlight:{file_entry['highlight']}")
-                if file_entry.get('options'):
-                    modifiers.append(f"options:{file_entry['options']}")
+            print_info(f"Members in package ({len(members)}):", 2)
+            for member in sorted(members):
+                print_info(f"  {member}", 2)
+        else:
+            # Show files from .upp if available
+            if pkg.get('upp') and pkg['upp'].get('files'):
+                upp_files = pkg['upp']['files']
+                print(f"\n" + "─" * 60)
+                print_info(f"Files from .upp ({len(upp_files)}):", 2)
+                for file_entry in upp_files:
+                    file_info = file_entry['path']
+                    modifiers = []
+                    if file_entry.get('readonly'):
+                        modifiers.append('readonly')
+                    if file_entry.get('separator'):
+                        modifiers.append('separator')
+                    if file_entry.get('highlight'):
+                        modifiers.append(f"highlight:{file_entry['highlight']}")
+                    if file_entry.get('options'):
+                        modifiers.append(f"options:{file_entry['options']}")
 
-                if modifiers:
-                    file_info += f" [{', '.join(modifiers)}]"
+                    if modifiers:
+                        file_info += f" [{', '.join(modifiers)}]"
 
-                print_info(f"  {file_info}", 2)
+                    print_info(f"  {file_info}", 2)
 
-        # Show all filesystem files
-        print(f"\n" + "─" * 60)
-        print_info(f"All files in package ({len(pkg['files'])}):", 2)
-        for file in sorted(pkg['files']):
-            print_info(f"  {file}", 2)
+            # Show all filesystem files
+            print(f"\n" + "─" * 60)
+            files = pkg.get('files', [])
+            print_info(f"All files in package ({len(files)}):", 2)
+            for file in sorted(files):
+                print_info(f"  {file}", 2)
+
+
+def handle_repo_pkg_groups(pkg: Dict[str, Any], json_output: bool = False, show_groups: bool = True, group_filter: str = None):
+    """Show package file groups."""
+    import json
+
+    pkg_type = pkg.get('_type', 'upp')
+
+    if json_output:
+        # Output groups in JSON format
+        output = {
+            'package': pkg['name'],
+            'type': pkg_type,
+        }
+
+        # Add groups info if available
+        if hasattr(pkg, 'groups'):
+            output['groups'] = [
+                {
+                    'name': group.name,
+                    'files': group.files,
+                    'readonly': group.readonly,
+                    'auto_generated': group.auto_generated
+                } for group in pkg['groups']
+            ]
+        elif 'groups' in pkg:
+            output['groups'] = [
+                {
+                    'name': group.name if hasattr(group, 'name') else group.get('name', 'Unknown'),
+                    'files': group.files if hasattr(group, 'files') else group.get('files', []),
+                    'readonly': group.readonly if hasattr(group, 'readonly') else group.get('readonly', False),
+                    'auto_generated': group.auto_generated if hasattr(group, 'auto_generated') else group.get('auto_generated', False)
+                } for group in pkg['groups']
+            ]
+
+        # Add ungrouped files
+        if hasattr(pkg, 'ungrouped_files'):
+            output['ungrouped_files'] = pkg['ungrouped_files']
+        elif 'ungrouped_files' in pkg:
+            output['ungrouped_files'] = pkg['ungrouped_files']
+        else:
+            output['ungrouped_files'] = pkg.get('files', [])
+
+        print(json.dumps(output, indent=2))
+    else:
+        # Display formatted output following the documentation format
+        build_system = pkg.get('build_system', 'upp')
+        if build_system == 'upp':
+            print_header(f"PACKAGE: {pkg['name']} (U++)")
+        else:
+            print_header(f"PACKAGE: {pkg['name']} ({build_system.upper()})")
+
+        print(f"Root path: {pkg.get('dir', pkg.get('root_path', 'N/A'))}")
+
+        # Count groups and files
+        groups = pkg.get('groups', [])
+        ungrouped_files = pkg.get('ungrouped_files', pkg.get('files', []))
+        total_files = len(ungrouped_files) + sum(len(group.files) for group in groups)
+
+        print(f"Groups: {len(groups)} (auto-generated)" if any(
+            (hasattr(g, 'auto_generated') and g.auto_generated) or
+            (g.get('auto_generated', False) if isinstance(g, dict) else False)
+            for g in groups
+        ) else f"Groups: {len(groups)}")
+        print(f"Total files: {total_files}")
+
+        # Show groups
+        if groups:
+            print("\n" + "─" * 80)
+            for i, group in enumerate(groups):
+                group_name = group.name if hasattr(group, 'name') else group.get('name', 'Unknown')
+
+                # Skip if filtering and doesn't match
+                if group_filter and group_filter.lower() not in group_name.lower():
+                    continue
+
+                readonly_flag = " readonly" if (hasattr(group, 'readonly') and group.readonly) or (group.get('readonly', False)) else ""
+                auto_flag = " (auto-generated)" if (hasattr(group, 'auto_generated') and group.auto_generated) or (group.get('auto_generated', False)) else ""
+
+                print_info(f"  GROUP: {group_name} ({len(group.files)} files){readonly_flag}{auto_flag}", 2)
+
+                for j, file in enumerate(sorted(group.files)):
+                    print_info(f"    {file}", 2)
+                    if j >= 19:  # Show first 20 files per group
+                        print_info(f"    ... ({len(group.files) - 20} more)", 2)
+                        break
+
+        # Show ungrouped files if any
+        if ungrouped_files:
+            if groups:
+                print("\n" + "─" * 80)
+            print_info(f"  UNGROUPED FILES ({len(ungrouped_files)}):", 2)
+            for j, file in enumerate(sorted(ungrouped_files)):
+                print_info(f"    {file}", 2)
+                if j >= 19:  # Limit display to 20 ungrouped files
+                    print_info(f"    ... ({len(ungrouped_files) - 20} more)", 2)
+                    break
 
 
 def handle_repo_pkg_search(pkg: Dict[str, Any], query: str, json_output: bool = False):
     """Search for files in a package matching a query."""
     import json
 
-    # Filter files matching the query
-    matches = [f for f in pkg['files'] if query.lower() in f.lower()]
+    pkg_type = pkg.get('_type', 'upp')
+
+    # Filter files or members matching the query
+    if pkg_type == 'internal':
+        items = pkg.get('members', [])
+    else:
+        items = pkg.get('files', [])
+
+    matches = [f for f in items if query.lower() in f.lower()]
 
     if json_output:
         output = {
             'package': pkg['name'],
+            'type': pkg_type,
             'query': query,
             'matches': matches
         }
         print(json.dumps(output, indent=2))
     else:
         print_header(f"SEARCH: {pkg['name']} / {query}")
-        print(f"\nFound {len(matches)} matches:")
-        for file in sorted(matches):
-            print_info(f"  {file}", 2)
+        item_type = "members" if pkg_type == 'internal' else "files"
+        print(f"\nFound {len(matches)} {item_type} matching '{query}':")
+        for item in sorted(matches):
+            print_info(f"  {item}", 2)
 
 
 def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]], json_output: bool = False, deep: bool = False, config_flags: List[str] = None):
@@ -2745,9 +2924,10 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
         # Mark as visited globally (so we don't expand it again)
         global_visited.add(pkg_name)
 
-        # Get dependencies from parsed .upp
+        # Get dependencies from parsed .upp or build system metadata
         deps = []
         if pkg_dict.get('upp') and pkg_dict['upp'].get('uses'):
+            # U++ package dependencies
             uses_list = pkg_dict['upp']['uses']
             # Handle both old format (list of strings) and new format (list of dicts)
             for use in uses_list:
@@ -2756,6 +2936,10 @@ def handle_repo_pkg_tree(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]]
                 else:
                     # Backward compatibility with old format
                     deps.append({'package': use, 'condition': None})
+        elif pkg_dict.get('dependencies'):
+            # Other build systems (Gradle, Maven, etc.)
+            for dep_name in pkg_dict['dependencies']:
+                deps.append({'package': dep_name, 'condition': None})
 
         # Add to current path for circular detection
         path_visited_copy = path_visited.copy()
@@ -3537,15 +3721,20 @@ def main():
     # repo pkg
     repo_pkg_parser = repo_subparsers.add_parser('pkg', help='Package query and inspection commands')
     repo_pkg_parser.add_argument('package_name', nargs='?', help='Package name to inspect (supports partial match)')
-    repo_pkg_parser.add_argument('action', nargs='?', choices=['info', 'list', 'search', 'tree', 'conf'], default='info',
-                                 help='Action: info (default), list (files), search (file search), tree (deps), conf (configurations)')
+    repo_pkg_parser.add_argument('action', nargs='?', choices=['info', 'list', 'search', 'tree', 'conf', 'groups'], default='info',
+                                 help='Action: info (default), list (files), search (file search), tree (deps), conf (configurations), groups (file groups)')
     repo_pkg_parser.add_argument('query', nargs='?', help='Search query (for search action) or config number (for tree with config filter)')
     repo_pkg_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
     repo_pkg_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_pkg_parser.add_argument('--deep', action='store_true', help='Show full tree with all duplicates (for tree action)')
+    repo_pkg_parser.add_argument('--show-groups', action='store_true', help='Show package file groups')
+    repo_pkg_parser.add_argument('--group', help='Filter to specific group (use with --show-groups)')
 
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
+
+    # Make command group (Universal Build Orchestration)
+    make_parser = add_make_parser(subparsers)
 
     # Conversion pipeline command group
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
@@ -5357,7 +5546,10 @@ def main():
                     # Perform action on the package
                     action = args.action or 'info'
 
-                    if action == 'info':
+                    # Check if show_groups flag is set (takes precedence over action)
+                    if hasattr(args, 'show_groups') and args.show_groups:
+                        handle_repo_pkg_groups(pkg, args.json, group_filter=args.group)
+                    elif action == 'info':
                         handle_repo_pkg_info(pkg, args.json)
                     elif action == 'list':
                         handle_repo_pkg_files(pkg, args.json)
@@ -5366,6 +5558,8 @@ def main():
                             print_error("Search query required for 'search' action", 2)
                             sys.exit(1)
                         handle_repo_pkg_search(pkg, args.query, args.json)
+                    elif action == 'groups':
+                        handle_repo_pkg_groups(pkg, args.json, group_filter=args.group)
                     elif action == 'tree':
                         deep_mode = hasattr(args, 'deep') and args.deep
 
@@ -5434,6 +5628,16 @@ def main():
             # If no subcommand specified, show help instead of running expensive scan
             repo_parser.print_help()
             return  # Exit after showing help
+    elif args.command == 'make' or args.command == 'm':
+        # Handle universal build orchestration commands
+        if hasattr(args, 'make_subcommand') and args.make_subcommand:
+            make_cmd = MakeCommand()
+            result = make_cmd.execute(args)
+            sys.exit(result)
+        else:
+            # If no subcommand specified, show help
+            make_parser.print_help()
+            sys.exit(0)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)

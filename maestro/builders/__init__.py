@@ -6,11 +6,10 @@ It implements the builder pattern to support multiple build systems (U++, CMake,
 as outlined in the UMK Integration Roadmap.
 """
 
-from .base import Builder
+from .base import Builder, Package
 from .blitz import *
 from .pch import *
 from .brc import *
-from .package import Package
 from .cross_compile import *
 from .config import MethodConfig, BuildType, OSFamily, MethodManager, get_method, list_methods, create_default_methods, detect_and_create_methods, get_package_method_override, set_package_method_override, get_global_package_method_manager
 from .host import Host, HostType, LocalHost, RemoteSSHHost, DockerHost, get_current_host, create_host

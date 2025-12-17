@@ -59,6 +59,8 @@ class UppParser:
             - description_color: RGB tuple if present
             - uses: list of package dependencies
             - files: list of dicts with {path, options, readonly, separator, highlight, charset}
+            - groups: list of FileGroup structures for internal package groups
+            - ungrouped_files: list of file paths not in any group
             - mainconfigs: list of dicts with {name, param} (name can be empty string)
             - acceptflags: list of flag names
             - libraries: list of dicts with {condition, libs}
@@ -107,12 +109,17 @@ class UppParser:
         # Extract description components
         desc_text, desc_color = self._extract_description_parts(self.description)
 
+        # Process file entries to create groups based on separators
+        groups, ungrouped_files = self._process_file_groups(self.files)
+
         return {
             'raw_description': self.description,
             'description_text': desc_text,
             'description_color': desc_color,
             'uses': self.uses,
             'files': self.files,
+            'groups': groups,
+            'ungrouped_files': ungrouped_files,
             'mainconfigs': self.mainconfigs,
             'acceptflags': self.acceptflags,
             'libraries': self.libraries,
@@ -394,6 +401,59 @@ class UppParser:
             return (text, color)
 
         return (raw_desc, None)
+
+    def _process_file_groups(self, files: List[Dict[str, Any]]) -> tuple:
+        """
+        Process file entries to create groups based on separators.
+
+        Args:
+            files: List of file entries from .upp parsing
+
+        Returns:
+            tuple: (groups, ungrouped_files)
+        """
+        from ..main import FileGroup  # Import here to avoid circular imports
+
+        groups = []
+        ungrouped_files = []
+        current_group = None
+        current_group_files = []
+
+        for file_entry in files:
+            if file_entry.get('separator', False):
+                # This is a separator, so finalize the previous group (if any)
+                if current_group is not None and current_group_files:
+                    groups.append(FileGroup(
+                        name=current_group,
+                        files=current_group_files,
+                        readonly=file_entry.get('readonly', False),
+                        auto_generated=False
+                    ))
+
+                # Start a new group with the separator name as the group name
+                separator_name = file_entry.get('path', 'Unknown')
+                current_group = separator_name
+                current_group_files = []
+            else:
+                # This is a regular file
+                file_path = file_entry.get('path', '')
+                if current_group is not None:
+                    # File belongs to current group
+                    current_group_files.append(file_path)
+                else:
+                    # File doesn't belong to any group
+                    ungrouped_files.append(file_path)
+
+        # Add the final group if it exists
+        if current_group is not None and current_group_files:
+            groups.append(FileGroup(
+                name=current_group,
+                files=current_group_files,
+                readonly=file_entry.get('readonly', False) if current_group_files else False,
+                auto_generated=False
+            ))
+
+        return groups, ungrouped_files
 
 
 def parse_upp_file(file_path: str) -> Dict[str, Any]:
