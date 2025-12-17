@@ -40,10 +40,34 @@ class DummyPane:
     def handle_enter(self):
         self.enter_count += 1
 
+    def handle_set_active(self):
+        self.enter_count += 1
+
+    def handle_filter_backspace(self):
+        return False
+
+    def handle_filter_char(self, _ch):
+        return False
+
+    def clear_filter(self):
+        return False
+
     def move_up(self):
         return None
 
     def move_down(self):
+        return None
+
+    def page_up(self):
+        return None
+
+    def page_down(self):
+        return None
+
+    def move_home(self):
+        return None
+
+    def move_end(self):
         return None
 
     def refresh_data(self):
@@ -149,12 +173,16 @@ def test_mc2_input_sequence():
 
     assert app.menubar.is_active() is False
     assert app._handle_key(curses.KEY_F9) is True
+    assert app.context.focus_pane == "right"
     assert app.menubar.is_active() is True
     assert app._handle_key(curses.KEY_F9) is True
+    assert app.context.focus_pane == "right"
     assert app.menubar.is_active() is False
     assert app._handle_key(curses.KEY_F9) is True
+    assert app.context.focus_pane == "right"
     assert app.menubar.is_active() is True
     assert app._handle_key(27) is True
+    assert app.context.focus_pane == "right"
     assert app.menubar.is_active() is False
 
     app.context.focus_pane = "left"
@@ -198,3 +226,95 @@ def test_mc2_teardown_on_render_exception(monkeypatch):
     assert calls["echo"] == 1
     assert calls["endwin"] == 1
     assert app._teardown_called is True
+
+
+def test_sessions_filter_and_clear(monkeypatch):
+    from maestro.tui_mc2.app import AppContext
+    import maestro.tui_mc2.panes.sessions as sessions_module
+    from maestro.ui_facade.sessions import SessionInfo
+
+    sessions = [
+        SessionInfo(id="alpha-1", created_at="t1", updated_at="t1", root_task="Alpha", status="new"),
+        SessionInfo(id="beta-1", created_at="t2", updated_at="t2", root_task="Beta", status="new"),
+        SessionInfo(id="gamma-1", created_at="t3", updated_at="t3", root_task="Gamma", status="new"),
+    ]
+
+    monkeypatch.setattr(sessions_module, "list_sessions", lambda: sessions)
+    monkeypatch.setattr(sessions_module, "get_active_session", lambda: None)
+
+    context = AppContext()
+    pane = sessions_module.SessionsPane(position="left", context=context)
+
+    assert context.sessions_filter_total == 3
+    assert pane.handle_filter_char("b") is True
+    assert context.sessions_filter_text == "b"
+    assert context.sessions_filter_visible == 1
+
+    assert pane.clear_filter() is True
+    assert context.sessions_filter_text == ""
+    assert context.sessions_filter_visible == 3
+
+
+def test_sessions_input_modal_cancel(monkeypatch):
+    import maestro.tui_mc2.panes.sessions as sessions_module
+    from maestro.tui_mc2.app import AppContext
+
+    class DummyInputModal:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def show(self):
+            return None
+
+    created = {"count": 0}
+
+    def fake_create_session(_name):
+        created["count"] += 1
+
+    monkeypatch.setattr(sessions_module, "InputModal", DummyInputModal)
+    monkeypatch.setattr(sessions_module, "create_session", fake_create_session)
+    monkeypatch.setattr(sessions_module, "list_sessions", lambda: [])
+    monkeypatch.setattr(sessions_module, "get_active_session", lambda: None)
+
+    context = AppContext()
+    context.modal_parent = FakeScreen()
+    pane = sessions_module.SessionsPane(position="left", context=context)
+
+    pane.handle_new()
+    assert created["count"] == 0
+    assert "cancelled" in context.status_message.lower()
+
+
+def test_sessions_delete_modal_cancel(monkeypatch):
+    import maestro.tui_mc2.panes.sessions as sessions_module
+    from maestro.tui_mc2.app import AppContext
+    from maestro.ui_facade.sessions import SessionInfo
+
+    class DummyConfirmModal:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def show(self):
+            return False
+
+    sessions = [
+        SessionInfo(id="alpha-1", created_at="t1", updated_at="t1", root_task="Alpha", status="new"),
+    ]
+
+    removed = {"count": 0}
+
+    def fake_remove_session(_session_id):
+        removed["count"] += 1
+
+    monkeypatch.setattr(sessions_module, "ConfirmModal", DummyConfirmModal)
+    monkeypatch.setattr(sessions_module, "remove_session", fake_remove_session)
+    monkeypatch.setattr(sessions_module, "list_sessions", lambda: sessions)
+    monkeypatch.setattr(sessions_module, "get_active_session", lambda: None)
+
+    context = AppContext()
+    context.modal_parent = FakeScreen()
+    pane = sessions_module.SessionsPane(position="left", context=context)
+
+    pane.handle_delete()
+    assert removed["count"] == 0
+    assert "cancelled" in context.status_message.lower()

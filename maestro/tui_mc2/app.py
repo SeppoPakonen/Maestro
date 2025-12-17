@@ -38,6 +38,11 @@ class AppContext:
     status_message: str = "Ready"
     focus_pane: str = "left"  # "left" or "right"
     active_session_id: Optional[str] = None
+    selected_session_id: Optional[str] = None
+    sessions_filter_text: str = ""
+    sessions_filter_visible: int = 0
+    sessions_filter_total: int = 0
+    modal_parent: Optional[object] = None
 
 
 class MC2App:
@@ -73,6 +78,11 @@ class MC2App:
         self.last_status_message = self.context.status_message
         self.last_focus_pane = self.context.focus_pane
         self.last_active_session_id = self.context.active_session_id
+        self.last_filter_status = (
+            self.context.sessions_filter_text,
+            self.context.sessions_filter_visible,
+            self.context.sessions_filter_total,
+        )
         self.frames = 0
         self.doupdate_calls = 0
         self.last_dirty_snapshot = []
@@ -159,6 +169,7 @@ class MC2App:
         stdscr.keypad(True)
         stdscr.nodelay(False)  # Block on getch
         stdscr.timeout(-1)  # Block by default
+        self.context.modal_parent = stdscr
         
         # Initialize colors if available
         if curses.has_colors():
@@ -245,8 +256,68 @@ class MC2App:
         if self.context.active_session_id != self.last_active_session_id:
             self.last_active_session_id = self.context.active_session_id
             changed = True
+        current_filter = (
+            self.context.sessions_filter_text,
+            self.context.sessions_filter_visible,
+            self.context.sessions_filter_total,
+        )
+        if current_filter != self.last_filter_status:
+            self.last_filter_status = current_filter
+            changed = True
         if changed:
             self._mark_dirty("status")
+
+    def _handle_menu_action(self, action_id: str):
+        if action_id in ("refresh", "sessions.refresh"):
+            self.left_pane.refresh_data()
+            self.right_pane.refresh_data()
+            self.context.status_message = "Refreshed"
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("new", "sessions.new"):
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_new()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("delete", "sessions.delete"):
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_delete()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("set_active", "sessions.set_active"):
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_set_active()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id == "help":
+            self.dirty_regions["modal"] = True
+            modal = ModalDialog(self.stdscr, "Help", [
+                "Maestro MC2 Help",
+                "",
+                "Navigation:",
+                "  Arrows: Move cursor",
+                "  Tab: Switch panes",
+                "  Enter: Select/Open",
+                "  ESC: Cancel/Back",
+                "  F1: Help (this screen)",
+                "  F5: Refresh",
+                "  F7: New",
+                "  F8: Delete",
+                "  F9: Toggle menubar",
+                "  F10: Quit",
+                "",
+                "Press any key to close..."
+            ])
+            modal.show()
+            self.dirty_regions["modal"] = False
+            self._mark_all_dirty()
+        elif action_id == "quit":
+            self.context.should_exit = True
+        elif action_id == "toggle_menu":
+            pass
+        else:
+            self.context.status_message = f"Unhandled menu action: {action_id}"
+            self._mark_dirty("status")
+        self._mark_dirty("menubar", "status")
 
     def _handle_key(self, key: int) -> bool:
         """Handle keyboard input, return True to continue, False to exit"""
@@ -256,8 +327,10 @@ class MC2App:
                 self.menubar.deactivate()
                 self._mark_dirty("menubar", "status")
                 return True
-            # Otherwise exit
-            return False
+            if self.context.focus_pane == "left" and self.left_pane.clear_filter():
+                self._mark_dirty("left", "right", "status")
+                return True
+            return True
             
         elif key == ord('\t'):  # TAB
             # Switch focus between panes
@@ -270,6 +343,30 @@ class MC2App:
                 self.left_pane.set_focused(True)
                 self.right_pane.set_focused(False)
             self._mark_dirty("left", "right", "status")
+            return True
+
+        elif key in (curses.KEY_PPAGE, 21):  # PageUp or Ctrl+U
+            if self.context.focus_pane == "left":
+                self.left_pane.page_up()
+                self._mark_dirty("left", "right", "status")
+            return True
+
+        elif key in (curses.KEY_NPAGE, 4):  # PageDown or Ctrl+D
+            if self.context.focus_pane == "left":
+                self.left_pane.page_down()
+                self._mark_dirty("left", "right", "status")
+            return True
+
+        elif key == curses.KEY_HOME:
+            if self.context.focus_pane == "left":
+                self.left_pane.move_home()
+                self._mark_dirty("left", "right", "status")
+            return True
+
+        elif key == curses.KEY_END:
+            if self.context.focus_pane == "left":
+                self.left_pane.move_end()
+                self._mark_dirty("left", "right", "status")
             return True
             
         elif key == curses.KEY_UP:
@@ -303,28 +400,7 @@ class MC2App:
             return False  # Quit
             
         elif key == curses.KEY_F1:
-            # Show help modal
-            self.dirty_regions["modal"] = True
-            modal = ModalDialog(self.stdscr, "Help", [
-                "Maestro MC2 Help",
-                "",
-                "Navigation:",
-                "  Arrows: Move cursor",
-                "  Tab: Switch panes",
-                "  Enter: Select/Open",
-                "  ESC: Cancel/Back",
-                "  F1: Help (this screen)",
-                "  F5: Refresh",
-                "  F7: New",
-                "  F8: Delete",
-                "  F9: Toggle menubar",
-                "  F10: Quit",
-                "",
-                "Press any key to close..."
-            ])
-            modal.show()
-            self.dirty_regions["modal"] = False
-            self._mark_all_dirty()
+            self._handle_menu_action("help")
             return True
             
         elif key == curses.KEY_F5:
@@ -336,25 +412,11 @@ class MC2App:
             return True
             
         elif key == curses.KEY_F7:
-            # New action - delegate to active pane
-            self.dirty_regions["modal"] = True
-            if self.context.focus_pane == "left":
-                self.left_pane.handle_new()
-            else:
-                self.right_pane.handle_new()
-            self.dirty_regions["modal"] = False
-            self._mark_dirty("left", "right", "status")
+            self._handle_menu_action("sessions.new")
             return True
             
         elif key == curses.KEY_F8:
-            # Delete action - delegate to active pane
-            self.dirty_regions["modal"] = True
-            if self.context.focus_pane == "left":
-                self.left_pane.handle_delete()
-            else:
-                self.right_pane.handle_delete()
-            self.dirty_regions["modal"] = False
-            self._mark_dirty("left", "right", "status")
+            self._handle_menu_action("sessions.delete")
             return True
             
         elif key == curses.KEY_F9:
@@ -367,19 +429,31 @@ class MC2App:
             return True
             
         elif key == curses.KEY_F10:
-            # Quit with confirmation
+            from maestro.tui_mc2.ui.modals import ConfirmModal
+
             self.dirty_regions["modal"] = True
-            confirmation = ModalDialog(self.stdscr, "Confirm Quit", [
+            confirmation = ConfirmModal(self.stdscr, "Confirm Quit", [
                 "Quit Maestro TUI?",
                 "",
-                "Press Y to confirm, any other key to cancel"
+                "Press Enter to confirm, Esc to cancel",
             ])
-            result = confirmation.show()
+            confirmed = confirmation.show()
             self.dirty_regions["modal"] = False
-            if result == 'y' or result == 'Y':
+            if confirmed:
                 return False
             self._mark_all_dirty()
             return True
+
+        if self.context.focus_pane == "left":
+            if key in (curses.KEY_BACKSPACE, 127, 8):
+                if self.left_pane.handle_filter_backspace():
+                    self._mark_dirty("left", "right", "status")
+                    return True
+            if 0 <= key <= 255:
+                ch = chr(key)
+                if ch.isalnum() and self.left_pane.handle_filter_char(ch):
+                    self._mark_dirty("left", "right", "status")
+                    return True
             
         return True
 
@@ -430,7 +504,11 @@ class MC2App:
                     if key == curses.KEY_RESIZE:
                         self._handle_resize()
                     elif self.menubar and self.menubar.is_active() and self.menubar.handle_key(key):
-                        self._mark_dirty("menubar", "status")
+                        action_id = self.menubar.consume_last_action()
+                        if action_id:
+                            self._handle_menu_action(action_id)
+                        else:
+                            self._mark_dirty("menubar", "status")
                     else:
                         if not self._handle_key(key):
                             break

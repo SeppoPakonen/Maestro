@@ -67,6 +67,12 @@ class StatusLine:
         status_text = self.current_message
         if not status_text and self.debug_enabled and self.debug_info:
             status_text = self.debug_info
+        if not status_text:
+            filter_text = getattr(self.context, "sessions_filter_text", "")
+            visible = getattr(self.context, "sessions_filter_visible", 0)
+            total = getattr(self.context, "sessions_filter_total", 0)
+            if filter_text or total:
+                status_text = f'Filter: "{filter_text}" | {visible} shown / {total} total'
         
         # Add focus indicator
         focus_indicator = f"FOCUS: {self.context.focus_pane.upper()}"
@@ -103,7 +109,7 @@ class StatusLine:
                 except:
                     pass
         
-        # Add default hints if no message/debug info is shown
+        # Add default hints if no message/debug info/filter is shown
         if not status_text:
             hints = self.default_hints
             if len(hints) <= width:
