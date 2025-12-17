@@ -206,68 +206,73 @@ class DecisionOverrideWizard(ModalScreen[dict]):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the wizard."""
-        with Vertical(id="decision-override-wizard-container"):
-            # Step indicator
-            yield Label(f"Step {self.step} of 3", id="step-indicator")
+        container = Vertical(id="decision-override-wizard-container")
+        self._populate_wizard_content(container)
+        yield container
 
-            # Content based on current step
-            if self.step == 1:
-                yield Label(f"Decision ID: {self.decision['id']}", id="decision-id")
-                yield Label(f"Title: {self.decision['title']}", id="decision-title")
+    def _populate_wizard_content(self, container: Vertical) -> None:
+        """Populate the wizard container based on the current step."""
+        container.remove_children()
 
-                # Show current decision value if available
-                current_value = self.decision.get('value', self.decision.get('reason', 'No description available'))
-                yield Label(f"Current Value:", id="current-value-label")
-                yield Label(current_value, id="current-value", classes="decision-content")
+        # Step indicator
+        container.mount(Label(f"Step {self.step} of 3", id="step-indicator"))
 
-                yield Label("WARNING: Overrides supersede, never delete", id="warning-label", classes="warning")
-                yield Label("Proceed with override?", id="confirm-prompt")
+        # Content based on current step
+        if self.step == 1:
+            container.mount(Label(f"Decision ID: {self.decision['id']}", id="decision-id"))
+            container.mount(Label(f"Title: {self.decision['title']}", id="decision-title"))
 
-                with Horizontal(id="step1-buttons"):
-                    yield Button("Cancel", variant="default", id="cancel-button")
-                    yield Button("No", variant="default", id="no-button")
-                    yield Button("Yes, Proceed", variant="primary", id="yes-button")
+            current_value = self.decision.get('value', self.decision.get('reason', 'No description available'))
+            container.mount(Label("Current Value:", id="current-value-label"))
+            container.mount(Label(current_value, id="current-value", classes="decision-content"))
 
-            elif self.step == 2:
-                yield Label(f"Editing Decision: {self.decision['id']}", id="edit-title")
-                yield Label("New Decision Content:", id="new-value-label")
+            container.mount(Label("WARNING: Overrides supersede, never delete", id="warning-label", classes="warning"))
+            container.mount(Label("Proceed with override?", id="confirm-prompt"))
 
-                # Using a text input for now, might need TextArea later
-                yield Input(placeholder="Enter the new decision content/value", id="new-value-input")
+            buttons = Horizontal(id="step1-buttons")
+            buttons.mount(Button("Cancel", variant="default", id="cancel-button"))
+            buttons.mount(Button("No", variant="default", id="no-button"))
+            buttons.mount(Button("Yes, Proceed", variant="primary", id="yes-button"))
+            container.mount(buttons)
 
-                yield Label("Reason for Override (required):", id="reason-label")
-                yield Input(placeholder="Provide a reason for this override", id="reason-input")
+        elif self.step == 2:
+            container.mount(Label(f"Editing Decision: {self.decision['id']}", id="edit-title"))
+            container.mount(Label("New Decision Content:", id="new-value-label"))
 
-                yield Label("Auto Replan After Override:", id="replan-label")
-                # Using a button as a toggle since Textual doesn't have a native checkbox in this project
-                replan_text = "ON" if self.auto_replan else "OFF"
-                yield Button(f"Auto Replan: {replan_text}", variant="success" if self.auto_replan else "default", id="replan-toggle")
+            container.mount(Input(placeholder="Enter the new decision content/value", id="new-value-input"))
 
-                with Horizontal(id="step2-buttons"):
-                    yield Button("Back", variant="default", id="back-button")
-                    yield Button("Continue", variant="primary", id="continue-button")
+            container.mount(Label("Reason for Override (required):", id="reason-label"))
+            container.mount(Input(placeholder="Provide a reason for this override", id="reason-input"))
 
-            elif self.step == 3:
-                yield Label("Review Override", id="review-title")
-                yield Label(f"Decision: {self.decision['id']}", id="review-decision-id")
-                yield Label(f"Old Value: {self.decision.get('value', self.decision.get('reason', 'No description'))}", id="old-value")
-                yield Label(f"New Value: {self.new_value}", id="new-value")
-                yield Label(f"Reason: {self.reason}", id="reason-review")
-                yield Label(f"Auto Replan: {'YES' if self.auto_replan else 'NO'}", id="replan-review")
+            container.mount(Label("Auto Replan After Override:", id="replan-label"))
+            replan_text = "ON" if self.auto_replan else "OFF"
+            container.mount(Button(f"Auto Replan: {replan_text}", variant="success" if self.auto_replan else "default", id="replan-toggle"))
 
-                with Horizontal(id="step3-buttons"):
-                    yield Button("Back", variant="default", id="review-back-button")
-                    yield Button("Cancel", variant="default", id="review-cancel-button")
-                    yield Button("Apply Override", variant="warning", id="apply-button")
+            buttons = Horizontal(id="step2-buttons")
+            buttons.mount(Button("Back", variant="default", id="back-button"))
+            buttons.mount(Button("Continue", variant="primary", id="continue-button"))
+            container.mount(buttons)
 
-            # Navigation indicators
-            with Horizontal(id="wizard-nav-indicators"):
-                step_class = "active" if self.step == 1 else "inactive"
-                yield Label("●", classes=step_class, id="nav-step1")
-                step_class = "active" if self.step == 2 else "inactive"
-                yield Label("●", classes=step_class, id="nav-step2")
-                step_class = "active" if self.step == 3 else "inactive"
-                yield Label("●", classes=step_class, id="nav-step3")
+        elif self.step == 3:
+            container.mount(Label("Review Override", id="review-title"))
+            container.mount(Label(f"Decision: {self.decision['id']}", id="review-decision-id"))
+            container.mount(Label(f"Old Value: {self.decision.get('value', self.decision.get('reason', 'No description'))}", id="old-value"))
+            container.mount(Label(f"New Value: {self.new_value}", id="new-value"))
+            container.mount(Label(f"Reason: {self.reason}", id="reason-review"))
+            container.mount(Label(f"Auto Replan: {'YES' if self.auto_replan else 'NO'}", id="replan-review"))
+
+            buttons = Horizontal(id="step3-buttons")
+            buttons.mount(Button("Back", variant="default", id="review-back-button"))
+            buttons.mount(Button("Cancel", variant="default", id="review-cancel-button"))
+            buttons.mount(Button("Apply Override", variant="warning", id="apply-button"))
+            container.mount(buttons)
+
+        # Navigation indicators
+        indicators = Horizontal(id="wizard-nav-indicators")
+        for step_idx in (1, 2, 3):
+            step_class = "active" if self.step == step_idx else "inactive"
+            indicators.mount(Label("●", classes=step_class, id=f"nav-step{step_idx}"))
+        container.mount(indicators)
 
     def on_mount(self) -> None:
         """Set up the wizard when mounted."""
@@ -329,11 +334,9 @@ class DecisionOverrideWizard(ModalScreen[dict]):
 
     def refresh_wizard(self) -> None:
         """Refresh the wizard UI to reflect the current step."""
-        # Remove current content and rebuild
         container = self.query_one("#decision-override-wizard-container", Vertical)
-        container.remove_children()
-        # Re-compose the content
-        self.compose()
+        self._populate_wizard_content(container)
+
         # Reset focus as needed
         if self.step == 2:
             self.call_after_refresh(lambda: self.query_one("#new-value-input", Input).focus())

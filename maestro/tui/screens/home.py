@@ -2,12 +2,12 @@
 Home Screen for Maestro TUI
 """
 from textual.app import ComposeResult
-from textual.screen import Screen
-from textual.widgets import Header, Footer, Label, Button
-from textual.containers import Vertical, Horizontal, Container
+from textual.widgets import Header, Footer, Label
+from textual.containers import Vertical
+from textual.widgets import Static
 
 
-class HomeScreen(Screen):
+class HomeScreen(Static):
     """Home screen of the Maestro TUI."""
     
     def compose(self) -> ComposeResult:
@@ -22,9 +22,13 @@ class HomeScreen(Screen):
             Label("- Sessions", classes="list-item"),
             Label("- Plans", classes="list-item"), 
             Label("- Tasks", classes="list-item"),
+            Label("- Repo", classes="list-item"),
             Label("- Build", classes="list-item"),
+            Label("- Make", classes="list-item"),
             Label("- Convert", classes="list-item"),
             Label("- Logs", classes="list-item"),
+            Label("- Repo", classes="list-item"),
+            Label("- Make", classes="list-item"),
             Label("\nNot implemented yet", classes="placeholder"),
             classes="main-container"
         )

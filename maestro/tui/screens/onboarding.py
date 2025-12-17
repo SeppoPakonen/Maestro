@@ -14,7 +14,6 @@ class OnboardingScreen(ModalScreen):
 
     BINDINGS = [
         ("enter", "next_step", "Next"),
-        ("escape", "skip_onboarding", "Skip"),
     ]
 
     def __init__(self):
@@ -68,7 +67,8 @@ class OnboardingScreen(ModalScreen):
         """Move to the next step or complete onboarding."""
         if self.current_step_index < len(self.steps) - 1:
             self.current_step_index += 1
-            self.refresh()  # Refresh the entire screen to update content
+            # Force recompose so the new step content renders
+            self.refresh(recompose=True)
         else:
             # Complete the onboarding
             self._complete_onboarding()

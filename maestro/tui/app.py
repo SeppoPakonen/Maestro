@@ -5,7 +5,7 @@ import time
 import asyncio
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Label, Footer, Header
+from textual.widgets import Label, Footer, Header, Button
 from textual import on
 from textual.types import MessageTarget
 from maestro.ui_facade.sessions import get_active_session, list_sessions
@@ -37,6 +37,8 @@ try:
     from maestro.tui.screens.help_index import HelpIndexScreen
 except ImportError:
     HelpIndexScreen = None  # type: ignore
+from maestro.tui.screens.repo import RepoScreen
+from maestro.tui.screens.make import MakeScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 from maestro.tui.utils import global_status_manager, LoadingIndicator, ErrorModal, ErrorNormalizer, ErrorMessage, ErrorSeverity, write_smoke_success
 
@@ -91,6 +93,20 @@ class MaestroTUI(App):
     .clickable-nav-item:hover {
         background: $primary 20%;
         text-style: bold;
+    }
+
+    #nav-menu Button {
+        width: 100%;
+        height: 1;
+        padding: 0 1;
+        border: none;
+        background: transparent;
+        text-align: left;
+    }
+
+    #nav-menu Button:focus {
+        outline: none;
+        text-style: reverse;
     }
 
     #nav-menu {
@@ -709,21 +725,6 @@ class MaestroTUI(App):
     # Enable mouse support
     ENABLE_MOUSE_SUPPORT = True
 
-    def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.smoke_mode = smoke_mode
-        self.smoke_seconds = smoke_seconds
-        self.smoke_out = smoke_out
-        self.active_session = None
-        self.active_plan = None
-        self.active_build_target = None
-        self.repo_root = "./"  # Simplified for now
-        self.loading_indicator = LoadingIndicator()
-        # Track currently active screen and its loading task
-        self.current_screen = None
-        self.current_screen_task = None
-        self._load_status_state()
-
     def _load_status_state(self) -> None:
         """Load the current status state from facade."""
         try:
@@ -776,21 +777,23 @@ class MaestroTUI(App):
         with Horizontal(id="main-container"):
             yield Vertical(
                 Label("[b]Navigation[/b]", classes="nav-title"),
-                Label("🏠 Home", id="nav-home", classes="nav-item clickable-nav-item"),
-                Label("📋 Sessions", id="nav-sessions", classes="nav-item clickable-nav-item"),
-                Label("📊 Plans", id="nav-plans", classes="nav-item clickable-nav-item"),
-                Label("✅ Tasks", id="nav-tasks", classes="nav-item clickable-nav-item"),
-                Label("🔨 Build", id="nav-build", classes="nav-item clickable-nav-item"),
-                Label("🔄 Convert", id="nav-convert", classes="nav-item clickable-nav-item"),
-                Label("📺 Replay", id="nav-replay", classes="nav-item clickable-nav-item"),
-                Label("🏆 Arbitration", id="nav-arbitration", classes="nav-item clickable-nav-item"),
-                Label("🔍 Integrity", id="nav-semantic", classes="nav-item clickable-nav-item"),
-                Label("🔍 Diff Explorer", id="nav-semantic-diff", classes="nav-item clickable-nav-item"),
-                Label("🧠 Memory", id="nav-memory", classes="nav-item clickable-nav-item"),
-                Label("📄 Logs", id="nav-logs", classes="nav-item clickable-nav-item"),
-                Label("📊 Confidence", id="nav-confidence", classes="nav-item clickable-nav-item"),
-                Label("📦 Vault", id="nav-vault", classes="nav-item clickable-nav-item"),
-                Label("❓ Help", id="nav-help", classes="nav-item clickable-nav-item"),
+                Button("🏠 Home", id="nav-home", classes="nav-item clickable-nav-item"),
+                Button("📋 Sessions", id="nav-sessions", classes="nav-item clickable-nav-item"),
+                Button("📊 Plans", id="nav-plans", classes="nav-item clickable-nav-item"),
+                Button("✅ Tasks", id="nav-tasks", classes="nav-item clickable-nav-item"),
+                Button("📦 Repo", id="nav-repo", classes="nav-item clickable-nav-item"),
+                Button("🔨 Build", id="nav-build", classes="nav-item clickable-nav-item"),
+                Button("🛠 Make", id="nav-make", classes="nav-item clickable-nav-item"),
+                Button("🔄 Convert", id="nav-convert", classes="nav-item clickable-nav-item"),
+                Button("📺 Replay", id="nav-replay", classes="nav-item clickable-nav-item"),
+                Button("🏆 Arbitration", id="nav-arbitration", classes="nav-item clickable-nav-item"),
+                Button("🔍 Integrity", id="nav-semantic", classes="nav-item clickable-nav-item"),
+                Button("🔍 Diff Explorer", id="nav-semantic-diff", classes="nav-item clickable-nav-item"),
+                Button("🧠 Memory", id="nav-memory", classes="nav-item clickable-nav-item"),
+                Button("📄 Logs", id="nav-logs", classes="nav-item clickable-nav-item"),
+                Button("📊 Confidence", id="nav-confidence", classes="nav-item clickable-nav-item"),
+                Button("📦 Vault", id="nav-vault", classes="nav-item clickable-nav-item"),
+                Button("❓ Help", id="nav-help", classes="nav-item clickable-nav-item"),
                 id="nav-menu"
             )
 
@@ -877,69 +880,65 @@ class MaestroTUI(App):
     def _setup_click_handlers(self):
         """Actually set up the click handlers."""
         try:
-            # Replace the current content with new screen content
-            home_widget = self.query_one("#nav-home", Label)
-            home_widget.styles.cursor = "pointer"
-            self.query_one("#nav-home", Label).on("click", lambda event: self._switch_main_content(HomeScreen()))
+            nav_map = {
+                "nav-home": HomeScreen,
+                "nav-sessions": SessionsScreen,
+                "nav-plans": PlansScreen,
+                "nav-tasks": TasksScreen,
+                "nav-repo": RepoScreen,
+                "nav-build": BuildScreen,
+                "nav-make": MakeScreen,
+                "nav-convert": ConvertScreen,
+                "nav-replay": ReplayScreen,
+                "nav-arbitration": ArbitrationScreen,
+                "nav-semantic": SemanticScreen,
+                "nav-semantic-diff": SemanticDiffScreen,
+                "nav-memory": MemoryScreen,
+                "nav-logs": LogsScreen,
+                "nav-confidence": ConfidenceScreen,
+                "nav-vault": VaultScreen,
+                "nav-help": HelpScreen,
+            }
 
-            sessions_widget = self.query_one("#nav-sessions", Label)
-            sessions_widget.styles.cursor = "pointer"
-            self.query_one("#nav-sessions", Label).on("click", lambda event: self._switch_main_content(SessionsScreen()))
-
-            plans_widget = self.query_one("#nav-plans", Label)
-            plans_widget.styles.cursor = "pointer"
-            self.query_one("#nav-plans", Label).on("click", lambda event: self._switch_main_content(PlansScreen()))
-
-            tasks_widget = self.query_one("#nav-tasks", Label)
-            tasks_widget.styles.cursor = "pointer"
-            self.query_one("#nav-tasks", Label).on("click", lambda event: self._switch_main_content(TasksScreen()))
-
-            build_widget = self.query_one("#nav-build", Label)
-            build_widget.styles.cursor = "pointer"
-            self.query_one("#nav-build", Label).on("click", lambda event: self._switch_main_content(BuildScreen()))
-
-            convert_widget = self.query_one("#nav-convert", Label)
-            convert_widget.styles.cursor = "pointer"
-            self.query_one("#nav-convert", Label).on("click", lambda event: self._switch_main_content(ConvertScreen()))
-
-            replay_widget = self.query_one("#nav-replay", Label)
-            replay_widget.styles.cursor = "pointer"
-            self.query_one("#nav-replay", Label).on("click", lambda event: self._switch_main_content(ReplayScreen()))
-
-            arbitration_widget = self.query_one("#nav-arbitration", Label)
-            arbitration_widget.styles.cursor = "pointer"
-            self.query_one("#nav-arbitration", Label).on("click", lambda event: self._switch_main_content(ArbitrationScreen()))
-
-            semantic_widget = self.query_one("#nav-semantic", Label)
-            semantic_widget.styles.cursor = "pointer"
-            self.query_one("#nav-semantic", Label).on("click", lambda event: self._switch_main_content(SemanticScreen()))
-
-            semantic_diff_widget = self.query_one("#nav-semantic-diff", Label)
-            semantic_diff_widget.styles.cursor = "pointer"
-            self.query_one("#nav-semantic-diff", Label).on("click", lambda event: self._switch_main_content(SemanticDiffScreen()))
-
-            memory_widget = self.query_one("#nav-memory", Label)
-            memory_widget.styles.cursor = "pointer"
-            self.query_one("#nav-memory", Label).on("click", lambda event: self._switch_main_content(MemoryScreen()))
-
-            logs_widget = self.query_one("#nav-logs", Label)
-            logs_widget.styles.cursor = "pointer"
-            self.query_one("#nav-logs", Label).on("click", lambda event: self._switch_main_content(LogsScreen()))
-
-            confidence_widget = self.query_one("#nav-confidence", Label)
-            confidence_widget.styles.cursor = "pointer"
-            self.query_one("#nav-confidence", Label).on("click", lambda event: self._switch_main_content(ConfidenceScreen()))
-
-            vault_widget = self.query_one("#nav-vault", Label)
-            vault_widget.styles.cursor = "pointer"
-            self.query_one("#nav-vault", Label).on("click", lambda event: self._switch_main_content(VaultScreen()))
-
-            help_widget = self.query_one("#nav-help", Label)
-            help_widget.styles.cursor = "pointer"
-            self.query_one("#nav-help", Label).on("click", lambda event: self._switch_main_content(HelpScreen()))
+            for nav_id in nav_map:
+                try:
+                    nav_widget = self.query_one(f"#{nav_id}", Button)
+                    nav_widget.can_focus = True
+                    nav_widget.styles.cursor = "pointer"
+                except Exception:
+                    continue
         except Exception as e:
             # If binding fails, just continue without it
             pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle navigation button presses."""
+        nav_map = {
+            "nav-home": HomeScreen,
+            "nav-sessions": SessionsScreen,
+            "nav-plans": PlansScreen,
+            "nav-tasks": TasksScreen,
+            "nav-repo": RepoScreen,
+            "nav-build": BuildScreen,
+            "nav-make": MakeScreen,
+            "nav-convert": ConvertScreen,
+            "nav-replay": ReplayScreen,
+            "nav-arbitration": ArbitrationScreen,
+            "nav-semantic": SemanticScreen,
+            "nav-semantic-diff": SemanticDiffScreen,
+            "nav-memory": MemoryScreen,
+            "nav-logs": LogsScreen,
+            "nav-confidence": ConfidenceScreen,
+            "nav-vault": VaultScreen,
+            "nav-help": HelpScreen,
+        }
+
+        button_id = event.button.id
+        if button_id in nav_map:
+            screen_cls = nav_map[button_id]
+            if screen_cls is not None:
+                self._switch_main_content(screen_cls())
+            event.stop()
 
     def _switch_main_content(self, screen_instance):
         """Replace the main content area with a new screen with proper lifecycle management."""
@@ -959,33 +958,14 @@ class MaestroTUI(App):
             # Set up the new screen
             self.current_screen = screen_instance
 
-            # Check if the screen has a load_data method and call it
-            if hasattr(screen_instance, 'load_data'):
-                # Create an async task to load data for the screen
-                self.current_screen_task = asyncio.create_task(screen_instance.load_data())
-            else:
-                # The issue is that some screens use context managers in compose() which can't be
-                # called outside of the proper app context. For this architecture to work, screens
-                # need to be able to have their widgets extracted. Let's push the actual screen
-                # instead of trying to extract its widgets.
-                # However, since the existing architecture expects widget mounting, we'll try
-                # an alternative approach: temporarily attach the screen to this app so compose
-                # can be called properly.
+            # Mount the screen widget directly so Textual manages compose/context
+            mounted_widget = main_content.mount(screen_instance)
 
-                # For now, since the current architecture doesn't properly support screens
-                # with context managers, we'll handle this with a try-catch and more specific error
-                try:
-                    widgets = list(screen_instance.compose())
-                    for widget in widgets:
-                        main_content.mount(widget)
-                except IndexError as ie:
-                    # This is likely the context manager issue - the screen uses 'with' statements
-                    # in compose method that require proper app context
-                    error_container = Vertical(id="error-container", classes="error-container")
-                    main_content.mount(error_container)  # Mount container first
-                    error_container.mount(Label(f"[bold red]ERROR:[/bold red] Screen composition error: {str(ie)}", id="error-message"))
-                    error_container.mount(Label("This screen can't be loaded in the current architecture", id="error-details"))
-                    return
+            # If the screen exposes a load_data hook, run it after mount
+            if hasattr(screen_instance, "load_data"):
+                load_result = screen_instance.load_data()
+                if asyncio.iscoroutine(load_result):
+                    self.current_screen_task = asyncio.create_task(load_result)
         except Exception as e:
             # Create a more informative error message with screen name and exception details
             screen_name = screen_instance.__class__.__name__ if hasattr(screen_instance, '__class__') else 'Unknown'
@@ -1065,7 +1045,9 @@ class MaestroTUI(App):
             "sessions": SessionsScreen,
             "plans": PlansScreen,
             "tasks": TasksScreen,
+            "repo": RepoScreen,
             "build": BuildScreen,
+            "make": MakeScreen,
             "convert": ConvertScreen,
             "replay": ReplayScreen,
             "arbitration": ArbitrationScreen,

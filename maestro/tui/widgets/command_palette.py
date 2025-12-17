@@ -97,7 +97,9 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Go to sessions", "action": "screen_sessions", "type": "navigation"},
             {"name": "Go to plans", "action": "screen_plans", "type": "navigation"},
             {"name": "Go to tasks", "action": "screen_tasks", "type": "navigation"},
+            {"name": "Go to repo", "action": "screen_repo", "type": "navigation"},
             {"name": "Go to build", "action": "screen_build", "type": "navigation"},
+            {"name": "Go to make", "action": "screen_make", "type": "navigation"},
             {"name": "Go to convert", "action": "screen_convert", "type": "navigation"},
             {"name": "Go to replay", "action": "screen_replay", "type": "navigation"},
             {"name": "Go to arbitration", "action": "screen_arbitration", "type": "navigation"},
@@ -146,6 +148,19 @@ class CommandPaletteScreen(ModalScreen):
             {"name": "Build: Run build", "action": "build_run", "type": "build"},
             {"name": "Build: Run fix loop", "action": "build_fix", "type": "build"},
             {"name": "Build: Get status", "action": "build_status", "type": "build"},
+        ])
+
+        # Repo operations
+        commands.extend([
+            {"name": "Repo: Resolve", "action": "repo_resolve", "type": "repo"},
+            {"name": "Repo: Init .maestro", "action": "repo_init", "type": "repo"},
+            {"name": "Repo: List packages", "action": "repo_list_packages", "type": "repo"},
+        ])
+
+        # Make operations
+        commands.extend([
+            {"name": "Make: Methods", "action": "make_methods", "type": "make"},
+            {"name": "Make: Detect", "action": "make_detect", "type": "make"},
         ])
 
         # Convert operations
@@ -431,6 +446,33 @@ class CommandPaletteScreen(ModalScreen):
                 else:
                     # For navigation operations like screen_vault or other vault commands
                     self.app.notify(f"Vault operation: {result}", timeout=5)
+                    self.dismiss()
+            # Handle repo operation commands that need special handling
+            elif command["action"] in ["repo_resolve", "repo_init", "repo_list_packages"]:
+                result = self.execute_action_command(command["action"])
+                if result == "COMPLETED":
+                    self.app.notify(f"Repo operation completed: {command['name']}", timeout=3)
+                    self.dismiss()
+                else:
+                    # Show error or status message
+                    self.app.notify(f"Repo operation result: {result}", timeout=5)
+                    self.dismiss()
+            # Handle make operation commands that need special handling
+            elif command["action"] in ["make_methods", "make_detect"]:
+                result = self.execute_action_command(command["action"])
+                if result == "COMPLETED":
+                    self.app.notify(f"Make operation completed: {command['name']}", timeout=3)
+                    self.dismiss()
+                else:
+                    # Show error or status message
+                    self.app.notify(f"Make operation result: {result}", timeout=5)
+                    self.dismiss()
+            elif command["action"] in ["screen_repo", "screen_make"]:
+                result = self.execute_action_command(command["action"])
+                if result == "COMPLETED":
+                    self.dismiss()
+                else:
+                    self.app.notify(f"{result}", timeout=3)
                     self.dismiss()
             else:
                 self.app.post_message(command["action"])
@@ -2124,6 +2166,66 @@ class CommandPaletteScreen(ModalScreen):
                     self.app._switch_main_content(VaultScreen())
                     self.dismiss()
                     return "COMPLETED"
+            elif action_name == "repo_resolve":
+                try:
+                    from maestro.ui_facade.repo import resolve_repository
+                    summary = resolve_repository()
+                    status = getattr(summary, "status", "") or ""
+                    if status.lower() == "completed":
+                        packages_found = getattr(summary, "packages_found", 0)
+                        assemblies_found = getattr(summary, "assemblies_found", 0)
+                        return f"Resolve completed: {packages_found} packages, {assemblies_found} assemblies"
+                    return f"Resolve status: {status or 'unknown'}"
+                except Exception as e:
+                    return f"Error resolving repository: {str(e)}"
+            elif action_name == "repo_init":
+                try:
+                    from maestro.main import init_maestro_dir
+                    import os
+
+                    init_maestro_dir(os.getcwd(), verbose=False)
+                    return ".maestro initialized"
+                except Exception as e:
+                    return f"Error initializing repository: {str(e)}"
+            elif action_name == "repo_list_packages":
+                try:
+                    from maestro.ui_facade.repo import list_repo_packages
+
+                    packages = list_repo_packages()
+                    names_preview = ", ".join(p.name for p in packages[:5])
+                    if len(packages) > 5:
+                        names_preview += f" ... (+{len(packages) - 5} more)"
+                    return f"Packages: {len(packages)} found{(' - ' + names_preview) if packages else ''}"
+                except Exception as e:
+                    return f"Error listing packages: {str(e)}"
+            elif action_name == "screen_repo":
+                from maestro.tui.screens.repo import RepoScreen
+
+                self.app._switch_main_content(RepoScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "screen_make":
+                from maestro.tui.screens.make import MakeScreen
+
+                self.app._switch_main_content(MakeScreen())
+                self.dismiss()
+                return "COMPLETED"
+            elif action_name == "make_methods":
+                try:
+                    from maestro.ui_facade.make import run_make_command
+
+                    status, output = run_make_command("methods")
+                    return output.strip() or f"make methods (status {status})"
+                except Exception as e:
+                    return f"Error running make methods: {str(e)}"
+            elif action_name == "make_detect":
+                try:
+                    from maestro.ui_facade.make import run_make_command
+
+                    status, output = run_make_command("config detect")
+                    return output.strip() or f"make config detect (status {status})"
+                except Exception as e:
+                    return f"Error running make detect: {str(e)}"
             else:
                 return f"Unknown command: {action_name}"
         except Exception as e:
