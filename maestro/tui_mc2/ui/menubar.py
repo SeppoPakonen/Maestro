@@ -52,6 +52,12 @@ class Menubar:
                 MenuItem("plans.kill", "Kill Branch", key_hint="F8"),
                 MenuItem("plans.toggle_collapse", "Toggle Collapse", key_hint="Left/Right"),
             ]),
+            Menu("Tasks", [
+                MenuItem("tasks.run", "Run/Resume", key_hint="F5"),
+                MenuItem("tasks.run_limit", "Run with limit...", key_hint="F7"),
+                MenuItem("tasks.stop", "Stop", key_hint="F8"),
+                MenuItem("tasks.refresh", "Refresh", key_hint="Menu"),
+            ]),
             Menu("File", [
                 MenuItem("quit", "Quit", key_hint="F10"),
                 MenuItem("refresh", "Refresh", key_hint="F5"),
@@ -63,6 +69,7 @@ class Menubar:
             Menu("View", [
                 MenuItem("view.sessions", "Sessions", key_hint="F9"),
                 MenuItem("view.plans", "Plans", key_hint="F9"),
+                MenuItem("view.tasks", "Tasks", key_hint="F9"),
                 MenuItem("toggle_menu", "Toggle Menu", key_hint="F9"),
             ]),
             Menu("Help", [

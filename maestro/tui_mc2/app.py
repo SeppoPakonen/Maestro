@@ -14,13 +14,15 @@ import os
 import sys
 import time
 from typing import Optional, Dict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from maestro.tui_mc2.ui.menubar import Menubar
 from maestro.tui_mc2.ui.status import StatusLine
 from maestro.tui_mc2.ui.modals import ModalDialog
 from maestro.tui_mc2.panes.sessions import SessionsPane
 from maestro.tui_mc2.panes.plans import PlansPane
+from maestro.tui_mc2.panes.tasks import TasksPane
+from maestro.ui_facade.tasks import get_current_execution_state, stop_tasks
 from maestro.tui_mc2.util.smoke import (
     SmokeMode,
     write_smoke_success,
@@ -43,10 +45,13 @@ class AppContext:
     selected_session_id: Optional[str] = None
     active_plan_id: Optional[str] = None
     selected_plan_id: Optional[str] = None
+    selected_task_id: Optional[str] = None
     sessions_filter_text: str = ""
     sessions_filter_visible: int = 0
     sessions_filter_total: int = 0
     plan_status_text: str = ""
+    task_status_text: str = ""
+    task_log_buffers: Dict[str, object] = field(default_factory=dict)
     modal_parent: Optional[object] = None
 
 
@@ -86,6 +91,7 @@ class MC2App:
         self.last_active_view = self.context.active_view
         self.last_plan_status_text = self.context.plan_status_text
         self.last_active_plan_id = self.context.active_plan_id
+        self.last_task_status_text = self.context.task_status_text
         self.last_filter_status = (
             self.context.sessions_filter_text,
             self.context.sessions_filter_visible,
@@ -221,6 +227,8 @@ class MC2App:
     def _create_pane(self, view: str, position: str):
         if view == "plans":
             return PlansPane(position=position, context=self.context)
+        if view == "tasks":
+            return TasksPane(position=position, context=self.context)
         return SessionsPane(position=position, context=self.context)
 
     def _set_view(self, view: str):
@@ -260,6 +268,10 @@ class MC2App:
             if smoke_remaining is not None:
                 smoke_ms = max(0, int(smoke_remaining * 1000))
                 timeout_ms = smoke_ms if timeout_ms is None else min(timeout_ms, smoke_ms)
+        state = get_current_execution_state()
+        if state.get("is_running"):
+            task_ms = 200
+            timeout_ms = task_ms if timeout_ms is None else min(timeout_ms, task_ms)
         return -1 if timeout_ms is None else timeout_ms
 
     def _sync_status_message(self):
@@ -287,6 +299,9 @@ class MC2App:
             changed = True
         if self.context.plan_status_text != self.last_plan_status_text:
             self.last_plan_status_text = self.context.plan_status_text
+            changed = True
+        if self.context.task_status_text != self.last_task_status_text:
+            self.last_task_status_text = self.context.task_status_text
             changed = True
         current_filter = (
             self.context.sessions_filter_text,
@@ -372,10 +387,46 @@ class MC2App:
                 self._mark_dirty("left", "right", "status")
             else:
                 self._mark_dirty("status")
+        elif action_id in ("tasks.refresh",):
+            if self.context.active_view != "tasks":
+                self.context.status_message = "Switch to Tasks view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.refresh_data()
+            self.right_pane.refresh_data()
+            self.context.status_message = "Tasks refreshed"
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("tasks.run",):
+            if self.context.active_view != "tasks":
+                self.context.status_message = "Switch to Tasks view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.handle_run()
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("tasks.run_limit",):
+            if self.context.active_view != "tasks":
+                self.context.status_message = "Switch to Tasks view"
+                self._mark_dirty("status")
+                return
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_run_with_limit()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("tasks.stop",):
+            if self.context.active_view != "tasks":
+                self.context.status_message = "Switch to Tasks view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.handle_stop()
+            self._mark_dirty("left", "right", "status")
         elif action_id in ("view.sessions", "view.plans"):
             view = "sessions" if action_id.endswith("sessions") else "plans"
             self._set_view(view)
             self.context.status_message = f"View: {view.title()}"
+            self._mark_dirty("menubar", "status")
+        elif action_id == "view.tasks":
+            self._set_view("tasks")
+            self.context.status_message = "View: Tasks"
             self._mark_dirty("menubar", "status")
         elif action_id == "help":
             self.dirty_regions["modal"] = True
@@ -410,6 +461,10 @@ class MC2App:
 
     def _handle_key(self, key: int) -> bool:
         """Handle keyboard input, return True to continue, False to exit"""
+        if key == 3:  # Ctrl+C
+            if self._handle_ctrl_c():
+                return True
+            return False
         if key == 27:  # ESC
             # Check if we're in a menu first
             if self.menubar and self.menubar.is_active():
@@ -435,15 +490,25 @@ class MC2App:
             return True
 
         elif key in (curses.KEY_PPAGE, 21):  # PageUp or Ctrl+U
+            if key == 21 and self.context.active_view == "tasks" and self.context.focus_pane == "left":
+                if self.left_pane.clear_filter():
+                    self._mark_dirty("left", "right", "status")
+                    return True
             if self.context.focus_pane == "left":
                 self.left_pane.page_up()
                 self._mark_dirty("left", "right", "status")
+            elif hasattr(self.right_pane, "page_up"):
+                self.right_pane.page_up()
+                self._mark_dirty("right", "status")
             return True
 
         elif key in (curses.KEY_NPAGE, 4):  # PageDown or Ctrl+D
             if self.context.focus_pane == "left":
                 self.left_pane.page_down()
                 self._mark_dirty("left", "right", "status")
+            elif hasattr(self.right_pane, "page_down"):
+                self.right_pane.page_down()
+                self._mark_dirty("right", "status")
             return True
 
         elif key == curses.KEY_HOME:
@@ -493,15 +558,20 @@ class MC2App:
             return True
             
         elif key == curses.KEY_F5:
-            # Refresh both panes
-            self.left_pane.refresh_data()
-            self.right_pane.refresh_data()
-            self.context.status_message = "Refreshed"
-            self._mark_dirty("left", "right", "status")
+            if self.context.active_view == "tasks":
+                self._handle_menu_action("tasks.run")
+            else:
+                # Refresh both panes
+                self.left_pane.refresh_data()
+                self.right_pane.refresh_data()
+                self.context.status_message = "Refreshed"
+                self._mark_dirty("left", "right", "status")
             return True
             
         elif key == curses.KEY_F7:
-            if self.context.active_view == "sessions":
+            if self.context.active_view == "tasks":
+                self._handle_menu_action("tasks.run_limit")
+            elif self.context.active_view == "sessions":
                 self._handle_menu_action("sessions.new")
             else:
                 self.context.status_message = "No action for F7"
@@ -509,7 +579,9 @@ class MC2App:
             return True
             
         elif key == curses.KEY_F8:
-            if self.context.active_view == "plans":
+            if self.context.active_view == "tasks":
+                self._handle_menu_action("tasks.stop")
+            elif self.context.active_view == "plans":
                 self._handle_menu_action("plans.kill")
             else:
                 self._handle_menu_action("sessions.delete")
@@ -551,6 +623,14 @@ class MC2App:
                 if self.left_pane.handle_right():
                     self._mark_dirty("left", "right", "status")
             return True
+
+        elif key == ord('/'):
+            if self.context.active_view == "tasks" and self.context.focus_pane == "left":
+                self.dirty_regions["modal"] = True
+                self.left_pane.handle_filter_input()
+                self.dirty_regions["modal"] = False
+                self._mark_dirty("left", "right", "status")
+                return True
 
         if self.context.focus_pane == "left":
             if key in (curses.KEY_BACKSPACE, 127, 8):
@@ -624,6 +704,11 @@ class MC2App:
                 if self.status_line and self.status_line.maybe_expire(time.time()):
                     self._mark_dirty("status")
 
+                if hasattr(self.left_pane, "poll_updates") and self.left_pane.poll_updates():
+                    self._mark_dirty("left", "right", "status")
+                if hasattr(self.right_pane, "poll_updates") and self.right_pane.poll_updates():
+                    self._mark_dirty("right", "status")
+
                 self._sync_status_message()
                 self._sync_status_context()
 
@@ -631,7 +716,8 @@ class MC2App:
                 self._render()
                 
             except KeyboardInterrupt:
-                break
+                if not self._handle_ctrl_c():
+                    break
             except Exception as e:
                 if self.fault_inject:
                     raise
@@ -640,6 +726,13 @@ class MC2App:
                 self._sync_status_message()
                 self._mark_dirty("status")
                 self._render()
+
+    def _handle_ctrl_c(self) -> bool:
+        if stop_tasks():
+            self.context.status_message = "Stop requested... finishing current step safely"
+            self._mark_dirty("status")
+            return True
+        return False
 
     def _render(self):
         """Render all UI components"""

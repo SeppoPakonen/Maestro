@@ -16,6 +16,7 @@ class StatusLine:
         self.debug_enabled = False
         self.debug_info = ""
         self.default_hints = "Tab=Switch | Enter=Open | Esc=Back | F1=Help | F5=Refresh | F7=New | F8=Delete | F9=Menu | F10=Quit"
+        self.tasks_hints = "Tab=Switch | Enter=Open | / Filter | F5=Run | F7=Limit | F8=Stop | F9=Menu | F10=Quit"
 
     def set_window(self, window):
         """Update the curses window for the status line."""
@@ -72,6 +73,10 @@ class StatusLine:
             plan_status = getattr(self.context, "plan_status_text", "")
             if active_view == "plans" and plan_status:
                 status_text = plan_status
+            if not status_text and active_view == "tasks":
+                task_status = getattr(self.context, "task_status_text", "")
+                if task_status:
+                    status_text = task_status
             if not status_text and active_view == "sessions":
                 filter_text = getattr(self.context, "sessions_filter_text", "")
                 visible = getattr(self.context, "sessions_filter_visible", 0)
@@ -117,6 +122,8 @@ class StatusLine:
         # Add default hints if no message/debug info/filter is shown
         if not status_text:
             hints = self.default_hints
+            if getattr(self.context, "active_view", "") == "tasks":
+                hints = self.tasks_hints
             if len(hints) <= width:
                 try:
                     self.window.addstr(0, 0, hints[:width])
