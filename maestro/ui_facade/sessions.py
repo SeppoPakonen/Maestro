@@ -11,7 +11,7 @@ from datetime import datetime
 from maestro.session_model import Session, load_session, save_session
 import uuid
 
-from maestro.tui.utils import memoize_for, track_facade_call
+from maestro.ui_facade.utils import memoize_for, track_facade_call
 
 
 @dataclass

@@ -1,18 +1,23 @@
 """
 Utilities for Maestro TUI - Loading states, Error handling, Performance, and UX Trust Signals
 """
-import time
 import os
 import sys
-import asyncio
 from enum import Enum
 from dataclasses import dataclass
-from typing import Optional, Callable, Any, Dict, List
-from functools import wraps
-from textual.widgets import Label, Button, Static, Switch
+from typing import Optional
+from textual.widgets import Label, Button, Static, Switch, Input
 from textual.containers import Vertical, Horizontal
 from textual.screen import ModalScreen
 from textual import on
+from maestro.ui_facade.utils import (
+    GlobalStatusManager,
+    LoadingIndicator,
+    global_status_manager,
+    memoization_cache,
+    memoize_for,
+    track_facade_call,
+)
 
 
 class ErrorSeverity(Enum):
@@ -31,68 +36,6 @@ class ErrorMessage:
     message: str
     technical_details: Optional[str] = None
     actionable_hint: Optional[str] = None
-
-
-class LoadingIndicator:
-    """Loading indicator utility for the TUI."""
-
-    def __init__(self):
-        self.active_loaders: Dict[str, float] = {}
-        self.global_loader_active = False
-
-    def start_loader(self, loader_id: str, description: str = ""):
-        """Start a loader with given ID."""
-        self.active_loaders[loader_id] = time.time()
-        if len(self.active_loaders) == 1:
-            self.global_loader_active = True
-
-    def stop_loader(self, loader_id: str):
-        """Stop a loader with given ID."""
-        if loader_id in self.active_loaders:
-            del self.active_loaders[loader_id]
-            if not self.active_loaders:
-                self.global_loader_active = False
-
-
-class GlobalStatusManager:
-    """Manages global status indicators like loading indicators."""
-
-    def __init__(self):
-        self.loading_indicator = LoadingIndicator()
-        self.status_bar_widget: Optional[Label] = None
-        # Track performance metrics
-        self.facade_call_times: Dict[str, List[float]] = {}
-        self.dev_mode = True  # Can be set to False for production
-
-    def set_status_bar_widget(self, widget: Label):
-        """Set the status bar widget to update."""
-        self.status_bar_widget = widget
-
-    def update_global_status(self, message: str, is_loading: bool = False):
-        """Update the global status bar."""
-        if self.status_bar_widget:
-            # Add loading indicator if needed
-            indicator = " ⏳ " if is_loading else ""
-            self.status_bar_widget.update(f"{indicator}{message}")
-
-    def log_facade_call(self, func_name: str, duration: float):
-        """Log facade call durations for performance monitoring."""
-        if self.dev_mode:
-            print(f"DEBUG: Facade call '{func_name}' took {duration:.3f}s")
-
-            # Track call times for this function
-            if func_name not in self.facade_call_times:
-                self.facade_call_times[func_name] = []
-            self.facade_call_times[func_name].append(duration)
-
-    def check_for_throttling(self, func_name: str) -> bool:
-        """Check if repeated calls to the same function might indicate thrashing."""
-        if func_name in self.facade_call_times:
-            recent_calls = self.facade_call_times[func_name][-5:]  # Last 5 calls
-            if len(recent_calls) >= 5 and all(duration < 0.1 for duration in recent_calls):
-                print(f"WARNING: Function '{func_name}' appears to be called rapidly ({len(recent_calls)} times in quick succession). Consider throttling or memoization.")
-                return True
-        return False
 
 
 def write_smoke_success(smoke_out: Optional[str] = None) -> None:
@@ -256,146 +199,94 @@ class ErrorNormalizer:
             )
 
 
-# Global instance for status management
-global_status_manager = GlobalStatusManager()
+class InputModal(ModalScreen[str]):
+    """A modal for getting text input from the user."""
 
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("enter", "submit", "Submit"),
+        ("tab", "focus_next_field", "Next field"),
+        ("shift+tab", "focus_prev_field", "Prev field"),
+    ]
 
-def track_facade_call(duration_threshold: float = 0.1):
-    """
-    Decorator to track facade calls and show loading indicators if they exceed threshold.
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            call_id = f"{func.__name__}_{time.time()}"
-            start_time = time.time()
+    def __init__(self, title: str = "Input", prompt: str = "Enter value:", submit_label: str = "Submit", cancel_label: str = "Cancel"):
+        super().__init__()
+        self.title_text = title
+        self.prompt_text = prompt
+        self.submit_label = submit_label
+        self.cancel_label = cancel_label
+        self.submitted_value = ""
 
-            # Check for potential thrashing before making the call
-            if global_status_manager.check_for_throttling(func.__name__):
-                print(f"WARNING: Throttling detected for {func.__name__}, adding delay to prevent thrashing")
-                await asyncio.sleep(0.1)  # Small delay to prevent thrashing
+    def compose(self) -> "ComposeResult":
+        """Create child widgets for the input modal."""
+        with Vertical(id="input-modal-container"):
+            yield Label(self.title_text, id="input-title")
+            yield Label(self.prompt_text, id="input-prompt")
 
-            # Start loader for this call
-            global_status_manager.loading_indicator.start_loader(call_id)
+            yield Input(placeholder="Type your response...", id="input-field")
 
-            try:
-                result = await func(*args, **kwargs)
-                return result
-            except Exception as e:
-                # Log error with duration
-                duration = time.time() - start_time
-                global_status_manager.log_facade_call(f"{func.__name__}_error", duration)
-                print(f"DEBUG: Facade call {func.__name__} took {duration:.2f}s and failed: {str(e)}")
-                raise e
-            finally:
-                # Stop loader for this call
-                global_status_manager.loading_indicator.stop_loader(call_id)
+            with Horizontal(id="input-buttons"):
+                yield Button(self.submit_label, variant="primary", id="submit-button")
+                yield Button(self.cancel_label, variant="default", id="cancel-button")
 
-                # Update global status display
-                duration = time.time() - start_time
-                global_status_manager.log_facade_call(func.__name__, duration)
-                if duration > duration_threshold:
-                    print(f"INFO: Long-running facade call {func.__name__} took {duration:.2f}s")
+    def on_mount(self) -> None:
+        """Focus the input field when mounted."""
+        self.query_one("#input-field", Input).focus()
 
-        @wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            call_id = f"{func.__name__}_{time.time()}"
-            start_time = time.time()
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "submit-button":
+            self.action_submit()
+        elif event.button.id == "cancel-button":
+            self.action_cancel()
 
-            # Check for potential thrashing before making the call
-            if global_status_manager.check_for_throttling(func.__name__):
-                print(f"WARNING: Throttling detected for {func.__name__}, adding delay to prevent thrashing")
-                time.sleep(0.1)  # Small delay to prevent thrashing
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle input submission."""
+        self.action_submit()
 
-            # Start loader for this call
-            global_status_manager.loading_indicator.start_loader(call_id)
-
-            try:
-                result = func(*args, **kwargs)
-                return result
-            except Exception as e:
-                # Log error with duration
-                duration = time.time() - start_time
-                global_status_manager.log_facade_call(f"{func.__name__}_error", duration)
-                print(f"DEBUG: Facade call {func.__name__} took {duration:.2f}s and failed: {str(e)}")
-                raise e
-            finally:
-                # Stop loader for this call
-                global_status_manager.loading_indicator.stop_loader(call_id)
-
-                # Update global status display
-                duration = time.time() - start_time
-                global_status_manager.log_facade_call(func.__name__, duration)
-                if duration > duration_threshold:
-                    print(f"INFO: Long-running facade call {func.__name__} took {duration:.2f}s")
-
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
+    def action_submit(self) -> None:
+        """Action to submit the input."""
+        input_widget = self.query_one("#input-field", Input)
+        self.submitted_value = input_widget.value.strip()
+        if self.submitted_value:
+            self.dismiss(self.submitted_value)
         else:
-            return sync_wrapper
+            # If no value, still dismiss but with empty string
+            self.dismiss(self.submitted_value)
 
-    return decorator
+    def action_cancel(self) -> None:
+        """Action to cancel the input."""
+        self.dismiss(None)  # Return None to indicate cancellation
 
+    def action_focus_next_field(self) -> None:
+        """Move focus to next field."""
+        current = self.focused
+        input_field = self.query_one("#input-field", Input)
+        submit_button = self.query_one("#submit-button", Button)
+        cancel_button = self.query_one("#cancel-button", Button)
 
-# Simple memoization cache for read-only data
-class MemoizationCache:
-    """Simple in-memory cache for memoizing read-only facade calls."""
+        all_widgets = [input_field, submit_button, cancel_button]
 
-    def __init__(self):
-        self.cache: Dict[str, Tuple[Any, float]] = {}  # Store (value, timestamp)
-        self.cache_timeouts: Dict[str, float] = {}  # Timeout in seconds for each key
+        if current in all_widgets:
+            idx = all_widgets.index(current)
+            next_idx = (idx + 1) % len(all_widgets)
+            all_widgets[next_idx].focus()
+        else:
+            input_field.focus()  # Focus input field if no match
 
-    def get(self, key: str):
-        """Get a value from cache if it's still valid."""
-        if key in self.cache:
-            value, timestamp = self.cache[key]
-            timeout = self.cache_timeouts.get(key, 30.0)  # Default timeout 30 seconds
+    def action_focus_prev_field(self) -> None:
+        """Move focus to previous field."""
+        current = self.focused
+        input_field = self.query_one("#input-field", Input)
+        submit_button = self.query_one("#submit-button", Button)
+        cancel_button = self.query_one("#cancel-button", Button)
 
-            if time.time() - timestamp < timeout:
-                return value
-            else:
-                # Remove expired entry
-                del self.cache[key]
-                if key in self.cache_timeouts:
-                    del self.cache_timeouts[key]
+        all_widgets = [input_field, submit_button, cancel_button]
 
-        return None
+        if current in all_widgets:
+            idx = all_widgets.index(current)
+            prev_idx = (idx - 1) % len(all_widgets)
+            all_widgets[prev_idx].focus()
+        else:
+            cancel_button.focus()  # Focus last field if no match
 
-    def set(self, key: str, value: Any, timeout: float = 30.0):
-        """Set a value in the cache."""
-        self.cache[key] = (value, time.time())
-        self.cache_timeouts[key] = timeout
-
-    def clear(self):
-        """Clear the entire cache."""
-        self.cache.clear()
-        self.cache_timeouts.clear()
-
-
-# Global memoization cache instance
-memoization_cache = MemoizationCache()
-
-
-def memoize_for(seconds: float = 30.0):
-    """Decorator to memoize function results for a specified number of seconds."""
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # Create a cache key based on function name and arguments
-            cache_key = f"{func.__name__}:{str(args)}:{str(sorted(kwargs.items()))}"
-
-            # Check if result is in cache
-            cached_result = memoization_cache.get(cache_key)
-            if cached_result is not None:
-                print(f"DEBUG: Cache HIT for {func.__name__}")
-                return cached_result
-
-            # Call the function and cache the result
-            result = func(*args, **kwargs)
-            memoization_cache.set(cache_key, result, seconds)
-            print(f"DEBUG: Cache MISS for {func.__name__}, cached for {seconds}s")
-
-            return result
-
-        return wrapper
-    return decorator
