@@ -1,59 +1,110 @@
-# Midnight Commander-Style TUI Contract
+# MC TUI Pane Contract
 
-This document defines the baseline interaction contract for Maestro's new Midnight Commander (MC)-style shell. It is a thin skeleton that future tasks will plug real content into without changing the fundamentals.
+## Overview
+This document specifies the contract that all MC shell panes must implement for reliable operation.
 
-## Why We Are Doing This
-- Provide a predictable, keyboard-first shell that mirrors the proven MC workflow (menu + two panes + status bar).
-- Establish shared focus/navigation/action rules before migrating any feature screens.
-- Reserve function keys and mouse behavior early to avoid conflicting bindings later.
+## Core Principle
+> A pane is a component, not a script.
 
-## What We Will Replace (Eventually)
-- The current router + screen-per-feature layout will give way to this two-pane shell.
-- Existing standalone screens will be embedded into the panes instead of mounted directly.
-- Menu interactions will migrate from scattered bindings to the top menubar once implemented.
+That means:
 
-## Layout Contract
-- Top menubar row with three regions: left `Maestro` label, center current section placeholder (e.g., `Navigator`), right active session/plan/build summary (read-only).
-- Two main panes:
-  - **Left pane:** selectable list of sections.
-  - **Right pane:** content/detail area showing the currently opened section.
-- Bottom status bar:
-  - Key hints string (e.g., `Tab Switch Pane | Enter Open | Esc Back | F1 Help | F10 Quit`).
-  - Focus indicator text `FOCUS: LEFT` or `FOCUS: RIGHT`.
+* Predictable lifecycle
+* Explicit dependencies
+* No side effects at import time
+* Safe failure semantics
 
-## Focus Rules
-- `Tab` / `Shift+Tab` cycle focus between left and right panes.
-- The focused pane is visually highlighted (border/background change).
-- Future: pane-local focus between list/detail sub-areas will be layered in without changing the Tab contract.
+## MCPane Protocol
 
-## Navigation Rules
-- `Up` / `Down` move the selection within the focused pane when it contains a list (left pane initially).
-- `Left` / `Right` will be used later to switch between list and detail sub-areas; keep bindings free until those areas exist.
+All panes must implement the `MCPane` protocol:
 
-## Action Rules
-- `Enter` performs the safe default: view/open the current selection, never destructive.
-- `Esc` cancels/closes modals or steps back/close menu; never destructive and never quits directly.
-- `F10` remains the explicit quit path (with the app handling confirmation if needed).
+```python
+class MCPane(Protocol):
+    pane_id: str
+    pane_title: str
 
-## Function Key Policy
-For complete function key policy and binding rules, see [KEYBINDINGS_MC.md](./KEYBINDINGS_MC.md).
+    def on_mount(self) -> None: ...
+    def on_focus(self) -> None: ...
+    def on_blur(self) -> None: ...
+    def refresh(self) -> None: ...
+    def get_menu_spec(self) -> MenuSpec: ...
+```
 
-## Mouse Baseline (Implemented)
-- Single click selects items.
-- Wheel scroll scrolls lists.
-- Double-click mirrors `Enter` and is never destructive.
-- Click on menubar activates and opens menu dropdown
-- Click on menubar entries opens corresponding menu
-- Click outside menubar closes open menu
-- Hover highlights menu entries and list items for visual feedback
-- Left pane: Clicking a section in the list opens that section in the right pane
-- Right pane: Clicking in content area focuses that pane for keyboard interaction
+## Lifecycle Contract
 
-## Menubar Navigation
-- F9 toggles menubar activation
-- Click on menubar also activates it
-- Arrow keys navigate between top-level menu options when menubar is active
-- Enter or Down opens the selected menu
-- Menu items execute the same actions as keyboard shortcuts
-- "View" menu provides access to all pane switching options
-- "Navigation" menu provides access to all section navigation options
+Guaranteed execution order:
+
+1. `pane.__init__()` - Constructor
+2. `pane.on_mount()` - When pane is mounted to DOM
+3. `pane.on_focus()` - When pane receives focus
+
+On switch:
+
+1. Old pane's `on_blur()`
+2. New pane's `on_focus()`
+
+## Implementation Requirements
+
+### 1. No Import-Time Side Effects
+- Pane modules must not touch filesystem, UI facade, session state, or config at import time
+- No facade calls at import time
+- No global singletons created on import
+
+### 2. Explicit Dependencies
+- If a pane needs data → it fetches it in `on_mount()` or `refresh()`
+- All dependencies must be explicit and documented
+
+### 3. Safe Failure Containment
+- If a pane fails to import or mount, catch exception
+- Show `PaneErrorView` inside pane area
+- Status line shows error summary
+- App does not crash
+
+## MC-complete Panes
+The following panes have been migrated to follow the MCPane contract and are considered MC-complete:
+
+- **Sessions** - ✅ MC-complete
+- **Plans** - ✅ MC-complete
+- **Tasks** - ✅ MC-complete
+- **Build** - ✅ MC-complete
+- **Convert** - ✅ MC-read-only (Read-only pipeline view, no execution/mutation)
+- **Semantic** - ✅ MC-write-capable (Human Judgement interface - Accept/Reject/Defer/Override actions with reason requirements)
+- **Decision** - ✅ MC-write-capable (Decision Override Workshop - explicit decision override with reason requirements)
+- **Vault** - ✅ MC-native (Universal Evidence Browser - single authoritative evidence surface in MC mode, all explanations route through Vault)
+- **Batch** - ✅ MC-native (Batch & Multi-Repo Control - operations center for batch job management with explicit action discipline)
+- **Timeline** - ✅ MC-write-capable (Event Timeline and Recovery Explorer - time travel, replay, branching, and explanation tracking)
+
+## Core MC Infrastructure
+The **Vault** pane is now considered **core MC infrastructure**. It serves as the single authoritative evidence surface in MC mode - all `why`, `what`, `when`, `where` flows through this surface. The Vault is the backbone for all other panes' "view evidence" functionality and provides the central evidence browser for the entire system. All explanations route through Vault.
+
+## MC-native Write Capabilities
+The following panes implement MC-native write capabilities with explicit human authority patterns:
+
+### SemanticPane - Human Judgement Interface
+- **Accept** - Mark a semantic finding as accepted (F5)
+- **Reject** - Mark a semantic finding as rejected (requires reason) (F7)
+- **Defer** - Mark a semantic finding as deferred (F6)
+- **Override** - Override a semantic finding with reason (F8)
+- All actions stored as evidence in Vault
+
+### DecisionPane - Decision Override Workshop
+- **Override Decision** - Create new decision that supersedes old one (F3)
+- Requires explicit reason for all overrides
+- Maintains decision history (old decisions marked as superseded)
+- All actions stored as evidence in Vault
+
+## Mutation Surfaces
+Explicit mutation surfaces are confined to:
+- **SemanticPane**: Semantic finding approval/rejection/override (RW)
+- **DecisionPane**: Decision override and management (RW)
+- **Vault**: Evidence browsing and navigation (RO)
+- All other panes remain read-only (RO) as per MC contract
+
+## Error Handling
+- All panes must handle errors gracefully
+- Use `PaneErrorWidget` for displaying errors without crashing
+- Provide retry functionality where possible
+
+## Registry Pattern
+- MC shell may only instantiate panes via the registry
+- Menubar uses registry keys, not imports
+- Pane switching = lookup + instantiate + mount

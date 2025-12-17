@@ -16,6 +16,7 @@ from maestro.main import (
     save_conversion_pipeline
 )
 from .convert import SemanticFinding, SemanticSummary
+from .vault import store_evidence, VaultItem, SourceType, SubsystemType
 
 
 def _get_semantic_dir() -> str:
@@ -168,53 +169,88 @@ def accept_semantic_finding(finding_id: str, reason: Optional[str] = None, pipel
             if pipeline_files:
                 pipeline_files.sort(key=lambda x: os.path.getmtime(os.path.join(conversion_dir, x)), reverse=True)
                 pipeline_id = pipeline_files[0].replace('.json', '')
-    
+
     if not pipeline_id:
         return False
 
     try:
         findings = _load_semantic_findings(pipeline_id)
-        
+
         # Find the finding and update its status
         updated = False
+        finding_to_update = None
         for finding in findings:
             if finding.id == finding_id:
+                finding_to_update = finding
                 finding.status = "accepted"
                 finding.decision_reason = reason or f"Accepted by user at {datetime.now().isoformat()}"
                 updated = True
                 break
-        
+
         if not updated:
             return False
-        
+
         # Save the updated findings
         _save_semantic_findings(pipeline_id, findings)
-        
+
+        # Store evidence in the vault
+        try:
+            if finding_to_update:
+                evidence_content = f"""
+Action: Accept Semantic Finding
+Finding ID: {finding_to_update.id}
+Task ID: {finding_to_update.task_id}
+Equivalence Level: {finding_to_update.equivalence_level}
+Status: accepted
+Reason: {reason or 'User accepted the finding'}
+Decision Reason: {finding_to_update.decision_reason}
+Timestamp: {datetime.now().isoformat()}
+"""
+                vault_item = VaultItem(
+                    id=f"evidence_{finding_to_update.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    source_type="human_judgment",
+                    subtype="semantic_accept",
+                    origin="SemanticPane",
+                    path=f"semantic_findings/{finding_to_update.id}",
+                    description=f"Accept action on semantic finding {finding_to_update.id}",
+                    size=len(evidence_content.encode()),
+                    timestamp=datetime.now().isoformat(),
+                    subsystem="convert",
+                    related_entities=[
+                        {"type": "semantic_finding", "id": finding_to_update.id},
+                        {"type": "task", "id": finding_to_update.task_id}
+                    ]
+                )
+                store_evidence(vault_item, evidence_content)
+        except Exception as e:
+            # If storing evidence fails, still return success for the main action
+            print(f"Warning: Could not store evidence in vault: {e}")
+
         # If the finding was blocking a pipeline stage, we may need to unblock it
         # This would require updating the pipeline status as well
         try:
             pipeline = load_conversion_pipeline(pipeline_id)
-            
+
             # Check if this finding was associated with a blocking stage
             for stage in pipeline.stages:
-                if (stage.details and 
-                    'blocking_semantic_findings' in stage.details and 
+                if (stage.details and
+                    'blocking_semantic_findings' in stage.details and
                     finding_id in stage.details['blocking_semantic_findings']):
-                    
+
                     # If this was the last blocking finding, unblock the stage
                     stage.details['blocking_semantic_findings'].remove(finding_id)
                     if not stage.details.get('blocking_semantic_findings'):
                         # No more semantic findings blocking this stage
                         if stage.status == "blocked":
                             stage.status = "pending"
-                    
+
                     # Update the pipeline
                     save_conversion_pipeline(pipeline)
                     break
         except Exception:
             # If pipeline update fails, that's OK - just return success for the semantic finding update
             pass
-        
+
         return True
     except Exception:
         return False
@@ -234,7 +270,7 @@ def reject_semantic_finding(finding_id: str, reason: str, pipeline_id: Optional[
     """
     if not reason:
         raise ValueError("Reason is required for rejecting a semantic finding")
-    
+
     if not pipeline_id:
         # Get the most recent pipeline ID
         import os
@@ -244,51 +280,86 @@ def reject_semantic_finding(finding_id: str, reason: str, pipeline_id: Optional[
             if pipeline_files:
                 pipeline_files.sort(key=lambda x: os.path.getmtime(os.path.join(conversion_dir, x)), reverse=True)
                 pipeline_id = pipeline_files[0].replace('.json', '')
-    
+
     if not pipeline_id:
         return False
 
     try:
         findings = _load_semantic_findings(pipeline_id)
-        
+
         # Find the finding and update its status
         updated = False
+        finding_to_update = None
         for finding in findings:
             if finding.id == finding_id:
+                finding_to_update = finding
                 finding.status = "rejected"
                 finding.decision_reason = reason
                 updated = True
                 break
-        
+
         if not updated:
             return False
-        
+
         # Save the updated findings
         _save_semantic_findings(pipeline_id, findings)
-        
+
+        # Store evidence in the vault
+        try:
+            if finding_to_update:
+                evidence_content = f"""
+Action: Reject Semantic Finding
+Finding ID: {finding_to_update.id}
+Task ID: {finding_to_update.task_id}
+Equivalence Level: {finding_to_update.equivalence_level}
+Status: rejected
+Reason: {reason}
+Decision Reason: {finding_to_update.decision_reason}
+Timestamp: {datetime.now().isoformat()}
+"""
+                vault_item = VaultItem(
+                    id=f"evidence_{finding_to_update.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    source_type="human_judgment",
+                    subtype="semantic_reject",
+                    origin="SemanticPane",
+                    path=f"semantic_findings/{finding_to_update.id}",
+                    description=f"Reject action on semantic finding {finding_to_update.id}",
+                    size=len(evidence_content.encode()),
+                    timestamp=datetime.now().isoformat(),
+                    subsystem="convert",
+                    related_entities=[
+                        {"type": "semantic_finding", "id": finding_to_update.id},
+                        {"type": "task", "id": finding_to_update.task_id}
+                    ]
+                )
+                store_evidence(vault_item, evidence_content)
+        except Exception as e:
+            # If storing evidence fails, still return success for the main action
+            print(f"Warning: Could not store evidence in vault: {e}")
+
         # If the finding was blocking a pipeline stage, rejecting it should keep the stage blocked
         # or potentially move it to failed status
         try:
             pipeline = load_conversion_pipeline(pipeline_id)
-            
+
             # Check if this finding was associated with a blocking stage
             for stage in pipeline.stages:
-                if (stage.details and 
-                    'blocking_semantic_findings' in stage.details and 
+                if (stage.details and
+                    'blocking_semantic_findings' in stage.details and
                     finding_id in stage.details['blocking_semantic_findings']):
-                    
+
                     # Rejected semantic findings should block the pipeline
                     # Update stage to failed status if this is a critical issue
                     stage.status = "failed"
                     stage.error = f"Semantic risk rejected: {reason}"
-                    
+
                     # Update the pipeline
                     save_conversion_pipeline(pipeline)
                     break
         except Exception:
             # If pipeline update fails, that's OK - just return success for the semantic finding update
             pass
-        
+
         return True
     except Exception:
         return False
@@ -314,28 +385,172 @@ def defer_semantic_finding(finding_id: str, pipeline_id: Optional[str] = None) -
             if pipeline_files:
                 pipeline_files.sort(key=lambda x: os.path.getmtime(os.path.join(conversion_dir, x)), reverse=True)
                 pipeline_id = pipeline_files[0].replace('.json', '')
-    
+
     if not pipeline_id:
         return False
 
     try:
         findings = _load_semantic_findings(pipeline_id)
-        
+
         # Find the finding and update its status (deferred findings remain as pending for now)
         updated = False
+        finding_to_update = None
         for finding in findings:
             if finding.id == finding_id:
+                finding_to_update = finding
                 finding.status = "pending"  # Deferred findings remain pending but are noted as deferred
                 finding.decision_reason = f"Deferred for later review at {datetime.now().isoformat()}"
                 updated = True
                 break
-        
+
         if not updated:
             return False
-        
+
         # Save the updated findings
         _save_semantic_findings(pipeline_id, findings)
-        
+
+        # Store evidence in the vault
+        try:
+            if finding_to_update:
+                evidence_content = f"""
+Action: Defer Semantic Finding
+Finding ID: {finding_to_update.id}
+Task ID: {finding_to_update.task_id}
+Equivalence Level: {finding_to_update.equivalence_level}
+Status: deferred
+Decision Reason: {finding_to_update.decision_reason}
+Timestamp: {datetime.now().isoformat()}
+"""
+                vault_item = VaultItem(
+                    id=f"evidence_{finding_to_update.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    source_type="human_judgment",
+                    subtype="semantic_defer",
+                    origin="SemanticPane",
+                    path=f"semantic_findings/{finding_to_update.id}",
+                    description=f"Defer action on semantic finding {finding_to_update.id}",
+                    size=len(evidence_content.encode()),
+                    timestamp=datetime.now().isoformat(),
+                    subsystem="convert",
+                    related_entities=[
+                        {"type": "semantic_finding", "id": finding_to_update.id},
+                        {"type": "task", "id": finding_to_update.task_id}
+                    ]
+                )
+                store_evidence(vault_item, evidence_content)
+        except Exception as e:
+            # If storing evidence fails, still return success for the main action
+            print(f"Warning: Could not store evidence in vault: {e}")
+
+        return True
+    except Exception:
+        return False
+
+
+def override_semantic_finding(finding_id: str, reason: str, pipeline_id: Optional[str] = None) -> bool:
+    """
+    Mark a semantic finding as overridden with a reason.
+
+    Args:
+        finding_id: ID of the finding to override
+        reason: Reason for overriding the finding
+        pipeline_id: ID of the pipeline. If None, uses active pipeline.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not reason:
+        raise ValueError("Reason is required for overriding a semantic finding")
+
+    if not pipeline_id:
+        # Get the most recent pipeline ID
+        import os
+        conversion_dir = "./.maestro/convert/pipelines"
+        if os.path.exists(conversion_dir):
+            pipeline_files = [f for f in os.listdir(conversion_dir) if f.endswith('.json')]
+            if pipeline_files:
+                pipeline_files.sort(key=lambda x: os.path.getmtime(os.path.join(conversion_dir, x)), reverse=True)
+                pipeline_id = pipeline_files[0].replace('.json', '')
+
+    if not pipeline_id:
+        return False
+
+    try:
+        findings = _load_semantic_findings(pipeline_id)
+
+        # Find the finding and update its status
+        updated = False
+        finding_to_update = None
+        for finding in findings:
+            if finding.id == finding_id:
+                finding_to_update = finding
+                finding.status = "overridden"
+                finding.decision_reason = f"Overridden: {reason} at {datetime.now().isoformat()}"
+                updated = True
+                break
+
+        if not updated:
+            return False
+
+        # Save the updated findings
+        _save_semantic_findings(pipeline_id, findings)
+
+        # Store evidence in the vault
+        try:
+            if finding_to_update:
+                evidence_content = f"""
+Action: Override Semantic Finding
+Finding ID: {finding_to_update.id}
+Task ID: {finding_to_update.task_id}
+Equivalence Level: {finding_to_update.equivalence_level}
+Status: overridden
+Reason: {reason}
+Decision Reason: {finding_to_update.decision_reason}
+Timestamp: {datetime.now().isoformat()}
+"""
+                vault_item = VaultItem(
+                    id=f"evidence_{finding_to_update.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    source_type="human_judgment",
+                    subtype="semantic_override",
+                    origin="SemanticPane",
+                    path=f"semantic_findings/{finding_to_update.id}",
+                    description=f"Override action on semantic finding {finding_to_update.id}",
+                    size=len(evidence_content.encode()),
+                    timestamp=datetime.now().isoformat(),
+                    subsystem="convert",
+                    related_entities=[
+                        {"type": "semantic_finding", "id": finding_to_update.id},
+                        {"type": "task", "id": finding_to_update.task_id}
+                    ]
+                )
+                store_evidence(vault_item, evidence_content)
+        except Exception as e:
+            # If storing evidence fails, still return success for the main action
+            print(f"Warning: Could not store evidence in vault: {e}")
+
+        # If the finding was blocking a pipeline stage, override should allow progression
+        try:
+            pipeline = load_conversion_pipeline(pipeline_id)
+
+            # Check if this finding was associated with a blocking stage
+            for stage in pipeline.stages:
+                if (stage.details and
+                    'blocking_semantic_findings' in stage.details and
+                    finding_id in stage.details['blocking_semantic_findings']):
+
+                    # Remove this finding from the blocking list
+                    stage.details['blocking_semantic_findings'].remove(finding_id)
+                    if not stage.details.get('blocking_semantic_findings'):
+                        # No more semantic findings blocking this stage
+                        if stage.status == "blocked":
+                            stage.status = "pending"
+
+                    # Update the pipeline
+                    save_conversion_pipeline(pipeline)
+                    break
+        except Exception:
+            # If pipeline update fails, that's OK - just return success for the semantic finding update
+            pass
+
         return True
     except Exception:
         return False

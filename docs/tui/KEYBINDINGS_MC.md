@@ -18,6 +18,24 @@ This document details the complete keyboard binding policy for Maestro's MC-styl
 - **F-keys may map to pane menu items** when the pane defines them with corresponding key hints
 - **F5/F7/F8** will execute actions defined in the active pane's menu with matching key hints or fkey properties
 
+### BatchPane Specific Actions
+- **F3**: Open repo in single-repo MC view
+- **F5**: Run batch (respects rehearsal/checkpoint mode)
+- **F6**: Resume batch
+- **F7**: Skip job (requires reason, logged as evidence)
+- **F8**: Abort job
+- **F9**: Open menu
+- **F10**: Quit/Back to main navigation
+
+### TimelinePane Specific Actions
+- **F3**: Jump to state before this event (read-only preview)
+- **F5**: Replay from this event (dry-run)
+- **F6**: Replay & apply from this event (with confirmation)
+- **F7**: Mark event as "explained" (requires note, stored as evidence)
+- **F8**: Create recovery branch (new plan/run lineage)
+- **F9**: Open timeline menu
+- **F10**: Quit/Back to main navigation
+
 ## Standard Navigation Keys
 
 ### Focus Management

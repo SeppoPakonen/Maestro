@@ -8,7 +8,7 @@ from textual.containers import Horizontal, Vertical, ScrollableContainer
 from maestro.ui_facade.sessions import list_sessions, get_session_details, create_session, set_active_session, remove_session
 from maestro.tui.widgets import ConfirmDialog, InputDialog
 from maestro.tui.utils import ErrorNormalizer, ErrorModal, ErrorSeverity, ErrorMessage
-from ..widgets.help_panel import HelpPanel, ScreenSpecificHelpData
+# from ..widgets.help_panel import HelpPanel, ScreenSpecificHelpData
 
 
 class SessionsScreen(Screen):
@@ -89,13 +89,13 @@ class SessionsScreen(Screen):
                         yield Label("No sessions available", classes="placeholder", id="session-details-placeholder")
 
             # Add the help panel
-            help_content = ScreenSpecificHelpData.get_help_content("sessions")
-            yield HelpPanel(
-                title="Sessions Management Help",
-                help_content=help_content,
-                screen_name="sessions",
-                id="help-panel"
-            )
+            # help_content = ScreenSpecificHelpData.get_help_content("sessions")
+            # yield HelpPanel(
+            #     title="Sessions Management Help",
+            #     help_content=help_content,
+            #     screen_name="sessions",
+            #     id="help-panel"
+            # )
 
         yield Footer()
 

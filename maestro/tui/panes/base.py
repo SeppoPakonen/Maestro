@@ -4,16 +4,45 @@ Pane view contract for MC shell panes.
 from __future__ import annotations
 
 import asyncio
-from typing import Callable, Optional, Set
+from typing import Callable, Optional, Set, Protocol, Any
+from abc import abstractmethod
 
 from textual.message import Message
 from textual.widget import Widget
 
-try:
-    from maestro.tui.menubar.model import Menu, MenuItem  # type: ignore
-except Exception:  # pragma: no cover - defensive import
-    Menu = None  # type: ignore
-    MenuItem = None  # type: ignore
+from maestro.tui.menubar.model import Menu, MenuItem  # type: ignore
+
+
+class MCPane(Protocol):
+    """Formal contract for MC shell panes - following the principle: A pane is a component, not a script."""
+
+    pane_id: str
+    pane_title: str
+
+    @abstractmethod
+    def on_mount(self) -> None:
+        """Called when the pane is mounted to the DOM. Initialize UI elements and event handlers here."""
+        ...
+
+    @abstractmethod
+    def on_focus(self) -> None:
+        """Called when the pane receives focus. Perform focus-specific operations."""
+        ...
+
+    @abstractmethod
+    def on_blur(self) -> None:
+        """Called when the pane loses focus. Perform cleanup of focus-specific resources."""
+        ...
+
+    @abstractmethod
+    def refresh(self) -> None:
+        """Refresh pane data and UI. This is for explicit refresh requests."""
+        ...
+
+    @abstractmethod
+    def get_menu_spec(self) -> "Menu":
+        """Return the menu specification for this pane."""
+        ...
 
 
 class PaneStatus(Message):
@@ -40,24 +69,65 @@ class PaneMenuRequest(Message):
 
 
 class PaneView(Widget):
-    """Base contract for right-pane views."""
+    """Base contract for right-pane views implementing the MCPane protocol."""
 
     can_focus = True
 
     def __init__(self) -> None:
         super().__init__()
         self._background_tasks: Set[asyncio.Task] = set()
+        # Initialize required attributes for the contract
+        self.pane_id: str = self.__class__.__name__
+        self.pane_title: str = self.__class__.__name__
+
+    def on_mount(self) -> None:
+        """Called when the pane is mounted to the DOM. Initialize UI elements and event handlers here."""
+        # Initialize the pane - override in subclass
+        pass
+
+    def on_focus(self) -> None:
+        """Called when the pane receives focus. Perform focus-specific operations."""
+        # Handle focus - override in subclass
+        pass
+
+    def on_blur(self) -> None:
+        """Called when the pane loses focus. Perform cleanup of focus-specific resources."""
+        # Handle blur - override in subclass
+        pass
+
+    def refresh(self, *, layout: bool = False, **kwargs) -> None:
+        """Refresh pane data and UI. This is for explicit refresh requests."""
+        # Handle the Textual Widget refresh call with proper parameters
+        # Call the parent Widget's refresh for UI updates
+        from textual.widget import Widget
+        Widget.refresh(self, layout=layout, **kwargs)
+
+        # Also trigger data refresh for protocol compliance
+        # But do this as a deferred call to avoid blocking UI refresh
+        self.call_after_refresh(self.refresh_data)
+
+    def refresh_data(self) -> None:
+        """Refresh pane's data. Override this in subclasses to trigger data reload."""
+        # Refresh data - override in subclass
+        pass
+
+    def get_menu_spec(self) -> "Menu":
+        """Return the menu specification for this pane."""
+        # Return menu spec - override in subclass
+        from maestro.tui.menubar.model import Menu
+        return Menu(label=self.pane_title, items=[])
 
     async def refresh_data(self) -> None:  # pragma: no cover - interface
         """Refresh the pane's data."""
+        # For backward compatibility - deprecated in favor of refresh()
         raise NotImplementedError
 
     def title(self) -> str:  # pragma: no cover - interface
-        """Return the display title for this pane."""
-        return self.__class__.__name__
+        """Return the display title for this pane (backward compatibility)."""
+        return self.pane_title
 
     def menu(self) -> Optional["Menu"]:  # pragma: no cover - interface
-        """Optional menu owned by this pane."""
+        """Optional menu owned by this pane (backward compatibility)."""
         return None
 
     def get_action(self, action_id: str) -> Optional[MenuItem]:
@@ -104,3 +174,5 @@ class PaneView(Widget):
 
 
 PaneFactory = Callable[[], PaneView]
+
+# IMPORT-SAFE: no side effects allowed

@@ -1,5 +1,6 @@
 """
 Sessions pane hosted inside the MC shell.
+This pane implements the MCPane contract for reliable pane behavior.
 """
 from __future__ import annotations
 
@@ -75,20 +76,58 @@ class SessionsPane(PaneView):
 
     def __init__(self, sessions_dir: Optional[str] = None) -> None:
         super().__init__()
+        self.pane_id = "sessions"  # Required for the contract
+        self.pane_title = "Sessions"  # Required for the contract
         self.sessions_dir = sessions_dir or "./.maestro/sessions"
         self.sessions: List[SessionInfo] = []
         self.selected_id: Optional[str] = None
         self.details: Optional[SessionDetails] = None
         self.active_session_id: Optional[str] = None
 
-    def title(self) -> str:
-        return "Sessions"
+    def on_mount(self) -> None:
+        """Called when the pane is mounted to the DOM. Initialize UI elements and event handlers here."""
+        # Load initial data and focus the list
+        # Schedule the async loading after mount
+        self.call_after_refresh(self._load_initial_data)
 
-    def menu(self) -> Menu:
-        """Provide the pane-owned menu definition."""
+    def _load_initial_data(self) -> None:
+        """Load initial data after mount."""
+        async def _async_load():
+            await self.refresh_data()
+            try:
+                self.query_one("#sessions-list", ListView).can_focus = False
+            except Exception:
+                pass
+            self.focus()
+        self.app.call_later(_async_load)
+
+    def on_focus(self) -> None:
+        """Called when the pane receives focus. Perform focus-specific operations."""
+        # Refresh data when pane comes into focus
+        self.refresh()
+
+    def on_blur(self) -> None:
+        """Called when the pane loses focus. Perform cleanup of focus-specific resources."""
+        # No special cleanup needed for this pane
+        pass
+
+    def refresh_data(self) -> None:
+        """Refresh pane data and UI. This is for explicit refresh requests."""
+        self.call_after_refresh(self._refresh_data_async)
+
+    def _refresh_data_async(self) -> None:
+        """Call the async refresh method."""
+        async def _async_refresh():
+            await self.refresh_data()
+        self.app.call_later(_async_refresh)
+
+    def get_menu_spec(self) -> Menu:
+        """Return the menu specification for this pane."""
+        # Use the existing Menu class from the menubar model
+        from maestro.tui.menubar.model import Menu
         has_selection = bool(self._get_selected_session())
         return Menu(
-            label=self.title(),
+            label=self.pane_title,
             items=[
                 MenuItem(
                     "new",
@@ -130,7 +169,7 @@ class SessionsPane(PaneView):
                     action_id="sessions.refresh",
                     trust_label="[RO]",
                 ),
-            ],
+            ]
         )
 
     def compose(self) -> ComposeResult:
@@ -143,15 +182,6 @@ class SessionsPane(PaneView):
                 yield Label("Details", id="sessions-detail-title")
                 yield Static("Select a session to view details.", id="session-detail")
         yield Label("", id="sessions-status")
-
-    async def on_mount(self) -> None:
-        """Load initial data and focus the list."""
-        await self.refresh_data()
-        try:
-            self.query_one("#sessions-list", ListView).can_focus = False
-        except Exception:
-            pass
-        self.focus()
 
     async def refresh_data(self) -> None:
         """Refresh list and detail content."""
@@ -383,4 +413,6 @@ class SessionsPane(PaneView):
 
 
 # Register with the global pane registry
-register_pane("Sessions", lambda: SessionsPane())
+register_pane("sessions", SessionsPane)
+
+# IMPORT-SAFE: no side effects allowed

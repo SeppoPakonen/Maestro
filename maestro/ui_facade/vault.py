@@ -15,7 +15,7 @@ import tarfile
 from pathlib import Path
 
 
-SourceType = Literal["logs", "artifacts", "diffs", "snapshots", "summaries"]
+SourceType = Literal["logs", "artifacts", "diffs", "snapshots", "summaries", "human_judgment"]
 SubsystemType = Literal["plan", "task", "build", "convert", "arbitration", "replay", "refactor", "tui"]
 ItemType = Literal["log", "artifact", "diff", "snapshot", "summary", "json", "text", "other"]
 
@@ -99,10 +99,10 @@ def _find_vault_files(locations: List[str], filter_extensions: Optional[List[str
 def _classify_file(filepath: str) -> tuple[SourceType, ItemType, SubsystemType]:
     """Classify a file based on its path to determine source type, item type and subsystem."""
     path_lower = filepath.lower()
-    
+
     # Determine source type based on path
     source_type: SourceType = "artifacts"  # default
-    
+
     if "log" in path_lower:
         source_type = "logs"
     elif "diff" in path_lower:
@@ -111,11 +111,13 @@ def _classify_file(filepath: str) -> tuple[SourceType, ItemType, SubsystemType]:
         source_type = "snapshots"
     elif "summary" in path_lower:
         source_type = "summaries"
-    
+    elif "human_judgment" in path_lower or "human_judgment" in path_lower or "evidence" in path_lower:
+        source_type = "human_judgment"
+
     # Determine item type based on extension
     _, ext = os.path.splitext(filepath.lower())
     item_type: ItemType = "other"
-    
+
     if ext in ['.log', '.txt', '.out']:
         item_type = "log"
     elif ext in ['.json']:
@@ -126,10 +128,10 @@ def _classify_file(filepath: str) -> tuple[SourceType, ItemType, SubsystemType]:
         item_type = "text"
     else:
         item_type = "artifact"
-    
+
     # Determine subsystem based on path
     subsystem: SubsystemType = "tui"  # default
-    
+
     if "plan" in path_lower:
         subsystem = "plan"
     elif "task" in path_lower or "subtask" in path_lower:
@@ -144,7 +146,7 @@ def _classify_file(filepath: str) -> tuple[SourceType, ItemType, SubsystemType]:
         subsystem = "replay"
     elif "refactor" in path_lower:
         subsystem = "refactor"
-    
+
     return source_type, item_type, subsystem
 
 
@@ -633,16 +635,47 @@ def export_run_related(run_id: str, output_format: Literal["zip", "tar.gz"] = "z
 def search_items(search_text: str, source_types: Optional[List[SourceType]] = None) -> List[VaultItem]:
     """
     Search for vault items containing the specified text.
-    
+
     Args:
         search_text: Text to search for
         source_types: Optional list of source types to limit search
-        
+
     Returns:
         List of matching vault items
     """
     filters = VaultFilter(search_text=search_text, source_types=source_types)
     return list_items(filters)
+
+
+def store_evidence(vault_item: VaultItem, content: str) -> bool:
+    """
+    Store evidence content to the vault system.
+
+    Args:
+        vault_item: VaultItem metadata for the evidence
+        content: Content to store as evidence
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Create directories for evidence storage
+        evidence_dir = "./.maestro/convert/semantic_evidence"
+        os.makedirs(evidence_dir, exist_ok=True)
+
+        # Create a file path based on the item ID
+        file_path = os.path.join(evidence_dir, f"{vault_item.id}.txt")
+
+        # Write the content to the file
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        # Update the vault item path to reflect the actual storage location
+        vault_item.path = file_path
+
+        return True
+    except Exception:
+        return False
 
 
 def get_available_subsystems() -> List[SubsystemType]:
