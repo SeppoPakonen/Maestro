@@ -20,6 +20,7 @@ from maestro.tui_mc2.ui.menubar import Menubar
 from maestro.tui_mc2.ui.status import StatusLine
 from maestro.tui_mc2.ui.modals import ModalDialog
 from maestro.tui_mc2.panes.sessions import SessionsPane
+from maestro.tui_mc2.panes.plans import PlansPane
 from maestro.tui_mc2.util.smoke import (
     SmokeMode,
     write_smoke_success,
@@ -36,12 +37,16 @@ class AppContext:
     smoke_out: Optional[str] = None
     should_exit: bool = False
     status_message: str = "Ready"
+    active_view: str = "sessions"
     focus_pane: str = "left"  # "left" or "right"
     active_session_id: Optional[str] = None
     selected_session_id: Optional[str] = None
+    active_plan_id: Optional[str] = None
+    selected_plan_id: Optional[str] = None
     sessions_filter_text: str = ""
     sessions_filter_visible: int = 0
     sessions_filter_total: int = 0
+    plan_status_text: str = ""
     modal_parent: Optional[object] = None
 
 
@@ -78,6 +83,9 @@ class MC2App:
         self.last_status_message = self.context.status_message
         self.last_focus_pane = self.context.focus_pane
         self.last_active_session_id = self.context.active_session_id
+        self.last_active_view = self.context.active_view
+        self.last_plan_status_text = self.context.plan_status_text
+        self.last_active_plan_id = self.context.active_plan_id
         self.last_filter_status = (
             self.context.sessions_filter_text,
             self.context.sessions_filter_visible,
@@ -95,8 +103,8 @@ class MC2App:
         self._teardown_called = False
         
         # Initialize panes
-        self.left_pane = SessionsPane(position="left", context=self.context)
-        self.right_pane = SessionsPane(position="right", context=self.context)
+        self.left_pane = self._create_pane(self.context.active_view, position="left")
+        self.right_pane = self._create_pane(self.context.active_view, position="right")
         
         # Create smoke mode manager
         self.smoke_manager = SmokeMode(
@@ -210,6 +218,21 @@ class MC2App:
         self.left_pane.set_focused(self.context.focus_pane == "left")
         self.right_pane.set_focused(self.context.focus_pane == "right")
 
+    def _create_pane(self, view: str, position: str):
+        if view == "plans":
+            return PlansPane(position=position, context=self.context)
+        return SessionsPane(position=position, context=self.context)
+
+    def _set_view(self, view: str):
+        if view == self.context.active_view:
+            return
+        self.context.active_view = view
+        self.left_pane = self._create_pane(view, position="left")
+        self.right_pane = self._create_pane(view, position="right")
+        if self.stdscr is not None:
+            self._rebuild_layout()
+        self._mark_all_dirty()
+
     def _mark_dirty(self, *regions: str):
         for region in regions:
             if region in self.dirty_regions:
@@ -250,11 +273,20 @@ class MC2App:
 
     def _sync_status_context(self):
         changed = False
+        if self.context.active_view != self.last_active_view:
+            self.last_active_view = self.context.active_view
+            changed = True
         if self.context.focus_pane != self.last_focus_pane:
             self.last_focus_pane = self.context.focus_pane
             changed = True
         if self.context.active_session_id != self.last_active_session_id:
             self.last_active_session_id = self.context.active_session_id
+            changed = True
+        if self.context.active_plan_id != self.last_active_plan_id:
+            self.last_active_plan_id = self.context.active_plan_id
+            changed = True
+        if self.context.plan_status_text != self.last_plan_status_text:
+            self.last_plan_status_text = self.context.plan_status_text
             changed = True
         current_filter = (
             self.context.sessions_filter_text,
@@ -269,25 +301,82 @@ class MC2App:
 
     def _handle_menu_action(self, action_id: str):
         if action_id in ("refresh", "sessions.refresh"):
+            if self.context.active_view != "sessions" and action_id != "refresh":
+                self.context.status_message = "Switch to Sessions view"
+                self._mark_dirty("status")
+                return
             self.left_pane.refresh_data()
             self.right_pane.refresh_data()
             self.context.status_message = "Refreshed"
             self._mark_dirty("left", "right", "status")
         elif action_id in ("new", "sessions.new"):
+            if self.context.active_view != "sessions":
+                self.context.status_message = "Switch to Sessions view"
+                self._mark_dirty("status")
+                return
             self.dirty_regions["modal"] = True
             self.left_pane.handle_new()
             self.dirty_regions["modal"] = False
             self._mark_dirty("left", "right", "status")
         elif action_id in ("delete", "sessions.delete"):
+            if self.context.active_view != "sessions":
+                self.context.status_message = "Switch to Sessions view"
+                self._mark_dirty("status")
+                return
             self.dirty_regions["modal"] = True
             self.left_pane.handle_delete()
             self.dirty_regions["modal"] = False
             self._mark_dirty("left", "right", "status")
         elif action_id in ("set_active", "sessions.set_active"):
+            if self.context.active_view != "sessions":
+                self.context.status_message = "Switch to Sessions view"
+                self._mark_dirty("status")
+                return
             self.dirty_regions["modal"] = True
             self.left_pane.handle_set_active()
             self.dirty_regions["modal"] = False
             self._mark_dirty("left", "right", "status")
+        elif action_id in ("plans.refresh",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
+                self._mark_dirty("status")
+                return
+            self.left_pane.refresh_data()
+            self.right_pane.refresh_data()
+            self.context.status_message = "Plans refreshed"
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("plans.set_active",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
+                self._mark_dirty("status")
+                return
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_set_active()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("plans.kill",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
+                self._mark_dirty("status")
+                return
+            self.dirty_regions["modal"] = True
+            self.left_pane.handle_kill()
+            self.dirty_regions["modal"] = False
+            self._mark_dirty("left", "right", "status")
+        elif action_id in ("plans.toggle_collapse",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
+                self._mark_dirty("status")
+                return
+            if self.left_pane.toggle_collapse():
+                self._mark_dirty("left", "right", "status")
+            else:
+                self._mark_dirty("status")
+        elif action_id in ("view.sessions", "view.plans"):
+            view = "sessions" if action_id.endswith("sessions") else "plans"
+            self._set_view(view)
+            self.context.status_message = f"View: {view.title()}"
+            self._mark_dirty("menubar", "status")
         elif action_id == "help":
             self.dirty_regions["modal"] = True
             modal = ModalDialog(self.stdscr, "Help", [
@@ -412,11 +501,18 @@ class MC2App:
             return True
             
         elif key == curses.KEY_F7:
-            self._handle_menu_action("sessions.new")
+            if self.context.active_view == "sessions":
+                self._handle_menu_action("sessions.new")
+            else:
+                self.context.status_message = "No action for F7"
+                self._mark_dirty("status")
             return True
             
         elif key == curses.KEY_F8:
-            self._handle_menu_action("sessions.delete")
+            if self.context.active_view == "plans":
+                self._handle_menu_action("plans.kill")
+            else:
+                self._handle_menu_action("sessions.delete")
             return True
             
         elif key == curses.KEY_F9:
@@ -442,6 +538,18 @@ class MC2App:
             if confirmed:
                 return False
             self._mark_all_dirty()
+            return True
+
+        elif key == curses.KEY_LEFT:
+            if self.context.focus_pane == "left" and hasattr(self.left_pane, "handle_left"):
+                if self.left_pane.handle_left():
+                    self._mark_dirty("left", "right", "status")
+            return True
+
+        elif key == curses.KEY_RIGHT:
+            if self.context.focus_pane == "left" and hasattr(self.left_pane, "handle_right"):
+                if self.left_pane.handle_right():
+                    self._mark_dirty("left", "right", "status")
             return True
 
         if self.context.focus_pane == "left":

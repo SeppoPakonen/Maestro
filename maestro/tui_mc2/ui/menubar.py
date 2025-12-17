@@ -46,6 +46,12 @@ class Menubar:
                 MenuItem("sessions.delete", "Delete", key_hint="F8"),
                 MenuItem("sessions.set_active", "Set Active", key_hint="Enter"),
             ]),
+            Menu("Plans", [
+                MenuItem("plans.refresh", "Refresh", key_hint="F5"),
+                MenuItem("plans.set_active", "Set Active", key_hint="Enter"),
+                MenuItem("plans.kill", "Kill Branch", key_hint="F8"),
+                MenuItem("plans.toggle_collapse", "Toggle Collapse", key_hint="Left/Right"),
+            ]),
             Menu("File", [
                 MenuItem("quit", "Quit", key_hint="F10"),
                 MenuItem("refresh", "Refresh", key_hint="F5"),
@@ -55,6 +61,8 @@ class Menubar:
                 MenuItem("delete", "Delete", key_hint="F8"),
             ]),
             Menu("View", [
+                MenuItem("view.sessions", "Sessions", key_hint="F9"),
+                MenuItem("view.plans", "Plans", key_hint="F9"),
                 MenuItem("toggle_menu", "Toggle Menu", key_hint="F9"),
             ]),
             Menu("Help", [
