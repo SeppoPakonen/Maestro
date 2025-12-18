@@ -837,6 +837,10 @@ class MaestroTUI(App):
         padding: 1 0 0 0;
     }
 
+    #repo-open-ide.disabled {
+        opacity: 0.5;
+    }
+
     #ide-body {
         layout: horizontal;
         height: 1fr;

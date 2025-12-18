@@ -94,7 +94,7 @@ class RepoScreen(Static):
 
         detail_pane = Vertical(
             Label("Details", id="repo-detail-title"),
-            Button("Open in IDE", id="repo-open-ide", variant="primary", disabled=True),
+            LinkLabel("Open in IDE", action="open_ide", id="repo-open-ide", classes="ide-link ide-tab-link"),
             RichLog(id="repo-detail-log", wrap=True),
             id="repo-detail-pane",
         )
@@ -260,12 +260,16 @@ class RepoScreen(Static):
         if item_type == "pkg" and name:
             self.last_selected_package_name = name
 
-        # Enable/disable the IDE button based on item type
-        ide_button = self.query_one("#repo-open-ide", Button)
+        # Enable/disable the IDE link based on item type
+        ide_link = self.query_one("#repo-open-ide", LinkLabel)
         if item_type == "pkg":
-            ide_button.disabled = False
+            ide_link.can_focus = True  # Enable interaction
+            # Update the styling to show it's enabled
+            ide_link.remove_class("disabled")
         else:
-            ide_button.disabled = True
+            ide_link.can_focus = False  # Disable interaction
+            # Update the styling to show it's disabled
+            ide_link.add_class("disabled")
 
         if item_type == "pkg" and name:
             package = next((p for p in self.packages if p.name == name), None)
@@ -309,8 +313,8 @@ class RepoScreen(Static):
     def _handle_selection(self, event: ListView.Selected) -> None:
         self._show_details(event.item)
 
-    @on(Button.Pressed, "#repo-open-ide")
-    def _open_ide_clicked(self, _: Button.Pressed) -> None:
+    @on(Click, "#repo-open-ide")
+    def _open_ide_clicked(self, _: Click) -> None:
         # Only open IDE if a package is selected (not an assembly)
         if hasattr(self, 'last_selected_package_name') and self.last_selected_package_name:
             # Save the last package name for persistence
@@ -405,6 +409,8 @@ class RepoScreen(Static):
             self.action_resolve()
         elif action == "init":
             self.action_init_repo()
+        elif action == "open_ide":
+            self._open_ide_clicked(None)
 
     def _update_status(self, message: str) -> None:
         status_widget = self.query_one("#repo-status", Static)
