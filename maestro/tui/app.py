@@ -760,8 +760,18 @@ class MaestroTUI(App):
         min-width: 6;
     }
 
-    #ide-top-bar .ide-link:hover, #ide-top-bar .ide-link:focus {
+    #ide-top-bar .ide-link:hover {
         background: $primary 30%;
+        text-style: bold;
+    }
+
+    #ide-top-bar .ide-link:focus {
+        background: $primary 40%;
+        text-style: reverse;
+    }
+
+    #ide-top-bar .ide-link:active {
+        background: $primary 50%;
         text-style: bold;
     }
 
