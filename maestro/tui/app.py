@@ -742,20 +742,20 @@ class MaestroTUI(App):
 
     #ide-top-bar {
         layout: horizontal;
-        height: 1;
-        min-height: 1;
+        height: 2;
+        min-height: 2;
         align: center middle;
         padding: 0 1;
         margin-bottom: 1;
         border-bottom: solid $primary;
-        background: $panel;
+        background: $primary 20%;
     }
 
     #ide-top-bar .ide-link {
         width: auto;
         margin: 0 1 0 0;
         content-align: center middle;
-        color: $accent;
+        color: $text;
         text-style: bold;
         min-width: 6;
     }
