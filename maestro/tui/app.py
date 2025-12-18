@@ -751,8 +751,11 @@ class MaestroTUI(App):
 
     #ide-top-bar Button {
         height: 1;
+        min-height: 1;
+        max-height: 1;
         padding: 0 1;
         margin: 0 1 0 0;
+        content-align: center middle;
     }
 
     #ide-top-bar Label {
@@ -801,7 +804,10 @@ class MaestroTUI(App):
 
     #ide-package-list ListItem, #ide-file-list ListItem {
         height: 1;
+        min-height: 1;
+        max-height: 1;
         padding: 0 1;
+        content-align: left middle;
     }
 
     #ide-editor-title {
@@ -850,9 +856,12 @@ class MaestroTUI(App):
 
     #ide-tab-buttons Button {
         height: 1;
+        min-height: 1;
+        max-height: 1;
         width: auto;
         padding: 0 1;
         margin-right: 1;
+        content-align: center middle;
     }
 
     #ide-tab-buttons Button:last-child {

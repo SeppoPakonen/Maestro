@@ -190,8 +190,20 @@ class IdeScreen(Static):
         self._open_file(package, rel_path)
 
     def _open_file(self, package: RepoPackageInfo, rel_path: str) -> None:
-        full_path = Path(package.dir) / rel_path
+        full_path = Path(rel_path)
+        if not full_path.is_absolute():
+            full_path = Path(package.dir) / rel_path
+
         content = read_file_safely(str(full_path))
+        if content == "" and full_path.exists():
+            # Fallback if file is empty or failed to read but exists
+            try:
+                content = full_path.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                content = "[Unable to read file contents]"
+        elif not full_path.exists():
+            content = f"[File not found: {full_path}]"
+
         editor_title = self.query_one("#ide-editor-title", Static)
         editor_title.update(str(full_path))
 

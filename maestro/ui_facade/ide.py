@@ -91,7 +91,12 @@ def get_package_with_dependencies(target_package: str, repo_root: Optional[str] 
 def read_file_safely(file_path: str) -> str:
     """Read file contents safely, returning empty string on failure."""
     try:
-        with open(file_path, "r", encoding="utf-8") as file_handle:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as file_handle:
             return file_handle.read()
     except Exception:
-        return ""
+        try:
+            # Fallback to bytes -> utf-8 decode with replacement
+            with open(file_path, "rb") as file_handle:
+                return file_handle.read().decode("utf-8", errors="replace")
+        except Exception:
+            return ""
