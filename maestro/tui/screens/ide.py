@@ -9,7 +9,8 @@ from typing import Optional, Type
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Button, Footer, Header, Label, ListItem, ListView, RichLog, Static
+from textual.events import Click
+from textual.widgets import Footer, Header, Label, ListItem, ListView, RichLog, Static
 
 from maestro.ui_facade.ide import (
     get_last_package_name,
@@ -18,6 +19,16 @@ from maestro.ui_facade.ide import (
     save_last_package_name,
 )
 from maestro.ui_facade.repo import RepoPackageInfo, find_repo_root_from_path
+
+
+class LinkLabel(Static):
+    """Simple clickable label used as a link-style control."""
+
+    can_focus = True
+
+    def __init__(self, label: str, action: str, *args, **kwargs) -> None:
+        super().__init__(label, *args, **kwargs)
+        self.action = action
 
 
 class IdeScreen(Static):
@@ -41,9 +52,9 @@ class IdeScreen(Static):
 
         with Container(id="ide-screen"):
             with Horizontal(id="ide-top-bar"):
-                yield Button("← Back", id="ide-back", variant="default")
+                yield LinkLabel("← Back", action="back", id="ide-back", classes="ide-link ide-top-link")
                 yield Label("IDE", id="ide-title")
-                yield Button("Refresh", id="ide-refresh")
+                yield LinkLabel("Refresh", action="refresh", id="ide-refresh", classes="ide-link ide-top-link")
 
             with Horizontal(id="ide-body"):
                 with Vertical(id="ide-side-panel"):
@@ -65,12 +76,12 @@ class IdeScreen(Static):
 
                     with Container(id="ide-bottom"):
                         with Horizontal(id="ide-tab-buttons"):
-                            yield Button("Log", id="ide-tab-log", variant="primary")
-                            yield Button("Errors", id="ide-tab-errors", variant="default")
-                            yield Button("Search", id="ide-tab-search", variant="default")
-                            yield Button("Calc", id="ide-tab-calc", variant="default")
-                            yield Button("Debug", id="ide-tab-debug", variant="default")
-                            yield Button("Hide", id="ide-toggle-bottom", variant="default")
+                            yield LinkLabel("Log", action="tab-log", id="ide-tab-log", classes="ide-link ide-tab-link active")
+                            yield LinkLabel("Errors", action="tab-errors", id="ide-tab-errors", classes="ide-link ide-tab-link")
+                            yield LinkLabel("Search", action="tab-search", id="ide-tab-search", classes="ide-link ide-tab-link")
+                            yield LinkLabel("Calc", action="tab-calc", id="ide-tab-calc", classes="ide-link ide-tab-link")
+                            yield LinkLabel("Debug", action="tab-debug", id="ide-tab-debug", classes="ide-link ide-tab-link")
+                            yield LinkLabel("Hide", action="toggle-bottom", id="ide-toggle-bottom", classes="ide-link ide-tab-link")
 
                         yield Static("Log content goes here...", id="ide-tab-content")
 
@@ -165,7 +176,7 @@ class IdeScreen(Static):
         editor.clear()
         self.query_one("#ide-editor-title", Static).update(f"{package.name} (no file selected)")
 
-        # Auto-open the first non-.upp file (or .upp if none) unless we are resuming
+        # Auto-open the first non-.upp file unless we are resuming
         if auto_open and files:
             target = files[0]
             # Update selection to match the auto-opened file
@@ -200,17 +211,28 @@ class IdeScreen(Static):
             candidates.append(path_obj)
         else:
             parts = path_obj.parts
-            if parts and parts[0] == base_dir.name:
-                # rel_path already starts with the package dir name; avoid duplicating it
-                candidates.append(base_dir.parent / path_obj)
+            if parts and parts[0] == base_dir.name and len(parts) > 1:
+                stripped = Path(*parts[1:])
+                candidates.append(base_dir / stripped)
+                candidates.append(base_dir.parent / stripped)
+            candidates.append(base_dir.parent / path_obj)
             candidates.append(base_dir / path_obj)
             candidates.append(base_dir / path_obj.name)
 
+        deduped: list[Path] = []
+        seen: set[str] = set()
         for cand in candidates:
+            key = str(cand)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(cand)
+
+        for cand in deduped:
             if cand.exists():
                 return cand
 
-        return candidates[0] if candidates else base_dir / path_obj
+        return deduped[0] if deduped else base_dir / path_obj
 
     def _open_file(self, package: RepoPackageInfo, rel_path: str) -> None:
         full_path = self._resolve_file_path(package, rel_path)
@@ -233,15 +255,22 @@ class IdeScreen(Static):
         editor.write(content)
         self.current_file_path = str(full_path)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "ide-back":
+    @on(Click, ".ide-link")
+    def _on_link_clicked(self, event: Click) -> None:
+        """Handle clicks on link-style controls."""
+        sender = event.sender
+        action = getattr(sender, "action", None) or sender.id
+        if not action:
+            return
+        if action == "back":
             self.app.switch_back_from_ide(self.previous_screen_cls)
-        elif event.button.id == "ide-refresh":
+        elif action == "refresh":
             self.refresh_content()
-        elif event.button.id == "ide-toggle-bottom":
+        elif action == "toggle-bottom":
             self.toggle_bottom_pane()
-        elif event.button.id and event.button.id.startswith("ide-tab-"):
-            self.switch_tab(event.button.id)
+        elif action.startswith("tab-"):
+            self.switch_tab(action)
+        event.stop()
 
     def toggle_bottom_pane(self) -> None:
         bottom = self.query_one("#ide-bottom", Container)
@@ -250,23 +279,25 @@ class IdeScreen(Static):
         else:
             bottom.add_class("hidden")
 
-    def switch_tab(self, tab_id: str) -> None:
-        for btn_id in ["ide-tab-log", "ide-tab-errors", "ide-tab-search", "ide-tab-calc", "ide-tab-debug", "ide-toggle-bottom"]:
-            btn = self.query_one(f"#{btn_id}", Button)
-            btn.variant = "default"
+    def switch_tab(self, tab_action: str) -> None:
+        tab_ids = ["ide-tab-log", "ide-tab-errors", "ide-tab-search", "ide-tab-calc", "ide-tab-debug", "ide-toggle-bottom"]
+        for tab_id in tab_ids:
+            tab_widget = self.query_one(f"#{tab_id}", LinkLabel)
+            tab_widget.remove_class("active")
 
-        if tab_id != "ide-toggle-bottom":
-            selected_btn = self.query_one(f"#{tab_id}", Button)
-            selected_btn.variant = "primary"
+        if tab_action != "toggle-bottom":
+            target_id = f"ide-{tab_action}" if not tab_action.startswith("ide-") else tab_action
+            tab_widget = self.query_one(f"#{target_id}", LinkLabel)
+            tab_widget.add_class("active")
 
         content = self.query_one("#ide-tab-content", Static)
-        if tab_id == "ide-tab-log":
+        if tab_action in ("tab-log", "ide-tab-log"):
             content.update("Log content goes here...")
-        elif tab_id == "ide-tab-errors":
+        elif tab_action in ("tab-errors", "ide-tab-errors"):
             content.update("Error/Warning messages would appear here...")
-        elif tab_id == "ide-tab-search":
+        elif tab_action in ("tab-search", "ide-tab-search"):
             content.update("Search results would appear here...")
-        elif tab_id == "ide-tab-calc":
+        elif tab_action in ("tab-calc", "ide-tab-calc"):
             content.update("Calculator/evaluator results would appear here...")
-        elif tab_id == "ide-tab-debug":
+        elif tab_action in ("tab-debug", "ide-tab-debug"):
             content.update("Debugger output would appear here...")

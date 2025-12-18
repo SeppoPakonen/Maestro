@@ -742,20 +742,16 @@ class MaestroTUI(App):
 
     #ide-top-bar {
         layout: horizontal;
-        height: 2;
+        height: 1;
         align: center middle;
         padding: 0 1;
         margin-bottom: 1;
         border-bottom: solid $primary;
     }
 
-    #ide-top-bar Button {
-        height: 1;
-        min-height: 1;
-        max-height: 1;
-        padding: 0 1;
+    #ide-top-bar .ide-link {
+        width: auto;
         margin: 0 1 0 0;
-        content-align: center middle;
     }
 
     #ide-top-bar Label {
@@ -850,21 +846,18 @@ class MaestroTUI(App):
 
     #ide-tab-buttons {
         layout: horizontal;
-        height: 2;
+        height: 1;
+        align: center middle;
         margin-bottom: 1;
     }
 
-    #ide-tab-buttons Button {
-        height: 1;
-        min-height: 1;
-        max-height: 1;
+    #ide-tab-buttons .ide-link {
         width: auto;
-        padding: 0 1;
         margin-right: 1;
         content-align: center middle;
     }
 
-    #ide-tab-buttons Button:last-child {
+    #ide-tab-buttons .ide-link:last-child {
         margin-right: 0;
     }
 
@@ -877,6 +870,32 @@ class MaestroTUI(App):
 
     .hidden {
         display: none;
+    }
+
+    .ide-link {
+        height: 1;
+        min-height: 1;
+        max-height: 1;
+        padding: 0 1;
+        border: none;
+        background: transparent;
+        color: $text;
+        content-align: center middle;
+    }
+
+    .ide-link:hover, .ide-link:focus {
+        background: $primary 10%;
+        color: $text;
+    }
+
+    .ide-top-link {
+        text-style: bold;
+    }
+
+    .ide-tab-link.active {
+        background: $primary 20%;
+        text-style: bold;
+        color: $text;
     }
     """
 
