@@ -525,24 +525,29 @@ class MaestroTUI(App):
         layout: grid;
         grid-size: 1 4;
         grid-rows: auto auto 1fr auto;
-        row-gap: 1;
         height: 1fr;
         padding: 1;
     }
 
     #repo-controls, #repo-search {
         height: 3;
-        column-gap: 1;
         align: center middle;
+        padding: 0 1;
+        margin-bottom: 1;
     }
 
     #repo-search Input {
         width: 1fr;
+        margin-right: 1;
+    }
+
+    #repo-search Button {
+        width: 12;
     }
 
     #repo-main {
         height: 1fr;
-        column-gap: 1;
+        padding: 0 1;
     }
 
     #repo-list-pane, #repo-detail-pane {
@@ -550,7 +555,10 @@ class MaestroTUI(App):
         width: 1fr;
         border: solid $primary 20%;
         padding: 1;
-        row-gap: 1;
+    }
+
+    #repo-list-pane {
+        margin-right: 1;
     }
 
     #repo-items, #repo-detail-log {
