@@ -10,6 +10,7 @@ from typing import Optional
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
+from textual.events import Click
 from textual.widgets import Static
 from textual.widgets import (
     Button,
@@ -38,6 +39,16 @@ from maestro.tui.utils import ErrorModal, ErrorNormalizer
 from maestro.ui_facade.ide import save_last_package_name
 
 
+class LinkLabel(Static):
+    """Simple clickable label used as a link-style control."""
+
+    can_focus = True
+
+    def __init__(self, label: str, action: str, *args, **kwargs) -> None:
+        super().__init__(label, *args, **kwargs)
+        self.action = action
+
+
 class RepoScreen(Static):
     """Browse repository packages and assemblies."""
 
@@ -59,11 +70,14 @@ class RepoScreen(Static):
     def compose(self) -> ComposeResult:
         header = Header()
 
-        controls = Horizontal(
-            Button("Refresh", id="repo-refresh", variant="primary"),
-            Button("Resolve", id="repo-resolve", variant="success"),
-            Button("Init .maestro", id="repo-init", variant="warning"),
-            id="repo-controls",
+        # Create top bar with links like the IDE view
+        top_bar = Horizontal(
+            LinkLabel("← Back", action="back", id="repo-back", classes="ide-link ide-top-link"),
+            Label("Repo", id="repo-title", classes="repo-title"),
+            LinkLabel("Refresh", action="refresh", id="repo-refresh", classes="ide-link ide-top-link"),
+            LinkLabel("Resolve", action="resolve", id="repo-resolve", classes="ide-link ide-top-link"),
+            LinkLabel("Init .maestro", action="init", id="repo-init", classes="ide-link ide-top-link"),
+            id="repo-top-bar",
         )
 
         search_bar = Horizontal(
@@ -94,7 +108,7 @@ class RepoScreen(Static):
         status = Static("", id="repo-status")
 
         body = Container(
-            controls,
+            top_bar,
             search_bar,
             main_row,
             status,
@@ -364,6 +378,33 @@ class RepoScreen(Static):
             self.query_one("#repo-search-input", Input).focus()
         except Exception:
             pass
+
+    @on(Click, "#repo-top-bar .ide-link")
+    def _on_link_clicked(self, event: Click) -> None:
+        """Handle clicks on link-style controls."""
+        # In Textual, the clicked widget can be accessed via event.control
+        clicked_widget = event.control
+        action = getattr(clicked_widget, "action", None) or clicked_widget.id
+
+        if not action:
+            return
+
+        # Map the action to the appropriate method
+        if action == "back":
+            # Go back to the previous screen
+            if hasattr(self.app, 'switch_back_from_ide'):
+                # If we're in the middle of navigation, go back
+                self.app.switch_back_from_ide()
+            else:
+                # Go back to home screen
+                from maestro.tui.screens.home import HomeScreen
+                self.app._switch_main_content(HomeScreen())
+        elif action == "refresh":
+            self.action_refresh()
+        elif action == "resolve":
+            self.action_resolve()
+        elif action == "init":
+            self.action_init_repo()
 
     def _update_status(self, message: str) -> None:
         status_widget = self.query_one("#repo-status", Static)

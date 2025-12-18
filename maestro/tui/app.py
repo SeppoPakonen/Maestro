@@ -785,6 +785,58 @@ class MaestroTUI(App):
         width: auto;
     }
 
+    /* Repo Screen */
+    #repo-top-bar {
+        layout: horizontal;
+        height: 2;
+        min-height: 2;
+        align: center middle;
+        padding: 0 1;
+        margin-bottom: 1;
+        border-bottom: solid $primary;
+        background: $primary 20%;
+    }
+
+    #repo-top-bar .ide-link {
+        width: auto;
+        margin: 0 1 0 0;
+        content-align: center middle;
+        color: $text;
+        text-style: bold;
+        min-width: 6;
+    }
+
+    #repo-top-bar .ide-link:hover {
+        background: $primary 30%;
+        text-style: bold;
+    }
+
+    #repo-top-bar .ide-link:focus {
+        background: $primary 40%;
+        text-style: reverse;
+    }
+
+    #repo-top-bar Label {
+        height: 1;
+        width: 1fr;
+        content-align: center middle;
+        color: $text;
+    }
+
+    #repo-back {
+        width: auto;
+    }
+
+    #repo-refresh {
+        width: auto;
+    }
+
+    #repo-body {
+        layout: horizontal;
+        height: 1fr;
+        padding: 1 0 0 0;
+    }
+
     #ide-body {
         layout: horizontal;
         height: 1fr;
