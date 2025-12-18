@@ -522,32 +522,34 @@ class MaestroTUI(App):
 
     /* Repo Screen */
     #repo-screen {
-        layout: grid;
-        grid-size: 1 4;
-        grid-rows: auto auto 1fr auto;
+        layout: vertical;
         height: 1fr;
         padding: 1;
     }
 
     #repo-controls, #repo-search {
-        height: 3;
+        layout: horizontal;
+        height: 1;
         align: center middle;
         padding: 0 1;
-        margin-bottom: 1;
+    }
+
+    #repo-controls Button, #repo-search Button {
+        height: 1;
+        padding: 0 1;
     }
 
     #repo-search Input {
         width: 1fr;
+        height: 1;
+        padding: 0 1;
         margin-right: 1;
     }
 
-    #repo-search Button {
-        width: 12;
-    }
-
     #repo-main {
+        layout: horizontal;
         height: 1fr;
-        padding: 0 1;
+        padding: 1 0 0 0;
     }
 
     #repo-list-pane, #repo-detail-pane {
