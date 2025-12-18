@@ -575,17 +575,15 @@ class MaestroTUI(App):
     #repo-detail-header {
         layout: horizontal;
         height: 1;  /* Only take minimal height */
-        align: center middle;
     }
 
-    .repo-detail-title {
+    #repo-detail-header > .repo-detail-title {
         width: 1fr;
         content-align: left middle;
     }
 
-    .repo-open-ide {
-        align-self: center;
-        margin-left: auto;  /* Push to the right */
+    #repo-detail-header > .repo-open-ide {
+        dock: right;
     }
 
     #repo-items, #repo-detail-log {
