@@ -839,13 +839,12 @@ class MaestroTUI(App):
 
     .repo-open-ide {
         width: auto;
-        margin: 1 0;
+        margin: 0;
         content-align: center middle;
         color: $text;
         text-style: bold;
         min-width: 12;
         background: $primary 10%;
-        border: solid $primary 30%;
         padding: 0 1;
     }
 
@@ -859,7 +858,6 @@ class MaestroTUI(App):
         background: $primary 40%;
         color: $text;
         text-style: reverse;
-        border: solid $primary 60%;
     }
 
     .repo-open-ide.disabled {
