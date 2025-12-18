@@ -44,7 +44,7 @@ class ActionResult:
 def extract_json_actions(text: str) -> List[Dict[str, Any]]:
     """Extract JSON action lists from AI responses."""
     actions: List[Dict[str, Any]] = []
-    blocks = re.findall(r"```json\\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
+    blocks = re.findall(r"```json\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
     for block in blocks:
         try:
             payload = json.loads(block)
