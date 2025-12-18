@@ -19,10 +19,10 @@
 | Track | Phase | Status | Completion |
 |-------|-------|--------|------------|
 | **🔥 Track/Phase/Task CLI** | | | |
-| | CLI1: Markdown Data Backend | 🚧 In Progress | 20% |
-| | CLI2: Track/Phase/Task Commands | 📋 Planned | 0% |
-| | CLI3: AI Discussion System | 📋 Planned | 0% |
-| | CLI4: Settings and Configuration | 📋 Planned | 0% |
+| | CLI1: Markdown Data Backend | ✅ Done | 100% |
+| | CLI2: Track/Phase/Task Commands | ✅ Done | 100% |
+| | CLI3: AI Discussion System | ✅ Done | 100% |
+| | CLI4: Settings and Configuration | ✅ Done | 100% |
 | | CLI5: TUI Conversion | 📋 Planned | 0% |
 | **Repository Scanning** | | | |
 | | U++ packages | ✅ Done | 100% |
@@ -61,7 +61,7 @@
 
 "track_id": "cli-tpt"
 "priority": 0
-"status": "planned"
+"status": "in_progress"
 
 This track implements the new Track/Phase/Task command-line interface with integrated AI discussion capabilities, and migrates all data storage from `.maestro/` JSON files to `docs/` markdown files.
 
@@ -74,10 +74,10 @@ This track implements the new Track/Phase/Task command-line interface with integ
 ### Phase CLI1: Markdown Data Backend
 
 "phase_id": "cli-tpt-1"
-"status": "planned"
-"completion": 0
+"status": "done"
+"completion": 100
 
-- [ ] [Phase CLI1: Markdown Data Backend](phases/cli1.md) 📋 **[Planned - Critical]**
+- [x] [Phase CLI1: Markdown Data Backend](phases/cli1.md) ✅ **[Done]**
   - Parser module for markdown data format
   - Writer module for markdown data format
   - Migration from JSON to markdown
@@ -86,10 +86,10 @@ This track implements the new Track/Phase/Task command-line interface with integ
 ### Phase CLI2: Track/Phase/Task Commands
 
 "phase_id": "cli-tpt-2"
-"status": "planned"
-"completion": 0
+"status": "done"
+"completion": 100
 
-- [ ] [Phase CLI2: Track/Phase/Task Commands](phases/cli2.md) 📋 **[Planned]**
+- [x] [Phase CLI2: Track/Phase/Task Commands](phases/cli2.md) ✅ **[Done]**
   - `maestro track {help,list,add,remove,<id>}` commands
   - `maestro phase {help,list,add,remove,<id>}` commands
   - `maestro task {help,list,add,remove,<id>}` commands
@@ -99,10 +99,10 @@ This track implements the new Track/Phase/Task command-line interface with integ
 ### Phase CLI3: AI Discussion System
 
 "phase_id": "cli-tpt-3"
-"status": "planned"
-"completion": 0
+"status": "done"
+"completion": 100
 
-- [ ] [Phase CLI3: AI Discussion System](phases/cli3.md) 📋 **[Planned]**
+- [x] [Phase CLI3: AI Discussion System](phases/cli3.md) ✅ **[Done]**
   - Unified discussion module for all AI interactions
   - `maestro track discuss` - general track planning
   - `maestro phase <id> discuss` - phase-specific discussion
@@ -117,10 +117,10 @@ This track implements the new Track/Phase/Task command-line interface with integ
 ### Phase CLI4: Settings and Configuration
 
 "phase_id": "cli-tpt-4"
-"status": "planned"
-"completion": 0
+"status": "done"
+"completion": 100
 
-- [ ] [Phase CLI4: Settings and Configuration](phases/cli4.md) 📋 **[Planned]**
+- [x] [Phase CLI4: Settings and Configuration](phases/cli4.md) ✅ **[Done]**
   - Move all config from `~/.maestro/` to `docs/config.md`
   - `maestro settings` command
   - User preferences (editor mode, AI context, etc.)
