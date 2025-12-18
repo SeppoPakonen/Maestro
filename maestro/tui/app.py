@@ -574,8 +574,8 @@ class MaestroTUI(App):
 
     #repo-detail-header {
         layout: horizontal;
+        height: 1;  /* Only take minimal height */
         align: center middle;
-        height: auto;
     }
 
     .repo-detail-title {
