@@ -908,7 +908,7 @@ class MaestroTUI(App):
     }
     """
 
-    def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
+    def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, navigation_target: Optional[str] = None, *args, **kwargs):
         # Check if legacy mode is enabled - handle missing onboarding
         try:
             from maestro.tui.onboarding import onboarding_manager
@@ -954,6 +954,7 @@ class MaestroTUI(App):
         self.active_build_target = None
         self.repo_root = "./"  # Simplified for now
         self.loading_indicator = LoadingIndicator()
+        self.navigation_target = (navigation_target or "").strip().lower() or None
         # Track currently active screen and its loading task
         self.current_screen = None
         self.current_screen_task = None
@@ -1070,6 +1071,9 @@ class MaestroTUI(App):
 
             # Bind click events for navigation items - need to wait a bit for the DOM to be ready
             self.call_after_refresh(self._bind_navigation_events)
+            # Apply any requested navigation target (e.g., --ide)
+            if self.navigation_target:
+                self.call_after_refresh(self._navigate_to_target)
 
         # Set up periodic update for loading indicators
         self.set_interval(0.2, self._update_loading_indicators)
@@ -1090,6 +1094,8 @@ class MaestroTUI(App):
 
         # Bind click events for navigation items - need to wait a bit for the DOM to be ready
         self.call_after_refresh(self._bind_navigation_events)
+        if self.navigation_target:
+            self.call_after_refresh(self._navigate_to_target)
 
     def _update_loading_indicators(self) -> None:
         """Update loading indicators based on active loaders."""
@@ -1146,6 +1152,9 @@ class MaestroTUI(App):
                     nav_widget.styles.cursor = "pointer"
                 except Exception:
                     continue
+
+            if self.navigation_target:
+                self.call_after_refresh(self._navigate_to_target)
         except Exception as e:
             # If binding fails, just continue without it
             pass
@@ -1187,6 +1196,48 @@ class MaestroTUI(App):
     def get_last_ide_package(self):
         """Get the last IDE package from the facade."""
         return get_last_package_name()
+
+    def _navigate_to_target(self) -> None:
+        """Navigate to a specific target passed via CLI."""
+        target = (self.navigation_target or "").lower()
+        self.navigation_target = None  # Only apply once
+        if not target:
+            return
+
+        # Normalize to nav ids
+        if not target.startswith("nav-"):
+            target_id = f"nav-{target}"
+        else:
+            target_id = target
+
+        # Special-case IDE
+        if target in ("ide", "nav-ide"):
+            self.open_ide_for_package()
+            return
+
+        nav_map = {
+            "nav-home": HomeScreen,
+            "nav-sessions": SessionsScreen,
+            "nav-plans": PlansScreen,
+            "nav-tasks": TasksScreen,
+            "nav-repo": RepoScreen,
+            "nav-build": BuildScreen,
+            "nav-make": MakeScreen,
+            "nav-convert": ConvertScreen,
+            "nav-replay": ReplayScreen,
+            "nav-arbitration": ArbitrationScreen,
+            "nav-semantic": SemanticScreen,
+            "nav-semantic-diff": SemanticDiffScreen,
+            "nav-memory": MemoryScreen,
+            "nav-logs": LogsScreen,
+            "nav-confidence": ConfidenceScreen,
+            "nav-vault": VaultScreen,
+            "nav-help": HelpIndexScreen,
+        }
+
+        screen_cls = nav_map.get(target_id)
+        if screen_cls:
+            self._switch_main_content(screen_cls())
 
     def open_ide_for_package(self, package_name: Optional[str] = None, resume_mode: bool = False):
         """Open IDE for a specific package, using last package if none specified."""
@@ -1424,6 +1475,7 @@ def main(
     mc_shell: bool = True,
     mc2_mode: bool = False,
     render_debug: bool = False,
+    navigation_target: Optional[str] = None,
 ):
     """Run the TUI application."""
     if mc2_mode:
@@ -1443,7 +1495,12 @@ def main(
             app = MaestroMCShellApp(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
         else:
             # Legacy TUI kept for fallback/debug
-            app = MaestroTUI(smoke_mode=smoke_mode, smoke_seconds=smoke_seconds, smoke_out=smoke_out)
+            app = MaestroTUI(
+                smoke_mode=smoke_mode,
+                smoke_seconds=smoke_seconds,
+                smoke_out=smoke_out,
+                navigation_target=navigation_target,
+            )
         app.run()
 
 

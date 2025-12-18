@@ -23,6 +23,12 @@ def parse_args(argv=None):
     parser.add_argument("--mc", action="store_true", help="Run in MC shell mode")
     parser.add_argument("--mc2", action="store_true", help="Run in MC2 curses mode (alternative MC implementation)")
     parser.add_argument("--render-debug", action="store_true", help="Show MC2 render debug overlay/counters")
+    parser.add_argument("--ide", action="store_true", help="Start directly in IDE view (alias for --navigation ide)")
+    parser.add_argument(
+        "--navigation",
+        type=str,
+        help="Start in a specific navigation target (e.g. ide, repo, home, tasks, build)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Show verbose error output")
     return parser.parse_args(argv)
 
@@ -47,6 +53,8 @@ def _run_textual(args):
             raise SystemExit(1) from None
         raise
 
+    navigation_target = args.navigation or ("ide" if args.ide else None)
+
     textual_main(
         smoke_mode=args.smoke,
         smoke_seconds=args.smoke_seconds,
@@ -54,6 +62,7 @@ def _run_textual(args):
         mc_shell=args.mc,
         mc2_mode=False,
         render_debug=args.render_debug,
+        navigation_target=navigation_target,
     )
 
 
