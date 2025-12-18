@@ -1203,66 +1203,42 @@ The difference: `maestro make` produces executables, `maestro tu` produces AST.
 
 ---
 
-## Assemblies in Maestro Repository System
+## Phase AS1 — Assemblies in Maestro Repository System
 
-### Assembly Concept
+**Objective**: Organize packages into logical assemblies that represent cohesive units of code, rather than treating every directory as a potential package.
 
-The "maestro repo" should have "maestro repo asm" which has {list,help,<asm>,...}.
+### Tasks
 
-**Why this concept is important:** Maestro needs to organize packages into logical assemblies that represent cohesive units of code, rather than treating every directory as a potential package.
+- [ ] **AS1.1: Assembly Concept Implementation**
+  - [ ] Create `maestro repo asm` command group
+  - [ ] Implement `maestro repo asm list` - List all assemblies in repository
+  - [ ] Implement `maestro repo asm help` - Show help for assembly commands
+  - [ ] Implement `maestro repo asm <asm>` - Operations on specific assembly
+  - [ ] Add additional assembly-specific operations
 
-**Background:** See `ls ~/Dev/ai-upp/uppsrc` because that is an assembly. It has only U++ packages.
+- [ ] **AS1.2: Assembly Type Classification**
+  - [ ] Implement U++ type assemblies: Have U++ package directories and are NOT package directories
+  - [ ] Implement Programming language assemblies: For specific languages (Python, Java, etc.)
+  - [ ] Implement Misc-type assembly: For other packages that don't fit specific language patterns
+  - [ ] Plan Documentation-type assembly: (Future support) For documentation projects
 
-### Assembly Types
+- [ ] **AS1.3: Assembly Detection & Classification**
+  - [ ] Implement U++ assembly detection: Detected by presence of multiple `.upp` files or structured package organization
+  - [ ] Implement Python assembly detection: Detected by presence of setup.py files in subdirectories
+  - [ ] Implement Java assembly detection: Detected by maven/gradle project structure
+  - [ ] Implement other language assembly detection: Based on specific build files and directory structure
 
-Assemblies have types:
-- **U++ type assemblies**: Have U++ package directories and are NOT package directories (because some packages have sub-package-directories)
-- **Programming language assemblies**: For specific languages (Python, Java, etc.)
-- **Misc-type assembly**: For other packages that don't fit specific language patterns
-- **Documentation-type assembly**: (Future support) For documentation projects
+- [ ] **AS1.4: Assembly Examples Implementation**
+  - [ ] Support Python assembly structure (directories with sub-directories containing setup.py)
+  - [ ] Support Java assembly structure (e.g., `~/Dev/TopGuitar/desktop/`, `~/Dev/TopGuitar/common/`)
+  - [ ] Handle multi-type assembly handling correctly
 
-### Assembly Detection & Classification
-
-**Detection of U++ assemblies are a priority**, but so are other programming language assemblies too, and then the rest of the packages are in Misc-type assembly.
-
-**Detection logic:**
-- **U++ assemblies**: Detected by the presence of multiple `.upp` files or a structured package organization
-- **Python assemblies**: Detected by the presence of setup.py files in subdirectories
-- **Java assemblies**: Detected by maven/gradle project structure
-- **Other language assemblies**: Based on specific build files and directory structure
-
-### Assembly Examples
-
-**Python assembly example:**
-With Python, assembly would be the directory which has sub-directories with setup.py.
-
-**Java assembly examples:**
-For Java, directories like these would most likely be assemblies:
-- `~/Dev/TopGuitar/desktop/`
-- `~/Dev/TopGuitar/common/`
-
-### Multi-type Assembly Handling
-
-If a directory has different type packages, at least programming languages are in one assembly.
-
-**Example:** The directory `~/Dev/RainbowGame/trash/` would have:
-- **Gradle assembly**: `~/Dev/RainbowGame/trash/` (packages: desktop, core, ...)
-- **U++ assembly**: `~/Dev/RainbowGame/trash/uppsrc`
-- **Misc assembly**: `~/Dev/RainbowGame/trash/`
-
-This organization allows Maestro to:
-- Apply appropriate build systems to appropriate assemblies
-- Maintain clear boundaries between different types of code
-- Handle dependencies between different assembly types correctly
-- Provide focused tooling for each assembly type
-
-### Assembly Commands
-
-The `maestro repo asm` command should support:
-- `list`: List all assemblies in repository
-- `help`: Show help for assembly commands
-- `<asm>`: Operations on specific assembly
-- Additional assembly-specific operations as needed
+- [ ] **AS1.5: Multi-type Assembly Handling**
+  - [ ] Ensure Gradle assembly correctly handles packages like `~/Dev/RainbowGame/trash/` (packages: desktop, core, ...)
+  - [ ] Ensure U++ assembly correctly handles `~/Dev/RainbowGame/trash/uppsrc`
+  - [ ] Implement proper system to apply appropriate build systems to appropriate assemblies
+  - [ ] Handle dependencies between different assembly types correctly
+  - [ ] Provide focused tooling for each assembly type
 
 ## Extended Track: Additional Build Systems
 
@@ -2175,129 +2151,121 @@ The superset must be flexible from the start. It needs to:
    # Should initialize and build submodules
    ```
 
-### Continuous Testing
+### Continuous Testing Tasks
 
-- [ ] Set up CI/CD pipeline
-- [ ] Test on multiple platforms (Linux, Windows, macOS)
-- [ ] Test with different compiler versions
-- [ ] Regression testing for each phase
+- [ ] **IT1.1: CI/CD Pipeline Setup**
+  - [ ] Set up CI/CD pipeline
+  - [ ] Configure automated testing
+  - [ ] Set up build triggers
 
----
+- [ ] **IT1.2: Multi-Platform Testing**
+  - [ ] Test on Linux platforms
+  - [ ] Test on Windows platforms
+  - [ ] Test on macOS platforms
+  - [ ] Test with different compiler versions
 
-## Notes and Considerations
+- [ ] **IT1.3: Regression Testing**
+  - [ ] Implement regression testing for each phase
+  - [ ] Automate test execution
+  - [ ] Set up test reporting
 
-### Build Artifact Storage
+## Phase IT2 — Notes and Considerations
 
-Store build artifacts in `.maestro/build/` (see umk.md lines 1075-1095):
-```
-.maestro/build/
-├── <method>/
-│   ├── <package>/
-│   │   ├── obj/          # Object files
-│   │   ├── pch/          # Precompiled headers
-│   │   ├── deps/         # Dependency files
-│   │   └── <target>      # Final executable/library
-│   └── ...
-└── cache/                # Build cache
-```
+### Tasks
 
-### Dependency Tracking
+- [ ] **IT2.1: Build Artifact Storage Implementation**
+  - [ ] Implement storage of build artifacts in `.maestro/build/` directory
+  - [ ] Create method-specific subdirectories (`.maestro/build/<method>/`)
+  - [ ] Create package-specific directories (`.maestro/build/<method>/<package>/`)
+  - [ ] Implement object file storage (`.maestro/build/<method>/<package>/obj/`)
+  - [ ] Implement precompiled headers storage (`.maestro/build/<method>/<package>/pch/`)
+  - [ ] Implement dependency tracking file storage (`.maestro/build/<method>/<package>/deps/`)
+  - [ ] Implement cache directory structure (`.maestro/build/cache/`)
 
-Two-level dependency system (see umk.md lines 1098-1113):
-1. **Package-level**: Use `maestro repo pkg tree`
-2. **File-level**: Track header/source dependencies
+- [ ] **IT2.2: Dependency Tracking Implementation**
+  - [ ] Implement two-level dependency system (package-level and file-level)
+  - [ ] Support package-level dependencies using `maestro repo pkg tree`
+  - [ ] Implement file-level dependency tracking for header/source dependencies
+  - [ ] Store file-level dependencies in `.maestro/build/cache/deps/<package>.json`
 
-Store file-level deps in `.maestro/build/cache/deps/<package>.json`
+- [ ] **IT2.3: Portage Integration Strategy Implementation**
+  - [ ] Ensure Phase A2 (Design) gets architecture right before implementation
+  - [ ] Start with minimal viable interface and expand as needed
+  - [ ] Test with real ebuilds early to validate design decisions
+  - [ ] Document limitations honestly
+  - [ ] Focus on flexibility to ensure superset can handle future requirements
 
-### Portage Integration Strategy
+- [ ] **IT2.4: USE Flag System Implementation**
+  - [ ] Support Portage-style USE flags (feature flags)
+  - [ ] Support umk-style flags (GUI, MT, DEBUG)
+  - [ ] Support multi-configuration builds (umk)
+  - [ ] Support single-configuration builds (Portage)
+  - [ ] Allow host package USE flag recognition
 
-The Portage integration requires careful design due to the fundamental differences between umk and Portage:
+- [ ] **IT2.5: Development Priorities and Scheduling**
+  - [ ] Prioritize Phases 1-7 (Core functionality - Universal Build System) as highest priority
+  - [ ] Prioritize Phases TU1-TU6 (TU/AST system) as high priority
+  - [ ] Implement TU1-TU3 (Core parsing and symbol resolution) for AI workflows MVP
+  - [ ] Implement TU4-TU6 (Auto-completion and transformation) for enhanced IDE features
+  - [ ] Prioritize Phase 10 (Hub system) as high priority
+  - [ ] Prioritize Phases E1-E4 (Extended build systems) as medium priority
+  - [ ] Prioritize Phase 8 (Advanced features) as medium priority
+  - [ ] Prioritize Phase 9 (TUI integration) as medium priority
+  - [ ] Handle Phases A1-A6 (Portage integration) as Research & Design Phase (requires E4 knowledge)
 
-1. **Phase A2 (Design) is critical** - Must get the architecture right before implementation
-2. **Start with minimal viable interface** - Expand as needed
-3. **Test with real ebuilds early** - Validate design decisions
-4. **Document limitations** - Be honest about what we can't do
-5. **Focus on flexibility** - The superset must handle future requirements
+- [ ] **IT2.6: Learning Progression Setup**
+  - [ ] Implement pup support (Phase E4) first: simpler Python-based package system, no USE flags
+  - [ ] Progress to Portage (Phases A2-A6): Complex bash-based system with USE flags
+  - [ ] Ensure pup provides similar concepts (build phases, dependencies, patches) without Portage's complexity
 
-### USE Flag System
+- [ ] **IT2.7: Parallel Development Tracking**
+  - [ ] Support parallel development of UMK Integration and TU/AST
+  - [ ] Ensure both use repository scanning (`maestro repo resolve`)
+  - [ ] Ensure both need build configuration (`maestro repo conf`)
+  - [ ] Ensure TU/AST provides context to AI for `maestro build` workflows
 
-The USE flag system must be the common denominator:
-- Support Portage-style USE flags (feature flags)
-- Support umk-style flags (GUI, MT, DEBUG)
-- Support multi-configuration builds (umk)
-- Support single-configuration builds (Portage)
-- Allow host package USE flag recognition
+- [ ] **IT2.8: Timeline and Milestone Planning**
+  - [ ] Plan Core Universal Build System (Phases 1-7): 17-25 weeks (~4-6 months)
+  - [ ] Plan TU/AST System (Phases TU1-TU6): 17-23 weeks (~4-6 months)
+  - [ ] Plan TU/AST MVP (TU1-TU3): 9-12 weeks (~2-3 months)
+  - [ ] Plan Extended TU/AST (TU4-TU6): 8-11 weeks (~2-3 months)
+  - [ ] Plan Extended Build Systems (E1-E4): 8-12 weeks (~2-3 months)
+  - [ ] Plan Python (E1): 2-3 weeks
+  - [ ] Plan Node.js (E2): 2-3 weeks
+  - [ ] Plan Go (E3): 2-3 weeks
+  - [ ] Plan pup (E4): 2-3 weeks
+  - [ ] Plan Advanced Features (Phase 8): 6-8 weeks (~1.5-2 months)
+  - [ ] Plan Hub System (Phase 10): 4-5 weeks (~1 month)
+  - [ ] Plan Internal Package Groups (Phase 11): 2-3 weeks (~0.5 month)
+  - [ ] Plan Portage Integration (A1-A6): 22-31 weeks (~5-7 months, includes research)
+  - [ ] Plan Total Estimate: 76-107 weeks (~18-25 months for everything)
+  - [ ] Plan MVP Timeline (Phases 1-7): 17-25 weeks (~4-6 months)
+  - [ ] Plan TU/AST MVP (Phases TU1-TU3): 9-12 weeks (~2-3 months)
 
-### Development Priorities
-
-1. **Phases 1-7**: Core functionality (Universal Build System) - **Highest Priority**
-2. **Phases TU1-TU6**: TU/AST system (Translation units and AST) - **High Priority**
-   - **TU1-TU3 (MVP)**: Core parsing and symbol resolution - Essential for AI workflows
-   - **TU4-TU6**: Auto-completion and transformation - Enhanced IDE features
-3. **Phase 10**: Hub system (Automatic dependency resolution) - **High Priority**
-4. **Phases E1-E4**: Extended build systems - **Medium Priority**
-   - E1-E3 (Python, Node, Go): Standard modern build systems
-   - **E4 (pup): Recommended before Portage** - simpler learning path for package management concepts
-5. **Phase 8**: Advanced features (Blitz, PCH, Android, Java) - **Medium Priority**
-6. **Phase 9**: TUI integration - **Medium Priority**
-7. **Phases A1-A6**: Portage integration - **Research & Design Phase** (requires E4 knowledge)
-
-**Learning Progression for Package Management**:
-- Start with **pup** (Phase E4): Simpler Python-based package system, no USE flags
-- Progress to **Portage** (Phases A2-A6): Complex bash-based system with USE flags
-- **Rationale**: pup provides similar concepts (build phases, dependencies, patches) without Portage's complexity
-
-**Parallel Development Tracks**:
-- **UMK Integration** and **TU/AST** can be developed in parallel
-- Both use repository scanning (`maestro repo resolve`)
-- Both need build configuration (`maestro repo conf`)
-- TU/AST provides context to AI for `maestro build` workflows
-
-### Timeframe Estimates
-
-- **Core Universal Build System** (Phases 1-7): 17-25 weeks (~4-6 months)
-- **TU/AST System** (Phases TU1-TU6): 17-23 weeks (~4-6 months)
-  - TU/AST MVP (TU1-TU3): 9-12 weeks (~2-3 months)
-  - Extended TU/AST (TU4-TU6): 8-11 weeks (~2-3 months)
-- **Extended Build Systems** (E1-E4): 8-12 weeks (~2-3 months)
-  - Python (E1): 2-3 weeks
-  - Node.js (E2): 2-3 weeks
-  - Go (E3): 2-3 weeks
-  - pup (E4): 2-3 weeks
-- **Advanced Features** (Phase 8): 6-8 weeks (~1.5-2 months)
-- **Hub System** (Phase 10): 4-5 weeks (~1 month)
-- **Internal Package Groups** (Phase 11): 2-3 weeks (~0.5 month)
-- **Portage Integration** (A1-A6): 22-31 weeks (~5-7 months, includes research)
-
-**Total Estimate**: 76-107 weeks (~18-25 months for everything)
-
-**MVP Timeline** (Phases 1-7): 17-25 weeks (~4-6 months)
-**TU/AST MVP** (Phases TU1-TU3): 9-12 weeks (~2-3 months)
-
-**Recommended Development Path**:
-1. Core Build System (Phases 1-7): 17-25 weeks
-2. TU/AST MVP (Phases TU1-TU3): 9-12 weeks ← **Enables AI workflows**
-3. pup Support (Phase E4): 2-3 weeks ← **Learn from simpler Portage-like system**
-4. TU/AST Full (Phases TU4-TU6): 8-11 weeks ← **IDE features**
-5. Portage Integration (A1-A6): 22-31 weeks
+- [ ] **IT2.9: Development Path Implementation**
+  - [ ] Begin with Core Build System (Phases 1-7): 17-25 weeks
+  - [ ] Follow with TU/AST MVP (Phases TU1-TU3): 9-12 weeks ← Enables AI workflows
+  - [ ] Follow with pup Support (Phase E4): 2-3 weeks ← Learn from simpler Portage-like system
+  - [ ] Follow with TU/AST Full (Phases TU4-TU6): 8-11 weeks ← IDE features
+  - [ ] Follow with Portage Integration (A1-A6): 22-31 weeks
 
 ---
 
-## Next Steps
+## Phase IT3 — Next Steps
 
-**Immediate actions**:
-1. Begin Phase 1: Core Builder Abstraction
-2. Set up test infrastructure
-3. Create initial test suite for builder interface
-4. Document builder API
-5. Start research for Portage integration (parallel to Phase 1)
+### Tasks
 
-**First deliverable** (2-3 weeks):
-- Python builder framework
-- Build method configuration system
-- Initial test suite
+- [ ] **IT3.1: Immediate Actions**
+  - [ ] Begin Phase 1: Core Builder Abstraction
+  - [ ] Set up test infrastructure
+  - [ ] Create initial test suite for builder interface
+  - [ ] Document builder API
+  - [ ] Start research for Portage integration (parallel to Phase 1)
 
----
+- [ ] **IT3.2: First Deliverable Implementation**
+  - [ ] Implement Python builder framework
+  - [ ] Implement Build method configuration system
+  - [ ] Create Initial test suite
 
 **Document Status**: Planning phase complete, ready for implementation.
 **Last Review**: 2025-12-17
