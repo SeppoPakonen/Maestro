@@ -1021,10 +1021,11 @@ class MaestroTUI(App):
             yield Vertical(
                 Label("[b]Navigation[/b]", classes="nav-title"),
                 Button("🏠 Home", id="nav-home", classes="nav-item clickable-nav-item"),
+                Button("📦 Repo", id="nav-repo", classes="nav-item clickable-nav-item"),
+                Button("📝 IDE", id="nav-ide", classes="nav-item clickable-nav-item"),
                 Button("📋 Sessions", id="nav-sessions", classes="nav-item clickable-nav-item"),
                 Button("📊 Plans", id="nav-plans", classes="nav-item clickable-nav-item"),
                 Button("✅ Tasks", id="nav-tasks", classes="nav-item clickable-nav-item"),
-                Button("📦 Repo", id="nav-repo", classes="nav-item clickable-nav-item"),
                 Button("🔨 Build", id="nav-build", classes="nav-item clickable-nav-item"),
                 Button("🛠 Make", id="nav-make", classes="nav-item clickable-nav-item"),
                 Button("🔄 Convert", id="nav-convert", classes="nav-item clickable-nav-item"),
@@ -1036,7 +1037,6 @@ class MaestroTUI(App):
                 Button("📄 Logs", id="nav-logs", classes="nav-item clickable-nav-item"),
                 Button("📊 Confidence", id="nav-confidence", classes="nav-item clickable-nav-item"),
                 Button("📦 Vault", id="nav-vault", classes="nav-item clickable-nav-item"),
-                Button("📝 IDE", id="nav-ide", classes="nav-item clickable-nav-item"),
                 Button("❓ Help", id="nav-help", classes="nav-item clickable-nav-item"),
                 id="nav-menu"
             )
