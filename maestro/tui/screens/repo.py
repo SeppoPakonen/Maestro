@@ -52,6 +52,7 @@ class RepoScreen(Static):
         self.repo_root: Optional[str] = None
         self.packages: list[RepoPackageInfo] = []
         self.assemblies: list[RepoAssemblyInfo] = []
+        self.render_seq: int = 0
 
     def compose(self) -> ComposeResult:
         header = Header()
@@ -153,6 +154,7 @@ class RepoScreen(Static):
     def _render_list(self) -> None:
         list_view = self.query_one("#repo-items", ListView)
         list_view.clear()
+        self.render_seq += 1
 
         if not self.packages and not self.assemblies:
             if self.repo_root:
@@ -169,28 +171,26 @@ class RepoScreen(Static):
                 cleaned = "item"
             return f"{prefix}-{cleaned}"
 
-        id_counts: dict[str, int] = {}
+        def unique_id(base_id: str, idx: int) -> str:
+            return f"{base_id}-r{self.render_seq}-{idx}"
 
-        def unique_id(base_id: str) -> str:
-            count = id_counts.get(base_id, 0) + 1
-            id_counts[base_id] = count
-            return base_id if count == 1 else f"{base_id}-{count}"
-
-        for package in self.packages:
+        for idx, package in enumerate(self.packages):
             short_dir = os.path.basename(package.dir) if package.dir else ""
             text = f"[PKG] {package.name} ({package.type})"
             if short_dir:
                 text += f" [{short_dir}]"
-            item = ListItem(Label(text), id=unique_id(safe_id("pkg", package.name)))
+            item = ListItem(Label(text), id=unique_id(safe_id("pkg", package.name), idx))
             item.data = ("pkg", package.name)  # store lookup key without invalid characters
             list_view.append(item)
 
-        for assembly in self.assemblies:
+        pkg_count = len(self.packages)
+
+        for idx, assembly in enumerate(self.assemblies):
             short_path = os.path.basename(assembly.root_path) if assembly.root_path else ""
             text = f"[ASM] {assembly.name}"
             if short_path:
                 text += f" [{short_path}]"
-            item = ListItem(Label(text), id=unique_id(safe_id("asm", assembly.name)))
+            item = ListItem(Label(text), id=unique_id(safe_id("asm", assembly.name), pkg_count + idx))
             item.data = ("asm", assembly.name)
             list_view.append(item)
 
