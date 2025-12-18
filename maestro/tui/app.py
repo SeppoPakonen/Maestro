@@ -760,6 +760,11 @@ class MaestroTUI(App):
         min-width: 6;
     }
 
+    #ide-top-bar .ide-link:hover, #ide-top-bar .ide-link:focus {
+        background: $primary 30%;
+        text-style: bold;
+    }
+
     #ide-top-bar Label {
         height: 1;
         width: 1fr;
