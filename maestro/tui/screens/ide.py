@@ -90,6 +90,9 @@ class IdeScreen(Static):
 
                         yield Static("Log content goes here...", id="ide-tab-content")
 
+            with Container(id="ide-menu-dropdown", classes="hidden"):
+                yield ListView(id="ide-menu-list")
+
         yield Footer()
 
     def on_mount(self) -> None:
@@ -298,7 +301,96 @@ class IdeScreen(Static):
 
     def toggle_menu(self) -> None:
         """Toggle the dropdown menu."""
-        # For now, just show a message; in the future, this can show a dropdown menu
+        menu_dropdown = self.query_one("#ide-menu-dropdown", Container)
+        menu_list = self.query_one("#ide-menu-list", ListView)
+
+        if "hidden" in menu_dropdown.classes:
+            # Show menu
+            self._populate_menu_list(menu_list)
+            menu_dropdown.remove_class("hidden")
+        else:
+            # Hide menu
+            menu_dropdown.add_class("hidden")
+
+    def _populate_menu_list(self, menu_list: ListView) -> None:
+        """Populate the dropdown menu with available actions."""
+        menu_list.clear()
+
+        # Add menu items
+        menu_items = [
+            ("Save File", "save_file"),
+            ("Save All", "save_all"),
+            ("Find in File", "find_in_file"),
+            ("Find in Project", "find_in_project"),
+            ("Replace", "replace"),
+            ("Settings", "settings"),
+            ("Help", "help"),
+        ]
+
+        for label, action in menu_items:
+            # Use ListItem with Label as content
+            item = ListItem(Label(label), id=f"menu-{action}")
+            item.data = action
+            menu_list.append(item)
+
+    @on(ListView.Selected, "#ide-menu-list")
+    def _on_menu_selected(self, event: ListView.Selected) -> None:
+        """Handle selection from dropdown menu."""
+        # Hide the menu after selection
+        self.query_one("#ide-menu-dropdown", Container).add_class("hidden")
+
+        # Get the selected action
+        action = getattr(event.item, "data", None)
+        if action:
+            # Call the appropriate method based on the action
+            if action == "save_file":
+                self._save_current_file()
+            elif action == "save_all":
+                self._save_all_files()
+            elif action == "find_in_file":
+                self._find_in_file()
+            elif action == "find_in_project":
+                self._find_in_project()
+            elif action == "replace":
+                self._replace_text()
+            elif action == "settings":
+                self._show_settings()
+            elif action == "help":
+                self._show_help()
+
+    def _save_current_file(self) -> None:
+        """Save the currently open file."""
+        # Placeholder for save functionality
+        pass
+
+    def _save_all_files(self) -> None:
+        """Save all open files."""
+        # Placeholder for save all functionality
+        pass
+
+    def _find_in_file(self) -> None:
+        """Find text in the currently open file."""
+        # Placeholder for find functionality
+        pass
+
+    def _find_in_project(self) -> None:
+        """Find text in the entire project."""
+        # Placeholder for find in project functionality
+        pass
+
+    def _replace_text(self) -> None:
+        """Replace text in the currently open file."""
+        # Placeholder for replace functionality
+        pass
+
+    def _show_settings(self) -> None:
+        """Show settings panel."""
+        # Placeholder for settings functionality
+        pass
+
+    def _show_help(self) -> None:
+        """Show help information."""
+        # Placeholder for help functionality
         pass
 
     def action_toggle_bottom_pane(self) -> None:

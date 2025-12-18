@@ -968,6 +968,30 @@ class MaestroTUI(App):
         margin-bottom: 1;
     }
 
+    #ide-menu-dropdown {
+        dock: top;
+        margin-top: 2;  /* Position below the top bar */
+        width: 25;
+        border: solid $primary;
+        background: $surface;
+        z-index: 100;
+    }
+
+    #ide-menu-list {
+        width: 1fr;
+        height: 1fr;
+    }
+
+    #ide-menu-list ListItem {
+        height: 1;
+        padding: 0 1;
+        border-bottom: solid $surface 80%;
+    }
+
+    #ide-menu-list ListItem:hover {
+        background: $primary 20%;
+    }
+
     #ide-tab-buttons .ide-link {
         width: auto;
         margin-right: 1;
