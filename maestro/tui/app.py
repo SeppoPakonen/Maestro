@@ -744,7 +744,7 @@ class MaestroTUI(App):
         layout: horizontal;
         height: 1;
         align: center middle;
-        padding: 0 1;
+        padding: 0;
         margin-bottom: 1;
         border-bottom: solid $primary;
     }
@@ -752,9 +752,11 @@ class MaestroTUI(App):
     #ide-top-bar .ide-link {
         width: auto;
         margin: 0 1 0 0;
+        content-align: center middle;
     }
 
     #ide-top-bar Label {
+        height: 1;
         width: 1fr;
         content-align: center middle;
     }
