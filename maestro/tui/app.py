@@ -533,20 +533,20 @@ class MaestroTUI(App):
 
     #repo-controls, #repo-search {
         layout: horizontal;
-        height: 2;
+        height: 3;
         align: center middle;
         padding: 0 1;
         margin-bottom: 1;
     }
 
     #repo-controls Button, #repo-search Button {
-        height: 2;
+        height: 3;
         padding: 0 1;
     }
 
     #repo-search Input {
         width: 1fr;
-        height: 2;
+        height: 3;
         padding: 0 1;
         margin-right: 1;
     }

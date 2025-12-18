@@ -156,6 +156,10 @@ class RepoScreen(Static):
 
     def _render_list(self) -> None:
         list_view = self.query_one("#repo-items", ListView)
+
+        # Store the previously selected package name to restore after reload
+        previous_selected_package_name = self.last_selected_package_name
+
         list_view.clear()
         self.render_seq += 1
 
@@ -196,6 +200,33 @@ class RepoScreen(Static):
             item = ListItem(Label(text), id=unique_id(safe_id("asm", assembly.name), pkg_count + idx))
             item.data = ("asm", assembly.name)
             list_view.append(item)
+
+        # After reloading the list, restore the selection if applicable
+        restored = False
+        if previous_selected_package_name:
+            # Find if the previously selected package is still present in the new list
+            for idx, pkg in enumerate(self.packages):
+                if pkg.name == previous_selected_package_name:
+                    list_view.index = idx
+                    selected_item = list_view.children[idx] if idx < len(list_view.children) else None
+                    if selected_item:
+                        self._show_details(selected_item)
+                        self.last_selected_package_name = previous_selected_package_name
+                        restored = True
+                    break
+            else:
+                self.last_selected_package_name = None
+        if not restored and self.packages:
+            # Default to first package when nothing was restored so IDE button stays usable
+            list_view.index = 0
+            selected_item = list_view.children[0] if list_view.children else None
+            if selected_item:
+                item_type, item_name = getattr(selected_item, "data", (None, None))
+                if item_type == "pkg":
+                    self.last_selected_package_name = item_name
+                self._show_details(selected_item)
+        elif not restored:
+            self.last_selected_package_name = None
 
     def _show_details(self, item: ListItem) -> None:
         detail_log = self.query_one("#repo-detail-log", RichLog)
