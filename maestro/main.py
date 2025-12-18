@@ -3922,6 +3922,14 @@ def main():
     # Hub command (Universal Package Hub)
     hub_parser = create_hub_parser(subparsers)
 
+    # Track/Phase/Task commands - new Track/Phase/Task system
+    from .commands import add_track_parser, add_phase_parser, add_task_parser
+    track_parser = add_track_parser(subparsers)
+    phase_parser = add_phase_parser(subparsers)
+    # NOTE: task_parser temporarily commented out due to conflict with legacy task command
+    # Will be re-enabled after migration from legacy session/plan/task system
+    # task_parser = add_task_parser(subparsers)
+
     # Conversion pipeline command group
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
     convert_subparsers = convert_parser.add_subparsers(dest='convert_subcommand', help='Conversion pipeline subcommands')
@@ -5900,6 +5908,16 @@ def main():
             sys.exit(0)
     elif args.command == 'hub':
         handle_hub_command(args)
+    elif args.command == 'track' or args.command == 'tr':
+        from .commands import handle_track_command
+        sys.exit(handle_track_command(args))
+    elif args.command == 'phase' or args.command == 'ph':
+        from .commands import handle_phase_command
+        sys.exit(handle_phase_command(args))
+    # NOTE: New task command temporarily disabled due to conflict with legacy task command
+    # elif args.command == 'task' or args.command == 't':
+    #     from .commands import handle_task_command
+    #     sys.exit(handle_task_command(args))
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
