@@ -1203,6 +1203,67 @@ The difference: `maestro make` produces executables, `maestro tu` produces AST.
 
 ---
 
+## Assemblies in Maestro Repository System
+
+### Assembly Concept
+
+The "maestro repo" should have "maestro repo asm" which has {list,help,<asm>,...}.
+
+**Why this concept is important:** Maestro needs to organize packages into logical assemblies that represent cohesive units of code, rather than treating every directory as a potential package.
+
+**Background:** See `ls ~/Dev/ai-upp/uppsrc` because that is an assembly. It has only U++ packages.
+
+### Assembly Types
+
+Assemblies have types:
+- **U++ type assemblies**: Have U++ package directories and are NOT package directories (because some packages have sub-package-directories)
+- **Programming language assemblies**: For specific languages (Python, Java, etc.)
+- **Misc-type assembly**: For other packages that don't fit specific language patterns
+- **Documentation-type assembly**: (Future support) For documentation projects
+
+### Assembly Detection & Classification
+
+**Detection of U++ assemblies are a priority**, but so are other programming language assemblies too, and then the rest of the packages are in Misc-type assembly.
+
+**Detection logic:**
+- **U++ assemblies**: Detected by the presence of multiple `.upp` files or a structured package organization
+- **Python assemblies**: Detected by the presence of setup.py files in subdirectories
+- **Java assemblies**: Detected by maven/gradle project structure
+- **Other language assemblies**: Based on specific build files and directory structure
+
+### Assembly Examples
+
+**Python assembly example:**
+With Python, assembly would be the directory which has sub-directories with setup.py.
+
+**Java assembly examples:**
+For Java, directories like these would most likely be assemblies:
+- `~/Dev/TopGuitar/desktop/`
+- `~/Dev/TopGuitar/common/`
+
+### Multi-type Assembly Handling
+
+If a directory has different type packages, at least programming languages are in one assembly.
+
+**Example:** The directory `~/Dev/RainbowGame/trash/` would have:
+- **Gradle assembly**: `~/Dev/RainbowGame/trash/` (packages: desktop, core, ...)
+- **U++ assembly**: `~/Dev/RainbowGame/trash/uppsrc`
+- **Misc assembly**: `~/Dev/RainbowGame/trash/`
+
+This organization allows Maestro to:
+- Apply appropriate build systems to appropriate assemblies
+- Maintain clear boundaries between different types of code
+- Handle dependencies between different assembly types correctly
+- Provide focused tooling for each assembly type
+
+### Assembly Commands
+
+The `maestro repo asm` command should support:
+- `list`: List all assemblies in repository
+- `help`: Show help for assembly commands
+- `<asm>`: Operations on specific assembly
+- Additional assembly-specific operations as needed
+
 ## Extended Track: Additional Build Systems
 
 This track extends repository scanning and build support to additional ecosystems.
