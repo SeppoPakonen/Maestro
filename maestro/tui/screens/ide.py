@@ -148,13 +148,11 @@ class IdeScreen(Static):
         file_list = self.query_one("#ide-file-list", ListView)
         file_list.clear()
 
-        files = list(getattr(package, "files", []) or [])
-
-        # Ensure the UPP definition file is always present in the list
-        if getattr(package, "upp_path", None):
-            upp_name = Path(package.upp_path).name
-            if upp_name not in files:
-                files.insert(0, upp_name)
+        # Skip .upp files in the file list; they are configuration rather than source
+        files = [
+            f for f in list(getattr(package, "files", []) or [])
+            if not str(f).lower().endswith(".upp")
+        ]
 
         for rel_path in files:
             display_text = rel_path
@@ -169,8 +167,7 @@ class IdeScreen(Static):
 
         # Auto-open the first non-.upp file (or .upp if none) unless we are resuming
         if auto_open and files:
-            non_upp_files = [f for f in files if not f.lower().endswith(".upp")]
-            target = non_upp_files[0] if non_upp_files else files[0]
+            target = files[0]
             # Update selection to match the auto-opened file
             for idx, item in enumerate(file_list.children):
                 if getattr(item, "data", None) and item.data[1] == target:

@@ -742,7 +742,7 @@ class MaestroTUI(App):
 
     #ide-top-bar {
         layout: horizontal;
-        height: 3;
+        height: 2;
         align: center middle;
         padding: 0 1;
         margin-bottom: 1;
@@ -750,9 +750,9 @@ class MaestroTUI(App):
     }
 
     #ide-top-bar Button {
-        height: 3;
+        height: 1;
         padding: 0 1;
-        margin: 0 1;
+        margin: 0 1 0 0;
     }
 
     #ide-top-bar Label {
@@ -839,12 +839,14 @@ class MaestroTUI(App):
 
     #ide-tab-buttons {
         layout: horizontal;
-        height: 3;
+        height: 2;
         margin-bottom: 1;
     }
 
     #ide-tab-buttons Button {
-        width: 1fr;
+        height: 1;
+        width: auto;
+        padding: 0 1;
         margin-right: 1;
     }
 
