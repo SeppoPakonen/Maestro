@@ -156,6 +156,8 @@ If libclang is not discovered automatically, point to it (e.g. on clang 21):
 export LIBCLANG_PATH=/usr/lib/llvm/21/lib64/libclang.so
 ```
 
+Legacy root smoke/semantic integrity harnesses are kept as `_legacy.py` to avoid pytest duplicate-module clashes; run the maintained suites under `tests/`.
+
 ---
 
 ## Usage
