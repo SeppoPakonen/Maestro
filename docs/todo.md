@@ -18,6 +18,12 @@
 
 | Track | Phase | Status | Completion |
 |-------|-------|--------|------------|
+| **🔥 Track/Phase/Task CLI** | | | |
+| | CLI1: Markdown Data Backend | 🚧 In Progress | 20% |
+| | CLI2: Track/Phase/Task Commands | 📋 Planned | 0% |
+| | CLI3: AI Discussion System | 📋 Planned | 0% |
+| | CLI4: Settings and Configuration | 📋 Planned | 0% |
+| | CLI5: TUI Conversion | 📋 Planned | 0% |
 | **Repository Scanning** | | | |
 | | U++ packages | ✅ Done | 100% |
 | | CMake packages | ✅ Done | 100% |
@@ -49,7 +55,95 @@
 
 ---
 
+## 🔥 TOP PRIORITY Track: Track/Phase/Task CLI and AI Discussion System
+
+"track_id": "cli-tpt"
+"priority": 0
+"status": "planned"
+
+This track implements the new Track/Phase/Task command-line interface with integrated AI discussion capabilities, and migrates all data storage from `.maestro/` JSON files to `docs/` markdown files.
+
+**Core Concepts:**
+- **TODO vs DONE**: Past and future separation throughout the entire architecture
+- **Track/Phase/Task**: New hierarchy replacing the old Roadmap/Plan/Task
+- **AI Discussion**: Unified discussion interface for tracks, phases, and tasks
+- **Markdown Storage**: All data in human-readable, machine-parsable markdown
+
+### Phase CLI1: Markdown Data Backend
+
+"phase_id": "cli-tpt-1"
+"status": "planned"
+"completion": 0
+
+- [ ] [Phase CLI1: Markdown Data Backend](phases/cli1.md) 📋 **[Planned - Critical]**
+  - Parser module for markdown data format
+  - Writer module for markdown data format
+  - Migration from JSON to markdown
+  - Data validation and error recovery
+
+### Phase CLI2: Track/Phase/Task Commands
+
+"phase_id": "cli-tpt-2"
+"status": "planned"
+"completion": 0
+
+- [ ] [Phase CLI2: Track/Phase/Task Commands](phases/cli2.md) 📋 **[Planned]**
+  - `maestro track {help,list,add,remove,<id>}` commands
+  - `maestro phase {help,list,add,remove,<id>}` commands
+  - `maestro task {help,list,add,remove,<id>}` commands
+  - `maestro track <id> phase` navigation
+  - `maestro {track,phase,task} <id> {show,edit}` subcommands
+
+### Phase CLI3: AI Discussion System
+
+"phase_id": "cli-tpt-3"
+"status": "planned"
+"completion": 0
+
+- [ ] [Phase CLI3: AI Discussion System](phases/cli3.md) 📋 **[Planned]**
+  - Unified discussion module for all AI interactions
+  - `maestro track discuss` - general track planning
+  - `maestro phase <id> discuss` - phase-specific discussion
+  - `maestro task <id> discuss` - task-specific discussion
+  - Editor mode ($EDITOR) with # comment syntax
+  - Terminal stream mode (Enter to send, Ctrl+J for newline)
+  - `/done` command to finish and generate JSON actions
+  - `/quit` command to cancel
+  - JSON action processor for track/phase/task operations
+  - Settings management: `maestro settings` for defaults
+
+### Phase CLI4: Settings and Configuration
+
+"phase_id": "cli-tpt-4"
+"status": "planned"
+"completion": 0
+
+- [ ] [Phase CLI4: Settings and Configuration](phases/cli4.md) 📋 **[Planned]**
+  - Move all config from `~/.maestro/` to `docs/config.md`
+  - `maestro settings` command
+  - User preferences (editor mode, AI context, etc.)
+  - Project-level settings in docs/config.md
+
+### Phase CLI5: TUI Track/Phase/Task Conversion
+
+"phase_id": "cli-tpt-5"
+"status": "planned"
+"completion": 0
+
+- [ ] [Phase CLI5: TUI Conversion](phases/cli5.md) 📋 **[Planned]**
+  - Convert TUI to use Track/Phase/Task terminology
+  - Integrate with markdown data backend
+  - Update status badges and visual indicators
+  - Feature parity with CLI commands
+  - Deprecate or update textual-mc
+
+---
+
 ## Primary Track: UMK Integration (Universal Build System)
+
+"track_id": "umk"
+"priority": 1
+"status": "in_progress"
 
 This track implements all phases from `docs/umk.md`, creating a universal build orchestration system.
 
