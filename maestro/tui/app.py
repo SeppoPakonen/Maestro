@@ -3,10 +3,12 @@ Maestro TUI Application
 """
 import time
 import asyncio
+from typing import Optional, Type
+
+from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, Footer, Header, Button
-from textual import on
 from textual.types import MessageTarget
 from maestro.ui_facade.sessions import get_active_session, list_sessions
 from maestro.ui_facade.plans import get_active_plan, list_plans
@@ -39,8 +41,10 @@ except ImportError:
     HelpIndexScreen = None  # type: ignore
 from maestro.tui.screens.repo import RepoScreen
 from maestro.tui.screens.make import MakeScreen
+from maestro.tui.screens.ide import IdeScreen
 from maestro.tui.widgets.command_palette import CommandPaletteScreen
 from maestro.tui.utils import global_status_manager, LoadingIndicator, ErrorModal, ErrorNormalizer, ErrorMessage, ErrorSeverity, write_smoke_success
+from maestro.ui_facade.ide import get_last_package_name
 
 
 class MaestroTUI(App):
@@ -529,20 +533,20 @@ class MaestroTUI(App):
 
     #repo-controls, #repo-search {
         layout: horizontal;
-        height: 3;
+        height: 2;
         align: center middle;
         padding: 0 1;
         margin-bottom: 1;
     }
 
     #repo-controls Button, #repo-search Button {
-        height: 3;
+        height: 2;
         padding: 0 1;
     }
 
     #repo-search Input {
         width: 1fr;
-        height: 3;
+        height: 2;
         padding: 0 1;
         margin-right: 1;
     }
@@ -728,6 +732,136 @@ class MaestroTUI(App):
         width: 100%;
         margin: 1 0;
     }
+
+    /* IDE Screen */
+    #ide-screen {
+        layout: vertical;
+        height: 1fr;
+        padding: 1;
+    }
+
+    #ide-top-bar {
+        layout: horizontal;
+        height: 3;
+        align: center middle;
+        padding: 0 1;
+        margin-bottom: 1;
+        border-bottom: solid $primary;
+    }
+
+    #ide-top-bar Button {
+        height: 3;
+        padding: 0 1;
+        margin: 0 1;
+    }
+
+    #ide-top-bar Label {
+        width: 1fr;
+        content-align: center middle;
+    }
+
+    #ide-back {
+        width: auto;
+    }
+
+    #ide-refresh {
+        width: auto;
+    }
+
+    #ide-body {
+        layout: horizontal;
+        height: 1fr;
+        padding: 1 0 0 0;
+    }
+
+    #ide-side-panel {
+        width: 30;
+        height: 1fr;
+        border: solid $primary 20%;
+        padding: 1;
+        margin-right: 1;
+    }
+
+    #ide-main-panel {
+        height: 1fr;
+        width: 1fr;
+        border: solid $primary 20%;
+        padding: 1;
+    }
+
+    #ide-side-panel Label {
+        text-style: bold;
+        margin-bottom: 1;
+        color: $primary;
+    }
+
+    #ide-package-list, #ide-file-list {
+        height: 1fr;
+    }
+
+    #ide-editor-title {
+        height: 1;
+        padding: 0 1;
+        margin-bottom: 1;
+        border-bottom: solid $primary 10%;
+    }
+
+    #ide-editor {
+        height: 1fr;
+        width: 100%;
+        border: solid $primary 10%;
+    }
+
+    .editor {
+        height: 1fr;
+    }
+
+    .section-label {
+        text-style: bold;
+        color: $primary;
+        margin-bottom: 1;
+    }
+
+    #ide-bottom {
+        height: 8;
+        border-top: solid $primary;
+        padding: 1;
+        margin-top: 1;
+    }
+
+    #ide-bottom.hidden {
+        height: 0;
+        padding: 0;
+        margin: 0;
+        border: none;
+        display: none;
+    }
+
+    #ide-tab-buttons {
+        layout: horizontal;
+        height: 3;
+        margin-bottom: 1;
+    }
+
+    #ide-tab-buttons Button {
+        width: 1fr;
+        margin-right: 1;
+    }
+
+    #ide-tab-buttons Button:last-child {
+        margin-right: 0;
+    }
+
+    #ide-tab-content {
+        height: 1fr;
+        width: 100%;
+        border: solid $primary 10%;
+        padding: 1;
+    }
+
+    .hidden {
+        display: none;
+    }
     """
 
     def __init__(self, smoke_mode=False, smoke_seconds=0.5, smoke_out=None, *args, **kwargs):
@@ -852,6 +986,7 @@ class MaestroTUI(App):
                 Button("📄 Logs", id="nav-logs", classes="nav-item clickable-nav-item"),
                 Button("📊 Confidence", id="nav-confidence", classes="nav-item clickable-nav-item"),
                 Button("📦 Vault", id="nav-vault", classes="nav-item clickable-nav-item"),
+                Button("📝 IDE", id="nav-ide", classes="nav-item clickable-nav-item"),
                 Button("❓ Help", id="nav-help", classes="nav-item clickable-nav-item"),
                 id="nav-menu"
             )
@@ -956,6 +1091,7 @@ class MaestroTUI(App):
                 "nav-logs": LogsScreen,
                 "nav-confidence": ConfidenceScreen,
                 "nav-vault": VaultScreen,
+                "nav-ide": IdeScreen,
                 "nav-help": HelpScreen,
             }
 
@@ -989,6 +1125,7 @@ class MaestroTUI(App):
             "nav-logs": LogsScreen,
             "nav-confidence": ConfidenceScreen,
             "nav-vault": VaultScreen,
+            "nav-ide": IdeScreen,
             "nav-help": HelpScreen,
         }
 
@@ -996,8 +1133,61 @@ class MaestroTUI(App):
         if button_id in nav_map:
             screen_cls = nav_map[button_id]
             if screen_cls is not None:
-                self._switch_main_content(screen_cls())
+                if button_id == "nav-ide":
+                    # Special handling for IDE - check if package is known
+                    self.open_ide_for_package()
+                else:
+                    self._switch_main_content(screen_cls())
             event.stop()
+
+    def get_last_ide_package(self):
+        """Get the last IDE package from the facade."""
+        return get_last_package_name()
+
+    def open_ide_for_package(self, package_name: Optional[str] = None):
+        """Open IDE for a specific package, using last package if none specified."""
+        # If no specific package name is provided, try to get the last stored package
+        if package_name is None:
+            package_name = self.get_last_ide_package()
+
+        # If still no package known, switch to Repo screen and notify the user
+        if package_name is None:
+            # Notify the user that no package is known
+            self.notify("No package selected for IDE. Select a package in the Repo screen first.",
+                       severity="warning", timeout=5)
+            # Switch to Repo screen
+            self._switch_main_content(RepoScreen())
+            return
+
+        # Store the current screen as the previous screen so we can return to it
+        previous_screen_cls = self.current_screen.__class__ if self.current_screen else None
+
+        # Save the package name for persistence
+        from maestro.ui_facade.ide import save_last_package_name
+        save_last_package_name(package_name)
+
+        # Create and switch to the IDE screen
+        ide_screen = IdeScreen(package_name, previous_screen_cls)
+        self._switch_main_content(ide_screen)
+
+    def switch_back_from_ide(self, target_cls: Optional[Type] = None):
+        """Switch back from IDE to the previous screen or home."""
+        if target_cls:
+            # Use the provided target class
+            screen_instance = target_cls()
+            self._switch_main_content(screen_instance)
+        elif hasattr(self, 'current_screen') and self.current_screen and hasattr(self.current_screen, 'previous_screen_cls'):
+            # Use the stored previous screen class from the IDE screen
+            previous_cls = self.current_screen.previous_screen_cls
+            if previous_cls:
+                screen_instance = previous_cls()
+                self._switch_main_content(screen_instance)
+            else:
+                # Default to home if no previous screen
+                self._switch_main_content(HomeScreen())
+        else:
+            # Default to home screen
+            self._switch_main_content(HomeScreen())
 
     def _switch_main_content(self, screen_instance):
         """Replace the main content area with a new screen with proper lifecycle management."""

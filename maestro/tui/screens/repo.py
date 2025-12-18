@@ -35,6 +35,7 @@ from maestro.ui_facade.repo import (
     search_repo_packages,
 )
 from maestro.tui.utils import ErrorModal, ErrorNormalizer
+from maestro.ui_facade.ide import save_last_package_name
 
 
 class RepoScreen(Static):
@@ -53,6 +54,7 @@ class RepoScreen(Static):
         self.packages: list[RepoPackageInfo] = []
         self.assemblies: list[RepoAssemblyInfo] = []
         self.render_seq: int = 0
+        self.last_selected_package_name: Optional[str] = None
 
     def compose(self) -> ComposeResult:
         header = Header()
@@ -78,6 +80,7 @@ class RepoScreen(Static):
 
         detail_pane = Vertical(
             Label("Details", id="repo-detail-title"),
+            Button("Open in IDE", id="repo-open-ide", variant="primary", disabled=True),
             RichLog(id="repo-detail-log", wrap=True),
             id="repo-detail-pane",
         )
@@ -208,6 +211,17 @@ class RepoScreen(Static):
             item_type = "asm"
             name = item.id.split("asm-", 1)[1]
 
+        # Track the last selected package name for IDE persistence
+        if item_type == "pkg" and name:
+            self.last_selected_package_name = name
+
+        # Enable/disable the IDE button based on item type
+        ide_button = self.query_one("#repo-open-ide", Button)
+        if item_type == "pkg":
+            ide_button.disabled = False
+        else:
+            ide_button.disabled = True
+
         if item_type == "pkg" and name:
             package = next((p for p in self.packages if p.name == name), None)
             if not package:
@@ -249,6 +263,15 @@ class RepoScreen(Static):
     @on(ListView.Selected, "#repo-items")
     def _handle_selection(self, event: ListView.Selected) -> None:
         self._show_details(event.item)
+
+    @on(Button.Pressed, "#repo-open-ide")
+    def _open_ide_clicked(self, _: Button.Pressed) -> None:
+        # Only open IDE if a package is selected (not an assembly)
+        if hasattr(self, 'last_selected_package_name') and self.last_selected_package_name:
+            # Save the last package name for persistence
+            save_last_package_name(self.last_selected_package_name)
+            # Call the app's open_ide_for_package method
+            self.app.open_ide_for_package(self.last_selected_package_name)
 
     @on(Button.Pressed, "#repo-refresh")
     def _refresh_clicked(self, _: Button.Pressed) -> None:
@@ -314,3 +337,7 @@ class RepoScreen(Static):
     def _update_status(self, message: str) -> None:
         status_widget = self.query_one("#repo-status", Static)
         status_widget.update(message)
+
+    def load_data(self, search_term: Optional[str] = None) -> None:
+        """Public method to load data, allowing the app to reuse this functionality."""
+        self._load_data(search_term)
