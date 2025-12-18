@@ -271,6 +271,11 @@ class IdeScreen(Static):
             self.toggle_bottom_pane()
         elif action.startswith("tab-"):
             self.switch_tab(action)
+
+        # Temporarily remove focus capability and then restore it to clear focus
+        # This ensures that after clicking, the element doesn't remain in focused state
+        clicked_widget.can_focus = False
+        self.set_timer(0.01, lambda: setattr(clicked_widget, 'can_focus', True))
         event.stop()
 
     def toggle_bottom_pane(self) -> None:
