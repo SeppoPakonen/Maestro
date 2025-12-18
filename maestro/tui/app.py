@@ -844,7 +844,7 @@ class MaestroTUI(App):
         color: $text;
         text-style: bold;
         min-width: 12;
-        background: $primary 10%;
+        background: $primary 20%;
         padding: 0 1;
     }
 
