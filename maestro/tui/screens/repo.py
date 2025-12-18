@@ -94,7 +94,7 @@ class RepoScreen(Static):
 
         detail_pane = Vertical(
             Label("Details", id="repo-detail-title"),
-            LinkLabel("Open in IDE", action="open_ide", id="repo-open-ide", classes="ide-link ide-tab-link"),
+            LinkLabel("Open in IDE", action="open_ide", id="repo-open-ide", classes="repo-open-ide"),
             RichLog(id="repo-detail-log", wrap=True),
             id="repo-detail-pane",
         )

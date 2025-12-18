@@ -837,8 +837,35 @@ class MaestroTUI(App):
         padding: 1 0 0 0;
     }
 
-    #repo-open-ide.disabled {
+    .repo-open-ide {
+        width: auto;
+        margin: 1 0;
+        content-align: center middle;
+        color: $text;
+        text-style: bold;
+        min-width: 12;
+        background: $primary 10%;
+        border: solid $primary 30%;
+        padding: 0 1;
+    }
+
+    .repo-open-ide:hover {
+        background: $success 20%;
+        color: $text;
+        text-style: bold;
+    }
+
+    .repo-open-ide:focus {
+        background: $primary 40%;
+        color: $text;
+        text-style: reverse;
+        border: solid $primary 60%;
+    }
+
+    .repo-open-ide.disabled {
         opacity: 0.5;
+        background: $surface;
+        border: solid $surface 40%;
     }
 
     #ide-body {
