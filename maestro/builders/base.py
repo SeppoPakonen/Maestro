@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
-from ..builders.config import MethodConfig
+from ..builders.config import MethodConfig, BuildConfig
 
 
 class Package:

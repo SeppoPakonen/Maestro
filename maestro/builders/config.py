@@ -71,6 +71,21 @@ class MethodConfig:
     custom: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class BuildMethod:
+    """
+    Lightweight wrapper used in early-phase tests.
+    Stores raw config data and exposes a MethodConfig view.
+    """
+    name: str
+    config_data: Dict[str, Any]
+
+    def to_method_config(self) -> MethodConfig:
+        """Convert to MethodConfig with best-effort defaults."""
+        builder = self.config_data.get("builder", "unknown")
+        return MethodConfig(name=self.name, builder=builder)
+
+
 class MethodManager:
     """Manages build methods, including loading, saving, and auto-detection."""
     
