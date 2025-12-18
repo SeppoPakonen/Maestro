@@ -27,6 +27,9 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 
+# Default planner preference (overridden in workflows/tests as needed)
+planner_preference: List[str] = ["codex", "claude"]
+
 # Import the session model and engines from the package
 from .session_model import Session, Subtask, PlanNode, load_session, save_session
 from .engines import EngineError

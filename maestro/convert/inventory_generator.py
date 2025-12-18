@@ -251,6 +251,9 @@ def generate_inventory(repo_path: str) -> Dict:
 
 def save_inventory(inventory: Dict, output_path: str):
     """Save inventory dictionary to a JSON file."""
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(inventory, f, indent=2, ensure_ascii=False)
 

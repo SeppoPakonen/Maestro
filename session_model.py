@@ -4,7 +4,7 @@ Defines the core data structure for storing session information with subtasks.
 """
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -84,9 +84,19 @@ class PlanNode:
     label: str
     status: str  # "active", "inactive", "dead"
     notes: Optional[str]
-    root_snapshot: str  # Combined root task snapshot
-    categories_snapshot: List[str]
-    subtask_ids: List[str]  # IDs of subtasks belonging to this plan
+    root_snapshot: str = ""  # Combined root task snapshot
+    root_task_snapshot: Optional[str] = None  # Legacy compat
+    root_clean_snapshot: Optional[str] = None  # Legacy compat
+    categories_snapshot: List[str] = field(default_factory=list)
+    subtask_ids: List[str] = field(default_factory=list)  # IDs of subtasks belonging to this plan
+
+    def __post_init__(self) -> None:
+        # Consolidate any legacy snapshot fields into the canonical snapshot.
+        if not self.root_snapshot:
+            if self.root_task_snapshot:
+                self.root_snapshot = self.root_task_snapshot
+            elif self.root_clean_snapshot:
+                self.root_snapshot = self.root_clean_snapshot
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the PlanNode to a dictionary representation."""
@@ -98,6 +108,8 @@ class PlanNode:
             "status": self.status,
             "notes": self.notes,
             "root_snapshot": self.root_snapshot,
+            "root_task_snapshot": self.root_task_snapshot,
+            "root_clean_snapshot": self.root_clean_snapshot,
             "categories_snapshot": self.categories_snapshot,
             "subtask_ids": self.subtask_ids
         }
@@ -119,6 +131,8 @@ class PlanNode:
             status=data["status"],
             notes=data.get("notes"),
             root_snapshot=root_snapshot,
+            root_task_snapshot=data.get("root_task_snapshot"),
+            root_clean_snapshot=data.get("root_clean_snapshot"),
             categories_snapshot=data.get("categories_snapshot", []),
             subtask_ids=data.get("subtask_ids", [])
         )
@@ -309,4 +323,3 @@ if __name__ == '__main__':
     print(f'Root task: {loaded_session.root_task}')
     print(f'Number of subtasks: {len(loaded_session.subtasks)}')
     print('Confirmation: Session created, saved, and loaded successfully.')
-

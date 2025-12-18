@@ -27,17 +27,20 @@ class CompletionProvider:
     """
     Provides completion suggestions for a given position in a file.
     """
-    
-    def __init__(self, symbol_table: SymbolTable, documents: Dict[str, ASTDocument]):
+
+    def __init__(self, symbol_table: SymbolTable, documents: Dict[str, ASTDocument],
+                 use_clang_completion: bool = False):
         """
         Initialize the completion provider.
-        
+
         Args:
             symbol_table: The symbol table containing all known symbols
             documents: Dictionary mapping file paths to ASTDocument objects
+            use_clang_completion: Whether to use clang-based completion (currently not implemented in provider, kept for backward compatibility)
         """
         self.symbol_table = symbol_table
         self.documents = documents
+        self.use_clang_completion = use_clang_completion
     
     def get_completion_items(self, 
                            file_path: str, 

@@ -37,6 +37,7 @@ class CompilerConfig:
 @dataclass
 class BuildConfig:
     """Build execution configuration."""
+    method: str = ""
     build_type: BuildType = BuildType.DEBUG
     parallel: bool = True
     jobs: int = 0  # 0 means use CPU count
@@ -45,6 +46,18 @@ class BuildConfig:
     skip_tests: bool = False
     offline: bool = False
     profile: Optional[str] = None
+    target_dir: str = ".maestro/build"
+    install_prefix: str = ".maestro/install"
+    flags: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Accept string build_type values like "debug"/"release".
+        if isinstance(self.build_type, str):
+            normalized = self.build_type.strip().lower()
+            if normalized == "debug":
+                self.build_type = BuildType.DEBUG
+            elif normalized == "release":
+                self.build_type = BuildType.RELEASE
 
 
 @dataclass

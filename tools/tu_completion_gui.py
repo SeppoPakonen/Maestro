@@ -48,30 +48,8 @@ class ClangCompletionAdapter:
 
             # Set the library path if provided
             libclang_path = os.environ.get("LIBCLANG_PATH")
-            if libclang_path:
-                if os.path.isfile(libclang_path):
-                    clang.cindex.Config.set_library_file(libclang_path)
-                    print(f"Using libclang file: {libclang_path}")
-                elif os.path.isdir(libclang_path):
-                    clang.cindex.Config.set_library_path(libclang_path)
-                    print(f"Using libclang path: {libclang_path}")
-            else:
-                # Try candidate libclang locations if LIBCLANG_PATH is not set
-                candidate_paths = [
-                    "/usr/lib/llvm/21/lib64/libclang.so",
-                    "/usr/lib/llvm-15/lib/libclang.so",
-                    "/usr/lib/libclang.so",
-                    "/usr/lib/x86_64-linux-gnu/libclang.so",
-                ]
-
-                for path in candidate_paths:
-                    if os.path.exists(path) and os.path.isfile(path):
-                        clang.cindex.Config.set_library_file(path)
-                        print(f"Using candidate libclang file: {path}")
-                        break
-                else:
-                    # If no candidates are found, proceed with default behavior
-                    print("No libclang path specified and no candidates found, using default")
+            if libclang_path and os.path.exists(libclang_path):
+                clang.cindex.Config.set_library_path(libclang_path)
 
             # Test basic functionality to ensure clang is working
             clang.cindex.Index.create()

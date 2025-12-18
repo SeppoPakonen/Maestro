@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -263,6 +264,9 @@ def generate_conversion_plan(source_repo_path: str, target_repo_path: str, plan_
         plan = add_auto_checkpoints(plan, memory, active_playbook)
 
     # Save the plan
+    plan_dir = os.path.dirname(plan_output_path)
+    if plan_dir:
+        os.makedirs(plan_dir, exist_ok=True)
     with open(plan_output_path, 'w', encoding='utf-8') as f:
         json.dump(plan, f, indent=2)
 

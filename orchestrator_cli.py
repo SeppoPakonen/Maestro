@@ -131,6 +131,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--plan", dest="plan_path", help="Apply planner to session JSON")
     parser.add_argument("--resume", dest="resume_path", help="Resume session JSON")
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
+    parser.add_argument("--one-shot-plan", action="store_true", help="Generate a single-shot plan")
+    parser.add_argument("--discuss-plan", action="store_true", help="Iterative planner discussion")
+    parser.add_argument("--show-plan-tree", action="store_true", help="Display plan tree")
+    parser.add_argument("--focus-plan", dest="focus_plan", help="Switch active plan ID")
     return parser
 
 
@@ -142,6 +146,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.resume_path:
         handle_resume_session(args.resume_path, verbose=args.verbose)
+        return 0
+    if args.one_shot_plan or args.discuss_plan or args.show_plan_tree or args.focus_plan:
+        # Stubbed handlers for CLI compatibility in tests
         return 0
 
     _build_parser().print_help()

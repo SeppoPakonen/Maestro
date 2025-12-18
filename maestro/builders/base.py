@@ -6,11 +6,21 @@ from ..builders.config import MethodConfig, BuildConfig
 class Package:
     """Class representing a package to be built."""
 
-    def __init__(self, name: str, directory: str = "", build_system: str = "upp",
-                 source_files: List[str] = None, dependencies: List[str] = None,
-                 metadata: Dict[str, Any] = None):
+    def __init__(
+        self,
+        name: str,
+        directory: str = "",
+        path: Optional[str] = None,
+        build_system: str = "upp",
+        source_files: List[str] = None,
+        dependencies: List[str] = None,
+        metadata: Dict[str, Any] = None
+    ):
         self.name = name
-        self.directory = directory  # Changed from 'path' to 'directory' to match to_builder_package
+        # Accept legacy 'path' while preferring explicit 'directory' when provided.
+        self.directory = directory if directory != "" else (path if path is not None else "")
+        # Maintain backward-compatible attribute name
+        self.path = self.directory
         self.build_system = build_system
         self.source_files = source_files or []
         self.dependencies = dependencies or []

@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional
 import platform
 
 from .base import Builder, Package
-from .config import MethodConfig
+from .config import MethodConfig, BuildConfig
 from .console import execute_command
 
 
@@ -21,8 +21,12 @@ class AutotoolsBuilder(Builder):
     def __init__(self, config: MethodConfig = None):
         super().__init__("autotools", config)
 
-    def configure(self, package: Package) -> bool:
+    def configure(self, package: Package, config: Optional[BuildConfig] = None) -> bool:
         """Run ./configure script for autotools-based package."""
+        if config is not None:
+            # Attach provided build config to the existing method config
+            self.config.config = config
+
         # Determine if we need to run autoreconf to generate configure script
         if not self._needs_autoreconf(package.path):
             print(f"Using existing configure script for {package.name}")
@@ -32,7 +36,8 @@ class AutotoolsBuilder(Builder):
                 return False
 
         # Determine if we should use out-of-source build
-        use_out_of_source = self.config.custom.get('out_of_source', False)
+        use_out_of_source = self.config.custom.get('out_of_source', False) or \
+            getattr(self.config.config, "flags", {}).get('out_of_source', False)
         if use_out_of_source:
             # Create build directory for out-of-source build
             build_dir = os.path.join(
@@ -119,14 +124,18 @@ class AutotoolsBuilder(Builder):
             print(f"Autotools configure failed: {str(e)}")
             return False
 
-    def build_package(self, package: Package) -> bool:
+    def build_package(self, package: Package, config: Optional[BuildConfig] = None) -> bool:
         """Build using make."""
+        if config is not None:
+            self.config.config = config
+
         # First run configure to ensure the environment is set up
         if not self.configure(package):
             return False
 
         # Determine build directory based on out-of-source setting
-        use_out_of_source = self.config.custom.get('out_of_source', False)
+        use_out_of_source = self.config.custom.get('out_of_source', False) or \
+            getattr(self.config.config, "flags", {}).get('out_of_source', False)
         if use_out_of_source:
             build_dir = os.path.join(
                 self.config.config.target_dir,
@@ -207,8 +216,11 @@ class AutotoolsBuilder(Builder):
             print(f"Autotools clean failed: {str(e)}")
             return False
 
-    def install_package(self, package: Package) -> bool:
+    def install_package(self, package: Package, config: Optional[BuildConfig] = None) -> bool:
         """Install the package using make install."""
+        if config is not None:
+            self.config.config = config
+
         # Installation is typically done from the build directory for out-of-source builds
         # but the make install command doesn't need to be run from the build directory
         # since it knows where the built files are
@@ -346,8 +358,10 @@ class AutotoolsBuilder(Builder):
         except:
             return 'make'  # Default fallback
 
-    def _run_autoreconf(self, package_path: str) -> bool:
+    def _run_autoreconf(self, package_path: str, config: Optional[BuildConfig] = None) -> bool:
         """Run autoreconf to generate configure script from configure.ac."""
+        if config is not None:
+            self.config.config = config
         autoreconf_args = ['autoreconf', '-i', '-f']  # -i for install aux files, -f for force
 
         # Add verbose flag if needed

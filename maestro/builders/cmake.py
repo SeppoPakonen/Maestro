@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from .base import Builder, Package
-from .config import MethodConfig
+from .config import MethodConfig, BuildConfig
 from .console import execute_command
 
 
@@ -20,15 +20,33 @@ class CMakeBuilder(Builder):
     def __init__(self, config: MethodConfig = None):
         super().__init__("cmake", config)
 
-    def configure(self, package: Package) -> bool:
+    def configure(self, package: Package, config: Optional[BuildConfig] = None) -> bool:
         """Run cmake configuration."""
-        # Determine build directory
-        build_dir = os.path.join(
-            self.config.config.target_dir,
-            self.config.name,
-            package.name,
-            "build"
-        )
+        if config is not None:
+            # Attach provided build config to the existing method config
+            if hasattr(config, 'config'):
+                # If config is actually a MethodConfig, use its config attribute
+                self.config.config = config.config
+            else:
+                # If config is a BuildConfig directly, assign it
+                self.config.config = config
+
+        # Determine if we should use out-of-source build
+        use_out_of_source = self.config.custom.get('out_of_source', False) or \
+            getattr(self.config.config, "flags", {}).get('out_of_source', False)
+
+        if use_out_of_source:
+            # Create build directory for out-of-source build
+            build_dir = os.path.join(
+                self.config.config.target_dir,
+                self.config.name,
+                package.name,
+                "build"
+            )
+        else:
+            # In-source build - use package path
+            build_dir = package.path
+
         os.makedirs(build_dir, exist_ok=True)
 
         # Determine CMake generator based on platform or user specification
@@ -85,19 +103,36 @@ class CMakeBuilder(Builder):
             print(f"CMake configuration failed: {str(e)}")
             return False
 
-    def build_package(self, package: Package) -> bool:
+    def build_package(self, package: Package, config: Optional[BuildConfig] = None) -> bool:
         """Build using cmake --build."""
+        if config is not None:
+            # Attach provided build config to the existing method config
+            if hasattr(config, 'config'):
+                # If config is actually a MethodConfig, use its config attribute
+                self.config.config = config.config
+            else:
+                # If config is a BuildConfig directly, assign it
+                self.config.config = config
+
         # First run configure to ensure cmake files are generated
         if not self.configure(package):
             return False
 
-        # Determine build directory
-        build_dir = os.path.join(
-            self.config.config.target_dir,
-            self.config.name,
-            package.name,
-            "build"
-        )
+        # Determine if we should use out-of-source build
+        use_out_of_source = self.config.custom.get('out_of_source', False) or \
+            getattr(self.config.config, "flags", {}).get('out_of_source', False)
+
+        if use_out_of_source:
+            # Create build directory for out-of-source build
+            build_dir = os.path.join(
+                self.config.config.target_dir,
+                self.config.name,
+                package.name,
+                "build"
+            )
+        else:
+            # In-source build - use package path
+            build_dir = package.path
 
         # Prepare cmake build arguments
         cmake_args = [
@@ -160,14 +195,32 @@ class CMakeBuilder(Builder):
         # If build directory doesn't exist, clean is considered successful
         return True
 
-    def install_package(self, package: Package) -> bool:
+    def install_package(self, package: Package, config: Optional[BuildConfig] = None) -> bool:
         """Install the package using cmake --install."""
-        build_dir = os.path.join(
-            self.config.config.target_dir,
-            self.config.name,
-            package.name,
-            "build"
-        )
+        if config is not None:
+            # Attach provided build config to the existing method config
+            if hasattr(config, 'config'):
+                # If config is actually a MethodConfig, use its config attribute
+                self.config.config = config.config
+            else:
+                # If config is a BuildConfig directly, assign it
+                self.config.config = config
+
+        # Determine if we should use out-of-source build
+        use_out_of_source = self.config.custom.get('out_of_source', False) or \
+            getattr(self.config.config, "flags", {}).get('out_of_source', False)
+
+        if use_out_of_source:
+            # Create build directory for out-of-source build
+            build_dir = os.path.join(
+                self.config.config.target_dir,
+                self.config.name,
+                package.name,
+                "build"
+            )
+        else:
+            # In-source build - use package path
+            build_dir = package.path
 
         # Ensure the build directory exists and is configured
         if not os.path.exists(build_dir):
@@ -193,19 +246,36 @@ class CMakeBuilder(Builder):
             print(f"CMake install failed: {str(e)}")
             return False
 
-    def build_target(self, package: Package, target: str) -> bool:
+    def build_target(self, package: Package, target: str, config: Optional[BuildConfig] = None) -> bool:
         """Build a specific CMake target."""
+        if config is not None:
+            # Attach provided build config to the existing method config
+            if hasattr(config, 'config'):
+                # If config is actually a MethodConfig, use its config attribute
+                self.config.config = config.config
+            else:
+                # If config is a BuildConfig directly, assign it
+                self.config.config = config
+
         # First run configure to ensure cmake files are generated
         if not self.configure(package):
             return False
 
-        # Determine build directory
-        build_dir = os.path.join(
-            self.config.config.target_dir,
-            self.config.name,
-            package.name,
-            "build"
-        )
+        # Determine if we should use out-of-source build
+        use_out_of_source = self.config.custom.get('out_of_source', False) or \
+            getattr(self.config.config, "flags", {}).get('out_of_source', False)
+
+        if use_out_of_source:
+            # Create build directory for out-of-source build
+            build_dir = os.path.join(
+                self.config.config.target_dir,
+                self.config.name,
+                package.name,
+                "build"
+            )
+        else:
+            # In-source build - use package path
+            build_dir = package.path
 
         # Prepare cmake build arguments for specific target
         cmake_args = [
@@ -281,7 +351,7 @@ class CMakeBuilder(Builder):
 
         return build_type_mapping.get(build_type.lower(), 'Debug')
 
-    def _detect_generator_type(self, build_dir: str) -> bool:
+    def _detect_generator_type(self, build_dir: str, config: Optional[BuildConfig] = None) -> bool:
         """Detect if the active CMake generator is multi-config or single-config.
 
         Multi-config generators (Visual Studio, Xcode) allow multiple build types
@@ -295,6 +365,15 @@ class CMakeBuilder(Builder):
         Returns:
             True if generator is multi-config, False if single-config
         """
+        # Support legacy call signature where config is passed as the first argument.
+        if isinstance(build_dir, (BuildConfig, MethodConfig)) and isinstance(config, str):
+            build_dir, config = config, build_dir  # swap
+        if isinstance(config, (BuildConfig, MethodConfig)):
+            if hasattr(config, "config"):
+                self.config.config = getattr(config, "config", config)
+            else:
+                self.config.config = config
+
         # Try to determine the generator type by checking the generated files
         # in the build directory after configuration
 
@@ -336,8 +415,13 @@ class CMakeBuilder(Builder):
         else:
             return False  # Make/Ninja are single-config
 
-    def get_available_targets(self, package: Package) -> List[str]:
+    def get_available_targets(self, package: Package, config: Optional[BuildConfig] = None) -> List[str]:
         """Get list of available CMake targets using cmake --build help or parsing generators."""
+        if isinstance(config, (BuildConfig, MethodConfig)):
+            if hasattr(config, "config"):
+                self.config.config = getattr(config, "config", config)
+            else:
+                self.config.config = config
         # First run configure to ensure cmake files are generated
         if not self.configure(package):
             return []

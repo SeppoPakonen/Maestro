@@ -20,7 +20,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Callable
 import hashlib
 import re
 import copy
@@ -197,6 +197,24 @@ def run_engine(engine: str, prompt: str, cwd: str, stream: bool = True, timeout:
 
     except Exception as e:
         return 1, "", f"Error running engine: {str(e)}"
+
+
+def _get_run_engine() -> Callable:
+    """
+    Helper function to get the run_engine function, allowing for monkeypatching.
+    Checks sys.modules.get('realize_worker') for attribute run_engine not None;
+    returns that, else returns the default run_engine (defined in same module).
+    """
+    import sys
+
+    # Get the realize_worker module from sys.modules
+    current_module = sys.modules.get('realize_worker')
+
+    if current_module and hasattr(current_module, 'run_engine') and getattr(current_module, 'run_engine') is not None:
+        return getattr(current_module, 'run_engine')
+    else:
+        # Return the default run_engine function defined in this module
+        return run_engine
 
 
 def parse_ai_output(output: str) -> Optional[Dict]:
@@ -817,7 +835,8 @@ def execute_file_task(task: Dict, source_repo_path: str, target_repo_path: str,
 
             try:
                 # Handle potential interruptions during engine run
-                exit_code, stdout_data, stderr_data = run_engine(
+                run_engine_func = _get_run_engine()
+                exit_code, stdout_data, stderr_data = run_engine_func(
                     engine=engine,
                     prompt=prompt,
                     cwd=source_repo_path,  # Use source repo as working directory
@@ -1197,7 +1216,8 @@ def execute_file_task_with_arbitration(task: Dict, source_repo_path: str, target
 
         try:
             # Handle potential interruptions during engine run
-            exit_code, stdout_data, stderr_data = run_engine(
+            run_engine_func = _get_run_engine()
+            exit_code, stdout_data, stderr_data = run_engine_func(
                 engine=engine,
                 prompt=prompt,
                 cwd=source_repo_path,
@@ -1687,7 +1707,8 @@ def _select_winner(candidates: Dict, scorecards: Dict, semantic_results: Dict, u
 
         # Run judge engine to make final decision
         try:
-            exit_code, stdout_data, stderr_data = run_engine(
+            run_engine_func = _get_run_engine()
+            exit_code, stdout_data, stderr_data = run_engine_func(
                 engine=judge_engine,
                 prompt=judge_prompt,
                 cwd=source_repo_path,

@@ -22,6 +22,11 @@ class Decision:
     description: str
     created_at: str
     last_modified: str
+    value: str = ''
+    origin: str = 'system'
+    supersedes: List[str] = None  # Will be initialized in __post_init__
+    superseded_by: Optional[str] = None
+    fingerprint: Optional[str] = None
     reason: Optional[str] = None
     original_decision: Optional[str] = None
     override_reason: Optional[str] = None
@@ -32,6 +37,36 @@ class Decision:
     def __post_init__(self):
         if self.affected_plans is None:
             self.affected_plans = []
+        if self.supersedes is None:
+            self.supersedes = []
+
+    def __getitem__(self, key):
+        """Allow dict-like access to Decision fields using to_dict."""
+        data = self.to_dict()
+        if key in data:
+            return data[key]
+        raise KeyError(f"'{type(self).__name__}' object has no attribute '{key}'")
+
+    def to_dict(self):
+        """Convert Decision to dictionary for dict-like access."""
+        return {
+            'id': self.id,
+            'status': self.status,
+            'description': self.description,
+            'created_at': self.created_at,
+            'last_modified': self.last_modified,
+            'value': self.value,
+            'origin': self.origin,
+            'supersedes': self.supersedes,
+            'superseded_by': self.superseded_by,
+            'fingerprint': self.fingerprint,
+            'reason': self.reason,
+            'original_decision': self.original_decision,
+            'override_reason': self.override_reason,
+            'affected_plans': self.affected_plans,
+            'evidence': self.evidence,
+            'related_evidence': self.related_evidence
+        }
 
 
 @dataclass
@@ -68,7 +103,7 @@ class DecisionManager:
         os.makedirs(self.decisions_dir, exist_ok=True)
         return os.path.join(self.decisions_dir, "decisions.json")
 
-    def _load_decisions(self) -> List[Dict[str, Any]]:
+    def _load_decisions(self) -> List[Decision]:
         """Load decisions from file, with fallback to initial decisions."""
         decisions_file = self._get_decisions_file_path()
 
@@ -85,6 +120,11 @@ class DecisionManager:
                             description=data.get('description', data.get('title', '')),
                             created_at=data.get('timestamp', data.get('created_at', datetime.now().isoformat())),
                             last_modified=data.get('last_modified', data.get('timestamp', datetime.now().isoformat())),
+                            value=data.get('value', data.get('description', '')),
+                            origin=data.get('origin', 'system'),
+                            supersedes=data.get('supersedes', []),
+                            superseded_by=data.get('superseded_by'),
+                            fingerprint=data.get('fingerprint'),
                             reason=data.get('reason'),
                             original_decision=data.get('original_decision'),
                             override_reason=data.get('override_reason'),
@@ -119,6 +159,11 @@ class DecisionManager:
                 'description': decision.description,
                 'created_at': decision.created_at,
                 'last_modified': decision.last_modified,
+                'value': decision.value,
+                'origin': decision.origin,
+                'supersedes': decision.supersedes,
+                'superseded_by': decision.superseded_by,
+                'fingerprint': decision.fingerprint,
                 'reason': decision.reason,
                 'original_decision': decision.original_decision,
                 'override_reason': decision.override_reason,
@@ -140,6 +185,8 @@ class DecisionManager:
                 description="Use snake_case for function names in Python conversion",
                 created_at=now,
                 last_modified=now,
+                value="Use snake_case for function names in Python conversion",
+                origin="system",
                 reason="Python convention is to use snake_case for function names",
                 evidence="Python PEP 8 style guide recommends snake_case for function names",
                 affected_plans=["plan_function_naming"]
@@ -150,24 +197,27 @@ class DecisionManager:
                 description="Convert U++ Vector to Python lists with type hints",
                 created_at=now,
                 last_modified=now,
+                value="Convert U++ Vector to Python lists with type hints",
+                origin="system",
                 reason="Python lists provide similar functionality with better integration",
                 evidence="Python lists are the standard data structure for ordered collections",
                 affected_plans=["plan_data_structure_conversion"]
             )
         ]
 
-    def list_decisions(self) -> List[Decision]:
+    def list_decisions(self) -> List[Dict[str, Any]]:
         """List all conversion decisions in the memory."""
         with self._lock:
-            return self._load_decisions()
+            decisions = self._load_decisions()
+            return [decision.to_dict() for decision in decisions]
 
-    def get_decision(self, decision_id: str) -> Optional[Decision]:
+    def get_decision(self, decision_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific decision by ID."""
         with self._lock:
             decisions = self._load_decisions()
             for decision in decisions:
                 if decision.id == decision_id:
-                    return decision
+                    return decision.to_dict()
             return None
 
     def get_decision_summary(self) -> DecisionSummary:
@@ -188,12 +238,13 @@ class DecisionManager:
                 rejected=rejected
             )
 
-    def override_decision(self, decision_id: str, reason: str, auto_replan: bool = True) -> OverrideResult:
+    def override_decision(self, decision_id: str, new_value: str, reason: str, auto_replan: bool = True) -> OverrideResult:
         """
         Override a decision by creating a new version that supersedes the old one.
 
         Args:
             decision_id: ID of the decision to override
+            new_value: New decision content/value
             reason: Reason for the override
             auto_replan: Whether to automatically trigger replan after override
 
@@ -219,22 +270,19 @@ class DecisionManager:
             new_decision_id = f"D-{uuid.uuid4().hex[:8].upper()}"
 
             # Calculate fingerprints for before/after comparison
-            old_fingerprint = hashlib.md5(json.dumps({
-                'id': old_decision.id,
-                'status': old_decision.status,
-                'description': old_decision.description,
-                'created_at': old_decision.created_at,
-                'reason': old_decision.reason
-            }, sort_keys=True).encode()).hexdigest()
+            old_fingerprint = hashlib.md5(json.dumps(old_decision.to_dict(), sort_keys=True).encode()).hexdigest()
 
             # Create new decision based on the old one but with override status
             new_decision = Decision(
                 id=new_decision_id,
                 status="active",  # New decision is active
-                description=old_decision.description,  # Keep same description
+                description=new_value or old_decision.description,
                 created_at=datetime.now().isoformat(),
                 last_modified=datetime.now().isoformat(),
-                reason=f"Overridden: {reason}",
+                value=new_value,
+                origin="human_override",
+                supersedes=[old_decision.id],
+                reason=reason,
                 original_decision=old_decision.id,
                 override_reason=reason,
                 affected_plans=old_decision.affected_plans,
@@ -242,17 +290,14 @@ class DecisionManager:
                 related_evidence=old_decision.related_evidence
             )
 
-            new_fingerprint = hashlib.md5(json.dumps({
-                'id': new_decision.id,
-                'status': new_decision.status,
-                'description': new_decision.description,
-                'created_at': new_decision.created_at,
-                'reason': new_decision.reason
-            }, sort_keys=True).encode()).hexdigest()
+            new_fingerprint = hashlib.md5(json.dumps(new_decision.to_dict(), sort_keys=True).encode()).hexdigest()
+            new_decision.fingerprint = new_fingerprint
 
             # Update original decision to mark it as superseded
             old_decision.status = "superseded"
             old_decision.last_modified = datetime.now().isoformat()
+            old_decision.superseded_by = new_decision_id
+            old_decision.fingerprint = old_fingerprint
 
             # Add the new decision to the list
             decisions.append(new_decision)
@@ -295,6 +340,6 @@ def get_decision_summary() -> DecisionSummary:
     return _decision_manager.get_decision_summary()
 
 
-def override_decision(decision_id: str, reason: str, auto_replan: bool = True) -> OverrideResult:
+def override_decision(decision_id: str, new_value: str, reason: str, auto_replan: bool = True) -> OverrideResult:
     """Override a decision by creating a new version that supersedes the old one."""
-    return _decision_manager.override_decision(decision_id, reason, auto_replan)
+    return _decision_manager.override_decision(decision_id, new_value, reason, auto_replan)

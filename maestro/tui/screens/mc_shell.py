@@ -116,6 +116,9 @@ class MainShellScreen(Screen):
         # Use the pane registry to get available sections, with default fallback
         from maestro.tui.panes.registry import registered_pane_ids
         registry_sections = registered_pane_ids()
+        # Map display labels to registry IDs (normalize to Title case for UI)
+        self.section_id_map = {name.title(): name for name in registry_sections}
+        registry_sections = list(self.section_id_map.keys())
         # Add some default sections that may not be in the registry yet
         self.sections: List[str] = registry_sections + [
             "Home",
@@ -282,7 +285,8 @@ class MainShellScreen(Screen):
         self._clear_current_view(host)
 
         # Use hard failure containment for pane creation
-        view, error = create_pane_safe(self.current_section)
+        pane_id = self._pane_id_for_section(self.current_section)
+        view, error = create_pane_safe(pane_id)
 
         if error:
             content_title.update(title_text)
@@ -337,6 +341,10 @@ class MainShellScreen(Screen):
         if index < 0 or index >= len(self.sections):
             return None
         return self.sections[index]
+
+    def _pane_id_for_section(self, section: str) -> str:
+        """Map a display section name to a registered pane ID."""
+        return self.section_id_map.get(section, section).lower()
 
     def _clear_current_view(self, host: Vertical) -> None:
         """Remove the current view and clean up."""
@@ -688,11 +696,11 @@ class MainShellScreen(Screen):
     def _base_menus(self, pane_menu: Menu) -> List[Menu]:
         """Construct the ordered menus with the pane-owned entry."""
         return [
-            self._sections_menu(),  # New: Sections menu added to menubar
             self._maestro_menu(),
             self._navigation_menu(),
-            self._view_menu(),
             pane_menu,
+            self._view_menu(),
+            self._sections_menu(),  # New: Sections menu added to menubar
             self._help_menu(),
         ]
 
