@@ -53,19 +53,19 @@
 
 This track implements all phases from `docs/umk.md`, creating a universal build orchestration system.
 
-- [ ] [Phase 1: Core Builder Abstraction](docs/phases/phase1.md) ✅ **[Design Complete]** 📋 **[Implementation Planned]**
-- [ ] [Phase 2: U++ Builder Implementation](docs/phases/phase2.md) 📋 **[Planned]**
-- [ ] [Phase 3: CMake Builder](docs/phases/phase3.md) 📋 **[Planned]**
-- [ ] [Phase 4: Autotools Builder](docs/phases/phase4.md) 📋 **[Planned]**
-- [ ] [Phase 5: MSBuild / Visual Studio Builder](docs/phases/phase5.md) 📋 **[Planned]**
-- [ ] [Phase 5.5: Maven Builder](docs/phases/phase5_5.md) 📋 **[Planned]**
-- [ ] [Phase 6: Universal Build Configuration](docs/phases/phase6.md) 📋 **[Planned]**
-- [ ] [Phase 7: CLI Integration](docs/phases/phase7.md) 📋 **[Planned]**
-- [ ] [Phase 8: Advanced Features](docs/phases/phase8.md) 📋 **[Planned]**
-- [ ] [Phase 9: TUI Integration](docs/phases/phase9.md) 📋 **[Planned]**
-- [ ] [Phase 10: Universal Hub System (MaestroHub)](docs/phases/phase10.md) 📋 **[Planned]**
-- [ ] [Phase 11: Internal Package Groups](docs/phases/phase11.md) 📋 **[Planned]**
-- [ ] [Phase 12: Retroactive Fixes and Missing Components](docs/phases/phase12.md) 🚧 **[CURRENT - Critical]**
+- [ ] [Phase 1: Core Builder Abstraction](phases/phase1.md) ✅ **[Design Complete]** 📋 **[Implementation Planned]**
+- [ ] [Phase 2: U++ Builder Implementation](phases/phase2.md) 📋 **[Planned]**
+- [ ] [Phase 3: CMake Builder](phases/phase3.md) 📋 **[Planned]**
+- [ ] [Phase 4: Autotools Builder](phases/phase4.md) 📋 **[Planned]**
+- [ ] [Phase 5: MSBuild / Visual Studio Builder](phases/phase5.md) 📋 **[Planned]**
+- [ ] [Phase 5.5: Maven Builder](phases/phase5_5.md) 📋 **[Planned]**
+- [ ] [Phase 6: Universal Build Configuration](phases/phase6.md) 📋 **[Planned]**
+- [ ] [Phase 7: CLI Integration](phases/phase7.md) 📋 **[Planned]**
+- [ ] [Phase 8: Advanced Features](phases/phase8.md) 📋 **[Planned]**
+- [ ] [Phase 9: TUI Integration](phases/phase9.md) 📋 **[Planned]**
+- [ ] [Phase 10: Universal Hub System (MaestroHub)](phases/phase10.md) 📋 **[Planned]**
+- [ ] [Phase 11: Internal Package Groups](phases/phase11.md) 📋 **[Planned]**
+- [ ] [Phase 12: Retroactive Fixes and Missing Components](phases/phase12.md) 🚧 **[CURRENT - Critical]**
 
 ---
 
@@ -73,12 +73,12 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
 
 This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) generation for advanced code analysis, auto-completion, and code transformation.
 
-- [ ] [Phase TU1: Core AST Infrastructure](docs/phases/tu1.md) 📋 **[Planned]**
-- [ ] [Phase TU2: Incremental TU Builder with File Hashing](docs/phases/tu2.md) 📋 **[Planned]**
-- [ ] [Phase TU3: Symbol Resolution and Indexing](docs/phases/tu3.md) 📋 **[Planned]**
-- [ ] [Phase TU4: Auto-Completion Engine](docs/phases/tu4.md) 📋 **[Planned]**
-- [ ] [Phase TU5: Integration with Build System and CLI](docs/phases/tu5.md) 📋 **[Planned]**
-- [ ] [Phase TU6: Code Transformation and Convention Enforcement](docs/phases/tu6.md) 📋 **[Planned]**
+- [ ] [Phase TU1: Core AST Infrastructure](phases/tu1.md) 📋 **[Planned]**
+- [ ] [Phase TU2: Incremental TU Builder with File Hashing](phases/tu2.md) 📋 **[Planned]**
+- [ ] [Phase TU3: Symbol Resolution and Indexing](phases/tu3.md) 📋 **[Planned]**
+- [ ] [Phase TU4: Auto-Completion Engine](phases/tu4.md) 📋 **[Planned]**
+- [ ] [Phase TU5: Integration with Build System and CLI](phases/tu5.md) 📋 **[Planned]**
+- [ ] [Phase TU6: Code Transformation and Convention Enforcement](phases/tu6.md) 📋 **[Planned]**
 
 ---
 
@@ -86,33 +86,38 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 This track extends repository scanning and build support to additional ecosystems.
 
-- [ ] [Phase E1: Python Project Support](docs/phases/e1.md) 📋 **[Planned]**
-- [ ] [Phase E2: Node.js / npm Project Support](docs/phases/e2.md) 📋 **[Planned]**
-- [ ] [Phase E3: Go Project Support](docs/phases/e3.md) 📋 **[Planned]**
-- [ ] [Phase E4: Pedigree pup Package System Support](docs/phases/e4.md) 📋 **[Planned]**
-- [ ] [Phase E5: Additional Build Systems (Future)](docs/phases/e5.md) 💡 **[Proposed]**
+- [ ] [Phase E1: Python Project Support](phases/e1.md) 📋 **[Planned]**
+- [ ] [Phase E2: Node.js / npm Project Support](phases/e2.md) 📋 **[Planned]**
+- [ ] [Phase E3: Go Project Support](phases/e3.md) 📋 **[Planned]**
+- [ ] [Phase E4: Pedigree pup Package System Support](phases/e4.md) 📋 **[Planned]**
+- [ ] [Phase E5: Additional Build Systems (Future)](phases/e5.md) 💡 **[Proposed]**
 
 ---
+
+## Assemblies and Packages Track
+
+This track handles the organization of packages into logical assemblies that represent cohesive units of code.
+
+- [ ] [Phase AS1: Assemblies in Maestro Repository System](phases/as1.md)
 
 ## Advanced Track: External Dependencies and Portage Integration
 
 This track handles external dependencies, build scripts, and Gentoo Portage integration.
 
-- [ ] [Phase AS1: Assemblies in Maestro Repository System](docs/phases/as1.md)
-- [ ] [Phase A1: Git Submodule and Build Script Handling](docs/phases/a1.md) 💡 **[Proposed]**
-- [ ] [Phase A2: Gentoo Portage Integration - Design](docs/phases/a2.md) 💡 **[Proposed]**
-- [ ] [Phase A3: Portage Integration - Implementation](docs/phases/a3.md) 💡 **[Proposed]**
-- [ ] [Phase A4: Host System Package Recognition](docs/phases/a4.md) 💡 **[Proposed]**
-- [ ] [Phase A5: Portage Superset Integration](docs/phases/a5.md) 💡 **[Proposed]**
-- [ ] [Phase A6: External Dependency Workflow](docs/phases/a6.md) 💡 **[Proposed]**
+- [ ] [Phase A1: Git Submodule and Build Script Handling](phases/a1.md) 💡 **[Proposed]**
+- [ ] [Phase A2: Gentoo Portage Integration - Design](phases/a2.md) 💡 **[Proposed]**
+- [ ] [Phase A3: Portage Integration - Implementation](phases/a3.md) 💡 **[Proposed]**
+- [ ] [Phase A4: Host System Package Recognition](phases/a4.md) 💡 **[Proposed]**
+- [ ] [Phase A5: Portage Superset Integration](phases/a5.md) 💡 **[Proposed]**
+- [ ] [Phase A6: External Dependency Workflow](phases/a6.md) 💡 **[Proposed]**
 
 ---
 
 ## Integration and Testing
 
-- [ ] [Phase IT1: Integration Testing](docs/phases/it1.md)
-- [ ] [Phase IT2: Notes and Considerations](docs/phases/it2.md)
-- [ ] [Phase IT3: Next Steps](docs/phases/it3.md)
+- [ ] [Phase IT1: Integration Testing](phases/it1.md)
+- [ ] [Phase IT2: Notes and Considerations](phases/it2.md)
+- [ ] [Phase IT3: Next Steps](phases/it3.md)
 
 ---
 
