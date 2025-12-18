@@ -770,11 +770,6 @@ class MaestroTUI(App):
         text-style: reverse;
     }
 
-    #ide-top-bar .ide-link:active {
-        background: $primary 50%;
-        text-style: bold;
-    }
-
     #ide-top-bar Label {
         height: 1;
         width: 1fr;
