@@ -763,6 +763,7 @@ class MaestroTUI(App):
         height: 1;
         width: 1fr;
         content-align: center middle;
+        color: $text;
     }
 
     #ide-back {
@@ -896,6 +897,7 @@ class MaestroTUI(App):
 
     .ide-top-link {
         text-style: bold;
+        color: $text;
     }
 
     .ide-tab-link.active {
