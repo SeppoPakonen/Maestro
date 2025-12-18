@@ -102,11 +102,17 @@ class MaestroTUI(App):
         border: none;
         background: transparent;
         text-align: left;
+        content-align: left middle;
     }
 
     #nav-menu Button:focus {
         outline: none;
         text-style: reverse;
+    }
+
+    #nav-menu Button:hover {
+        background: $primary 15%;
+        text-style: bold;
     }
 
     #nav-menu {
@@ -512,6 +518,48 @@ class MaestroTUI(App):
     .action-item:hover {
         color: $text;
         text-style: bold;
+    }
+
+    /* Repo Screen */
+    #repo-screen {
+        layout: grid;
+        grid-size: 1 4;
+        grid-rows: auto auto 1fr auto;
+        row-gap: 1;
+        height: 1fr;
+        padding: 1;
+    }
+
+    #repo-controls, #repo-search {
+        height: 3;
+        column-gap: 1;
+        align: center middle;
+    }
+
+    #repo-search Input {
+        width: 1fr;
+    }
+
+    #repo-main {
+        height: 1fr;
+        column-gap: 1;
+    }
+
+    #repo-list-pane, #repo-detail-pane {
+        height: 1fr;
+        width: 1fr;
+        border: solid $primary 20%;
+        padding: 1;
+        row-gap: 1;
+    }
+
+    #repo-items, #repo-detail-log {
+        height: 1fr;
+    }
+
+    #repo-status {
+        height: 1;
+        content-align: left middle;
     }
 
     .panel {
