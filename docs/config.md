@@ -1,6 +1,6 @@
 # Maestro Configuration
 
-**Last Updated**: 2025-12-18
+**Last Updated**: 2025-12-19
 
 ---
 
@@ -21,7 +21,7 @@
 
 ---
 
-## AI Settings
+## Ai Settings
 
 "ai_provider": "anthropic"
 "ai_model": "claude-3-5-sonnet-20250205"
@@ -94,8 +94,8 @@ This configuration file is both human-readable and machine-parsable. You can:
 **Display Settings:**
 - `color_output`: Use ANSI colors in terminal output
 - `unicode_symbols`: Use Unicode symbols (✅ 🚧 📋 💡)
-- `compact_lists`: Show compact list format by default
 - `show_completion_bars`: Show progress bars for completion percentages
+- `compact_lists`: Show compact list format by default
 
 **Current Context:**
 - `current_track`: Currently active track ID (null = none)

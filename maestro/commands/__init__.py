@@ -6,6 +6,7 @@ from .track import add_track_parser, handle_track_command
 from .phase import add_phase_parser, handle_phase_command
 from .task import add_task_parser, handle_task_command
 from .discuss import add_discuss_parser, handle_discuss_command
+from .settings import add_settings_parser, handle_settings_command
 
 __all__ = [
     'add_track_parser',
@@ -16,4 +17,6 @@ __all__ = [
     'handle_task_command',
     'add_discuss_parser',
     'handle_discuss_command',
+    'add_settings_parser',
+    'handle_settings_command',
 ]
