@@ -974,7 +974,6 @@ class MaestroTUI(App):
         width: 25;
         border: solid $primary;
         background: $surface;
-        z-index: 100;
     }
 
     #ide-menu-list {
