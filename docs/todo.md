@@ -40,6 +40,8 @@
 | | Maven builder | 🚧 In Progress | 40% |
 | | Gradle builder | 📋 Planned | 0% |
 | | **Phase 12: Retroactive Fixes** | 🚧 **CURRENT** | **10%** |
+| **Test Meaningfulness & Reliability** | | | |
+| | TM1: Test Meaningfulness Audit | 📋 Planned | 0% |
 | **TU/AST System** | | | |
 | | Core AST infrastructure | 📋 Planned | 0% |
 | | Incremental TU builder | 📋 Planned | 0% |
@@ -160,6 +162,26 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
 - [ ] [Phase 10: Universal Hub System (MaestroHub)](phases/phase10.md) 📋 **[Planned]**
 - [ ] [Phase 11: Internal Package Groups](phases/phase11.md) 📋 **[Planned]**
 - [ ] [Phase 12: Retroactive Fixes and Missing Components](phases/phase12.md) 🚧 **[CURRENT - Critical]**
+
+---
+
+## Track: Test Meaningfulness & Reliability
+
+"track_id": "test-meaningfulness"
+"priority": 2
+"status": "planned"
+
+This track focuses on evaluating and improving the meaningfulness and reliability of the test suite so failures reflect real regressions, not environment noise.
+
+### Phase TM1: Test Meaningfulness Audit
+
+"phase_id": "test-meaningfulness-1"
+"status": "planned"
+"completion": 0
+
+- [ ] [Phase TM1: Test Meaningfulness Audit](phases/tm1.md) 📋 **[Planned]**
+  - Categorize failing tests by value and stability
+  - Decide which tests to fix, update, or retire
 
 ---
 
