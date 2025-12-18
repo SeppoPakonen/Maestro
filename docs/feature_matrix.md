@@ -17,8 +17,12 @@
 | Plan generation | 0.2.0 | 0.2.0 | Visual planning interface |
 | Apply/Revert operations | 0.3.5 | planned | Safe change application with rollback |
 | Status monitoring | 0.2.2 | planned | Real-time execution status visualization |
-| Configuration management | 0.1.8 | planned | Visual config editor |
+| Configuration management | 1.3.0 | planned | Markdown-based settings in docs/config.md with CLI commands |
+| Track management | 1.3.0 | planned | Track/Phase/Task CLI commands for project planning |
+| Phase management | 1.3.0 | planned | Phase listing, viewing, and context setting |
 | Task progress tracking | 0.3.2 | 0.3.2 | Progress bars and status updates |
+| Context management | 1.3.0 | planned | Track/Phase/Task context for efficient workflow |
+| AI Discussion System | 1.3.0 | planned | Integrated AI discussions for tracks, phases, and tasks |
 | Log visualization | 0.2.8 | planned | Structured log display |
 | Rulebook creation wizard | — | planned | Guided rulebook authoring |
 | Live execution view | — | planned | Real-time process monitoring |
@@ -47,6 +51,14 @@
 | Conversion replay | CLI v0.1.0 | 0.1.0 | Deterministic replay of conversion runs with drift detection |
 | Conversion baselines | CLI v0.1.0 | 0.1.0 | Mark runs as baselines for drift analysis |
 | Conversion run comparison | CLI v0.1.0 | 0.1.0 | Compare runs to detect drift in structural, decision, and semantic aspects |
+| Settings module | CLI v1.3.0 | — | Markdown-based configuration with load/save/validate, dot notation access, and section operations |
+| Settings commands | CLI v1.3.0 | — | maestro settings list/get/set/edit/reset/wizard for configuration management |
+| Track commands | CLI v1.3.0 | — | maestro track list/show/add/remove/edit/set for track management |
+| Phase commands | CLI v1.3.0 | — | maestro phase list/show/add/remove/edit/set for phase management |
+| Task commands | CLI v1.3.0 | — | maestro task list/show/add/remove/edit/set for task management |
+| Context commands | CLI v1.3.0 | — | maestro context show/clear for current track/phase/task context |
+| AI discuss commands | CLI v1.3.0 | — | maestro track/phase/task discuss for AI-assisted planning |
+| Markdown data backend | CLI v1.3.0 | — | Human-readable markdown format for todo/done/config data |
 
 ## Development Philosophy
 
