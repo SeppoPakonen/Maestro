@@ -568,6 +568,26 @@ class MaestroTUI(App):
         margin-right: 1;
     }
 
+    #repo-detail-pane {
+        layout: vertical;
+    }
+
+    #repo-detail-header {
+        layout: horizontal;
+        align: center middle;
+        height: auto;
+    }
+
+    .repo-detail-title {
+        width: 1fr;
+        content-align: left middle;
+    }
+
+    .repo-open-ide {
+        align-self: center;
+        margin-left: auto;  /* Push to the right */
+    }
+
     #repo-items, #repo-detail-log {
         height: 1fr;
     }
