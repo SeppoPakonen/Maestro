@@ -23,10 +23,12 @@ from maestro.ui_facade.repo import RepoPackageInfo, find_repo_root_from_path
 class IdeScreen(Static):
     """IDE Screen showing packages, files, and a simple editor view."""
 
-    def __init__(self, package_name: str, previous_screen_cls: Optional[Type[Static]] = None):
+    def __init__(self, package_name: str, previous_screen_cls: Optional[Type[Static]] = None, resume_mode: bool = False):
         super().__init__()
         self.package_name = package_name
         self.previous_screen_cls = previous_screen_cls
+        # If we are resuming from navigation with a previously saved package, avoid auto-opening a file
+        self.resume_mode = resume_mode
         self.repo_root: Optional[str] = None
         self.packages: list[RepoPackageInfo] = []
         self.current_package: Optional[RepoPackageInfo] = None
@@ -137,13 +139,23 @@ class IdeScreen(Static):
         self.package_name = package.name
         save_last_package_name(package.name)
         self._update_title()
-        self._update_file_list(package)
+        auto_open = not self.resume_mode
+        # After the first selection in resume mode, revert to normal behavior
+        self.resume_mode = False
+        self._update_file_list(package, auto_open=auto_open)
 
-    def _update_file_list(self, package: RepoPackageInfo) -> None:
+    def _update_file_list(self, package: RepoPackageInfo, auto_open: bool = False) -> None:
         file_list = self.query_one("#ide-file-list", ListView)
         file_list.clear()
 
-        files = getattr(package, "files", []) or []
+        files = list(getattr(package, "files", []) or [])
+
+        # Ensure the UPP definition file is always present in the list
+        if getattr(package, "upp_path", None):
+            upp_name = Path(package.upp_path).name
+            if upp_name not in files:
+                files.insert(0, upp_name)
+
         for rel_path in files:
             display_text = rel_path
             item = ListItem(Label(display_text), id=self._safe_id("file", rel_path))
@@ -154,6 +166,17 @@ class IdeScreen(Static):
         editor = self.query_one("#ide-editor", RichLog)
         editor.clear()
         self.query_one("#ide-editor-title", Static).update(f"{package.name} (no file selected)")
+
+        # Auto-open the first non-.upp file (or .upp if none) unless we are resuming
+        if auto_open and files:
+            non_upp_files = [f for f in files if not f.lower().endswith(".upp")]
+            target = non_upp_files[0] if non_upp_files else files[0]
+            # Update selection to match the auto-opened file
+            for idx, item in enumerate(file_list.children):
+                if getattr(item, "data", None) and item.data[1] == target:
+                    file_list.index = idx
+                    break
+            self._open_file(package, target)
 
     @on(ListView.Selected, "#ide-package-list")
     def _package_selected(self, event: ListView.Selected) -> None:
@@ -177,7 +200,7 @@ class IdeScreen(Static):
 
         editor = self.query_one("#ide-editor", RichLog)
         editor.clear()
-        editor.write(content, markup=False)
+        editor.write(content)
         self.current_file_path = str(full_path)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

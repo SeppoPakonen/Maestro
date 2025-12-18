@@ -1144,11 +1144,12 @@ class MaestroTUI(App):
         """Get the last IDE package from the facade."""
         return get_last_package_name()
 
-    def open_ide_for_package(self, package_name: Optional[str] = None):
+    def open_ide_for_package(self, package_name: Optional[str] = None, resume_mode: bool = False):
         """Open IDE for a specific package, using last package if none specified."""
         # If no specific package name is provided, try to get the last stored package
         if package_name is None:
             package_name = self.get_last_ide_package()
+            resume_mode = True
 
         # If still no package known, switch to Repo screen and notify the user
         if package_name is None:
@@ -1167,7 +1168,7 @@ class MaestroTUI(App):
         save_last_package_name(package_name)
 
         # Create and switch to the IDE screen
-        ide_screen = IdeScreen(package_name, previous_screen_cls)
+        ide_screen = IdeScreen(package_name, previous_screen_cls, resume_mode=resume_mode)
         self._switch_main_content(ide_screen)
 
     def switch_back_from_ide(self, target_cls: Optional[Type] = None):
