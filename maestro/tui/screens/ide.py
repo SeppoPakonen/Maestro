@@ -328,8 +328,9 @@ class IdeScreen(Static):
         ]
 
         for label, action in menu_items:
-            # Use ListItem with Label as content
-            item = ListItem(Label(label), id=f"menu-{action}")
+            # Use ListItem with Label as content - ensure unique IDs by adding sequence number
+            self.render_seq += 1
+            item = ListItem(Label(label), id=f"menu-{action}-r{self.render_seq}")
             item.data = action
             menu_list.append(item)
 
