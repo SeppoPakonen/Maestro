@@ -8,6 +8,7 @@ Commands:
 - maestro phase <id> - Show phase details
 - maestro phase <id> show - Show phase details
 - maestro phase <id> edit - Edit phase in $EDITOR
+- maestro phase <id> set - Set current phase context
 """
 
 import sys
@@ -23,6 +24,8 @@ def list_phases(args):
     If track_id is provided, list only phases in that track.
     Otherwise, list all phases across all tracks.
     """
+    from maestro.config.settings import get_settings
+
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
         print("Error: docs/todo.md not found. Run 'maestro init' first.")
@@ -31,8 +34,14 @@ def list_phases(args):
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
 
-    # Filter by track if specified
+    # If no track_id provided and context is set, use context
     track_filter = getattr(args, 'track_id', None)
+    if not track_filter:
+        settings = get_settings()
+        if settings.current_track:
+            track_filter = settings.current_track
+            print(f"Using current track context: {track_filter}")
+            print()
 
     phases_to_show = []
 
@@ -254,6 +263,69 @@ def edit_phase(phase_id: str, args):
         return 1
 
 
+def set_phase_context(phase_id: str, args):
+    """Set the current phase context.
+
+    Args:
+        phase_id: Phase ID to set as current
+        args: Command arguments
+    """
+    from maestro.config.settings import get_settings
+    from maestro.data import parse_todo_md
+    from pathlib import Path
+
+    # Find phase in docs/todo.md or docs/phases/*.md
+    # Set current_phase and parent current_track
+    # Clear current_task
+
+    # Look in todo.md for the phase
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print(f"Error: docs/todo.md not found.")
+        return 1
+
+    data = parse_todo_md(str(todo_path))
+    tracks = data.get('tracks', [])
+
+    phase = None
+    parent_track = None
+
+    # Search for the phase in all tracks
+    for track in tracks:
+        for p in track.get('phases', []):
+            if p.get('phase_id') == phase_id:
+                phase = p
+                parent_track = track.get('track_id')
+                break
+        if phase:
+            break
+
+    if not phase:
+        # If not found in todo.md, check phase files
+        phase_file = Path(f'docs/phases/{phase_id}.md')
+        if phase_file.exists():
+            from maestro.data import parse_phase_md
+            phase_data = parse_phase_md(str(phase_file))
+            phase = phase_data
+        else:
+            print(f"Error: Phase '{phase_id}' not found.")
+            return 1
+
+    # Set context
+    settings = get_settings()
+    settings.current_phase = phase_id
+    # Also set current_track to phase's parent track
+    if parent_track:
+        settings.current_track = parent_track
+    # Clear current_task
+    settings.current_task = None
+    settings.save()
+
+    print(f"Context set to phase: {phase_id}")
+    print(f"Use 'maestro task list' to see tasks in this phase.")
+    return 0
+
+
 def handle_phase_command(args):
     """
     Main handler for phase commands.
@@ -292,6 +364,8 @@ def handle_phase_command(args):
             elif subcommand == 'discuss':
                 from .discuss import handle_phase_discuss
                 return handle_phase_discuss(phase_id, args)
+            elif subcommand == 'set':
+                return set_phase_context(phase_id, args)
             elif subcommand == 'help' or subcommand == 'h':
                 print_phase_item_help()
                 return 0
@@ -326,6 +400,7 @@ USAGE:
     maestro phase <id> show               Show phase details
     maestro phase <id> edit               Edit phase in $EDITOR
     maestro phase <id> discuss            Discuss phase with AI
+    maestro phase <id> set                Set current phase context
 
 ALIASES:
     list:   ls, l
@@ -334,6 +409,7 @@ ALIASES:
     show:   sh
     edit:   e
     discuss: d
+    set:    st
 
 EXAMPLES:
     maestro phase list                    # List all phases
@@ -341,6 +417,7 @@ EXAMPLES:
     maestro phase cli-tpt-1               # Show phase details
     maestro phase cli-tpt-1 edit          # Edit phase in $EDITOR
     maestro phase cli-tpt-1 discuss       # Discuss phase with AI
+    maestro phase cli-tpt-1 set           # Set current phase context
 """
     print(help_text)
 
@@ -354,16 +431,19 @@ USAGE:
     maestro phase <id> show               Show phase details
     maestro phase <id> edit               Edit phase in $EDITOR
     maestro phase <id> discuss            Discuss phase with AI
+    maestro phase <id> set                Set current phase context
 
 ALIASES:
     show: sh
     edit: e
     discuss: d
+    set: st
 
 EXAMPLES:
     maestro phase cli-tpt-1 show
     maestro phase cli-tpt-1 edit
     maestro phase cli-tpt-1 discuss
+    maestro phase cli-tpt-1 set
 """
     print(help_text)
 

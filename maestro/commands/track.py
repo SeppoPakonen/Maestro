@@ -8,6 +8,7 @@ Commands:
 - maestro track <id> - Show track details
 - maestro track <id> show - Show track details
 - maestro track <id> edit - Edit track in $EDITOR
+- maestro track <id> set - Set current track context
 """
 
 import sys
@@ -202,6 +203,49 @@ def edit_track(track_id: str, args):
         return 1
 
 
+def set_track_context(track_id: str, args):
+    """
+    Set the current track context.
+
+    Args:
+        track_id: Track ID to set as current
+        args: Command arguments
+    """
+    from maestro.config.settings import get_settings
+    from maestro.data import parse_todo_md
+    from pathlib import Path
+
+    # Verify track exists
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print(f"Error: docs/todo.md not found.")
+        return 1
+
+    data = parse_todo_md(str(todo_path))
+    tracks = data.get('tracks', [])
+
+    track = None
+    for t in tracks:
+        if t.get('track_id') == track_id:
+            track = t
+            break
+
+    if not track:
+        print(f"Error: Track '{track_id}' not found.")
+        return 1
+
+    # Set context
+    settings = get_settings()
+    settings.current_track = track_id
+    settings.current_phase = None  # Clear phase and task
+    settings.current_task = None
+    settings.save()
+
+    print(f"Context set to track: {track_id} ({track.get('name', 'Unnamed')})")
+    print(f"Use 'maestro phase list' to see phases in this track.")
+    return 0
+
+
 def handle_track_command(args):
     """
     Main handler for track commands.
@@ -243,6 +287,8 @@ def handle_track_command(args):
             elif subcommand == 'discuss':
                 from .discuss import handle_track_discuss
                 return handle_track_discuss(track_id, args)
+            elif subcommand == 'set':
+                return set_track_context(track_id, args)
             elif subcommand == 'help' or subcommand == 'h':
                 print_track_item_help()
                 return 0
@@ -268,6 +314,7 @@ USAGE:
     maestro track <id> show               Show track details
     maestro track <id> edit               Edit track in $EDITOR
     maestro track <id> discuss            Discuss track with AI
+    maestro track <id> set                Set current track context
 
 ALIASES:
     list:   ls, l
@@ -276,12 +323,14 @@ ALIASES:
     discuss: d
     show:   sh
     edit:   e
+    set:    st
 
 EXAMPLES:
     maestro track list
     maestro track cli-tpt
     maestro track cli-tpt edit
     maestro track discuss
+    maestro track cli-tpt set
     maestro track add "New Feature Track"
 """
     print(help_text)
@@ -296,16 +345,19 @@ USAGE:
     maestro track <id> show               Show track details
     maestro track <id> edit               Edit track in $EDITOR
     maestro track <id> discuss            Discuss track with AI
+    maestro track <id> set                Set current track context
 
 ALIASES:
     show: sh
     edit: e
     discuss: d
+    set: st
 
 EXAMPLES:
     maestro track cli-tpt show
     maestro track cli-tpt edit
     maestro track cli-tpt discuss
+    maestro track cli-tpt set
 """
     print(help_text)
 

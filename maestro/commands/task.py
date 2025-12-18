@@ -9,6 +9,7 @@ Commands:
 - maestro task <id> show - Show task details
 - maestro task <id> edit - Edit task in $EDITOR
 - maestro task <id> complete - Mark task as complete
+- maestro task <id> set - Set current task context
 """
 
 import sys
@@ -24,14 +25,16 @@ def list_tasks(args):
     If phase_id is provided, list only tasks in that phase.
     Otherwise, list tasks from current phase (if set) or show error.
     """
-    phase_filter = getattr(args, 'phase_id', None)
+    from maestro.config.settings import get_settings
 
-    # If no phase_id provided, check for current phase in config
+    # If no phase_id provided and context is set, use context
+    phase_filter = getattr(args, 'phase_id', None)
     if not phase_filter:
-        config_path = Path('docs/config.md')
-        if config_path.exists():
-            config = parse_config_md(str(config_path))
-            phase_filter = config.get('current_phase')
+        settings = get_settings()
+        if settings.current_phase:
+            phase_filter = settings.current_phase
+            print(f"Using current phase context: {phase_filter}")
+            print()
 
     if not phase_filter:
         print("Error: No phase specified and no current phase set.")
@@ -251,6 +254,27 @@ def edit_task(task_id: str, args):
         return 1
 
 
+def set_task_context(task_id: str, args):
+    """Set the current task context.
+
+    Args:
+        task_id: Task ID to set as current
+        args: Command arguments
+    """
+    from maestro.config.settings import get_settings
+
+    # Find task and set context including parent phase and track
+    # For now, we'll just set the task ID directly
+    # In a more complex implementation, we might want to look up the parent phase and track
+    settings = get_settings()
+    settings.current_task = task_id
+    # We could also set the current_phase and current_track if we had access to the phase/track info
+    settings.save()
+
+    print(f"Context set to task: {task_id}")
+    return 0
+
+
 def handle_task_command(args):
     """
     Main handler for task commands.
@@ -291,6 +315,8 @@ def handle_task_command(args):
             elif subcommand == 'discuss':
                 from .discuss import handle_task_discuss
                 return handle_task_discuss(task_id, args)
+            elif subcommand == 'set':
+                return set_task_context(task_id, args)
             elif subcommand == 'help' or subcommand == 'h':
                 print_task_item_help()
                 return 0
@@ -326,6 +352,7 @@ USAGE:
     maestro task <id> edit                Edit task in $EDITOR
     maestro task <id> complete            Mark task as complete
     maestro task <id> discuss             Discuss task with AI
+    maestro task <id> set                 Set current task context
 
 ALIASES:
     list:     ls, l
@@ -335,6 +362,7 @@ ALIASES:
     edit:     e
     complete: c, done
     discuss:  d
+    set:      st
 
 EXAMPLES:
     maestro task list                     # List tasks in current phase
@@ -343,6 +371,7 @@ EXAMPLES:
     maestro task cli-tpt-1-1 edit         # Edit task in $EDITOR
     maestro task cli-tpt-1-1 complete     # Mark task as complete
     maestro task cli-tpt-1-1 discuss      # Discuss task with AI
+    maestro task cli-tpt-1-1 set          # Set current task context
 """
     print(help_text)
 
@@ -357,18 +386,21 @@ USAGE:
     maestro task <id> edit                Edit task in $EDITOR
     maestro task <id> complete            Mark task as complete
     maestro task <id> discuss             Discuss task with AI
+    maestro task <id> set                 Set current task context
 
 ALIASES:
     show:     sh
     edit:     e
     complete: c, done
     discuss:  d
+    set:      st
 
 EXAMPLES:
     maestro task cli-tpt-1-1 show
     maestro task cli-tpt-1-1 edit
     maestro task cli-tpt-1-1 complete
     maestro task cli-tpt-1-1 discuss
+    maestro task cli-tpt-1-1 set
 """
     print(help_text)
 

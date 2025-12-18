@@ -3923,12 +3923,14 @@ def main():
     hub_parser = create_hub_parser(subparsers)
 
     # Track/Phase/Task commands - new Track/Phase/Task system
-    from .commands import add_track_parser, add_phase_parser, add_task_parser, add_discuss_parser, add_settings_parser
+    from .commands import add_track_parser, add_phase_parser, add_discuss_parser, add_settings_parser
     track_parser = add_track_parser(subparsers)
     phase_parser = add_phase_parser(subparsers)
-    # NOTE: task_parser temporarily commented out due to conflict with legacy task command
-    # Will be re-enabled after migration from legacy session/plan/task system
-    # task_parser = add_task_parser(subparsers)
+    # NOTE: New task parser has its own handler at line 3808 and is handled in dispatch section later
+
+    # Context command
+    from .commands.context import add_context_parser
+    context_parser = add_context_parser(subparsers)
 
     # Discuss command
     discuss_parser = add_discuss_parser(subparsers)
@@ -5920,10 +5922,13 @@ def main():
     elif args.command == 'phase' or args.command == 'ph':
         from .commands import handle_phase_command
         sys.exit(handle_phase_command(args))
-    # NOTE: New task command temporarily disabled due to conflict with legacy task command
-    # elif args.command == 'task' or args.command == 't':
-    #     from .commands import handle_task_command
-    #     sys.exit(handle_task_command(args))
+    elif args.command == 'task' or args.command == 't':
+        from .commands import handle_task_command
+        sys.exit(handle_task_command(args))
+    # NOTE: Legacy task command was disabled to avoid conflicts with new task system
+    elif args.command == 'context' or args.command == 'ctx':
+        from .commands.context import handle_context_command
+        sys.exit(handle_context_command(args))
     elif args.command == 'discuss':
         from .commands import handle_discuss_command
         sys.exit(handle_discuss_command(args))
