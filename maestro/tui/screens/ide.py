@@ -258,8 +258,9 @@ class IdeScreen(Static):
     @on(Click, ".ide-link")
     def _on_link_clicked(self, event: Click) -> None:
         """Handle clicks on link-style controls."""
-        sender = event.sender
-        action = getattr(sender, "action", None) or sender.id
+        # In Textual, the clicked widget can be accessed via event.control
+        clicked_widget = event.control
+        action = getattr(clicked_widget, "action", None) or clicked_widget.id
         if not action:
             return
         if action == "back":
