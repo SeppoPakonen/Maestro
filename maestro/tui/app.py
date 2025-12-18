@@ -755,8 +755,9 @@ class MaestroTUI(App):
         width: auto;
         margin: 0 1 0 0;
         content-align: center middle;
-        color: $primary;
+        color: $accent;
         text-style: bold;
+        min-width: 6;
     }
 
     #ide-top-bar Label {
