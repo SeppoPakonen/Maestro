@@ -4,5 +4,5 @@ textual>=0.40.0
 pexpect>=4.8.0
 libclang>=14.0.0
 pyyaml>=6.0
-asciimatics>=2.0
+asciimatics>=1.15.0
 npyscreen>=4.0
