@@ -222,6 +222,9 @@ def handle_track_command(args):
                 print("Error: Track ID required. Usage: maestro track remove <id>")
                 return 1
             return remove_track(args.track_id, args)
+        elif args.track_subcommand == 'discuss':
+            from .discuss import handle_track_discuss
+            return handle_track_discuss(None, args)
         elif args.track_subcommand == 'help' or args.track_subcommand == 'h':
             print_track_help()
             return 0
@@ -231,17 +234,20 @@ def handle_track_command(args):
         track_id = args.track_id
 
         # Check if there's a track-specific subcommand
-        if hasattr(args, 'track_item_subcommand'):
-            if args.track_item_subcommand == 'show':
+        subcommand = getattr(args, 'track_item_subcommand', None)
+        if subcommand:
+            if subcommand == 'show':
                 return show_track(track_id, args)
-            elif args.track_item_subcommand == 'edit':
+            elif subcommand == 'edit':
                 return edit_track(track_id, args)
-            elif args.track_item_subcommand == 'help' or args.track_item_subcommand == 'h':
+            elif subcommand == 'discuss':
+                from .discuss import handle_track_discuss
+                return handle_track_discuss(track_id, args)
+            elif subcommand == 'help' or subcommand == 'h':
                 print_track_item_help()
                 return 0
-        else:
-            # Default to 'show' if no subcommand
-            return show_track(track_id, args)
+        # Default to 'show' if no subcommand
+        return show_track(track_id, args)
 
     # No subcommand - show help
     print_track_help()
@@ -257,14 +263,17 @@ USAGE:
     maestro track list                    List all tracks
     maestro track add <name>              Add new track
     maestro track remove <id>             Remove a track
+    maestro track discuss                 Discuss tracks with AI
     maestro track <id>                    Show track details
     maestro track <id> show               Show track details
     maestro track <id> edit               Edit track in $EDITOR
+    maestro track <id> discuss            Discuss track with AI
 
 ALIASES:
     list:   ls, l
     add:    a
     remove: rm, r
+    discuss: d
     show:   sh
     edit:   e
 
@@ -272,6 +281,7 @@ EXAMPLES:
     maestro track list
     maestro track cli-tpt
     maestro track cli-tpt edit
+    maestro track discuss
     maestro track add "New Feature Track"
 """
     print(help_text)
@@ -285,14 +295,17 @@ maestro track <id> - Manage a specific track
 USAGE:
     maestro track <id> show               Show track details
     maestro track <id> edit               Edit track in $EDITOR
+    maestro track <id> discuss            Discuss track with AI
 
 ALIASES:
     show: sh
     edit: e
+    discuss: d
 
 EXAMPLES:
     maestro track cli-tpt show
     maestro track cli-tpt edit
+    maestro track cli-tpt discuss
 """
     print(help_text)
 
@@ -340,6 +353,13 @@ def add_track_parser(subparsers):
     )
     track_remove_parser.add_argument('track_id', help='Track ID to remove')
 
+    # maestro track discuss
+    track_discuss_parser = track_subparsers.add_parser(
+        'discuss',
+        aliases=['d'],
+        help='Discuss tracks with AI'
+    )
+
     # maestro track help
     track_subparsers.add_parser(
         'help',
@@ -353,6 +373,21 @@ def add_track_parser(subparsers):
         'track_id',
         nargs='?',
         help='Track ID (for show/edit commands)'
+    )
+    track_parser.add_argument(
+        'track_item_subcommand',
+        nargs='?',
+        help='Track item subcommand (show/edit/discuss)'
+    )
+    track_parser.add_argument(
+        '--mode',
+        choices=['editor', 'terminal'],
+        help='Discussion mode (editor or terminal)'
+    )
+    track_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Preview actions without executing them'
     )
 
     return track_parser

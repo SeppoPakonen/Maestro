@@ -283,17 +283,20 @@ def handle_phase_command(args):
         phase_id = args.phase_id
 
         # Check if there's a phase-specific subcommand
-        if hasattr(args, 'phase_item_subcommand'):
-            if args.phase_item_subcommand == 'show':
+        subcommand = getattr(args, 'phase_item_subcommand', None)
+        if subcommand:
+            if subcommand == 'show':
                 return show_phase(phase_id, args)
-            elif args.phase_item_subcommand == 'edit':
+            elif subcommand == 'edit':
                 return edit_phase(phase_id, args)
-            elif args.phase_item_subcommand == 'help' or args.phase_item_subcommand == 'h':
+            elif subcommand == 'discuss':
+                from .discuss import handle_phase_discuss
+                return handle_phase_discuss(phase_id, args)
+            elif subcommand == 'help' or subcommand == 'h':
                 print_phase_item_help()
                 return 0
-        else:
-            # Default to 'show' if no subcommand
-            return show_phase(phase_id, args)
+        # Default to 'show' if no subcommand
+        return show_phase(phase_id, args)
 
     # No subcommand - show help or list based on context
     # Check if we have a current phase set
@@ -322,6 +325,7 @@ USAGE:
     maestro phase <id>                    Show phase details
     maestro phase <id> show               Show phase details
     maestro phase <id> edit               Edit phase in $EDITOR
+    maestro phase <id> discuss            Discuss phase with AI
 
 ALIASES:
     list:   ls, l
@@ -329,12 +333,14 @@ ALIASES:
     remove: rm, r
     show:   sh
     edit:   e
+    discuss: d
 
 EXAMPLES:
     maestro phase list                    # List all phases
     maestro phase list cli-tpt            # List phases in track 'cli-tpt'
     maestro phase cli-tpt-1               # Show phase details
     maestro phase cli-tpt-1 edit          # Edit phase in $EDITOR
+    maestro phase cli-tpt-1 discuss       # Discuss phase with AI
 """
     print(help_text)
 
@@ -347,14 +353,17 @@ maestro phase <id> - Manage a specific phase
 USAGE:
     maestro phase <id> show               Show phase details
     maestro phase <id> edit               Edit phase in $EDITOR
+    maestro phase <id> discuss            Discuss phase with AI
 
 ALIASES:
     show: sh
     edit: e
+    discuss: d
 
 EXAMPLES:
     maestro phase cli-tpt-1 show
     maestro phase cli-tpt-1 edit
+    maestro phase cli-tpt-1 discuss
 """
     print(help_text)
 
@@ -420,5 +429,26 @@ def add_phase_parser(subparsers):
         nargs='?',
         help='Phase ID (for show/edit commands)'
     )
+    phase_parser.add_argument(
+        'phase_item_subcommand',
+        nargs='?',
+        help='Phase item subcommand (show/edit/discuss)'
+    )
+    phase_parser.add_argument(
+        '--mode',
+        choices=['editor', 'terminal'],
+        help='Discussion mode (editor or terminal)'
+    )
+    phase_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Preview actions without executing them'
+    )
 
     return phase_parser
+
+
+def discuss_phase(phase_id: str, args):
+    """Discuss a specific phase with AI."""
+    from .discuss import handle_phase_discuss
+    return handle_phase_discuss(phase_id, args)

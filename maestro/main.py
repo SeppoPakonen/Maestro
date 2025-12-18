@@ -3923,12 +3923,15 @@ def main():
     hub_parser = create_hub_parser(subparsers)
 
     # Track/Phase/Task commands - new Track/Phase/Task system
-    from .commands import add_track_parser, add_phase_parser, add_task_parser
+    from .commands import add_track_parser, add_phase_parser, add_task_parser, add_discuss_parser
     track_parser = add_track_parser(subparsers)
     phase_parser = add_phase_parser(subparsers)
     # NOTE: task_parser temporarily commented out due to conflict with legacy task command
     # Will be re-enabled after migration from legacy session/plan/task system
     # task_parser = add_task_parser(subparsers)
+
+    # Discuss command
+    discuss_parser = add_discuss_parser(subparsers)
 
     # Conversion pipeline command group
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
@@ -5918,6 +5921,9 @@ def main():
     # elif args.command == 'task' or args.command == 't':
     #     from .commands import handle_task_command
     #     sys.exit(handle_task_command(args))
+    elif args.command == 'discuss':
+        from .commands import handle_discuss_command
+        sys.exit(handle_discuss_command(args))
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)

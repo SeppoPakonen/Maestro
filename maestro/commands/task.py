@@ -280,19 +280,22 @@ def handle_task_command(args):
         task_id = args.task_id
 
         # Check if there's a task-specific subcommand
-        if hasattr(args, 'task_item_subcommand'):
-            if args.task_item_subcommand == 'show':
+        subcommand = getattr(args, 'task_item_subcommand', None)
+        if subcommand:
+            if subcommand == 'show':
                 return show_task(task_id, args)
-            elif args.task_item_subcommand == 'edit':
+            elif subcommand == 'edit':
                 return edit_task(task_id, args)
-            elif args.task_item_subcommand == 'complete':
+            elif subcommand == 'complete':
                 return complete_task(task_id, args)
-            elif args.task_item_subcommand == 'help' or args.task_item_subcommand == 'h':
+            elif subcommand == 'discuss':
+                from .discuss import handle_task_discuss
+                return handle_task_discuss(task_id, args)
+            elif subcommand == 'help' or subcommand == 'h':
                 print_task_item_help()
                 return 0
-        else:
-            # Default to 'show' if no subcommand
-            return show_task(task_id, args)
+        # Default to 'show' if no subcommand
+        return show_task(task_id, args)
 
     # No subcommand - show help or list based on context
     # Check if we have a current phase set
@@ -322,6 +325,7 @@ USAGE:
     maestro task <id> show                Show task details
     maestro task <id> edit                Edit task in $EDITOR
     maestro task <id> complete            Mark task as complete
+    maestro task <id> discuss             Discuss task with AI
 
 ALIASES:
     list:     ls, l
@@ -330,6 +334,7 @@ ALIASES:
     show:     sh
     edit:     e
     complete: c, done
+    discuss:  d
 
 EXAMPLES:
     maestro task list                     # List tasks in current phase
@@ -337,6 +342,7 @@ EXAMPLES:
     maestro task cli-tpt-1-1              # Show task details
     maestro task cli-tpt-1-1 edit         # Edit task in $EDITOR
     maestro task cli-tpt-1-1 complete     # Mark task as complete
+    maestro task cli-tpt-1-1 discuss      # Discuss task with AI
 """
     print(help_text)
 
@@ -350,16 +356,19 @@ USAGE:
     maestro task <id> show                Show task details
     maestro task <id> edit                Edit task in $EDITOR
     maestro task <id> complete            Mark task as complete
+    maestro task <id> discuss             Discuss task with AI
 
 ALIASES:
     show:     sh
     edit:     e
     complete: c, done
+    discuss:  d
 
 EXAMPLES:
     maestro task cli-tpt-1-1 show
     maestro task cli-tpt-1-1 edit
     maestro task cli-tpt-1-1 complete
+    maestro task cli-tpt-1-1 discuss
 """
     print(help_text)
 
@@ -425,5 +434,26 @@ def add_task_parser(subparsers):
         nargs='?',
         help='Task ID (for show/edit/complete commands)'
     )
+    task_parser.add_argument(
+        'task_item_subcommand',
+        nargs='?',
+        help='Task item subcommand (show/edit/complete/discuss)'
+    )
+    task_parser.add_argument(
+        '--mode',
+        choices=['editor', 'terminal'],
+        help='Discussion mode (editor or terminal)'
+    )
+    task_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Preview actions without executing them'
+    )
 
     return task_parser
+
+
+def discuss_task(task_id: str, args):
+    """Discuss a specific task with AI."""
+    from .discuss import handle_task_discuss
+    return handle_task_discuss(task_id, args)
