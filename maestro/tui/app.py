@@ -799,6 +799,11 @@ class MaestroTUI(App):
         height: 1fr;
     }
 
+    #ide-package-list ListItem, #ide-file-list ListItem {
+        height: 1;
+        padding: 0 1;
+    }
+
     #ide-editor-title {
         height: 1;
         padding: 0 1;
