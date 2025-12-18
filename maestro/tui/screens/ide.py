@@ -189,10 +189,31 @@ class IdeScreen(Static):
         package, rel_path = data
         self._open_file(package, rel_path)
 
+    def _resolve_file_path(self, package: RepoPackageInfo, rel_path: str) -> Path:
+        """Resolve absolute or relative file paths, avoiding double-prefixing the package directory."""
+        base_dir = Path(package.dir)
+        path_obj = Path(rel_path)
+
+        candidates: list[Path] = []
+
+        if path_obj.is_absolute():
+            candidates.append(path_obj)
+        else:
+            parts = path_obj.parts
+            if parts and parts[0] == base_dir.name:
+                # rel_path already starts with the package dir name; avoid duplicating it
+                candidates.append(base_dir.parent / path_obj)
+            candidates.append(base_dir / path_obj)
+            candidates.append(base_dir / path_obj.name)
+
+        for cand in candidates:
+            if cand.exists():
+                return cand
+
+        return candidates[0] if candidates else base_dir / path_obj
+
     def _open_file(self, package: RepoPackageInfo, rel_path: str) -> None:
-        full_path = Path(rel_path)
-        if not full_path.is_absolute():
-            full_path = Path(package.dir) / rel_path
+        full_path = self._resolve_file_path(package, rel_path)
 
         content = read_file_safely(str(full_path))
         if content == "" and full_path.exists():
