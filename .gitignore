@@ -14,3 +14,9 @@ complex_test/
 .maestro/
 tests/fixtures/**/.maestro/
 
+# Temporary files
+*.patch
+*.diff
+*.orig
+*_test.cpp
+test_sample.*
