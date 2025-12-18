@@ -34,6 +34,10 @@ class LinkLabel(Static):
 class IdeScreen(Static):
     """IDE Screen showing packages, files, and a simple editor view."""
 
+    BINDINGS = [
+        ("ctrl+b", "toggle_bottom_pane", "Toggle Bottom Panes"),
+    ]
+
     def __init__(self, package_name: str, previous_screen_cls: Optional[Type[Static]] = None, resume_mode: bool = False):
         super().__init__()
         self.package_name = package_name
@@ -55,6 +59,7 @@ class IdeScreen(Static):
                 yield LinkLabel("← Back", action="back", id="ide-back", classes="ide-link ide-top-link")
                 yield Label("IDE", id="ide-title")
                 yield LinkLabel("Refresh", action="refresh", id="ide-refresh", classes="ide-link ide-top-link")
+                yield LinkLabel("☰ Menu", action="toggle_menu", id="ide-menu-toggle", classes="ide-link ide-top-link")
 
             with Horizontal(id="ide-body"):
                 with Vertical(id="ide-side-panel"):
@@ -269,6 +274,8 @@ class IdeScreen(Static):
             self.refresh_content()
         elif action == "toggle-bottom":
             self.toggle_bottom_pane()
+        elif action == "toggle_menu":
+            self.toggle_menu()
         elif action.startswith("tab-"):
             self.switch_tab(action)
 
@@ -280,10 +287,23 @@ class IdeScreen(Static):
 
     def toggle_bottom_pane(self) -> None:
         bottom = self.query_one("#ide-bottom", Container)
+        toggle_button = self.query_one("#ide-toggle-bottom", LinkLabel)
+
         if "hidden" in bottom.classes:
             bottom.remove_class("hidden")
+            toggle_button.update("Hide")
         else:
             bottom.add_class("hidden")
+            toggle_button.update("Show")
+
+    def toggle_menu(self) -> None:
+        """Toggle the dropdown menu."""
+        # For now, just show a message; in the future, this can show a dropdown menu
+        pass
+
+    def action_toggle_bottom_pane(self) -> None:
+        """Toggle the bottom panes."""
+        self.toggle_bottom_pane()
 
     def switch_tab(self, tab_action: str) -> None:
         tab_ids = ["ide-tab-log", "ide-tab-errors", "ide-tab-search", "ide-tab-calc", "ide-tab-debug", "ide-toggle-bottom"]
