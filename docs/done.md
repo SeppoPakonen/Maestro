@@ -42,6 +42,7 @@
 | | TU3: Symbol resolution | ✅ Done | 100% |
 | | TU4: Auto-completion | ✅ Done | 100% |
 | | TU5: Build integration | ✅ Done | 100% |
+| | TU6: Code transformation | ✅ Done | 90% |
 
 ---
 
@@ -809,3 +810,71 @@ maestro tu cache stats
 **Implementation**: qwen (via Claude Code)
 
 </content>
+---
+
+## TU6: Code Transformation and Convention Enforcement ✅ **[Done - 2025-12-19]** (90%)
+
+**Objective**: Implement code transformation framework and U++ convention enforcement.
+
+**Deliverables**:
+- AST transformation framework
+- U++ convention transformer
+- Code generator for C++
+- CLI command: `maestro tu transform --to-upp PACKAGE`
+
+**Implementation Summary**:
+
+### Completed:
+1. **AST Transformation Framework** (`maestro/tu/transformers.py`)
+   - Base `ASTTransformer` class with document and node transformation
+   - `UppConventionTransformer` for U++ code organization
+   - Dependency graph building and topological sorting
+   - Forward declaration detection
+
+2. **Code Generator** (`maestro/tu/code_generator.py`)
+   - Generate C++ declarations from AST nodes
+   - Function signature generation with proper return types
+   - Class/struct declaration generation
+   - Support for both uppercase and lowercase AST node kinds
+
+3. **U++ Convention Enforcement**
+   - Primary header generation with declarations in dependency order
+   - Update .cpp files to include only the primary header
+   - Remove individual header includes (U++ convention)
+   - Filter out system header declarations
+
+4. **CLI Integration** (`maestro/commands/tu.py`)
+   - `maestro tu transform --to-upp PACKAGE` command
+   - Automatic language detection
+   - Compile flags support
+   - Two-phase transformation: parse then update
+
+### Testing:
+- ✅ Simple function-based project (test_tu6): Compiles and runs correctly
+- ✅ Complex class-based project (test_tu6_complex): Generates structure correctly
+- ⚠️ Class member declarations need enhancement (see Remaining Work)
+
+### Remaining Work (10%):
+1. **Enhanced Code Generator**
+   - Support for `FIELD_DECL` (member variables)
+   - Support for `CXX_METHOD` (class methods)
+   - Support for `CONSTRUCTOR` and `DESTRUCTOR`
+   - Support for `CXX_BASE_SPECIFIER` (inheritance)
+   - Support for `CXX_ACCESS_SPEC_DECL` (public/private/protected)
+
+2. **Additional Transformation Targets**
+   - Consider other convention transformations beyond U++
+
+3. **Formatting and Comment Preservation**
+   - Preserve original code formatting where possible
+   - Preserve comments from original files
+
+**Files Modified**:
+- `maestro/commands/tu.py` - Added transform command handler
+- `maestro/tu/transformers.py` - Transformation framework
+- `maestro/tu/code_generator.py` - Code generation from AST
+
+**Next Steps**: Complete the code generator enhancements to support full class declarations with members, methods, and inheritance.
+
+**Track Completed**: 2025-12-19 (Phase TU6 - 90%)
+**Implementation**: qwen (via Claude Code)

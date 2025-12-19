@@ -25,11 +25,13 @@ class CodeGenerator:
         Returns:
             String representation of the declaration
         """
-        if node.kind in ['class_decl', 'struct_decl']:
+        # Check for both lowercase and uppercase kind strings
+        kind_upper = node.kind.upper()
+        if kind_upper in ['CLASS_DECL', 'STRUCT_DECL']:
             return self._generate_class_declaration(node)
-        elif node.kind == 'function_decl':
+        elif kind_upper in ['FUNCTION_DECL']:
             return self._generate_function_declaration(node)
-        elif node.kind == 'var_decl':
+        elif kind_upper == 'VAR_DECL':
             return self._generate_variable_declaration(node)
         else:
             # For unsupported node types, return a basic representation
@@ -63,7 +65,7 @@ class CodeGenerator:
             String representation of the class/struct declaration
         """
         # Get class/struct keyword
-        keyword = 'class' if node.kind == 'class_decl' else 'struct'
+        keyword = 'class' if node.kind.upper() == 'CLASS_DECL' else 'struct'
         
         # Start with the class/struct declaration
         lines = [f"{keyword} {node.name} {{"] 
@@ -181,27 +183,39 @@ class CodeGenerator:
     def _generate_function_signature(self, node: ASTNode) -> str:
         """
         Generate a function signature (return type + name + parameters).
-        
+
         Args:
             node: AST node representing a function
-            
+
         Returns:
             String representation of the function signature
         """
-        # Determine return type (could be in the 'type' attribute)
-        return_type = node.type if node.type else "void"
-        
+        # Determine return type from the type attribute
+        # For functions, node.type contains the full function type like "int (int, int)"
+        # We need to extract just the return type
+        return_type = "void"
+        if node.type:
+            # Parse the function type to extract return type
+            # Format is typically: "return_type (param_types)"
+            import re
+            match = re.match(r'^([^(]+)\s*\(', node.type)
+            if match:
+                return_type = match.group(1).strip()
+            else:
+                # If no parentheses, it might just be the return type
+                return_type = node.type.strip()
+
         # Parameters
         params = []
         if node.children:
             for child in node.children:
-                if child.kind == 'parm_var_decl':
+                if child.kind in ['parm_var_decl', 'PARM_DECL']:
                     # Parameter: type name
                     param_str = child.type + " " + child.name if child.type and child.name else child.name or child.type or "/*param*/"
                     params.append(param_str)
-        
+
         params_str = ", ".join(params) if params else "void"
-        
+
         # Full signature
         return f"{return_type} {node.name}({params_str})"
     

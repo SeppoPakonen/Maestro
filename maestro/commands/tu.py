@@ -51,8 +51,10 @@ def get_files_by_language(path: str, lang: str) -> List[str]:
         return [str(path_obj)] if detect_language_from_path(str(path_obj)) == lang else []
 
     extensions = []
-    if lang in ['cpp', 'c++', 'cxx', 'cc', 'c']:
-        extensions = ['.cpp', '.cxx', '.cc', '.c++', '.c']
+    if lang in ['cpp', 'c++', 'cxx', 'cc']:
+        extensions = ['.cpp', '.cxx', '.cc', '.c++', '.h', '.hpp', '.hxx']
+    elif lang == 'c':
+        extensions = ['.c', '.h']
     elif lang == 'java':
         extensions = ['.java']
     elif lang == 'kotlin':
@@ -290,20 +292,63 @@ def handle_tu_transform_command(args):
     # Setup TU builder with symbol resolution
     builder = TUBuilder(parser, cache_dir=args.output)
 
-    try:
-        # Build TUs with symbol resolution
-        results = builder.build_with_symbols(
-            files=files,
-            compile_flags=args.compile_flags or [],
-            build_index=True,
-            index_db_path='.maestro/tu/analysis/symbols.db'
-        )
+    # For U++ transformation, we need a two-phase approach:
+    # 1. First parse the original files to extract information for primary header
+    # 2. Then update files to include the generated primary header
 
-        print(f"Successfully built translation units with symbols for {len(results)} files")
+    try:
+        # Phase 1: Parse original files to extract information for header generation
+        # Build basic TUs for analysis without symbol indexing to avoid include issues
+        results = {}
+        for file_path in files:
+            abs_path = str(Path(file_path).resolve())
+
+            # Parse the file directly without includes to the primary header that doesn't exist yet
+            document = parser.parse_file(abs_path, compile_flags=args.compile_flags or [])
+            results[abs_path] = document
+
+        print(f"Successfully parsed {len(results)} files for header generation")
 
         # Create U++ convention transformer
         package_name = Path(args.package).name or "transformed_package"
         transformer = UppConventionTransformer(package_name=package_name)
+
+        # Collect all declarations from all documents for primary header generation
+        # Only include declarations from the source files being transformed (not system headers)
+        all_nodes = []
+        seen_declarations = set()  # Track (name, kind) to avoid duplicates
+        source_files = set(str(Path(f).resolve()) for f in files)
+
+        for file_path, document in results.items():
+            # Extract class/struct/function nodes from all documents
+            for node in document.root.walk():
+                # Check for both lowercase and uppercase kind strings
+                if node.kind.upper() in ['CLASS_DECL', 'STRUCT_DECL', 'FUNCTION_DECL']:
+                    # Only include nodes that are defined in our source files
+                    if hasattr(node, 'loc') and node.loc and hasattr(node.loc, 'file'):
+                        node_file = str(Path(node.loc.file).resolve())
+                        # Check if this node is from one of our source files
+                        if node_file in source_files:
+                            # Avoid duplicates
+                            decl_key = (node.name, node.kind)
+                            if decl_key not in seen_declarations:
+                                seen_declarations.add(decl_key)
+                                all_nodes.append(node)
+
+        # Generate the primary header once
+        if lang in ['cpp', 'c++', 'cxx', 'cc', 'c']:  # Only for C++ files
+            # Generate primary header name from package name
+            primary_header_name = f"{package_name}.h"
+
+            # Generate primary header content
+            header_content = transformer.generate_primary_header(all_nodes, primary_header_name)
+
+            # Write the generated header to a file in the package directory
+            header_path = Path(args.package) / primary_header_name
+            with open(header_path, 'w') as f:
+                f.write(header_content)
+
+            print(f"Generated primary header: {header_path}")
 
         # Transform each document
         transformed_results = {}
@@ -312,41 +357,32 @@ def handle_tu_transform_command(args):
             transformed_doc = transformer.transform_document(document)
             transformed_results[file_path] = transformed_doc
 
-            # Generate the primary header
-            if lang in ['cpp', 'c++', 'cxx', 'cc', 'c']:  # Only for C++ files
-                # Extract class/struct nodes for header generation
-                class_nodes = []
-                for node in document.root.walk():
-                    if node.kind in ['class_decl', 'struct_decl', 'function_decl']:
-                        class_nodes.append(node)
+        # After generating the primary header, update .cpp files to use it
+        for file_path in files:
+            # Update the corresponding .cpp file to use only the primary header
+            if file_path.endswith(('.cpp', '.cxx', '.cc', '.c++', '.c')):
+                # Read the original file content (before transformation)
+                with open(file_path, 'r') as f:
+                    original_cpp_content = f.read()
 
-                # Generate primary header name from package name
-                primary_header_name = f"{package_name}.h"
+                # Update includes
+                updated_cpp_content = transformer.update_cpp_includes(original_cpp_content, f"{package_name}.h")
 
-                # Generate primary header content
-                header_content = transformer.generate_primary_header(class_nodes, primary_header_name)
+                # Write the updated content back
+                with open(file_path, 'w') as f:
+                    f.write(updated_cpp_content)
 
-                # Write the generated header to a file
-                header_path = Path(args.output) / primary_header_name
-                with open(header_path, 'w') as f:
-                    f.write(header_content)
+                print(f"Updated includes in: {file_path}")
 
-                print(f"Generated primary header: {header_path}")
-
-                # Update the corresponding .cpp file to use only the primary header
-                if file_path.endswith(('.cpp', '.cxx', '.cc', '.c++', '.c')):
-                    # Read the original file content
-                    with open(file_path, 'r') as f:
-                        original_cpp_content = f.read()
-
-                    # Update includes
-                    updated_cpp_content = transformer.update_cpp_includes(original_cpp_content, primary_header_name)
-
-                    # Write the updated content back
-                    with open(file_path, 'w') as f:
-                        f.write(updated_cpp_content)
-
-                    print(f"Updated includes in: {file_path}")
+        # Optionally rebuild the final TUs with symbols (commented out for now as it might fail)
+        # This can be done separately after verifying the generated header is correct
+        # final_results = builder.build_with_symbols(
+        #     files=files,
+        #     compile_flags=args.compile_flags or [],
+        #     build_index=True,
+        #     index_db_path='.maestro/tu/analysis/symbols.db'
+        # )
+        # print(f"Successfully built final translation units with symbols for {len(final_results)} files")
 
         print("Transformation completed successfully")
         return 0

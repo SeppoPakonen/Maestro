@@ -128,7 +128,7 @@ class UppConventionTransformer(ASTTransformer):
             if node.kind in ('class_decl', 'struct_decl'):
                 # Process class/struct dependencies
                 self._process_class_dependencies(node)
-            elif node.kind == 'function_decl':
+            elif node.kind in ['function_decl', 'FUNCTION_DECL']:
                 # Process function dependencies
                 self._process_function_dependencies(node)
     
@@ -284,6 +284,8 @@ class UppConventionTransformer(ASTTransformer):
         header_content.append("#include <memory>")
         header_content.append("#include <vector>")
         header_content.append("#include <string>")
+        header_content.append("#include <iostream>")
+        header_content.append("#include <stdexcept>")
         header_content.append("")
 
         # Add forward declarations if needed
@@ -300,14 +302,30 @@ class UppConventionTransformer(ASTTransformer):
                         header_content.append(f"class {clean_type};")
             header_content.append("")
 
-        # Generate declarations in correct order
-        # Only include symbols that are in our computed declaration order
-        ordered_symbols = [s for s in symbols if s.name in self.declaration_order and s.kind in ['class_decl', 'struct_decl', 'function_decl']]
-        ordered_symbols.sort(key=lambda x: self.declaration_order.index(x.name) if x.name in self.declaration_order else len(self.declaration_order))
+        # Collect all declarations - include all valid symbols, not just those in declaration_order
+        # This handles the case where simple functions might not be in the order due to no dependencies
+        standalone_symbols = []
 
-        if ordered_symbols:
+        for symbol in symbols:
+            # Check for both lowercase and uppercase kind strings
+            if symbol.kind.upper() in ['CLASS_DECL', 'STRUCT_DECL', 'FUNCTION_DECL']:
+                # Skip main function
+                if symbol.name == 'main':
+                    continue
+                standalone_symbols.append(symbol)
+
+        # Sort symbols: first by whether they're in declaration_order, then alphabetically
+        def sort_key(x):
+            if x.name in self.declaration_order:
+                return (0, self.declaration_order.index(x.name))
+            else:
+                return (1, x.name)
+
+        standalone_symbols.sort(key=sort_key)
+
+        if standalone_symbols:
             header_content.append("// Declarations in dependency order")
-            for symbol in ordered_symbols:
+            for symbol in standalone_symbols:
                 decl_code = generator.generate_declaration(symbol)
                 header_content.append(decl_code)
                 header_content.append("")  # Blank line between declarations
