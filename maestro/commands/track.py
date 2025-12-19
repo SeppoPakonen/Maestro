@@ -252,48 +252,58 @@ def handle_track_command(args):
 
     Routes to appropriate subcommand handler.
     """
-    # Handle 'maestro track list'
-    if hasattr(args, 'track_subcommand'):
-        if args.track_subcommand == 'list' or args.track_subcommand == 'ls':
+    # Handle track subcommands
+    if hasattr(args, 'track_subcommand') and args.track_subcommand:
+        subcommand = args.track_subcommand
+
+        # List tracks
+        if subcommand in ['list', 'ls', 'l']:
             return list_tracks(args)
-        elif args.track_subcommand == 'add':
+
+        # Add track
+        elif subcommand in ['add', 'a']:
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Track name required. Usage: maestro track add <name>")
                 return 1
             return add_track(args.name, args)
-        elif args.track_subcommand == 'remove' or args.track_subcommand == 'rm':
+
+        # Remove track
+        elif subcommand in ['remove', 'rm', 'r']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track remove <id>")
                 return 1
             return remove_track(args.track_id, args)
-        elif args.track_subcommand == 'discuss':
+
+        # Discuss (general)
+        elif subcommand in ['discuss', 'd']:
             from .discuss import handle_track_discuss
             return handle_track_discuss(None, args)
-        elif args.track_subcommand == 'help' or args.track_subcommand == 'h':
+
+        # Show track
+        elif subcommand in ['show', 'sh']:
+            if not hasattr(args, 'track_id') or not args.track_id:
+                print("Error: Track ID required. Usage: maestro track show <id>")
+                return 1
+            return show_track(args.track_id, args)
+
+        # Edit track
+        elif subcommand in ['edit', 'e']:
+            if not hasattr(args, 'track_id') or not args.track_id:
+                print("Error: Track ID required. Usage: maestro track edit <id>")
+                return 1
+            return edit_track(args.track_id, args)
+
+        # Set track context
+        elif subcommand in ['set', 'st']:
+            if not hasattr(args, 'track_id') or not args.track_id:
+                print("Error: Track ID required. Usage: maestro track set <id>")
+                return 1
+            return set_track_context(args.track_id, args)
+
+        # Help
+        elif subcommand in ['help', 'h']:
             print_track_help()
             return 0
-
-    # Handle 'maestro track <id>' or 'maestro track <id> <subcommand>'
-    if hasattr(args, 'track_id') and args.track_id:
-        track_id = args.track_id
-
-        # Check if there's a track-specific subcommand
-        subcommand = getattr(args, 'track_item_subcommand', None)
-        if subcommand:
-            if subcommand == 'show':
-                return show_track(track_id, args)
-            elif subcommand == 'edit':
-                return edit_track(track_id, args)
-            elif subcommand == 'discuss':
-                from .discuss import handle_track_discuss
-                return handle_track_discuss(track_id, args)
-            elif subcommand == 'set':
-                return set_track_context(track_id, args)
-            elif subcommand == 'help' or subcommand == 'h':
-                print_track_item_help()
-                return 0
-        # Default to 'show' if no subcommand
-        return show_track(track_id, args)
 
     # No subcommand - show help
     print_track_help()
@@ -369,6 +379,27 @@ def add_track_parser(subparsers):
     Args:
         subparsers: The subparsers object from argparse
     """
+    # Main track command - use parse_known_args workaround for flexible syntax
+    import sys
+
+    # Check if we need to inject 'show' subcommand for backwards compatibility
+    # This handles: maestro track <id> [show|edit|discuss|set]
+    # By transforming to: maestro track show <id> [subcommand]
+    if len(sys.argv) >= 3 and sys.argv[1] in ['track', 'tr']:
+        arg = sys.argv[2]
+        # If arg is not a known subcommand, treat it as track_id and inject 'show'
+        if arg not in ['list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'discuss', 'd', 'help', 'h', 'show', 'sh', 'edit', 'e', 'set', 'st']:
+            # Check if there's a third argument that's a subcommand
+            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st']:
+                # maestro track <id> <subcommand> - already has subcommand, just move id after 'show'
+                subcommand = sys.argv[3]
+                track_id = sys.argv[2]
+                sys.argv[2] = subcommand
+                sys.argv[3] = track_id
+            else:
+                # maestro track <id> - inject 'show'
+                sys.argv.insert(2, 'show')
+
     # Main track command
     track_parser = subparsers.add_parser(
         'track',
@@ -419,18 +450,31 @@ def add_track_parser(subparsers):
         help='Show help for track commands'
     )
 
-    # Add track_id argument for 'maestro track <id>' commands
-    # This is a bit tricky with argparse - we'll handle it in the command handler
-    track_parser.add_argument(
-        'track_id',
-        nargs='?',
-        help='Track ID (for show/edit commands)'
+    # maestro track show <id>
+    track_show_parser = track_subparsers.add_parser(
+        'show',
+        aliases=['sh'],
+        help='Show track details'
     )
-    track_parser.add_argument(
-        'track_item_subcommand',
-        nargs='?',
-        help='Track item subcommand (show/edit/discuss)'
+    track_show_parser.add_argument('track_id', help='Track ID to show')
+
+    # maestro track edit <id>
+    track_edit_parser = track_subparsers.add_parser(
+        'edit',
+        aliases=['e'],
+        help='Edit track in $EDITOR'
     )
+    track_edit_parser.add_argument('track_id', help='Track ID to edit')
+
+    # maestro track set <id>
+    track_set_parser = track_subparsers.add_parser(
+        'set',
+        aliases=['st'],
+        help='Set current track context'
+    )
+    track_set_parser.add_argument('track_id', help='Track ID to set as current')
+
+    # Add optional arguments to main parser
     track_parser.add_argument(
         '--mode',
         choices=['editor', 'terminal'],
