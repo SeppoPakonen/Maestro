@@ -722,9 +722,9 @@ class MemoryScreen(Screen):
                     # Show success notification
                     self.app.notify(f"Decision overridden: {override_result.old_decision_id} → {override_result.new_decision_id}", timeout=5)
 
-                    # Show warning if plan is stale
-                    if override_result.plan_is_stale:
-                        self.app.notify("⚠ Plan may be stale. Consider running negotiation.", timeout=5, severity="warning")
+                    # Show warning if phase is stale
+                    if override_result.phase_is_stale:
+                        self.app.notify("⚠ Phase may be stale. Consider running negotiation.", timeout=5, severity="warning")
 
                     # Refresh the memory display to show updated decision
                     self.refresh_memory_display()
@@ -815,9 +815,9 @@ class MemoryScreen(Screen):
                     # Show success notification
                     self.app.notify(f"Decision overridden: {override_result.old_decision_id} → {override_result.new_decision_id}", timeout=5)
 
-                    # Show warning if plan is stale
-                    if override_result.plan_is_stale:
-                        self.app.notify("⚠ Plan may be stale. Consider running negotiation.", timeout=5, severity="warning")
+                    # Show warning if phase is stale
+                    if override_result.phase_is_stale:
+                        self.app.notify("⚠ Phase may be stale. Consider running negotiation.", timeout=5, severity="warning")
 
                     # Refresh the memory display to show updated decision
                     self.refresh_memory_display()

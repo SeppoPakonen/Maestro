@@ -31,7 +31,7 @@ class HelpIndexScreen(Screen):
                 yield Label("[b]System Overview[/b]", classes="section-title")
                 yield Static(
                     "Maestro orchestrates AI agents to perform complex software development tasks.\n"
-                    "The system follows a hierarchical flow: [i]Session → Plan → Tasks → Runs → Replay → Confidence[/i]\n"
+                    "The system follows a hierarchical flow: [i]Session → Phase → Tasks → Runs → Replay → Confidence[/i]\n"
                     "Each level builds on the previous and feeds into verification systems.",
                     classes="overview-content"
                 )
@@ -42,7 +42,7 @@ class HelpIndexScreen(Screen):
                 yield Label("[b]Sessions[/b]", classes="concept-title")
                 yield Static(
                     "Sessions maintain state across runs and provide a workspace for related tasks.\n"
-                    "Each session can contain multiple plans for different approaches to the same task.",
+                    "Each session can contain multiple phases for different approaches to the same task.",
                     classes="concept-description"
                 )
                 
@@ -53,7 +53,7 @@ class HelpIndexScreen(Screen):
                     "**How they work:**\n"
                     "• Each session represents a complete work effort\n"
                     "• Sessions maintain history and artifact storage\n"
-                    "• Multiple plans can exist within one session\n"
+                    "• Multiple phases can exist within one session\n"
                     "• Sessions can be paused and resumed\n\n"
                     "**When to use:**\n"
                     "• Starting a new project or feature\n"
@@ -66,39 +66,39 @@ class HelpIndexScreen(Screen):
                     section_id="sessions"
                 )
                 
-                # Plan concept
-                yield Label("\n[b]Plans[/b]", classes="concept-title")
+                # Phase concept
+                yield Label("\n[b]Phases[/b]", classes="concept-title")
                 yield Static(
-                    "Plans represent structured approaches to completing the session's goal.\n"
-                    "Each plan contains a hierarchy of subtasks that break down the work.",
+                    "Phases represent structured approaches to completing the session's goal.\n"
+                    "Each phase contains a hierarchy of subtasks that break down the work.",
                     classes="concept-description"
                 )
-                
-                # Add progressive disclosure for plans
-                plan_explanation = (
-                    "**Plans Explained**\n\n"
-                    "Plans are detailed breakdowns of how to achieve the session's objective.\n\n"
+
+                # Add progressive disclosure for phases
+                phase_explanation = (
+                    "**Phases Explained**\n\n"
+                    "Phases are detailed breakdowns of how to achieve the session's objective.\n\n"
                     "**How they work:**\n"
-                    "• Plans are derived from the session's root task\n"
-                    "• Each plan contains a tree of subtasks\n"
-                    "• Multiple plan branches can exist for different approaches\n"
-                    "• Plans can be killed or activated\n\n"
+                    "• Phases are derived from the session's root task\n"
+                    "• Each phase contains a tree of subtasks\n"
+                    "• Multiple phase branches can exist for different approaches\n"
+                    "• Phases can be killed or activated\n\n"
                     "**When to use:**\n"
                     "• When you need different approaches to the same problem\n"
                     "• When you want to experiment with different strategies\n"
                     "• When work needs to be organized hierarchically"
                 )
                 yield ExpandableSection(
-                    title="Why am I seeing plans?",
-                    content=plan_explanation,
-                    section_id="plans"
+                    title="Why am I seeing phases?",
+                    content=phase_explanation,
+                    section_id="phases"
                 )
                 
                 # Tasks concept
                 yield Label("\n[b]Tasks[/b]", classes="concept-title")
                 yield Static(
                     "Tasks are the smallest units of work that can be executed by AI agents.\n"
-                    "They represent specific, actionable work items within a plan.",
+                    "They represent specific, actionable work items within a phase.",
                     classes="concept-description"
                 )
                 
@@ -125,7 +125,7 @@ class HelpIndexScreen(Screen):
                 # Runs concept
                 yield Label("\n[b]Runs[/b]", classes="concept-title")
                 yield Static(
-                    "Runs represent complete executions of plans and tasks.\n"
+                    "Runs represent complete executions of phases and tasks.\n"
                     "They capture all outputs, artifacts, and results for verification.",
                     classes="concept-description"
                 )

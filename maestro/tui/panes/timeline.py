@@ -42,7 +42,7 @@ class TimelineEvent:
     risk_marker: Optional[str] = None  # 'high', 'medium', 'low' if any risk associated
     details: Optional[str] = None
     user_id: Optional[str] = None
-    system_impact: Optional[str] = None  # What was affected (repo/plan/task/job)
+    system_impact: Optional[str] = None  # What was affected (repo/phase/task/job)
 
 
 class TimelinePane(PaneView):
@@ -257,7 +257,7 @@ class TimelinePane(PaneView):
                 MenuItem("Explain Event", "timeline.explain", "f7"),
                 MenuItem("Create Recovery Branch", "timeline.branch", "f8"),
                 MenuItem("Open Vault (Filtered)", "timeline.vault_filtered", "v"),
-                MenuItem("Jump to Plan", "timeline.plan", "p"),
+                MenuItem("Jump to Phase", "timeline.phase", "p"),
                 MenuItem("Jump to Related Pane", "timeline.jump_related", "j"),
             ]
         )

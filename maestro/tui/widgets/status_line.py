@@ -93,7 +93,7 @@ class StatusLine(Widget):
             msg_label.update(self._current_message())
             
     def set_sticky_status(self, text: str) -> None:
-        """Set the persistent status text (like session/plan/build info)."""
+        """Set the persistent status text (like session/phase/build info)."""
         self.sticky_status = text
         self._original_sticky_status = text
         if self.is_mounted:

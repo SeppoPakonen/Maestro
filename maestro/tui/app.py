@@ -11,11 +11,11 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, Footer, Header, Button
 from textual.types import MessageTarget
 from maestro.ui_facade.sessions import get_active_session, list_sessions
-from maestro.ui_facade.plans import get_active_plan, list_plans
+from maestro.ui_facade.phases import get_active_phase, list_phases
 from maestro.ui_facade.build import get_active_build_target, list_build_targets
 from maestro.tui.screens.home import HomeScreen
 from maestro.tui.screens.sessions import SessionsScreen
-from maestro.tui.screens.plans import PlansScreen
+from maestro.tui.screens.phases import PhasesScreen
 from maestro.tui.screens.tasks import TasksScreen
 from maestro.tui.screens.build import BuildScreen
 try:
@@ -1063,7 +1063,7 @@ class MaestroTUI(App):
         if self.legacy_mode_enabled:
             self.BINDINGS.extend([
                 ("s", "switch_to_screen('sessions')", "Sessions"),
-                ("p", "switch_to_screen('plans')", "Plans"),
+                ("p", "switch_to_screen('phases')", "Phases"),
                 ("t", "switch_to_screen('tasks')", "Tasks"),
                 ("b", "switch_to_screen('build')", "Build"),
                 ("c", "switch_to_screen('convert')", "Convert"),
@@ -1082,7 +1082,7 @@ class MaestroTUI(App):
         self.smoke_seconds = smoke_seconds
         self.smoke_out = smoke_out
         self.active_session = None
-        self.active_plan = None
+        self.active_phase = None
         self.active_build_target = None
         self.repo_root = "./"  # Simplified for now
         self.loading_indicator = LoadingIndicator()
@@ -1105,12 +1105,12 @@ class MaestroTUI(App):
         # We need session ID to get active plan, so check if we have an active session
         if self.active_session:
             try:
-                from maestro.ui_facade.plans import get_active_plan
-                self.active_plan = get_active_plan(self.active_session.id)
+                from maestro.ui_facade.phases import get_active_phase
+                self.active_phase = get_active_phase(self.active_session.id)
             except Exception:
-                self.active_plan = None
+                self.active_phase = None
         else:
-            self.active_plan = None
+            self.active_phase = None
 
         try:
             # Get build target only if there's an active session
@@ -1127,8 +1127,8 @@ class MaestroTUI(App):
         session_id_display = getattr(self, 'active_session', None)
         session_id_display = session_id_display.id[:8] + '...' if session_id_display else 'None'
 
-        plan_id_display = getattr(self, 'active_plan', None)
-        plan_id_display = plan_id_display.plan_id[:8] + '...' if plan_id_display else 'None'
+        plan_id_display = getattr(self, 'active_phase', None)
+        plan_id_display = plan_id_display.phase_id[:8] + '...' if plan_id_display else 'None'
 
         build_id_display = getattr(self, 'active_build_target', None)
         build_id_display = build_id_display.id[:8] + '...' if build_id_display else 'None'
@@ -1138,7 +1138,7 @@ class MaestroTUI(App):
             Label(" ⏳ ", id="global-loading-indicator", classes="status-label hidden"),
             Label(f"Root: {getattr(self, 'repo_root', 'unknown')}", id="repo-root", classes="status-label"),
             Label(f" | Session: {session_id_display}", id="active-session", classes="status-label"),
-            Label(f" | Plan: {plan_id_display}", id="active-plan", classes="status-label"),
+            Label(f" | Phase: {plan_id_display}", id="active-phase", classes="status-label"),
             Label(f" | Build: {build_id_display}", id="active-build", classes="status-label"),
             id="status-bar"
         )
@@ -1151,7 +1151,7 @@ class MaestroTUI(App):
                 Button("📦 Repo", id="nav-repo", classes="nav-item clickable-nav-item"),
                 Button("📝 IDE", id="nav-ide", classes="nav-item clickable-nav-item"),
                 Button("📋 Sessions", id="nav-sessions", classes="nav-item clickable-nav-item"),
-                Button("📊 Plans", id="nav-plans", classes="nav-item clickable-nav-item"),
+                Button("📊 Phases", id="nav-plans", classes="nav-item clickable-nav-item"),
                 Button("✅ Tasks", id="nav-tasks", classes="nav-item clickable-nav-item"),
                 Button("🔨 Build", id="nav-build", classes="nav-item clickable-nav-item"),
                 Button("🛠 Make", id="nav-make", classes="nav-item clickable-nav-item"),
@@ -1259,7 +1259,7 @@ class MaestroTUI(App):
             nav_map = {
                 "nav-home": HomeScreen,
                 "nav-sessions": SessionsScreen,
-                "nav-plans": PlansScreen,
+                "nav-plans": PhasesScreen,
                 "nav-tasks": TasksScreen,
                 "nav-repo": RepoScreen,
                 "nav-build": BuildScreen,
@@ -1296,7 +1296,7 @@ class MaestroTUI(App):
         nav_map = {
             "nav-home": HomeScreen,
             "nav-sessions": SessionsScreen,
-            "nav-plans": PlansScreen,
+            "nav-plans": PhasesScreen,
             "nav-tasks": TasksScreen,
             "nav-repo": RepoScreen,
             "nav-build": BuildScreen,
@@ -1350,7 +1350,7 @@ class MaestroTUI(App):
         nav_map = {
             "nav-home": HomeScreen,
             "nav-sessions": SessionsScreen,
-            "nav-plans": PlansScreen,
+            "nav-plans": PhasesScreen,
             "nav-tasks": TasksScreen,
             "nav-repo": RepoScreen,
             "nav-build": BuildScreen,
@@ -1520,7 +1520,7 @@ class MaestroTUI(App):
         screen_map = {
             "home": HomeScreen,
             "sessions": SessionsScreen,
-            "plans": PlansScreen,
+            "phases": PhasesScreen,
             "tasks": TasksScreen,
             "repo": RepoScreen,
             "build": BuildScreen,
@@ -1565,8 +1565,8 @@ class MaestroTUI(App):
             self.query_one("#active-session").update(
                 f" | Session: {self.active_session.id[:8] + '...' if self.active_session else 'None'}"
             )
-            self.query_one("#active-plan").update(
-                f" | Plan: {self.active_plan.plan_id[:8] + '...' if self.active_plan else 'None'}"
+            self.query_one("#active-phase").update(
+                f" | Phase: {self.active_phase.phase_id[:8] + '...' if self.active_phase else 'None'}"
             )
             self.query_one("#active-build").update(
                 f" | Build: {self.active_build_target.id[:8] + '...' if self.active_build_target else 'None'}"

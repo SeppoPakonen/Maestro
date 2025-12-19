@@ -20,7 +20,7 @@ class HomeScreen(Static):
             Label("This is the main dashboard for Maestro AI Task Management", classes="content"),
             Label("\nUse the navigation menu or command palette (Ctrl+P) to browse:", classes="instructions"),
             Label("- Sessions", classes="list-item"),
-            Label("- Plans", classes="list-item"), 
+            Label("- Phases", classes="list-item"), 
             Label("- Tasks", classes="list-item"),
             Label("- Repo", classes="list-item"),
             Label("- Build", classes="list-item"),

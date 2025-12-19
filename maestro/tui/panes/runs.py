@@ -340,8 +340,8 @@ class RunsPane(PaneView):
 
             if run_detail.baseline_tag:
                 detail_lines.append(f"[b]Baseline:[/b] {run_detail.baseline_tag}")
-            if run_detail.plan_revision:
-                detail_lines.append(f"[b]Plan Revision:[/b] {run_detail.plan_revision}")
+            if run_detail.phase_revision:
+                detail_lines.append(f"[b]Phase Revision:[/b] {run_detail.phase_revision}")
             if run_detail.decision_fingerprint:
                 detail_lines.append(f"[b]Decision Fingerprint:[/b] {run_detail.decision_fingerprint[:12]}...")
             if run_detail.playbook_hash:

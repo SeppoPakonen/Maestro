@@ -87,15 +87,15 @@ class OnboardingManager:
             OnboardingStep(
                 id="status_indicators",
                 title="Status Indicators",
-                description="At the top, you see important status:\n  • Root: Project root directory\n  • Session: Current active session\n  • Plan: Current active plan\n  • Build: Active build target\nThese show your current working context.",
+                description="At the top, you see important status:\n  • Root: Project root directory\n  • Session: Current active session\n  • Phase: Current active phase\n  • Build: Active build target\nThese show your current working context.",
                 key_bindings=[],
                 next_hint="Press Enter to continue to navigation..."
             ),
             OnboardingStep(
                 id="navigation",
                 title="Navigation",
-                description="Use the left sidebar to navigate between different system areas:\n  • Home: Main dashboard\n  • Sessions: Manage work sessions\n  • Plans: Plan tree visualization\n  • Tasks: Individual task management\n  • Convert: Format conversion workflows\n  • And many more...",
-                key_bindings=["Home", "Sessions", "Plans", "Tasks"],
+                description="Use the left sidebar to navigate between different system areas:\n  • Home: Main dashboard\n  • Sessions: Manage work sessions\n  • Phases: Phase tree visualization\n  • Tasks: Individual task management\n  • Convert: Format conversion workflows\n  • And many more...",
+                key_bindings=["Home", "Sessions", "Phases", "Tasks"],
                 next_hint="Press Enter to continue to read vs write actions..."
             ),
             OnboardingStep(

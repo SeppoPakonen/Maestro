@@ -5,7 +5,7 @@ Maestro TUI Screens Package
 __all__ = [
     "home",
     "sessions",
-    "plans",
+    "phases",
     "tasks",
     "build",
     "convert",

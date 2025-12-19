@@ -244,8 +244,8 @@ class SessionsPane(PaneView):
             f"[b]Status:[/b] {self.details.status}",
         ]
 
-        if self.details.active_plan_id:
-            detail_lines.append(f"[b]Active Plan:[/b] {self.details.active_plan_id}")
+        if self.details.active_phase_id:
+            detail_lines.append(f"[b]Active Phase:[/b] {self.details.active_phase_id}")
         if self.details.rules_path:
             detail_lines.append(f"[b]Rules:[/b] {self.details.rules_path}")
         if self.details.root_task_summary:

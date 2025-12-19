@@ -126,9 +126,9 @@ def load_all_pane_modules():
     # Import additional pane modules as they are created
     # Add new pane imports here in the future:
     try:
-        import maestro.tui.panes.plans  # noqa: F401
+        import maestro.tui.panes.phases  # noqa: F401
     except ImportError as e:
-        logging.warning(f"Could not import plans pane: {e}")
+        logging.warning(f"Could not import phases pane: {e}")
 
     try:
         import maestro.tui.panes.tasks  # noqa: F401

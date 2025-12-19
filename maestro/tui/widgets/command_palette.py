@@ -8,7 +8,7 @@ from textual import events
 from textual.message import Message
 from textual.screen import ModalScreen
 from maestro.ui_facade.sessions import list_sessions, get_active_session, create_session, set_active_session, remove_session
-from maestro.ui_facade.plans import list_plans, get_active_plan
+from maestro.ui_facade.phases import list_phases, get_active_phase
 from maestro.ui_facade.build import get_active_build_target
 from maestro.ui_facade.runs import list_runs, get_run, get_run_manifest, replay_run, diff_runs, set_baseline
 from maestro.tui.utils import ErrorNormalizer, ErrorModal
@@ -78,8 +78,8 @@ class CommandPaletteScreen(ModalScreen):
             "session_set": "sessions.set_active",
             "session_remove": "sessions.delete",
             "session_list": "sessions.refresh",
-            "plan_list": "plans.refresh",
-            "plan_set": "plans.set_active",
+            "phase_list": "phases.refresh",
+            "phase_set": "phases.set_active",
             "task_run": "tasks.run",
             "task_resume": "tasks.resume",
             "build_run": "build.run",
@@ -95,7 +95,7 @@ class CommandPaletteScreen(ModalScreen):
         commands.extend([
             {"name": "Go to home", "action": "screen_home", "type": "navigation"},
             {"name": "Go to sessions", "action": "screen_sessions", "type": "navigation"},
-            {"name": "Go to plans", "action": "screen_plans", "type": "navigation"},
+            {"name": "Go to phases", "action": "screen_phases", "type": "navigation"},
             {"name": "Go to tasks", "action": "screen_tasks", "type": "navigation"},
             {"name": "Go to repo", "action": "screen_repo", "type": "navigation"},
             {"name": "Go to build", "action": "screen_build", "type": "navigation"},
@@ -112,17 +112,17 @@ class CommandPaletteScreen(ModalScreen):
         commands.extend([
             {"name": "Show active session", "action": "show_active_session", "type": "action"},
             {"name": "List sessions", "action": "list_sessions", "type": "action"},
-            {"name": "Show active plan", "action": "show_active_plan", "type": "action"},
-            {"name": "List plans", "action": "list_plans", "type": "action"},
+            {"name": "Show active phase", "action": "show_active_phase", "type": "action"},
+            {"name": "List phases", "action": "list_phases", "type": "action"},
             {"name": "Show active build target", "action": "show_active_build_target", "type": "action"},
         ])
 
-        # Plan operations
+        # Phase operations
         commands.extend([
-            {"name": "Plan: List all plans", "action": "plan_list", "type": "plan"},
-            {"name": "Plan: Show plan tree", "action": "plan_tree", "type": "plan"},
-            {"name": "Plan: Set active plan", "action": "plan_set", "type": "plan"},
-            {"name": "Plan: Kill plan", "action": "plan_kill", "type": "plan"},
+            {"name": "Phase: List all phases", "action": "phase_list", "type": "phase"},
+            {"name": "Phase: Show phase tree", "action": "phase_tree", "type": "phase"},
+            {"name": "Phase: Set active phase", "action": "phase_set", "type": "phase"},
+            {"name": "Phase: Kill phase", "action": "phase_kill", "type": "phase"},
         ])
 
         # Session operations
@@ -346,26 +346,26 @@ class CommandPaletteScreen(ModalScreen):
                     # For read-only operations like session_list
                     self.app.notify(f"Session info: {result}", timeout=5)
                     self.dismiss()
-            # Handle plan operation commands that need special handling
-            elif command["action"] in ["plan_list", "plan_tree", "plan_set", "plan_kill"]:
+            # Handle phase operation commands that need special handling
+            elif command["action"] in ["phase_list", "phase_tree", "phase_set", "phase_kill"]:
                 result = self.execute_action_command(command["action"])
                 if result == "INPUT_NEEDED":
-                    # Special handling for plan operations that require input
-                    if command["action"] == "plan_set":
-                        # Show list of plans and let user select one to set as active
-                        self._handle_plan_set()
-                    elif command["action"] == "plan_kill":
-                        # Show list of plans and let user select one to kill
-                        self._handle_plan_kill()
-                elif result == "NAVIGATE_TO_PLANS":
-                    # Navigate to the plans screen
-                    from maestro.tui.screens.plans import PlansScreen
-                    # Switch to the plans screen content
-                    self.app._switch_main_content(PlansScreen())
+                    # Special handling for phase operations that require input
+                    if command["action"] == "phase_set":
+                        # Show list of phases and let user select one to set as active
+                        self._handle_phase_set()
+                    elif command["action"] == "phase_kill":
+                        # Show list of phases and let user select one to kill
+                        self._handle_phase_kill()
+                elif result == "NAVIGATE_TO_PHASES":
+                    # Navigate to the phases screen
+                    from maestro.tui.screens.phases import PhasesScreen
+                    # Switch to the phases screen content
+                    self.app._switch_main_content(PhasesScreen())
                     self.dismiss()
                 else:
-                    # For read-only operations like plan_list
-                    self.app.notify(f"Plan info: {result}", timeout=5)
+                    # For read-only operations like phase_list
+                    self.app.notify(f"Phase info: {result}", timeout=5)
                     self.dismiss()
             # Handle build operation commands that need special handling
             elif command["action"] in ["build_list", "build_set", "build_run", "build_fix", "build_status"]:
@@ -572,81 +572,81 @@ class CommandPaletteScreen(ModalScreen):
         )
         self.app.push_screen(input_dialog, callback=on_session_info_entered)
 
-    def _handle_plan_set(self):
-        """Handle the plan set operation."""
-        # Get list of plans to show to user
+    def _handle_phase_set(self):
+        """Handle the phase set operation."""
+        # Get list of phases to show to user
         if not self.session_id:
             self.app.notify("No active session", timeout=3)
             self.dismiss()
             return
 
         try:
-            from maestro.ui_facade.plans import list_plans, set_active_plan
-            plans = list_plans(self.session_id)
-            if not plans:
-                self.app.notify("No plans available", timeout=3)
+            from maestro.ui_facade.phases import list_phases, set_active_phase
+            phases = list_phases(self.session_id)
+            if not phases:
+                self.app.notify("No phases available", timeout=3)
                 self.dismiss()
                 return
 
-            # Create a dialog to select plan
+            # Create a dialog to select phase
             from .modals import InputDialog
 
-            def on_plan_selected(plan_id: str):
-                if plan_id:
-                    # Find the plan in the list
-                    selected_plan = None
-                    for plan in plans:
-                        if plan.plan_id == plan_id or plan.plan_id.startswith(plan_id):
-                            selected_plan = plan
+            def on_phase_selected(phase_id: str):
+                if phase_id:
+                    # Find the phase in the list
+                    selected_phase = None
+                    for phase in phases:
+                        if phase.phase_id == phase_id or phase.phase_id.startswith(phase_id):
+                            selected_phase = phase
                             break
 
-                    if not selected_plan:
+                    if not selected_phase:
                         # If user didn't enter a full ID, try to match partial
-                        matching_plans = [p for p in plans if p.plan_id.startswith(plan_id)]
-                        if len(matching_plans) == 1:
-                            selected_plan = matching_plans[0]
-                        elif len(matching_plans) > 1:
-                            self.app.notify(f"Multiple plans match '{plan_id}'. Please be more specific.", timeout=5)
+                        matching_phases = [p for p in phases if p.phase_id.startswith(phase_id)]
+                        if len(matching_phases) == 1:
+                            selected_phase = matching_phases[0]
+                        elif len(matching_phases) > 1:
+                            self.app.notify(f"Multiple phases match '{phase_id}'. Please be more specific.", timeout=5)
                             self.dismiss()
                             return
                         else:
-                            self.app.notify(f"No plan found with ID '{plan_id}'", timeout=5)
+                            self.app.notify(f"No phase found with ID '{phase_id}'", timeout=5)
                             self.dismiss()
                             return
 
-                    # Confirm setting active plan
+                    # Confirm setting active phase
                     def on_confirmed(confirmed: bool):
                         if confirmed:
                             try:
-                                set_active_plan(self.session_id, selected_plan.plan_id)
+                                set_active_phase(self.session_id, selected_phase.phase_id)
                                 # Update app state
                                 self.app._load_status_state()
-                                self.app.query_one("#active-plan").update(
-                                    f" | Plan: {selected_plan.plan_id[:8]}..."
+                                self.app.query_one("#active-phase").update(
+                                    f" | Phase: {selected_phase.phase_id[:8]}..."
                                 )
-                                self.app.notify(f"Plan {selected_plan.plan_id[:8]}... set as active", timeout=3)
+                                self.app.notify(f"Phase {selected_phase.phase_id[:8]}... set as active", timeout=3)
                             except Exception as e:
-                                self.app.notify(f"Error setting active plan: {str(e)}", severity="error", timeout=5)
+                                self.app.notify(f"Error setting active phase: {str(e)}", severity="error", timeout=5)
                         self.dismiss()
 
                     from .modals import ConfirmDialog
                     confirm_dialog = ConfirmDialog(
-                        message=f"Set plan '{selected_plan.label}' as active?\nID: {selected_plan.plan_id[:8]}...",
-                        title="Confirm Set Active Plan"
+                        message=f"Set phase '{selected_phase.label}' as active?\nID: {selected_phase.phase_id[:8]}...",
+                        title="Confirm Set Active Phase"
                     )
                     self.app.push_screen(confirm_dialog, callback=on_confirmed)
                 else:
                     self.dismiss()
 
-            # Show input dialog to ask for plan ID
+            # Show input dialog to ask for phase ID
             input_dialog = InputDialog(
-                message="Enter plan ID to set as active:",
-                title="Set Active Plan"
+                message="Enter phase ID to set as active:",
+                title="Set Active Phase"
             )
-            self.app.push_screen(input_dialog, callback=on_plan_selected)
+            self.app.push_screen(input_dialog, callback=on_phase_selected)
 
         except Exception as e:
-            self.app.notify(f"Error listing plans: {str(e)}", severity="error", timeout=5)
+            self.app.notify(f"Error listing phases: {str(e)}", severity="error", timeout=5)
             self.dismiss()
 
     def _handle_build_set(self):
@@ -887,95 +887,95 @@ class CommandPaletteScreen(ModalScreen):
         )
         self.app.push_screen(input_dialog, callback=on_task_id_entered)
 
-    def _handle_plan_kill(self):
-        """Handle the plan kill operation."""
-        # Get list of plans to show to user
+    def _handle_phase_kill(self):
+        """Handle the phase kill operation."""
+        # Get list of phases to show to user
         if not self.session_id:
             self.app.notify("No active session", timeout=3)
             self.dismiss()
             return
 
         try:
-            from maestro.ui_facade.plans import list_plans, kill_plan, get_plan_details
-            plans = list_plans(self.session_id)
-            if not plans:
-                self.app.notify("No plans available", timeout=3)
+            from maestro.ui_facade.phases import list_phases, kill_phase, get_phase_details
+            phases = list_phases(self.session_id)
+            if not phases:
+                self.app.notify("No phases available", timeout=3)
                 self.dismiss()
                 return
 
-            # Create a dialog to select plan
+            # Create a dialog to select phase
             from .modals import InputDialog
 
-            def on_plan_selected(plan_id: str):
-                if plan_id:
-                    # Find the plan in the list
-                    selected_plan = None
-                    for plan in plans:
-                        if plan.plan_id == plan_id or plan.plan_id.startswith(plan_id):
-                            selected_plan = plan
+            def on_phase_selected(phase_id: str):
+                if phase_id:
+                    # Find the phase in the list
+                    selected_phase = None
+                    for phase in phases:
+                        if phase.phase_id == phase_id or phase.phase_id.startswith(phase_id):
+                            selected_phase = phase
                             break
 
-                    if not selected_plan:
+                    if not selected_phase:
                         # If user didn't enter a full ID, try to match partial
-                        matching_plans = [p for p in plans if p.plan_id.startswith(plan_id)]
-                        if len(matching_plans) == 1:
-                            selected_plan = matching_plans[0]
-                        elif len(matching_plans) > 1:
-                            self.app.notify(f"Multiple plans match '{plan_id}'. Please be more specific.", timeout=5)
+                        matching_phases = [p for p in phases if p.phase_id.startswith(phase_id)]
+                        if len(matching_phases) == 1:
+                            selected_phase = matching_phases[0]
+                        elif len(matching_phases) > 1:
+                            self.app.notify(f"Multiple phases match '{phase_id}'. Please be more specific.", timeout=5)
                             self.dismiss()
                             return
                         else:
-                            self.app.notify(f"No plan found with ID '{plan_id}'", timeout=5)
+                            self.app.notify(f"No phase found with ID '{phase_id}'", timeout=5)
                             self.dismiss()
                             return
 
-                    # Check if this plan is the active one
+                    # Check if this phase is the active one
                     is_active = False
                     try:
-                        active_plan = get_plan_details(self.session_id, selected_plan.plan_id)
-                        if active_plan and self.app.active_session and self.app.active_session.active_plan_id == selected_plan.plan_id:
+                        active_phase = get_phase_details(self.session_id, selected_phase.phase_id)
+                        if active_phase and self.app.active_session and self.app.active_session.active_phase_id == selected_phase.phase_id:
                             is_active = True
                     except:
                         pass  # If we can't determine if it's active, continue anyway
 
-                    # Confirm killing the plan
+                    # Confirm killing the phase
                     def on_confirmed(confirmed: bool):
                         if confirmed:
                             try:
-                                kill_plan(self.session_id, selected_plan.plan_id)
-                                msg = f"Plan '{selected_plan.label}' killed"
+                                kill_phase(self.session_id, selected_phase.phase_id)
+                                msg = f"Phase '{selected_phase.label}' killed"
                                 if is_active:
-                                    msg += " (was active plan)"
+                                    msg += " (was active phase)"
                                 self.app.notify(msg, timeout=3)
                                 # Update app state if needed
                                 self.app._load_status_state()
                             except Exception as e:
-                                self.app.notify(f"Error killing plan: {str(e)}", severity="error", timeout=5)
+                                self.app.notify(f"Error killing phase: {str(e)}", severity="error", timeout=5)
                         self.dismiss()
 
                     # Prepare confirmation message based on whether it's active
-                    message = f"Kill plan '{selected_plan.label}'?\nID: {selected_plan.plan_id[:8]}..."
+                    message = f"Kill phase '{selected_phase.label}'?\nID: {selected_phase.phase_id[:8]}..."
                     if is_active:
-                        message += "\n\nWARNING: This is the active plan and will be deactivated."
+                        message += "\n\nWARNING: This is the active phase and will be deactivated."
 
                     from .modals import ConfirmDialog
                     confirm_dialog = ConfirmDialog(
                         message=message,
-                        title="Confirm Kill Plan"
+                        title="Confirm Kill Phase"
                     )
                     self.app.push_screen(confirm_dialog, callback=on_confirmed)
                 else:
                     self.dismiss()
 
-            # Show input dialog to ask for plan ID
+            # Show input dialog to ask for phase ID
             input_dialog = InputDialog(
-                message="Enter plan ID to kill:",
-                title="Kill Plan"
+                message="Enter phase ID to kill:",
+                title="Kill Phase"
             )
-            self.app.push_screen(input_dialog, callback=on_plan_selected)
+            self.app.push_screen(input_dialog, callback=on_phase_selected)
 
         except Exception as e:
-            self.app.notify(f"Error listing plans: {str(e)}", severity="error", timeout=5)
+            self.app.notify(f"Error listing phases: {str(e)}", severity="error", timeout=5)
             self.dismiss()
 
     def _handle_semantic_show(self):
@@ -1393,29 +1393,29 @@ class CommandPaletteScreen(ModalScreen):
                     return f"Sessions ({len(sessions)}): {', '.join(session_list)}"
                 else:
                     return "No sessions found"
-            elif action_name == "show_active_plan":
+            elif action_name == "show_active_phase":
                 # For this to work, we need an active session
                 if self.session_id:
-                    from maestro.ui_facade.plans import get_active_plan
-                    plan = get_active_plan(self.session_id)
-                    if plan:
-                        return f"Active Plan: {plan.plan_id[:8]}... - {plan.label}"
+                    from maestro.ui_facade.phases import get_active_phase
+                    phase = get_active_phase(self.session_id)
+                    if phase:
+                        return f"Active Phase: {phase.phase_id[:8]}... - {phase.label}"
                     else:
-                        return "No active plan found for session"
+                        return "No active phase found for session"
                 else:
-                    return "No session context for plan"
-            elif action_name == "list_plans":
+                    return "No session context for phase"
+            elif action_name == "list_phases":
                 # For this to work, we need an active session
                 if self.session_id:
-                    from maestro.ui_facade.plans import list_plans
-                    plans = list_plans(self.session_id)
-                    if plans:
-                        plan_list = [f"{p.plan_id[:8]}... - {p.label}" for p in plans]
-                        return f"Plans ({len(plans)}): {', '.join(plan_list)}"
+                    from maestro.ui_facade.phases import list_phases
+                    phases = list_phases(self.session_id)
+                    if phases:
+                        phase_list = [f"{p.phase_id[:8]}... - {p.label}" for p in phases]
+                        return f"Phases ({len(phases)}): {', '.join(phase_list)}"
                     else:
-                        return "No plans found for session"
+                        return "No phases found for session"
                 else:
-                    return "No session context for plans"
+                    return "No session context for phases"
             elif action_name == "show_active_build_target":
                 # Use a placeholder session ID
                 build_target = get_active_build_target("default_session")
@@ -1440,26 +1440,26 @@ class CommandPaletteScreen(ModalScreen):
             elif action_name == "session_remove":
                 # This operation requires user input, so we return a special value
                 return "INPUT_NEEDED"
-            elif action_name == "plan_list":
-                # Return plan list
+            elif action_name == "phase_list":
+                # Return phase list
                 if self.session_id:
-                    from maestro.ui_facade.plans import list_plans
-                    plans = list_plans(self.session_id)
-                    if plans:
-                        plan_list = [f"{p.plan_id[:8]}... - {p.label}" for p in plans]
-                        return f"Plans ({len(plans)}): {', '.join(plan_list)}"
+                    from maestro.ui_facade.phases import list_phases
+                    phases = list_phases(self.session_id)
+                    if phases:
+                        phase_list = [f"{p.phase_id[:8]}... - {p.label}" for p in phases]
+                        return f"Phases ({len(phases)}): {', '.join(phase_list)}"
                     else:
-                        return "No plans found for session"
+                        return "No phases found for session"
                 else:
-                    return "No session context for plans"
-            elif action_name == "plan_tree":
-                # Navigate to plan tree screen
-                return "NAVIGATE_TO_PLANS"
-            elif action_name == "plan_set":
-                # This operation requires user input for selecting the plan
+                    return "No session context for phases"
+            elif action_name == "phase_tree":
+                # Navigate to phase tree screen
+                return "NAVIGATE_TO_PHASES"
+            elif action_name == "phase_set":
+                # This operation requires user input for selecting the phase
                 return "INPUT_NEEDED"
-            elif action_name == "plan_kill":
-                # This operation requires user input for selecting the plan
+            elif action_name == "phase_kill":
+                # This operation requires user input for selecting the phase
                 return "INPUT_NEEDED"
             elif action_name == "build_set":
                 # This operation requires user input for selecting the build target

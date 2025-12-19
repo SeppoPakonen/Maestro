@@ -111,8 +111,8 @@ class SessionsScreen(Screen):
             Label(f"[b]Status:[/b] {self.current_session_details.status}"),
         ]
 
-        if self.current_session_details.active_plan_id:
-            details_content.append(Label(f"[b]Active Plan ID:[/b] {self.current_session_details.active_plan_id}"))
+        if self.current_session_details.active_phase_id:
+            details_content.append(Label(f"[b]Active Phase ID:[/b] {self.current_session_details.active_phase_id}"))
 
         if self.current_session_details.root_task_summary:
             details_content.append(Label(f"[b]Summary:[/b] {self.current_session_details.root_task_summary[:100]}{'...' if len(self.current_session_details.root_task_summary) > 100 else ''}"))
@@ -245,8 +245,8 @@ class SessionsScreen(Screen):
                     Label(f"[b]Status:[/b] {self.current_session_details.status}"),
                 ]
 
-                if self.current_session_details.active_plan_id:
-                    details_content.append(Label(f"[b]Active Plan ID:[/b] {self.current_session_details.active_plan_id}"))
+                if self.current_session_details.active_phase_id:
+                    details_content.append(Label(f"[b]Active Phase ID:[/b] {self.current_session_details.active_phase_id}"))
 
                 if self.current_session_details.root_task_summary:
                     details_content.append(Label(f"[b]Summary:[/b] {self.current_session_details.root_task_summary[:100]}{'...' if len(self.current_session_details.root_task_summary) > 100 else ''}"))
@@ -357,7 +357,7 @@ class SessionsScreen(Screen):
         message = f"Permanently remove session '{selected_session.root_task[:30]}...'?\n\n"
         message += "[b][red]IRREVERSIBLE ACTION[/red][/b]\n"
         message += "• Session data will be permanently deleted\n"
-        message += "• All associated plans, tasks, and artifacts will be removed\n"
+        message += "• All associated phases, tasks, and artifacts will be removed\n"
         message += "• This action cannot be undone\n\n"
         message += "[i]Action evidence will be logged in system logs.[/i]"
 

@@ -431,7 +431,7 @@ class TasksScreen(Screen):
                 self.notify("Task execution cancelled", timeout=2)
 
         from maestro.tui.widgets.modals import ConfirmDialog
-        message = "Start execution of all tasks in the active plan?\n\n"
+        message = "Start execution of all tasks in the active phase?\n\n"
         message += "[b][yellow]MUTATING OPERATION[/yellow][/b]\n"
         message += "• May execute multiple AI tasks sequentially\n"
         message += "• Will potentially modify code files\n"
@@ -521,7 +521,7 @@ class TasksScreen(Screen):
                 self.notify("Task resume cancelled", timeout=2)
 
         from maestro.tui.widgets.modals import ConfirmDialog
-        message = "Resume interrupted tasks in the active plan?\n\n"
+        message = "Resume interrupted tasks in the active phase?\n\n"
         message += "[b][yellow]MUTATING OPERATION[/yellow][/b]\n"
         message += "• Will continue previously interrupted AI tasks\n"
         message += "• Will potentially modify code files\n"
@@ -574,7 +574,7 @@ class TasksScreen(Screen):
                 self.notify("Task execution cancelled", timeout=2)
 
         from maestro.tui.widgets.modals import ConfirmDialog
-        message = "Start execution of limited tasks in the active plan?\n\n"
+        message = "Start execution of limited tasks in the active phase?\n\n"
         message += "[b][yellow]MUTATING OPERATION[/yellow][/b]\n"
         message += "• Will execute only a limited number of AI tasks\n"
         message += "• Will potentially modify code files\n"

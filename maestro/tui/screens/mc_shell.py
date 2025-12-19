@@ -15,7 +15,7 @@ from textual.screen import Screen
 from textual.widgets import Label, ListItem, ListView, Static
 
 from maestro.ui_facade.build import get_active_build_target
-from maestro.ui_facade.plans import get_active_plan
+from maestro.ui_facade.phases import get_active_phase
 from maestro.ui_facade.sessions import get_active_session
 from maestro.tui.menubar import Menu, MenuActionRequested, MenuBar, MenuBarDeactivated, MenuBarWidget, MenuItem
 from maestro.tui.menubar.actions import execute_menu_action
@@ -26,7 +26,7 @@ from maestro.tui.widgets.command_palette import CommandPaletteScreen
 from maestro.tui.widgets.status_line import StatusLine
 from maestro.tui.widgets.text_viewer import TextViewerModal
 import maestro.tui.panes.sessions  # noqa: F401 - ensure pane is registered
-import maestro.tui.panes.plans  # noqa: F401 - ensure pane is registered
+import maestro.tui.panes.phases  # noqa: F401 - ensure pane is registered
 import maestro.tui.panes.tasks  # noqa: F401 - ensure pane is registered
 import maestro.tui.panes.build  # noqa: F401 - ensure pane is registered
 import maestro.tui.panes.convert  # noqa: F401 - ensure pane is registered
@@ -122,7 +122,7 @@ class MainShellScreen(Screen):
         # Add some default sections that may not be in the registry yet
         self.sections: List[str] = registry_sections + [
             "Home",
-            "Plans",
+            "Phases",
             "Tasks",
             "Build",
             "Convert",
@@ -141,7 +141,7 @@ class MainShellScreen(Screen):
 
         self.focus_pane: str = "left"
         self.current_section: str = self.sections[0] if self.sections else "Home"
-        self.session_summary: str = "Session: None | Plan: None | Build: None"
+        self.session_summary: str = "Session: None | Phase: None | Build: None"
         self.menu_bar_model: MenuBar = MenuBar()
         self.menubar: Optional[MenuBarWidget] = None
         self.status_line: Optional[StatusLine] = None
@@ -197,16 +197,16 @@ class MainShellScreen(Screen):
             print("MC_SHELL_READY", flush=True)
 
     def _load_status_state(self) -> None:
-        """Load session/plan/build summary for the menubar and status line."""
+        """Load session/phase/build summary for the menubar and status line."""
         try:
             session = get_active_session()
         except Exception:
             session = None
 
         try:
-            plan = get_active_plan(session.id) if session else None
+            phase = get_active_phase(session.id) if session else None
         except Exception:
-            plan = None
+            phase = None
 
         try:
             build = get_active_build_target(session.id if session else "default_session")
@@ -214,10 +214,10 @@ class MainShellScreen(Screen):
             build = None
 
         session_display = session.id[:8] + "..." if session else "None"
-        plan_display = plan.plan_id[:8] + "..." if plan else "None"
+        phase_display = phase.phase_id[:8] + "..." if phase else "None"
         build_display = build.id[:8] + "..." if build else "None"
 
-        self.session_summary = f"Session: {session_display} | Plan: {plan_display} | Build: {build_display}"
+        self.session_summary = f"Session: {session_display} | Phase: {phase_display} | Build: {build_display}"
         if self.menubar:
             self.menubar.set_session_summary(self.session_summary)
         if self.status_line:

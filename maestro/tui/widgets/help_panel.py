@@ -88,13 +88,13 @@ This is the main dashboard showing an overview of your session status.
 
 **What this screen is for:**
 - Provides a quick overview of your current session
-- Shows active plan and build target
+- Shows active phase and build target
 - Displays key metrics and status indicators
 
 **Common actions:**
 - Navigate to other screens using the left sidebar
 - Press `r` to refresh status information
-- Check active session, plan, and build target status
+- Check active session, phase, and build target status
 
 **Safe vs Dangerous:**
 - All actions here are read-only
@@ -123,31 +123,31 @@ Manage multiple work sessions that maintain state across runs.
 **What NOT to do accidentally:**
 - Don't remove sessions with important work""",
             
-            "plans": """**Plans Visualization**
+            "phases": """**Phases Visualization**
 
-Interactive view of the plan tree with branching and subtasks.
+Interactive view of the phase tree with branching and subtasks.
 
 **What this screen is for:**
-- Visualize the plan hierarchy and branches
-- Set active plan for current work
-- Kill/terminate plan branches
+- Visualize the phase hierarchy and branches
+- Set active phase for current work
+- Kill/terminate phase branches
 
 **Common actions:**
-- Browse plan tree structure
-- Set active plan (enter key on plan)
-- Kill plan branch (k key on plan)
+- Browse phase tree structure
+- Set active phase (enter key on phase)
+- Kill phase branch (k key on phase)
 
 **Safe vs Dangerous:**
-- Browsing plan tree is safe
-- Setting active plan is safe and reversible
-- Killing a plan branch is irreversible and will terminate all subtasks
+- Browsing phase tree is safe
+- Setting active phase is safe and reversible
+- Killing a phase branch is irreversible and will terminate all subtasks
 
 **What NOT to do accidentally:**
-- Don't kill the active plan without confirming it's the right one""",
+- Don't kill the active phase without confirming it's the right one""",
             
             "tasks": """**Tasks Management**
 
-Manage individual tasks within the active plan.
+Manage individual tasks within the active phase.
 
 **What this screen is for:**
 - View and manage individual tasks

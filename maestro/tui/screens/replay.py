@@ -137,7 +137,7 @@ Timestamp: {run.timestamp.strftime("%Y-%m-%d %H:%M:%S") if run.timestamp else ""
 Mode: {run.mode}
 Status: {run.status}
 Baseline Tag: {run.baseline_tag or "N/A"}
-Plan Revision: {run.plan_revision or "N/A"}
+Phase Revision: {run.phase_revision or "N/A"}
 Decision Fingerprint: {run.decision_fingerprint or "N/A"}
 Playbook Hash: {run.playbook_hash or "N/A"}
 Engines Used: {", ".join(run.engines_used) if run.engines_used else "N/A"}
