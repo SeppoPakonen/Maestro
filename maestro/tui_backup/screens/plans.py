@@ -5,7 +5,7 @@ from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Label, ListView, ListItem, Tree
 from textual.containers import Horizontal, Vertical, ScrollableContainer
-from maestro.ui_facade.plans import get_plan_tree, list_plans, get_plan_details
+from maestro.ui_facade.phases import get_phase_tree, list_phases, get_phase_details
 from datetime import datetime
 
 
@@ -38,7 +38,7 @@ class PlansScreen(Screen):
                 try:
                     session = self.app.active_session
                     if session:
-                        self.plan_tree_root = get_plan_tree(session.id)
+                        self.plan_tree_root = get_phase_tree(session.id)
                         yield self._create_plan_tree_widget()
                     else:
                         yield Label("No active session available", classes="placeholder")
@@ -216,14 +216,14 @@ class PlansScreen(Screen):
             self.notify("No active session", severity="error", timeout=3)
             return
 
-        from maestro.ui_facade.plans import set_active_plan
+        from maestro.ui_facade.phases import set_active_phase
         from maestro.tui.widgets.modals import ConfirmDialog
 
         def on_confirmed(confirmed: bool):
             if confirmed:
                 try:
-                    # Set the plan as active
-                    set_active_plan(session.id, self.selected_plan_id)
+                    # Set the phase as active
+                    set_active_phase(session.id, self.selected_plan_id)
 
                     # Refresh the view to update active status
                     self.refresh_plan_tree()
@@ -237,9 +237,9 @@ class PlansScreen(Screen):
                         f" | Plan: {plan_short}..."
                     )
 
-                    self.notify(f"Plan set as active", timeout=3)
+                    self.notify(f"Phase set as active", timeout=3)
                 except Exception as e:
-                    self.notify(f"Error setting plan as active: {str(e)}", severity="error", timeout=5)
+                    self.notify(f"Error setting phase as active: {str(e)}", severity="error", timeout=5)
 
         # Show confirmation dialog
         confirm_dialog = ConfirmDialog(
@@ -259,12 +259,12 @@ class PlansScreen(Screen):
             self.notify("No active session", severity="error", timeout=3)
             return
 
-        from maestro.ui_facade.plans import kill_plan, get_plan_details
+        from maestro.ui_facade.phases import kill_phase, get_phase_details
         from maestro.tui.widgets.modals import ConfirmDialog
 
         # Get plan details to check if it's the active plan
         try:
-            plan_info = get_plan_details(session.id, self.selected_plan_id)
+            plan_info = get_phase_details(session.id, self.selected_plan_id)
             is_active_plan = (session.active_plan_id == self.selected_plan_id)
         except Exception:
             self.notify("Error getting plan details", severity="error", timeout=3)
@@ -273,8 +273,8 @@ class PlansScreen(Screen):
         def on_confirmed(confirmed: bool):
             if confirmed:
                 try:
-                    # Kill the plan
-                    kill_plan(session.id, self.selected_plan_id)
+                    # Kill the phase
+                    kill_phase(session.id, self.selected_plan_id)
 
                     # Refresh the view to update status
                     self.refresh_plan_tree()
@@ -283,19 +283,19 @@ class PlansScreen(Screen):
                     if is_active_plan:
                         self.app._load_status_state()
 
-                    self.notify(f"Plan '{plan_info.label}' killed", timeout=3)
+                    self.notify(f"Phase '{plan_info.label}' killed", timeout=3)
                 except Exception as e:
-                    self.notify(f"Error killing plan: {str(e)}", severity="error", timeout=5)
+                    self.notify(f"Error killing phase: {str(e)}", severity="error", timeout=5)
 
         # Prepare confirmation message based on whether it's active
         if is_active_plan:
-            message = f"Kill this plan branch? This is the active plan and will be deactivated.\n\nPlan: {plan_info.label}"
+            message = f"Kill this phase branch? This is the active plan and will be deactivated.\n\nPhase: {plan_info.label}"
         else:
-            message = f"Kill this plan branch?\n\nPlan: {plan_info.label}"
+            message = f"Kill this phase branch?\n\nPhase: {plan_info.label}"
 
         # Show confirmation dialog
         confirm_dialog = ConfirmDialog(
             message=message,
-            title="Confirm Kill Plan"
+            title="Confirm Kill Phase"
         )
         self.app.push_screen(confirm_dialog, callback=on_confirmed)

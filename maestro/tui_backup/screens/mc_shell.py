@@ -15,7 +15,7 @@ from textual.screen import Screen
 from textual.widgets import Label, ListItem, ListView, Static
 
 from maestro.ui_facade.build import get_active_build_target
-from maestro.ui_facade.plans import get_active_plan
+from maestro.ui_facade.phases import get_active_phase
 from maestro.ui_facade.sessions import get_active_session
 from maestro.tui.menubar import Menu, MenuActionRequested, MenuBar, MenuBarDeactivated, MenuBarWidget, MenuItem
 from maestro.tui.menubar.actions import execute_menu_action
@@ -204,7 +204,7 @@ class MainShellScreen(Screen):
             session = None
 
         try:
-            plan = get_active_plan(session.id) if session else None
+            plan = get_active_phase(session.id) if session else None
         except Exception:
             plan = None
 

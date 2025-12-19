@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Deque, Dict, List, Optional
 
-from maestro.ui_facade.plans import get_active_plan
+from maestro.ui_facade.phases import get_active_phase
 from maestro.ui_facade.sessions import get_session_details
 from maestro.ui_facade.tasks import (
     get_current_execution_state,
@@ -73,10 +73,10 @@ class TasksPane:
 
     def _get_active_plan(self, session_id: str) -> Optional[str]:
         try:
-            plan = get_active_plan(session_id)
+            phase = get_active_phase(session_id)
         except Exception:
             return None
-        return plan.plan_id if plan else None
+        return phase.phase_id if phase else None
 
     def refresh_data(self):
         """Refresh task list data."""

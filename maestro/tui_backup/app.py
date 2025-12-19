@@ -11,7 +11,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, Footer, Header, Button
 from textual.types import MessageTarget
 from maestro.ui_facade.sessions import get_active_session, list_sessions
-from maestro.ui_facade.plans import get_active_plan, list_plans
+from maestro.ui_facade.phases import get_active_phase, list_phases
 from maestro.ui_facade.build import get_active_build_target, list_build_targets
 from maestro.tui.screens.home import HomeScreen
 from maestro.tui.screens.sessions import SessionsScreen
@@ -1105,8 +1105,8 @@ class MaestroTUI(App):
         # We need session ID to get active plan, so check if we have an active session
         if self.active_session:
             try:
-                from maestro.ui_facade.plans import get_active_plan
-                self.active_plan = get_active_plan(self.active_session.id)
+                from maestro.ui_facade.phases import get_active_phase
+                self.active_plan = get_active_phase(self.active_session.id)
             except Exception:
                 self.active_plan = None
         else:

@@ -5,7 +5,7 @@ import curses
 
 from maestro.tui_mc2.app import AppContext, MC2App
 import maestro.tui_mc2.panes.plans as plans_module
-from maestro.ui_facade.plans import PlanTreeNode
+from maestro.ui_facade.phases import PhaseTreeNode
 
 
 class DummyWindow:
@@ -82,12 +82,12 @@ def test_plans_set_active_cancel(monkeypatch):
     context.active_session_id = "session-1"
     context.modal_parent = DummyWindow()
 
-    root = PlanTreeNode(
-        plan_id="plan-1234567890",
+    root = PhaseTreeNode(
+        phase_id="plan-1234567890",
         label="Root Plan",
         status="inactive",
         created_at="t1",
-        parent_plan_id=None,
+        parent_phase_id=None,
         children=[],
         subtasks=[],
     )
@@ -116,12 +116,12 @@ def test_plans_kill_cancel(monkeypatch):
     context.active_session_id = "session-1"
     context.modal_parent = DummyWindow()
 
-    root = PlanTreeNode(
-        plan_id="plan-1234567890",
+    root = PhaseTreeNode(
+        phase_id="plan-1234567890",
         label="Root Plan",
         status="inactive",
         created_at="t1",
-        parent_plan_id=None,
+        parent_phase_id=None,
         children=[],
         subtasks=[],
     )

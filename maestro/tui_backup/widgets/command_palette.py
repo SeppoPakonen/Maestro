@@ -8,7 +8,7 @@ from textual import events
 from textual.message import Message
 from textual.screen import ModalScreen
 from maestro.ui_facade.sessions import list_sessions, get_active_session, create_session, set_active_session, remove_session
-from maestro.ui_facade.plans import list_plans, get_active_plan
+from maestro.ui_facade.phases import list_phases, get_active_phase
 from maestro.ui_facade.build import get_active_build_target
 from maestro.ui_facade.runs import list_runs, get_run, get_run_manifest, replay_run, diff_runs, set_baseline
 from maestro.tui.utils import ErrorNormalizer, ErrorModal
@@ -581,8 +581,8 @@ class CommandPaletteScreen(ModalScreen):
             return
 
         try:
-            from maestro.ui_facade.plans import list_plans, set_active_plan
-            plans = list_plans(self.session_id)
+            from maestro.ui_facade.phases import list_phases, set_active_phase
+            plans = list_phases(self.session_id)
             if not plans:
                 self.app.notify("No plans available", timeout=3)
                 self.dismiss()
@@ -596,7 +596,7 @@ class CommandPaletteScreen(ModalScreen):
                     # Find the plan in the list
                     selected_plan = None
                     for plan in plans:
-                        if plan.plan_id == plan_id or plan.plan_id.startswith(plan_id):
+                        if plan.phase_id == plan_id or plan.phase_id.startswith(plan_id):
                             selected_plan = plan
                             break
 
@@ -618,20 +618,20 @@ class CommandPaletteScreen(ModalScreen):
                     def on_confirmed(confirmed: bool):
                         if confirmed:
                             try:
-                                set_active_plan(self.session_id, selected_plan.plan_id)
+                                set_active_plan(self.session_id, selected_plan.phase_id)
                                 # Update app state
                                 self.app._load_status_state()
                                 self.app.query_one("#active-plan").update(
-                                    f" | Plan: {selected_plan.plan_id[:8]}..."
+                                    f" | Plan: {selected_plan.phase_id[:8]}..."
                                 )
-                                self.app.notify(f"Plan {selected_plan.plan_id[:8]}... set as active", timeout=3)
+                                self.app.notify(f"Plan {selected_plan.phase_id[:8]}... set as active", timeout=3)
                             except Exception as e:
                                 self.app.notify(f"Error setting active plan: {str(e)}", severity="error", timeout=5)
                         self.dismiss()
 
                     from .modals import ConfirmDialog
                     confirm_dialog = ConfirmDialog(
-                        message=f"Set plan '{selected_plan.label}' as active?\nID: {selected_plan.plan_id[:8]}...",
+                        message=f"Set plan '{selected_plan.label}' as active?\nID: {selected_plan.phase_id[:8]}...",
                         title="Confirm Set Active Plan"
                     )
                     self.app.push_screen(confirm_dialog, callback=on_confirmed)
@@ -896,8 +896,8 @@ class CommandPaletteScreen(ModalScreen):
             return
 
         try:
-            from maestro.ui_facade.plans import list_plans, kill_plan, get_plan_details
-            plans = list_plans(self.session_id)
+            from maestro.ui_facade.phases import list_phases, kill_phase, get_phase_details
+            plans = list_phases(self.session_id)
             if not plans:
                 self.app.notify("No plans available", timeout=3)
                 self.dismiss()
@@ -911,13 +911,13 @@ class CommandPaletteScreen(ModalScreen):
                     # Find the plan in the list
                     selected_plan = None
                     for plan in plans:
-                        if plan.plan_id == plan_id or plan.plan_id.startswith(plan_id):
+                        if plan.phase_id == plan_id or plan.phase_id.startswith(plan_id):
                             selected_plan = plan
                             break
 
                     if not selected_plan:
                         # If user didn't enter a full ID, try to match partial
-                        matching_plans = [p for p in plans if p.plan_id.startswith(plan_id)]
+                        matching_plans = [p for p in plans if p.phase_id.startswith(plan_id)]
                         if len(matching_plans) == 1:
                             selected_plan = matching_plans[0]
                         elif len(matching_plans) > 1:
@@ -932,8 +932,8 @@ class CommandPaletteScreen(ModalScreen):
                     # Check if this plan is the active one
                     is_active = False
                     try:
-                        active_plan = get_plan_details(self.session_id, selected_plan.plan_id)
-                        if active_plan and self.app.active_session and self.app.active_session.active_plan_id == selected_plan.plan_id:
+                        active_plan = get_phase_details(self.session_id, selected_plan.phase_id)
+                        if active_plan and self.app.active_session and self.app.active_session.active_plan_id == selected_plan.phase_id:
                             is_active = True
                     except:
                         pass  # If we can't determine if it's active, continue anyway
@@ -942,19 +942,19 @@ class CommandPaletteScreen(ModalScreen):
                     def on_confirmed(confirmed: bool):
                         if confirmed:
                             try:
-                                kill_plan(self.session_id, selected_plan.plan_id)
-                                msg = f"Plan '{selected_plan.label}' killed"
+                                kill_phase(self.session_id, selected_plan.phase_id)
+                                msg = f"Phase '{selected_plan.label}' killed"
                                 if is_active:
-                                    msg += " (was active plan)"
+                                    msg += " (was active phase)"
                                 self.app.notify(msg, timeout=3)
                                 # Update app state if needed
                                 self.app._load_status_state()
                             except Exception as e:
-                                self.app.notify(f"Error killing plan: {str(e)}", severity="error", timeout=5)
+                                self.app.notify(f"Error killing phase: {str(e)}", severity="error", timeout=5)
                         self.dismiss()
 
                     # Prepare confirmation message based on whether it's active
-                    message = f"Kill plan '{selected_plan.label}'?\nID: {selected_plan.plan_id[:8]}..."
+                    message = f"Kill plan '{selected_plan.label}'?\nID: {selected_plan.phase_id[:8]}..."
                     if is_active:
                         message += "\n\nWARNING: This is the active plan and will be deactivated."
 
@@ -1396,26 +1396,26 @@ class CommandPaletteScreen(ModalScreen):
             elif action_name == "show_active_plan":
                 # For this to work, we need an active session
                 if self.session_id:
-                    from maestro.ui_facade.plans import get_active_plan
-                    plan = get_active_plan(self.session_id)
+                    from maestro.ui_facade.phases import get_active_phase
+                    plan = get_active_phase(self.session_id)
                     if plan:
-                        return f"Active Plan: {plan.plan_id[:8]}... - {plan.label}"
+                        return f"Active Phase: {plan.phase_id[:8]}... - {plan.label}"
                     else:
-                        return "No active plan found for session"
+                        return "No active phase found for session"
                 else:
-                    return "No session context for plan"
+                    return "No session context for phase"
             elif action_name == "list_plans":
                 # For this to work, we need an active session
                 if self.session_id:
-                    from maestro.ui_facade.plans import list_plans
-                    plans = list_plans(self.session_id)
+                    from maestro.ui_facade.phases import list_phases
+                    plans = list_phases(self.session_id)
                     if plans:
-                        plan_list = [f"{p.plan_id[:8]}... - {p.label}" for p in plans]
-                        return f"Plans ({len(plans)}): {', '.join(plan_list)}"
+                        phase_list = [f"{p.phase_id[:8]}... - {p.label}" for p in plans]
+                        return f"Phases ({len(plans)}): {', '.join(phase_list)}"
                     else:
-                        return "No plans found for session"
+                        return "No phases found for session"
                 else:
-                    return "No session context for plans"
+                    return "No session context for phases"
             elif action_name == "show_active_build_target":
                 # Use a placeholder session ID
                 build_target = get_active_build_target("default_session")
@@ -1443,11 +1443,11 @@ class CommandPaletteScreen(ModalScreen):
             elif action_name == "plan_list":
                 # Return plan list
                 if self.session_id:
-                    from maestro.ui_facade.plans import list_plans
-                    plans = list_plans(self.session_id)
+                    from maestro.ui_facade.phases import list_phases
+                    plans = list_phases(self.session_id)
                     if plans:
-                        plan_list = [f"{p.plan_id[:8]}... - {p.label}" for p in plans]
-                        return f"Plans ({len(plans)}): {', '.join(plan_list)}"
+                        phase_list = [f"{p.phase_id[:8]}... - {p.label}" for p in plans]
+                        return f"Phases ({len(plans)}): {', '.join(phase_list)}"
                     else:
                         return "No plans found for session"
                 else:

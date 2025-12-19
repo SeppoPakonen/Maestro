@@ -8,12 +8,12 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
-from maestro.ui_facade.plans import (
-    PlanTreeNode,
-    get_active_plan,
-    get_plan_tree,
-    kill_plan,
-    set_active_plan,
+from maestro.ui_facade.phases import (
+    PhaseTreeNode,
+    get_active_phase,
+    get_phase_tree,
+    kill_phase,
+    set_active_phase,
 )
 from maestro.ui_facade.tasks import list_tasks
 from maestro.tui_mc2.ui.modals import ConfirmModal
@@ -81,20 +81,20 @@ class PlansPane:
             return
 
         try:
-            self.plan_tree_root = get_plan_tree(session_id)
+            self.plan_tree_root = get_phase_tree(session_id)
             self.plan_map = {}
             self._index_tree(self.plan_tree_root)
 
             self.task_status_counts = self._compute_task_counts(session_id)
 
-            active_plan = get_active_plan(session_id)
-            self.active_plan_id = active_plan.plan_id if active_plan else None
+            active_phase = get_active_phase(session_id)
+            self.active_plan_id = active_phase.phase_id if active_phase else None
             self.context.active_plan_id = self.active_plan_id
 
             self.collapsed_plan_ids &= set(self.plan_map.keys())
             preserve_id = self.context.selected_plan_id
             if preserve_id is None and self.position == "left" and self.plan_tree_root:
-                preserve_id = self.plan_tree_root.plan_id
+                preserve_id = self.plan_tree_root.phase_id
                 self.context.selected_plan_id = preserve_id
 
             self._rebuild_rows(preserve_id)
@@ -107,7 +107,7 @@ class PlansPane:
                 self.context.selected_plan_id = None
                 self._update_plan_status_text(None)
         except Exception as exc:
-            self.context.status_message = f"Error loading plans: {str(exc)}"
+            self.context.status_message = f"Error loading phases: {str(exc)}"
             if self.position == "left":
                 self.context.selected_plan_id = None
                 self._update_plan_status_text(None)
@@ -324,11 +324,11 @@ class PlansPane:
             return
 
         try:
-            updated = set_active_plan(session_id, selected.plan_id)
-            self.active_plan_id = updated.plan_id
-            self.context.active_plan_id = updated.plan_id
+            updated = set_active_phase(session_id, selected.plan_id)
+            self.active_plan_id = updated.phase_id
+            self.context.active_plan_id = updated.phase_id
             self.refresh_data()
-            self.context.status_message = f"Set active: {updated.plan_id[:8]}..."
+            self.context.status_message = f"Set active: {updated.phase_id[:8]}..."
         except Exception as exc:
             self.context.status_message = f"Error setting active: {str(exc)}"
 
@@ -363,11 +363,11 @@ class PlansPane:
             return
 
         try:
-            kill_plan(session_id, selected.plan_id)
+            kill_phase(session_id, selected.plan_id)
             self.refresh_data()
-            self.context.status_message = f"Killed plan: {selected.plan_id[:8]}..."
+            self.context.status_message = f"Killed phase: {selected.plan_id[:8]}..."
         except Exception as exc:
-            self.context.status_message = f"Error killing plan: {str(exc)}"
+            self.context.status_message = f"Error killing phase: {str(exc)}"
 
     def handle_filter_char(self, _ch: str) -> bool:
         return False
