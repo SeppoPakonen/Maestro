@@ -4047,6 +4047,13 @@ def main():
     repo_rules_edit_parser = repo_rules_subparsers.add_parser('edit', help='Edit rules in $EDITOR')
     repo_rules_edit_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
 
+    # repo rules inject
+    repo_rules_inject_parser = repo_rules_subparsers.add_parser('inject', help='Show rules for AI injection (testing)')
+    repo_rules_inject_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+    repo_rules_inject_parser.add_argument('--context', default='general',
+                                           choices=['general', 'build', 'refactor', 'security', 'performance', 'fix', 'feature'],
+                                           help='Context for rule selection (default: general)')
+
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
 
@@ -6092,6 +6099,9 @@ def main():
                         handle_repo_rules_show(repo_root)
                     elif args.rules_subcommand == 'edit':
                         handle_repo_rules_edit(repo_root)
+                    elif args.rules_subcommand == 'inject':
+                        context = args.context if hasattr(args, 'context') else 'general'
+                        handle_repo_rules_inject(repo_root, context)
                     else:
                         print_error(f"Unknown rules subcommand: {args.rules_subcommand}", 2)
                         sys.exit(1)
@@ -15183,10 +15193,324 @@ def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool
         print()  # Empty line at end
 
 
+def detect_naming_pattern(identifiers: List[str]) -> str:
+    """
+    Detect the dominant naming pattern from a list of identifiers.
+
+    Args:
+        identifiers: List of identifier names
+
+    Returns:
+        Pattern name: 'PascalCase', 'camelCase', 'snake_case', 'UPPER_CASE', 'mixed', or 'unknown'
+    """
+    if not identifiers:
+        return "unknown"
+
+    patterns = {
+        'PascalCase': 0,
+        'camelCase': 0,
+        'snake_case': 0,
+        'UPPER_CASE': 0,
+        'mixed': 0
+    }
+
+    for identifier in identifiers:
+        if not identifier or len(identifier) < 2:
+            continue
+
+        # UPPER_CASE: all uppercase with optional underscores
+        if identifier.isupper() and '_' in identifier:
+            patterns['UPPER_CASE'] += 1
+        # snake_case: all lowercase with underscores
+        elif identifier.islower() and '_' in identifier:
+            patterns['snake_case'] += 1
+        # PascalCase: starts with uppercase, has uppercase letters
+        elif identifier[0].isupper() and any(c.isupper() for c in identifier[1:]):
+            patterns['PascalCase'] += 1
+        # camelCase: starts with lowercase, has uppercase letters
+        elif identifier[0].islower() and any(c.isupper() for c in identifier):
+            patterns['camelCase'] += 1
+        else:
+            patterns['mixed'] += 1
+
+    # Return the dominant pattern
+    if sum(patterns.values()) == 0:
+        return "unknown"
+
+    max_pattern = max(patterns.items(), key=lambda x: x[1])
+    if max_pattern[1] == 0:
+        return "unknown"
+
+    return max_pattern[0]
+
+
+def scan_cpp_file(file_path: str) -> Dict[str, List[str]]:
+    """
+    Scan a C++ file and extract identifiers.
+
+    Args:
+        file_path: Path to C++ source file
+
+    Returns:
+        Dictionary with lists of: classes, functions, variables, enums
+    """
+    import re
+
+    identifiers = {
+        'classes': [],
+        'functions': [],
+        'variables': [],
+        'enums': []
+    }
+
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+
+        # Remove comments
+        content = re.sub(r'//.*', '', content)
+        content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+
+        # Find class definitions
+        class_pattern = r'\b(?:class|struct)\s+([A-Za-z_][A-Za-z0-9_]*)'
+        identifiers['classes'].extend(re.findall(class_pattern, content))
+
+        # Find function definitions (simple heuristic)
+        func_pattern = r'\b([A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*(?:const\s*)?{'
+        identifiers['functions'].extend(re.findall(func_pattern, content))
+
+        # Find enum definitions
+        enum_pattern = r'\benum\s+(?:class\s+)?([A-Za-z_][A-Za-z0-9_]*)'
+        identifiers['enums'].extend(re.findall(enum_pattern, content))
+
+        # Find variable declarations (very simple heuristic)
+        var_pattern = r'\b(?:int|bool|char|float|double|auto|String|void)\s+([A-Za-z_][A-Za-z0-9_]*)'
+        identifiers['variables'].extend(re.findall(var_pattern, content))
+
+    except Exception:
+        pass
+
+    return identifiers
+
+
+def scan_java_file(file_path: str) -> Dict[str, List[str]]:
+    """
+    Scan a Java file and extract identifiers.
+
+    Args:
+        file_path: Path to Java source file
+
+    Returns:
+        Dictionary with lists of: classes, functions, variables, enums
+    """
+    import re
+
+    identifiers = {
+        'classes': [],
+        'functions': [],
+        'variables': [],
+        'enums': []
+    }
+
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+
+        # Remove comments
+        content = re.sub(r'//.*', '', content)
+        content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+
+        # Find class definitions
+        class_pattern = r'\b(?:class|interface)\s+([A-Za-z_][A-Za-z0-9_]*)'
+        identifiers['classes'].extend(re.findall(class_pattern, content))
+
+        # Find method definitions
+        func_pattern = r'\b(?:public|private|protected|static)?\s*(?:void|int|boolean|String|[A-Z][A-Za-z0-9_]*)\s+([a-z][A-Za-z0-9_]*)\s*\('
+        identifiers['functions'].extend(re.findall(func_pattern, content))
+
+        # Find enum definitions
+        enum_pattern = r'\benum\s+([A-Za-z_][A-Za-z0-9_]*)'
+        identifiers['enums'].extend(re.findall(enum_pattern, content))
+
+        # Find field declarations
+        var_pattern = r'\b(?:private|public|protected|static|final)\s+(?:int|boolean|String|[A-Z][A-Za-z0-9_]*)\s+([a-z][A-Za-z0-9_]*)'
+        identifiers['variables'].extend(re.findall(var_pattern, content))
+
+    except Exception:
+        pass
+
+    return identifiers
+
+
+def scan_python_file(file_path: str) -> Dict[str, List[str]]:
+    """
+    Scan a Python file and extract identifiers.
+
+    Args:
+        file_path: Path to Python source file
+
+    Returns:
+        Dictionary with lists of: classes, functions, variables
+    """
+    import re
+
+    identifiers = {
+        'classes': [],
+        'functions': [],
+        'variables': [],
+        'enums': []
+    }
+
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+
+        # Find class definitions
+        class_pattern = r'^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)'
+        identifiers['classes'].extend(re.findall(class_pattern, content, re.MULTILINE))
+
+        # Find function/method definitions
+        func_pattern = r'^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\('
+        identifiers['functions'].extend(re.findall(func_pattern, content, re.MULTILINE))
+
+        # Find variable assignments at module level
+        var_pattern = r'^([a-z_][a-z0-9_]*)\s*='
+        identifiers['variables'].extend(re.findall(var_pattern, content, re.MULTILINE))
+
+    except Exception:
+        pass
+
+    return identifiers
+
+
+def detect_conventions_from_repo(repo_root: str, verbose: bool = False) -> Dict[str, str]:
+    """
+    Scan repository and detect naming conventions.
+
+    Args:
+        repo_root: Path to repository root
+        verbose: Verbose output flag
+
+    Returns:
+        Dictionary of detected conventions
+    """
+    conventions = {
+        'variable_name': 'unknown',
+        'function_name': 'unknown',
+        'class_name': 'unknown',
+        'enum_name': 'unknown',
+        'file_name': 'unknown'
+    }
+
+    all_identifiers = {
+        'classes': [],
+        'functions': [],
+        'variables': [],
+        'enums': [],
+        'files': []
+    }
+
+    # Scan for source files
+    extensions = ['.cpp', '.cc', '.cxx', '.h', '.hpp', '.java', '.py']
+    file_count = 0
+
+    if verbose:
+        print_info("Scanning source files...", 2)
+
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories and common non-source directories
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['build', 'dist', 'node_modules', '__pycache__']]
+
+        for file in files:
+            _, ext = os.path.splitext(file)
+            if ext in extensions:
+                file_path = os.path.join(root, file)
+                file_count += 1
+
+                if verbose and file_count % 50 == 0:
+                    print_debug(f"  Scanned {file_count} files...", 3)
+
+                # Collect filename patterns
+                basename = os.path.splitext(file)[0]
+                all_identifiers['files'].append(basename)
+
+                # Scan based on file type
+                if ext in ['.cpp', '.cc', '.cxx', '.h', '.hpp']:
+                    ids = scan_cpp_file(file_path)
+                elif ext == '.java':
+                    ids = scan_java_file(file_path)
+                elif ext == '.py':
+                    ids = scan_python_file(file_path)
+                else:
+                    continue
+
+                # Merge identifiers
+                for key in ['classes', 'functions', 'variables', 'enums']:
+                    all_identifiers[key].extend(ids[key])
+
+    if verbose:
+        print_info(f"Scanned {file_count} source files", 2)
+        print_debug(f"  Found {len(all_identifiers['classes'])} classes", 3)
+        print_debug(f"  Found {len(all_identifiers['functions'])} functions", 3)
+        print_debug(f"  Found {len(all_identifiers['variables'])} variables", 3)
+        print_debug(f"  Found {len(all_identifiers['enums'])} enums", 3)
+
+    # Detect patterns
+    conventions['class_name'] = detect_naming_pattern(all_identifiers['classes'])
+    conventions['function_name'] = detect_naming_pattern(all_identifiers['functions'])
+    conventions['variable_name'] = detect_naming_pattern(all_identifiers['variables'])
+    conventions['enum_name'] = detect_naming_pattern(all_identifiers['enums'])
+    conventions['file_name'] = detect_naming_pattern(all_identifiers['files'])
+
+    return conventions
+
+
+def update_repo_rules_conventions(repo_root: str, conventions: Dict[str, str], verbose: bool = False):
+    """
+    Update docs/RepoRules.md with detected conventions.
+
+    Args:
+        repo_root: Path to repository root
+        conventions: Dictionary of detected conventions
+        verbose: Verbose output flag
+    """
+    import re
+    from datetime import datetime
+
+    rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
+
+    if not os.path.exists(rules_file):
+        print_error(f"docs/RepoRules.md not found. Run 'maestro init' to create it.", 2)
+        sys.exit(1)
+
+    # Read existing file
+    with open(rules_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Update Last Updated timestamp
+    content = re.sub(
+        r'\*\*Last Updated\*\*:.*',
+        f"**Last Updated**: {datetime.now().strftime('%Y-%m-%d')}",
+        content
+    )
+
+    # Update naming conventions
+    for key, value in conventions.items():
+        pattern = f'"{key}":\\s*"[^"]*"'
+        replacement = f'"{key}": "{value}"'
+        content = re.sub(pattern, replacement, content)
+
+    # Write updated content
+    with open(rules_file, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    if verbose:
+        print_debug(f"Updated {rules_file}", 2)
+
+
 def handle_repo_conventions_detect(repo_root: str, verbose: bool = False):
     """
     Detect naming conventions from codebase.
-    Placeholder for Phase RF3.
 
     Args:
         repo_root: Path to repository root
@@ -15195,16 +15519,34 @@ def handle_repo_conventions_detect(repo_root: str, verbose: bool = False):
     print_header("CONVENTION DETECTION")
     print(f"\nRepository: {repo_root}\n")
 
-    print_warning("Convention detection not yet implemented (Phase RF3)", 2)
-    print("\nThis feature will:")
-    print_info("  - Auto-detect naming conventions from codebase", 2)
-    print_info("  - Identify file organization patterns", 2)
-    print_info("  - Detect framework-specific conventions", 2)
-    print_info("  - Update docs/RepoRules.md automatically", 2)
-
-    print("\nFor now, manually edit:")
+    # Check if RepoRules.md exists
     rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
-    print_info(f"  {rules_file}", 3)
+    if not os.path.exists(rules_file):
+        print_error("docs/RepoRules.md not found. Run 'maestro init' to create it.", 2)
+        sys.exit(1)
+
+    # Detect conventions
+    print_info("Analyzing source code...", 2)
+    conventions = detect_conventions_from_repo(repo_root, verbose)
+
+    # Display detected conventions
+    print("\n" + "─" * 60)
+    print_success("Detected conventions:", 2)
+    print()
+    for key, value in conventions.items():
+        label = key.replace('_', ' ').title()
+        color = Colors.GREEN if value != 'unknown' else Colors.YELLOW
+        print(f"  {color}{label:20}{Colors.RESET} {value}")
+
+    # Update RepoRules.md
+    print("\n" + "─" * 60)
+    update_repo_rules_conventions(repo_root, conventions, verbose)
+    print_success(f"Updated conventions in {rules_file}", 2)
+
+    print("\nTo view conventions:")
+    print_info("  maestro repo conventions show", 3)
+    print("\nTo edit manually:")
+    print_info("  maestro repo rules edit", 3)
 
 
 def handle_repo_conventions_show(repo_root: str):
@@ -15297,6 +15639,227 @@ def handle_repo_rules_edit(repo_root: str):
     except Exception as e:
         print_error(f"Could not open editor: {str(e)}", 2)
         sys.exit(1)
+
+
+def load_repo_rules(repo_root: str) -> Dict[str, Any]:
+    """
+    Load and parse repository rules from docs/RepoRules.md.
+
+    Args:
+        repo_root: Path to repository root
+
+    Returns:
+        Dictionary with parsed rules by category
+    """
+    import re
+
+    rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
+
+    if not os.path.exists(rules_file):
+        return {}
+
+    with open(rules_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    rules = {
+        'conventions': {},
+        'architecture': [],
+        'security': [],
+        'performance': [],
+        'style': []
+    }
+
+    # Parse conventions section (sections separated by ---)
+    conventions_match = re.search(r'## Conventions(.*?)(?=\n---|\Z)', content, re.DOTALL)
+    if conventions_match:
+        conventions_text = conventions_match.group(1)
+
+        # Extract naming conventions
+        for line in conventions_text.split('\n'):
+            match = re.match(r'"([^"]+)":\s*"([^"]+)"', line)
+            if match:
+                rules['conventions'][match.group(1)] = match.group(2)
+
+    # Parse architecture rules
+    arch_match = re.search(r'## Architecture Rules(.*?)(?=\n---|\Z)', content, re.DOTALL)
+    if arch_match:
+        arch_text = arch_match.group(1)
+        rules['architecture'] = [
+            line.strip('- ').strip()
+            for line in arch_text.split('\n')
+            if line.strip().startswith('-') and not line.strip().startswith('- Example') and not line.strip().startswith('- Add')
+        ]
+
+    # Parse security rules
+    sec_match = re.search(r'## Security Rules(.*?)(?=\n---|\Z)', content, re.DOTALL)
+    if sec_match:
+        sec_text = sec_match.group(1)
+        rules['security'] = [
+            line.strip('- ').strip()
+            for line in sec_text.split('\n')
+            if line.strip().startswith('-') and not line.strip().startswith('- Example') and not line.strip().startswith('- Add')
+        ]
+
+    # Parse performance rules
+    perf_match = re.search(r'## Performance Rules(.*?)(?=\n---|\Z)', content, re.DOTALL)
+    if perf_match:
+        perf_text = perf_match.group(1)
+        rules['performance'] = [
+            line.strip('- ').strip()
+            for line in perf_text.split('\n')
+            if line.strip().startswith('-') and not line.strip().startswith('- Example') and not line.strip().startswith('- Add')
+        ]
+
+    # Parse style rules
+    style_match = re.search(r'## Style Rules(.*?)(?=\n---|\Z)', content, re.DOTALL)
+    if style_match:
+        style_text = style_match.group(1)
+        rules['style'] = [
+            line.strip('- ').strip()
+            for line in style_text.split('\n')
+            if line.strip().startswith('-') and not line.strip().startswith('- Example') and not line.strip().startswith('- Add')
+        ]
+
+    return rules
+
+
+def get_rules_for_context(repo_root: str, context: str = 'general') -> str:
+    """
+    Get repository rules formatted for AI prompt injection, filtered by context.
+
+    Args:
+        repo_root: Path to repository root
+        context: Context for rule selection. Options:
+                 - 'general': All rules
+                 - 'build': Conventions, architecture, performance
+                 - 'refactor': Conventions, architecture, style
+                 - 'security': Security rules + conventions
+                 - 'performance': Performance rules + conventions
+                 - 'fix': All rules (for bug fixes)
+                 - 'feature': Architecture, conventions, style
+
+    Returns:
+        Formatted string ready for AI prompt injection
+    """
+    rules = load_repo_rules(repo_root)
+
+    if not rules:
+        return ""
+
+    # Context-specific rule selection
+    context_mapping = {
+        'general': ['conventions', 'architecture', 'security', 'performance', 'style'],
+        'build': ['conventions', 'architecture', 'performance'],
+        'refactor': ['conventions', 'architecture', 'style'],
+        'security': ['conventions', 'security'],
+        'performance': ['conventions', 'performance'],
+        'fix': ['conventions', 'architecture', 'security', 'performance', 'style'],
+        'feature': ['conventions', 'architecture', 'style']
+    }
+
+    selected_categories = context_mapping.get(context, context_mapping['general'])
+
+    # Format rules for AI injection
+    output = ["# Repository Rules", ""]
+    output.append(f"Context: {context}")
+    output.append("")
+
+    # Add conventions if selected
+    if 'conventions' in selected_categories and rules['conventions']:
+        output.append("## Naming Conventions")
+        output.append("")
+        for key, value in rules['conventions'].items():
+            if value != 'unknown' and value != 'auto-detected':
+                label = key.replace('_', ' ').title()
+                output.append(f"- {label}: {value}")
+        output.append("")
+
+    # Add architecture rules if selected
+    if 'architecture' in selected_categories and rules['architecture']:
+        output.append("## Architecture Rules")
+        output.append("")
+        for rule in rules['architecture']:
+            if rule:  # Skip empty rules
+                output.append(f"- {rule}")
+        output.append("")
+
+    # Add security rules if selected
+    if 'security' in selected_categories and rules['security']:
+        output.append("## Security Rules")
+        output.append("")
+        for rule in rules['security']:
+            if rule:  # Skip empty rules
+                output.append(f"- {rule}")
+        output.append("")
+
+    # Add performance rules if selected
+    if 'performance' in selected_categories and rules['performance']:
+        output.append("## Performance Rules")
+        output.append("")
+        for rule in rules['performance']:
+            if rule:  # Skip empty rules
+                output.append(f"- {rule}")
+        output.append("")
+
+    # Add style rules if selected
+    if 'style' in selected_categories and rules['style']:
+        output.append("## Style Rules")
+        output.append("")
+        for rule in rules['style']:
+            if rule:  # Skip empty rules
+                output.append(f"- {rule}")
+        output.append("")
+
+    return '\n'.join(output).strip()
+
+
+def format_rules_for_ai_injection(repo_root: str, context: str = 'general') -> str:
+    """
+    Get repository rules in a format suitable for injecting into AI prompts.
+
+    This is a convenience wrapper around get_rules_for_context.
+
+    Args:
+        repo_root: Path to repository root
+        context: Context for rule selection (see get_rules_for_context for options)
+
+    Returns:
+        Formatted rules string, or empty string if no rules exist
+    """
+    return get_rules_for_context(repo_root, context)
+
+
+def handle_repo_rules_inject(repo_root: str, context: str = 'general'):
+    """
+    Show rules formatted for AI injection (for testing/debugging).
+
+    Args:
+        repo_root: Path to repository root
+        context: Context for rule selection
+    """
+    print_header("REPOSITORY RULES - AI INJECTION FORMAT")
+    print(f"\nContext: {context}\n")
+
+    rules_text = get_rules_for_context(repo_root, context)
+
+    if not rules_text:
+        print_warning("No rules found in docs/RepoRules.md", 2)
+        print_info("\nRun 'maestro repo conventions detect' to detect conventions", 2)
+        print_info("Run 'maestro repo rules edit' to add custom rules", 2)
+        return
+
+    print("─" * 60)
+    print(rules_text)
+    print("─" * 60)
+
+    print("\nAvailable contexts:")
+    contexts = ['general', 'build', 'refactor', 'security', 'performance', 'fix', 'feature']
+    for ctx in contexts:
+        print(f"  - {ctx}")
+
+    print("\nUsage in AI sessions:")
+    print_info("  These rules are automatically injected into AI prompts", 2)
+    print_info("  based on the type of work being performed.", 2)
 
 
 def update_global_repo_index(repo_path: str, verbose: bool = False):
