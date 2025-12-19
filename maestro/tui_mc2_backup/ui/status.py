@@ -72,9 +72,9 @@ class StatusLine:
             status_text = self.debug_info
         if not status_text:
             active_view = getattr(self.context, "active_view", "")
-            phase_status = getattr(self.context, "phase_status_text", "")
-            if active_view == "phases" and phase_status:
-                status_text = phase_status
+            plan_status = getattr(self.context, "plan_status_text", "")
+            if active_view == "plans" and plan_status:
+                status_text = plan_status
             if not status_text and active_view == "tasks":
                 task_status = getattr(self.context, "task_status_text", "")
                 if task_status:

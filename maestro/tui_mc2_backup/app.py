@@ -20,7 +20,7 @@ from maestro.tui_mc2.ui.menubar import Menubar
 from maestro.tui_mc2.ui.status import StatusLine
 from maestro.tui_mc2.ui.modals import ModalDialog
 from maestro.tui_mc2.panes.sessions import SessionsPane
-from maestro.tui_mc2.panes.phases import PhasesPane
+from maestro.tui_mc2.panes.plans import PlansPane
 from maestro.tui_mc2.panes.tasks import TasksPane
 from maestro.tui_mc2.panes.build import BuildPane
 from maestro.tui_mc2.panes.convert import ConvertPane
@@ -45,8 +45,8 @@ class AppContext:
     focus_pane: str = "left"  # "left" or "right"
     active_session_id: Optional[str] = None
     selected_session_id: Optional[str] = None
-    active_phase_id: Optional[str] = None
-    selected_phase_id: Optional[str] = None
+    active_plan_id: Optional[str] = None
+    selected_plan_id: Optional[str] = None
     selected_task_id: Optional[str] = None
     active_build_target_id: Optional[str] = None
     selected_build_target_id: Optional[str] = None
@@ -54,7 +54,7 @@ class AppContext:
     sessions_filter_text: str = ""
     sessions_filter_visible: int = 0
     sessions_filter_total: int = 0
-    phase_status_text: str = ""
+    plan_status_text: str = ""
     task_status_text: str = ""
     build_status_text: str = ""
     convert_status_text: str = ""
@@ -97,8 +97,8 @@ class MC2App:
         self.last_focus_pane = self.context.focus_pane
         self.last_active_session_id = self.context.active_session_id
         self.last_active_view = self.context.active_view
-        self.last_phase_status_text = self.context.phase_status_text
-        self.last_active_phase_id = self.context.active_phase_id
+        self.last_plan_status_text = self.context.plan_status_text
+        self.last_active_plan_id = self.context.active_plan_id
         self.last_task_status_text = self.context.task_status_text
         self.last_build_status_text = self.context.build_status_text
         self.last_convert_status_text = self.context.convert_status_text
@@ -235,8 +235,8 @@ class MC2App:
         self.right_pane.set_focused(self.context.focus_pane == "right")
 
     def _create_pane(self, view: str, position: str):
-        if view == "phases":
-            return PhasesPane(position=position, context=self.context)
+        if view == "plans":
+            return PlansPane(position=position, context=self.context)
         if view == "tasks":
             return TasksPane(position=position, context=self.context)
         if view == "build":
@@ -311,11 +311,11 @@ class MC2App:
         if self.context.active_session_id != self.last_active_session_id:
             self.last_active_session_id = self.context.active_session_id
             changed = True
-        if self.context.active_phase_id != self.last_active_phase_id:
-            self.last_active_phase_id = self.context.active_phase_id
+        if self.context.active_plan_id != self.last_active_plan_id:
+            self.last_active_plan_id = self.context.active_plan_id
             changed = True
-        if self.context.phase_status_text != self.last_phase_status_text:
-            self.last_phase_status_text = self.context.phase_status_text
+        if self.context.plan_status_text != self.last_plan_status_text:
+            self.last_plan_status_text = self.context.plan_status_text
             changed = True
         if self.context.task_status_text != self.last_task_status_text:
             self.last_task_status_text = self.context.task_status_text
@@ -374,36 +374,36 @@ class MC2App:
             self.left_pane.handle_set_active()
             self.dirty_regions["modal"] = False
             self._mark_dirty("left", "right", "status")
-        elif action_id in ("phases.refresh",):
-            if self.context.active_view != "phases":
-                self.context.status_message = "Switch to Phases view"
+        elif action_id in ("plans.refresh",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
                 self._mark_dirty("status")
                 return
             self.left_pane.refresh_data()
             self.right_pane.refresh_data()
-            self.context.status_message = "Phases refreshed"
+            self.context.status_message = "Plans refreshed"
             self._mark_dirty("left", "right", "status")
-        elif action_id in ("phases.set_active",):
-            if self.context.active_view != "phases":
-                self.context.status_message = "Switch to Phases view"
+        elif action_id in ("plans.set_active",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
                 self._mark_dirty("status")
                 return
             self.dirty_regions["modal"] = True
             self.left_pane.handle_set_active()
             self.dirty_regions["modal"] = False
             self._mark_dirty("left", "right", "status")
-        elif action_id in ("phases.kill",):
-            if self.context.active_view != "phases":
-                self.context.status_message = "Switch to Phases view"
+        elif action_id in ("plans.kill",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
                 self._mark_dirty("status")
                 return
             self.dirty_regions["modal"] = True
             self.left_pane.handle_kill()
             self.dirty_regions["modal"] = False
             self._mark_dirty("left", "right", "status")
-        elif action_id in ("phases.toggle_collapse",):
-            if self.context.active_view != "phases":
-                self.context.status_message = "Switch to Phases view"
+        elif action_id in ("plans.toggle_collapse",):
+            if self.context.active_view != "plans":
+                self.context.status_message = "Switch to Plans view"
                 self._mark_dirty("status")
                 return
             if self.left_pane.toggle_collapse():
@@ -499,8 +499,8 @@ class MC2App:
             self.right_pane.refresh_data()
             self.context.status_message = "Convert refreshed"
             self._mark_dirty("left", "right", "status")
-        elif action_id in ("view.sessions", "view.phases"):
-            view = "sessions" if action_id.endswith("sessions") else "phases"
+        elif action_id in ("view.sessions", "view.plans"):
+            view = "sessions" if action_id.endswith("sessions") else "plans"
             self._set_view(view)
             self.context.status_message = f"View: {view.title()}"
             self._mark_dirty("menubar", "status")
@@ -685,8 +685,8 @@ class MC2App:
                 self._handle_menu_action("tasks.stop")
             elif self.context.active_view == "build":
                 self._handle_menu_action("build.stop")
-            elif self.context.active_view == "phases":
-                self._handle_menu_action("phases.kill")
+            elif self.context.active_view == "plans":
+                self._handle_menu_action("plans.kill")
             else:
                 self._handle_menu_action("sessions.delete")
             return True

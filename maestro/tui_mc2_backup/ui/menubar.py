@@ -46,11 +46,11 @@ class Menubar:
                 MenuItem("sessions.delete", "Delete", key_hint="F8"),
                 MenuItem("sessions.set_active", "Set Active", key_hint="Enter"),
             ]),
-            Menu("Phases", [
-                MenuItem("phases.refresh", "Refresh", key_hint="F5"),
-                MenuItem("phases.set_active", "Set Active", key_hint="Enter"),
-                MenuItem("phases.kill", "Kill Branch", key_hint="F8"),
-                MenuItem("phases.toggle_collapse", "Toggle Collapse", key_hint="Left/Right"),
+            Menu("Plans", [
+                MenuItem("plans.refresh", "Refresh", key_hint="F5"),
+                MenuItem("plans.set_active", "Set Active", key_hint="Enter"),
+                MenuItem("plans.kill", "Kill Branch", key_hint="F8"),
+                MenuItem("plans.toggle_collapse", "Toggle Collapse", key_hint="Left/Right"),
             ]),
             Menu("Tasks", [
                 MenuItem("tasks.run", "Run/Resume", key_hint="F5"),
@@ -75,7 +75,7 @@ class Menubar:
             ]),
             Menu("View", [
                 MenuItem("view.sessions", "Sessions", key_hint="F9"),
-                MenuItem("view.phases", "Phases", key_hint="F9"),
+                MenuItem("view.plans", "Plans", key_hint="F9"),
                 MenuItem("view.tasks", "Tasks", key_hint="F9"),
                 MenuItem("view.build", "Build", key_hint="F9"),
                 MenuItem("view.convert", "Convert", key_hint="F9"),

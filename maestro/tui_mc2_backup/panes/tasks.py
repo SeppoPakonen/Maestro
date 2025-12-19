@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Deque, Dict, List, Optional
 
-from maestro.ui_facade.phases import get_active_phase
+from maestro.ui_facade.plans import get_active_plan
 from maestro.ui_facade.sessions import get_session_details
 from maestro.ui_facade.tasks import (
     get_current_execution_state,
@@ -31,7 +31,7 @@ class TaskRow:
     planner_model: str
     worker_model: str
     summary_file: str
-    phase_id: Optional[str]
+    plan_id: Optional[str]
 
 
 class TasksPane:
@@ -48,7 +48,7 @@ class TasksPane:
         self.detail_scroll_offset = 0
         self.detail_scroll_max = 0
         self.filter_text = ""
-        self.active_phase_id: Optional[str] = None
+        self.active_plan_id: Optional[str] = None
         self.last_loaded_task_id: Optional[str] = None
         self.last_interrupt_task_id: Optional[str] = None
         self.last_run_limit: Optional[int] = None
@@ -71,19 +71,19 @@ class TasksPane:
     def _get_session_id(self) -> Optional[str]:
         return self.context.active_session_id or self.context.selected_session_id
 
-    def _get_active_phase(self, session_id: str) -> Optional[str]:
+    def _get_active_plan(self, session_id: str) -> Optional[str]:
         try:
-            phase = get_active_phase(session_id)
+            plan = get_active_plan(session_id)
         except Exception:
             return None
-        return phase.phase_id if phase else None
+        return plan.plan_id if plan else None
 
     def refresh_data(self):
         """Refresh task list data."""
         session_id = self._get_session_id()
         self.tasks = []
         self.filtered_tasks = []
-        self.active_phase_id = None
+        self.active_plan_id = None
 
         if not session_id:
             if self.position == "left":
@@ -92,14 +92,14 @@ class TasksPane:
             return
 
         try:
-            self.active_phase_id = self._get_active_phase(session_id)
-            self.context.active_phase_id = self.active_phase_id
-            if not self.active_phase_id:
+            self.active_plan_id = self._get_active_plan(session_id)
+            self.context.active_plan_id = self.active_plan_id
+            if not self.active_plan_id:
                 if self.position == "left":
                     self.context.selected_task_id = None
                     self._update_task_status_text(None)
                 return
-            tasks = list_tasks(session_id, phase_id=self.active_phase_id)
+            tasks = list_tasks(session_id, plan_id=self.active_plan_id)
             self.tasks = [
                 TaskRow(
                     id=task.id,
@@ -109,7 +109,7 @@ class TasksPane:
                     planner_model=task.planner_model,
                     worker_model=task.worker_model,
                     summary_file=task.summary_file,
-                    phase_id=task.phase_id,
+                    plan_id=task.plan_id,
                 )
                 for task in tasks
             ]
@@ -338,8 +338,8 @@ class TasksPane:
         if not session_id:
             self.context.status_message = "No session selected"
             return
-        if not self.active_phase_id:
-            self.context.status_message = "No active phase"
+        if not self.active_plan_id:
+            self.context.status_message = "No active plan"
             return
         if self._is_running():
             self.context.status_message = "Already running"
@@ -461,12 +461,12 @@ class TasksPane:
             self.context.task_status_text = ""
             return
         short_id = task.id[:8] + "..." if len(task.id) > 8 else task.id
-        phase_short = (
-            self.active_phase_id[:8] + "..." if self.active_phase_id and len(self.active_phase_id) > 8 else self.active_phase_id
+        plan_short = (
+            self.active_plan_id[:8] + "..." if self.active_plan_id and len(self.active_plan_id) > 8 else self.active_plan_id
         )
         engine = task.worker_model or "(not available)"
         self.context.task_status_text = (
-            f"Task: {short_id} ({task.status}) | phase: {phase_short or '(none)'} | engine: {engine}"
+            f"Task: {short_id} ({task.status}) | plan: {plan_short or '(none)'} | engine: {engine}"
         )
 
     def _load_task_details(self):
@@ -534,9 +534,9 @@ class TasksPane:
                 pass
             return
 
-        if not self.active_phase_id:
+        if not self.active_plan_id:
             try:
-                self.window.addstr(2, 1, "No active phase", curses.A_DIM)
+                self.window.addstr(2, 1, "No active plan", curses.A_DIM)
             except Exception:
                 pass
             return
@@ -615,7 +615,7 @@ class TasksPane:
         details.append(f"Phase: (not available)")
         details.append(f"Engine: {_value(task.worker_model)}")
         details.append(f"Planner: {_value(task.planner_model)}")
-        details.append(f"Phase ID: {_value(task.phase_id)}")
+        details.append(f"Plan ID: {_value(task.plan_id)}")
         details.append(f"Session Status: {_value(session_status)}")
         details.append(f"Summary File: {_value(task.summary_file)}")
 

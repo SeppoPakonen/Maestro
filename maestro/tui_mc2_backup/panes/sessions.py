@@ -27,7 +27,7 @@ class SessionDisplay:
     status: str
     created_at: str
     updated_at: str
-    active_phase_id: Optional[str] = None
+    active_plan_id: Optional[str] = None
 
 
 class SessionsPane:
@@ -72,7 +72,7 @@ class SessionsPane:
                     status=session.status,
                     created_at=session.created_at,
                     updated_at=session.updated_at,
-                    active_phase_id=session.active_phase_id,
+                    active_plan_id=session.active_plan_id,
                 )
                 for session in session_list
             ]
@@ -464,8 +464,8 @@ class SessionsPane:
         _add_line("Last Modified", details.updated_at)
         _add_line("Status", details.status)
 
-        active_phase = details.active_phase_id or "(not available)"
-        _add_line("Active Phase", active_phase)
+        active_plan = details.active_plan_id or "(not available)"
+        _add_line("Active Plan", active_plan)
 
         build_display = "(not available)"
         if self.current_build_target:
