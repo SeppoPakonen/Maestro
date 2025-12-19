@@ -4002,9 +4002,25 @@ def main():
     repo_refresh_subparsers.add_parser('help', aliases=['h'], help='Show what refresh all does')
 
     # repo hier
-    repo_hier_parser = repo_subparsers.add_parser('hier', help='Show AI-analyzed repository hierarchy')
+    repo_hier_parser = repo_subparsers.add_parser('hier', help='Show/edit repository hierarchy')
+    repo_hier_subparsers = repo_hier_parser.add_subparsers(dest='hier_subcommand', help='Hierarchy subcommands')
+
+    # repo hier show (default)
+    repo_hier_show_parser = repo_hier_subparsers.add_parser('show', help='Show repository hierarchy')
+    repo_hier_show_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+    repo_hier_show_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    repo_hier_show_parser.add_argument('--show-files', action='store_true', help='Show file groups in tree view')
+    repo_hier_show_parser.add_argument('--rebuild', action='store_true', help='Force rebuild hierarchy from scan data')
+
+    # repo hier edit
+    repo_hier_edit_parser = repo_hier_subparsers.add_parser('edit', help='Edit hierarchy overrides in $EDITOR')
+    repo_hier_edit_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+
+    # Also add these arguments to the main hier parser for backward compatibility
     repo_hier_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
     repo_hier_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    repo_hier_parser.add_argument('--show-files', action='store_true', help='Show file groups in tree view')
+    repo_hier_parser.add_argument('--rebuild', action='store_true', help='Force rebuild hierarchy from scan data')
 
     # repo conventions
     repo_conventions_parser = repo_subparsers.add_parser('conventions', help='Show/edit detected conventions')
@@ -6032,9 +6048,23 @@ def main():
                     handle_repo_refresh_all(repo_root, verbose)
 
             elif args.repo_subcommand == 'hier':
-                # Handle repo hierarchy visualization
+                # Handle repo hierarchy commands
                 repo_root = args.path if hasattr(args, 'path') and args.path else find_repo_root()
-                handle_repo_hier(repo_root, args.json if hasattr(args, 'json') else False)
+
+                if hasattr(args, 'hier_subcommand') and args.hier_subcommand:
+                    if args.hier_subcommand == 'show':
+                        json_output = args.json if hasattr(args, 'json') else False
+                        show_files = getattr(args, 'show_files', False)
+                        rebuild = getattr(args, 'rebuild', False)
+                        handle_repo_hier(repo_root, json_output=json_output, show_files=show_files, rebuild=rebuild)
+                    elif args.hier_subcommand == 'edit':
+                        handle_repo_hier_edit(repo_root)
+                else:
+                    # Default to show if no subcommand specified
+                    json_output = args.json if hasattr(args, 'json') else False
+                    show_files = getattr(args, 'show_files', False)
+                    rebuild = getattr(args, 'rebuild', False)
+                    handle_repo_hier(repo_root, json_output=json_output, show_files=show_files, rebuild=rebuild)
 
             elif args.repo_subcommand == 'conventions':
                 # Handle conventions commands
@@ -14708,30 +14738,449 @@ Options:
 """)
 
 
-def handle_repo_hier(repo_root: str, json_output: bool = False):
+def build_repo_hierarchy(repo_scan: RepoScanResult, repo_root: str) -> Dict[str, Any]:
+    """
+    Build hierarchical representation of repository structure.
+
+    Args:
+        repo_scan: Repository scan results
+        repo_root: Repository root path
+
+    Returns:
+        Dictionary representing hierarchy
+    """
+    hierarchy = {
+        'repository': {
+            'name': os.path.basename(repo_root),
+            'path': repo_root,
+            'assemblies': [],
+            'standalone_packages': [],
+            'metadata': {
+                'total_assemblies': len(repo_scan.assemblies_detected),
+                'total_packages': len(repo_scan.packages_detected),
+                'total_files': sum(len(p.files) for p in repo_scan.packages_detected)
+            }
+        }
+    }
+
+    # Track which packages are in assemblies
+    packages_in_assemblies = set()
+
+    # Build assembly hierarchy
+    for assembly in repo_scan.assemblies_detected:
+        assembly_packages = []
+
+        # Find packages in this assembly
+        for pkg in repo_scan.packages_detected:
+            if os.path.dirname(os.path.normpath(pkg.dir)) == os.path.normpath(assembly.root_path):
+                packages_in_assemblies.add(pkg.name)
+
+                # Build package structure with groups
+                package_structure = {
+                    'name': pkg.name,
+                    'path': pkg.dir,
+                    'build_system': pkg.build_system,
+                    'file_count': len(pkg.files),
+                    'groups': []
+                }
+
+                # Add file groups if they exist
+                if pkg.groups:
+                    for group in pkg.groups:
+                        package_structure['groups'].append({
+                            'name': group.name,
+                            'separator': group.separator,
+                            'files': group.files,
+                            'file_count': len(group.files)
+                        })
+
+                # Add ungrouped files
+                if pkg.ungrouped_files:
+                    package_structure['groups'].append({
+                        'name': '(ungrouped)',
+                        'separator': None,
+                        'files': pkg.ungrouped_files,
+                        'file_count': len(pkg.ungrouped_files)
+                    })
+
+                assembly_packages.append(package_structure)
+
+        assembly_structure = {
+            'name': assembly.name,
+            'path': assembly.root_path,
+            'type': assembly.assembly_type,
+            'packages': sorted(assembly_packages, key=lambda p: p['name']),
+            'package_count': len(assembly_packages),
+            'total_files': sum(p['file_count'] for p in assembly_packages)
+        }
+
+        hierarchy['repository']['assemblies'].append(assembly_structure)
+
+    # Add standalone packages (not in any assembly)
+    for pkg in repo_scan.packages_detected:
+        if pkg.name not in packages_in_assemblies:
+            package_structure = {
+                'name': pkg.name,
+                'path': pkg.dir,
+                'build_system': pkg.build_system,
+                'file_count': len(pkg.files),
+                'groups': []
+            }
+
+            if pkg.groups:
+                for group in pkg.groups:
+                    package_structure['groups'].append({
+                        'name': group.name,
+                        'separator': group.separator,
+                        'files': group.files,
+                        'file_count': len(group.files)
+                    })
+
+            if pkg.ungrouped_files:
+                package_structure['groups'].append({
+                    'name': '(ungrouped)',
+                    'separator': None,
+                    'files': pkg.ungrouped_files,
+                    'file_count': len(pkg.ungrouped_files)
+                })
+
+            hierarchy['repository']['standalone_packages'].append(package_structure)
+
+    # Sort assemblies and packages by name
+    hierarchy['repository']['assemblies'].sort(key=lambda a: a['name'])
+    hierarchy['repository']['standalone_packages'].sort(key=lambda p: p['name'])
+
+    return hierarchy
+
+
+def save_hierarchy(hierarchy: Dict[str, Any], repo_root: str, verbose: bool = False):
+    """
+    Save hierarchy to .maestro/repo/hierarchy.json
+
+    Args:
+        hierarchy: Hierarchy dictionary
+        repo_root: Repository root path
+        verbose: Verbose output flag
+    """
+    import json
+
+    hierarchy_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy.json')
+
+    with open(hierarchy_file, 'w', encoding='utf-8') as f:
+        json.dump(hierarchy, f, indent=2)
+
+    if verbose:
+        print(f"[maestro] Saved hierarchy to {hierarchy_file}")
+
+
+def load_hierarchy(repo_root: str) -> Optional[Dict[str, Any]]:
+    """
+    Load hierarchy from .maestro/repo/hierarchy.json
+
+    Args:
+        repo_root: Repository root path
+
+    Returns:
+        Hierarchy dictionary or None if not found
+    """
+    import json
+
+    hierarchy_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy.json')
+
+    if not os.path.exists(hierarchy_file):
+        return None
+
+    try:
+        with open(hierarchy_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def load_hierarchy_overrides(repo_root: str) -> Optional[Dict[str, Any]]:
+    """
+    Load hierarchy overrides from .maestro/repo/hierarchy_overrides.json
+
+    Args:
+        repo_root: Repository root path
+
+    Returns:
+        Overrides dictionary or None if not found
+    """
+    import json
+
+    overrides_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy_overrides.json')
+
+    if not os.path.exists(overrides_file):
+        return None
+
+    try:
+        with open(overrides_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def merge_hierarchy_overrides(hierarchy: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merge manual hierarchy overrides with auto-detected hierarchy.
+
+    Args:
+        hierarchy: Auto-detected hierarchy
+        overrides: Manual overrides
+
+    Returns:
+        Merged hierarchy
+    """
+    import copy
+
+    # Deep copy to avoid modifying original
+    merged = copy.deepcopy(hierarchy)
+
+    # Apply overrides
+    if 'repository' in overrides:
+        override_repo = overrides['repository']
+
+        # Override repository metadata if specified
+        if 'metadata' in override_repo:
+            merged['repository']['metadata'].update(override_repo['metadata'])
+
+        # Override assemblies
+        if 'assemblies' in override_repo:
+            for override_asm in override_repo['assemblies']:
+                asm_name = override_asm.get('name')
+                # Find matching assembly
+                for i, asm in enumerate(merged['repository']['assemblies']):
+                    if asm['name'] == asm_name:
+                        # Merge assembly properties
+                        merged['repository']['assemblies'][i].update(override_asm)
+                        break
+
+        # Override standalone packages
+        if 'standalone_packages' in override_repo:
+            for override_pkg in override_repo['standalone_packages']:
+                pkg_name = override_pkg.get('name')
+                # Find matching package
+                for i, pkg in enumerate(merged['repository']['standalone_packages']):
+                    if pkg['name'] == pkg_name:
+                        # Merge package properties
+                        merged['repository']['standalone_packages'][i].update(override_pkg)
+                        break
+
+    return merged
+
+
+def handle_repo_hier_edit(repo_root: str):
+    """
+    Edit hierarchy overrides in $EDITOR.
+
+    Args:
+        repo_root: Repository root path
+    """
+    import json
+    import subprocess
+
+    overrides_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy_overrides.json')
+
+    # Create template if it doesn't exist
+    if not os.path.exists(overrides_file):
+        template = {
+            '_comment': 'Manual hierarchy overrides. Edit this file to customize the repository hierarchy.',
+            '_instructions': [
+                'This file allows you to override the auto-detected hierarchy.',
+                'You can rename assemblies, packages, or reorganize the structure.',
+                'Changes here take precedence over auto-detected values.',
+                'Run "maestro repo hier --rebuild" after editing to see changes.'
+            ],
+            'repository': {
+                'assemblies': [],
+                'standalone_packages': []
+            }
+        }
+
+        with open(overrides_file, 'w', encoding='utf-8') as f:
+            json.dump(template, f, indent=2)
+
+        print_info(f"Created hierarchy overrides template at {overrides_file}", 2)
+
+    # Open in editor
+    editor = os.environ.get('EDITOR', 'nano')
+
+    try:
+        subprocess.run([editor, overrides_file], check=True)
+        print_success("Hierarchy overrides updated. Run 'maestro repo hier --rebuild' to see changes.", 2)
+    except subprocess.CalledProcessError:
+        print_error(f"Failed to open editor: {editor}", 2)
+        sys.exit(1)
+    except FileNotFoundError:
+        print_error(f"Editor not found: {editor}. Set $EDITOR environment variable.", 2)
+        sys.exit(1)
+
+
+def print_hierarchy_tree(hierarchy: Dict[str, Any], show_files: bool = False):
+    """
+    Print hierarchy in tree view with colors.
+
+    Args:
+        hierarchy: Hierarchy dictionary
+        show_files: Whether to show individual files
+    """
+    repo = hierarchy['repository']
+
+    print(f"\n{Colors.GREEN}📦 {repo['name']}{Colors.RESET}")
+    print(f"   {Colors.DIM}Path: {repo['path']}{Colors.RESET}")
+    print(f"   {Colors.DIM}Assemblies: {repo['metadata']['total_assemblies']}, "
+          f"Packages: {repo['metadata']['total_packages']}, "
+          f"Files: {repo['metadata']['total_files']}{Colors.RESET}\n")
+
+    # Print assemblies
+    if repo['assemblies']:
+        for i, assembly in enumerate(repo['assemblies']):
+            is_last_assembly = (i == len(repo['assemblies']) - 1) and not repo['standalone_packages']
+            asm_prefix = "└── " if is_last_assembly else "├── "
+
+            print(f"{asm_prefix}{Colors.BLUE}🏗️  {assembly['name']}{Colors.RESET} "
+                  f"{Colors.DIM}({assembly['package_count']} packages, "
+                  f"{assembly['total_files']} files){Colors.RESET}")
+
+            # Print packages in assembly
+            for j, package in enumerate(assembly['packages']):
+                is_last_pkg = (j == len(assembly['packages']) - 1)
+                pkg_indent = "    " if is_last_assembly else "│   "
+                pkg_prefix = "└── " if is_last_pkg else "├── "
+
+                print(f"{pkg_indent}{pkg_prefix}{Colors.CYAN}📄 {package['name']}{Colors.RESET} "
+                      f"{Colors.DIM}({package['file_count']} files){Colors.RESET}")
+
+                # Print groups if they exist
+                if package['groups'] and show_files:
+                    group_indent = pkg_indent + ("    " if is_last_pkg else "│   ")
+
+                    for k, group in enumerate(package['groups']):
+                        is_last_group = (k == len(package['groups']) - 1)
+                        group_prefix = "└── " if is_last_group else "├── "
+
+                        group_name = group['name']
+                        if group['separator']:
+                            group_name = f"{group['separator']} {group_name}"
+
+                        print(f"{group_indent}{group_prefix}{Colors.YELLOW}📁 {group_name}{Colors.RESET} "
+                              f"{Colors.DIM}({group['file_count']} files){Colors.RESET}")
+
+    # Print standalone packages
+    if repo['standalone_packages']:
+        for i, package in enumerate(repo['standalone_packages']):
+            is_last = (i == len(repo['standalone_packages']) - 1)
+            prefix = "└── " if is_last else "├── "
+
+            print(f"{prefix}{Colors.CYAN}📄 {package['name']}{Colors.RESET} "
+                  f"{Colors.DIM}({package['file_count']} files){Colors.RESET}")
+
+            # Print groups if they exist
+            if package['groups'] and show_files:
+                group_indent = "    " if is_last else "│   "
+
+                for j, group in enumerate(package['groups']):
+                    is_last_group = (j == len(package['groups']) - 1)
+                    group_prefix = "└── " if is_last_group else "├── "
+
+                    group_name = group['name']
+                    if group['separator']:
+                        group_name = f"{group['separator']} {group_name}"
+
+                    print(f"{group_indent}{group_prefix}{Colors.YELLOW}📁 {group_name}{Colors.RESET} "
+                          f"{Colors.DIM}({group['file_count']} files){Colors.RESET}")
+
+
+def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool = False, rebuild: bool = False):
     """
     Show AI-analyzed repository hierarchy.
-    Placeholder for Phase RF2.
 
     Args:
         repo_root: Path to repository root
         json_output: Output in JSON format
+        show_files: Show file groups in tree view
+        rebuild: Force rebuild of hierarchy from scan data
     """
-    print_header("REPOSITORY HIERARCHY")
-    print(f"\nRepository: {repo_root}\n")
+    import json
 
-    print_warning("AI-powered hierarchy analysis not yet implemented (Phase RF2)", 2)
-    print("\nThis feature will provide:")
-    print_info("  - AI-powered analysis of directory structure", 2)
-    print_info("  - Logical groupings (not just filesystem)", 2)
-    print_info("  - Package group detection", 2)
-    print_info("  - Assembly structure visualization", 2)
-    print_info("  - Relationship mapping between components", 2)
+    # Try to load existing hierarchy unless rebuild requested
+    hierarchy = None
+    if not rebuild:
+        hierarchy = load_hierarchy(repo_root)
 
-    print("\nFor now, use:")
-    print_info("  maestro repo show              - View scan results", 3)
-    print_info("  maestro repo pkg               - List all packages", 3)
-    print_info("  maestro repo asm list          - List assemblies", 3)
+    # If no hierarchy exists or rebuild requested, generate it
+    if hierarchy is None:
+        # Load repo scan results
+        index_file = os.path.join(repo_root, '.maestro', 'repo', 'index.json')
+
+        if not os.path.exists(index_file):
+            print_error("Repository not resolved. Run 'maestro repo resolve' first.", 2)
+            sys.exit(1)
+
+        try:
+            with open(index_file, 'r', encoding='utf-8') as f:
+                index_data = json.load(f)
+        except Exception as e:
+            print_error(f"Failed to read repository index: {e}", 2)
+            sys.exit(1)
+
+        # Reconstruct RepoScanResult from index data
+        packages = []
+        for pkg_data in index_data.get('packages_detected', []):
+            # Reconstruct FileGroup objects
+            groups = []
+            for group_data in pkg_data.get('groups', []):
+                groups.append(FileGroup(
+                    name=group_data.get('name', ''),
+                    separator=group_data.get('separator', ''),
+                    files=group_data.get('files', [])
+                ))
+
+            packages.append(PackageInfo(
+                name=pkg_data.get('name', ''),
+                dir=pkg_data.get('dir', ''),
+                upp_path=pkg_data.get('upp_path', ''),
+                files=pkg_data.get('files', []),
+                build_system=pkg_data.get('build_system', 'upp'),
+                groups=groups,
+                ungrouped_files=pkg_data.get('ungrouped_files', [])
+            ))
+
+        assemblies = []
+        for asm_data in index_data.get('assemblies_detected', []):
+            assemblies.append(AssemblyInfo(
+                name=asm_data.get('name', ''),
+                root_path=asm_data.get('root_path', ''),
+                package_folders=asm_data.get('package_folders', []),
+                assembly_type=asm_data.get('assembly_type', 'upp')
+            ))
+
+        repo_scan = RepoScanResult(
+            assemblies_detected=assemblies,
+            packages_detected=packages
+        )
+
+        # Build hierarchy
+        hierarchy = build_repo_hierarchy(repo_scan, repo_root)
+
+        # Save for future use
+        save_hierarchy(hierarchy, repo_root, verbose=False)
+
+    # Load and apply overrides if they exist
+    overrides = load_hierarchy_overrides(repo_root)
+    if overrides:
+        hierarchy = merge_hierarchy_overrides(hierarchy, overrides)
+
+    # Output hierarchy
+    if json_output:
+        print(json.dumps(hierarchy, indent=2))
+    else:
+        print_header("REPOSITORY HIERARCHY")
+        if overrides:
+            print(f"{Colors.YELLOW}Note: Manual overrides applied from hierarchy_overrides.json{Colors.RESET}\n")
+        print_hierarchy_tree(hierarchy, show_files=show_files)
+        print()  # Empty line at end
 
 
 def handle_repo_conventions_detect(repo_root: str, verbose: bool = False):
