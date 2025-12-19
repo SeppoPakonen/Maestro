@@ -2,7 +2,7 @@
 
 > **Historical Record**: Completed phases and tasks in Maestro development, covering universal build system integration, Portage integration, and external dependency management.
 
-**Last Updated**: 2025-12-19
+**Last Updated**: 2025-12-20
 
 ---
 
@@ -10,7 +10,9 @@
 
 1. [Phase Completion Status](#phase-completion-status)
 2. [Track: Track/Phase/Task CLI and AI Discussion System](#track-trackphasetask-cli-and-ai-discussion-system)
-3. [Primary Track: UMK Integration (Universal Build System)](#primary-track-umk-integration-universal-build-system)
+3. [Track: Build & Run](#track-build--run)
+4. [Track: Issues & Solutions](#track-issues--solutions)
+5. [Primary Track: UMK Integration (Universal Build System)](#primary-track-umk-integration-universal-build-system)
 
 ---
 
@@ -29,6 +31,14 @@
 | | CLI3: AI Discussion System | ✅ Done | 100% |
 | | CLI4: Settings and Configuration | ✅ Done | 100% |
 | | CLI5: TUI Conversion | ✅ Done | 100% |
+| **Build & Run** | | | |
+| | BR1: Make Integration with Issues | ✅ Done | 100% |
+| | BR2: Static Analyzer Integration | ✅ Done | 100% |
+| | BR3: Run Command | ✅ Done | 100% |
+| | BR4: Profiling Support | ✅ Done | 100% |
+| **Issues & Solutions** | | | |
+| | IS1: Issue Data Model | ✅ Done | 100% |
+| | IS2: Issue Categories | ✅ Done | 100% |
 | **Repository Scanning** | | | |
 | | U++ packages | ✅ Done | 100% |
 | | CMake packages | ✅ Done | 100% |
@@ -187,6 +197,114 @@ This track implements the new Track/Phase/Task command-line interface with integ
 - `test_encoding_scenarios.py` - Terminal encoding compatibility tests
 
 ---
+
+## Track: Build & Run
+
+"track_id": "build-run"
+"priority": 1
+"status": "done"
+"completion": 100%
+
+This track implements build and run commands with issue integration.
+
+### Phase BR1: Make Integration with Issues ✅ **[Completed 2025-12-20]**
+
+"phase_id": "br1"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- Build error parsing for compiler/linker output
+- Automatic issue creation in `docs/issues/`
+- Group-specific build flag in `maestro make`
+- Build error prompt flow with optional work trigger
+
+**Files Updated**:
+- `maestro/commands/make.py` - Build error detection, issue creation, group builds
+- `maestro/builders/console.py` - Command output capture
+- `maestro/issues/issue_store.py` - Issue file writer
+- `maestro/issues/parsers.py` - Build error parsing helpers
+
+### Phase BR2: Static Analyzer Integration ✅ **[Completed 2025-12-20]**
+
+"phase_id": "br2"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- Static analyzer runner for clang-tidy, cppcheck, pylint, checkstyle
+- Analyzer output parsing into issues
+- Configurable analyzer selection via CLI flags
+
+**Files Updated**:
+- `maestro/commands/make.py` - Analyzer command and issue integration
+- `maestro/issues/parsers.py` - Analyzer output parsing
+
+### Phase BR3: Run Command ✅ **[Completed 2025-12-20]**
+
+"phase_id": "br3"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- Run package discovery with build status and mainconfigs
+- Run execution with argument passing and exit status reporting
+- Runtime issue creation on failures
+
+**Files Updated**:
+- `maestro/commands/run.py` - Run command implementation
+- `maestro/main.py` - CLI wiring and dispatch
+
+### Phase BR4: Profiling Support ✅ **[Completed 2025-12-20]**
+
+"phase_id": "br4"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- Profiling support (gprof, valgrind, perf, cProfile, VisualVM/YourKit notes)
+- Profiling report output to `docs/profiling/`
+
+**Files Updated**:
+- `maestro/commands/run.py` - Profiling hooks and report writer
+
+## Track: Issues & Solutions
+
+"track_id": "issues-solutions"
+"priority": 2
+"status": "in_progress"
+"completion": 40%
+
+### Phase IS1: Issue Data Model ✅ **[Completed 2025-12-20]**
+
+"phase_id": "is1"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- Issue schema with type, state, priority, location, timestamps
+- Markdown storage in `docs/issues/` with history
+- State transition tracking and rollback support
+
+**Files Updated**:
+- `maestro/issues/model.py` - Issue types and lifecycle rules
+- `maestro/issues/issue_store.py` - Storage, listing, state updates
+- `maestro/commands/issues.py` - CLI access to issue records
+- `maestro/main.py` - CLI wiring
+
+### Phase IS2: Issue Categories ✅ **[Completed 2025-12-20]**
+
+"phase_id": "is2"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- Issue category taxonomy (hier, convention, build, runtime, features, product, look, ux)
+- CLI filtering and listing by category
+
+**Files Updated**:
+- `maestro/issues/model.py` - Category registry
+- `maestro/commands/issues.py` - Category filtering
 
 ## Primary Track: UMK Integration (Universal Build System)
 

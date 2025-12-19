@@ -2,7 +2,20 @@ import subprocess
 import threading
 import queue
 import time
+import sys
 from typing import List, Dict, Any, Callable, Optional
+
+_COMMAND_OUTPUT_LOG: List[Dict[str, Any]] = []
+
+
+def reset_command_output_log() -> None:
+    """Clear captured command outputs."""
+    _COMMAND_OUTPUT_LOG.clear()
+
+
+def get_command_output_log() -> List[Dict[str, Any]]:
+    """Return captured command outputs."""
+    return list(_COMMAND_OUTPUT_LOG)
 
 
 class Console:
@@ -131,6 +144,16 @@ def execute_command(cmd: List[str], cwd: str = None, verbose: bool = True) -> bo
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
+        )
+
+        _COMMAND_OUTPUT_LOG.append(
+            {
+                "command": cmd,
+                "cwd": cwd,
+                "returncode": result.returncode,
+                "stdout": result.stdout or "",
+                "stderr": result.stderr or "",
+            }
         )
 
         if verbose and result.stdout:

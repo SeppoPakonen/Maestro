@@ -5,6 +5,8 @@ Implements Phase 7 of the UMK Integration Roadmap
 import argparse
 import sys
 import os
+import shutil
+import subprocess
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
@@ -30,6 +32,8 @@ class MakeCommand:
             return self.clean(args)
         elif args.make_subcommand == 'rebuild':
             return self.rebuild(args)
+        elif args.make_subcommand == 'analyze':
+            return self.analyze(args)
         elif args.make_subcommand == 'config':
             return self.config(args)
         elif args.make_subcommand == 'methods':
@@ -46,6 +50,10 @@ class MakeCommand:
     
     def build(self, args: argparse.Namespace) -> int:
         """Build one or more packages."""
+        from maestro.builders.console import reset_command_output_log, get_command_output_log
+        from maestro.issues.parsers import parse_build_logs
+        from maestro.issues.issue_store import write_issue
+
         # Auto-detect method if not specified
         method_name = args.method
         if not method_name:
@@ -91,6 +99,12 @@ class MakeCommand:
             if not package_info:
                 print(f"Error: Package '{package_name}' not found in repo")
                 return 1
+            if getattr(args, "group", None):
+                group_info = self._apply_group_filter(package_info, args.group)
+                if not group_info:
+                    print(f"Error: Group '{args.group}' not found for package '{package_name}'")
+                    return 1
+                package_info = group_info
 
             # Apply config-specific options for U++ packages
             if args.config and package_info.get('build_system') == 'upp':
@@ -115,6 +129,8 @@ class MakeCommand:
                     print(f"Cleaning package: {package_name}")
                 builder.clean_package(package_info)
 
+            reset_command_output_log()
+
             # Build the package
             success = builder.build_package(package_info, method_config)
             if success:
@@ -124,6 +140,17 @@ class MakeCommand:
                     print(f"Built: {package_name}")
             else:
                 print(f"Failed to build package: {package_name}")
+                log_entries = get_command_output_log()
+                parsed_issues = parse_build_logs(log_entries)
+                if parsed_issues:
+                    repo_root = self._find_repo_root() or os.getcwd()
+                    issue_ids = []
+                    print("Build errors detected:")
+                    for issue in parsed_issues:
+                        issue_ids.append(write_issue(issue.to_issue_details("make"), repo_root))
+                        location = f"{issue.file}:{issue.line}:{issue.column}".rstrip(":0")
+                        print(f"- {location or 'N/A'}: {issue.description}")
+                    self._prompt_issue_fix(repo_root, issue_ids)
                 return 1
 
         return 0
@@ -204,6 +231,41 @@ class MakeCommand:
         # Restore original flag
         args.clean_first = original_clean_first
         return build_result
+
+    def analyze(self, args: argparse.Namespace) -> int:
+        """Run static analyzers and create issues from findings."""
+        from maestro.issues.parsers import parse_analyzer_output
+        from maestro.issues.issue_store import write_issue
+
+        repo_root = self._find_repo_root() or os.getcwd()
+        target_path = args.path or repo_root
+        tools = self._resolve_analyzers(args.tools)
+        if not tools:
+            print("No analyzers available (install clang-tidy, cppcheck, pylint, or checkstyle).")
+            return 1
+
+        all_issues = []
+        for tool in tools:
+            exit_code, output = self._run_analyzer(tool, target_path, args, repo_root)
+            if output:
+                issues = parse_analyzer_output(tool, output)
+                all_issues.extend(issues)
+            if exit_code not in (0, 1):
+                print(f"Warning: {tool} exited with status {exit_code}")
+
+        if not all_issues:
+            print("No analyzer issues found.")
+            return 0
+
+        issue_ids = []
+        print("Analyzer findings detected:")
+        for issue in all_issues:
+            issue_ids.append(write_issue(issue.to_issue_details("make-analyze"), repo_root))
+            location = f"{issue.file}:{issue.line}:{issue.column}".rstrip(":0")
+            print(f"- {location or 'N/A'}: {issue.description}")
+
+        print(f"Created {len(issue_ids)} issue file(s).")
+        return 0
     
     def config(self, args: argparse.Namespace) -> int:
         """Configure build methods and options."""
@@ -702,6 +764,144 @@ class MakeCommand:
                 return path
 
         return None
+
+    def _apply_group_filter(self, package_info: Dict[str, Any], group_name: str) -> Optional[Dict[str, Any]]:
+        """Filter package files to the specified internal group."""
+        groups = package_info.get("groups", [])
+        if not groups:
+            return None
+
+        for group in groups:
+            name = group.get("name") if isinstance(group, dict) else getattr(group, "name", None)
+            if name == group_name:
+                files = group.get("files") if isinstance(group, dict) else getattr(group, "files", [])
+                filtered = dict(package_info)
+                filtered["files"] = list(files)
+                return filtered
+        return None
+
+    def _prompt_issue_fix(self, repo_root: str, issue_ids: List[str]) -> None:
+        """Prompt user to trigger automatic fixes for build issues."""
+        if not issue_ids:
+            return
+        try:
+            choice = input("Fix build errors automatically? (y/n): ").strip().lower()
+        except EOFError:
+            return
+        if choice != "y":
+            return
+        for issue_id in issue_ids:
+            cmd = self._work_issue_command(repo_root, issue_id)
+            try:
+                result = subprocess.run(cmd, check=False)
+                if result.returncode != 0:
+                    print(f"Warning: work command failed for issue {issue_id}")
+            except Exception as exc:
+                print(f"Warning: unable to run work command for issue {issue_id}: {exc}")
+
+    def _work_issue_command(self, repo_root: str, issue_id: str) -> List[str]:
+        """Build the command to invoke work issue."""
+        if shutil.which("maestro"):
+            return ["maestro", "work", "issue", issue_id]
+        return [sys.executable, os.path.join(repo_root, "maestro.py"), "work", "issue", issue_id]
+
+    def _resolve_analyzers(self, tools_arg: Optional[str]) -> List[str]:
+        """Resolve requested analyzers, filtering by availability."""
+        known = ["clang-tidy", "cppcheck", "pylint", "checkstyle"]
+        if tools_arg:
+            requested = [tool.strip() for tool in tools_arg.split(",") if tool.strip()]
+        else:
+            requested = known
+
+        available = []
+        for tool in requested:
+            if tool not in known:
+                print(f"Warning: Unknown analyzer '{tool}'")
+                continue
+            if shutil.which(tool):
+                available.append(tool)
+            else:
+                print(f"Warning: Analyzer '{tool}' not found on PATH")
+        return available
+
+    def _run_analyzer(
+        self,
+        tool: str,
+        target_path: str,
+        args: argparse.Namespace,
+        repo_root: str,
+    ) -> tuple[int, str]:
+        """Run a single analyzer and capture output."""
+        if tool == "clang-tidy":
+            files = self._collect_source_files(target_path, [".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"])
+            build_path = self._find_compile_commands(repo_root)
+            output_parts = []
+            exit_code = 0
+            for file_path in files:
+                cmd = ["clang-tidy", file_path]
+                if build_path:
+                    cmd.extend(["-p", build_path])
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                exit_code = max(exit_code, result.returncode)
+                output_parts.append(result.stdout or "")
+                output_parts.append(result.stderr or "")
+            return exit_code, "\n".join(output_parts).strip()
+
+        if tool == "cppcheck":
+            cmd = [
+                "cppcheck",
+                "--enable=warning,style,performance,portability",
+                "--inline-suppr",
+                "--template=gcc",
+                target_path,
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            output = "\n".join([result.stdout or "", result.stderr or ""]).strip()
+            return result.returncode, output
+
+        if tool == "pylint":
+            cmd = ["pylint", "--output-format=text"]
+            if args.pylint_rcfile:
+                cmd.extend(["--rcfile", args.pylint_rcfile])
+            cmd.append(target_path)
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            output = "\n".join([result.stdout or "", result.stderr or ""]).strip()
+            return result.returncode, output
+
+        if tool == "checkstyle":
+            if not args.checkstyle_config:
+                print("Warning: checkstyle requires --checkstyle-config")
+                return 0, ""
+            cmd = ["checkstyle", "-c", args.checkstyle_config, "-f", "plain", target_path]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            output = "\n".join([result.stdout or "", result.stderr or ""]).strip()
+            return result.returncode, output
+
+        return 0, ""
+
+    def _collect_source_files(self, base_path: str, extensions: List[str]) -> List[str]:
+        """Collect source files under base_path matching extensions."""
+        files = []
+        path = Path(base_path)
+        if path.is_file():
+            if path.suffix in extensions:
+                return [str(path)]
+            return []
+        for ext in extensions:
+            files.extend(str(p) for p in path.rglob(f"*{ext}"))
+        return files
+
+    def _find_compile_commands(self, repo_root: str) -> Optional[str]:
+        """Locate compile_commands.json for clang-tidy."""
+        candidates = [
+            os.path.join(repo_root, "compile_commands.json"),
+            os.path.join(repo_root, "build", "compile_commands.json"),
+            os.path.join(repo_root, ".maestro", "build", "compile_commands.json"),
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return os.path.dirname(path)
+        return None
     
     def _create_builder_for_package(self, package_info: Dict, method_config: MethodConfig):
         """Create appropriate builder for the package type."""
@@ -727,6 +927,7 @@ def add_make_parser(subparsers):
     build_parser.add_argument('--target', help='Override output target path')
     build_parser.add_argument('--verbose', '-v', action='store_true', help='Show full build commands')
     build_parser.add_argument('--clean-first', action='store_true', help='Clean before building')
+    build_parser.add_argument('--group', help='Build a specific internal group for the package')
     
     # make clean subcommand
     clean_parser = make_subparsers.add_parser('clean', aliases=['c'], help='Clean build artifacts for package(s)')
@@ -761,6 +962,13 @@ def add_make_parser(subparsers):
     
     # make methods subcommand
     methods_parser = make_subparsers.add_parser('methods', aliases=['mth'], help='List all available build methods')
+
+    # make analyze subcommand
+    analyze_parser = make_subparsers.add_parser('analyze', aliases=['an'], help='Run static analyzers')
+    analyze_parser.add_argument('--tools', help='Comma-separated analyzers (clang-tidy, cppcheck, pylint, checkstyle)')
+    analyze_parser.add_argument('--path', help='Target file or directory (default: repo root)')
+    analyze_parser.add_argument('--pylint-rcfile', help='Optional pylint rcfile path')
+    analyze_parser.add_argument('--checkstyle-config', help='Checkstyle XML configuration path')
     
     # make export subcommand
     export_parser = make_subparsers.add_parser('export', aliases=['exp'], help='Export package to other build system format')

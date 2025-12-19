@@ -25,14 +25,7 @@
 | | RF3: Convention Detection | ✅ Done | 100% |
 | | RF4: Repository Rules | ✅ Done | 100% |
 | | RF5: Refresh All | ✅ Done | 100% |
-| **Build & Run** | | | |
-| | BR1: Make Integration with Issues | 📋 Planned | 0% |
-| | BR2: Static Analyzer Integration | 📋 Planned | 0% |
-| | BR3: Run Command | 📋 Planned | 0% |
-| | BR4: Profiling Support | 📋 Planned | 0% |
 | **Issues & Solutions** | | | |
-| | IS1: Issue Data Model | 📋 Planned | 0% |
-| | IS2: Issue Categories | 📋 Planned | 0% |
 | | IS3: Issue 4-Phase Workflow | 📋 Planned | 0% |
 | | IS4: Solutions System | 📋 Planned | 0% |
 | | IS5: Runtime Issue Collection | 💡 Proposed | 0% |
@@ -314,132 +307,12 @@ This track implements the foundational repository analysis and management comman
 
 ---
 
-## Track: Build & Run
-
-"track_id": "build-run"
-"priority": 1
-"status": "planned"
-"completion": 0%
-
-This track implements the build and execution commands, with integrated issue tracking for build errors.
-
-**Command Hierarchy**:
-- `maestro make` - Build the project (replaces old `build` command)
-- `maestro make <package>` - Build specific package
-- `maestro make <package> <config>` - Build with specific config
-- `maestro make <package> --group <group>` - Build specific internal group (from Phase 11)
-- `maestro run` - List packages and mainconfigs
-- `maestro run <package> <mainconfig>` - Execute built binary
-- `maestro run <package> <mainconfig> --profile [args...]` - Run with profiler
-- `maestro repo pkg <id> run <mainconfig>` - Alternative syntax
-- `maestro repo pkg <id> profile <mainconfig>` - Alternative syntax
-
-### Phase BR1: Make Integration with Issues
-
-"phase_id": "br1"
-"status": "planned"
-"completion": 0
-
-- [ ] **BR1.1: Make Command Implementation**
-  - Replace deprecated `build` command
-  - Integrate with UMK builder system
-  - Support package-specific builds
-  - Support build configuration selection
-  - **Group-Specific Builds** (from UMK Phase 11):
-    - `maestro make <package> --group <group>` - Build specific group only
-    - Platform-specific group builds (e.g., build only Win32 group)
-    - Dependency tracking per group
-
-- [ ] **BR1.2: Build Error Detection**
-  - Parse compiler errors (gcc, clang, msvc, javac, etc.)
-  - Parse linker errors
-  - Extract error location (file:line:column)
-  - Extract error messages
-
-- [ ] **BR1.3: Automatic Issue Creation**
-  - Create issues from build errors
-  - Issue type: `build`
-  - Auto-generate issue ID (hash-based)
-  - Store in `docs/issues/<issue-id>.md`
-  - Link to source location
-
-- [ ] **BR1.4: Build Error UI Flow**
-  - Show build errors in terminal
-  - Prompt: "Fix build errors automatically? (y/n)"
-  - If yes: trigger `work issue <id>` for each error
-  - If no: just list issues for later
-
-### Phase BR2: Static Analyzer Integration
-
-"phase_id": "br2"
-"status": "planned"
-"completion": 0
-
-- [ ] **BR2.1: Static Analyzer Support**
-  - Integrate clang-tidy (C++)
-  - Integrate cppcheck (C++)
-  - Integrate pylint (Python)
-  - Integrate checkstyle (Java)
-  - Configurable analyzer selection
-
-- [ ] **BR2.2: Analyzer Error to Issue**
-  - Parse static analysis warnings/errors
-  - Create issues with type: `convention` or `build`
-  - Include analyzer name and rule in issue metadata
-  - Link to documentation for rule violations
-
-### Phase BR3: Run Command
-
-"phase_id": "br3"
-"status": "planned"
-"completion": 0
-
-- [ ] **BR3.1: Run Package Discovery**
-  - List all buildable packages
-  - Identify executable outputs
-  - List available mainconfigs per package
-  - Show build status (built/not built/out of date)
-
-- [ ] **BR3.2: Run Execution**
-  - Execute built binaries
-  - Pass arguments to binary
-  - Capture stdout/stderr
-  - Report exit codes
-  - Handle crashes gracefully
-
-- [ ] **BR3.3: Run Integration with Issues**
-  - Monitor for crashes
-  - Detect assertion failures
-  - Capture exception traces
-  - Create runtime issues automatically
-
-### Phase BR4: Profiling Support
-
-"phase_id": "br4"
-"status": "planned"
-"completion": 0
-
-- [ ] **BR4.1: Profiler Integration**
-  - Support for gprof (C++)
-  - Support for valgrind (memory profiling)
-  - Support for perf (Linux)
-  - Support for Java profilers (YourKit, VisualVM)
-  - Support for Python profilers (cProfile)
-
-- [ ] **BR4.2: Profiling Output**
-  - Generate profiling reports
-  - Store in `docs/profiling/<package>-<timestamp>.md`
-  - Visualize hotspots
-  - Detect performance regressions
-
----
-
 ## Track: Issues & Solutions
 
 "track_id": "issues-solutions"
 "priority": 2
-"status": "planned"
-"completion": 0%
+"status": "in_progress"
+"completion": 40%
 
 This track implements the comprehensive issue tracking and solution management system.
 
@@ -459,79 +332,6 @@ This track implements the comprehensive issue tracking and solution management s
 - `maestro solutions add` - Add new solution (AI discussion)
 - `maestro solutions remove <id>` - Remove solution
 - `maestro solutions list` - List solutions
-
-### Phase IS1: Issue Data Model
-
-"phase_id": "is1"
-"status": "planned"
-"completion": 0
-
-- [ ] **IS1.1: Issue Schema**
-  - Issue ID: auto-generated hash or semantic ID
-  - Issue type: hier/convention/build/runtime/features/product/look/ux
-  - Issue state: open/reacted/analyzing/analyzed/decided/fixing/fixed/closed/cancelled
-  - Priority: 0-100 (0 = most important)
-  - Title: optional user-provided title
-  - Description: error message or user description
-  - Location: file:line:column (if applicable)
-  - Created: timestamp
-  - Modified: timestamp
-  - Related track/phase: optional link
-
-- [ ] **IS1.2: Issue Storage**
-  - Store as `docs/issues/<issue-id>.md`
-  - Structured markdown format
-  - JSON metadata block
-  - Human-readable content
-  - Version control friendly
-
-- [ ] **IS1.3: Issue Lifecycle**
-  - State machine: open → reacted → analyzing → analyzed → decided → fixing → fixed → closed
-  - State transitions logged with timestamps
-  - Auto-save state changes
-  - Support for state rollback
-
-### Phase IS2: Issue Categories
-
-"phase_id": "is2"
-"status": "planned"
-"completion": 0
-
-- [ ] **IS2.1: Hierarchy Issues**
-  - Files in wrong directories
-  - Incorrect package organization
-  - Assembly structure violations
-  - Detected by `repo hier` analysis
-
-- [ ] **IS2.2: Convention Issues**
-  - Naming convention violations
-  - Style guide violations
-  - Detected by convention checking
-  - Framework-specific convention violations (U++)
-
-- [ ] **IS2.3: Build Issues**
-  - Compilation errors (gcc, clang, msvc, javac)
-  - Linker errors
-  - Detected automatically during `make`
-  - Temporary issues (hash-based ID)
-
-- [ ] **IS2.4: Runtime Issues**
-  - Crashes (segfaults, exceptions)
-  - Failed assertions
-  - Warnings logged to monitoring system
-  - Requires instrumentation (future phase)
-
-- [ ] **IS2.5: Features/UX Issues**
-  - User-reported issues
-  - Developer-identified issues
-  - Manual creation only
-  - Can have descriptive titles
-
-- [ ] **IS2.6: Product/Look Issues**
-  - High-level product direction
-  - Visual/aesthetic concerns
-  - Requires human judgment
-  - AI can suggest but not auto-create
 
 ### Phase IS3: Issue 4-Phase Workflow
 

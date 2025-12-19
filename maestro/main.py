@@ -37,6 +37,7 @@ from .known_issues import match_known_issues, KnownIssue
 from .planner_templates import format_build_target_template, format_fix_rulebook_template, format_conversion_pipeline_template
 from .confidence import ConfidenceScorer, BatchConfidenceAggregator
 from .commands.make import MakeCommand, add_make_parser
+from .commands.run import RunCommand, add_run_parser
 from .commands.tu import add_tu_parser
 from .repo.package import PackageInfo, FileGroup
 from .repo.assembly_commands import handle_asm_command
@@ -4059,6 +4060,7 @@ def main():
 
     # Make command group (Universal Build Orchestration)
     make_parser = add_make_parser(subparsers)
+    run_parser = add_run_parser(subparsers)
 
     # Hub command (Universal Package Hub)
     hub_parser = create_hub_parser(subparsers)
@@ -4067,7 +4069,13 @@ def main():
     add_tu_parser(subparsers)
 
     # Track/Phase/Task commands - new Track/Phase/Task system
-    from .commands import add_track_parser, add_phase_parser, add_discuss_parser, add_settings_parser
+    from .commands import (
+        add_track_parser,
+        add_phase_parser,
+        add_discuss_parser,
+        add_settings_parser,
+        add_issues_parser,
+    )
     track_parser = add_track_parser(subparsers)
     phase_parser = add_phase_parser(subparsers)
     # NOTE: New task parser has its own handler at line 3808 and is handled in dispatch section later
@@ -4081,6 +4089,9 @@ def main():
 
     # Settings command
     settings_parser = add_settings_parser(subparsers)
+
+    # Issues command
+    issues_parser = add_issues_parser(subparsers)
 
     # Conversion pipeline command group
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
@@ -6133,6 +6144,10 @@ def main():
             # If no subcommand specified, show help
             make_parser.print_help()
             sys.exit(0)
+    elif args.command == 'run':
+        run_cmd = RunCommand()
+        result = run_cmd.execute(args)
+        sys.exit(result)
     elif args.command == 'hub':
         handle_hub_command(args)
     elif args.command == 'track' or args.command == 'tr':
@@ -6157,6 +6172,9 @@ def main():
     elif args.command == 'settings' or args.command == 'config' or args.command == 'cfg':
         from .commands import handle_settings_command
         sys.exit(handle_settings_command(args))
+    elif args.command == 'issues':
+        from .commands import handle_issues_command
+        sys.exit(handle_issues_command(args))
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
