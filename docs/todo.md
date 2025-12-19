@@ -85,6 +85,8 @@ This track implements the foundational repository analysis and management comman
 - `maestro repo refresh all` - Full refresh (resolve + conventions + rules analysis)
 - `maestro repo refresh help` - Show what refresh all does
 - `maestro repo hier` - Show AI-analyzed repository hierarchy
+- `maestro repo pkg <id> --show-groups` - Show internal package groups (from Phase 11)
+- `maestro repo pkg <id> --group <group>` - Show specific group (from Phase 11)
 - `maestro repo conventions` - Show/edit detected conventions
 - `maestro repo conventions detect` - Explicitly detect conventions
 - `maestro repo rules` - Show/edit repository rules
@@ -126,6 +128,10 @@ This track implements the foundational repository analysis and management comman
   - Recognize assemblies and their structure - ✅ Assembly system from Phase AS1
   - Map relationships between components
   - Leverage completed assembly detection infrastructure
+  - **Internal Package Groups** (from UMK Phase 11):
+    - Parse U++ separators (Core/Core.upp structure)
+    - Auto-group misc packages by file type (docs, scripts, build files)
+    - Create FileGroup representation in package metadata
 
 - [ ] **RF2.2: Hierarchy Visualization**
   - Tree-view terminal output
@@ -134,6 +140,12 @@ This track implements the foundational repository analysis and management comman
   - Color-coded output
   - Export to JSON format
   - Display assembly relationships and package organization
+  - **Internal Package Groups Display** (from UMK Phase 11):
+    - CLI: `maestro repo pkg [ID] --show-groups`
+    - CLI: `maestro repo pkg [ID] --group [GROUP]`
+    - Display group headers with file counts
+    - Collapsible/expanded view
+    - TUI: Collapsible tree for groups, navigate with Tab/Shift+Tab
 
 - [ ] **RF2.3: Hierarchy Editing**
   - Manual hierarchy overrides
@@ -224,6 +236,7 @@ This track implements the build and execution commands, with integrated issue tr
 - `maestro make` - Build the project (replaces old `build` command)
 - `maestro make <package>` - Build specific package
 - `maestro make <package> <config>` - Build with specific config
+- `maestro make <package> --group <group>` - Build specific internal group (from Phase 11)
 - `maestro run` - List packages and mainconfigs
 - `maestro run <package> <mainconfig>` - Execute built binary
 - `maestro run <package> <mainconfig> --profile [args...]` - Run with profiler
@@ -241,6 +254,10 @@ This track implements the build and execution commands, with integrated issue tr
   - Integrate with UMK builder system
   - Support package-specific builds
   - Support build configuration selection
+  - **Group-Specific Builds** (from UMK Phase 11):
+    - `maestro make <package> --group <group>` - Build specific group only
+    - Platform-specific group builds (e.g., build only Win32 group)
+    - Dependency tracking per group
 
 - [ ] **BR1.2: Build Error Detection**
   - Parse compiler errors (gcc, clang, msvc, javac, etc.)
@@ -897,6 +914,12 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
   - Custom framework mapping rules
   - AI-assisted conversion decisions
 
+- [ ] **CT2.4: IDE Project Export** (from UMK Phase 11)
+  - Export package groups to Visual Studio filters (.vcxproj.filters)
+  - Export package groups to CMake source_group()
+  - Export package groups to IntelliJ modules
+  - Preserve internal package group structure in IDE projects
+
 ### Phase CT3: Multi-Language Convert (Experimental)
 
 "phase_id": "ct3"
@@ -1114,6 +1137,11 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
 - UMK builder system will be used by `maestro make` command (BR1)
 - Builder errors will create issues automatically (BR1.3)
 - Build configurations will be used by `maestro run` command (BR3)
+- Phase 11 (Internal Package Groups) integrated into:
+  - RF2.1: Group detection and parsing
+  - RF2.2: Group visualization CLI/TUI
+  - BR1.1: Group-specific builds
+  - CT2.4: IDE project export
 
 - [ ] [Phase 1: Core Builder Abstraction](phases/phase1.md) ✅ **[Design Complete]** 📋 **[Implementation Planned]**
 - [ ] [Phase 2: U++ Builder Implementation](phases/phase2.md) 📋 **[Planned]**
