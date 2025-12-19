@@ -17,17 +17,55 @@ from typing import Optional, Dict, List
 from maestro.data import parse_todo_md
 
 
+def resolve_track_identifier(identifier: str) -> Optional[str]:
+    """
+    Resolve a track identifier (number or ID) to a track ID.
+
+    Args:
+        identifier: Either a track number (1, 2, 3) or track ID (umk, cli-tpt)
+
+    Returns:
+        Track ID if found, None otherwise
+
+    Examples:
+        >>> resolve_track_identifier('1')  # Returns first track's ID
+        'cli-tpt'
+        >>> resolve_track_identifier('umk')  # Returns as-is if valid
+        'umk'
+    """
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        return None
+
+    data = parse_todo_md(str(todo_path))
+    tracks = data.get('tracks', [])
+
+    # Try as numeric index first
+    if identifier.isdigit():
+        index = int(identifier) - 1  # Convert to 0-based
+        if 0 <= index < len(tracks):
+            return tracks[index].get('track_id')
+        return None
+
+    # Otherwise, treat as track_id and verify it exists
+    for track in tracks:
+        if track.get('track_id') == identifier:
+            return identifier
+
+    return None
+
+
 def list_tracks(args):
     """
     List all tracks from docs/todo.md.
 
     Format:
-    +-----------+--------------------+----------+------------+
-    | Track ID  | Name               | Status   | Completion |
-    +-----------+--------------------+----------+------------+
-    | cli-tpt   | CLI and AI System  | Planned  | 20%        |
-    | umk       | UMK Integration    | Planned  | 0%         |
-    +-----------+--------------------+----------+------------+
+    +----+-----------+--------------------+----------+------------+
+    | #  | Track ID  | Name               | Status   | Completion |
+    +----+-----------+--------------------+----------+------------+
+    | 1  | cli-tpt   | CLI and AI System  | Planned  | 20%        |
+    | 2  | umk       | UMK Integration    | Planned  | 0%         |
+    +----+-----------+--------------------+----------+------------+
     """
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
@@ -49,19 +87,19 @@ def list_tracks(args):
     print()
 
     # Header
-    print(f"{'Track ID':<15} {'Name':<35} {'Status':<12} {'Phases':<8}")
+    print(f"{'#':<3} {'Track ID':<15} {'Name':<32} {'Status':<12} {'Phases':<8}")
     print("-" * 80)
 
     # Rows
-    for track in tracks:
+    for i, track in enumerate(tracks, 1):
         track_id = track.get('track_id', 'N/A')
         name = track.get('name', 'Unnamed Track')
         status = track.get('status', 'unknown')
         phase_count = len(track.get('phases', []))
 
         # Truncate long names
-        if len(name) > 35:
-            name = name[:32] + '...'
+        if len(name) > 32:
+            name = name[:29] + '...'
 
         # Format status with emoji
         status_display = status
@@ -74,23 +112,31 @@ def list_tracks(args):
         elif status == 'proposed':
             status_display = '💡 Proposed'
 
-        print(f"{track_id:<15} {name:<35} {status_display:<12} {phase_count:<8}")
+        print(f"{i:<3} {track_id:<15} {name:<32} {status_display:<12} {phase_count:<8}")
 
     print()
     print(f"Total: {len(tracks)} tracks")
+    print(f"Use 'maestro track <#>' or 'maestro track <id>' to view details")
     print()
 
     return 0
 
 
-def show_track(track_id: str, args):
+def show_track(track_identifier: str, args):
     """
     Show detailed information about a specific track.
 
     Args:
-        track_id: Track ID to show
+        track_identifier: Track ID or number (e.g., 'umk' or '2')
         args: Command arguments
     """
+    # Resolve identifier to track_id
+    track_id = resolve_track_identifier(track_identifier)
+    if not track_id:
+        print(f"Error: Track '{track_identifier}' not found.")
+        print("Use 'maestro track list' to see available tracks.")
+        return 1
+
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
         print(f"Error: docs/todo.md not found.")
@@ -107,7 +153,7 @@ def show_track(track_id: str, args):
             break
 
     if not track:
-        print(f"Error: Track '{track_id}' not found.")
+        print(f"Error: Track '{track_identifier}' not found.")
         return 1
 
     # Display track details
@@ -160,30 +206,44 @@ def add_track(name: str, args):
     return 1
 
 
-def remove_track(track_id: str, args):
+def remove_track(track_identifier: str, args):
     """
     Remove a track from docs/todo.md.
 
     Args:
-        track_id: Track ID to remove
+        track_identifier: Track ID or number to remove
         args: Command arguments
     """
+    # Resolve identifier to track_id
+    track_id = resolve_track_identifier(track_identifier)
+    if not track_id:
+        print(f"Error: Track '{track_identifier}' not found.")
+        print("Use 'maestro track list' to see available tracks.")
+        return 1
+
     print(f"Removing track: {track_id}")
     print("Note: This requires the Writer module (Task 1.2) to be implemented.")
     print("For now, please edit docs/todo.md manually.")
     return 1
 
 
-def edit_track(track_id: str, args):
+def edit_track(track_identifier: str, args):
     """
     Edit a track in $EDITOR.
 
     Args:
-        track_id: Track ID to edit
+        track_identifier: Track ID or number to edit
         args: Command arguments
     """
     import os
     import subprocess
+
+    # Resolve identifier to track_id
+    track_id = resolve_track_identifier(track_identifier)
+    if not track_id:
+        print(f"Error: Track '{track_identifier}' not found.")
+        print("Use 'maestro track list' to see available tracks.")
+        return 1
 
     # Find the track in todo.md to get line number
     todo_path = Path('docs/todo.md')
@@ -203,17 +263,24 @@ def edit_track(track_id: str, args):
         return 1
 
 
-def set_track_context(track_id: str, args):
+def set_track_context(track_identifier: str, args):
     """
     Set the current track context.
 
     Args:
-        track_id: Track ID to set as current
+        track_identifier: Track ID or number to set as current
         args: Command arguments
     """
     from maestro.config.settings import get_settings
     from maestro.data import parse_todo_md
     from pathlib import Path
+
+    # Resolve identifier to track_id
+    track_id = resolve_track_identifier(track_identifier)
+    if not track_id:
+        print(f"Error: Track '{track_identifier}' not found.")
+        print("Use 'maestro track list' to see available tracks.")
+        return 1
 
     # Verify track exists
     todo_path = Path('docs/todo.md')
@@ -231,7 +298,7 @@ def set_track_context(track_id: str, args):
             break
 
     if not track:
-        print(f"Error: Track '{track_id}' not found.")
+        print(f"Error: Track '{track_identifier}' not found.")
         return 1
 
     # Set context
@@ -318,13 +385,17 @@ maestro track - Manage project tracks
 USAGE:
     maestro track list                    List all tracks
     maestro track add <name>              Add new track
-    maestro track remove <id>             Remove a track
+    maestro track remove <id|#>           Remove a track
     maestro track discuss                 Discuss tracks with AI
-    maestro track <id>                    Show track details
-    maestro track <id> show               Show track details
-    maestro track <id> edit               Edit track in $EDITOR
-    maestro track <id> discuss            Discuss track with AI
-    maestro track <id> set                Set current track context
+    maestro track <id|#>                  Show track details
+    maestro track <id|#> show             Show track details
+    maestro track <id|#> edit             Edit track in $EDITOR
+    maestro track <id|#> discuss          Discuss track with AI
+    maestro track <id|#> set              Set current track context
+
+TRACK IDENTIFIERS:
+    You can use either the track ID (e.g., 'umk') or the track number (e.g., '2')
+    from the track list. Both work identically.
 
 ALIASES:
     list:   ls, l
@@ -337,10 +408,11 @@ ALIASES:
 
 EXAMPLES:
     maestro track list
-    maestro track cli-tpt
-    maestro track cli-tpt edit
+    maestro track 2                       # Show track #2
+    maestro track umk                     # Show track by ID
+    maestro track 2 edit                  # Edit track #2
+    maestro track umk set                 # Set track by ID
     maestro track discuss
-    maestro track cli-tpt set
     maestro track add "New Feature Track"
 """
     print(help_text)
