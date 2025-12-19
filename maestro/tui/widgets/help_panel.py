@@ -132,6 +132,13 @@ Interactive view of the phase tree with branching and subtasks.
 - Set active phase for current work
 - Kill/terminate phase branches
 
+**Visual Indicators:**
+- ✅ Done phases
+- 🚧 In-progress phases
+- 📋 Planned phases
+- 💡 Proposed phases
+- Progress bars show completion percentage
+
 **Common actions:**
 - Browse phase tree structure
 - Set active phase (enter key on phase)
@@ -153,6 +160,15 @@ Manage individual tasks within the active phase.
 - View and manage individual tasks
 - Start/stop task execution
 - Monitor task status and progress
+
+**Visual Indicators:**
+- ✅ Done tasks
+- 🚧 In-progress tasks
+- 📋 Planned tasks
+- 💡 Proposed tasks
+- P0 tasks shown in red (critical)
+- P1 tasks shown in yellow (high priority)
+- P2 tasks in normal text (normal priority)
 
 **Common actions:**
 - Start all tasks

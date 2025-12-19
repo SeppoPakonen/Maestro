@@ -15,6 +15,7 @@ from maestro.tui.panes.base import PaneView
 from maestro.tui.menubar.model import Menu, MenuItem
 from maestro.tui.utils import ErrorModal, ErrorNormalizer
 from maestro.tui.panes.registry import register_pane
+from maestro.tui.widgets.status_indicators import get_status_indicator, get_priority_style
 
 
 class TasksPane(PaneView):
@@ -111,7 +112,12 @@ class TasksPane(PaneView):
     async def refresh_data(self) -> None:
         """Refresh list and detail content."""
         # Placeholder implementation - would connect to tasks UI facade
-        self.tasks = ["Task 1", "Task 2", "Task 3"]  # Replace with real data
+        # Using example task data with status indicators and priority styling
+        self.tasks = [
+            f"{get_status_indicator('done')} [{get_priority_style('P0')}] Task 1[/]",
+            f"{get_status_indicator('in_progress')} [{get_priority_style('P1')}] Task 2[/]",
+            f"{get_status_indicator('planned')} [{get_priority_style('P2')}] Task 3[/]"
+        ]  # Replace with real data
         if self.tasks and self.selected_task_id is None:
             self.selected_task_id = self.tasks[0] if self.tasks else None
 

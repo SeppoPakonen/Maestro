@@ -7,6 +7,7 @@ from textual.widgets import Header, Footer, Label, ListView, ListItem, Tree
 from textual.containers import Horizontal, Vertical, ScrollableContainer
 from maestro.ui_facade.phases import get_phase_tree, list_phases, get_phase_details
 from datetime import datetime
+from maestro.tui.widgets.status_indicators import get_status_indicator, get_progress_bar
 
 
 class PhasesScreen(Screen):
@@ -82,17 +83,24 @@ class PhasesScreen(Screen):
 
     def _add_tree_nodes(self, parent_node, phase_node):
         """Recursively add phase nodes to the tree."""
-        # Determine status icon
-        if phase_node.status == "active":
-            status_icon = "●"  # Active
-        elif phase_node.status == "dead":
-            status_icon = "×"  # Dead
-        else:  # inactive
-            status_icon = "○"  # Inactive
+        # Determine status icon using emoji indicators
+        status_icon = get_status_indicator(phase_node.status)
 
-        # Format the phase label
+        # Calculate completion percentage if possible
+        completion = 0  # Default to 0%
+        if hasattr(phase_node, 'subtask_count') and phase_node.subtask_count > 0:
+            # Assuming we can calculate completion based on subtasks
+            # For now, we'll need to determine actual completion
+            # In a real implementation you'd calculate based on task statuses
+            if hasattr(phase_node, 'completed_subtasks'):
+                completion = int((phase_node.completed_subtasks / phase_node.subtask_count) * 100)
+            else:
+                completion = 0
+
+        # Format the phase label with emoji and progress bar
         short_id = phase_node.phase_id[:8] + "..."
-        label = f"{status_icon} {phase_node.label} ({short_id})"
+        progress_bar = get_progress_bar(completion)
+        label = f"{status_icon} {phase_node.label} ({short_id}) {progress_bar}"
 
         # Add this node to the tree
         tree_node = parent_node.add(label=label, data=phase_node.phase_id)

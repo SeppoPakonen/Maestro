@@ -89,6 +89,13 @@ class OnboardingManager:
                 title="Status Indicators",
                 description="At the top, you see important status:\n  • Root: Project root directory\n  • Session: Current active session\n  • Phase: Current active phase\n  • Build: Active build target\nThese show your current working context.",
                 key_bindings=[],
+                next_hint="Press Enter to continue to visual indicators..."
+            ),
+            OnboardingStep(
+                id="visual_indicators",
+                title="Visual Status Indicators",
+                description="In the interface, you'll see visual indicators:\n  • ✅ Green checkmark for completed items\n  • 🚧 Orange construction for in-progress items\n  • 📋 Clipboard for planned items\n  • 💡 Light bulb for proposed items\n  • Progress bars showing completion\n  • P0/P1/P2 priority indicators with colors\nThese help you quickly understand status.",
+                key_bindings=[],
                 next_hint="Press Enter to continue to navigation..."
             ),
             OnboardingStep(
@@ -115,7 +122,7 @@ class OnboardingManager:
             OnboardingStep(
                 id="completion",
                 title="Onboarding Complete!",
-                description="You now know the basics:\n  • Status indicators at the top\n  • Navigation on the left\n  • Command palette with Ctrl+P\n  • Read vs write actions\n\nYou can always press ? for help. Happy orchestrating!",
+                description="You now know the basics:\n  • Status indicators at the top\n  • Visual status indicators (✅ 🚧 📋 💡)\n  • Navigation on the left\n  • Command palette with Ctrl+P\n  • Read vs write actions\n\nYou can always press ? for help. Happy orchestrating!",
                 key_bindings=["?"],
                 next_hint="Press Enter to start using Maestro..."
             )

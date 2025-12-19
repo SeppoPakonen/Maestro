@@ -4,6 +4,7 @@ Shows phase tree in left pane and phase details in right pane.
 """
 import curses
 import os
+import locale
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
@@ -17,6 +18,42 @@ from maestro.ui_facade.phases import (
 )
 from maestro.ui_facade.tasks import list_tasks
 from maestro.tui_mc2.ui.modals import ConfirmModal
+
+
+def supports_emoji() -> bool:
+    """Check if terminal supports emoji"""
+    encoding = locale.getpreferredencoding()
+    return encoding.lower() in ['utf-8', 'utf8']
+
+
+def get_status_emoji(status: str) -> str:
+    """Get emoji for status indicator"""
+    status_emojis = {
+        'done': '✅',
+        'in_progress': '🚧',
+        'planned': '📋',
+        'proposed': '💡',
+        'active': '●',
+        'dead': '×',
+    }
+    return status_emojis.get(status.lower(), '❓')
+
+
+def get_status_indicator(status: str) -> str:
+    """Get status indicator (emoji or text)"""
+    if supports_emoji():
+        return get_status_emoji(status)
+    else:
+        # Text fallback
+        status_text = {
+            'done': '[✓]',
+            'in_progress': '[~]',
+            'planned': '[ ]',
+            'proposed': '[?]',
+            'active': '●',
+            'dead': '×',
+        }
+        return status_text.get(status.lower(), '[?]')
 
 
 @dataclass
@@ -484,12 +521,10 @@ class PhasesPane:
             row = 1 + (idx - start_idx)
 
             is_selected = (idx == self.selected_index)
-            active_marker = "○"
-            if row_data.status == "dead":
-                active_marker = "×"
-            if self.active_phase_id == row_data.phase_id:
-                active_marker = "●"
+            # Use emoji status indicator
+            status_indicator = get_status_indicator(row_data.status)
 
+            # For active phase, we can still show special marker if needed
             branch_marker = " "
             if row_data.has_children:
                 branch_marker = "+" if row_data.is_collapsed else "-"
@@ -498,7 +533,7 @@ class PhasesPane:
             label = row_data.label or "(not available)"
             created = row_data.created_at or ""
             display_text = (
-                f"{indent}{branch_marker} {active_marker} {row_data.phase_id[:8]} "
+                f"{indent}{branch_marker} {status_indicator} {row_data.phase_id[:8]} "
                 f"({row_data.subtask_count}) {label}"
             )
             if created:

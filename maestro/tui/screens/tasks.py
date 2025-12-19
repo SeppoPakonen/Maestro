@@ -15,6 +15,7 @@ from maestro.ui_facade.sessions import get_active_session
 from maestro.tui.utils import ErrorNormalizer, ErrorModal
 import asyncio
 from maestro.tui.utils import track_facade_call
+from maestro.tui.widgets.status_indicators import get_status_indicator, get_priority_style
 
 
 class TaskList(Widget):
@@ -47,8 +48,15 @@ class TaskList(Widget):
                 if task.status == "in_progress":
                     task_classes.append("running")
 
+                # Get status emoji and priority styling
+                status_emoji = get_status_indicator(task.status)
+
+                # Get priority from task if available, default to P2
+                priority = getattr(task, 'priority', 'P2')
+                priority_style = get_priority_style(priority)
+
                 yield Label(
-                    f"{task.id[:8]}... | {task.status.upper():>12} | {task.title}",
+                    f"{status_emoji} [{priority_style}]{task.id[:8]}... | {task.status.upper():>12} | {task.title}[/]",
                     id=f"task-{task.id}",
                     classes=" ".join(task_classes)
                 )

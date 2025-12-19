@@ -15,6 +15,7 @@ from maestro.tui.panes.base import PaneView
 from maestro.tui.menubar.model import Menu, MenuItem
 from maestro.tui.utils import ErrorModal, ErrorNormalizer
 from maestro.tui.panes.registry import register_pane
+from maestro.tui.widgets.status_indicators import get_status_indicator
 
 
 class PhasesPane(PaneView):
@@ -111,7 +112,12 @@ class PhasesPane(PaneView):
     async def refresh_data(self) -> None:
         """Refresh list and detail content."""
         # Placeholder implementation - would connect to phases UI facade
-        self.phases = ["Phase 1", "Phase 2", "Phase 3"]  # Replace with real data
+        # Using example phase data with status indicators
+        self.phases = [
+            f"{get_status_indicator('done')} Phase 1",
+            f"{get_status_indicator('in_progress')} Phase 2",
+            f"{get_status_indicator('planned')} Phase 3"
+        ]  # Replace with real data
         if self.phases and self.selected_phase_id is None:
             self.selected_phase_id = self.phases[0] if self.phases else None
 
