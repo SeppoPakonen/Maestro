@@ -125,31 +125,34 @@ class UppConventionTransformer(ASTTransformer):
     def _build_dependency_graph(self, document: ASTDocument):
         """Build a dependency graph from the AST document."""
         for node in document.root.walk():
-            if node.kind in ('class_decl', 'struct_decl'):
+            if node.kind.upper() in ('CLASS_DECL', 'STRUCT_DECL'):
                 # Process class/struct dependencies
                 self._process_class_dependencies(node)
-            elif node.kind in ['function_decl', 'FUNCTION_DECL']:
+            elif node.kind.upper() in ['FUNCTION_DECL']:
                 # Process function dependencies
                 self._process_function_dependencies(node)
-    
+
     def _process_class_dependencies(self, node: ASTNode):
         """Process dependencies for class declarations."""
         class_name = node.name
         deps = set()
-        
+
         # Find dependencies in inheritance
         if node.children:
             for child in node.children:
-                if child.kind == 'base_specifier':
-                    deps.add(child.type)  # Add parent class as dependency
-        
+                if child.kind.upper() == 'CXX_BASE_SPECIFIER':
+                    # Get the base class name from either name or type
+                    base_name = child.name if child.name else child.type
+                    if base_name:
+                        deps.add(base_name)  # Add parent class as dependency
+
         # Find member variable dependencies
         for child in node.walk():  # Walk all descendants
-            if child.kind in ('field_decl', 'var_decl') and child.type:
+            if child.kind.upper() in ('FIELD_DECL', 'VAR_DECL') and child.type:
                 # Don't add the class itself as a dependency
                 if child.type != class_name:
                     deps.add(child.type)
-        
+
         # Store dependencies for this class
         self.dependencies[class_name] = deps
 

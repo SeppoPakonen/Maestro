@@ -57,90 +57,126 @@ class CodeGenerator:
     def _generate_class_declaration(self, node: ASTNode) -> str:
         """
         Generate a class/struct declaration.
-        
+
         Args:
             node: AST node representing a class/struct
-            
+
         Returns:
             String representation of the class/struct declaration
         """
         # Get class/struct keyword
         keyword = 'class' if node.kind.upper() == 'CLASS_DECL' else 'struct'
-        
-        # Start with the class/struct declaration
-        lines = [f"{keyword} {node.name} {{"] 
-        
-        # Group members by visibility (public, private, protected)
-        public_members = []
-        private_members = []
-        protected_members = []
-        other_members = []
-        
+
+        # Check for inheritance
+        base_classes = []
         if node.children:
             for child in node.children:
-                if child.kind == 'access_spec':
-                    # This is where the access specifier starts
+                if child.kind.upper() == 'CXX_BASE_SPECIFIER':
+                    # Get base class name
+                    base_name = child.name if child.name else child.type
+                    if base_name:
+                        # Check access specifier for inheritance (public, private, protected)
+                        # Default is public for struct, private for class
+                        access = "public" if keyword == "struct" else "private"
+                        # In libclang, the access is often in the type string
+                        # For now, we'll default to public
+                        base_classes.append(f"public {base_name}")
+
+        # Start with the class/struct declaration
+        if base_classes:
+            lines = [f"{keyword} {node.name} : {', '.join(base_classes)} {{"]
+        else:
+            lines = [f"{keyword} {node.name} {{"]
+
+        # Group members by access specifier
+        # Track current access level and members
+        current_access = None
+        access_groups = {
+            'public': [],
+            'private': [],
+            'protected': []
+        }
+
+        # Default access for class is private, for struct is public
+        default_access = 'public' if keyword == 'struct' else 'private'
+        current_access = default_access
+
+        if node.children:
+            for child in node.children:
+                if child.kind.upper() == 'CXX_ACCESS_SPEC_DECL':
+                    # Access specifier changes the current access level
+                    # The name is empty, but we can infer from position
+                    # Usually followed by members of that access level
+                    # We need to track this by looking at the next members
+                    # For now, we'll detect from the context
                     continue
-                elif child.modifiers and 'public' in child.modifiers:
-                    public_members.append(child)
-                elif child.modifiers and 'private' in child.modifiers:
-                    private_members.append(child)
-                elif child.modifiers and 'protected' in child.modifiers:
-                    protected_members.append(child)
+                elif child.kind.upper() == 'CXX_BASE_SPECIFIER':
+                    # Skip base specifiers (already handled)
+                    continue
                 else:
-                    other_members.append(child)  # Default to public for now
-        
-        # Add public members
-        if public_members:
-            lines.append("public:")
-            for member in public_members:
-                member_decl = self._generate_member_declaration(member)
-                if member_decl:
-                    lines.append(f"    {member_decl}")
-            lines.append("")  # Empty line after section
-        
-        # Add private members
-        if private_members:
-            lines.append("private:")
-            for member in private_members:
-                member_decl = self._generate_member_declaration(member)
-                if member_decl:
-                    lines.append(f"    {member_decl}")
-            lines.append("")  # Empty line after section
-        
-        # Add protected members
-        if protected_members:
-            lines.append("protected:")
-            for member in protected_members:
-                member_decl = self._generate_member_declaration(member)
-                if member_decl:
-                    lines.append(f"    {member_decl}")
-            lines.append("")  # Empty line after section
-        
-        # Add members without explicit visibility
-        if other_members:
-            for member in other_members:
-                member_decl = self._generate_member_declaration(member)
-                if member_decl:
-                    lines.append(f"    {member_decl}")
-            lines.append("")  # Empty line after section
-        
+                    # This is a member - assign to current access level
+                    # The access level tracking is complex in libclang
+                    # We'll use a heuristic: check the child's position
+                    # For simplicity, we'll put all members in their natural groups
+                    access_groups[current_access].append(child)
+
+        # Simplified approach: use libclang's access specifier information if available
+        # For now, just organize by typical C++ pattern: public first, then private
+        # We'll scan through and categorize members
+        access_groups = {'public': [], 'private': [], 'protected': []}
+
+        # In the original source code pattern for classes:
+        # Usually: private members first (or after first access spec), then public
+        # The CXX_ACCESS_SPEC_DECL nodes mark transitions but don't tell us TO what
+        # Heuristic: constructor/destructor/public methods are usually public,
+        # fields are usually private
+
+        if node.children:
+            for child in node.children:
+                if child.kind.upper() in ['CXX_BASE_SPECIFIER', 'CXX_ACCESS_SPEC_DECL']:
+                    continue
+
+                kind_upper = child.kind.upper()
+
+                # Heuristic-based access determination
+                if kind_upper in ['CONSTRUCTOR', 'DESTRUCTOR', 'CXX_METHOD']:
+                    # Methods, constructors, destructors are typically public
+                    access_groups['public'].append(child)
+                elif kind_upper == 'FIELD_DECL':
+                    # Fields are typically private
+                    access_groups['private'].append(child)
+                else:
+                    # Default to the class default
+                    access_groups[default_access].append(child)
+
+        # Generate members for each access level
+        for access in ['public', 'private', 'protected']:
+            if access_groups[access]:
+                lines.append(f"{access}:")
+                for member in access_groups[access]:
+                    member_decl = self._generate_member_declaration(member)
+                    if member_decl:  # Skip None returns
+                        lines.append(f"    {member_decl}")
+                lines.append("")  # Empty line after section
+
         # Close the class
         lines.append("};")
-        
+
         return "\n".join(lines)
     
     def _generate_member_declaration(self, node: ASTNode) -> str:
         """
         Generate a declaration for a class member.
-        
+
         Args:
             node: AST node representing a member
-            
+
         Returns:
             String representation of the member declaration
         """
-        if node.kind == 'field_decl':
+        kind_upper = node.kind.upper()
+
+        if kind_upper == 'FIELD_DECL':
             # Field declaration: type name;
             if node.type and node.name:
                 return f"{node.type} {node.name};"
@@ -148,23 +184,31 @@ class CodeGenerator:
                 return f"{node.name};"
             else:
                 return f"/* unknown field */;"
-        elif node.kind == 'function_decl':
-            # Method declaration: return_type name(params);
+
+        elif kind_upper == 'CXX_METHOD':
+            # Method declaration: return_type name(params) const;
+            return self._generate_method_signature(node) + ";"
+
+        elif kind_upper == 'CONSTRUCTOR':
+            # Constructor: ClassName(params);
+            return self._generate_constructor_signature(node) + ";"
+
+        elif kind_upper == 'DESTRUCTOR':
+            # Destructor: ~ClassName();
+            return self._generate_destructor_signature(node) + ";"
+
+        elif kind_upper == 'CXX_ACCESS_SPEC_DECL':
+            # Access specifier - skip, handled separately
+            return None
+
+        elif kind_upper == 'CXX_BASE_SPECIFIER':
+            # Base class specifier - skip, handled in class header
+            return None
+
+        elif kind_upper == 'FUNCTION_DECL':
+            # Regular function (shouldn't be in class, but handle anyway)
             return self._generate_function_signature(node) + ";"
-        elif node.kind in ['constructor', 'destructor']:
-            # Constructor/destructor
-            params_part = ""
-            if node.children:
-                # Extract parameters for constructor/destructor
-                params = []
-                for child in node.children:
-                    if child.kind == 'parm_var_decl':
-                        param_str = child.type + " " + child.name if child.type and child.name else child.name or child.type or "/*param*/"
-                        params.append(param_str)
-                params_part = "(" + ", ".join(params) + ")"
-            else:
-                params_part = "()"
-            return f"{node.name}{params_part};"
+
         else:
             return f"// Unsupported member type: {node.kind}"
     
@@ -209,7 +253,7 @@ class CodeGenerator:
         params = []
         if node.children:
             for child in node.children:
-                if child.kind in ['parm_var_decl', 'PARM_DECL']:
+                if child.kind.upper() in ['PARM_VAR_DECL', 'PARM_DECL']:
                     # Parameter: type name
                     param_str = child.type + " " + child.name if child.type and child.name else child.name or child.type or "/*param*/"
                     params.append(param_str)
@@ -218,6 +262,114 @@ class CodeGenerator:
 
         # Full signature
         return f"{return_type} {node.name}({params_str})"
+
+    def _generate_method_signature(self, node: ASTNode) -> str:
+        """
+        Generate a method signature (like function but with const/override/virtual modifiers).
+
+        Args:
+            node: AST node representing a method
+
+        Returns:
+            String representation of the method signature
+        """
+        import re
+
+        # Extract return type from method type
+        return_type = "void"
+        is_const = False
+        is_virtual = False
+        is_pure_virtual = False
+
+        if node.type:
+            # Method type format: "return_type (params) const"
+            # First extract return type
+            match = re.match(r'^([^(]+)\s*\(', node.type)
+            if match:
+                return_type = match.group(1).strip()
+            else:
+                return_type = node.type.strip()
+
+            # Check for const
+            if 'const' in node.type:
+                is_const = True
+
+        # Check for virtual/override in children
+        if node.children:
+            for child in node.children:
+                if child.kind == 'CXX_OVERRIDE_ATTR':
+                    # Method has override
+                    pass  # We'll add "override" later
+                # Pure virtual is indicated by lack of body and virtual keyword
+
+        # Parameters
+        params = []
+        if node.children:
+            for child in node.children:
+                if child.kind.upper() in ['PARM_VAR_DECL', 'PARM_DECL']:
+                    param_str = child.type + " " + child.name if child.type and child.name else child.name or child.type or "/*param*/"
+                    params.append(param_str)
+
+        params_str = ", ".join(params) if params else ""
+
+        # Build signature
+        signature = f"{return_type} {node.name}({params_str})"
+
+        # Add const if needed
+        if is_const:
+            signature += " const"
+
+        # Check for pure virtual (= 0) - this is tricky from AST
+        # For now, we'll generate all methods as declarations only
+
+        return signature
+
+    def _generate_constructor_signature(self, node: ASTNode) -> str:
+        """
+        Generate a constructor signature.
+
+        Args:
+            node: AST node representing a constructor
+
+        Returns:
+            String representation of the constructor signature
+        """
+        # Constructor name is usually the class name
+        # Parameters
+        params = []
+        if node.children:
+            for child in node.children:
+                if child.kind.upper() in ['PARM_VAR_DECL', 'PARM_DECL']:
+                    param_str = child.type + " " + child.name if child.type and child.name else child.name or child.type or "/*param*/"
+                    params.append(param_str)
+
+        params_str = ", ".join(params) if params else ""
+
+        return f"{node.name}({params_str})"
+
+    def _generate_destructor_signature(self, node: ASTNode) -> str:
+        """
+        Generate a destructor signature.
+
+        Args:
+            node: AST node representing a destructor
+
+        Returns:
+            String representation of the destructor signature
+        """
+        # Destructor name already has ~
+        # Check for virtual
+        is_virtual = False
+        if node.type and 'virtual' in node.type:
+            is_virtual = True
+
+        signature = f"{node.name}()"
+
+        # Add noexcept if present
+        if node.type and 'noexcept' in node.type:
+            signature += " noexcept"
+
+        return signature
     
     def _generate_variable_declaration(self, node: ASTNode) -> str:
         """

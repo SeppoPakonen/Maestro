@@ -313,6 +313,16 @@ def handle_tu_transform_command(args):
         package_name = Path(args.package).name or "transformed_package"
         transformer = UppConventionTransformer(package_name=package_name)
 
+        # Build dependency graph from all documents FIRST
+        for file_path, document in results.items():
+            transformer._build_dependency_graph(document)
+
+        # Compute declaration order
+        transformer.declaration_order = transformer._compute_declaration_order()
+        transformer.forward_declarations_needed = transformer._find_forward_declarations()
+
+        print(f"Dependency order: {transformer.declaration_order[:10]}")  # Show first 10
+
         # Collect all declarations from all documents for primary header generation
         # Only include declarations from the source files being transformed (not system headers)
         all_nodes = []
