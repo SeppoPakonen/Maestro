@@ -9,6 +9,7 @@ from .parser_base import TranslationUnitParser
 from .clang_parser import ClangParser
 from .java_parser import JavaParser
 from .kotlin_parser import KotlinParser
+from .python_parser import PythonParser
 from .serializer import ASTSerializer
 from .file_hasher import FileHasher
 from .cache import CacheMetadata, ASTCache
@@ -20,6 +21,7 @@ from .completion import CompletionProvider, CompletionItem
 from .lsp_server import MaestroLSPServer
 from .transformers import ASTTransformer, UppConventionTransformer, CompositeTransformer
 from .code_generator import CodeGenerator
+from .ast_printer import ASTPrinter, print_ast
 
 __all__ = [
     'SourceLocation',
@@ -33,6 +35,7 @@ __all__ = [
     'ClangParser',
     'JavaParser',
     'KotlinParser',
+    'PythonParser',
     'ASTSerializer',
     'FileHasher',
     'CacheMetadata',
@@ -48,4 +51,6 @@ __all__ = [
     'UppConventionTransformer',
     'CompositeTransformer',
     'CodeGenerator',
+    'ASTPrinter',
+    'print_ast',
 ]

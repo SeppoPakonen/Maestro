@@ -1,0 +1,827 @@
+================================================================================
+AST DOCUMENT
+================================================================================
+
+AST TREE:
+--------------------------------------------------------------------------------
+Module  @ 0:0
+├── Expr = <ast.Constant object at 0x7f4e4f907f50>  @ 1:0
+│   └── Constant  @ 1:0
+├── Import = [<ast.alias object at 0x7f4e4f907f10>]  @ 6:0
+│   └── alias: 'math'  @ 6:7
+├── Import = [<ast.alias object at 0x7f4e4f907ed0>]  @ 7:0
+│   └── alias: 'sys'  @ 7:7
+├── ImportFrom  @ 8:0
+│   ├── alias: 'List'  @ 8:19
+│   ├── alias: 'Dict'  @ 8:25
+│   ├── alias: 'Optional'  @ 8:31
+│   ├── alias: 'Generic'  @ 8:41
+│   └── alias: 'TypeVar'  @ 8:50
+├── ImportFrom  @ 9:0
+│   ├── alias: 'ABC'  @ 9:16
+│   └── alias: 'abstractmethod'  @ 9:21
+├── ImportFrom  @ 10:0
+│   └── alias: 'dataclass'  @ 10:24
+├── ImportFrom  @ 11:0
+│   └── alias: 'Enum'  @ 11:17
+├── ClassDef: 'Direction'  @ 15:0
+│   ├── Name: 'Enum' = <ast.Load object at 0x7f4e513d16d0>  @ 15:16
+│   │   └── Load  @ 0:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4f9079d0>  @ 16:4
+│   │   └── Constant  @ 16:4
+│   ├── Assign  @ 17:4
+│   │   ├── Name: 'NORTH' = <ast.Store object at 0x7f4e513d1750>  @ 17:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Constant  @ 17:12
+│   ├── Assign  @ 18:4
+│   │   ├── Name: 'SOUTH' = <ast.Store object at 0x7f4e513d1750>  @ 18:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Constant  @ 18:12
+│   ├── Assign  @ 19:4
+│   │   ├── Name: 'EAST' = <ast.Store object at 0x7f4e513d1750>  @ 19:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Constant  @ 19:11
+│   └── Assign  @ 20:4
+│       ├── Name: 'WEST' = <ast.Store object at 0x7f4e513d1750>  @ 20:4
+│       │   └── Store  @ 0:0
+│       └── Constant  @ 20:11
+├── ClassDef: 'Shape'  @ 24:0
+│   ├── Name: 'ABC' = <ast.Load object at 0x7f4e513d16d0>  @ 24:12
+│   │   └── Load  @ 0:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4f907210>  @ 25:4
+│   │   └── Constant  @ 25:4
+│   ├── FunctionDef: '__init__'  @ 27:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'self'  @ 27:17
+│   │   │   └── arg: 'color' <str>  @ 27:23
+│   │   ├── Assign  @ 28:8
+│   │   │   ├── Attribute: 'color' = <ast.Store object at 0x7f4e513d1750>  @ 28:8
+│   │   │   └── Name: 'color' = <ast.Load object at 0x7f4e513d16d0>  @ 28:21
+│   │   └── AnnAssign <float>  @ 29:8
+│   │       ├── Attribute: '_area' = <ast.Store object at 0x7f4e513d1750>  @ 29:8
+│   │       ├── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 29:20
+│   │       └── Constant  @ 29:28
+│   ├── FunctionDef: 'calculate_area' <float> [abstractmethod]  @ 32:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 32:23
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4f906910>  @ 33:8
+│   │   │   └── Constant  @ 33:8
+│   │   ├── Pass  @ 34:8
+│   │   ├── Name: 'abstractmethod' = <ast.Load object at 0x7f4e513d16d0>  @ 31:5
+│   │   │   └── Load  @ 0:0
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 32:32
+│   │       └── Load  @ 0:0
+│   ├── FunctionDef: 'get_color' <str>  @ 36:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 36:18
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4f906390>  @ 37:8
+│   │   │   └── Constant  @ 37:8
+│   │   ├── Return = <ast.Attribute object at 0x7f4e4f906290>  @ 38:8
+│   │   │   └── Attribute: 'color' = <ast.Load object at 0x7f4e513d16d0>  @ 38:15
+│   │   └── Name: 'str' = <ast.Load object at 0x7f4e513d16d0>  @ 36:27
+│   │       └── Load  @ 0:0
+│   └── FunctionDef: 'display_info' <None>  @ 40:4
+│       ├── arguments  @ 0:0
+│       │   └── arg: 'self'  @ 40:21
+│       ├── Expr = <ast.Constant object at 0x7f4e4f905d10>  @ 41:8
+│       │   └── Constant  @ 41:8
+│       ├── Expr = <ast.Call object at 0x7f4e4f905c10>  @ 42:8
+│       │   └── Call  @ 42:8
+│       └── Constant  @ 40:30
+├── ClassDef: 'Circle'  @ 46:0
+│   ├── Name: 'Shape' = <ast.Load object at 0x7f4e513d16d0>  @ 46:13
+│   │   └── Load  @ 0:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4f904f50>  @ 47:4
+│   │   └── Constant  @ 47:4
+│   ├── FunctionDef: '__init__'  @ 49:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'self'  @ 49:17
+│   │   │   ├── arg: 'color' <str>  @ 49:23
+│   │   │   └── arg: 'radius' <float>  @ 49:35
+│   │   ├── Expr = <ast.Call object at 0x7f4e4f904950>  @ 50:8
+│   │   │   └── Call  @ 50:8
+│   │   └── Assign  @ 51:8
+│   │       ├── Attribute: 'radius' = <ast.Store object at 0x7f4e513d1750>  @ 51:8
+│   │       └── Name: 'radius' = <ast.Load object at 0x7f4e513d16d0>  @ 51:22
+│   ├── FunctionDef: 'calculate_area' <float>  @ 53:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 53:23
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4fdfbf50>  @ 54:8
+│   │   │   └── Constant  @ 54:8
+│   │   ├── Assign  @ 55:8
+│   │   │   ├── Attribute: '_area' = <ast.Store object at 0x7f4e513d1750>  @ 55:8
+│   │   │   └── BinOp = <ast.BinOp object at 0x7f4e4fdfbb50>  @ 55:21
+│   │   ├── Return = <ast.Attribute object at 0x7f4e4fdfb910>  @ 56:8
+│   │   │   └── Attribute: '_area' = <ast.Load object at 0x7f4e513d16d0>  @ 56:15
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 53:32
+│   │       └── Load  @ 0:0
+│   └── FunctionDef: 'get_circumference' <float>  @ 58:4
+│       ├── arguments  @ 0:0
+│       │   └── arg: 'self'  @ 58:26
+│       ├── Expr = <ast.Constant object at 0x7f4e4fdfb390>  @ 59:8
+│       │   └── Constant  @ 59:8
+│       ├── Return = <ast.BinOp object at 0x7f4e4fdfb290>  @ 60:8
+│       │   └── BinOp = <ast.Attribute object at 0x7f4e4fdfb010>  @ 60:15
+│       └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 58:35
+│           └── Load  @ 0:0
+├── ClassDef: 'Rectangle'  @ 64:0
+│   ├── Name: 'Shape' = <ast.Load object at 0x7f4e513d16d0>  @ 64:16
+│   │   └── Load  @ 0:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4fdfab50>  @ 65:4
+│   │   └── Constant  @ 65:4
+│   ├── FunctionDef: '__init__'  @ 67:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'self'  @ 67:17
+│   │   │   ├── arg: 'color' <str>  @ 67:23
+│   │   │   ├── arg: 'width' <float>  @ 67:35
+│   │   │   └── arg: 'height' <float>  @ 67:49
+│   │   ├── Expr = <ast.Call object at 0x7f4e4fdfa450>  @ 68:8
+│   │   │   └── Call  @ 68:8
+│   │   ├── Assign  @ 69:8
+│   │   │   ├── Attribute: 'width' = <ast.Store object at 0x7f4e513d1750>  @ 69:8
+│   │   │   └── Name: 'width' = <ast.Load object at 0x7f4e513d16d0>  @ 69:21
+│   │   └── Assign  @ 70:8
+│   │       ├── Attribute: 'height' = <ast.Store object at 0x7f4e513d1750>  @ 70:8
+│   │       └── Name: 'height' = <ast.Load object at 0x7f4e513d16d0>  @ 70:22
+│   ├── FunctionDef: 'calculate_area' <float>  @ 72:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 72:23
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4fdf9850>  @ 73:8
+│   │   │   └── Constant  @ 73:8
+│   │   ├── Assign  @ 74:8
+│   │   │   ├── Attribute: '_area' = <ast.Store object at 0x7f4e513d1750>  @ 74:8
+│   │   │   └── BinOp = <ast.Attribute object at 0x7f4e4fdf9310>  @ 74:21
+│   │   ├── Return = <ast.Attribute object at 0x7f4e4fdf91d0>  @ 75:8
+│   │   │   └── Attribute: '_area' = <ast.Load object at 0x7f4e513d16d0>  @ 75:15
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 72:32
+│   │       └── Load  @ 0:0
+│   └── FunctionDef: 'get_perimeter' <float>  @ 77:4
+│       ├── arguments  @ 0:0
+│       │   └── arg: 'self'  @ 77:22
+│       ├── Expr = <ast.Constant object at 0x7f4e4fdf8c50>  @ 78:8
+│       │   └── Constant  @ 78:8
+│       ├── Return = <ast.BinOp object at 0x7f4e4fdf8b50>  @ 79:8
+│       │   └── BinOp = <ast.BinOp object at 0x7f4e4fdf8a50>  @ 79:15
+│       └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 77:31
+│           └── Load  @ 0:0
+├── ClassDef: 'Point' [dataclass]  @ 84:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4fdf8490>  @ 85:4
+│   │   └── Constant  @ 85:4
+│   ├── AnnAssign <float> = 1  @ 86:4
+│   │   ├── Name: 'x' = <ast.Store object at 0x7f4e513d1750>  @ 86:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 86:7
+│   │       └── Load  @ 0:0
+│   ├── AnnAssign <float> = 1  @ 87:4
+│   │   ├── Name: 'y' = <ast.Store object at 0x7f4e513d1750>  @ 87:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 87:7
+│   │       └── Load  @ 0:0
+│   ├── FunctionDef: 'distance_from_origin' <float>  @ 89:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 89:29
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4fdf7d50>  @ 90:8
+│   │   │   └── Constant  @ 90:8
+│   │   ├── Return = <ast.Call object at 0x7f4e4fdf7c50>  @ 91:8
+│   │   │   └── Call  @ 91:15
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 89:38
+│   │       └── Load  @ 0:0
+│   ├── FunctionDef: '__str__' <str>  @ 93:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 93:16
+│   │   ├── Return = <ast.JoinedStr object at 0x7f4e4fdf7150>  @ 94:8
+│   │   │   └── JoinedStr = [<ast.Constant object at 0x7f4e4fdf70d0>, <ast....  @ 94:15
+│   │   └── Name: 'str' = <ast.Load object at 0x7f4e513d16d0>  @ 93:25
+│   │       └── Load  @ 0:0
+│   └── Name: 'dataclass' = <ast.Load object at 0x7f4e513d16d0>  @ 83:1
+│       └── Load  @ 0:0
+├── Assign  @ 98:0
+│   ├── Name: 'T' = <ast.Store object at 0x7f4e513d1750>  @ 98:0
+│   │   └── Store  @ 0:0
+│   └── Call  @ 98:4
+│       ├── Name: 'TypeVar' = <ast.Load object at 0x7f4e513d16d0>  @ 98:4
+│       │   └── Load  @ 0:0
+│       └── Constant  @ 98:12
+├── ClassDef: 'Container'  @ 101:0
+│   ├── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 101:16
+│   │   ├── Name: 'Generic' = <ast.Load object at 0x7f4e513d16d0>  @ 101:16
+│   │   │   └── Load  @ 0:0
+│   │   ├── Name: 'T' = <ast.Load object at 0x7f4e513d16d0>  @ 101:24
+│   │   │   └── Load  @ 0:0
+│   │   └── Load  @ 0:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4fdf63d0>  @ 102:4
+│   │   └── Constant  @ 102:4
+│   ├── FunctionDef: '__init__'  @ 104:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 104:17
+│   │   └── AnnAssign <List[T]>  @ 105:8
+│   │       ├── Attribute: 'items' = <ast.Store object at 0x7f4e513d1750>  @ 105:8
+│   │       ├── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 105:20
+│   │       └── List = <ast.Load object at 0x7f4e513d16d0>  @ 105:30
+│   ├── FunctionDef: 'add' <None>  @ 107:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'self'  @ 107:12
+│   │   │   └── arg: 'item' <T>  @ 107:18
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4fdf5790>  @ 108:8
+│   │   │   └── Constant  @ 108:8
+│   │   ├── Expr = <ast.Call object at 0x7f4e4fdf5690>  @ 109:8
+│   │   │   └── Call  @ 109:8
+│   │   └── Constant  @ 107:30
+│   ├── FunctionDef: 'get' <T>  @ 111:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'self'  @ 111:12
+│   │   │   └── arg: 'index' <int>  @ 111:18
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4fdf4cd0>  @ 112:8
+│   │   │   └── Constant  @ 112:8
+│   │   ├── Return = <ast.Subscript object at 0x7f4e4fdf4bd0>  @ 113:8
+│   │   │   └── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 113:15
+│   │   └── Name: 'T' = <ast.Load object at 0x7f4e513d16d0>  @ 111:33
+│   │       └── Load  @ 0:0
+│   ├── FunctionDef: 'size' <int>  @ 115:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 115:13
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4fdf4550>  @ 116:8
+│   │   │   └── Constant  @ 116:8
+│   │   ├── Return = <ast.Call object at 0x7f4e4fdf4450>  @ 117:8
+│   │   │   └── Call  @ 117:15
+│   │   └── Name: 'int' = <ast.Load object at 0x7f4e513d16d0>  @ 115:22
+│   │       └── Load  @ 0:0
+│   └── FunctionDef: 'filter' <List[T]>  @ 119:4
+│       ├── arguments  @ 0:0
+│       │   ├── arg: 'self'  @ 119:15
+│       │   └── arg: 'predicate'  @ 119:21
+│       ├── Expr = <ast.Constant object at 0x7f4e4fdefd10>  @ 120:8
+│       │   └── Constant  @ 120:8
+│       ├── Return = <ast.ListComp object at 0x7f4e4fdefc10>  @ 121:8
+│       │   └── ListComp = [<ast.comprehension object at 0x7f4e4fdefad0>]  @ 121:15
+│       └── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 119:35
+│           ├── Name: 'List' = <ast.Load object at 0x7f4e513d16d0>  @ 119:35
+│           ├── Name: 'T' = <ast.Load object at 0x7f4e513d16d0>  @ 119:40
+│           └── Load  @ 0:0
+├── FunctionDef: 'timer_decorator'  @ 125:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'func'  @ 125:20
+│   ├── Expr = <ast.Constant object at 0x7f4e4fdef050>  @ 126:4
+│   │   └── Constant  @ 126:4
+│   ├── Import = [<ast.alias object at 0x7f4e4fdeef10>]  @ 127:4
+│   │   └── alias: 'time'  @ 127:11
+│   ├── FunctionDef: 'wrapper'  @ 129:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'args'  @ 129:17
+│   │   │   └── arg: 'kwargs'  @ 129:25
+│   │   ├── Assign  @ 130:8
+│   │   │   ├── Name: 'start' = <ast.Store object at 0x7f4e513d1750>  @ 130:8
+│   │   │   └── Call  @ 130:16
+│   │   ├── Assign  @ 131:8
+│   │   │   ├── Name: 'result' = <ast.Store object at 0x7f4e513d1750>  @ 131:8
+│   │   │   └── Call = [<ast.keyword object at 0x7f4e4fdee410>]  @ 131:17
+│   │   ├── Assign  @ 132:8
+│   │   │   ├── Name: 'end' = <ast.Store object at 0x7f4e513d1750>  @ 132:8
+│   │   │   └── Call  @ 132:14
+│   │   ├── Expr = <ast.Call object at 0x7f4e4fdedf10>  @ 133:8
+│   │   │   └── Call  @ 133:8
+│   │   └── Return = <ast.Name object at 0x7f4e4fded4d0>  @ 134:8
+│   │       └── Name: 'result' = <ast.Load object at 0x7f4e513d16d0>  @ 134:15
+│   └── Return = <ast.Name object at 0x7f4e4fdecf50>  @ 136:4
+│       └── Name: 'wrapper' = <ast.Load object at 0x7f4e513d16d0>  @ 136:11
+│           └── Load  @ 0:0
+├── FunctionDef: 'memoize'  @ 139:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'func'  @ 139:12
+│   ├── Expr = <ast.Constant object at 0x7f4e4f915a90>  @ 140:4
+│   │   └── Constant  @ 140:4
+│   ├── Assign  @ 141:4
+│   │   ├── Name: 'cache' = <ast.Store object at 0x7f4e513d1750>  @ 141:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Dict  @ 141:12
+│   ├── FunctionDef: 'wrapper'  @ 143:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'args'  @ 143:17
+│   │   ├── If  @ 144:8
+│   │   │   ├── Compare = [<ast.Name object at 0x7f4e4f9152d0>]  @ 144:11
+│   │   │   └── Assign  @ 145:12
+│   │   └── Return = <ast.Subscript object at 0x7f4e4f914cd0>  @ 146:8
+│   │       └── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 146:15
+│   └── Return = <ast.Name object at 0x7f4e4f914a50>  @ 148:4
+│       └── Name: 'wrapper' = <ast.Load object at 0x7f4e513d16d0>  @ 148:11
+│           └── Load  @ 0:0
+├── FunctionDef: 'fibonacci' <int> [timer_decorator, memoize]  @ 154:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'n' <int>  @ 154:14
+│   │       └── Name: 'int' = <ast.Load object at 0x7f4e513d16d0>  @ 154:17
+│   ├── Expr = <ast.Constant object at 0x7f4e4f914550>  @ 155:4
+│   │   └── Constant  @ 155:4
+│   ├── If  @ 156:4
+│   │   ├── Compare = [<ast.Constant object at 0x7f4e4f9142d0>]  @ 156:7
+│   │   │   ├── Name: 'n' = <ast.Load object at 0x7f4e513d16d0>  @ 156:7
+│   │   │   ├── LtE  @ 0:0
+│   │   │   └── Constant  @ 156:12
+│   │   └── Return = <ast.Name object at 0x7f4e4f914190>  @ 157:8
+│   │       └── Name: 'n' = <ast.Load object at 0x7f4e513d16d0>  @ 157:15
+│   ├── Return = <ast.BinOp object at 0x7f4e4f914050>  @ 158:4
+│   │   └── BinOp = <ast.Call object at 0x7f4e4f917050>  @ 158:11
+│   │       ├── Call  @ 158:11
+│   │       ├── Add  @ 0:0
+│   │       └── Call  @ 158:30
+│   ├── Name: 'timer_decorator' = <ast.Load object at 0x7f4e513d16d0>  @ 152:1
+│   │   └── Load  @ 0:0
+│   ├── Name: 'memoize' = <ast.Load object at 0x7f4e513d16d0>  @ 153:1
+│   │   └── Load  @ 0:0
+│   └── Name: 'int' = <ast.Load object at 0x7f4e513d16d0>  @ 154:25
+│       └── Load  @ 0:0
+├── FunctionDef: 'factorial' <int> [timer_decorator]  @ 162:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'n' <int>  @ 162:14
+│   │       └── Name: 'int' = <ast.Load object at 0x7f4e513d16d0>  @ 162:17
+│   ├── Expr = <ast.Constant object at 0x7f4e4f917950>  @ 163:4
+│   │   └── Constant  @ 163:4
+│   ├── If  @ 164:4
+│   │   ├── Compare = [<ast.Constant object at 0x7f4e4f917bd0>]  @ 164:7
+│   │   │   ├── Name: 'n' = <ast.Load object at 0x7f4e513d16d0>  @ 164:7
+│   │   │   ├── LtE  @ 0:0
+│   │   │   └── Constant  @ 164:12
+│   │   └── Return = <ast.Constant object at 0x7f4e4f917d10>  @ 165:8
+│   │       └── Constant  @ 165:15
+│   ├── Return = <ast.BinOp object at 0x7f4e4f917e50>  @ 166:4
+│   │   └── BinOp = <ast.Call object at 0x7f4e4f917f50>  @ 166:11
+│   │       ├── Name: 'n' = <ast.Load object at 0x7f4e513d16d0>  @ 166:11
+│   │       ├── Mult  @ 0:0
+│   │       └── Call  @ 166:15
+│   ├── Name: 'timer_decorator' = <ast.Load object at 0x7f4e513d16d0>  @ 161:1
+│   │   └── Load  @ 0:0
+│   └── Name: 'int' = <ast.Load object at 0x7f4e513d16d0>  @ 162:25
+│       └── Load  @ 0:0
+├── AsyncFunctionDef: 'async_fetch_data' [async]  @ 170:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'url' <str>  @ 170:27
+│   │       └── Name: 'str' = <ast.Load object at 0x7f4e513d16d0>  @ 170:32
+│   ├── Expr = <ast.Constant object at 0x7f4e4f924810>  @ 171:4
+│   │   └── Constant  @ 171:4
+│   ├── Import = [<ast.alias object at 0x7f4e4f924950>]  @ 173:4
+│   │   └── alias: 'asyncio'  @ 173:11
+│   ├── Expr = <ast.Await object at 0x7f4e4f924a50>  @ 174:4
+│   │   └── Await = <ast.Call object at 0x7f4e4f924a90>  @ 174:4
+│   │       └── Call  @ 174:10
+│   ├── Return = <ast.Dict object at 0x7f4e4f924dd0>  @ 175:4
+│   │   └── Dict = [<ast.Name object at 0x7f4e4f924fd0>, <ast.Cons...  @ 175:11
+│   │       ├── Constant  @ 175:12
+│   │       ├── Constant  @ 175:24
+│   │       ├── Name: 'url' = <ast.Load object at 0x7f4e513d16d0>  @ 175:19
+│   │       └── Constant  @ 175:34
+│   └── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 170:40
+│       ├── Name: 'Dict' = <ast.Load object at 0x7f4e513d16d0>  @ 170:40
+│       │   └── Load  @ 0:0
+│       ├── Tuple = <ast.Load object at 0x7f4e513d16d0>  @ 170:45
+│       │   ├── Name: 'str' = <ast.Load object at 0x7f4e513d16d0>  @ 170:45
+│       │   ├── Name: 'any' = <ast.Load object at 0x7f4e513d16d0>  @ 170:50
+│       │   └── Load  @ 0:0
+│       └── Load  @ 0:0
+├── FunctionDef: 'number_generator'  @ 179:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'n' <int>  @ 179:21
+│   │       └── Name: 'int' = <ast.Load object at 0x7f4e513d16d0>  @ 179:24
+│   ├── Expr = <ast.Constant object at 0x7f4e4f9257d0>  @ 180:4
+│   │   └── Constant  @ 180:4
+│   └── For  @ 181:4
+│       ├── Name: 'i' = <ast.Store object at 0x7f4e513d1750>  @ 181:8
+│       │   └── Store  @ 0:0
+│       ├── Call  @ 181:13
+│       │   ├── Name: 'range' = <ast.Load object at 0x7f4e513d16d0>  @ 181:13
+│       │   └── Name: 'n' = <ast.Load object at 0x7f4e513d16d0>  @ 181:19
+│       └── Expr = <ast.Yield object at 0x7f4e4f925c10>  @ 182:8
+│           └── Yield = <ast.Name object at 0x7f4e4f925c50>  @ 182:8
+├── FunctionDef: 'process_data' <None>  @ 186:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'value' <int>  @ 186:17
+│   │       └── Name: 'int' = <ast.Load object at 0x7f4e513d16d0>  @ 186:24
+│   ├── Expr = <ast.Constant object at 0x7f4e4f926190>  @ 187:4
+│   │   └── Constant  @ 187:4
+│   ├── If = [<ast.If object at 0x7f4e4f9267d0>]  @ 190:4
+│   │   ├── Compare = [<ast.Constant object at 0x7f4e4f926410>]  @ 190:7
+│   │   │   ├── Name: 'value' = <ast.Load object at 0x7f4e513d16d0>  @ 190:7
+│   │   │   ├── Gt  @ 0:0
+│   │   │   └── Constant  @ 190:15
+│   │   ├── Expr = <ast.Call object at 0x7f4e4f926550>  @ 191:8
+│   │   │   └── Call  @ 191:8
+│   │   └── If = [<ast.Expr object at 0x7f4e4f926d50>]  @ 192:4
+│   │       ├── Compare = [<ast.Constant object at 0x7f4e4f926990>]  @ 192:9
+│   │       ├── Expr = <ast.Call object at 0x7f4e4f926ad0>  @ 193:8
+│   │       └── Expr = <ast.Call object at 0x7f4e4f926d90>  @ 195:8
+│   ├── Match = [<ast.match_case object at 0x7f4e4f927210>, <as...  @ 198:4
+│   │   ├── BinOp = <ast.Constant object at 0x7f4e4f927110>  @ 198:10
+│   │   │   ├── Name: 'value' = <ast.Load object at 0x7f4e513d16d0>  @ 198:10
+│   │   │   ├── Mod  @ 0:0
+│   │   │   └── Constant  @ 198:18
+│   │   ├── match_case = [<ast.Expr object at 0x7f4e4f927390>]  @ 0:0
+│   │   │   ├── MatchValue = <ast.Constant object at 0x7f4e4f927290>  @ 199:13
+│   │   │   └── Expr = <ast.Call object at 0x7f4e4f9273d0>  @ 200:12
+│   │   ├── match_case = [<ast.Expr object at 0x7f4e4f9277d0>]  @ 0:0
+│   │   │   ├── MatchValue = <ast.Constant object at 0x7f4e4f927690>  @ 201:13
+│   │   │   └── Expr = <ast.Call object at 0x7f4e4f927810>  @ 202:12
+│   │   ├── match_case = [<ast.Expr object at 0x7f4e4f927c10>]  @ 0:0
+│   │   │   ├── MatchValue = <ast.Constant object at 0x7f4e4f927ad0>  @ 203:13
+│   │   │   └── Expr = <ast.Call object at 0x7f4e4f927c50>  @ 204:12
+│   │   └── match_case = [<ast.Expr object at 0x7f4e4f927fd0>]  @ 0:0
+│   │       ├── MatchAs  @ 205:13
+│   │       └── Expr = <ast.Call object at 0x7f4e4f934050>  @ 206:12
+│   ├── For  @ 209:4
+│   │   ├── Name: 'i' = <ast.Store object at 0x7f4e513d1750>  @ 209:8
+│   │   │   └── Store  @ 0:0
+│   │   ├── Call  @ 209:13
+│   │   │   ├── Name: 'range' = <ast.Load object at 0x7f4e513d16d0>  @ 209:13
+│   │   │   └── Name: 'value' = <ast.Load object at 0x7f4e513d16d0>  @ 209:19
+│   │   └── Expr = <ast.Call object at 0x7f4e4f934610>  @ 210:8
+│   │       └── Call = [<ast.keyword object at 0x7f4e4f934810>]  @ 210:8
+│   ├── Expr = <ast.Call object at 0x7f4e4f9349d0>  @ 211:4
+│   │   └── Call  @ 211:4
+│   │       └── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 211:4
+│   ├── Assign  @ 214:4
+│   │   ├── Name: 'counter' = <ast.Store object at 0x7f4e513d1750>  @ 214:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Constant  @ 214:14
+│   ├── While  @ 215:4
+│   │   ├── Compare = [<ast.Constant object at 0x7f4e4f934f10>]  @ 215:10
+│   │   │   ├── Name: 'counter' = <ast.Load object at 0x7f4e513d16d0>  @ 215:10
+│   │   │   ├── Lt  @ 0:0
+│   │   │   └── Constant  @ 215:20
+│   │   ├── Expr = <ast.Call object at 0x7f4e4f935050>  @ 216:8
+│   │   │   └── Call  @ 216:8
+│   │   └── AugAssign = <ast.Constant object at 0x7f4e4f935510>  @ 217:8
+│   │       ├── Name: 'counter' = <ast.Store object at 0x7f4e513d1750>  @ 217:8
+│   │       ├── Add  @ 0:0
+│   │       └── Constant  @ 217:19
+│   ├── Assign  @ 220:4
+│   │   ├── Name: 'squares' = <ast.Store object at 0x7f4e513d1750>  @ 220:4
+│   │   │   └── Store  @ 0:0
+│   │   └── ListComp = [<ast.comprehension object at 0x7f4e4f935950>]  @ 220:14
+│   │       ├── BinOp = <ast.Constant object at 0x7f4e4f935850>  @ 220:15
+│   │       └── comprehension  @ 0:0
+│   ├── Expr = <ast.Call object at 0x7f4e4f935cd0>  @ 221:4
+│   │   └── Call  @ 221:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 221:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f935e90>, <ast....  @ 221:10
+│   ├── Assign  @ 224:4
+│   │   ├── Name: 'square_dict' = <ast.Store object at 0x7f4e513d1750>  @ 224:4
+│   │   │   └── Store  @ 0:0
+│   │   └── DictComp = [<ast.comprehension object at 0x7f4e4f9364d0>]  @ 224:18
+│   │       ├── Name: 'x' = <ast.Load object at 0x7f4e513d16d0>  @ 224:19
+│   │       ├── BinOp = <ast.Constant object at 0x7f4e4f936410>  @ 224:22
+│   │       └── comprehension  @ 0:0
+│   ├── Expr = <ast.Call object at 0x7f4e4f936850>  @ 225:4
+│   │   └── Call  @ 225:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 225:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f936a10>, <ast....  @ 225:10
+│   ├── Assign  @ 228:4
+│   │   ├── Name: 'even_set' = <ast.Store object at 0x7f4e513d1750>  @ 228:4
+│   │   │   └── Store  @ 0:0
+│   │   └── SetComp = [<ast.comprehension object at 0x7f4e4f936ed0>]  @ 228:15
+│   │       ├── Name: 'x' = <ast.Load object at 0x7f4e513d16d0>  @ 228:16
+│   │       └── comprehension  @ 0:0
+│   ├── Expr = <ast.Call object at 0x7f4e4f937550>  @ 229:4
+│   │   └── Call  @ 229:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 229:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f937710>, <ast....  @ 229:10
+│   ├── Try = [<ast.Expr object at 0x7f4e4f93d090>]  @ 232:4
+│   │   ├── If  @ 233:8
+│   │   │   ├── Compare = [<ast.Constant object at 0x7f4e4f937b90>]  @ 233:11
+│   │   │   └── Raise  @ 234:12
+│   │   ├── Assign  @ 235:8
+│   │   │   ├── Name: 'result' = <ast.Store object at 0x7f4e513d1750>  @ 235:8
+│   │   │   └── BinOp = <ast.Name object at 0x7f4e4f93c190>  @ 235:17
+│   │   ├── ExceptHandler = [<ast.Expr object at 0x7f4e4f93c3d0>]  @ 236:4
+│   │   │   ├── Name: 'ZeroDivisionError' = <ast.Load object at 0x7f4e513d16d0>  @ 236:11
+│   │   │   └── Expr = <ast.Call object at 0x7f4e4f93c410>  @ 237:8
+│   │   ├── ExceptHandler: 'e' = [<ast.Expr object at 0x7f4e4f93c790>]  @ 238:4
+│   │   │   ├── Name: 'ValueError' = <ast.Load object at 0x7f4e513d16d0>  @ 238:11
+│   │   │   └── Expr = <ast.Call object at 0x7f4e4f93c7d0>  @ 239:8
+│   │   ├── Expr = <ast.Call object at 0x7f4e4f93cc50>  @ 241:8
+│   │   │   └── Call  @ 241:8
+│   │   └── Expr = <ast.Call object at 0x7f4e4f93d0d0>  @ 243:8
+│   │       └── Call  @ 243:8
+│   └── Constant  @ 186:32
+├── ClassDef: 'FileManager'  @ 247:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4f93d590>  @ 248:4
+│   │   └── Constant  @ 248:4
+│   ├── FunctionDef: '__init__'  @ 250:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'self'  @ 250:17
+│   │   │   ├── arg: 'filename' <str>  @ 250:23
+│   │   │   └── arg: 'mode' <str>  @ 250:38
+│   │   ├── Assign  @ 251:8
+│   │   │   ├── Attribute: 'filename' = <ast.Store object at 0x7f4e513d1750>  @ 251:8
+│   │   │   └── Name: 'filename' = <ast.Load object at 0x7f4e513d16d0>  @ 251:24
+│   │   ├── Assign  @ 252:8
+│   │   │   ├── Attribute: 'mode' = <ast.Store object at 0x7f4e513d1750>  @ 252:8
+│   │   │   └── Name: 'mode' = <ast.Load object at 0x7f4e513d16d0>  @ 252:20
+│   │   └── Assign  @ 253:8
+│   │       ├── Attribute: 'file' = <ast.Store object at 0x7f4e513d1750>  @ 253:8
+│   │       └── Constant  @ 253:20
+│   ├── FunctionDef: '__enter__'  @ 255:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 255:18
+│   │   ├── Assign  @ 256:8
+│   │   │   ├── Attribute: 'file' = <ast.Store object at 0x7f4e513d1750>  @ 256:8
+│   │   │   └── Call  @ 256:20
+│   │   └── Return = <ast.Attribute object at 0x7f4e4f93eb10>  @ 257:8
+│   │       └── Attribute: 'file' = <ast.Load object at 0x7f4e513d16d0>  @ 257:15
+│   └── FunctionDef: '__exit__'  @ 259:4
+│       ├── arguments  @ 0:0
+│       │   ├── arg: 'self'  @ 259:17
+│       │   ├── arg: 'exc_type'  @ 259:23
+│       │   ├── arg: 'exc_val'  @ 259:33
+│       │   └── arg: 'exc_tb'  @ 259:42
+│       ├── If  @ 260:8
+│       │   ├── Attribute: 'file' = <ast.Load object at 0x7f4e513d16d0>  @ 260:11
+│       │   └── Expr = <ast.Call object at 0x7f4e4f93f350>  @ 261:12
+│       └── Return = <ast.Constant object at 0x7f4e4f93f690>  @ 262:8
+│           └── Constant  @ 262:15
+├── ClassDef: 'Temperature'  @ 266:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4f93f9d0>  @ 267:4
+│   │   └── Constant  @ 267:4
+│   ├── FunctionDef: '__init__'  @ 269:4
+│   │   ├── arguments = [<ast.Constant object at 0x7f4e4f93fe50>]  @ 0:0
+│   │   │   ├── arg: 'self'  @ 269:17
+│   │   │   ├── arg: 'celsius' <float>  @ 269:23
+│   │   │   └── Constant  @ 269:40
+│   │   └── Assign  @ 270:8
+│   │       ├── Attribute: '_celsius' = <ast.Store object at 0x7f4e513d1750>  @ 270:8
+│   │       └── Name: 'celsius' = <ast.Load object at 0x7f4e513d16d0>  @ 270:24
+│   ├── FunctionDef: 'celsius' <float> [property]  @ 273:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 273:16
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4f944550>  @ 274:8
+│   │   │   └── Constant  @ 274:8
+│   │   ├── Return = <ast.Attribute object at 0x7f4e4f944650>  @ 275:8
+│   │   │   └── Attribute: '_celsius' = <ast.Load object at 0x7f4e513d16d0>  @ 275:15
+│   │   ├── Name: 'property' = <ast.Load object at 0x7f4e513d16d0>  @ 272:5
+│   │   │   └── Load  @ 0:0
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 273:25
+│   │       └── Load  @ 0:0
+│   ├── FunctionDef: 'celsius' <None> [celsius.setter]  @ 278:4
+│   │   ├── arguments  @ 0:0
+│   │   │   ├── arg: 'self'  @ 278:16
+│   │   │   └── arg: 'value' <float>  @ 278:22
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4f944d50>  @ 279:8
+│   │   │   └── Constant  @ 279:8
+│   │   ├── If  @ 280:8
+│   │   │   ├── Compare = [<ast.UnaryOp object at 0x7f4e4f944fd0>]  @ 280:11
+│   │   │   └── Raise  @ 281:12
+│   │   ├── Assign  @ 282:8
+│   │   │   ├── Attribute: '_celsius' = <ast.Store object at 0x7f4e513d1750>  @ 282:8
+│   │   │   └── Name: 'value' = <ast.Load object at 0x7f4e513d16d0>  @ 282:24
+│   │   ├── Attribute: 'setter' = <ast.Load object at 0x7f4e513d16d0>  @ 277:5
+│   │   │   ├── Name: 'celsius' = <ast.Load object at 0x7f4e513d16d0>  @ 277:5
+│   │   │   └── Load  @ 0:0
+│   │   └── Constant  @ 278:39
+│   ├── FunctionDef: 'fahrenheit' <float> [property]  @ 285:4
+│   │   ├── arguments  @ 0:0
+│   │   │   └── arg: 'self'  @ 285:19
+│   │   ├── Expr = <ast.Constant object at 0x7f4e4f945b50>  @ 286:8
+│   │   │   └── Constant  @ 286:8
+│   │   ├── Return = <ast.BinOp object at 0x7f4e4f945c50>  @ 287:8
+│   │   │   └── BinOp = <ast.Constant object at 0x7f4e4f945fd0>  @ 287:15
+│   │   ├── Name: 'property' = <ast.Load object at 0x7f4e513d16d0>  @ 284:5
+│   │   │   └── Load  @ 0:0
+│   │   └── Name: 'float' = <ast.Load object at 0x7f4e513d16d0>  @ 285:28
+│   │       └── Load  @ 0:0
+│   └── FunctionDef: 'fahrenheit' <None> [fahrenheit.setter]  @ 290:4
+│       ├── arguments  @ 0:0
+│       │   ├── arg: 'self'  @ 290:19
+│       │   └── arg: 'value' <float>  @ 290:25
+│       ├── Expr = <ast.Constant object at 0x7f4e4f946650>  @ 291:8
+│       │   └── Constant  @ 291:8
+│       ├── Assign  @ 292:8
+│       │   ├── Attribute: 'celsius' = <ast.Store object at 0x7f4e513d1750>  @ 292:8
+│       │   └── BinOp = <ast.Constant object at 0x7f4e4f946bd0>  @ 292:23
+│       ├── Attribute: 'setter' = <ast.Load object at 0x7f4e513d16d0>  @ 289:5
+│       │   ├── Name: 'fahrenheit' = <ast.Load object at 0x7f4e513d16d0>  @ 289:5
+│       │   └── Load  @ 0:0
+│       └── Constant  @ 290:42
+├── FunctionDef: 'apply_operations' <None>  @ 296:0
+│   ├── arguments  @ 0:0
+│   │   └── arg: 'numbers' <List[int]>  @ 296:21
+│   │       └── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 296:30
+│   ├── Expr = <ast.Constant object at 0x7f4e4f947390>  @ 297:4
+│   │   └── Constant  @ 297:4
+│   ├── Assign  @ 300:4
+│   │   ├── Name: 'squared' = <ast.Store object at 0x7f4e513d1750>  @ 300:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 300:14
+│   │       ├── Name: 'list' = <ast.Load object at 0x7f4e513d16d0>  @ 300:14
+│   │       └── Call  @ 300:19
+│   ├── Expr = <ast.Call object at 0x7f4e4f947d50>  @ 301:4
+│   │   └── Call  @ 301:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 301:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f947f10>, <ast....  @ 301:10
+│   ├── Assign  @ 304:4
+│   │   ├── Name: 'evens' = <ast.Store object at 0x7f4e513d1750>  @ 304:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 304:12
+│   │       ├── Name: 'list' = <ast.Load object at 0x7f4e513d16d0>  @ 304:12
+│   │       └── Call  @ 304:17
+│   ├── Expr = <ast.Call object at 0x7f4e4f94cc50>  @ 305:4
+│   │   └── Call  @ 305:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 305:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f94ce10>, <ast....  @ 305:10
+│   ├── ImportFrom  @ 308:4
+│   │   └── alias: 'reduce'  @ 308:26
+│   ├── Assign  @ 309:4
+│   │   ├── Name: 'sum_all' = <ast.Store object at 0x7f4e513d1750>  @ 309:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 309:14
+│   │       ├── Name: 'reduce' = <ast.Load object at 0x7f4e513d16d0>  @ 309:14
+│   │       ├── Lambda = <ast.BinOp object at 0x7f4e4f94d750>  @ 309:21
+│   │       ├── Name: 'numbers' = <ast.Load object at 0x7f4e513d16d0>  @ 309:41
+│   │       └── Constant  @ 309:50
+│   ├── Expr = <ast.Call object at 0x7f4e4f94da50>  @ 310:4
+│   │   └── Call  @ 310:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 310:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f94dc10>, <ast....  @ 310:10
+│   ├── Assign  @ 313:4
+│   │   ├── Name: 'sorted_by_abs' = <ast.Store object at 0x7f4e513d1750>  @ 313:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call = [<ast.keyword object at 0x7f4e4f94e190>]  @ 313:20
+│   │       ├── Name: 'sorted' = <ast.Load object at 0x7f4e513d16d0>  @ 313:20
+│   │       ├── Name: 'numbers' = <ast.Load object at 0x7f4e513d16d0>  @ 313:27
+│   │       └── keyword = <ast.Lambda object at 0x7f4e4f94e210>  @ 313:36
+│   ├── Expr = <ast.Call object at 0x7f4e4f94e710>  @ 314:4
+│   │   └── Call  @ 314:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 314:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f94e8d0>, <ast....  @ 314:10
+│   └── Constant  @ 296:44
+├── FunctionDef: 'main'  @ 318:0
+│   ├── arguments  @ 0:0
+│   ├── Expr = <ast.Constant object at 0x7f4e4f94eed0>  @ 319:4
+│   │   └── Constant  @ 319:4
+│   ├── Expr = <ast.Call object at 0x7f4e4f94efd0>  @ 320:4
+│   │   └── Call  @ 320:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 320:4
+│   │       └── Constant  @ 320:10
+│   ├── Assign  @ 323:4
+│   │   ├── Name: 'circle' = <ast.Store object at 0x7f4e513d1750>  @ 323:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 323:13
+│   │       ├── Name: 'Circle' = <ast.Load object at 0x7f4e513d16d0>  @ 323:13
+│   │       ├── Constant  @ 323:20
+│   │       └── Constant  @ 323:27
+│   ├── Expr = <ast.Call object at 0x7f4e4f94f610>  @ 324:4
+│   │   └── Call  @ 324:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 324:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f94f7d0>, <ast....  @ 324:10
+│   ├── Expr = <ast.Call object at 0x7f4e4f94fbd0>  @ 325:4
+│   │   └── Call  @ 325:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 325:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f94fd90>, <ast....  @ 325:10
+│   ├── Assign  @ 327:4
+│   │   ├── Name: 'rect' = <ast.Store object at 0x7f4e513d1750>  @ 327:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 327:11
+│   │       ├── Name: 'Rectangle' = <ast.Load object at 0x7f4e513d16d0>  @ 327:11
+│   │       ├── Constant  @ 327:21
+│   │       ├── Constant  @ 327:29
+│   │       └── Constant  @ 327:34
+│   ├── Expr = <ast.Call object at 0x7f4e4f954610>  @ 328:4
+│   │   └── Call  @ 328:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 328:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f9547d0>, <ast....  @ 328:10
+│   ├── Expr = <ast.Call object at 0x7f4e4f954bd0>  @ 329:4
+│   │   └── Call  @ 329:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 329:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f954d90>, <ast....  @ 329:10
+│   ├── Assign  @ 332:4
+│   │   ├── Name: 'point' = <ast.Store object at 0x7f4e513d1750>  @ 332:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 332:12
+│   │       ├── Name: 'Point' = <ast.Load object at 0x7f4e513d16d0>  @ 332:12
+│   │       ├── Constant  @ 332:18
+│   │       └── Constant  @ 332:23
+│   ├── Expr = <ast.Call object at 0x7f4e4f955550>  @ 333:4
+│   │   └── Call  @ 333:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 333:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f955710>, <ast....  @ 333:10
+│   ├── Expr = <ast.Call object at 0x7f4e4f955990>  @ 334:4
+│   │   └── Call  @ 334:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 334:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f955b50>, <ast....  @ 334:10
+│   ├── Assign  @ 337:4
+│   │   ├── Name: 'direction' = <ast.Store object at 0x7f4e513d1750>  @ 337:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Attribute: 'NORTH' = <ast.Load object at 0x7f4e513d16d0>  @ 337:16
+│   │       ├── Name: 'Direction' = <ast.Load object at 0x7f4e513d16d0>  @ 337:16
+│   │       └── Load  @ 0:0
+│   ├── Expr = <ast.Call object at 0x7f4e4f956190>  @ 338:4
+│   │   └── Call  @ 338:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 338:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f956350>, <ast....  @ 338:10
+│   ├── Assign  @ 341:4
+│   │   ├── Name: 'int_container' = <ast.Store object at 0x7f4e513d1750>  @ 341:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 341:20
+│   │       └── Subscript = <ast.Load object at 0x7f4e513d16d0>  @ 341:20
+│   ├── Expr = <ast.Call object at 0x7f4e4f956a10>  @ 342:4
+│   │   └── Call  @ 342:4
+│   │       ├── Attribute: 'add' = <ast.Load object at 0x7f4e513d16d0>  @ 342:4
+│   │       └── Constant  @ 342:22
+│   ├── Expr = <ast.Call object at 0x7f4e4f956d10>  @ 343:4
+│   │   └── Call  @ 343:4
+│   │       ├── Attribute: 'add' = <ast.Load object at 0x7f4e513d16d0>  @ 343:4
+│   │       └── Constant  @ 343:22
+│   ├── Expr = <ast.Call object at 0x7f4e4f957010>  @ 344:4
+│   │   └── Call  @ 344:4
+│   │       ├── Attribute: 'add' = <ast.Load object at 0x7f4e513d16d0>  @ 344:4
+│   │       └── Constant  @ 344:22
+│   ├── Expr = <ast.Call object at 0x7f4e4f957310>  @ 345:4
+│   │   └── Call  @ 345:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 345:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f9574d0>, <ast....  @ 345:10
+│   ├── Expr = <ast.Call object at 0x7f4e4f9578d0>  @ 348:4
+│   │   └── Call  @ 348:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 348:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f957a90>, <ast....  @ 348:10
+│   ├── Expr = <ast.Call object at 0x7f4e4f957e90>  @ 349:4
+│   │   └── Call  @ 349:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 349:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f960090>, <ast....  @ 349:10
+│   ├── Assign  @ 352:4
+│   │   ├── Name: 'gen' = <ast.Store object at 0x7f4e513d1750>  @ 352:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 352:10
+│   │       ├── Name: 'number_generator' = <ast.Load object at 0x7f4e513d16d0>  @ 352:10
+│   │       └── Constant  @ 352:27
+│   ├── Expr = <ast.Call object at 0x7f4e4f9607d0>  @ 353:4
+│   │   └── Call  @ 353:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 353:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f960990>, <ast....  @ 353:10
+│   ├── Expr = <ast.Call object at 0x7f4e4f960d90>  @ 356:4
+│   │   └── Call  @ 356:4
+│   │       ├── Name: 'process_data' = <ast.Load object at 0x7f4e513d16d0>  @ 356:4
+│   │       └── Constant  @ 356:17
+│   ├── Assign  @ 359:4
+│   │   ├── Name: 'numbers' = <ast.Store object at 0x7f4e513d1750>  @ 359:4
+│   │   │   └── Store  @ 0:0
+│   │   └── List = <ast.Load object at 0x7f4e513d16d0>  @ 359:14
+│   │       ├── Constant  @ 359:15
+│   │       ├── UnaryOp = <ast.Constant object at 0x7f4e4f961290>  @ 359:18
+│   │       ├── Constant  @ 359:22
+│   │       ├── UnaryOp = <ast.Constant object at 0x7f4e4f961410>  @ 359:25
+│   │       ├── Constant  @ 359:29
+│   │       ├── UnaryOp = <ast.Constant object at 0x7f4e4f961590>  @ 359:32
+│   │       ├── Constant  @ 359:36
+│   │       ├── UnaryOp = <ast.Constant object at 0x7f4e4f961710>  @ 359:39
+│   │       ├── Constant  @ 359:43
+│   │       └── Load  @ 0:0
+│   ├── Expr = <ast.Call object at 0x7f4e4f961890>  @ 360:4
+│   │   └── Call  @ 360:4
+│   │       ├── Name: 'apply_operations' = <ast.Load object at 0x7f4e513d16d0>  @ 360:4
+│   │       └── Name: 'numbers' = <ast.Load object at 0x7f4e513d16d0>  @ 360:21
+│   ├── Assign  @ 363:4
+│   │   ├── Name: 'temp' = <ast.Store object at 0x7f4e513d1750>  @ 363:4
+│   │   │   └── Store  @ 0:0
+│   │   └── Call  @ 363:11
+│   │       ├── Name: 'Temperature' = <ast.Load object at 0x7f4e513d16d0>  @ 363:11
+│   │       └── Constant  @ 363:23
+│   ├── Expr = <ast.Call object at 0x7f4e4f961e50>  @ 364:4
+│   │   └── Call  @ 364:4
+│   │       ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 364:4
+│   │       └── JoinedStr = [<ast.Constant object at 0x7f4e4f962010>, <ast....  @ 364:10
+│   └── Expr = <ast.Call object at 0x7f4e4f962590>  @ 366:4
+│       └── Call  @ 366:4
+│           ├── Name: 'print' = <ast.Load object at 0x7f4e513d16d0>  @ 366:4
+│           └── Constant  @ 366:10
+└── If  @ 369:0
+    ├── Compare = [<ast.Constant object at 0x7f4e4f962a10>]  @ 369:3
+    │   ├── Name: '__name__' = <ast.Load object at 0x7f4e513d16d0>  @ 369:3
+    │   │   └── Load  @ 0:0
+    │   ├── Eq  @ 0:0
+    │   └── Constant  @ 369:15
+    └── Expr = <ast.Call object at 0x7f4e4f962b50>  @ 370:4
+        └── Call  @ 370:4
+            └── Name: 'main' = <ast.Load object at 0x7f4e513d16d0>  @ 370:4
+
+
+SYMBOL TABLE SUMMARY:
+--------------------------------------------------------------------------------
+Total symbols: 79
+  class: 8
+    - Direction @ tests/tu7/test_sample.py:15:0
+    - Shape @ tests/tu7/test_sample.py:24:0
+    - Circle @ tests/tu7/test_sample.py:46:0
+    - Rectangle @ tests/tu7/test_sample.py:64:0
+    - Point @ tests/tu7/test_sample.py:84:0
+    ... and 3 more
+  function: 36
+    - __init__ @ tests/tu7/test_sample.py:27:4
+    - calculate_area @ tests/tu7/test_sample.py:32:4
+    - get_color @ tests/tu7/test_sample.py:36:4
+    - display_info @ tests/tu7/test_sample.py:40:4
+    - __init__ @ tests/tu7/test_sample.py:49:4
+    ... and 31 more
+  variable: 35
+    - NORTH @ tests/tu7/test_sample.py:17:4
+    - SOUTH @ tests/tu7/test_sample.py:18:4
+    - EAST @ tests/tu7/test_sample.py:19:4
+    - WEST @ tests/tu7/test_sample.py:20:4
+    - x @ tests/tu7/test_sample.py:86:4
+    ... and 30 more
+
+================================================================================

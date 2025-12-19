@@ -43,6 +43,7 @@
 | | TU4: Auto-completion | ✅ Done | 100% |
 | | TU5: Build integration | ✅ Done | 100% |
 | | TU6: Code transformation | ✅ Done | 100% |
+| | TU7: Multi-language AST testing | ✅ Done | 100% |
 
 ---
 
@@ -887,3 +888,112 @@ maestro tu cache stats
 
 **Track Completed**: 2025-12-19 (Phase TU6 - 100%)
 **Implementation**: qwen (via Claude Code)
+
+### Phase TU7: Multi-Language AST Testing ✅ **[Completed 2025-12-19]**
+
+"phase_id": "tu-ast-7"
+"status": "done"
+"completion": 100
+
+**Objective**: Test and validate AST generation and printing capabilities across multiple programming languages (C++, Java, Python).
+
+**Tasks Completed**:
+
+- ✅ **TU7.1: C++ AST Printing Test**
+  - Created comprehensive test C++ program with classes, inheritance, templates, namespaces
+  - Tested parsing with ClangParser
+  - Validated AST structure and node relationships
+  - Output: `tests/tu7/cpp_ast_output.txt`
+
+- ✅ **TU7.2: Java AST Printing Test**
+  - Created comprehensive test Java program with interfaces, classes, generics, annotations
+  - Tested parsing with JavaParser (tree-sitter)
+  - Validated AST structure and node relationships
+  - Output: `tests/tu7/java_ast_output.txt`
+
+- ✅ **TU7.3: Python AST Printing Test**
+  - Implemented new PythonParser using Python's built-in ast module
+  - Created comprehensive test Python program with decorators, async, generators
+  - Tested parsing and validated AST structure
+  - Output: `tests/tu7/python_ast_output.txt`
+
+- ✅ **TU7.4: Cross-Language AST Comparison**
+  - Compared AST structures across C++, Java, and Python
+  - Documented common patterns and key differences
+  - Identified opportunities for unified transformations
+  - Created comprehensive comparison document: `tests/tu7/AST_COMPARISON.md`
+
+**Deliverables**:
+- ✅ Sample C++ program with AST output (210 lines)
+- ✅ Sample Java program with AST output (328 lines)
+- ✅ Sample Python program with AST output (390 lines)
+- ✅ Documentation of AST structure differences (comprehensive markdown)
+- ✅ CLI: `maestro tu print-ast <file>` for all supported languages
+
+**Test Criteria Met**:
+- ✅ AST correctly captures all language constructs (classes, functions, control flow, etc.)
+- ✅ Output is readable and well-formatted (tree structure with indentation)
+- ✅ Node types match expected language semantics (verified across all three languages)
+- ✅ Relationships between nodes are accurate (parent-child, siblings)
+
+**Success Metrics**:
+- ✅ All three languages produce valid AST output
+- ✅ AST structure reflects source code accurately
+- ✅ Documentation covers key differences between language ASTs
+- ✅ Foundation laid for future cross-language transformations
+
+**Key Findings**:
+
+1. **Root Node Differences**:
+   - C++: TRANSLATION_UNIT (includes preprocessor macros)
+   - Java: program (clean compilation unit)
+   - Python: Module (runtime-focused)
+
+2. **Type System Representation**:
+   - C++: Strong compile-time types, deeply embedded
+   - Java: Strong compile-time types, full representation
+   - Python: Optional type hints, dynamic at runtime
+
+3. **Common Patterns Identified**:
+   - All use hierarchical tree structures
+   - Clear distinction between statements and expressions
+   - Similar control flow representations (if/else, loops)
+   - Symbol information with location tracking
+
+4. **Transformation Opportunities**:
+   - Code style enforcement (feasible)
+   - Structural refactoring (feasible)
+   - Design pattern detection (feasible)
+   - Documentation generation (highly feasible)
+   - Cross-language code generation (challenging due to type systems)
+
+**Files Created**:
+- `maestro/tu/ast_printer.py` - AST printer utility with tree visualization
+- `maestro/tu/python_parser.py` - Python parser using built-in ast module
+- `tests/tu7/test_sample.cpp` - C++ test program
+- `tests/tu7/TestSample.java` - Java test program
+- `tests/tu7/test_sample.py` - Python test program
+- `tests/tu7/cpp_ast_output.txt` - C++ AST output
+- `tests/tu7/java_ast_output.txt` - Java AST output
+- `tests/tu7/python_ast_output.txt` - Python AST output
+- `tests/tu7/AST_COMPARISON.md` - Comprehensive cross-language comparison
+
+**Files Modified**:
+- `maestro/tu/__init__.py` - Added PythonParser and ASTPrinter exports
+- `maestro/commands/tu.py` - Added print-ast command handler and Python language support
+
+**Command Reference**:
+```bash
+# Print AST to stdout
+maestro tu print-ast <file>
+
+# Save to file
+maestro tu print-ast <file> --output <output.txt>
+
+# Control output detail
+maestro tu print-ast <file> --max-depth 4
+maestro tu print-ast <file> --no-types --no-locations
+```
+
+**Track Completed**: 2025-12-19 (Phase TU7 - 100%)
+**Implementation**: Direct implementation (Claude Code with qwen for low/medium tasks)

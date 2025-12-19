@@ -1,0 +1,1068 @@
+================================================================================
+AST DOCUMENT
+================================================================================
+
+AST TREE:
+--------------------------------------------------------------------------------
+program  @ 1:0
+├── line_comment  @ 1:0
+├── line_comment  @ 2:0
+├── package_declaration  @ 4:0
+│   ├── package  @ 4:0
+│   ├── scoped_identifier  @ 4:8
+│   │   ├── scoped_identifier  @ 4:8
+│   │   │   ├── identifier: 'com'  @ 4:8
+│   │   │   ├── .  @ 4:11
+│   │   │   └── identifier: 'maestro'  @ 4:12
+│   │   ├── .  @ 4:19
+│   │   └── identifier: 'test'  @ 4:20
+│   └── ;  @ 4:24
+├── import_declaration  @ 6:0
+│   ├── import  @ 6:0
+│   ├── scoped_identifier  @ 6:7
+│   │   ├── identifier: 'java'  @ 6:7
+│   │   ├── .  @ 6:11
+│   │   └── identifier: 'util'  @ 6:12
+│   ├── .  @ 6:16
+│   ├── asterisk  @ 6:17
+│   │   └── *  @ 6:17
+│   └── ;  @ 6:18
+├── import_declaration  @ 7:0
+│   ├── import  @ 7:0
+│   ├── scoped_identifier  @ 7:7
+│   │   ├── identifier: 'java'  @ 7:7
+│   │   ├── .  @ 7:11
+│   │   └── identifier: 'io'  @ 7:12
+│   ├── .  @ 7:14
+│   ├── asterisk  @ 7:15
+│   │   └── *  @ 7:15
+│   └── ;  @ 7:16
+├── line_comment  @ 9:0
+├── interface_declaration: 'interface Drawable {
+    void draw();
+    default void display() {
+        System.out.println("Displaying drawable object");
+    }
+}'  @ 10:0
+│   ├── interface  @ 10:0
+│   ├── identifier: 'Drawable'  @ 10:10
+│   └── interface_body  @ 10:19
+│       ├── {  @ 10:19
+│       ├── method_declaration: 'void draw();'  @ 11:4
+│       │   ├── void_type  @ 11:4
+│       │   ├── identifier: 'draw'  @ 11:9
+│       │   ├── formal_parameters  @ 11:13
+│       │   └── ;  @ 11:15
+│       ├── method_declaration: 'default void display() {
+        System.out.println("Displaying drawable object");
+    }'  @ 12:4
+│       │   ├── modifiers  @ 12:4
+│       │   ├── void_type  @ 12:12
+│       │   ├── identifier: 'display'  @ 12:17
+│       │   ├── formal_parameters  @ 12:24
+│       │   └── block  @ 12:27
+│       └── }  @ 15:0
+├── line_comment  @ 17:0
+├── class_declaration: 'abstract class Shape implements Drawable {
+    protected String color;
+    protected double area;
+
+    public Shape(String color) {
+        this.color = color;
+    }
+
+    // Abstract method
+    public abstract double calculateArea();
+
+    // Concrete method
+    public String getColor() {
+        return color;
+    }
+
+    @Override
+    public void draw() {
+        System.out.println("Drawing shape with color: " + color);
+    }
+}'  @ 18:0
+│   ├── modifiers  @ 18:0
+│   │   └── abstract  @ 18:0
+│   ├── class  @ 18:9
+│   ├── identifier: 'Shape'  @ 18:15
+│   ├── super_interfaces  @ 18:21
+│   │   ├── implements  @ 18:21
+│   │   └── type_list  @ 18:32
+│   │       └── type_identifier: 'Drawable'  @ 18:32
+│   └── class_body  @ 18:41
+│       ├── {  @ 18:41
+│       ├── field_declaration  @ 19:4
+│       │   ├── modifiers  @ 19:4
+│       │   ├── type_identifier: 'String'  @ 19:14
+│       │   ├── variable_declarator: 'color'  @ 19:21
+│       │   └── ;  @ 19:26
+│       ├── field_declaration  @ 20:4
+│       │   ├── modifiers  @ 20:4
+│       │   ├── floating_point_type  @ 20:14
+│       │   ├── variable_declarator: 'area'  @ 20:21
+│       │   └── ;  @ 20:25
+│       ├── constructor_declaration  @ 22:4
+│       │   ├── modifiers  @ 22:4
+│       │   ├── identifier: 'Shape'  @ 22:11
+│       │   ├── formal_parameters  @ 22:16
+│       │   └── constructor_body  @ 22:31
+│       ├── line_comment  @ 26:4
+│       ├── method_declaration: 'public abstract double calculateArea();'  @ 27:4
+│       │   ├── modifiers  @ 27:4
+│       │   ├── floating_point_type  @ 27:20
+│       │   ├── identifier: 'calculateArea'  @ 27:27
+│       │   ├── formal_parameters  @ 27:40
+│       │   └── ;  @ 27:42
+│       ├── line_comment  @ 29:4
+│       ├── method_declaration: 'public String getColor() {
+        return color;
+    }'  @ 30:4
+│       │   ├── modifiers  @ 30:4
+│       │   ├── type_identifier: 'String'  @ 30:11
+│       │   ├── identifier: 'getColor'  @ 30:18
+│       │   ├── formal_parameters  @ 30:26
+│       │   └── block  @ 30:29
+│       ├── method_declaration: '@Override
+    public void draw() {
+        System.out.println("Drawing shape with color: " + color);
+    }'  @ 34:4
+│       │   ├── modifiers  @ 34:4
+│       │   ├── void_type  @ 35:11
+│       │   ├── identifier: 'draw'  @ 35:16
+│       │   ├── formal_parameters  @ 35:20
+│       │   └── block  @ 35:23
+│       └── }  @ 38:0
+├── line_comment  @ 40:0
+├── class_declaration: 'class Circle extends Shape {
+    private double radius;
+
+    public Circle(String color, double radius) {
+        super(color);
+        this.radius = radius;
+    }
+
+    @Override
+    public double calculateArea() {
+        this.area = Math.PI * radius * radius;
+        return this.area;
+    }
+
+    public double getRadius() {
+        return radius;
+    }
+
+    public void setRadius(double radius) {
+        this.radius = radius;
+    }
+}'  @ 41:0
+│   ├── class  @ 41:0
+│   ├── identifier: 'Circle'  @ 41:6
+│   ├── superclass  @ 41:13
+│   │   ├── extends  @ 41:13
+│   │   └── type_identifier: 'Shape'  @ 41:21
+│   └── class_body  @ 41:27
+│       ├── {  @ 41:27
+│       ├── field_declaration  @ 42:4
+│       │   ├── modifiers  @ 42:4
+│       │   ├── floating_point_type  @ 42:12
+│       │   ├── variable_declarator: 'radius'  @ 42:19
+│       │   └── ;  @ 42:25
+│       ├── constructor_declaration  @ 44:4
+│       │   ├── modifiers  @ 44:4
+│       │   ├── identifier: 'Circle'  @ 44:11
+│       │   ├── formal_parameters  @ 44:17
+│       │   └── constructor_body  @ 44:47
+│       ├── method_declaration: '@Override
+    public double calculateArea() {
+        this.area = Math.PI * radius * radius;
+        return this.area;
+    }'  @ 49:4
+│       │   ├── modifiers  @ 49:4
+│       │   ├── floating_point_type  @ 50:11
+│       │   ├── identifier: 'calculateArea'  @ 50:18
+│       │   ├── formal_parameters  @ 50:31
+│       │   └── block  @ 50:34
+│       ├── method_declaration: 'public double getRadius() {
+        return radius;
+    }'  @ 55:4
+│       │   ├── modifiers  @ 55:4
+│       │   ├── floating_point_type  @ 55:11
+│       │   ├── identifier: 'getRadius'  @ 55:18
+│       │   ├── formal_parameters  @ 55:27
+│       │   └── block  @ 55:30
+│       ├── method_declaration: 'public void setRadius(double radius) {
+        this.radius = radius;
+    }'  @ 59:4
+│       │   ├── modifiers  @ 59:4
+│       │   ├── void_type  @ 59:11
+│       │   ├── identifier: 'setRadius'  @ 59:16
+│       │   ├── formal_parameters  @ 59:25
+│       │   └── block  @ 59:41
+│       └── }  @ 62:0
+├── line_comment  @ 64:0
+├── class_declaration: 'class Rectangle extends Shape implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private double width;
+    private double height;
+
+    public Rectangle(String color, double width, double height) {
+        super(color);
+        this.width = width;
+        this.height = height;
+    }
+
+    @Override
+    public double calculateArea() {
+        this.area = width * height;
+        return this.area;
+    }
+
+    public double getWidth() {
+        return width;
+    }
+
+    public double getHeight() {
+        return height;
+    }
+}'  @ 65:0
+│   ├── class  @ 65:0
+│   ├── identifier: 'Rectangle'  @ 65:6
+│   ├── superclass  @ 65:16
+│   │   ├── extends  @ 65:16
+│   │   └── type_identifier: 'Shape'  @ 65:24
+│   ├── super_interfaces  @ 65:30
+│   │   ├── implements  @ 65:30
+│   │   └── type_list  @ 65:41
+│   │       └── type_identifier: 'Serializable'  @ 65:41
+│   └── class_body  @ 65:54
+│       ├── {  @ 65:54
+│       ├── field_declaration  @ 66:4
+│       │   ├── modifiers  @ 66:4
+│       │   ├── integral_type  @ 66:25
+│       │   ├── variable_declarator: 'serialVersionUID = 1L'  @ 66:30
+│       │   └── ;  @ 66:51
+│       ├── field_declaration  @ 67:4
+│       │   ├── modifiers  @ 67:4
+│       │   ├── floating_point_type  @ 67:12
+│       │   ├── variable_declarator: 'width'  @ 67:19
+│       │   └── ;  @ 67:24
+│       ├── field_declaration  @ 68:4
+│       │   ├── modifiers  @ 68:4
+│       │   ├── floating_point_type  @ 68:12
+│       │   ├── variable_declarator: 'height'  @ 68:19
+│       │   └── ;  @ 68:25
+│       ├── constructor_declaration  @ 70:4
+│       │   ├── modifiers  @ 70:4
+│       │   ├── identifier: 'Rectangle'  @ 70:11
+│       │   ├── formal_parameters  @ 70:20
+│       │   └── constructor_body  @ 70:64
+│       ├── method_declaration: '@Override
+    public double calculateArea() {
+        this.area = width * height;
+        return this.area;
+    }'  @ 76:4
+│       │   ├── modifiers  @ 76:4
+│       │   ├── floating_point_type  @ 77:11
+│       │   ├── identifier: 'calculateArea'  @ 77:18
+│       │   ├── formal_parameters  @ 77:31
+│       │   └── block  @ 77:34
+│       ├── method_declaration: 'public double getWidth() {
+        return width;
+    }'  @ 82:4
+│       │   ├── modifiers  @ 82:4
+│       │   ├── floating_point_type  @ 82:11
+│       │   ├── identifier: 'getWidth'  @ 82:18
+│       │   ├── formal_parameters  @ 82:26
+│       │   └── block  @ 82:29
+│       ├── method_declaration: 'public double getHeight() {
+        return height;
+    }'  @ 86:4
+│       │   ├── modifiers  @ 86:4
+│       │   ├── floating_point_type  @ 86:11
+│       │   ├── identifier: 'getHeight'  @ 86:18
+│       │   ├── formal_parameters  @ 86:27
+│       │   └── block  @ 86:30
+│       └── }  @ 89:0
+├── line_comment  @ 91:0
+├── enum_declaration: 'enum Direction {
+    NORTH("North"),
+    SOUTH("South"),
+    EAST("East"),
+    WEST("West");
+
+    private final String displayName;
+
+    Direction(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+}'  @ 92:0
+│   ├── enum  @ 92:0
+│   ├── identifier: 'Direction'  @ 92:5
+│   └── enum_body  @ 92:15
+│       ├── {  @ 92:15
+│       ├── enum_constant  @ 93:4
+│       │   ├── identifier: 'NORTH'  @ 93:4
+│       │   └── argument_list  @ 93:9
+│       ├── ,  @ 93:18
+│       ├── enum_constant  @ 94:4
+│       │   ├── identifier: 'SOUTH'  @ 94:4
+│       │   └── argument_list  @ 94:9
+│       ├── ,  @ 94:18
+│       ├── enum_constant  @ 95:4
+│       │   ├── identifier: 'EAST'  @ 95:4
+│       │   └── argument_list  @ 95:8
+│       ├── ,  @ 95:16
+│       ├── enum_constant  @ 96:4
+│       │   ├── identifier: 'WEST'  @ 96:4
+│       │   └── argument_list  @ 96:8
+│       ├── enum_body_declarations  @ 96:16
+│       │   ├── ;  @ 96:16
+│       │   ├── field_declaration  @ 98:4
+│       │   ├── constructor_declaration  @ 100:4
+│       │   └── method_declaration: 'public String getDisplayName() {
+        return displayName;
+    }'  @ 104:4
+│       └── }  @ 107:0
+├── line_comment  @ 109:0
+├── class_declaration: 'class Container<T> {
+    private List<T> items;
+
+    public Container() {
+        items = new ArrayList<>();
+    }
+
+    public void add(T item) {
+        items.add(item);
+    }
+
+    public T get(int index) {
+        return items.get(index);
+    }
+
+    public int size() {
+        return items.size();
+    }
+
+    // Generic method
+    public <U> void printAll(U[] array) {
+        for (U item : array) {
+            System.out.println(item);
+        }
+    }
+}'  @ 110:0
+│   ├── class  @ 110:0
+│   ├── identifier: 'Container'  @ 110:6
+│   ├── type_parameters  @ 110:15
+│   │   ├── <  @ 110:15
+│   │   ├── type_parameter  @ 110:16
+│   │   │   └── type_identifier: 'T'  @ 110:16
+│   │   └── >  @ 110:17
+│   └── class_body  @ 110:19
+│       ├── {  @ 110:19
+│       ├── field_declaration  @ 111:4
+│       │   ├── modifiers  @ 111:4
+│       │   ├── generic_type  @ 111:12
+│       │   ├── variable_declarator: 'items'  @ 111:20
+│       │   └── ;  @ 111:25
+│       ├── constructor_declaration  @ 113:4
+│       │   ├── modifiers  @ 113:4
+│       │   ├── identifier: 'Container'  @ 113:11
+│       │   ├── formal_parameters  @ 113:20
+│       │   └── constructor_body  @ 113:23
+│       ├── method_declaration: 'public void add(T item) {
+        items.add(item);
+    }'  @ 117:4
+│       │   ├── modifiers  @ 117:4
+│       │   ├── void_type  @ 117:11
+│       │   ├── identifier: 'add'  @ 117:16
+│       │   ├── formal_parameters  @ 117:19
+│       │   └── block  @ 117:28
+│       ├── method_declaration: 'public T get(int index) {
+        return items.get(index);
+    }'  @ 121:4
+│       │   ├── modifiers  @ 121:4
+│       │   ├── type_identifier: 'T'  @ 121:11
+│       │   ├── identifier: 'get'  @ 121:13
+│       │   ├── formal_parameters  @ 121:16
+│       │   └── block  @ 121:28
+│       ├── method_declaration: 'public int size() {
+        return items.size();
+    }'  @ 125:4
+│       │   ├── modifiers  @ 125:4
+│       │   ├── integral_type  @ 125:11
+│       │   ├── identifier: 'size'  @ 125:15
+│       │   ├── formal_parameters  @ 125:19
+│       │   └── block  @ 125:22
+│       ├── line_comment  @ 129:4
+│       ├── method_declaration: 'public <U> void printAll(U[] array) {
+        for (U item : array) {
+            System.out.println(item);
+        }
+    }'  @ 130:4
+│       │   ├── modifiers  @ 130:4
+│       │   ├── type_parameters  @ 130:11
+│       │   ├── void_type  @ 130:15
+│       │   ├── identifier: 'printAll'  @ 130:20
+│       │   ├── formal_parameters  @ 130:28
+│       │   └── block  @ 130:40
+│       └── }  @ 135:0
+├── line_comment  @ 137:0
+├── annotation_type_declaration  @ 138:0
+│   ├── @interface  @ 138:0
+│   ├── identifier: 'TestInfo'  @ 138:11
+│   └── annotation_type_body  @ 138:20
+│       ├── {  @ 138:20
+│       ├── annotation_type_element_declaration  @ 139:4
+│       │   ├── type_identifier: 'String'  @ 139:4
+│       │   ├── identifier: 'author'  @ 139:11
+│       │   ├── (  @ 139:17
+│       │   ├── )  @ 139:18
+│       │   ├── default  @ 139:20
+│       │   ├── string_literal  @ 139:28
+│       │   └── ;  @ 139:37
+│       ├── annotation_type_element_declaration  @ 140:4
+│       │   ├── type_identifier: 'String'  @ 140:4
+│       │   ├── identifier: 'date'  @ 140:11
+│       │   ├── (  @ 140:15
+│       │   ├── )  @ 140:16
+│       │   └── ;  @ 140:17
+│       ├── annotation_type_element_declaration  @ 141:4
+│       │   ├── integral_type  @ 141:4
+│       │   ├── identifier: 'version'  @ 141:8
+│       │   ├── (  @ 141:15
+│       │   ├── )  @ 141:16
+│       │   ├── default  @ 141:18
+│       │   ├── decimal_integer_literal  @ 141:26
+│       │   └── ;  @ 141:27
+│       └── }  @ 142:0
+├── line_comment  @ 144:0
+├── class_declaration: 'class OuterClass {
+    private int outerValue;
+
+    public OuterClass(int value) {
+        this.outerValue = value;
+    }
+
+    // Inner class
+    class InnerClass {
+        private int innerValue;
+
+        public InnerClass(int value) {
+            this.innerValue = value;
+        }
+
+        public void printValues() {
+            System.out.println("Outer: " + outerValue + ", Inner: " + innerValue);
+        }
+    }
+
+    // Static nested class
+    static class StaticNestedClass {
+        private int staticValue;
+
+        public StaticNestedClass(int value) {
+            this.staticValue = value;
+        }
+
+        public void printValue() {
+            System.out.println("Static: " + staticValue);
+        }
+    }
+}'  @ 145:0
+│   ├── class  @ 145:0
+│   ├── identifier: 'OuterClass'  @ 145:6
+│   └── class_body  @ 145:17
+│       ├── {  @ 145:17
+│       ├── field_declaration  @ 146:4
+│       │   ├── modifiers  @ 146:4
+│       │   ├── integral_type  @ 146:12
+│       │   ├── variable_declarator: 'outerValue'  @ 146:16
+│       │   └── ;  @ 146:26
+│       ├── constructor_declaration  @ 148:4
+│       │   ├── modifiers  @ 148:4
+│       │   ├── identifier: 'OuterClass'  @ 148:11
+│       │   ├── formal_parameters  @ 148:21
+│       │   └── constructor_body  @ 148:33
+│       ├── line_comment  @ 152:4
+│       ├── class_declaration: 'class InnerClass {
+        private int innerValue;
+
+        public InnerClass(int value) {
+            this.innerValue = value;
+        }
+
+        public void printValues() {
+            System.out.println("Outer: " + outerValue + ", Inner: " + innerValue);
+        }
+    }'  @ 153:4
+│       │   ├── class  @ 153:4
+│       │   ├── identifier: 'InnerClass'  @ 153:10
+│       │   └── class_body  @ 153:21
+│       ├── line_comment  @ 165:4
+│       ├── class_declaration: 'static class StaticNestedClass {
+        private int staticValue;
+
+        public StaticNestedClass(int value) {
+            this.staticValue = value;
+        }
+
+        public void printValue() {
+            System.out.println("Static: " + staticValue);
+        }
+    }'  @ 166:4
+│       │   ├── modifiers  @ 166:4
+│       │   ├── class  @ 166:11
+│       │   ├── identifier: 'StaticNestedClass'  @ 166:17
+│       │   └── class_body  @ 166:35
+│       └── }  @ 177:0
+├── line_comment  @ 179:0
+└── class_declaration: '@TestInfo(author = "Maestro", date = "2024-12-19", version = 1)
+public class TestSample {
+    // Static variables
+    private static final int MAX_SIZE = 100;
+    private static int instanceCount = 0;
+
+    // Instance variables
+    private String name;
+    private int id;
+
+    // Constructor
+    public TestSample(String name, int id) {
+        this.name = name;
+        this.id = id;
+        instanceCount++;
+    }
+
+    // Static method
+    public static int getInstanceCount() {
+        return instanceCount;
+    }
+
+    // Instance method
+    public void processData(int value) {
+        // If-else statement
+        if (value > 100) {
+            System.out.println("Large value");
+        } else if (value > 50) {
+            System.out.println("Medium value");
+        } else {
+            System.out.println("Small value");
+        }
+
+        // Switch statement
+        switch (value % 3) {
+            case 0:
+                System.out.println("Divisible by 3");
+                break;
+            case 1:
+                System.out.println("Remainder 1");
+                break;
+            case 2:
+                System.out.println("Remainder 2");
+                break;
+            default:
+                System.out.println("Unknown");
+        }
+
+        // For loop
+        for (int i = 0; i < value; i++) {
+            System.out.print(i + " ");
+        }
+        System.out.println();
+
+        // Enhanced for loop
+        int[] numbers = {1, 2, 3, 4, 5};
+        for (int num : numbers) {
+            System.out.println(num);
+        }
+
+        // While loop
+        int counter = 0;
+        while (counter < 5) {
+            System.out.println("Counter: " + counter);
+            counter++;
+        }
+
+        // Do-while loop
+        int i = 0;
+        do {
+            System.out.println("Do-while: " + i);
+            i++;
+        } while (i < 3);
+
+        // Try-catch-finally
+        try {
+            if (value < 0) {
+                throw new IllegalArgumentException("Negative value not allowed");
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("Error: " + e.getMessage());
+        } finally {
+            System.out.println("Cleanup complete");
+        }
+    }
+
+    // Method with lambda expression
+    public void demonstrateLambda() {
+        List<String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+        // Lambda expression
+        names.forEach(name -> System.out.println("Hello, " + name));
+
+        // Method reference
+        names.forEach(System.out::println);
+
+        // Stream operations
+        names.stream()
+             .filter(name -> name.startsWith("A"))
+             .map(String::toUpperCase)
+             .forEach(System.out::println);
+    }
+
+    // Main method
+    public static void main(String[] args) {
+        // Object creation
+        Circle circle = new Circle("Red", 5.0);
+        System.out.println("Circle area: " + circle.calculateArea());
+        circle.draw();
+
+        Rectangle rect = new Rectangle("Blue", 4.0, 6.0);
+        System.out.println("Rectangle area: " + rect.calculateArea());
+
+        // Enum usage
+        Direction dir = Direction.NORTH;
+        System.out.println("Direction: " + dir.getDisplayName());
+
+        // Generic container
+        Container<Integer> intContainer = new Container<>();
+        intContainer.add(10);
+        intContainer.add(20);
+        intContainer.add(30);
+        System.out.println("Container size: " + intContainer.size());
+
+        // Inner class usage
+        OuterClass outer = new OuterClass(100);
+        OuterClass.InnerClass inner = outer.new InnerClass(200);
+        inner.printValues();
+
+        // Static nested class usage
+        OuterClass.StaticNestedClass nested = new OuterClass.StaticNestedClass(300);
+        nested.printValue();
+
+        // TestSample instance
+        TestSample sample = new TestSample("TestObject", 1);
+        sample.processData(75);
+        sample.demonstrateLambda();
+
+        System.out.println("Total instances: " + TestSample.getInstanceCount());
+    }
+}'  @ 180:0
+    ├── modifiers  @ 180:0
+    │   ├── annotation  @ 180:0
+    │   │   ├── @  @ 180:0
+    │   │   ├── identifier: 'TestInfo'  @ 180:1
+    │   │   └── annotation_argument_list  @ 180:9
+    │   └── public  @ 181:0
+    ├── class  @ 181:7
+    ├── identifier: 'TestSample'  @ 181:13
+    └── class_body  @ 181:24
+        ├── {  @ 181:24
+        ├── line_comment  @ 182:4
+        ├── field_declaration  @ 183:4
+        │   ├── modifiers  @ 183:4
+        │   ├── integral_type  @ 183:25
+        │   ├── variable_declarator: 'MAX_SIZE = 100'  @ 183:29
+        │   └── ;  @ 183:43
+        ├── field_declaration  @ 184:4
+        │   ├── modifiers  @ 184:4
+        │   ├── integral_type  @ 184:19
+        │   ├── variable_declarator: 'instanceCount = 0'  @ 184:23
+        │   └── ;  @ 184:40
+        ├── line_comment  @ 186:4
+        ├── field_declaration  @ 187:4
+        │   ├── modifiers  @ 187:4
+        │   ├── type_identifier: 'String'  @ 187:12
+        │   ├── variable_declarator: 'name'  @ 187:19
+        │   └── ;  @ 187:23
+        ├── field_declaration  @ 188:4
+        │   ├── modifiers  @ 188:4
+        │   ├── integral_type  @ 188:12
+        │   ├── variable_declarator: 'id'  @ 188:16
+        │   └── ;  @ 188:18
+        ├── line_comment  @ 190:4
+        ├── constructor_declaration  @ 191:4
+        │   ├── modifiers  @ 191:4
+        │   ├── identifier: 'TestSample'  @ 191:11
+        │   ├── formal_parameters  @ 191:21
+        │   └── constructor_body  @ 191:43
+        ├── line_comment  @ 197:4
+        ├── method_declaration: 'public static int getInstanceCount() {
+        return instanceCount;
+    }'  @ 198:4
+        │   ├── modifiers  @ 198:4
+        │   ├── integral_type  @ 198:18
+        │   ├── identifier: 'getInstanceCount'  @ 198:22
+        │   ├── formal_parameters  @ 198:38
+        │   └── block  @ 198:41
+        ├── line_comment  @ 202:4
+        ├── method_declaration: 'public void processData(int value) {
+        // If-else statement
+        if (value > 100) {
+            System.out.println("Large value");
+        } else if (value > 50) {
+            System.out.println("Medium value");
+        } else {
+            System.out.println("Small value");
+        }
+
+        // Switch statement
+        switch (value % 3) {
+            case 0:
+                System.out.println("Divisible by 3");
+                break;
+            case 1:
+                System.out.println("Remainder 1");
+                break;
+            case 2:
+                System.out.println("Remainder 2");
+                break;
+            default:
+                System.out.println("Unknown");
+        }
+
+        // For loop
+        for (int i = 0; i < value; i++) {
+            System.out.print(i + " ");
+        }
+        System.out.println();
+
+        // Enhanced for loop
+        int[] numbers = {1, 2, 3, 4, 5};
+        for (int num : numbers) {
+            System.out.println(num);
+        }
+
+        // While loop
+        int counter = 0;
+        while (counter < 5) {
+            System.out.println("Counter: " + counter);
+            counter++;
+        }
+
+        // Do-while loop
+        int i = 0;
+        do {
+            System.out.println("Do-while: " + i);
+            i++;
+        } while (i < 3);
+
+        // Try-catch-finally
+        try {
+            if (value < 0) {
+                throw new IllegalArgumentException("Negative value not allowed");
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("Error: " + e.getMessage());
+        } finally {
+            System.out.println("Cleanup complete");
+        }
+    }'  @ 203:4
+        │   ├── modifiers  @ 203:4
+        │   ├── void_type  @ 203:11
+        │   ├── identifier: 'processData'  @ 203:16
+        │   ├── formal_parameters  @ 203:27
+        │   └── block  @ 203:39
+        ├── line_comment  @ 266:4
+        ├── method_declaration: 'public void demonstrateLambda() {
+        List<String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+        // Lambda expression
+        names.forEach(name -> System.out.println("Hello, " + name));
+
+        // Method reference
+        names.forEach(System.out::println);
+
+        // Stream operations
+        names.stream()
+             .filter(name -> name.startsWith("A"))
+             .map(String::toUpperCase)
+             .forEach(System.out::println);
+    }'  @ 267:4
+        │   ├── modifiers  @ 267:4
+        │   ├── void_type  @ 267:11
+        │   ├── identifier: 'demonstrateLambda'  @ 267:16
+        │   ├── formal_parameters  @ 267:33
+        │   └── block  @ 267:36
+        ├── line_comment  @ 283:4
+        ├── method_declaration: 'public static void main(String[] args) {
+        // Object creation
+        Circle circle = new Circle("Red", 5.0);
+        System.out.println("Circle area: " + circle.calculateArea());
+        circle.draw();
+
+        Rectangle rect = new Rectangle("Blue", 4.0, 6.0);
+        System.out.println("Rectangle area: " + rect.calculateArea());
+
+        // Enum usage
+        Direction dir = Direction.NORTH;
+        System.out.println("Direction: " + dir.getDisplayName());
+
+        // Generic container
+        Container<Integer> intContainer = new Container<>();
+        intContainer.add(10);
+        intContainer.add(20);
+        intContainer.add(30);
+        System.out.println("Container size: " + intContainer.size());
+
+        // Inner class usage
+        OuterClass outer = new OuterClass(100);
+        OuterClass.InnerClass inner = outer.new InnerClass(200);
+        inner.printValues();
+
+        // Static nested class usage
+        OuterClass.StaticNestedClass nested = new OuterClass.StaticNestedClass(300);
+        nested.printValue();
+
+        // TestSample instance
+        TestSample sample = new TestSample("TestObject", 1);
+        sample.processData(75);
+        sample.demonstrateLambda();
+
+        System.out.println("Total instances: " + TestSample.getInstanceCount());
+    }'  @ 284:4
+        │   ├── modifiers  @ 284:4
+        │   ├── void_type  @ 284:18
+        │   ├── identifier: 'main'  @ 284:23
+        │   ├── formal_parameters  @ 284:27
+        │   └── block  @ 284:43
+        └── }  @ 320:0
+
+
+SYMBOL TABLE SUMMARY:
+--------------------------------------------------------------------------------
+Total symbols: 505
+  class_declaration: 8
+    - abstract class Shape implements Drawable {
+    protected String color;
+    protected double area;
+
+    public Shape(String color) {
+        this.color = color;
+    }
+
+    // Abstract method
+    public abstract double calculateArea();
+
+    // Concrete method
+    public String getColor() {
+        return color;
+    }
+
+    @Override
+    public void draw() {
+        System.out.println("Drawing shape with color: " + color);
+    }
+} @ tests/tu7/TestSample.java:18:0
+    - class Circle extends Shape {
+    private double radius;
+
+    public Circle(String color, double radius) {
+        super(color);
+        this.radius = radius;
+    }
+
+    @Override
+    public double calculateArea() {
+        this.area = Math.PI * radius * radius;
+        return this.area;
+    }
+
+    public double getRadius() {
+        return radius;
+    }
+
+    public void setRadius(double radius) {
+        this.radius = radius;
+    }
+} @ tests/tu7/TestSample.java:41:0
+    - class Rectangle extends Shape implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private double width;
+    private double height;
+
+    public Rectangle(String color, double width, double height) {
+        super(color);
+        this.width = width;
+        this.height = height;
+    }
+
+    @Override
+    public double calculateArea() {
+        this.area = width * height;
+        return this.area;
+    }
+
+    public double getWidth() {
+        return width;
+    }
+
+    public double getHeight() {
+        return height;
+    }
+} @ tests/tu7/TestSample.java:65:0
+    - class Container<T> {
+    private List<T> items;
+
+    public Container() {
+        items = new ArrayList<>();
+    }
+
+    public void add(T item) {
+        items.add(item);
+    }
+
+    public T get(int index) {
+        return items.get(index);
+    }
+
+    public int size() {
+        return items.size();
+    }
+
+    // Generic method
+    public <U> void printAll(U[] array) {
+        for (U item : array) {
+            System.out.println(item);
+        }
+    }
+} @ tests/tu7/TestSample.java:110:0
+    - class OuterClass {
+    private int outerValue;
+
+    public OuterClass(int value) {
+        this.outerValue = value;
+    }
+
+    // Inner class
+    class InnerClass {
+        private int innerValue;
+
+        public InnerClass(int value) {
+            this.innerValue = value;
+        }
+
+        public void printValues() {
+            System.out.println("Outer: " + outerValue + ", Inner: " + innerValue);
+        }
+    }
+
+    // Static nested class
+    static class StaticNestedClass {
+        private int staticValue;
+
+        public StaticNestedClass(int value) {
+            this.staticValue = value;
+        }
+
+        public void printValue() {
+            System.out.println("Static: " + staticValue);
+        }
+    }
+} @ tests/tu7/TestSample.java:145:0
+    ... and 3 more
+  constructor_declaration: 9
+    -  @ tests/tu7/TestSample.java:22:4
+    -  @ tests/tu7/TestSample.java:44:4
+    -  @ tests/tu7/TestSample.java:70:4
+    -  @ tests/tu7/TestSample.java:100:4
+    -  @ tests/tu7/TestSample.java:113:4
+    ... and 4 more
+  enum_declaration: 1
+    - enum Direction {
+    NORTH("North"),
+    SOUTH("South"),
+    EAST("East"),
+    WEST("West");
+
+    private final String displayName;
+
+    Direction(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+} @ tests/tu7/TestSample.java:92:0
+  field_access: 44
+    - System @ tests/tu7/TestSample.java:13:8
+    - color @ tests/tu7/TestSample.java:23:8
+    - System @ tests/tu7/TestSample.java:36:8
+    - radius @ tests/tu7/TestSample.java:46:8
+    - area @ tests/tu7/TestSample.java:51:8
+    ... and 39 more
+  field_declaration: 15
+    -  @ tests/tu7/TestSample.java:19:4
+    -  @ tests/tu7/TestSample.java:20:4
+    -  @ tests/tu7/TestSample.java:42:4
+    -  @ tests/tu7/TestSample.java:66:4
+    -  @ tests/tu7/TestSample.java:67:4
+    ... and 10 more
+  identifier: 314
+    - com @ tests/tu7/TestSample.java:4:8
+    - maestro @ tests/tu7/TestSample.java:4:12
+    - test @ tests/tu7/TestSample.java:4:20
+    - java @ tests/tu7/TestSample.java:6:7
+    - util @ tests/tu7/TestSample.java:6:12
+    ... and 309 more
+  interface_declaration: 1
+    - interface Drawable {
+    void draw();
+    default void display() {
+        System.out.println("Displaying drawable object");
+    }
+} @ tests/tu7/TestSample.java:10:0
+  local_variable_declaration: 13
+    -  @ tests/tu7/TestSample.java:229:13
+    -  @ tests/tu7/TestSample.java:235:8
+    -  @ tests/tu7/TestSample.java:241:8
+    -  @ tests/tu7/TestSample.java:248:8
+    -  @ tests/tu7/TestSample.java:268:8
+    ... and 8 more
+  method_declaration: 22
+    - void draw(); @ tests/tu7/TestSample.java:11:4
+    - default void display() {
+        System.out.println("Displaying drawable object");
+    } @ tests/tu7/TestSample.java:12:4
+    - public abstract double calculateArea(); @ tests/tu7/TestSample.java:27:4
+    - public String getColor() {
+        return color;
+    } @ tests/tu7/TestSample.java:30:4
+    - @Override
+    public void draw() {
+        System.out.println("Drawing shape with color: " + color);
+    } @ tests/tu7/TestSample.java:34:4
+    ... and 17 more
+  method_invocation: 50
+    - println @ tests/tu7/TestSample.java:13:8
+    - println @ tests/tu7/TestSample.java:36:8
+    - items @ tests/tu7/TestSample.java:118:8
+    - items @ tests/tu7/TestSample.java:122:15
+    - items @ tests/tu7/TestSample.java:126:15
+    ... and 45 more
+  variable_declarator: 28
+    - color @ tests/tu7/TestSample.java:19:21
+    - area @ tests/tu7/TestSample.java:20:21
+    - radius @ tests/tu7/TestSample.java:42:19
+    - serialVersionUID = 1L @ tests/tu7/TestSample.java:66:30
+    - width @ tests/tu7/TestSample.java:67:19
+    ... and 23 more
+
+================================================================================

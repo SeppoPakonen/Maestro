@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from ..tu import (
-    TUBuilder, ClangParser, JavaParser, KotlinParser, 
-    ASTSerializer, SymbolIndex, CompletionProvider
+    TUBuilder, ClangParser, JavaParser, KotlinParser, PythonParser,
+    ASTSerializer, SymbolIndex, CompletionProvider, ASTPrinter
 )
 from ..tu.lsp_server import MaestroLSPServer
 
@@ -25,6 +25,8 @@ def get_parser_by_language(lang: str):
         return JavaParser()
     elif lang in ['kotlin', 'kt']:
         return KotlinParser()
+    elif lang in ['python', 'py']:
+        return PythonParser()
     else:
         raise ValueError(f"Unsupported language: {lang}")
 
@@ -40,6 +42,8 @@ def detect_language_from_path(file_path: str) -> str:
         return 'java'
     elif ext in ['.kt', '.kotlin']:
         return 'kotlin'
+    elif ext in ['.py']:
+        return 'python'
     else:
         raise ValueError(f"Could not detect language from extension: {ext}")
 
@@ -457,6 +461,65 @@ def handle_tu_cache_stats_command(args):
     print(f"  Total size: {total_size} bytes ({total_size / 1024 / 1024:.2f} MB)")
 
 
+def handle_tu_print_ast_command(args):
+    """Handle maestro tu print-ast <file>"""
+    file_path = args.file
+
+    if not os.path.exists(file_path):
+        print(f"Error: File not found: {file_path}")
+        return 1
+
+    print(f"Parsing and printing AST for: {file_path}")
+
+    # Detect language
+    try:
+        lang = detect_language_from_path(file_path)
+        print(f"Detected language: {lang}")
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    # Get the appropriate parser
+    try:
+        parser = get_parser_by_language(lang)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    try:
+        # Parse the file
+        document = parser.parse_file(file_path, compile_flags=args.compile_flags or [])
+
+        # Create printer with options
+        printer = ASTPrinter(
+            show_types=not args.no_types,
+            show_locations=not args.no_locations,
+            show_values=not args.no_values,
+            show_modifiers=not args.no_modifiers,
+            max_depth=args.max_depth
+        )
+
+        # Print the AST
+        output = printer.print_document(document)
+
+        # Output to file or stdout
+        if args.output:
+            with open(args.output, 'w') as f:
+                f.write(output)
+            print(f"\nAST written to: {args.output}")
+        else:
+            print(output)
+
+        return 0
+
+    except Exception as e:
+        print(f"Error parsing file: {e}")
+        import traceback
+        if args.verbose:
+            traceback.print_exc()
+        return 1
+
+
 def add_tu_parser(subparsers):
     """Add TU command subparsers."""
     tu_parser = subparsers.add_parser('tu', help='Translation unit analysis and indexing')
@@ -522,6 +585,18 @@ def add_tu_parser(subparsers):
     transform_parser.add_argument('--lang', help='Language: cpp, java, kotlin (auto-detect if not specified)')
     transform_parser.add_argument('--compile-flags', action='append', help='Compile flags for C/C++ parsing')
 
+    # tu print-ast
+    print_ast_parser = tu_subparsers.add_parser('print-ast', help='Print AST for a source file')
+    print_ast_parser.add_argument('file', help='Source file to parse and print AST')
+    print_ast_parser.add_argument('--output', '-o', help='Output file (default: stdout)')
+    print_ast_parser.add_argument('--no-types', action='store_true', help='Hide type information')
+    print_ast_parser.add_argument('--no-locations', action='store_true', help='Hide source locations')
+    print_ast_parser.add_argument('--no-values', action='store_true', help='Hide constant values')
+    print_ast_parser.add_argument('--no-modifiers', action='store_true', help='Hide modifiers (public, static, etc.)')
+    print_ast_parser.add_argument('--max-depth', type=int, help='Maximum tree depth to print')
+    print_ast_parser.add_argument('--compile-flags', action='append', help='Compile flags for C/C++ parsing')
+    print_ast_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed error messages')
+
 
 def handle_tu_command(args):
     """Main handler for the TU command."""
@@ -539,6 +614,8 @@ def handle_tu_command(args):
         return handle_tu_lsp_command(args)
     elif args.tu_subcommand == 'transform':
         return handle_tu_transform_command(args)
+    elif args.tu_subcommand == 'print-ast':
+        return handle_tu_print_ast_command(args)
     elif args.tu_subcommand == 'cache':
         if args.cache_subcommand == 'clear':
             return handle_tu_cache_clear_command(args)
@@ -548,5 +625,5 @@ def handle_tu_command(args):
             print("Usage: maestro tu cache [clear|stats]")
             return 1
     else:
-        print("Usage: maestro tu [build|info|query|complete|references|lsp|transform|cache]")
+        print("Usage: maestro tu [build|info|query|complete|references|lsp|transform|print-ast|cache]")
         return 1
