@@ -246,6 +246,118 @@ def handle_tu_references_command(args):
         return 1
 
 
+def handle_tu_transform_command(args):
+    """Handle maestro tu transform --to-upp PACKAGE"""
+    from ..tu.transformers import UppConventionTransformer
+    from ..tu.tu_builder import TUBuilder
+    from ..tu.clang_parser import ClangParser
+    from pathlib import Path
+
+    print(f"Transforming package to U++ conventions: {args.package}")
+
+    if args.to != 'upp':
+        print(f"Error: Only 'upp' target is currently supported, got: {args.to}")
+        return 1
+
+    # Determine language
+    lang = args.lang
+    if not lang:
+        # Auto-detect from first file in path
+        files = get_files_by_language(args.package, 'cpp') + \
+                get_files_by_language(args.package, 'java') + \
+                get_files_by_language(args.package, 'kotlin')
+        if not files:
+            print("Error: No source files found in specified path")
+            return 1
+        lang = detect_language_from_path(files[0])
+        print(f"Auto-detected language: {lang}")
+
+    # Create the appropriate parser
+    try:
+        parser = get_parser_by_language(lang)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    # Get files to process
+    files = get_files_by_language(args.package, lang)
+    if not files:
+        print(f"Error: No {lang} files found in {args.package}")
+        return 1
+
+    print(f"Found {len(files)} {lang} files")
+
+    # Setup TU builder with symbol resolution
+    builder = TUBuilder(parser, cache_dir=args.output)
+
+    try:
+        # Build TUs with symbol resolution
+        results = builder.build_with_symbols(
+            files=files,
+            compile_flags=args.compile_flags or [],
+            build_index=True,
+            index_db_path='.maestro/tu/analysis/symbols.db'
+        )
+
+        print(f"Successfully built translation units with symbols for {len(results)} files")
+
+        # Create U++ convention transformer
+        package_name = Path(args.package).name or "transformed_package"
+        transformer = UppConventionTransformer(package_name=package_name)
+
+        # Transform each document
+        transformed_results = {}
+        for file_path, document in results.items():
+            print(f"Transforming {file_path}...")
+            transformed_doc = transformer.transform_document(document)
+            transformed_results[file_path] = transformed_doc
+
+            # Generate the primary header
+            if lang in ['cpp', 'c++', 'cxx', 'cc', 'c']:  # Only for C++ files
+                # Extract class/struct nodes for header generation
+                class_nodes = []
+                for node in document.root.walk():
+                    if node.kind in ['class_decl', 'struct_decl', 'function_decl']:
+                        class_nodes.append(node)
+
+                # Generate primary header name from package name
+                primary_header_name = f"{package_name}.h"
+
+                # Generate primary header content
+                header_content = transformer.generate_primary_header(class_nodes, primary_header_name)
+
+                # Write the generated header to a file
+                header_path = Path(args.output) / primary_header_name
+                with open(header_path, 'w') as f:
+                    f.write(header_content)
+
+                print(f"Generated primary header: {header_path}")
+
+                # Update the corresponding .cpp file to use only the primary header
+                if file_path.endswith(('.cpp', '.cxx', '.cc', '.c++', '.c')):
+                    # Read the original file content
+                    with open(file_path, 'r') as f:
+                        original_cpp_content = f.read()
+
+                    # Update includes
+                    updated_cpp_content = transformer.update_cpp_includes(original_cpp_content, primary_header_name)
+
+                    # Write the updated content back
+                    with open(file_path, 'w') as f:
+                        f.write(updated_cpp_content)
+
+                    print(f"Updated includes in: {file_path}")
+
+        print("Transformation completed successfully")
+        return 0
+
+    except Exception as e:
+        print(f"Error during transformation: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def handle_tu_lsp_command(args):
     """Handle maestro tu lsp"""
     print("Starting Language Server Protocol server...")
@@ -350,11 +462,19 @@ def add_tu_parser(subparsers):
     # tu cache
     cache_parser = tu_subparsers.add_parser('cache', help='TU cache management')
     cache_subparsers = cache_parser.add_subparsers(dest='cache_subcommand', help='Cache subcommands')
-    
+
     cache_clear_parser = cache_subparsers.add_parser('clear', help='Clear TU cache for package')
     cache_clear_parser.add_argument('path', help='Package path', nargs='?', default='.')
 
     cache_stats_parser = cache_subparsers.add_parser('stats', help='Show cache statistics')
+
+    # tu transform
+    transform_parser = tu_subparsers.add_parser('transform', help='Transform code to follow conventions (e.g., U++)')
+    transform_parser.add_argument('package', help='Package path to transform')
+    transform_parser.add_argument('--to', required=True, help='Target convention (e.g., upp)')
+    transform_parser.add_argument('--output', '-o', default='.maestro/tu/transform', help='Output directory for transformation results')
+    transform_parser.add_argument('--lang', help='Language: cpp, java, kotlin (auto-detect if not specified)')
+    transform_parser.add_argument('--compile-flags', action='append', help='Compile flags for C/C++ parsing')
 
 
 def handle_tu_command(args):
@@ -371,6 +491,8 @@ def handle_tu_command(args):
         return handle_tu_references_command(args)
     elif args.tu_subcommand == 'lsp':
         return handle_tu_lsp_command(args)
+    elif args.tu_subcommand == 'transform':
+        return handle_tu_transform_command(args)
     elif args.tu_subcommand == 'cache':
         if args.cache_subcommand == 'clear':
             return handle_tu_cache_clear_command(args)
@@ -380,5 +502,5 @@ def handle_tu_command(args):
             print("Usage: maestro tu cache [clear|stats]")
             return 1
     else:
-        print("Usage: maestro tu [build|info|query|complete|references|lsp|cache]")
+        print("Usage: maestro tu [build|info|query|complete|references|lsp|transform|cache]")
         return 1

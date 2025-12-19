@@ -18,6 +18,8 @@ from .symbol_resolver import SymbolResolver
 from .symbol_index import SymbolIndex
 from .completion import CompletionProvider, CompletionItem
 from .lsp_server import MaestroLSPServer
+from .transformers import ASTTransformer, UppConventionTransformer, CompositeTransformer
+from .code_generator import CodeGenerator
 
 __all__ = [
     'SourceLocation',
@@ -42,4 +44,8 @@ __all__ = [
     'CompletionProvider',
     'CompletionItem',
     'MaestroLSPServer',
+    'ASTTransformer',
+    'UppConventionTransformer',
+    'CompositeTransformer',
+    'CodeGenerator',
 ]
