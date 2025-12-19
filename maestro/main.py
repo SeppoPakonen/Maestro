@@ -3989,6 +3989,48 @@ def main():
     # repo asm help
     repo_asm_subparsers.add_parser('help', aliases=['h'], help='Show help for assembly commands')
 
+    # repo refresh
+    repo_refresh_parser = repo_subparsers.add_parser('refresh', help='Refresh repository metadata')
+    repo_refresh_subparsers = repo_refresh_parser.add_subparsers(dest='refresh_subcommand', help='Refresh subcommands')
+
+    # repo refresh all
+    repo_refresh_all_parser = repo_refresh_subparsers.add_parser('all', help='Full refresh (resolve + conventions + rules)')
+    repo_refresh_all_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+    repo_refresh_all_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo refresh help
+    repo_refresh_subparsers.add_parser('help', aliases=['h'], help='Show what refresh all does')
+
+    # repo hier
+    repo_hier_parser = repo_subparsers.add_parser('hier', help='Show AI-analyzed repository hierarchy')
+    repo_hier_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+    repo_hier_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+
+    # repo conventions
+    repo_conventions_parser = repo_subparsers.add_parser('conventions', help='Show/edit detected conventions')
+    repo_conventions_subparsers = repo_conventions_parser.add_subparsers(dest='conventions_subcommand', help='Conventions subcommands')
+
+    # repo conventions detect
+    repo_conventions_detect_parser = repo_conventions_subparsers.add_parser('detect', help='Detect naming conventions')
+    repo_conventions_detect_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+    repo_conventions_detect_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo conventions show (default)
+    repo_conventions_show_parser = repo_conventions_subparsers.add_parser('show', help='Show current conventions')
+    repo_conventions_show_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+
+    # repo rules
+    repo_rules_parser = repo_subparsers.add_parser('rules', help='Show/edit repository rules')
+    repo_rules_subparsers = repo_rules_parser.add_subparsers(dest='rules_subcommand', help='Rules subcommands')
+
+    # repo rules show (default)
+    repo_rules_show_parser = repo_rules_subparsers.add_parser('show', help='Show current rules')
+    repo_rules_show_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+
+    # repo rules edit
+    repo_rules_edit_parser = repo_rules_subparsers.add_parser('edit', help='Edit rules in $EDITOR')
+    repo_rules_edit_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
 
@@ -5971,6 +6013,61 @@ def main():
                         handle_repo_pkg_tree(pkg, packages, args.json, deep=deep_mode, config_flags=config_flags)
                     elif action == 'conf':
                         handle_repo_pkg_conf(pkg, args.json)
+
+            elif args.repo_subcommand == 'refresh':
+                # Handle repo refresh commands
+                repo_root = args.path if hasattr(args, 'path') and args.path else find_repo_root()
+                verbose = args.verbose if hasattr(args, 'verbose') else False
+
+                if hasattr(args, 'refresh_subcommand') and args.refresh_subcommand:
+                    if args.refresh_subcommand == 'all':
+                        handle_repo_refresh_all(repo_root, verbose)
+                    elif args.refresh_subcommand in ['help', 'h']:
+                        handle_repo_refresh_help()
+                    else:
+                        print_error(f"Unknown refresh subcommand: {args.refresh_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    # Default to 'all' if no subcommand
+                    handle_repo_refresh_all(repo_root, verbose)
+
+            elif args.repo_subcommand == 'hier':
+                # Handle repo hierarchy visualization
+                repo_root = args.path if hasattr(args, 'path') and args.path else find_repo_root()
+                handle_repo_hier(repo_root, args.json if hasattr(args, 'json') else False)
+
+            elif args.repo_subcommand == 'conventions':
+                # Handle conventions commands
+                repo_root = args.path if hasattr(args, 'path') and args.path else find_repo_root()
+
+                if hasattr(args, 'conventions_subcommand') and args.conventions_subcommand:
+                    if args.conventions_subcommand == 'detect':
+                        verbose = args.verbose if hasattr(args, 'verbose') else False
+                        handle_repo_conventions_detect(repo_root, verbose)
+                    elif args.conventions_subcommand == 'show':
+                        handle_repo_conventions_show(repo_root)
+                    else:
+                        print_error(f"Unknown conventions subcommand: {args.conventions_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    # Default to 'show' if no subcommand
+                    handle_repo_conventions_show(repo_root)
+
+            elif args.repo_subcommand == 'rules':
+                # Handle rules commands
+                repo_root = args.path if hasattr(args, 'path') and args.path else find_repo_root()
+
+                if hasattr(args, 'rules_subcommand') and args.rules_subcommand:
+                    if args.rules_subcommand == 'show':
+                        handle_repo_rules_show(repo_root)
+                    elif args.rules_subcommand == 'edit':
+                        handle_repo_rules_edit(repo_root)
+                    else:
+                        print_error(f"Unknown rules subcommand: {args.rules_subcommand}", 2)
+                        sys.exit(1)
+                else:
+                    # Default to 'show' if no subcommand
+                    handle_repo_rules_show(repo_root)
 
             elif args.repo_subcommand == 'asm':
                 handle_asm_command(args)
@@ -14531,9 +14628,308 @@ def handle_build_rules(session_path, verbose=False):
         sys.exit(1)
 
 
+def handle_repo_refresh_all(repo_root: str, verbose: bool = False):
+    """
+    Execute full repository refresh: resolve + conventions + rules analysis.
+
+    Args:
+        repo_root: Path to repository root
+        verbose: Verbose output flag
+    """
+    print_header("REPOSITORY REFRESH")
+    print(f"\nRepository: {repo_root}\n")
+
+    # Step 1: Repo resolve (scan packages, assemblies, build systems)
+    print_info("Step 1/3: Repository resolve (scanning packages and build systems)...", 2)
+    repo_result = scan_upp_repo_v2(repo_root, verbose=verbose, include_user_config=True)
+    write_repo_artifacts(repo_root, repo_result, verbose=verbose)
+    print_success(f"  Found {len(repo_result.packages_detected)} packages, {len(repo_result.assemblies_detected)} assemblies", 2)
+
+    # Step 2: Convention detection (placeholder for now - will be implemented in RF3)
+    print_info("\nStep 2/3: Convention detection...", 2)
+    print_warning("  Convention detection not yet implemented (Phase RF3)", 2)
+    print_info("  Placeholder: Would auto-detect naming conventions from codebase", 2)
+
+    # Step 3: Rules analysis (placeholder for now - will be implemented in RF4)
+    print_info("\nStep 3/3: Rules analysis...", 2)
+    print_info("  docs/RepoRules.md exists and is ready for manual editing", 2)
+    rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
+    if os.path.exists(rules_file):
+        print_success(f"  Rules file: {rules_file}", 2)
+    else:
+        print_warning(f"  Rules file not found. Run 'maestro init' to create it.", 2)
+
+    # Update global index
+    update_global_repo_index(repo_root, verbose)
+
+    print("\n" + "─" * 60)
+    print_success("Refresh complete!", 2)
+    print_info("\nNext steps:", 2)
+    print_info("  maestro repo hier              - View repository hierarchy", 3)
+    print_info("  maestro repo conventions       - View detected conventions", 3)
+    print_info("  maestro repo rules             - View repository rules", 3)
+
+
+def handle_repo_refresh_help():
+    """
+    Show what 'maestro repo refresh all' does.
+    """
+    print_header("REFRESH ALL - WHAT IT DOES")
+    print("""
+The 'maestro repo refresh all' command performs a complete repository analysis:
+
+Step 1: Repository Resolve
+  - Scans for packages across all build systems (U++, CMake, Make, Autoconf, Maven, Gradle, etc.)
+  - Detects assemblies and their structure
+  - Identifies build configurations
+  - Writes scan results to .maestro/repo/
+
+Step 2: Convention Detection (Phase RF3 - Not Yet Implemented)
+  - Auto-detects naming conventions (camelCase, snake_case, PascalCase, UPPER_CASE)
+  - Identifies file organization patterns
+  - Detects framework-specific conventions (U++, Qt, etc.)
+  - Updates docs/RepoRules.md with detected conventions
+
+Step 3: Rules Analysis (Phase RF4 - Partially Implemented)
+  - Ensures docs/RepoRules.md exists
+  - Ready for manual editing of architecture, security, performance, and style rules
+  - These rules are injected into AI prompts based on context
+
+Global Index Update:
+  - Updates $HOME/.maestro/repos.json with this repository's information
+  - Enables cross-repository solution sharing
+
+Usage:
+  maestro repo refresh all [--path <path>] [-v]
+
+Options:
+  --path <path>  - Path to repository (default: auto-detect via .maestro/)
+  -v, --verbose  - Show detailed output
+""")
+
+
+def handle_repo_hier(repo_root: str, json_output: bool = False):
+    """
+    Show AI-analyzed repository hierarchy.
+    Placeholder for Phase RF2.
+
+    Args:
+        repo_root: Path to repository root
+        json_output: Output in JSON format
+    """
+    print_header("REPOSITORY HIERARCHY")
+    print(f"\nRepository: {repo_root}\n")
+
+    print_warning("AI-powered hierarchy analysis not yet implemented (Phase RF2)", 2)
+    print("\nThis feature will provide:")
+    print_info("  - AI-powered analysis of directory structure", 2)
+    print_info("  - Logical groupings (not just filesystem)", 2)
+    print_info("  - Package group detection", 2)
+    print_info("  - Assembly structure visualization", 2)
+    print_info("  - Relationship mapping between components", 2)
+
+    print("\nFor now, use:")
+    print_info("  maestro repo show              - View scan results", 3)
+    print_info("  maestro repo pkg               - List all packages", 3)
+    print_info("  maestro repo asm list          - List assemblies", 3)
+
+
+def handle_repo_conventions_detect(repo_root: str, verbose: bool = False):
+    """
+    Detect naming conventions from codebase.
+    Placeholder for Phase RF3.
+
+    Args:
+        repo_root: Path to repository root
+        verbose: Verbose output flag
+    """
+    print_header("CONVENTION DETECTION")
+    print(f"\nRepository: {repo_root}\n")
+
+    print_warning("Convention detection not yet implemented (Phase RF3)", 2)
+    print("\nThis feature will:")
+    print_info("  - Auto-detect naming conventions from codebase", 2)
+    print_info("  - Identify file organization patterns", 2)
+    print_info("  - Detect framework-specific conventions", 2)
+    print_info("  - Update docs/RepoRules.md automatically", 2)
+
+    print("\nFor now, manually edit:")
+    rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
+    print_info(f"  {rules_file}", 3)
+
+
+def handle_repo_conventions_show(repo_root: str):
+    """
+    Show current conventions from docs/RepoRules.md.
+
+    Args:
+        repo_root: Path to repository root
+    """
+    rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
+
+    if not os.path.exists(rules_file):
+        print_error(f"docs/RepoRules.md not found. Run 'maestro init' to create it.", 2)
+        sys.exit(1)
+
+    print_header("REPOSITORY CONVENTIONS")
+    print(f"\nFrom: {rules_file}\n")
+
+    # Read and display the conventions section
+    with open(rules_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Extract conventions section
+    import re
+    conventions_match = re.search(r'## Conventions\n(.+?)(?=\n##|\Z)', content, re.DOTALL)
+
+    if conventions_match:
+        conventions_text = conventions_match.group(1)
+        print(conventions_text.strip())
+    else:
+        print_warning("No conventions section found in RepoRules.md", 2)
+
+    print("\n" + "─" * 60)
+    print_info("To edit conventions:", 2)
+    print_info("  maestro repo conventions detect    - Auto-detect (Phase RF3 - not yet implemented)", 3)
+    print_info("  maestro repo rules edit            - Edit manually", 3)
+
+
+def handle_repo_rules_show(repo_root: str):
+    """
+    Show repository rules from docs/RepoRules.md.
+
+    Args:
+        repo_root: Path to repository root
+    """
+    rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
+
+    if not os.path.exists(rules_file):
+        print_error(f"docs/RepoRules.md not found. Run 'maestro init' to create it.", 2)
+        sys.exit(1)
+
+    print_header("REPOSITORY RULES")
+    print(f"\nFrom: {rules_file}\n")
+
+    # Read and display the entire file
+    with open(rules_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    print(content)
+
+    print("\n" + "─" * 60)
+    print_info("To edit rules:", 2)
+    print_info("  maestro repo rules edit", 3)
+
+
+def handle_repo_rules_edit(repo_root: str):
+    """
+    Edit repository rules in $EDITOR.
+
+    Args:
+        repo_root: Path to repository root
+    """
+    rules_file = os.path.join(repo_root, 'docs', 'RepoRules.md')
+
+    if not os.path.exists(rules_file):
+        print_error(f"docs/RepoRules.md not found. Run 'maestro init' to create it.", 2)
+        sys.exit(1)
+
+    # Use vi as fallback if EDITOR is not set
+    editor = os.environ.get('EDITOR', 'vi')
+
+    print_info(f"Opening {rules_file} in {editor}...", 2)
+
+    try:
+        subprocess.run([editor, rules_file])
+        print_success("Rules file updated", 2)
+    except FileNotFoundError:
+        print_error(f"Editor '{editor}' not found.", 2)
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Could not open editor: {str(e)}", 2)
+        sys.exit(1)
+
+
+def update_global_repo_index(repo_path: str, verbose: bool = False):
+    """
+    Update the global repository index at $HOME/.maestro/repos.json
+
+    Args:
+        repo_path: Path to the repository to add/update
+        verbose: Verbose output flag
+    """
+    import json
+    from pathlib import Path
+
+    # Get the global maestro config directory
+    home_maestro_dir = os.path.expanduser('~/.maestro')
+    os.makedirs(home_maestro_dir, exist_ok=True)
+
+    repos_index_file = os.path.join(home_maestro_dir, 'repos.json')
+
+    # Load existing index or create new one
+    if os.path.exists(repos_index_file):
+        with open(repos_index_file, 'r', encoding='utf-8') as f:
+            try:
+                repos_index = json.load(f)
+            except json.JSONDecodeError:
+                repos_index = {'repositories': []}
+    else:
+        repos_index = {'repositories': []}
+
+    # Normalize the repo path
+    repo_path = os.path.abspath(repo_path)
+
+    # Check if repo already exists in index
+    existing_repo = None
+    for i, repo in enumerate(repos_index['repositories']):
+        if os.path.abspath(repo.get('path', '')) == repo_path:
+            existing_repo = i
+            break
+
+    # Get repo name from path
+    repo_name = os.path.basename(repo_path)
+
+    # Create/update repo entry
+    repo_entry = {
+        'path': repo_path,
+        'name': repo_name,
+        'last_accessed': datetime.now().isoformat(),
+        'maestro_version': __version__
+    }
+
+    # Try to get additional info if repo is resolved
+    try:
+        index_file = os.path.join(repo_path, '.maestro', 'repo', 'index.json')
+        if os.path.exists(index_file):
+            with open(index_file, 'r', encoding='utf-8') as f:
+                repo_data = json.load(f)
+                repo_entry['assemblies'] = len(repo_data.get('assemblies_detected', []))
+                repo_entry['packages'] = len(repo_data.get('packages_detected', []))
+    except Exception:
+        pass  # Silently ignore errors reading repo data
+
+    if existing_repo is not None:
+        repos_index['repositories'][existing_repo] = repo_entry
+        if verbose:
+            print_debug(f"Updated repository in global index: {repo_path}", 2)
+    else:
+        repos_index['repositories'].append(repo_entry)
+        if verbose:
+            print_debug(f"Added repository to global index: {repo_path}", 2)
+
+    # Write updated index
+    with open(repos_index_file, 'w', encoding='utf-8') as f:
+        json.dump(repos_index, f, indent=2)
+
+    if verbose:
+        print_debug(f"Global repository index updated: {repos_index_file}", 2)
+
+
 def init_maestro_dir(target_dir: str, verbose: bool = False):
     """
     Initialize the .maestro directory structure in the specified directory.
+    Also creates docs/ directory structure for the new Repository Foundation system.
 
     Args:
         target_dir: Directory to initialize
@@ -14548,20 +14944,34 @@ def init_maestro_dir(target_dir: str, verbose: bool = False):
     # Create the .maestro directory
     os.makedirs(maestro_dir, exist_ok=True)
 
-    # Create subdirectories
+    # Create .maestro subdirectories
     sessions_dir = os.path.join(maestro_dir, 'sessions')
     inputs_dir = os.path.join(maestro_dir, 'inputs')
     outputs_dir = os.path.join(maestro_dir, 'outputs')
     partials_dir = os.path.join(maestro_dir, 'partials')
     conversations_dir = os.path.join(maestro_dir, 'conversations')
+    repo_dir = os.path.join(maestro_dir, 'repo')
 
     os.makedirs(sessions_dir, exist_ok=True)
     os.makedirs(inputs_dir, exist_ok=True)
     os.makedirs(outputs_dir, exist_ok=True)
     os.makedirs(partials_dir, exist_ok=True)
     os.makedirs(conversations_dir, exist_ok=True)
+    os.makedirs(repo_dir, exist_ok=True)
 
-    # Create a default configuration file
+    # Create docs/ directory structure (new Repository Foundation system)
+    docs_dir = os.path.join(target_dir, 'docs')
+    os.makedirs(docs_dir, exist_ok=True)
+
+    docs_sessions_dir = os.path.join(docs_dir, 'sessions')
+    docs_issues_dir = os.path.join(docs_dir, 'issues')
+    docs_solutions_dir = os.path.join(docs_dir, 'solutions')
+
+    os.makedirs(docs_sessions_dir, exist_ok=True)
+    os.makedirs(docs_issues_dir, exist_ok=True)
+    os.makedirs(docs_solutions_dir, exist_ok=True)
+
+    # Create a default configuration file (legacy JSON format in .maestro)
     config_file = os.path.join(maestro_dir, 'config.json')
     if not os.path.exists(config_file):
         # Get a unique project ID to link this project to the user configuration
@@ -14575,9 +14985,175 @@ def init_maestro_dir(target_dir: str, verbose: bool = False):
         with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
 
+    # Create docs/Settings.md (new markdown-based configuration)
+    settings_file = os.path.join(docs_dir, 'Settings.md')
+    if not os.path.exists(settings_file):
+        project_id = get_project_id(target_dir)
+        settings_content = f"""# Maestro Settings
+
+**Last Updated**: {datetime.now().strftime('%Y-%m-%d')}
+
+---
+
+## Project Metadata
+
+"project_id": "{project_id}"
+"created_at": "{datetime.now().isoformat()}"
+"maestro_version": "{__version__}"
+"base_dir": "{target_dir}"
+
+---
+
+## User Preferences
+
+"default_editor": "$EDITOR"
+"discussion_mode": "editor"
+"list_format": "table"
+
+---
+
+## AI Settings
+
+"ai_provider": "anthropic"
+"ai_model": "claude-3-5-sonnet-20250205"
+"ai_api_key_file": "~/.anthropic_key"
+"ai_context_window": 8192
+"ai_temperature": 0.7
+
+---
+
+## Build Settings
+
+"default_build_method": "auto"
+"parallel_jobs": 4
+"verbose_builds": false
+"clean_before_build": false
+
+---
+
+## Display Settings
+
+"color_output": true
+"unicode_symbols": true
+"compact_lists": false
+"show_completion_bars": true
+
+---
+
+## Current Context
+
+"current_track": null
+"current_phase": null
+"current_task": null
+
+---
+
+## Notes
+
+This configuration file is both human-readable and machine-parsable. You can:
+
+1. **Edit manually**: Modify values directly, preserving the quoted key-value format
+2. **Use settings command**: `maestro settings set <key> <value>`
+3. **Use settings wizard**: `maestro settings wizard` for guided setup
+"""
+        with open(settings_file, 'w', encoding='utf-8') as f:
+            f.write(settings_content)
+
+    # Create docs/RepoRules.md (repository rules for AI injection)
+    rules_file = os.path.join(docs_dir, 'RepoRules.md')
+    if not os.path.exists(rules_file):
+        rules_content = """# Repository Rules
+
+**Last Updated**: {date}
+
+This file contains repository-specific rules and conventions that guide AI interactions and code transformations.
+
+---
+
+## Conventions
+
+### Naming Conventions
+
+"variable_name": "auto-detected"
+"function_name": "auto-detected"
+"class_name": "auto-detected"
+"enum_name": "auto-detected"
+"file_name": "auto-detected"
+
+### Include Patterns
+
+"include_allowed_in_all_headers": true
+"use_primary_header": true
+"include_primary_header_in_impl": true
+
+---
+
+## Architecture Rules
+
+### General Principles
+
+- Add architecture rules here
+- Example: All domain logic must be in the core/ directory
+- Example: UI components should not directly access database
+
+---
+
+## Security Rules
+
+### Security Guidelines
+
+- Add security rules here
+- Example: Never log sensitive data
+- Example: Always validate user input at API boundaries
+
+---
+
+## Performance Rules
+
+### Performance Guidelines
+
+- Add performance rules here
+- Example: Avoid N+1 queries in ORM code
+- Example: Use connection pooling for database access
+
+---
+
+## Style Rules
+
+### Code Style
+
+- Add style rules here
+- Example: Maximum line length: 100 characters
+- Example: Use spaces, not tabs (4 spaces per indent)
+
+---
+
+## Notes
+
+These rules are injected into AI prompts based on context. Use natural language that AI can understand.
+
+To update conventions automatically, run:
+```bash
+maestro repo conventions detect
+```
+
+To refresh all repository metadata:
+```bash
+maestro repo refresh all
+```
+""".format(date=datetime.now().strftime('%Y-%m-%d'))
+        with open(rules_file, 'w', encoding='utf-8') as f:
+            f.write(rules_content)
+
+    # Update global repository index
+    update_global_repo_index(target_dir, verbose)
+
     print_success(f"Initialized maestro directory at: {maestro_dir}", 2)
+    print_success(f"Initialized docs directory at: {docs_dir}", 2)
     if verbose:
-        print_debug(f"Created directories: sessions, inputs, outputs, partials, conversations", 2)
+        print_debug(f"Created .maestro directories: sessions, inputs, outputs, partials, conversations, repo", 2)
+        print_debug(f"Created docs directories: sessions, issues, solutions", 2)
+        print_debug(f"Created docs/Settings.md and docs/RepoRules.md", 2)
 
 
 def handle_session_new(session_name: str, verbose: bool = False, root_task_file: str = None):
