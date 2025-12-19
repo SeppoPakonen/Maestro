@@ -1,0 +1,384 @@
+"""
+TU (Translation Unit) commands for Maestro.
+Provides AST-based analysis, indexing, and completion for multiple languages.
+"""
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+from typing import List, Optional
+
+from ..tu import (
+    TUBuilder, ClangParser, JavaParser, KotlinParser, 
+    ASTSerializer, SymbolIndex, CompletionProvider
+)
+from ..tu.lsp_server import MaestroLSPServer
+
+
+def get_parser_by_language(lang: str):
+    """Get the appropriate parser for the specified language."""
+    lang = lang.lower()
+    if lang in ['cpp', 'c++', 'cxx', 'cc', 'c']:
+        return ClangParser()
+    elif lang in ['java']:
+        return JavaParser()
+    elif lang in ['kotlin', 'kt']:
+        return KotlinParser()
+    else:
+        raise ValueError(f"Unsupported language: {lang}")
+
+
+def detect_language_from_path(file_path: str) -> str:
+    """Detect language based on file extension."""
+    ext = Path(file_path).suffix.lower()
+    if ext in ['.cpp', '.cxx', '.cc', '.c++']:
+        return 'cpp'
+    elif ext in ['.c']:
+        return 'c'
+    elif ext in ['.java']:
+        return 'java'
+    elif ext in ['.kt', '.kotlin']:
+        return 'kotlin'
+    else:
+        raise ValueError(f"Could not detect language from extension: {ext}")
+
+
+def get_files_by_language(path: str, lang: str) -> List[str]:
+    """Get all files matching the specified language in the given path."""
+    path_obj = Path(path)
+    if not path_obj.is_dir():
+        return [str(path_obj)] if detect_language_from_path(str(path_obj)) == lang else []
+
+    extensions = []
+    if lang in ['cpp', 'c++', 'cxx', 'cc', 'c']:
+        extensions = ['.cpp', '.cxx', '.cc', '.c++', '.c']
+    elif lang == 'java':
+        extensions = ['.java']
+    elif lang == 'kotlin':
+        extensions = ['.kt', '.kotlin']
+
+    files = []
+    for ext in extensions:
+        files.extend([str(p) for p in path_obj.rglob(f'*{ext}')])
+
+    return files
+
+
+def handle_tu_build_command(args):
+    """Handle maestro tu build [PACKAGE]"""
+    print(f"Building translation unit for path: {args.path}")
+
+    # Determine language
+    lang = args.lang
+    if not lang:
+        # Auto-detect from first file in path
+        files = get_files_by_language(args.path, 'cpp') + \
+                get_files_by_language(args.path, 'java') + \
+                get_files_by_language(args.path, 'kotlin')
+        if not files:
+            print("Error: No source files found in specified path")
+            return 1
+        lang = detect_language_from_path(files[0])
+        print(f"Auto-detected language: {lang}")
+
+    # Create the appropriate parser
+    try:
+        parser = get_parser_by_language(lang)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    # Get files to process
+    files = get_files_by_language(args.path, lang)
+    if not files:
+        print(f"Error: No {lang} files found in {args.path}")
+        return 1
+
+    print(f"Found {len(files)} {lang} files")
+
+    # Setup TU builder
+    builder = TUBuilder(parser, cache_dir=args.output)
+
+    try:
+        # If force is requested, clear the cache first
+        if args.force:
+            import shutil
+            cache_dir = Path(args.output)
+            if cache_dir.exists():
+                shutil.rmtree(cache_dir)
+                cache_dir.mkdir(parents=True, exist_ok=True)  # Recreate the cache directory
+
+        # Build TUs for all files
+        results = builder.build(
+            files=files,
+            compile_flags=args.compile_flags or []
+        )
+
+        print(f"Successfully built translation units for {len(results)} files")
+        if args.verbose:
+            for result in results:
+                print(f"  - {result.file_path}: {'success' if result.success else 'failed'}")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error building translation units: {e}")
+        return 1
+
+
+def handle_tu_info_command(args):
+    """Handle maestro tu info [PACKAGE]"""
+    print(f"Showing translation unit info for path: {args.path}")
+    
+    # This is a placeholder implementation - would typically show cache stats, etc.
+    cache_path = Path(args.path) if args.path else Path('.maestro/tu/cache')
+    if cache_path.exists():
+        print(f"Cache directory: {cache_path}")
+        print(f"Cache size: {len(list(cache_path.rglob('*.ast')))} cached units")
+    else:
+        print(f"Cache directory not found: {cache_path}")
+
+
+def handle_tu_query_command(args):
+    """Handle maestro tu query [PACKAGE]"""
+    print(f"Querying symbols (name: {args.symbol}, file: {args.file}, kind: {args.kind})")
+
+    # Look for symbol index (if exists)
+    index_path = '.maestro/tu/analysis/symbols.db'
+    if not os.path.exists(index_path):
+        print(f"Symbol index not found: {index_path}")
+        return 1
+
+    try:
+        index = SymbolIndex(index_path)
+        symbols = index.query(name=args.symbol, file_path=args.file, kind=args.kind)
+
+        if args.json:
+            print(json.dumps([{
+                'name': s.name,
+                'kind': s.kind,
+                'file': s.loc.file,
+                'line': s.loc.line,
+                'column': s.loc.column
+            } for s in symbols]))
+        else:
+            if not symbols:
+                print("No symbols found")
+            else:
+                print(f"Found {len(symbols)} symbols:")
+                for sym in symbols:
+                    print(f"  {sym.kind}: {sym.name} at {sym.loc.file}:{sym.loc.line}:{sym.loc.column}")
+
+    except Exception as e:
+        print(f"Error querying symbols: {e}")
+        return 1
+
+
+def handle_tu_complete_command(args):
+    """Handle maestro tu complete [PACKAGE]"""
+    print(f"Getting completions for {args.file}:{args.line}:{args.column}")
+
+    try:
+        # Load the AST for the file
+        # This would normally be done via a TUBuilder with symbol resolution
+        # For now, we'll create a simple completion provider
+        provider = CompletionProvider()
+
+        # In a real implementation, we'd have a TU with symbols available
+        # Here we'll just return a simple placeholder
+        completions = provider.get_completions(
+            file_path=args.file,
+            line=args.line,
+            column=args.column
+        )
+
+        if args.json:
+            print(json.dumps([{
+                'label': c.label,
+                'kind': c.kind,
+                'detail': c.detail,
+                'documentation': c.documentation
+            } for c in completions]))
+        else:
+            if not completions:
+                print("No completions available")
+            else:
+                print(f"Found {len(completions)} completions:")
+                for comp in completions:
+                    print(f"  {comp.label} ({comp.kind}): {comp.detail}")
+
+    except Exception as e:
+        print(f"Error getting completions: {e}")
+        return 1
+
+
+def handle_tu_references_command(args):
+    """Handle maestro tu references [PACKAGE]"""
+    print(f"Finding references to symbol {args.symbol} (defined in {args.file}:{args.line})")
+
+    # Look for symbol index (if exists)
+    index_path = '.maestro/tu/analysis/symbols.db'
+    if not os.path.exists(index_path):
+        print(f"Symbol index not found: {index_path}")
+        return 1
+
+    try:
+        index = SymbolIndex(index_path)
+        references = index.find_references(symbol_name=args.symbol, file_path=args.file, line=args.line)
+
+        if args.json:
+            print(json.dumps([{
+                'file': ref.loc.file,
+                'line': ref.loc.line,
+                'column': ref.loc.column
+            } for ref in references]))
+        else:
+            if not references:
+                print("No references found")
+            else:
+                print(f"Found {len(references)} references:")
+                for ref in references:
+                    print(f"  at {ref.loc.file}:{ref.loc.line}:{ref.loc.column}")
+
+    except Exception as e:
+        print(f"Error finding references: {e}")
+        return 1
+
+
+def handle_tu_lsp_command(args):
+    """Handle maestro tu lsp"""
+    print("Starting Language Server Protocol server...")
+
+    try:
+        server = MaestroLSPServer()
+        if args.port:
+            # Run in TCP mode
+            server.start_tcp(args.port)
+        else:
+            # Run in stdio mode
+            server.start_io()
+
+    except Exception as e:
+        print(f"Error starting LSP server: {e}")
+        return 1
+
+
+def handle_tu_cache_clear_command(args):
+    """Handle maestro tu cache clear [PACKAGE]"""
+    cache_dir = Path('.maestro/tu/cache')
+
+    if cache_dir.exists():
+        import shutil
+        try:
+            shutil.rmtree(cache_dir)
+            print(f"Cleared TU cache: {cache_dir}")
+        except Exception as e:
+            print(f"Error clearing cache: {e}")
+            return 1
+    else:
+        print(f"Cache directory does not exist: {cache_dir}")
+
+
+def handle_tu_cache_stats_command(args):
+    """Handle maestro tu cache stats"""
+    cache_dir = Path('.maestro/tu/cache')
+
+    if not cache_dir.exists():
+        print(f"Cache directory does not exist: {cache_dir}")
+        return 1
+
+    # Calculate cache statistics
+    ast_files = list(cache_dir.rglob('*.ast'))
+    total_size = sum(f.stat().st_size for f in ast_files)
+
+    # Calculate cache hit rate (if we stored this info)
+    # For now, just show total size and count
+    print(f"Cache statistics:")
+    print(f"  Files: {len(ast_files)}")
+    print(f"  Total size: {total_size} bytes ({total_size / 1024 / 1024:.2f} MB)")
+
+
+def add_tu_parser(subparsers):
+    """Add TU command subparsers."""
+    tu_parser = subparsers.add_parser('tu', help='Translation unit analysis and indexing')
+    tu_subparsers = tu_parser.add_subparsers(dest='tu_subcommand', help='TU subcommands')
+
+    # tu build
+    build_parser = tu_subparsers.add_parser('build', help='Build translation unit for package')
+    build_parser.add_argument('path', help='Path to source files', nargs='?', default='.')
+    build_parser.add_argument('--force', action='store_true', help='Force rebuild (ignore cache)')
+    build_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed progress')
+    build_parser.add_argument('--output', '-o', default='.maestro/tu/cache', help='Output directory for TU (default: .maestro/tu/cache)')
+    build_parser.add_argument('--threads', type=int, default=None, help='Parallel parsing threads (default: CPU count)')
+    build_parser.add_argument('--lang', help='Language: cpp, java, kotlin (auto-detect if not specified)')
+    build_parser.add_argument('--compile-flags', action='append', help='Compile flags for C/C++ parsing')
+
+    # tu info
+    info_parser = tu_subparsers.add_parser('info', help='Show translation unit information')
+    info_parser.add_argument('path', help='Path to TU cache directory', nargs='?', default='.maestro/tu/cache')
+
+    # tu query
+    query_parser = tu_subparsers.add_parser('query', help='Query symbols in translation unit')
+    query_parser.add_argument('path', help='Path to search in', nargs='?', default='.')
+    query_parser.add_argument('--symbol', help='Symbol name to search')
+    query_parser.add_argument('--file', help='Limit search to file')
+    query_parser.add_argument('--kind', help='Filter by kind (function, class, etc.)')
+    query_parser.add_argument('--json', action='store_true', help='JSON output')
+
+    # tu complete
+    complete_parser = tu_subparsers.add_parser('complete', help='Get auto-completion at location')
+    complete_parser.add_argument('path', help='Path to source', nargs='?', default='.')
+    complete_parser.add_argument('--file', required=True, help='Source file')
+    complete_parser.add_argument('--line', type=int, required=True, help='Line number (1-based)')
+    complete_parser.add_argument('--column', type=int, default=0, help='Column number (0-based)')
+    complete_parser.add_argument('--json', action='store_true', help='JSON output')
+
+    # tu references
+    references_parser = tu_subparsers.add_parser('references', help='Find all references to symbol')
+    references_parser.add_argument('path', help='Path to search', nargs='?', default='.')
+    references_parser.add_argument('--symbol', required=True, help='Symbol name')
+    references_parser.add_argument('--file', required=True, help='Symbol definition file')
+    references_parser.add_argument('--line', type=int, required=True, help='Symbol definition line')
+    references_parser.add_argument('--json', action='store_true', help='JSON output')
+
+    # tu lsp
+    lsp_parser = tu_subparsers.add_parser('lsp', help='Start Language Server Protocol server')
+    lsp_parser.add_argument('--port', type=int, help='TCP port (default: stdio)')
+    lsp_parser.add_argument('--log', help='Log file path')
+
+    # tu cache
+    cache_parser = tu_subparsers.add_parser('cache', help='TU cache management')
+    cache_subparsers = cache_parser.add_subparsers(dest='cache_subcommand', help='Cache subcommands')
+    
+    cache_clear_parser = cache_subparsers.add_parser('clear', help='Clear TU cache for package')
+    cache_clear_parser.add_argument('path', help='Package path', nargs='?', default='.')
+
+    cache_stats_parser = cache_subparsers.add_parser('stats', help='Show cache statistics')
+
+
+def handle_tu_command(args):
+    """Main handler for the TU command."""
+    if args.tu_subcommand == 'build':
+        return handle_tu_build_command(args)
+    elif args.tu_subcommand == 'info':
+        return handle_tu_info_command(args)
+    elif args.tu_subcommand == 'query':
+        return handle_tu_query_command(args)
+    elif args.tu_subcommand == 'complete':
+        return handle_tu_complete_command(args)
+    elif args.tu_subcommand == 'references':
+        return handle_tu_references_command(args)
+    elif args.tu_subcommand == 'lsp':
+        return handle_tu_lsp_command(args)
+    elif args.tu_subcommand == 'cache':
+        if args.cache_subcommand == 'clear':
+            return handle_tu_cache_clear_command(args)
+        elif args.cache_subcommand == 'stats':
+            return handle_tu_cache_stats_command(args)
+        else:
+            print("Usage: maestro tu cache [clear|stats]")
+            return 1
+    else:
+        print("Usage: maestro tu [build|info|query|complete|references|lsp|cache]")
+        return 1

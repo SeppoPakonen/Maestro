@@ -37,6 +37,7 @@ from .known_issues import match_known_issues, KnownIssue
 from .planner_templates import format_build_target_template, format_fix_rulebook_template, format_conversion_pipeline_template
 from .confidence import ConfidenceScorer, BatchConfidenceAggregator
 from .commands.make import MakeCommand, add_make_parser
+from .commands.tu import add_tu_parser
 from .repo.package import PackageInfo, FileGroup
 from .repo.assembly_commands import handle_asm_command
 from .hub.cli import create_hub_parser, handle_hub_command
@@ -3997,6 +3998,9 @@ def main():
     # Hub command (Universal Package Hub)
     hub_parser = create_hub_parser(subparsers)
 
+    # TU command (Translation Unit Analysis)
+    add_tu_parser(subparsers)
+
     # Track/Phase/Task commands - new Track/Phase/Task system
     from .commands import add_track_parser, add_phase_parser, add_discuss_parser, add_settings_parser
     track_parser = add_track_parser(subparsers)
@@ -6010,6 +6014,9 @@ def main():
     elif args.command == 'discuss':
         from .commands import handle_discuss_command
         sys.exit(handle_discuss_command(args))
+    elif args.command == 'tu':
+        from .commands.tu import handle_tu_command
+        sys.exit(handle_tu_command(args))
     elif args.command == 'settings' or args.command == 'config' or args.command == 'cfg':
         from .commands import handle_settings_command
         sys.exit(handle_settings_command(args))
