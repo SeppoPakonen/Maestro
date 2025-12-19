@@ -28,6 +28,7 @@
 | | CLI2: Track/Phase/Task Commands | ✅ Done | 100% |
 | | CLI3: AI Discussion System | ✅ Done | 100% |
 | | CLI4: Settings and Configuration | ✅ Done | 100% |
+| | CLI5: TUI Conversion | ✅ Done | 100% |
 | **Repository Scanning** | | | |
 | | U++ packages | ✅ Done | 100% |
 | | CMake packages | ✅ Done | 100% |
@@ -42,10 +43,12 @@
 
 "track_id": "cli-tpt"
 "priority": 0
-"status": "in_progress"
-"completion": 80%
+"status": "done"
+"completion": 100%
 
 This track implements the new Track/Phase/Task command-line interface with integrated AI discussion capabilities, and migrates all data storage from `.maestro/` JSON files to `docs/` markdown files.
+
+**Track Completed**: 2025-12-19
 
 ### Phase CLI1: Markdown Data Backend ✅ **[Completed 2025-12-18]**
 
@@ -131,6 +134,49 @@ This track implements the new Track/Phase/Task command-line interface with integ
 **Documentation Updated**:
 - `docs/feature_matrix.md` - Added CLI4 features and track/phase/task terminology
 - `docs/config.md` - Markdown-based configuration format documentation
+
+### Phase CLI5: TUI Conversion ✅ **[Completed 2025-12-19]**
+
+"phase_id": "cli-tpt-5"
+"status": "done"
+"completion": 100
+
+**Objective**: Convert existing TUI implementations to use the new Track/Phase/Task terminology and markdown data backend.
+
+**Deliverables**:
+- Updated `maestro/tui/` to use Phase terminology (renamed plans.py → phases.py)
+- Updated `maestro/tui_mc2/` to use Phase terminology
+- Integrated markdown data backend in UI facade (ui_facade/phases.py)
+- Added status badges and emoji support (✅ 🚧 📋 💡)
+- Completion progress bars with color coding
+- Priority indicators (P0/P1/P2)
+- Terminal compatibility handling
+- textual-mc deprecation decision (kept both TUI implementations)
+
+**Files Updated**:
+- `maestro/tui/screens/phases.py` (renamed from plans.py) - Updated class names, UI text, terminology
+- `maestro/tui/panes/phases.py` (renamed from plans.py) - Updated pane implementation
+- `maestro/tui/app.py` - Updated imports, status bar, context variables
+- `maestro/tui/widgets/command_palette.py` - Updated commands and actions
+- `maestro/tui/widgets/help_panel.py` - Updated help documentation
+- `maestro/tui/onboarding.py` - Updated onboarding text
+- `maestro/tui_mc2/panes/phases.py` (renamed from plans.py) - Updated MC2 implementation
+- `maestro/tui_mc2/app.py` - Updated context and menu actions
+- `maestro/ui_facade/phases.py` (renamed from plans.py) - Integrated markdown backend
+- `maestro/tui/widgets/status_indicators.py` (new) - Emoji and progress bar utilities
+
+**Documentation Created**:
+- `cli5_audit_report.md` - Comprehensive audit of TUI codebase
+- `cli5_summary_report.md` - maestro/tui/ terminology update summary
+- `cli5_tui_mc2_summary.md` - maestro/tui_mc2/ terminology update summary
+- `cli5_markdown_integration_summary.md` - Markdown backend integration summary
+- `cli5_status_badges_summary.md` - Status badges implementation summary
+- `cli5_textual_mc_decision.md` - textual-mc deprecation decision
+
+**Test Files Created**:
+- `test_markdown_integration.py` - Markdown backend integration tests
+- `test_status_indicators.py` - Status indicator functionality tests
+- `test_encoding_scenarios.py` - Terminal encoding compatibility tests
 
 ---
 

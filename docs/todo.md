@@ -23,7 +23,7 @@
 | | CLI2: Track/Phase/Task Commands | ✅ Done | 100% |
 | | CLI3: AI Discussion System | ✅ Done | 100% |
 | | CLI4: Settings and Configuration | ✅ Done | 100% |
-| | CLI5: TUI Conversion | 📋 Planned | 0% |
+| | CLI5: TUI Conversion | ✅ Done | 100% |
 | **Repository Scanning** | | | |
 | | U++ packages | ✅ Done | 100% |
 | | CMake packages | ✅ Done | 100% |
@@ -57,13 +57,17 @@
 
 ---
 
-## 🔥 TOP PRIORITY Track: Track/Phase/Task CLI and AI Discussion System
+## ✅ COMPLETED Track: Track/Phase/Task CLI and AI Discussion System
 
 "track_id": "cli-tpt"
 "priority": 0
-"status": "in_progress"
+"status": "done"
+"completion": 100%
 
 This track implements the new Track/Phase/Task command-line interface with integrated AI discussion capabilities, and migrates all data storage from `.maestro/` JSON files to `docs/` markdown files.
+
+**Track Completed**: 2025-12-19
+**All phases (CLI1-CLI5) completed and documented in docs/done.md**
 
 **Core Concepts:**
 - **TODO vs DONE**: Past and future separation throughout the entire architecture
@@ -129,10 +133,10 @@ This track implements the new Track/Phase/Task command-line interface with integ
 ### Phase CLI5: TUI Track/Phase/Task Conversion
 
 "phase_id": "cli-tpt-5"
-"status": "planned"
-"completion": 0
+"status": "done"
+"completion": 100
 
-- [ ] [Phase CLI5: TUI Conversion](phases/cli5.md) 📋 **[Planned]**
+- [x] [Phase CLI5: TUI Conversion](phases/cli5.md) ✅ **[Done]**
   - Convert TUI to use Track/Phase/Task terminology
   - Integrate with markdown data backend
   - Update status badges and visual indicators
