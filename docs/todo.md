@@ -77,7 +77,7 @@
 "status": "planned"
 "completion": 0%
 
-This track implements the foundational repository analysis and management commands that users interact with first when working with a codebase.
+This track implements the foundational repository analysis and management commands that users interact with first when working with a codebase. Integrates the completed assembly detection system (Phase AS1) into repository hierarchy analysis.
 
 **Command Hierarchy**:
 - `maestro init` - Initialize Maestro in a repository
@@ -108,9 +108,10 @@ This track implements the foundational repository analysis and management comman
 - [ ] **RF1.2: Repository Resolve**
   - Scan for packages (U++, CMake, Autotools, Maven, Gradle, etc.)
   - Detect build systems
-  - Identify assemblies (U++, custom)
+  - Identify assemblies (U++, custom) - ✅ Infrastructure exists from Phase AS1
   - Create repository metadata
   - Integration with existing package scanners
+  - Integration with completed assembly detection system
 
 ### Phase RF2: Repository Hierarchy Analysis
 
@@ -122,15 +123,17 @@ This track implements the foundational repository analysis and management comman
   - AI-powered analysis of directory structure
   - Identify logical groupings (not just filesystem)
   - Detect package groups
-  - Recognize assemblies and their structure
+  - Recognize assemblies and their structure - ✅ Assembly system from Phase AS1
   - Map relationships between components
+  - Leverage completed assembly detection infrastructure
 
 - [ ] **RF2.2: Hierarchy Visualization**
   - Tree-view terminal output
-  - Show packages, assemblies, groups
+  - Show packages, assemblies, groups - ✅ Assembly data available from Phase AS1
   - Hierarchical display of build systems
   - Color-coded output
   - Export to JSON format
+  - Display assembly relationships and package organization
 
 - [ ] **RF2.3: Hierarchy Editing**
   - Manual hierarchy overrides
@@ -1184,6 +1187,7 @@ This track extends repository scanning and build support to additional ecosystem
 **Integration with New System**:
 - Extended build systems will integrate with `maestro make` (BR1)
 - Package scanning will be used by `repo resolve` (RF1)
+- Assembly detection (completed in AS1) integrated into `repo hier` (RF2)
 
 - [ ] [Phase E1: Python Project Support](phases/e1.md) 📋 **[Planned]**
 - [ ] [Phase E2: Node.js / npm Project Support](phases/e2.md) 📋 **[Planned]**
@@ -1193,25 +1197,10 @@ This track extends repository scanning and build support to additional ecosystem
 
 ---
 
-## ✅ COMPLETED Track: Assemblies and Packages
-
-"track_id": "assemblies"
-"priority": 12
-"status": "done"
-"completion": 100%
-
-This track handles the organization of packages into logical assemblies that represent cohesive units of code.
-
-**Integration with New System**:
-- Assembly detection will be part of `repo resolve` (RF1)
-- Assembly hierarchy will be shown in `repo hier` (RF2)
-
-- [x] [Phase AS1: Assemblies in Maestro Repository System](phases/as1.md) ✅ **[Done - 2025-12-19]**
-
 ## Advanced Track: External Dependencies and Portage Integration
 
 "track_id": "advanced"
-"priority": 13
+"priority": 12
 "status": "proposed"
 "completion": 0%
 
