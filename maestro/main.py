@@ -38,6 +38,7 @@ from .planner_templates import format_build_target_template, format_fix_rulebook
 from .confidence import ConfidenceScorer, BatchConfidenceAggregator
 from .commands.make import MakeCommand, add_make_parser
 from .repo.package import PackageInfo, FileGroup
+from .repo.assembly_commands import handle_asm_command
 from .hub.cli import create_hub_parser, handle_hub_command
 
 
@@ -375,6 +376,12 @@ class AssemblyInfo:
     root_path: str
     package_folders: List[str] = field(default_factory=list)
     evidence_refs: List[str] = field(default_factory=list)  # References like "found in xyz.var"
+    # Additional fields for new assembly features:
+    assembly_type: str = 'upp'  # 'upp', 'python', 'java', 'gradle', 'maven', 'misc', 'multi'
+    packages: List[str] = field(default_factory=list)  # List of package names contained in this assembly
+    package_dirs: List[str] = field(default_factory=list)  # List of package directory paths
+    build_systems: List[str] = field(default_factory=list)  # List of build systems used
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -2238,11 +2245,30 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: 
     # Combine U++ packages with other build system packages
     all_packages = discovered_packages + build_system_packages
 
+    # Detect assemblies using the new assembly detection system
+    from .repo.assembly import detect_assemblies
+    new_assemblies = detect_assemblies(root_dir, all_packages, verbose=verbose)
+
+    # Convert new AssemblyInfo objects to match the expected format with backward compatibility
+    final_assemblies = []
+    for new_asm in new_assemblies:
+        final_asm = AssemblyInfo(
+            name=new_asm.name,
+            root_path=new_asm.dir,  # Map dir to root_path
+            package_folders=new_asm.package_dirs,  # Map package_dirs to package_folders
+            assembly_type=new_asm.assembly_type,
+            packages=new_asm.packages,
+            package_dirs=new_asm.package_dirs,
+            build_systems=new_asm.build_systems,
+            metadata=new_asm.metadata
+        )
+        final_assemblies.append(final_asm)
+
     # Infer internal packages from unknown paths
     internal_packages = infer_internal_packages(unknown_paths, root_dir)
 
     return RepoScanResult(
-        assemblies_detected=assembly_infos,
+        assemblies_detected=final_assemblies,
         packages_detected=all_packages,
         unknown_paths=unknown_paths,
         user_assemblies=user_assemblies,
@@ -2433,7 +2459,12 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
                 "name": asm.name,
                 "root_path": asm.root_path,
                 "package_folders": asm.package_folders,
-                "evidence_refs": asm.evidence_refs
+                "evidence_refs": asm.evidence_refs,
+                "assembly_type": asm.assembly_type,
+                "packages": asm.packages,
+                "package_dirs": asm.package_dirs,
+                "build_systems": asm.build_systems,
+                "metadata": asm.metadata
             } for asm in scan_result.assemblies_detected
         ],
         "packages_detected": [
@@ -2544,6 +2575,32 @@ def write_repo_artifacts(repo_root: str, scan_result: RepoScanResult, verbose: b
         "unknown_count": len(scan_result.unknown_paths),
         "scanner_version": "0.9.0"
     }
+
+    # Write assemblies.json atomically
+    assemblies_path = repo_dir / 'assemblies.json'
+    assemblies_data = {
+        "assemblies": [
+            {
+                "name": asm.name,
+                "dir": asm.root_path,
+                "assembly_type": asm.assembly_type,
+                "packages": asm.packages,
+                "package_dirs": asm.package_folders,
+                "build_systems": asm.build_systems,
+                "metadata": asm.metadata
+            } for asm in scan_result.assemblies_detected
+        ]
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
+        json.dump(assemblies_data, tmp, indent=2)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_path = tmp.name
+    os.replace(tmp_path, assemblies_path)
+
+    if verbose:
+        print_debug(f"Wrote {assemblies_path}", 2)
 
     with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
         json.dump(state_data, tmp, indent=2)
@@ -3912,6 +3969,24 @@ def main():
     repo_conf_parser.add_argument('package_name', nargs='?', help='Package name to show configurations for')
     repo_conf_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
     repo_conf_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    # repo asm (assembly management)
+    repo_asm_parser = repo_subparsers.add_parser('asm', aliases=['a'], help='Assembly query and management commands')
+    repo_asm_subparsers = repo_asm_parser.add_subparsers(dest='asm_subcommand', help='Assembly subcommands')
+
+    # repo asm list
+    repo_asm_list_parser = repo_asm_subparsers.add_parser('list', aliases=['ls', 'l'], help='List all assemblies in repository')
+    repo_asm_list_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
+    repo_asm_list_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    # repo asm show
+    repo_asm_show_parser = repo_asm_subparsers.add_parser('show', aliases=['s'], help='Show details for specific assembly')
+    repo_asm_show_parser.add_argument('assembly_name', help='Assembly name to show details for')
+    repo_asm_show_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
+    repo_asm_show_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    # repo asm help
+    repo_asm_subparsers.add_parser('help', aliases=['h'], help='Show help for assembly commands')
 
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
@@ -5892,6 +5967,9 @@ def main():
                         handle_repo_pkg_tree(pkg, packages, args.json, deep=deep_mode, config_flags=config_flags)
                     elif action == 'conf':
                         handle_repo_pkg_conf(pkg, args.json)
+
+            elif args.repo_subcommand == 'asm':
+                handle_asm_command(args)
 
             elif args.repo_subcommand in ['help', 'h']:
                 # Print help for repo subcommands
