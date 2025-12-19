@@ -192,6 +192,11 @@ This track focuses on evaluating and improving the meaningfulness and reliabilit
 
 ## TU/AST Track: Translation Unit and AST Generation
 
+"track_id": "tu-ast"
+"priority": 1
+"status": "done"
+"completion": 100%
+
 This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) generation for advanced code analysis, auto-completion, and code transformation.
 
 - [x] [Phase TU1: Core AST Infrastructure](phases/tu1.md) ✅ **[Done - 2025-12-19]**
@@ -206,6 +211,11 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 ## Extended Track: Additional Build Systems
 
+"track_id": "extended"
+"priority": 3
+"status": "planned"
+"completion": 0%
+
 This track extends repository scanning and build support to additional ecosystems.
 
 - [ ] [Phase E1: Python Project Support](phases/e1.md) 📋 **[Planned]**
@@ -218,11 +228,21 @@ This track extends repository scanning and build support to additional ecosystem
 
 ## Assemblies and Packages Track
 
+"track_id": "assemblies"
+"priority": 2
+"status": "done"
+"completion": 100%
+
 This track handles the organization of packages into logical assemblies that represent cohesive units of code.
 
 - [x] [Phase AS1: Assemblies in Maestro Repository System](phases/as1.md) ✅ **[Done - 2025-12-19]**
 
 ## Advanced Track: External Dependencies and Portage Integration
+
+"track_id": "advanced"
+"priority": 4
+"status": "proposed"
+"completion": 0%
 
 This track handles external dependencies, build scripts, and Gentoo Portage integration.
 

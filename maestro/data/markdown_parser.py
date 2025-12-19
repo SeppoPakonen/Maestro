@@ -226,6 +226,9 @@ def parse_track_heading(line: str) -> Optional[str]:
     Parse a track heading to extract track name.
 
     Format: ## Track: Track Name
+    or: ## Primary Track: Track Name
+    or: ## Assemblies and Packages Track (no colon)
+    or: ## ✅ COMPLETED Track: Track Name
     or: ## 🔥 TOP PRIORITY Track: Track Name
 
     Args:
@@ -237,18 +240,32 @@ def parse_track_heading(line: str) -> Optional[str]:
     Examples:
         >>> parse_track_heading('## Track: UMK Integration')
         'UMK Integration'
-        >>> parse_track_heading('## 🔥 TOP PRIORITY Track: CLI System')
+        >>> parse_track_heading('## Primary Track: CLI System')
         'CLI System'
+        >>> parse_track_heading('## Assemblies and Packages Track')
+        'Assemblies and Packages Track'
+        >>> parse_track_heading('## ✅ COMPLETED Track: Test Track')
+        'Test Track'
     """
-    pattern = r'^##\s+(?:🔥\s+)?(?:TOP PRIORITY\s+)?Track:\s+(.+)$'
-    match = re.match(pattern, line.strip())
+    # Match any heading that contains "Track:" or ends with "Track"
+    # Format 1: ## [prefix] Track: Name (extract everything after "Track:")
+    pattern1 = r'^##\s+(?:.*?\s+)?Track:\s+(.+)$'
+    match = re.match(pattern1, line.strip())
 
-    if not match:
-        return None
+    if match:
+        track_name = match.group(1)
+    else:
+        # Format 2: ## Name Track (no colon, extract whole heading)
+        pattern2 = r'^##\s+(.+\s+Track)\s*$'
+        match = re.match(pattern2, line.strip())
+        if match:
+            track_name = match.group(1)
+            # Remove status prefixes for format 2
+            track_name = re.sub(r'^(?:[✅🚧📋💡]\s+)?(?:COMPLETED\s+)?(?:TOP PRIORITY\s+)?', '', track_name)
+        else:
+            return None
 
-    # Remove trailing status badges and cleanup
-    track_name = match.group(1)
-    # Remove status badges like ✅ **Done** at the end
+    # Remove trailing status badges like ✅ **Done**
     track_name = re.sub(r'\s+[✅🚧📋💡]\s*\*\*.*?\*\*\s*$', '', track_name)
 
     return track_name.strip()
@@ -419,9 +436,43 @@ def parse_track(lines: List[str], start_idx: int) -> Tuple[Dict, int]:
         if parse_track_heading(line):
             break
 
-        # Check for phase heading
+        # Check for phase heading (### Phase ID: Name)
         if parse_phase_heading(line):
-            break
+            phase, idx = parse_phase(lines, idx)
+            if phase:
+                track['phases'].append(phase)
+            continue
+
+        # Check for phase as checkbox link: - [ ] [Phase ID: Name](link)
+        # Format: - [x] [Phase TU1: Core](phases/tu1.md) ✅ **[Done]**
+        phase_link_match = re.match(r'- \[([ x])\] \[Phase ([^\]]+)\]\([^\)]+\)', line)
+        if phase_link_match:
+            is_checked = phase_link_match.group(1).lower() == 'x'
+            phase_text = phase_link_match.group(2)
+
+            # Parse "ID: Name" format
+            if ':' in phase_text:
+                phase_id, phase_name = phase_text.split(':', 1)
+                phase_id = phase_id.strip()
+                phase_name = phase_name.strip()
+
+                # Extract status from badges
+                status = 'planned'
+                if '✅' in line or 'Done' in line:
+                    status = 'done'
+                elif '🚧' in line or 'In Progress' in line:
+                    status = 'in_progress'
+                elif '💡' in line or 'Proposed' in line:
+                    status = 'proposed'
+
+                track['phases'].append({
+                    'phase_id': phase_id,
+                    'name': phase_name,
+                    'status': status,
+                    'completed': is_checked
+                })
+            idx += 1
+            continue
 
         # Skip separators
         if line == '---':
@@ -429,7 +480,7 @@ def parse_track(lines: List[str], start_idx: int) -> Tuple[Dict, int]:
             continue
 
         # Collect description text
-        if line and not line.startswith('#'):
+        if line and not line.startswith('#') and not line.startswith('-'):
             track['description'].append(line)
 
         idx += 1
