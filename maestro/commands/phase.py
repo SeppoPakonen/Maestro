@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, List
 from maestro.data import parse_todo_md, parse_phase_md, parse_config_md
+from maestro.commands.track import resolve_track_identifier
 
 
 def list_phases(args):
@@ -44,6 +45,13 @@ def list_phases(args):
             print()
 
     phases_to_show = []
+
+    if track_filter and track_filter.isdigit():
+        resolved_track_id = resolve_track_identifier(track_filter)
+        if not resolved_track_id:
+            print(f"Error: Track '{track_filter}' not found.")
+            return 1
+        track_filter = resolved_track_id
 
     if track_filter:
         # Find the specific track
@@ -189,10 +197,25 @@ def show_phase(phase_id: str, args):
         for i, task in enumerate(tasks, 1):
             task_id = task.get('task_id', task.get('task_number', 'N/A'))
             task_name = task.get('name', 'Unnamed')
-            task_priority = task.get('priority', 'N/A')
-            task_hours = task.get('estimated_hours', '?')
-            print(f"  {i}. [{task_id}] {task_name}")
-            print(f"      Priority: {task_priority}, Estimated: {task_hours}h")
+            task_status = task.get('status', 'todo')
+            task_completed = task.get('completed', False)
+
+            # Determine emoji based on status
+            status_emoji = "✅" if task_completed else "⬜"
+
+            print(f"  {status_emoji} [{task_id}] {task_name}")
+
+            # Print description if available
+            task_description = task.get('description', [])
+            if task_description:
+                for desc_line in task_description:
+                    if desc_line.strip() and not desc_line.startswith('- [') and not desc_line.startswith('  - '):
+                        # Clean up the description line
+                        cleaned_desc = desc_line.replace(f"**{task_id}**", "").strip()
+                        if cleaned_desc.startswith('-'):
+                            cleaned_desc = cleaned_desc[1:].strip()
+                        if cleaned_desc:
+                            print(f"      - {cleaned_desc}")
         print()
 
     # Link to detailed file
@@ -333,44 +356,60 @@ def handle_phase_command(args):
     Routes to appropriate subcommand handler.
     """
     # Handle 'maestro phase list [track_id]'
-    if hasattr(args, 'phase_subcommand'):
-        if args.phase_subcommand == 'list' or args.phase_subcommand == 'ls':
+    if hasattr(args, 'phase_subcommand') and args.phase_subcommand:
+        subcommand = args.phase_subcommand
+
+        # For 'show' subcommand, handle the phase_id argument
+        if subcommand in ['show', 'sh']:
+            if hasattr(args, 'phase_id') and args.phase_id:
+                phase_id = args.phase_id
+                # Check if there's a phase-specific subcommand
+                item_subcommand = getattr(args, 'phase_item_subcommand', None)
+                if item_subcommand in ['help', 'h']:
+                    print_phase_item_help()
+                    return 0
+                return show_phase(phase_id, args)
+
+        # Handle other subcommands
+        if subcommand in ['list', 'ls', 'l']:
             return list_phases(args)
-        elif args.phase_subcommand == 'add':
+        elif subcommand in ['add', 'a']:
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Phase name required. Usage: maestro phase add <name>")
                 return 1
             return add_phase(args.name, args)
-        elif args.phase_subcommand == 'remove' or args.phase_subcommand == 'rm':
+        elif subcommand in ['remove', 'rm', 'r']:
             if not hasattr(args, 'phase_id') or not args.phase_id:
                 print("Error: Phase ID required. Usage: maestro phase remove <id>")
                 return 1
             return remove_phase(args.phase_id, args)
-        elif args.phase_subcommand == 'help' or args.phase_subcommand == 'h':
+        elif subcommand in ['edit', 'e']:
+            if not hasattr(args, 'phase_id') or not args.phase_id:
+                print("Error: Phase ID required. Usage: maestro phase edit <id>")
+                return 1
+            return edit_phase(args.phase_id, args)
+        elif subcommand in ['discuss', 'd']:
+            if not hasattr(args, 'phase_id') or not args.phase_id:
+                print("Error: Phase ID required. Usage: maestro phase discuss <id>")
+                return 1
+            from .discuss import handle_phase_discuss
+            return handle_phase_discuss(args.phase_id, args)
+        elif subcommand in ['set', 'st']:
+            if not hasattr(args, 'phase_id') or not args.phase_id:
+                print("Error: Phase ID required. Usage: maestro phase set <id>")
+                return 1
+            return set_phase_context(args.phase_id, args)
+        elif subcommand in ['help', 'h']:
             print_phase_help()
             return 0
 
-    # Handle 'maestro phase <id>' or 'maestro phase <id> <subcommand>'
-    if hasattr(args, 'phase_id') and args.phase_id:
-        phase_id = args.phase_id
-
-        # Check if there's a phase-specific subcommand
-        subcommand = getattr(args, 'phase_item_subcommand', None)
-        if subcommand:
-            if subcommand == 'show':
-                return show_phase(phase_id, args)
-            elif subcommand == 'edit':
-                return edit_phase(phase_id, args)
-            elif subcommand == 'discuss':
-                from .discuss import handle_phase_discuss
-                return handle_phase_discuss(phase_id, args)
-            elif subcommand == 'set':
-                return set_phase_context(phase_id, args)
-            elif subcommand == 'help' or subcommand == 'h':
-                print_phase_item_help()
-                return 0
-        # Default to 'show' if no subcommand
-        return show_phase(phase_id, args)
+    # Handle 'maestro phase <id>' or 'maestro phase <id> <subcommand>' (for backward compatibility)
+    # This is for when no phase_subcommand is set but we have a positional phase_id arg
+    # But we had to modify this logic to work with our new parser approach
+    if hasattr(args, 'phase_subcommand') and args.phase_subcommand is None:
+        # If no subcommand but we have phase_id, default to show
+        if hasattr(args, 'phase_id') and args.phase_id:
+            return show_phase(args.phase_id, args)
 
     # No subcommand - show help or list based on context
     # Check if we have a current phase set
@@ -380,8 +419,9 @@ def handle_phase_command(args):
         current_track = config.get('current_track')
         if current_track:
             # List phases in current track
-            args.track_id = current_track
-            return list_phases(args)
+            from types import SimpleNamespace
+            list_args = SimpleNamespace(track_id=current_track)
+            return list_phases(list_args)
 
     print_phase_help()
     return 0
@@ -455,6 +495,28 @@ def add_phase_parser(subparsers):
     Args:
         subparsers: The subparsers object from argparse
     """
+    # Main phase command - use parse_known_args workaround for flexible syntax
+    import sys
+
+    # Check if we need to inject 'show' subcommand for backwards compatibility
+    # This handles: maestro phase <id> [show|edit|discuss|set]
+    # By transforming to: maestro phase show <id> [subcommand]
+    if len(sys.argv) >= 3 and sys.argv[1] in ['phase', 'ph']:
+        arg = sys.argv[2]
+        # If arg is not a known subcommand, treat it as phase_id and inject 'show'
+        known_subcommands = ['list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'help', 'h', 'show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st']
+        if arg not in known_subcommands:
+            # Check if there's a third argument that's a subcommand
+            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st']:
+                # maestro phase <id> <subcommand> - already has subcommand, just move id after 'show'
+                subcommand = sys.argv[3]
+                phase_id = sys.argv[2]
+                sys.argv[2] = subcommand
+                sys.argv[3] = phase_id
+            else:
+                # maestro phase <id> - inject 'show'
+                sys.argv.insert(2, 'show')
+
     # Main phase command
     phase_parser = subparsers.add_parser(
         'phase',
@@ -503,17 +565,45 @@ def add_phase_parser(subparsers):
         help='Show help for phase commands'
     )
 
-    # Add phase_id argument for 'maestro phase <id>' commands
-    phase_parser.add_argument(
-        'phase_id',
-        nargs='?',
-        help='Phase ID (for show/edit commands)'
+    # maestro phase show <id>
+    phase_show_parser = phase_subparsers.add_parser(
+        'show',
+        aliases=['sh'],
+        help='Show phase details'
     )
-    phase_parser.add_argument(
+    phase_show_parser.add_argument('phase_id', help='Phase ID to show')
+    phase_show_parser.add_argument(
         'phase_item_subcommand',
         nargs='?',
-        help='Phase item subcommand (show/edit/discuss)'
+        choices=['help', 'h'],
+        help='Show help for phase item'
     )
+
+    # maestro phase edit <id>
+    phase_edit_parser = phase_subparsers.add_parser(
+        'edit',
+        aliases=['e'],
+        help='Edit phase in $EDITOR'
+    )
+    phase_edit_parser.add_argument('phase_id', help='Phase ID to edit')
+
+    # maestro phase discuss <id>
+    phase_discuss_parser = phase_subparsers.add_parser(
+        'discuss',
+        aliases=['d'],
+        help='Discuss phase with AI'
+    )
+    phase_discuss_parser.add_argument('phase_id', help='Phase ID to discuss')
+
+    # maestro phase set <id>
+    phase_set_parser = phase_subparsers.add_parser(
+        'set',
+        aliases=['st'],
+        help='Set current phase context'
+    )
+    phase_set_parser.add_argument('phase_id', help='Phase ID to set as current')
+
+    # Add optional arguments to main parser
     phase_parser.add_argument(
         '--mode',
         choices=['editor', 'terminal'],

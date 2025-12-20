@@ -1164,6 +1164,11 @@ def print_tool_usage(text, indent=0):
 class StyledArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser that provides styled help output."""
 
+    def __init__(self, *args, show_banner=False, **kwargs):
+        """Initialize with optional banner flag."""
+        super().__init__(*args, **kwargs)
+        self.show_banner = show_banner
+
     def format_help(self):
         """Override format_help to return styled output."""
         # Get the original help text
@@ -1195,27 +1200,28 @@ class StyledArgumentParser(argparse.ArgumentParser):
 
     def print_help(self, file=None):
         """Override print_help to use our styled formatter."""
-        # Import pyfiglet to generate ASCII art for "MAESTRO"
-        import pyfiglet
+        # Only show banner for main parser
+        if self.show_banner:
+            # Import pyfiglet to generate ASCII art for "MAESTRO"
+            import pyfiglet
 
-        # Generate ASCII art for "MAESTRO" using the letters font
-        ascii_art = pyfiglet.figlet_format("MAESTRO", font="letters")
+            # Generate ASCII art for "MAESTRO" using the letters font
+            ascii_art = pyfiglet.figlet_format("MAESTRO", font="letters")
 
-        # Print the ASCII art with cyan color
-        for line in ascii_art.split('\n'):
-            if line.strip():  # Only print non-empty lines
-                styled_print(line, Colors.BRIGHT_CYAN, Colors.BOLD, 0)
+            # Print the ASCII art with cyan color
+            for line in ascii_art.split('\n'):
+                if line.strip():  # Only print non-empty lines
+                    styled_print(line, Colors.BRIGHT_CYAN, Colors.BOLD, 0)
 
-        # Print additional header information
-        styled_print("  AI TASK ORCHESTRATOR  ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
-        styled_print(f"  v{__version__}  ", Colors.BRIGHT_MAGENTA, Colors.BOLD, 0)
-        print()
+            print()
 
         # Print the styled help using our functions
         original_help = super().format_help()
         lines = original_help.split('\n')
 
-        print_subheader("COMMAND OPTIONS")
+        if self.show_banner:
+            print_subheader("COMMAND OPTIONS")
+
         for line in lines:
             if not line.strip():
                 continue
@@ -1233,11 +1239,12 @@ class StyledArgumentParser(argparse.ArgumentParser):
             else:
                 styled_print(line, Colors.BRIGHT_GREEN, None, 0)
 
-        # Add a footer with version information
-        print()
-        styled_print(f" maestro v{__version__} - AI Task Orchestrator ", Colors.BRIGHT_MAGENTA, Colors.UNDERLINE, 0)
-        styled_print(" Conductor of AI symphonies 🎼 ", Colors.BRIGHT_RED, Colors.BOLD, 0)
-        styled_print(" Copyright 2025 Seppo Pakonen ", Colors.BRIGHT_YELLOW, Colors.BOLD, 0)
+        # Add a footer with version information only for main parser
+        if self.show_banner:
+            print()
+            styled_print(f" maestro v{__version__} ", Colors.BRIGHT_MAGENTA, None, 0)
+            styled_print(" Conductor of AI symphonies 🎼 ", Colors.BRIGHT_RED, Colors.BOLD, 0)
+            styled_print(" Copyright 2025 Seppo Pakonen ", Colors.BRIGHT_YELLOW, Colors.BOLD, 0)
 
 
 def check_git_hygiene():
@@ -3736,7 +3743,8 @@ def main():
                     "Short aliases are available for all commands and subcommands.\n"
                     "Examples: 'maestro b p' (build plan), 'maestro s l' (session list),\n"
                     "          'maestro p tr' (plan tree), 'maestro t l' (track list)",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
+        show_banner=True
     )
     parser.add_argument('--version', action='version',
                        version=f'maestro {__version__}',

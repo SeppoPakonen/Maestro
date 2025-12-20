@@ -537,9 +537,81 @@ def parse_phase(lines: List[str], start_idx: int) -> Tuple[Dict, int]:
             idx += 1
             continue
 
-        # Collect description text
-        if line and not line.startswith('#'):
+        # Parse checkbox tasks (sub-tasks)
+        checkbox_result = parse_checkbox(line)
+        if checkbox_result:
+            indent_level, is_checked, content = checkbox_result
+
+            # Check if this is a main task with format like: **WS1.1: Session Data Model** ✅
+            import re
+            task_match = re.search(r'\*\*([^*]+?)\*\*', content)
+            if task_match:
+                task_content = task_match.group(1).strip()
+
+                # Extract task_id and name from format "WS1.1: Session Data Model"
+                if ':' in task_content:
+                    # Extract task_id (like "WS1.1") and task_name
+                    parts = task_content.split(':', 1)
+                    if len(parts) >= 2:
+                        task_id = parts[0].strip()
+                        task_name = parts[1].strip()
+
+                        # Create task dict
+                        task = {
+                            'task_id': task_id,
+                            'name': task_name,
+                            'status': 'done' if is_checked else 'todo',
+                            'completed': is_checked,
+                            'description': []
+                        }
+
+                        # Look for additional description lines for this task
+                        next_idx = idx + 1
+                        while next_idx < len(lines):
+                            next_line = lines[next_idx].strip()
+
+                            # Check if next line is another task or phase heading
+                            next_checkbox_result = parse_checkbox(next_line)
+                            next_phase_heading = parse_phase_heading(next_line)
+                            next_track_heading = parse_track_heading(next_line)
+                            next_main_heading = parse_heading(next_line)
+
+                            # If next line is another task or heading, stop collecting description
+                            if (next_checkbox_result and
+                                re.search(r'\*\*([^*]+?)\*\*', next_line)) or \
+                               next_phase_heading or next_track_heading or \
+                               (next_main_heading and next_main_heading[0] == 2):
+                                break
+
+                            # If it's a sub-task (indented) or continuation, add to description
+                            if next_line.startswith('  - ') or next_line.startswith('- ') or next_line:
+                                # Check if it's a new main task
+                                next_checkbox = parse_checkbox(next_line)
+                                if next_checkbox:
+                                    next_task_match = re.search(r'\*\*([^*]+?)\*\*', next_line)
+                                    if not next_task_match:  # This is not a main task
+                                        # Add as description
+                                        task['description'].append(next_line)
+                                    else:  # This is a new main task
+                                        break
+                                else:
+                                    # Add as description
+                                    task['description'].append(next_line)
+                                next_idx += 1
+                            else:
+                                break
+
+                        phase['tasks'].append(task)
+                        # Skip the lines we processed as description
+                        idx = next_idx
+                        continue
+
+            # If it's not a main task format, just add to description
             phase['description'].append(line)
+        else:
+            # Collect non-checkbox lines as description
+            if line and not line.startswith('#'):
+                phase['description'].append(line)
 
         idx += 1
 
