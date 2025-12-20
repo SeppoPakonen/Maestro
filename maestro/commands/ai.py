@@ -52,6 +52,8 @@ def add_ai_parser(subparsers):
 def handle_ai_sync(args) -> int:
     if getattr(args, "watch", False):
         return _watch_ai_sync(args)
+    if getattr(args, "once", False):
+        print("Warning: --once has no effect without --watch.")
 
     session = _resolve_session(args)
     if not session:
