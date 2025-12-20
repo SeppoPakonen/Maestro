@@ -1018,13 +1018,40 @@ async def handle_work_analyze(args):
 
         # Run AI analysis with breadcrumbs or simulate
         if simulate:
-            print(f"\n[SIMULATE] Would send AI prompt:")
-            print("-" * 60)
-            print(prompt[:500] + "..." if len(prompt) > 500 else prompt)
-            print("-" * 60)
-            print(f"\n[SIMULATE] Would create breadcrumb with AI response")
-            print(f"[SIMULATE] Would complete analysis session")
-            print("\n" + "=" * 60)
+            # In simulation mode, we still call AI but with special instructions
+            simulation_prompt = f"""
+SIMULATION MODE - DO NOT EXECUTE ANY CHANGES
+
+You are in simulation mode. Your task is to analyze what you would do for this request,
+but DO NOT actually execute any changes, write any files, or perform any actions.
+
+Original request:
+{prompt}
+
+Respond with:
+1. One short line (max 100 chars) summarizing what you would do
+2. A brief bullet list (3-5 items) of the main steps you would take
+
+Example response:
+"Would analyze repository health and identify top 3 priority items"
+- Check git status and recent commits
+- Scan docs/todo.md for pending phases
+- Evaluate issue complexity and dependencies
+- Recommend next actionable item
+- Estimate time/effort required
+
+Your response:"""
+
+            # Call AI with simulation prompt (no breadcrumbs in simulation)
+            engine = get_engine("claude_planner")
+            response = engine.generate(simulation_prompt)
+
+            print("\n[SIMULATION] AI Work Plan:")
+            print("="*60)
+            print(response)
+            print("="*60)
+            print("\n[SIMULATE] No session created, no breadcrumbs written")
+            print("=" * 60)
             print("SIMULATION COMPLETE - No actual work performed")
             print("=" * 60)
         else:
@@ -1147,18 +1174,33 @@ async def handle_work_fix(args):
                 print(f"Analysis: {analyze_response[:200]}...")
                 complete_session(analyze_session)
             else:
-                print(f"  [SIMULATE] Would send AI prompt for root cause analysis")
-                print(f"  [SIMULATE] Would receive analysis response")
-                analyze_response = "SIMULATED_ANALYSIS_RESPONSE"
+                # In simulation, call AI with special instructions
+                sim_prompt = f"""
+SIMULATION MODE - DO NOT EXECUTE ANY CHANGES
+
+You are analyzing an issue in simulation mode. Provide a brief analysis plan (1 line + 3-5 bullets)
+without actually making any changes.
+
+Original analysis request:
+{analyze_prompt[:500]}...
+
+Your analysis plan:"""
+                engine = get_engine("claude_planner")
+                analyze_response = engine.generate(sim_prompt)
+                print(f"  [SIMULATE] AI Analysis Plan:")
+                print(f"  {analyze_response[:200]}...")
+                print(f"  [SIMULATE] (Phase 1 complete - no session created)")
 
             # Phase 2: Decide on Fix Approach
-            print("\nPhase 2: Deciding on fix approach...")
-            decide_session = create_session(
-                session_type="decide_fix",
-                parent_session_id=session.session_id,
-                related_entity={"issue_id": issue_id, "target": target},
-                metadata={"phase": "decide"}
-            )
+            print(f"\n{'[SIMULATE] ' if simulate else ''}Phase 2: {'Would decide on' if simulate else 'Deciding on'} fix approach...")
+
+            if not simulate:
+                decide_session = create_session(
+                    session_type="decide_fix",
+                    parent_session_id=session.session_id,
+                    related_entity={"issue_id": issue_id, "target": target},
+                    metadata={"phase": "decide"}
+                )
 
             decide_prompt = f"""
             Based on the analysis:
@@ -1168,18 +1210,28 @@ async def handle_work_fix(args):
             Consider different solutions, their pros and cons, and recommend the best approach.
             """
 
-            decide_response = _run_ai_interaction_with_breadcrumb(decide_session, decide_prompt)
-            print(f"Approach: {decide_response[:200]}...")
-            complete_session(decide_session)
+            if not simulate:
+                decide_response = _run_ai_interaction_with_breadcrumb(decide_session, decide_prompt)
+                print(f"Approach: {decide_response[:200]}...")
+                complete_session(decide_session)
+            else:
+                sim_prompt = f"SIMULATION MODE - Provide brief decision plan (1 line + 3 bullets) for: {decide_prompt[:300]}..."
+                engine = get_engine("claude_planner")
+                decide_response = engine.generate(sim_prompt)
+                print(f"  [SIMULATE] AI Decision Plan:")
+                print(f"  {decide_response[:200]}...")
+                print(f"  [SIMULATE] (Phase 2 complete - no session created)")
 
             # Phase 3: Implement Fix
-            print("\nPhase 3: Implementing the fix...")
-            fix_session = create_session(
-                session_type="fix_issue",
-                parent_session_id=session.session_id,
-                related_entity={"issue_id": issue_id, "target": target},
-                metadata={"phase": "implement"}
-            )
+            print(f"\n{'[SIMULATE] ' if simulate else ''}Phase 3: {'Would implement' if simulate else 'Implementing'} the fix...")
+
+            if not simulate:
+                fix_session = create_session(
+                    session_type="fix_issue",
+                    parent_session_id=session.session_id,
+                    related_entity={"issue_id": issue_id, "target": target},
+                    metadata={"phase": "implement"}
+                )
 
             fix_prompt = f"""
             Implement the fix for issue '{issue_id}' as decided:
@@ -1191,18 +1243,28 @@ async def handle_work_fix(args):
             If the target is a directory, explain what needs to be modified.
             """
 
-            fix_response = _run_ai_interaction_with_breadcrumb(fix_session, fix_prompt)
-            print(f"Fix implemented: {fix_response[:200]}...")
-            complete_session(fix_session)
+            if not simulate:
+                fix_response = _run_ai_interaction_with_breadcrumb(fix_session, fix_prompt)
+                print(f"Fix implemented: {fix_response[:200]}...")
+                complete_session(fix_session)
+            else:
+                sim_prompt = f"SIMULATION MODE - Provide brief implementation plan (1 line + 3 bullets) for: {fix_prompt[:300]}..."
+                engine = get_engine("claude_planner")
+                fix_response = engine.generate(sim_prompt)
+                print(f"  [SIMULATE] AI Implementation Plan:")
+                print(f"  {fix_response[:200]}...")
+                print(f"  [SIMULATE] (Phase 3 complete - no session created)")
 
             # Phase 4: Verify Fix
-            print("\nPhase 4: Verifying the fix...")
-            verify_session = create_session(
-                session_type="verify_fix",
-                parent_session_id=session.session_id,
-                related_entity={"issue_id": issue_id, "target": target},
-                metadata={"phase": "verify"}
-            )
+            print(f"\n{'[SIMULATE] ' if simulate else ''}Phase 4: {'Would verify' if simulate else 'Verifying'} the fix...")
+
+            if not simulate:
+                verify_session = create_session(
+                    session_type="verify_fix",
+                    parent_session_id=session.session_id,
+                    related_entity={"issue_id": issue_id, "target": target},
+                    metadata={"phase": "verify"}
+                )
 
             verify_prompt = f"""
             Verify the fix implemented for issue '{issue_id}':
@@ -1212,9 +1274,17 @@ async def handle_work_fix(args):
             Are there any potential side effects of the changes?
             """
 
-            verify_response = _run_ai_interaction_with_breadcrumb(verify_session, verify_prompt)
-            print(f"Verification: {verify_response[:200]}...")
-            complete_session(verify_session)
+            if not simulate:
+                verify_response = _run_ai_interaction_with_breadcrumb(verify_session, verify_prompt)
+                print(f"Verification: {verify_response[:200]}...")
+                complete_session(verify_session)
+            else:
+                sim_prompt = f"SIMULATION MODE - Provide brief verification plan (1 line + 3 bullets) for: {verify_prompt[:300]}..."
+                engine = get_engine("claude_planner")
+                verify_response = engine.generate(sim_prompt)
+                print(f"  [SIMULATE] AI Verification Plan:")
+                print(f"  {verify_response[:200]}...")
+                print(f"  [SIMULATE] (Phase 4 complete - no session created)")
 
             if simulate:
                 print(f"\n[SIMULATE] 4-phase workflow simulation complete")
