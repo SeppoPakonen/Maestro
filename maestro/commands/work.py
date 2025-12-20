@@ -13,7 +13,9 @@ from ..work_session import (
     WorkSession,
     create_session,
     is_breadcrumb_enabled,
-    load_breadcrumb_settings
+    load_breadcrumb_settings,
+    complete_session,
+    save_session
 )
 from ..breadcrumb import (
     create_breadcrumb,
@@ -862,3 +864,350 @@ def handle_work_discuss(args):
     else:
         print(f"Unsupported entity type: {args.entity_type}")
         return 1
+
+
+async def handle_work_analyze(args):
+    """
+    Analyze the current state or a specific target.
+
+    If target is provided:
+      - Analyze the specified target (file, directory, phase, track, or issue)
+      - Create a work session with type='analyze'
+      - Use AI to analyze the target and provide insights
+      - Write breadcrumbs during the analysis
+      - Report findings
+
+    If target is not provided:
+      - Analyze the current repository state
+      - Show overall health, pending tasks, blocking issues
+      - Provide actionable recommendations
+
+    Args:
+        args: Arguments with optional target
+    """
+    print("Starting analysis...")
+
+    # Create WorkSession for the analysis
+    session = create_session(
+        session_type="analyze",
+        related_entity={"target": getattr(args, 'target', None)}
+    )
+
+    try:
+        if args.target:
+            # Analyze specific target
+            target = args.target
+
+            # Check if target is a file or directory
+            if os.path.exists(target):
+                if os.path.isfile(target):
+                    print(f"Analyzing file: {target}")
+                    # Read file content
+                    with open(target, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    prompt = f"Analyze the following file content:\n\n{content[:4000]}...\n\nProvide insights about this file."
+                elif os.path.isdir(target):
+                    print(f"Analyzing directory: {target}")
+                    # List directory contents
+                    contents = os.listdir(target)
+                    prompt = f"Analyze the directory '{target}' containing {len(contents)} items: {', '.join(contents[:20])}.\n\nWhat can you infer about this directory and its purpose?"
+                else:
+                    # Handle unknown target type
+                    prompt = f"Analyze the target '{target}'. What can you tell me about this?"
+            else:
+                # Check if target might be a track, phase, or issue ID
+                work_items = load_available_work()
+
+                # Search in tracks
+                matching_track = next((t for t in work_items["tracks"] if t["id"] == target), None)
+                if matching_track:
+                    print(f"Analyzing track: {target}")
+                    prompt = f"Analyze the track '{target}' with name '{matching_track['name']}' and status '{matching_track['status']}'.\n\nWhat are the characteristics of this track, and what should we consider when working on it?"
+                else:
+                    # Search in phases
+                    matching_phase = next((p for p in work_items["phases"] if p["id"] == target), None)
+                    if matching_phase:
+                        print(f"Analyzing phase: {target}")
+                        prompt = f"Analyze the phase '{target}' with name '{matching_phase['name']}', track '{matching_phase['track']}', and status '{matching_phase['status']}'.\n\nWhat are the characteristics of this phase, and what should we consider when working on it?"
+                    else:
+                        # Search in issues
+                        matching_issue = next((i for i in work_items["issues"] if i["id"] == target), None)
+                        if matching_issue:
+                            print(f"Analyzing issue: {target}")
+                            prompt = f"Analyze the issue '{target}' with title '{matching_issue['title']}' and status '{matching_issue['status']}'.\n\nWhat can you tell me about this issue, its complexity, and how to approach resolving it?"
+                        else:
+                            # Target not found, treat as generic analysis
+                            print(f"Target '{target}' not found. Performing general analysis.")
+                            prompt = f"Perform a general analysis of target '{target}'. Provide any insights you can."
+        else:
+            # Analyze current repository state
+            print("Analyzing current repository state...")
+
+            # Get available work items
+            work_items = load_available_work()
+
+            # Count items
+            num_tracks = len(work_items["tracks"])
+            num_phases = len(work_items["phases"])
+            num_issues = len(work_items["issues"])
+
+            # Check for recent changes
+            recent_changes = []
+            git_exists = os.path.exists('.git')
+            if git_exists:
+                try:
+                    import subprocess
+                    # Get recent commits
+                    result = subprocess.run(['git', 'log', '--oneline', '-10'], capture_output=True, text=True, cwd='.')
+                    if result.returncode == 0:
+                        recent_changes = result.stdout.split('\n')[:10]
+                except Exception:
+                    pass  # Git command failed, skip recent changes
+
+            prompt = f"""
+            Perform a comprehensive analysis of the current repository state:
+
+            - Available tracks: {num_tracks}
+            - Available phases: {num_phases}
+            - Open issues: {num_issues}
+            - Git repository: {'Yes' if git_exists else 'No'}
+            - Recent changes: {recent_changes[:5]}
+
+            Provide insights about:
+            1. Overall repository health
+            2. Priority items that should be worked on
+            3. Blocking issues or dependencies
+            4. Recommendations for next steps
+            5. Any potential problems or risks
+            """
+
+        # Run AI analysis with breadcrumbs
+        response = _run_ai_interaction_with_breadcrumb(session, prompt)
+
+        print("\nAnalysis Results:")
+        print("="*50)
+        print(response)
+        print("="*50)
+
+        # Complete the session
+        complete_session(session)
+        print(f"\nAnalysis completed. Session ID: {session.session_id}")
+
+    except ImportError as e:
+        print(f"Error importing required modules: {e}")
+        # Create a simple AI interaction for now
+        prompt = f"Analyze the target '{getattr(args, 'target', 'current repository')}'. Provide insights."
+        response = _run_ai_interaction_with_breadcrumb(session, prompt)
+        print(f"AI response: {response}")
+        complete_session(session)
+    except Exception as e:
+        print(f"Error during analysis: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # Update session status in case of error
+        session.status = "failed"
+        session.metadata["error"] = str(e)
+        save_session(session, Path(session.breadcrumbs_dir).parent / "session.json")
+
+
+async def handle_work_fix(args):
+    """
+    Fix an issue or resolve a problem with a target.
+
+    If --issue is provided:
+      - Follow the 4-phase workflow for issues (analyze → decide → fix → verify)
+      - Create sub-sessions for each phase
+      - Link sessions in parent-child relationship
+
+    If only target is provided without --issue:
+      - Attempt to fix the specified target directly
+      - Use AI to understand the problem and generate a fix
+      - Write breadcrumbs throughout
+      - Report success or failure
+
+    Args:
+        args: Arguments with target and optional issue parameter
+    """
+    print("Starting fix operation...")
+
+    # Create the main fix session
+    session = create_session(
+        session_type="fix",
+        metadata={"target": args.target, "issue_id": getattr(args, 'issue', None)}
+    )
+
+    try:
+        # Check if an issue ID is provided
+        if hasattr(args, 'issue') and args.issue:
+            # 4-phase workflow for issue fixing
+            issue_id = args.issue
+            target = args.target
+
+            print(f"Starting 4-phase workflow to fix issue {issue_id} related to target '{target}'")
+
+            # Phase 1: Analyze Issue
+            print("\nPhase 1: Analyzing the issue...")
+            analyze_session = create_session(
+                session_type="analyze_issue",
+                parent_session_id=session.session_id,
+                related_entity={"issue_id": issue_id, "target": target},
+                metadata={"phase": "analyze"}
+            )
+
+            # Load issue details
+            work_items = load_available_work()
+            issue_details = next((i for i in work_items["issues"] if i["id"] == issue_id), None)
+
+            if issue_details:
+                analyze_prompt = f"""
+                Analyze the issue '{issue_id}' with title '{issue_details['title']}'.
+                Issue description:
+                {issue_details['description'][:2000]}
+
+                The target of the fix is '{target}'.
+                What is the root cause of this issue? What needs to be fixed?
+                """
+            else:
+                analyze_prompt = f"Analyze the issue '{issue_id}' related to target '{target}'. What is the root cause and what needs to be fixed?"
+
+            analyze_response = _run_ai_interaction_with_breadcrumb(analyze_session, analyze_prompt)
+            print(f"Analysis: {analyze_response[:200]}...")
+            complete_session(analyze_session)
+
+            # Phase 2: Decide on Fix Approach
+            print("\nPhase 2: Deciding on fix approach...")
+            decide_session = create_session(
+                session_type="decide_fix",
+                parent_session_id=session.session_id,
+                related_entity={"issue_id": issue_id, "target": target},
+                metadata={"phase": "decide"}
+            )
+
+            decide_prompt = f"""
+            Based on the analysis:
+            {analyze_response[:2000]}
+
+            What is the best approach to fix the issue '{issue_id}' related to target '{target}'?
+            Consider different solutions, their pros and cons, and recommend the best approach.
+            """
+
+            decide_response = _run_ai_interaction_with_breadcrumb(decide_session, decide_prompt)
+            print(f"Approach: {decide_response[:200]}...")
+            complete_session(decide_session)
+
+            # Phase 3: Implement Fix
+            print("\nPhase 3: Implementing the fix...")
+            fix_session = create_session(
+                session_type="fix_issue",
+                parent_session_id=session.session_id,
+                related_entity={"issue_id": issue_id, "target": target},
+                metadata={"phase": "implement"}
+            )
+
+            fix_prompt = f"""
+            Implement the fix for issue '{issue_id}' as decided:
+            {decide_response[:2000]}
+
+            The target to fix is '{target}'.
+            Generate the specific code/files/changes needed to fix the issue.
+            If the target is a file, show the exact changes needed.
+            If the target is a directory, explain what needs to be modified.
+            """
+
+            fix_response = _run_ai_interaction_with_breadcrumb(fix_session, fix_prompt)
+            print(f"Fix implemented: {fix_response[:200]}...")
+            complete_session(fix_session)
+
+            # Phase 4: Verify Fix
+            print("\nPhase 4: Verifying the fix...")
+            verify_session = create_session(
+                session_type="verify_fix",
+                parent_session_id=session.session_id,
+                related_entity={"issue_id": issue_id, "target": target},
+                metadata={"phase": "verify"}
+            )
+
+            verify_prompt = f"""
+            Verify the fix implemented for issue '{issue_id}':
+            {fix_response[:3000]}
+
+            Is the issue properly resolved? What tests should be run to confirm?
+            Are there any potential side effects of the changes?
+            """
+
+            verify_response = _run_ai_interaction_with_breadcrumb(verify_session, verify_prompt)
+            print(f"Verification: {verify_response[:200]}...")
+            complete_session(verify_session)
+
+            print(f"\n4-phase fix workflow completed for issue {issue_id}")
+            print(f"Main session: {session.session_id}")
+            print(f"Sub-sessions: {analyze_session.session_id}, {decide_session.session_id}, {fix_session.session_id}, {verify_session.session_id}")
+        else:
+            # Direct fix without issue reference
+            target = args.target
+            print(f"Attempting to fix target: {target}")
+
+            # Check if target is a file or directory
+            if os.path.exists(target):
+                if os.path.isfile(target):
+                    print(f"Fixing file: {target}")
+                    # Read file content
+                    with open(target, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    fix_prompt = f"""
+                    The file '{target}' needs to be fixed. Examine the content below and identify any issues or areas for improvement.
+
+                    File content:
+                    {content[:3000]}
+
+                    What should be fixed in this file? Suggest specific changes.
+                    """
+                elif os.path.isdir(target):
+                    print(f"Addressing issues in directory: {target}")
+                    # List directory contents
+                    contents = os.listdir(target)
+                    fix_prompt = f"""
+                    The directory '{target}' needs attention. It contains the following items:
+                    {', '.join(contents[:20])}
+
+                    What issues might exist in this directory? How should they be addressed?
+                    """
+                else:
+                    # Handle unknown target type
+                    fix_prompt = f"The target '{target}' needs to be fixed. What approach should be taken?"
+            else:
+                # Target not found, treat as general fix request
+                print(f"Target '{target}' not found. Attempting general fix.")
+                fix_prompt = f"Attempt to address any potential issues with the target '{target}'. What should be fixed?"
+
+            # Run AI fix with breadcrumbs
+            fix_response = _run_ai_interaction_with_breadcrumb(session, fix_prompt)
+
+            print("\nFix Results:")
+            print("="*50)
+            print(fix_response)
+            print("="*50)
+
+        # Complete the main session
+        complete_session(session)
+        print(f"\nFix operation completed. Main session ID: {session.session_id}")
+
+    except ImportError as e:
+        print(f"Error importing required modules: {e}")
+        # Create a simple AI interaction for now
+        prompt = f"Fix the target '{getattr(args, 'target', 'unknown')}'. Issue ID: {getattr(args, 'issue', 'None')}"
+        response = _run_ai_interaction_with_breadcrumb(session, prompt)
+        print(f"AI response: {response}")
+        complete_session(session)
+    except Exception as e:
+        print(f"Error during fix operation: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # Update session status in case of error
+        session.status = "failed"
+        session.metadata["error"] = str(e)
+        save_session(session, Path(session.breadcrumbs_dir).parent / "session.json")

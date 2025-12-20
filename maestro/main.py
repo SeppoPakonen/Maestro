@@ -6417,9 +6417,11 @@ def main():
         elif args.work_subcommand == 'discuss' or args.work_subcommand == 'd':
             handle_work_discuss(args)
         elif args.work_subcommand == 'analyze' or args.work_subcommand == 'a':
-            handle_work_analyze(args)
+            import asyncio
+            asyncio.run(handle_work_analyze(args))
         elif args.work_subcommand == 'fix' or args.work_subcommand == 'f':
-            handle_work_fix(args)
+            import asyncio
+            asyncio.run(handle_work_fix(args))
         elif args.work_subcommand == 'any':
             import asyncio
             if args.pick:  # Check if pick argument is provided
