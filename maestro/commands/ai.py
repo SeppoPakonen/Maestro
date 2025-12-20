@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import sys
 import time
 from typing import Any, Dict, Optional
 
@@ -101,7 +102,8 @@ def handle_ai_sync(args) -> int:
     session.metadata["current_task_id"] = next_task_id
     session.metadata["last_sync"] = datetime.now().isoformat()
     save_session(session, session_path)
-    write_sync_state(session, task_queue, next_task_id)
+    if not getattr(args, "no_write", False):
+        write_sync_state(session, task_queue, next_task_id)
 
     _write_sync_breadcrumb(session, prompt)
 
@@ -197,24 +199,35 @@ def _write_sync_breadcrumb(session: WorkSession, prompt: str) -> None:
 
 def _watch_ai_sync(args) -> int:
     sync_path = Path("docs/ai_sync.json")
-    last_mtime = None
+    last_signature = None
     if sync_path.exists():
-        last_mtime = sync_path.stat().st_mtime
+        last_signature = _read_sync_signature(sync_path)
 
     if getattr(args, "verbose", False):
-        print("Watching docs/ai_sync.json for changes. Press Ctrl+C to stop.")
+        print(
+            f"Watching {sync_path.resolve()} for changes (cwd {Path.cwd()}). Press Ctrl+C to stop.",
+            flush=True,
+        )
 
     try:
         while True:
             if sync_path.exists():
-                mtime = sync_path.stat().st_mtime
-                if last_mtime is None or mtime > last_mtime:
-                    last_mtime = mtime
+                signature = _read_sync_signature(sync_path)
+                if signature != last_signature:
+                    if getattr(args, "verbose", False):
+                        print("Detected ai_sync.json update.", flush=True)
                     handle_ai_sync(_clone_args_without_watch(args))
+                    try:
+                        sys.stdout.flush()
+                        sys.stderr.flush()
+                    except Exception:
+                        pass
+                    if sync_path.exists():
+                        last_signature = _read_sync_signature(sync_path)
             time.sleep(max(getattr(args, "poll_interval", 1.0), 0.1))
     except KeyboardInterrupt:
         if getattr(args, "verbose", False):
-            print("Stopped watching.")
+            print("Stopped watching.", flush=True)
         return 0
 
 
@@ -226,4 +239,12 @@ def _clone_args_without_watch(args):
         if key in ("watch", "poll_interval"):
             continue
         setattr(cloned, key, value)
+    setattr(cloned, "no_write", True)
     return cloned
+
+
+def _read_sync_signature(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
