@@ -86,14 +86,14 @@ def list_tracks(args):
 
     # Table format
     print()
-    print("=" * 86)
+    print("=" * 80)
     print("TRACKS")
-    print("=" * 86)
+    print("=" * 80)
     print()
 
     # Header
-    print(f"{'#':<3} {'Track ID':<15} {'Name':<32} {'Status':<12} {'Phases':<8} {'Todo':<6}")
-    print("-" * 86)
+    print(f"{'#':<3} {'Track ID':<20} {'Name':<30} {'St':<4} {'Ph':<6} {'Todo':<6}")
+    print("-" * 80)
 
     done_phase_counts = {
         track.get('track_id', ''): len(track.get('phases', []))
@@ -111,21 +111,21 @@ def list_tracks(args):
         todo_count = sum(1 for phase in todo_phases if phase.get('status') != 'done')
 
         # Truncate long names
-        if len(name) > 32:
-            name = name[:29] + '...'
+        if len(name) > 30:
+            name = name[:27] + '...'
 
         # Format status with emoji
         status_display = status
         if status == 'done':
-            status_display = '✅ Done'
+            status_display = '✅'
         elif status == 'in_progress':
-            status_display = '🚧 Active'
+            status_display = '🚧'
         elif status == 'planned':
-            status_display = '📋 Planned'
+            status_display = '📋'
         elif status == 'proposed':
-            status_display = '💡 Proposed'
+            status_display = '💡'
 
-        print(f"{i:<3} {track_id:<15} {name:<32} {status_display:<12} {phase_count:<8} {todo_count:<6}")
+        print(f"{i:<3} {track_id:<20} {name:<30} {status_display:<4} {phase_count:<6} {todo_count:<6}")
 
     print()
     print(f"Total: {len(tracks)} tracks")
