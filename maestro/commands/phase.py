@@ -11,6 +11,7 @@ Commands:
 - maestro phase <id> set - Set current phase context
 """
 
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -79,44 +80,103 @@ def list_phases(args):
         print("No phases found.")
         return 0
 
-    # Table format
-    print()
-    print("=" * 120)
+    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
+    term_width = max(term_width, 80)
 
-    # Header
+    def format_status(status_value: str) -> str:
+        if status_value == 'done':
+            return '✅ Done'
+        if status_value == 'in_progress':
+            return '🚧 Active'
+        if status_value == 'planned':
+            return '📋 Planned'
+        if status_value == 'proposed':
+            return '💡 Proposed'
+        return status_value
+
+    def truncate(value: str, width: int) -> str:
+        if len(value) <= width:
+            return value
+        if width >= 4:
+            return value[:width - 3] + '...'
+        return value[:width]
+
+    print()
+    print("=" * term_width)
+
+    idx_width = max(len('#'), len(str(len(phases_to_show))))
+
     if not track_filter:
-        print(f"{'#':<4} {'Phase ID':<15} {'Name':<45} {'Track':<20} {'Status':<15}")
+        phase_id_len = max((len(p.get('phase_id', 'N/A')) for p in phases_to_show), default=len('Phase ID'))
+        name_len = max((len(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=len('Name'))
+        track_len = max((len(p.get('_track_id', 'N/A')) for p in phases_to_show), default=len('Track'))
+        status_len = max(
+            (len(format_status(p.get('status', 'unknown'))) for p in phases_to_show),
+            default=len('Status'),
+        )
+
+        phase_id_width = max(len('Phase ID'), phase_id_len)
+        track_width = max(len('Track'), track_len)
+        status_width = max(len('Status'), status_len)
+        available = term_width - (idx_width + phase_id_width + track_width + status_width + 4)
+        name_width = min(name_len, max(len('Name'), available))
+        if available < len('Name'):
+            name_width = max(1, available)
+
+        print(
+            f"{'#':<{idx_width}} "
+            f"{'Phase ID':<{phase_id_width}} "
+            f"{'Name':<{name_width}} "
+            f"{'Track':<{track_width}} "
+            f"{'Status':<{status_width}}"
+        )
+        print("-" * term_width)
     else:
-        print(f"{'#':<4} {'Phase ID':<15} {'Name':<60} {'Status':<15}")
-    print("-" * 120)
+        phase_id_len = max((len(p.get('phase_id', 'N/A')) for p in phases_to_show), default=len('Phase ID'))
+        name_len = max((len(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=len('Name'))
+        status_len = max(
+            (len(format_status(p.get('status', 'unknown'))) for p in phases_to_show),
+            default=len('Status'),
+        )
+
+        phase_id_width = max(len('Phase ID'), phase_id_len)
+        status_width = max(len('Status'), status_len)
+        available = term_width - (idx_width + phase_id_width + status_width + 3)
+        name_width = min(name_len, max(len('Name'), available))
+        if available < len('Name'):
+            name_width = max(1, available)
+
+        print(
+            f"{'#':<{idx_width}} "
+            f"{'Phase ID':<{phase_id_width}} "
+            f"{'Name':<{name_width}} "
+            f"{'Status':<{status_width}}"
+        )
+        print("-" * term_width)
 
     # Rows
     for idx, phase in enumerate(phases_to_show, 1):
         phase_id = phase.get('phase_id', 'N/A')
         name = phase.get('name', 'Unnamed Phase')
         status = phase.get('status', 'unknown')
-
-        # Truncate long names
-        max_name_len = 45 if not track_filter else 60
-        if len(name) > max_name_len:
-            name = name[:max_name_len - 3] + '...'
-
-        # Format status with emoji
-        status_display = status
-        if status == 'done':
-            status_display = '✅ Done'
-        elif status == 'in_progress':
-            status_display = '🚧 Active'
-        elif status == 'planned':
-            status_display = '📋 Planned'
-        elif status == 'proposed':
-            status_display = '💡 Proposed'
+        status_display = format_status(status)
 
         if not track_filter:
             track_id = phase.get('_track_id', 'N/A')
-            print(f"{idx:<4} {phase_id:<15} {name:<45} {track_id:<20} {status_display:<15}")
+            print(
+                f"{str(idx):<{idx_width}} "
+                f"{truncate(phase_id, phase_id_width):<{phase_id_width}} "
+                f"{truncate(name, name_width):<{name_width}} "
+                f"{truncate(track_id, track_width):<{track_width}} "
+                f"{truncate(status_display, status_width):<{status_width}}"
+            )
         else:
-            print(f"{idx:<4} {phase_id:<15} {name:<60} {status_display:<15}")
+            print(
+                f"{str(idx):<{idx_width}} "
+                f"{truncate(phase_id, phase_id_width):<{phase_id_width}} "
+                f"{truncate(name, name_width):<{name_width}} "
+                f"{truncate(status_display, status_width):<{status_width}}"
+            )
 
     print()
     print(f"Total: {len(phases_to_show)} phases")
