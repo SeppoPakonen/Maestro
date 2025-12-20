@@ -110,7 +110,7 @@ def list_tracks(args):
         todo_count = sum(
             1
             for phase in todo_phases
-            if phase.get('status') not in ('done', 'proposed')
+            if phase.get('status') != 'done'
         )
 
         # Truncate long names
