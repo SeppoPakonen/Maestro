@@ -15,9 +15,11 @@ Commands:
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 import textwrap
+import unicodedata
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
@@ -41,6 +43,13 @@ ANSI_COLORS = {
     "bright_white": "\033[97m",
 }
 
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
+try:
+    from wcwidth import wcwidth as _wcwidth
+except ImportError:  # pragma: no cover - optional dependency
+    _wcwidth = None
+
 
 def _style_text(text: str, color: Optional[str] = None, bold: bool = False, dim: bool = False) -> str:
     settings = get_settings()
@@ -58,17 +67,51 @@ def _style_text(text: str, color: Optional[str] = None, bold: bool = False, dim:
     return "".join(parts) + text + ANSI_RESET
 
 
+def _char_display_width(char: str) -> int:
+    if _wcwidth is not None:
+        width = _wcwidth(char)
+        return width if width > 0 else 0
+    east_asian = unicodedata.east_asian_width(char)
+    if east_asian in ("W", "F"):
+        return 2
+    if unicodedata.category(char) == "So":
+        return 2
+    return 1
+
+
+def _display_width(text: str) -> int:
+    stripped = ANSI_ESCAPE_RE.sub("", text)
+    return sum(_char_display_width(ch) for ch in stripped)
+
+
+def _pad_to_width(text: str, width: int) -> str:
+    padding = width - _display_width(text)
+    if padding <= 0:
+        return text
+    return text + (" " * padding)
+
+
 def _truncate(text: str, width: int, unicode_symbols: bool) -> str:
     if width <= 0:
         return ""
-    if len(text) <= width:
+    if _display_width(text) <= width:
         return text
     if width <= 1:
         return text[:width]
     ellipsis = "…" if unicode_symbols else "..."
-    if width <= len(ellipsis):
+    ellipsis_width = _display_width(ellipsis)
+    if width <= ellipsis_width:
         return text[:width]
-    return text[: width - len(ellipsis)] + ellipsis
+    remaining = width - ellipsis_width
+    clipped = []
+    current = 0
+    for ch in text:
+        ch_width = _char_display_width(ch)
+        if current + ch_width > remaining:
+            break
+        clipped.append(ch)
+        current += ch_width
+    return "".join(clipped) + ellipsis
 
 
 def _status_display(status: str, unicode_symbols: bool) -> tuple[str, str]:
@@ -117,23 +160,27 @@ def _box_chars(unicode_symbols: bool) -> dict[str, str]:
     }
 
 
-def _render_table(title: str, rows: list[dict[str, str]], term_width: int) -> list[str]:
+def _render_table(
+    title: str,
+    rows: list[dict[str, str]],
+    term_width: int,
+    border_color: Optional[str] = None,
+) -> list[str]:
     settings = get_settings()
     unicode_symbols = settings.unicode_symbols
     box = _box_chars(unicode_symbols)
     ncol = 4
-    inner_width = max(term_width - 2, 10)
-    separator_width = ncol - 1
-    cell_width_total = max(inner_width - separator_width, ncol * 3)
+    max_term_width = max(term_width - 2, 10)
 
     idx_header = "#"
     id_header = "ID"
     name_header = "Name"
     status_header = "Status"
 
-    idx_content = max(len(idx_header), len(str(len(rows) or 0)))
-    id_content = max(len(id_header), max((len(r["id"]) for r in rows), default=0))
-    status_content = max(len(status_header), max((len(r["status"]) for r in rows), default=0))
+    idx_content = max(_display_width(idx_header), _display_width(str(len(rows) or 0)))
+    id_content = max(_display_width(id_header), max((_display_width(r["id"]) for r in rows), default=0))
+    status_content = max(_display_width(status_header), max((_display_width(r["status"]) for r in rows), default=0))
+    name_content = max(_display_width(name_header), max((_display_width(r["name"]) for r in rows), default=0))
 
     min_idx = 1
     min_id = 2
@@ -143,38 +190,38 @@ def _render_table(title: str, rows: list[dict[str, str]], term_width: int) -> li
     idx_content = max(idx_content, min_idx)
     id_content = max(id_content, min_id)
     status_content = max(status_content, min_status)
-
-    available_content = cell_width_total - 2 * ncol
-    name_content = available_content - (idx_content + id_content + status_content)
     name_content = max(name_content, min_name)
-
-    total_content = idx_content + id_content + name_content + status_content
-    if total_content > available_content:
-        overflow = total_content - available_content
-        name_content = max(min_name, name_content - overflow)
 
     col_content_widths = [idx_content, id_content, name_content, status_content]
     col_widths = [w + 2 for w in col_content_widths]
+    content_width = sum(col_widths) + (ncol - 1) * 2
+    inner_width = min(max_term_width, max(content_width, 10))
+
+    max_content_width = inner_width
+    if content_width > max_content_width:
+        available = max_content_width - (ncol - 1) * 2
+        name_content = max(min_name, available - (idx_content + id_content + status_content + 2 * ncol))
+        col_content_widths = [idx_content, id_content, name_content, status_content]
+        col_widths = [w + 2 for w in col_content_widths]
 
     def border(left: str, sep: str, right: str, horizontal: str) -> str:
-        segments = [horizontal * w for w in col_widths]
-        return left + sep.join(segments) + right
+        return left + (horizontal * inner_width) + right
 
     lines = []
-    lines.append(border(box["top_left"], box["top_sep"], box["top_right"], box["horizontal"]))
+    lines.append(_style_text(border(box["top_left"], box["top_sep"], box["top_right"], box["horizontal"]), color=border_color))
 
     title_text = _truncate(title, inner_width - 2, unicode_symbols)
-    title_line = f"{box['vertical']} " + title_text.ljust(inner_width - 2) + f" {box['vertical']}"
+    title_line = f"{box['vertical']} " + _pad_to_width(title_text, inner_width - 2) + f" {box['vertical']}"
     lines.append(_style_text(title_line, color="bright_white", bold=True))
-    lines.append(border(box["mid_left"], box["mid_sep"], box["mid_right"], box["mid_horizontal"]))
 
     headers = [idx_header, id_header, name_header, status_header]
     header_cells = []
     for header, width in zip(headers, col_content_widths):
-        header_cells.append(" " + header.ljust(width) + " ")
-    header_line = box["vertical"] + box["vertical"].join(header_cells) + box["vertical"]
+        header_cells.append(" " + _pad_to_width(header, width) + " ")
+    header_content = "  ".join(header_cells)
+    header_line = box["vertical"] + _pad_to_width(header_content, inner_width) + box["vertical"]
     lines.append(_style_text(header_line, color="bright_white", bold=True))
-    lines.append(border(box["mid_left"], box["mid_sep"], box["mid_right"], box["mid_horizontal"]))
+    lines.append(_style_text(border(box["mid_left"], box["mid_sep"], box["mid_right"], box["mid_horizontal"]), color=border_color))
 
     if rows:
         for row in rows:
@@ -183,16 +230,17 @@ def _render_table(title: str, rows: list[dict[str, str]], term_width: int) -> li
             colors = [None, None, None, row.get("status_color")]
             for value, width, color in zip(values, col_content_widths, colors):
                 cell_text = _truncate(value, width, unicode_symbols)
-                padded = " " + cell_text.ljust(width) + " "
+                padded = " " + _pad_to_width(cell_text, width) + " "
                 row_cells.append(_style_text(padded, color=color))
-            line = box["vertical"] + box["vertical"].join(row_cells) + box["vertical"]
+            row_content = "  ".join(row_cells)
+            line = box["vertical"] + _pad_to_width(row_content, inner_width) + box["vertical"]
             lines.append(line)
     else:
         empty_text = _truncate("(none)", inner_width - 2, unicode_symbols)
-        empty_line = f"{box['vertical']} " + empty_text.ljust(inner_width - 2) + f" {box['vertical']}"
+        empty_line = f"{box['vertical']} " + _pad_to_width(empty_text, inner_width - 2) + f" {box['vertical']}"
         lines.append(_style_text(empty_line, color="bright_black", dim=True))
 
-    lines.append(border(box["bottom_left"], box["bottom_sep"], box["bottom_right"], box["horizontal"]))
+    lines.append(_style_text(border(box["bottom_left"], box["bottom_sep"], box["bottom_right"], box["horizontal"]), color=border_color))
     return lines
 
 
@@ -366,21 +414,22 @@ def show_track(track_identifier: str, args) -> int:
         f"Completion: {completion_text}",
     ]
 
-    print(box["top_left"] + box["horizontal"] * inner_width + box["top_right"])
-    title_line = f"{box['vertical']} " + _truncate(header_title, inner_width - 2, unicode_symbols).ljust(inner_width - 2) + f" {box['vertical']}"
+    print(_style_text(box["top_left"] + box["horizontal"] * inner_width + box["top_right"], color="cyan"))
+    title_text = _truncate(header_title, inner_width - 2, unicode_symbols)
+    title_line = f"{box['vertical']} " + _pad_to_width(title_text, inner_width - 2) + f" {box['vertical']}"
     print(_style_text(title_line, color="bright_white", bold=True))
     for line in header_lines:
         content = _truncate(line, inner_width - 2, unicode_symbols)
-        padded = f"{box['vertical']} " + content.ljust(inner_width - 2) + f" {box['vertical']}"
+        padded = f"{box['vertical']} " + _pad_to_width(content, inner_width - 2) + f" {box['vertical']}"
         print(padded)
-    print(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"])
-    print()
+    print(_style_text(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"], color="cyan"))
 
     description = track.get('description', [])
     if description:
         desc_title = "📝 Description" if unicode_symbols else "Description"
-        print(box["top_left"] + box["horizontal"] * inner_width + box["top_right"])
-        title_line = f"{box['vertical']} " + _truncate(desc_title, inner_width - 2, unicode_symbols).ljust(inner_width - 2) + f" {box['vertical']}"
+        print(_style_text(box["top_left"] + box["horizontal"] * inner_width + box["top_right"], color="blue"))
+        title_text = _truncate(desc_title, inner_width - 2, unicode_symbols)
+        title_line = f"{box['vertical']} " + _pad_to_width(title_text, inner_width - 2) + f" {box['vertical']}"
         print(_style_text(title_line, color="bright_white", bold=True))
         wrapped_lines = []
         for line in description:
@@ -389,13 +438,20 @@ def show_track(track_identifier: str, args) -> int:
             wrapped_lines = ["(none)"]
         for line in wrapped_lines:
             content = _truncate(line, inner_width - 2, unicode_symbols)
-            padded = f"{box['vertical']} " + content.ljust(inner_width - 2) + f" {box['vertical']}"
+            padded = f"{box['vertical']} " + _pad_to_width(content, inner_width - 2) + f" {box['vertical']}"
             print(padded)
-        print(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"])
-        print()
+        print(_style_text(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"], color="blue"))
 
     phases = track.get('phases', [])
     todo_phases = [phase for phase in phases if phase.get('status') != 'done']
+    done_from_todo = [phase for phase in phases if phase.get('status') == 'done']
+    seen_done_ids = {phase.get('phase_id') for phase in done_phases if phase.get('phase_id')}
+    for phase in done_from_todo:
+        phase_id = phase.get('phase_id')
+        if not phase_id or phase_id in seen_done_ids:
+            continue
+        done_phases.append(phase)
+        seen_done_ids.add(phase_id)
 
     todo_rows = []
     for i, phase in enumerate(todo_phases, 1):
@@ -413,9 +469,8 @@ def show_track(track_identifier: str, args) -> int:
 
     todo_title = f"Todo phases ({len(todo_rows)})"
     todo_title = f"🧭 {todo_title}" if unicode_symbols else todo_title
-    for line in _render_table(todo_title, todo_rows, term_width):
+    for line in _render_table(todo_title, todo_rows, term_width, border_color="yellow"):
         print(line)
-    print()
 
     total_done = len(done_phases)
     visible_done = done_phases[-10:] if done_phases else []
@@ -438,9 +493,8 @@ def show_track(track_identifier: str, args) -> int:
             "status": status_label,
             "status_color": status_color,
         })
-    for line in _render_table(done_title, done_rows, term_width):
+    for line in _render_table(done_title, done_rows, term_width, border_color="green"):
         print(line)
-    print()
 
     return 0
 
