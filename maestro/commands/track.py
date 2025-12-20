@@ -39,27 +39,6 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
-    done_path = Path('docs/done.md')
-    done_tracks = []
-    if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
-    done_path = Path('docs/done.md')
-    done_tracks = []
-    if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
-    done_path = Path('docs/done.md')
-    done_tracks = []
-    if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
-    done_path = Path('docs/done.md')
-    done_tracks = []
-    if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
-
     # Try as numeric index first
     if identifier.isdigit():
         index = int(identifier) - 1  # Convert to 0-based
@@ -94,6 +73,11 @@ def list_tracks(args):
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
+    done_path = Path('docs/done.md')
+    done_tracks = []
+    if done_path.exists():
+        done_data = parse_done_md(str(done_path))
+        done_tracks = done_data.get('tracks', [])
 
     if not tracks:
         print("No tracks found.")
