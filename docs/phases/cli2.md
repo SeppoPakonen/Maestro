@@ -1,13 +1,13 @@
 # Phase CLI2: Track/Phase/Task Commands 📋 **[Planned]**
 
-"phase_id": "cli-tpt-2"
-"track": "Track/Phase/Task CLI and AI Discussion System"
-"track_id": "cli-tpt"
-"status": "planned"
-"completion": 0
-"duration": "1-2 weeks"
-"dependencies": ["cli-tpt-1"]
-"priority": "P0"
+- *phase_id*: *cli-tpt-2*
+- *track*: *Track/Phase/Task CLI and AI Discussion System*
+- *track_id*: *cli-tpt*
+- *status*: *planned*
+- *completion*: 0
+- *duration*: *1-2 weeks*
+- *dependencies*: [*cli-tpt-1*]
+- *priority*: *P0*
 
 **Objective**: Implement the complete Track/Phase/Task command-line interface, providing CRUD operations and navigation for all three hierarchy levels.
 
@@ -24,9 +24,9 @@ This replaces the old "plan/task" terminology and provides richer navigation and
 
 ### Task cli2.1: Track Commands
 
-"task_id": "cli-tpt-2-1"
-"priority": "P0"
-"estimated_hours": 12
+- *task_id*: *cli-tpt-2-1*
+- *priority*: *P0*
+- *estimated_hours*: 12
 
 Implement `maestro track` command group.
 
@@ -85,9 +85,9 @@ Implement `maestro track` command group.
 
 ### Task cli2.2: Phase Commands
 
-"task_id": "cli-tpt-2-2"
-"priority": "P0"
-"estimated_hours": 16
+- *task_id*: *cli-tpt-2-2*
+- *priority*: *P0*
+- *estimated_hours*: 16
 
 Implement `maestro phase` command group.
 
@@ -149,9 +149,9 @@ Implement `maestro phase` command group.
 
 ### Task cli2.3: Task Commands
 
-"task_id": "cli-tpt-2-3"
-"priority": "P0"
-"estimated_hours": 16
+- *task_id*: *cli-tpt-2-3*
+- *priority*: *P0*
+- *estimated_hours*: 16
 
 Implement `maestro task` command group.
 
@@ -219,9 +219,9 @@ Implement `maestro task` command group.
 
 ### Task cli2.4: Navigation and Aliases
 
-"task_id": "cli-tpt-2-4"
-"priority": "P1"
-"estimated_hours": 4
+- *task_id*: *cli-tpt-2-4*
+- *priority*: *P1*
+- *estimated_hours*: 4
 
 Implement convenient navigation patterns and command aliases.
 
@@ -251,9 +251,9 @@ Implement convenient navigation patterns and command aliases.
 
 ### Task cli2.5: Help System
 
-"task_id": "cli-tpt-2-5"
-"priority": "P1"
-"estimated_hours": 4
+- *task_id*: *cli-tpt-2-5*
+- *priority*: *P1*
+- *estimated_hours*: 4
 
 Implement comprehensive help for all commands.
 

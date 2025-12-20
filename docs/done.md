@@ -64,10 +64,10 @@
 
 ## Track: Track/Phase/Task CLI and AI Discussion System
 
-"track_id": "cli-tpt"
-"priority": 0
-"status": "done"
-"completion": 100%
+- *track_id*: *cli-tpt*
+- *priority*: 0
+- *status*: *done*
+- *completion*: 100%
 
 This track implements the new Track/Phase/Task command-line interface with integrated AI discussion capabilities, and migrates all data storage from `.maestro/` JSON files to `docs/` markdown files.
 
@@ -75,9 +75,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli1: Markdown Data Backend ✅ **[Completed 2025-12-18]**
 
-"phase_id": "cli-tpt-1"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-1*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement markdown parser and data format for human-readable, machine-parsable project data.
 
@@ -93,9 +93,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli2: Track/Phase/Task Commands ✅ **[Completed 2025-12-18]**
 
-"phase_id": "cli-tpt-2"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-2*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement complete command-line interface for track/phase/task management.
 
@@ -113,9 +113,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli3: AI Discussion System ✅ **[Completed 2025-12-18]**
 
-"phase_id": "cli-tpt-3"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-3*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement unified AI discussion interface for tracks, phases, and tasks.
 
@@ -132,9 +132,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli4: Settings and Configuration ✅ **[Completed 2025-12-19]**
 
-"phase_id": "cli-tpt-4"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-4*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement comprehensive settings management system with markdown-based configuration.
 
@@ -160,9 +160,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli5: TUI Conversion ✅ **[Completed 2025-12-19]**
 
-"phase_id": "cli-tpt-5"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-5*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Convert existing TUI implementations to use the new Track/Phase/Task terminology and markdown data backend.
 
@@ -205,18 +205,18 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ## Track: Build & Run
 
-"track_id": "build-run"
-"priority": 1
-"status": "done"
-"completion": 100%
+- *track_id*: *build-run*
+- *priority*: 1
+- *status*: *done*
+- *completion*: 100%
 
 This track implements build and run commands with issue integration.
 
 ### Phase br1: Make Integration with Issues ✅ **[Completed 2025-12-20]**
 
-"phase_id": "br1"
-"status": "done"
-"completion": 100
+- *phase_id*: *br1*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - Build error parsing for compiler/linker output
@@ -232,9 +232,9 @@ This track implements build and run commands with issue integration.
 
 ### Phase br2: Static Analyzer Integration ✅ **[Completed 2025-12-20]**
 
-"phase_id": "br2"
-"status": "done"
-"completion": 100
+- *phase_id*: *br2*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - Static analyzer runner for clang-tidy, cppcheck, pylint, checkstyle
@@ -247,9 +247,9 @@ This track implements build and run commands with issue integration.
 
 ### Phase br3: Run Command ✅ **[Completed 2025-12-20]**
 
-"phase_id": "br3"
-"status": "done"
-"completion": 100
+- *phase_id*: *br3*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - Run package discovery with build status and mainconfigs
@@ -262,9 +262,9 @@ This track implements build and run commands with issue integration.
 
 ### Phase br4: Profiling Support ✅ **[Completed 2025-12-20]**
 
-"phase_id": "br4"
-"status": "done"
-"completion": 100
+- *phase_id*: *br4*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - Profiling support (gprof, valgrind, perf, cProfile, VisualVM/YourKit notes)
@@ -275,16 +275,16 @@ This track implements build and run commands with issue integration.
 
 ## Track: Issues & Solutions
 
-"track_id": "issues-solutions"
-"priority": 2
-"status": "in_progress"
-"completion": 80%
+- *track_id*: *issues-solutions*
+- *priority*: 2
+- *status*: *in_progress*
+- *completion*: 80%
 
 ### Phase is1: Issue Data Model ✅ **[Completed 2025-12-20]**
 
-"phase_id": "is1"
-"status": "done"
-"completion": 100
+- *phase_id*: *is1*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - Issue schema with type, state, priority, location, timestamps
@@ -299,9 +299,9 @@ This track implements build and run commands with issue integration.
 
 ### Phase is2: Issue Categories ✅ **[Completed 2025-12-20]**
 
-"phase_id": "is2"
-"status": "done"
-"completion": 100
+- *phase_id*: *is2*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - Issue category taxonomy (hier, convention, build, runtime, features, product, look, ux)
@@ -313,9 +313,9 @@ This track implements build and run commands with issue integration.
 
 ### Phase is3: Issue 4-Phase Workflow ✅ **[Completed 2025-12-20]**
 
-"phase_id": "is3"
-"status": "done"
-"completion": 100
+- *phase_id*: *is3*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - React/analyze/decide/fix workflow commands
@@ -329,9 +329,9 @@ This track implements build and run commands with issue integration.
 
 ### Phase is4: Solutions System ✅ **[Completed 2025-12-20]**
 
-"phase_id": "is4"
-"status": "done"
-"completion": 100
+- *phase_id*: *is4*
+- *status*: *done*
+- *completion*: 100
 
 **Deliverables**:
 - Solution schema and markdown storage in `docs/solutions/`
@@ -347,18 +347,18 @@ This track implements build and run commands with issue integration.
 
 ## Primary Track: UMK Integration (Universal Build System)
 
-"track_id": "umk"
-"priority": 1
-"status": "done"
-"completion": 100
+- *track_id*: *umk*
+- *priority*: 1
+- *status*: *done*
+- *completion*: 100
 
 This track implements all phases from `docs/umk.md`, creating a universal build orchestration system.
 
 ### Phase umk1: Core Builder Abstraction ✅ **[Done]**
 
-"phase_id": "umk1"
-"status": "done"
-"completion": 100
+- *phase_id*: *umk1*
+- *status*: *done*
+- *completion*: 100
 
 **Reference**: `docs/umk.md` Phase 1
 **Duration**: 2-3 weeks
@@ -459,18 +459,18 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
 
 ## Assemblies and Packages Track
 
-"track_id": "assemblies"
-"priority": 2
-"status": "in_progress"
-"completion": 50%
+- *track_id*: *assemblies*
+- *priority*: 2
+- *status*: *in_progress*
+- *completion*: 50%
 
 This track handles the organization of packages into logical assemblies that represent cohesive units of code.
 
 ### Phase as1: Assemblies in Maestro Repository System ✅ **[Completed 2025-12-19]**
 
-"phase_id": "as1"
-"status": "done"
-"completion": 100
+- *phase_id*: *as1*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement the concept of "assemblies" - logical groups of packages that represent cohesive units of code, rather than treating every directory as a potential package.
 
@@ -561,10 +561,10 @@ This track handles the organization of packages into logical assemblies that rep
 
 ## TU/AST Track: Translation Unit and AST Generation
 
-"track_id": "tu-ast"
-"priority": 1
-"status": "in_progress"
-"completion": 83%
+- *track_id*: *tu-ast*
+- *priority*: 1
+- *status*: *in_progress*
+- *completion*: 83%
 
 This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) generation for advanced code analysis, auto-completion, symbol resolution, and code transformation across multiple programming languages.
 
@@ -572,9 +572,9 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 ### Phase tu1: Core AST Infrastructure ✅ **[Completed 2025-12-19]**
 
-"phase_id": "tu-ast-1"
-"status": "done"
-"completion": 100
+- *phase_id*: *tu-ast-1*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Create universal AST node representation and parsers for C++, Java, and Kotlin.
 
@@ -638,9 +638,9 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 ### Phase tu2: Incremental TU Builder ✅ **[Completed 2025-12-19]**
 
-"phase_id": "tu-ast-2"
-"status": "done"
-"completion": 100
+- *phase_id*: *tu-ast-2*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement incremental compilation with file hashing and AST caching.
 
@@ -682,9 +682,9 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 ### Phase tu3: Symbol Resolution and Indexing ✅ **[Completed 2025-12-19]**
 
-"phase_id": "tu-ast-3"
-"status": "done"
-"completion": 100
+- *phase_id*: *tu-ast-3*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement symbol table, cross-file symbol resolution, and SQLite-based symbol indexing.
 
@@ -724,9 +724,9 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 ### Phase tu4: Auto-Completion Engine ✅ **[Completed 2025-12-19]**
 
-"phase_id": "tu-ast-4"
-"status": "done"
-"completion": 100
+- *phase_id*: *tu-ast-4*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement auto-completion provider and LSP server integration.
 
@@ -761,9 +761,9 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 ### Phase tu5: Integration with Build System and CLI ✅ **[Completed 2025-12-19]**
 
-"phase_id": "tu-ast-5"
-"status": "done"
-"completion": 100
+- *phase_id*: *tu-ast-5*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Integrate TU system with Maestro build system and implement `maestro tu` CLI.
 
@@ -872,9 +872,9 @@ maestro tu cache stats
 
 ### Phase tu6: Code Transformation and Convention Enforcement ✅ **[Completed 2025-12-19]**
 
-"phase_id": "tu-ast-6"
-"status": "done"
-"completion": 100
+- *phase_id*: *tu-ast-6*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement code transformation and U++ convention enforcement.
 
@@ -1057,9 +1057,9 @@ maestro tu cache stats
 
 ### Phase tu7: Multi-Language AST Testing ✅ **[Completed 2025-12-19]**
 
-"phase_id": "tu-ast-7"
-"status": "done"
-"completion": 100
+- *phase_id*: *tu-ast-7*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Test and validate AST generation and printing capabilities across multiple programming languages (C++, Java, Python).
 
@@ -1168,10 +1168,10 @@ maestro tu print-ast <file> --no-types --no-locations
 
 ## Track: Work & Session Framework
 
-"track_id": "work-session"
-"priority": 2
-"status": "in-progress"
-"completion": 20%
+- *track_id*: *work-session*
+- *priority*: 2
+- *status*: *in-progress*
+- *completion*: 20%
 
 This track implements AI-powered work automation with session tracking and breadcrumb system for tracking AI interactions and maintaining project state.
 
@@ -1179,9 +1179,9 @@ This track implements AI-powered work automation with session tracking and bread
 
 ### Phase ws3: Work Command ✅ **[Completed 2025-12-20]**
 
-"phase_id": "ws3"
-"status": "done"
-"completion": 100
+- *phase_id*: *ws3*
+- *status*: *done*
+- *completion*: 100
 
 **Objective**: Implement AI-powered work command system that can select and execute work on tracks, phases, and issues.
 

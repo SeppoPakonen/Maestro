@@ -118,18 +118,18 @@ Active tracks, phases, and tasks.
 ---
 
 ## Track: Track Name
-"track_id": "track-1"
-"priority": 1
-"status": "in_progress"
+- *track_id*: *track-1*
+- *priority*: 1
+- *status*: *in_progress*
 
 ### Phase 1: Phase Name
-"phase_id": "track-1-phase-1"
-"status": "in_progress"
-"completion": 45
+- *phase_id*: *track-1-phase-1*
+- *status*: *in_progress*
+- *completion*: 45
 
 - [ ] **Task 1.1: Task Name**
-  "task_id": "track-1-phase-1-task-1"
-  "priority": "P0"
+  - *task_id*: *track-1-phase-1-task-1*
+  - *priority*: *P0*
   Description of task
   - [ ] Subtask 1
   - [ ] Subtask 2
@@ -144,21 +144,21 @@ Detailed phase specifications.
 ```markdown
 # Phase 1: Phase Name
 
-"phase_id": "track-1-phase-1"
-"track": "Track Name"
-"status": "in_progress"
-"completion": 45
-"duration": "2-3 weeks"
-"dependencies": ["phase-0"]
+- *phase_id*: *track-1-phase-1*
+- *track*: *Track Name*
+- *status*: *in_progress*
+- *completion*: 45
+- *duration*: *2-3 weeks*
+- *dependencies*: [*phase-0*]
 
 **Objective**: Brief description
 
 ## Tasks
 
 - [ ] **Task 1.1: Task Name**
-  "task_id": "track-1-phase-1-task-1"
-  "priority": "P0"
-  "estimated_hours": 8
+  - *task_id*: *track-1-phase-1-task-1*
+  - *priority*: *P0*
+  - *estimated_hours*: 8
 
   Detailed description...
 

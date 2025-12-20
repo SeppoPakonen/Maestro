@@ -69,10 +69,10 @@
 
 ## 🔥 Track: Repository Foundation
 
-"track_id": "repo-foundation"
-"priority": 0
-"status": "planned"
-"completion": 0%
+- *track_id*: *repo-foundation*
+- *priority*: 0
+- *status*: *planned*
+- *completion*: 0%
 
 This track implements the foundational repository analysis and management commands that users interact with first when working with a codebase. Integrates the completed assembly detection system (Phase as1) into repository hierarchy analysis.
 
@@ -90,9 +90,9 @@ This track implements the foundational repository analysis and management comman
 
 ### Phase rf1: Init & Resolve ✅ **[Completed 2025-12-20]**
 
-"phase_id": "rf1"
-"status": "done"
-"completion": 100
+- *phase_id*: *rf1*
+- *status*: *done*
+- *completion*: 100
 
 - [x] **RF1.1: Maestro Init Command** ✅
   - Initialize `.git`-relative Maestro workspace
@@ -114,9 +114,9 @@ This track implements the foundational repository analysis and management comman
 
 ### Phase rf2: Repository Hierarchy Analysis ✅ **[Completed 2025-12-20]**
 
-"phase_id": "rf2"
-"status": "done"
-"completion": 100
+- *phase_id*: *rf2*
+- *status*: *done*
+- *completion*: 100
 
 - [x] **RF2.1: Hierarchy Detection** ✅
   - AI-powered analysis of directory structure ✅
@@ -180,9 +180,9 @@ This track implements the foundational repository analysis and management comman
 
 ### Phase rf3: Convention Detection ✅ **[Completed 2025-12-20]**
 
-"phase_id": "rf3"
-"status": "done"
-"completion": 100
+- *phase_id*: *rf3*
+- *status*: *done*
+- *completion*: 100
 
 - [x] **RF3.1: Convention Detection Engine** ✅
   - Auto-detect naming conventions (CapitalCase, snake_case, UPPER_CASE) ✅
@@ -239,9 +239,9 @@ This track implements the foundational repository analysis and management comman
 
 ### Phase rf4: Repository Rules ✅ **[Completed 2025-12-20]**
 
-"phase_id": "rf4"
-"status": "done"
-"completion": 100
+- *phase_id*: *rf4*
+- *status*: *done*
+- *completion*: 100
 
 - [x] **RF4.1: Rule Storage System** ✅
   - `docs/RepoRules.md` structured markdown ✅
@@ -293,9 +293,9 @@ This track implements the foundational repository analysis and management comman
 
 ### Phase rf5: Refresh All ✅ **[Completed 2025-12-20]**
 
-"phase_id": "rf5"
-"status": "done"
-"completion": 100
+- *phase_id*: *rf5*
+- *status*: *done*
+- *completion*: 100
 
 - [x] **RF5.1: Refresh All Implementation** ✅
   - Execute `repo resolve` ✅
@@ -313,10 +313,10 @@ This track implements the foundational repository analysis and management comman
 
 ## Track: Issues & Solutions
 
-"track_id": "issues-solutions"
-"priority": 2
-"status": "in_progress"
-"completion": 80%
+- *track_id*: *issues-solutions*
+- *priority*: 2
+- *status*: *in_progress*
+- *completion*: 80%
 
 This track implements the comprehensive issue tracking and solution management system.
 
@@ -344,9 +344,9 @@ This track implements the comprehensive issue tracking and solution management s
 
 ### Phase is5: Runtime Issue Collection (Low Priority)
 
-"phase_id": "is5"
-"status": "proposed"
-"completion": 0
+- *phase_id*: *is5*
+- *status*: *proposed*
+- *completion*: 0
 
 - [ ] **IS5.1: Instrumentation Libraries**
   - C++ support library (RAII-based reporting)
@@ -369,10 +369,10 @@ This track implements the comprehensive issue tracking and solution management s
 
 ## Track: Work & Session Framework
 
-"track_id": "work-session"
-"priority": 3
-"status": "in_progress"
-"completion": 40%
+- *track_id*: *work-session*
+- *priority*: 3
+- *status*: *in_progress*
+- *completion*: 40%
 
 This track implements the AI pair programming system with hierarchical session management and breadcrumb tracking.
 
@@ -392,9 +392,9 @@ This track implements the AI pair programming system with hierarchical session m
 
 ### Phase ws1: Session Infrastructure ✅ **[Completed 2025-12-20]**
 
-"phase_id": "ws1"
-"status": "done"
-"completion": 100
+- *phase_id*: *ws1*
+- *status*: *done*
+- *completion*: 100
 
 - [x] **WS1.1: Session Data Model** ✅
   - WorkSession dataclass with all required fields ✅
@@ -429,9 +429,9 @@ This track implements the AI pair programming system with hierarchical session m
 
 ### Phase ws2: Breadcrumb System ✅ **[Completed 2025-12-20]**
 
-"phase_id": "ws2"
-"status": "done"
-"completion": 100
+- *phase_id*: *ws2*
+- *status*: *done*
+- *completion*: 100
 
 - [x] **WS2.1: Breadcrumb Schema** ✅
   - Breadcrumb dataclass with all required fields ✅
@@ -476,9 +476,9 @@ This track implements the AI pair programming system with hierarchical session m
 
 ### Phase ws4: Session Visualization
 
-"phase_id": "ws4"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ws4*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **WS4.1: Session List**
   - `maestro session` - list all sessions
@@ -504,9 +504,9 @@ This track implements the AI pair programming system with hierarchical session m
 
 ### Phase ws5: Migrate CLI Discussions to Sessions
 
-"phase_id": "ws5"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ws5*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **WS5.1: Update Discussion Commands**
   - `maestro track <id> discuss` - create discussion session
@@ -530,10 +530,10 @@ This track implements the AI pair programming system with hierarchical session m
 
 ## Track: Observability
 
-"track_id": "observability"
-"priority": 4
-"status": "planned"
-"completion": 0%
+- *track_id*: *observability*
+- *priority*: 4
+- *status*: *planned*
+- *completion*: 0%
 
 This track implements visualization and logging of project state, dependencies, and history.
 
@@ -550,9 +550,9 @@ This track implements visualization and logging of project state, dependencies, 
 
 ### Phase ob1: Hub System
 
-"phase_id": "ob1"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ob1*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **OB1.1: Global Repository Index**
   - `$HOME/.maestro/repos.json` - index of all known repos
@@ -585,9 +585,9 @@ This track implements visualization and logging of project state, dependencies, 
 
 ### Phase ob2: Log System
 
-"phase_id": "ob2"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ob2*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **OB2.1: Event Logging**
   - Log all maestro actions to `docs/log.md`
@@ -617,9 +617,9 @@ This track implements visualization and logging of project state, dependencies, 
 
 ### Phase ob3: Global Repo Index Management
 
-"phase_id": "ob3"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ob3*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **OB3.1: Index Updates**
   - Auto-update index on `maestro init`
@@ -643,10 +643,10 @@ This track implements visualization and logging of project state, dependencies, 
 
 ## Track: Code Transformation
 
-"track_id": "code-transformation"
-"priority": 5
-"status": "planned"
-"completion": 0%
+- *track_id*: *code-transformation*
+- *priority*: 5
+- *status*: *planned*
+- *completion*: 0%
 
 This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and conversion capabilities.
 
@@ -658,9 +658,9 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
 
 ### Phase ct1: TU/AST for Issue Fixing
 
-"phase_id": "ct1"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ct1*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **CT1.1: Error Message Symbol Extraction**
   - Parse compiler error messages
@@ -683,9 +683,9 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
 
 ### Phase ct2: Conversion Pipeline
 
-"phase_id": "ct2"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ct2*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **CT2.1: Conversion Framework**
   - Leverage TU1-TU7 infrastructure
@@ -712,9 +712,9 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
 
 ### Phase ct3: Multi-Language Convert (Experimental)
 
-"phase_id": "ct3"
-"status": "proposed"
-"completion": 0
+- *phase_id*: *ct3*
+- *status*: *proposed*
+- *completion*: 0
 
 - [ ] **CT3.1: Language Conversion Experiments**
   - C++ → Java (basic)
@@ -737,18 +737,18 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
 
 ## Track: Cleanup & Migration
 
-"track_id": "cleanup-migration"
-"priority": 6
-"status": "planned"
-"completion": 0%
+- *track_id*: *cleanup-migration*
+- *priority*: 6
+- *status*: *planned*
+- *completion*: 0%
 
 This track removes deprecated commands and migrates to new systems.
 
 ### Phase cm1: Remove Deprecated Commands
 
-"phase_id": "cm1"
-"status": "planned"
-"completion": 0
+- *phase_id*: *cm1*
+- *status*: *planned*
+- *completion*: 0
 
 **Deprecated Commands**:
 - `maestro plan` → Use `maestro phase`
@@ -776,9 +776,9 @@ This track removes deprecated commands and migrates to new systems.
 
 ### Phase cm2: Rename Settings File
 
-"phase_id": "cm2"
-"status": "planned"
-"completion": 0
+- *phase_id*: *cm2*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **CM2.1: Rename Configuration**
   - `docs/config.md` → `docs/Settings.md`
@@ -793,9 +793,9 @@ This track removes deprecated commands and migrates to new systems.
 
 ### Phase cm3: Update Help System
 
-"phase_id": "cm3"
-"status": "planned"
-"completion": 0
+- *phase_id*: *cm3*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] **CM3.1: Reorganize --help Output**
   - Reflect new command hierarchy order:
@@ -820,9 +820,9 @@ This track removes deprecated commands and migrates to new systems.
 
 ### Phase cm4: Markdown Persistence Migration
 
-"phase_id": "cm4"
-"status": "planned"
-"completion": 0
+- *phase_id*: *cm4*
+- *status*: *planned*
+- *completion*: 0
 
 **Goal**: Replace legacy `.maestro` persistence with `docs/*.md` read/write across the program, preserving user-authored content and round-tripping unchanged.
 
@@ -858,19 +858,19 @@ This track removes deprecated commands and migrates to new systems.
 
 ## Track: CLI Editing
 
-"track_id": "cli-editing"
-"priority": 7
-"status": "planned"
-"completion": 0%
+- *track_id*: *cli-editing*
+- *priority*: 7
+- *status*: *planned*
+- *completion*: 0%
 
 Ensure track/phase/task entries can be created, edited, and reorganized from the CLI.
 Provide both editor and direct text workflows for quick updates.
 
 ### Phase ce1: Track Editing Commands
 
-"phase_id": "ce1"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ce1*
+- *status*: *planned*
+- *completion*: 0
 
 
 - [ ] **ce1.1: Track add/insert/remove commands**
@@ -887,9 +887,9 @@ Provide both editor and direct text workflows for quick updates.
 
 ### Phase ce2: Phase Editing Commands
 
-"phase_id": "ce2"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ce2*
+- *status*: *planned*
+- *completion*: 0
 
 
 - [ ] **ce2.1: Phase add/insert/remove commands**
@@ -906,9 +906,9 @@ Provide both editor and direct text workflows for quick updates.
 
 ### Phase ce3: Task Editing Commands
 
-"phase_id": "ce3"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ce3*
+- *status*: *planned*
+- *completion*: 0
 
 
 - [ ] **ce3.1: Task add/insert/remove commands**
@@ -925,9 +925,9 @@ Provide both editor and direct text workflows for quick updates.
 
 ### Phase ce4: CLI Help Navigation
 
-"phase_id": "ce4"
-"status": "planned"
-"completion": 0
+- *phase_id*: *ce4*
+- *status*: *planned*
+- *completion*: 0
 
 
 - [ ] **ce4.1: Help-only navigation runbook**
@@ -944,10 +944,10 @@ Provide both editor and direct text workflows for quick updates.
 
 ## ✅ COMPLETED Track: Track/Phase/Task CLI and AI Discussion System
 
-"track_id": "cli-tpt"
-"priority": 7
-"status": "done"
-"completion": 100%
+- *track_id*: *cli-tpt*
+- *priority*: 7
+- *status*: *done*
+- *completion*: 100%
 
 This track implements the new Track/Phase/Task command-line interface with integrated AI discussion capabilities, and migrates all data storage from `.maestro/` JSON files to `docs/` markdown files.
 
@@ -967,9 +967,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli1: Markdown Data Backend
 
-"phase_id": "cli-tpt-1"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-1*
+- *status*: *done*
+- *completion*: 100
 
 - [x] [Phase cli1: Markdown Data Backend](phases/cli1.md) ✅ **[Done]**
   - Parser module for markdown data format
@@ -979,9 +979,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli2: Track/Phase/Task Commands
 
-"phase_id": "cli-tpt-2"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-2*
+- *status*: *done*
+- *completion*: 100
 
 - [x] [Phase cli2: Track/Phase/Task Commands](phases/cli2.md) ✅ **[Done]**
   - `maestro track {help,list,add,remove,<id>}` commands
@@ -992,9 +992,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli3: AI Discussion System
 
-"phase_id": "cli-tpt-3"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-3*
+- *status*: *done*
+- *completion*: 100
 "notes": "⚠️ Will be migrated to Session Framework in WS5"
 
 - [x] [Phase cli3: AI Discussion System](phases/cli3.md) ⚠️ **[Done - Needs Migration]**
@@ -1011,9 +1011,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli4: Settings and Configuration
 
-"phase_id": "cli-tpt-4"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-4*
+- *status*: *done*
+- *completion*: 100
 "notes": "⚠️ Needs migration from config.md to Settings.md in CM2"
 
 - [x] [Phase cli4: Settings and Configuration](phases/cli4.md) ⚠️ **[Done - Needs Migration]**
@@ -1024,9 +1024,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ### Phase cli5: TUI Track/Phase/Task Conversion
 
-"phase_id": "cli-tpt-5"
-"status": "done"
-"completion": 100
+- *phase_id*: *cli-tpt-5*
+- *status*: *done*
+- *completion*: 100
 
 - [x] [Phase cli5: TUI Conversion](phases/cli5.md) ✅ **[Done]**
   - Convert TUI to use Track/Phase/Task terminology
@@ -1039,9 +1039,9 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 ## Primary Track: UMK Integration (Universal Build System)
 
-"track_id": "umk"
-"priority": 8
-"status": "in_progress"
+- *track_id*: *umk*
+- *priority*: 8
+- *status*: *in_progress*
 
 This track implements all phases from `docs/umk.md`, creating a universal build orchestration system.
 
@@ -1073,17 +1073,17 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
 
 ## Track: Test Meaningfulness & Reliability
 
-"track_id": "test-meaningfulness"
-"priority": 9
-"status": "planned"
+- *track_id*: *test-meaningfulness*
+- *priority*: 9
+- *status*: *planned*
 
 This track focuses on evaluating and improving the meaningfulness and reliability of the test suite so failures reflect real regressions, not environment noise.
 
 ### Phase tm1: Test Meaningfulness Audit
 
-"phase_id": "test-meaningfulness-1"
-"status": "planned"
-"completion": 0
+- *phase_id*: *test-meaningfulness-1*
+- *status*: *planned*
+- *completion*: 0
 
 - [ ] [Phase tm1: Test Meaningfulness Audit](phases/tm1.md) 📋 **[Planned]**
   - Categorize failing tests by value and stability
@@ -1093,10 +1093,10 @@ This track focuses on evaluating and improving the meaningfulness and reliabilit
 
 ## ✅ COMPLETED Track: TU/AST System
 
-"track_id": "tu-ast"
-"priority": 10
-"status": "done"
-"completion": 100%
+- *track_id*: *tu-ast*
+- *priority*: 10
+- *status*: *done*
+- *completion*: 100%
 
 This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) generation for advanced code analysis, auto-completion, and code transformation.
 
@@ -1117,10 +1117,10 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 
 ## Extended Track: Additional Build Systems
 
-"track_id": "extended"
-"priority": 11
-"status": "planned"
-"completion": 0%
+- *track_id*: *extended*
+- *priority*: 11
+- *status*: *planned*
+- *completion*: 0%
 
 This track extends repository scanning and build support to additional ecosystems.
 
@@ -1139,10 +1139,10 @@ This track extends repository scanning and build support to additional ecosystem
 
 ## Advanced Track: External Dependencies and Portage Integration
 
-"track_id": "advanced"
-"priority": 12
-"status": "proposed"
-"completion": 0%
+- *track_id*: *advanced*
+- *priority*: 12
+- *status*: *proposed*
+- *completion*: 0%
 
 This track handles external dependencies, build scripts, and Gentoo Portage integration.
 

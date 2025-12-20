@@ -1,13 +1,13 @@
 # Phase CLI5: TUI Track/Phase/Task Conversion 📋 **[Planned]**
 
-"phase_id": "cli-tpt-5"
-"track": "Track/Phase/Task CLI and AI Discussion System"
-"track_id": "cli-tpt"
-"status": "planned"
-"completion": 0
-"duration": "1-2 weeks"
-"dependencies": ["cli-tpt-2"]
-"priority": "P1"
+- *phase_id*: *cli-tpt-5*
+- *track*: *Track/Phase/Task CLI and AI Discussion System*
+- *track_id*: *cli-tpt*
+- *status*: *planned*
+- *completion*: 0
+- *duration*: *1-2 weeks*
+- *dependencies*: [*cli-tpt-2*]
+- *priority*: *P1*
 
 **Objective**: Convert existing TUI (Terminal User Interface) implementations to use the new Track/Phase/Task terminology and data backend, replacing old Roadmap/Plan/Task concepts. Update both textual-based and ncurses-based TUI implementations.
 
@@ -32,9 +32,9 @@ These TUIs need to:
 
 ### Task cli5.1: TUI Terminology Update
 
-"task_id": "cli-tpt-5-1"
-"priority": "P1"
-"estimated_hours": 8
+- *task_id*: *cli-tpt-5-1*
+- *priority*: *P1*
+- *estimated_hours*: 8
 
 Update all UI text, variable names, and documentation to use Track/Phase/Task.
 
@@ -67,9 +67,9 @@ Update all UI text, variable names, and documentation to use Track/Phase/Task.
 
 ### Task cli5.2: Markdown Data Backend Integration
 
-"task_id": "cli-tpt-5-2"
-"priority": "P1"
-"estimated_hours": 16
+- *task_id*: *cli-tpt-5-2*
+- *priority*: *P1*
+- *estimated_hours*: 16
 
 Integrate TUI with the new markdown data backend.
 
@@ -104,9 +104,9 @@ Integrate TUI with the new markdown data backend.
 
 ### Task cli5.3: Status Badge and Emoji Support
 
-"task_id": "cli-tpt-5-3"
-"priority": "P1"
-"estimated_hours": 6
+- *task_id*: *cli-tpt-5-3*
+- *priority*: *P1*
+- *estimated_hours*: 6
 
 Add visual status indicators using emojis and colors.
 
@@ -131,9 +131,9 @@ Add visual status indicators using emojis and colors.
 
 ### Task cli5.4: Feature Parity with CLI
 
-"task_id": "cli-tpt-5-4"
-"priority": "P2"
-"estimated_hours": 12
+- *task_id*: *cli-tpt-5-4*
+- *priority*: *P2*
+- *estimated_hours*: 12
 
 Ensure TUI supports all CLI operations.
 
@@ -160,9 +160,9 @@ Ensure TUI supports all CLI operations.
 
 ### Task cli5.5: textual-mc Deprecation Decision
 
-"task_id": "cli-tpt-5-5"
-"priority": "P2"
-"estimated_hours": 4
+- *task_id*: *cli-tpt-5-5*
+- *priority*: *P2*
+- *estimated_hours*: 4
 
 Decide fate of textual-mc implementation and clean up if needed.
 
@@ -181,9 +181,9 @@ Decide fate of textual-mc implementation and clean up if needed.
 
 ### Task cli5.6: Testing and Polish
 
-"task_id": "cli-tpt-5-6"
-"priority": "P1"
-"estimated_hours": 8
+- *task_id*: *cli-tpt-5-6*
+- *priority*: *P1*
+- *estimated_hours*: 8
 
 Test TUI thoroughly and polish the user experience.
 

@@ -1,13 +1,13 @@
 # Phase CLI1: Markdown Data Backend 📋 **[Planned - Critical]**
 
-"phase_id": "cli-tpt-1"
-"track": "Track/Phase/Task CLI and AI Discussion System"
-"track_id": "cli-tpt"
-"status": "planned"
-"completion": 0
-"duration": "1-2 weeks"
-"dependencies": []
-"priority": "P0"
+- *phase_id*: *cli-tpt-1*
+- *track*: *Track/Phase/Task CLI and AI Discussion System*
+- *track_id*: *cli-tpt*
+- *status*: *planned*
+- *completion*: 0
+- *duration*: *1-2 weeks*
+- *dependencies*: []
+- *priority*: *P0*
 
 **Objective**: Create the markdown data backend to replace JSON storage in `.maestro/`, implementing both parser and writer modules with comprehensive error handling.
 
@@ -29,9 +29,9 @@ The new markdown backend will:
 
 ### Task cli1.1: Parser Module
 
-"task_id": "cli-tpt-1-1"
-"priority": "P0"
-"estimated_hours": 16
+- *task_id*: *cli-tpt-1-1*
+- *priority*: *P0*
+- *estimated_hours*: 16
 
 Create `maestro/data/markdown_parser.py` with functions to parse markdown data format.
 
@@ -88,9 +88,9 @@ Create `maestro/data/markdown_parser.py` with functions to parse markdown data f
 
 ### Task cli1.2: Writer Module
 
-"task_id": "cli-tpt-1-2"
-"priority": "P0"
-"estimated_hours": 12
+- *task_id*: *cli-tpt-1-2*
+- *priority*: *P0*
+- *estimated_hours*: 12
 
 Create `maestro/data/markdown_writer.py` with functions to write markdown data format.
 
@@ -128,9 +128,9 @@ Create `maestro/data/markdown_writer.py` with functions to write markdown data f
 
 ### Task cli1.3: Error Handling and Validation
 
-"task_id": "cli-tpt-1-3"
-"priority": "P0"
-"estimated_hours": 8
+- *task_id*: *cli-tpt-1-3*
+- *priority*: *P0*
+- *estimated_hours*: 8
 
 Implement comprehensive error handling and validation.
 
@@ -164,9 +164,9 @@ Implement comprehensive error handling and validation.
 
 ### Task cli1.4: Migration Tools
 
-"task_id": "cli-tpt-1-4"
-"priority": "P1"
-"estimated_hours": 12
+- *task_id*: *cli-tpt-1-4*
+- *priority*: *P1*
+- *estimated_hours*: 12
 
 Create migration tools to convert existing JSON data to markdown format.
 
@@ -202,9 +202,9 @@ Create migration tools to convert existing JSON data to markdown format.
 
 ### Task cli1.5: Round-Trip Testing
 
-"task_id": "cli-tpt-1-5"
-"priority": "P0"
-"estimated_hours": 8
+- *task_id*: *cli-tpt-1-5*
+- *priority*: *P0*
+- *estimated_hours*: 8
 
 Ensure parser and writer are consistent and lossless.
 

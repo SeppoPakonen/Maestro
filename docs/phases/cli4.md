@@ -1,13 +1,13 @@
 # Phase CLI4: Settings and Configuration 📋 **[Planned]**
 
-"phase_id": "cli-tpt-4"
-"track": "Track/Phase/Task CLI and AI Discussion System"
-"track_id": "cli-tpt"
-"status": "planned"
-"completion": 0
-"duration": "3-5 days"
-"dependencies": ["cli-tpt-1"]
-"priority": "P1"
+- *phase_id*: *cli-tpt-4*
+- *track*: *Track/Phase/Task CLI and AI Discussion System*
+- *track_id*: *cli-tpt*
+- *status*: *planned*
+- *completion*: 0
+- *duration*: *3-5 days*
+- *dependencies*: [*cli-tpt-1*]
+- *priority*: *P1*
 
 **Objective**: Implement the settings management system, migrate configuration from `~/.maestro/` to `docs/config.md`, and provide a user-friendly interface for managing preferences.
 
@@ -28,9 +28,9 @@ The new system stores configuration in `docs/config.md`:
 
 ### Task cli4.1: Configuration Schema
 
-"task_id": "cli-tpt-4-1"
-"priority": "P1"
-"estimated_hours": 6
+- *task_id*: *cli-tpt-4-1*
+- *priority*: *P1*
+- *estimated_hours*: 6
 
 Define the complete configuration schema and structure.
 
@@ -80,9 +80,9 @@ Define the complete configuration schema and structure.
 
 ### Task cli4.2: Settings Module
 
-"task_id": "cli-tpt-4-2"
-"priority": "P1"
-"estimated_hours": 8
+- *task_id*: *cli-tpt-4-2*
+- *priority*: *P1*
+- *estimated_hours*: 8
 
 Implement the settings management module.
 
@@ -118,9 +118,9 @@ Implement the settings management module.
 
 ### Task cli4.3: Settings Command
 
-"task_id": "cli-tpt-4-3"
-"priority": "P1"
-"estimated_hours": 10
+- *task_id*: *cli-tpt-4-3*
+- *priority*: *P1*
+- *estimated_hours*: 10
 
 Implement the `maestro settings` command for managing configuration.
 
@@ -193,9 +193,9 @@ Implement the `maestro settings` command for managing configuration.
 
 ### Task cli4.4: Context Management
 
-"task_id": "cli-tpt-4-4"
-"priority": "P1"
-"estimated_hours": 6
+- *task_id*: *cli-tpt-4-4*
+- *priority*: *P1*
+- *estimated_hours*: 6
 
 Implement current context tracking for track/phase/task.
 
@@ -236,9 +236,9 @@ Implement current context tracking for track/phase/task.
 
 ### Task cli4.5: Feature Matrix Update
 
-"task_id": "cli-tpt-4-5"
-"priority": "P2"
-"estimated_hours": 4
+- *task_id*: *cli-tpt-4-5*
+- *priority*: *P2*
+- *estimated_hours*: 4
 
 Update CLI/TUI feature matrix with roadmap/plan/task → track/phase/task conversion.
 

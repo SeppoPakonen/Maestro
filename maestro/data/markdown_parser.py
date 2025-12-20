@@ -16,13 +16,13 @@ from pathlib import Path
 
 def parse_quoted_value(line: str) -> Optional[Tuple[str, Any]]:
     """
-    Parse a quoted key-value pair from a line.
+    Parse a quoted or asterisk key-value pair from a line.
 
-    Format: "key": value
-    - Strings: "key": "value"
-    - Numbers: "key": 123 or "key": 45.67
-    - Booleans: "key": true or "key": false
-    - Null: "key": null
+    Format: "key": value OR *key*: value
+    - Strings: "key": "value" OR *key*: *value*
+    - Numbers: "key": 123 or "key": 45.67 OR *key*: 123 or *key*: 45.67
+    - Booleans: "key": true or "key": false OR *key*: true or *key*: false
+    - Null: "key": null OR *key*: null
 
     Args:
         line: Line of text to parse
@@ -37,22 +37,32 @@ def parse_quoted_value(line: str) -> Optional[Tuple[str, Any]]:
         ('priority', 1)
         >>> parse_quoted_value('"enabled": true')
         ('enabled', True)
+        >>> parse_quoted_value('*name*: *Test Track*')
+        ('name', 'Test Track')
+        >>> parse_quoted_value('*priority*: 1')
+        ('priority', 1)
     """
-    # Pattern: "key": value (with flexible whitespace)
-    # Key is in quotes, value can be quoted string, number, boolean, or null
-    pattern = r'"([^"]+)"\s*:\s*(.+)$'
-    match = re.match(pattern, line.strip())
+    # Pattern: "key": value or *key*: value (with flexible whitespace)
+    # Key is in quotes or asterisks, value can be quoted/asterisked string, number, boolean, or null
+    quoted_pattern = r'"([^"]+)"\s*:\s*(.+)$'
+    asterisk_pattern = r'\*([^*]+)\*\s*:\s*(.+)$'
 
+    # Try quoted format first
+    match = re.match(quoted_pattern, line.strip())
     if not match:
-        return None
+        # Try asterisk format
+        match = re.match(asterisk_pattern, line.strip())
+        if not match:
+            return None
 
     key = match.group(1)
     value_str = match.group(2).strip()
 
     # Parse value based on format
-    # Quoted string
-    if value_str.startswith('"') and value_str.endswith('"'):
-        value = value_str[1:-1]  # Remove quotes
+    # Quoted or asterisked string
+    if (value_str.startswith('"') and value_str.endswith('"')) or \
+       (value_str.startswith('*') and value_str.endswith('*')):
+        value = value_str[1:-1]  # Remove quotes or asterisks
     # Boolean
     elif value_str == 'true':
         value = True
@@ -373,7 +383,11 @@ def parse_task_heading(line: str) -> Optional[Tuple[str, str]]:
 
 def parse_metadata_block(lines: List[str], start_idx: int = 0) -> Tuple[Dict[str, Any], int]:
     """
-    Parse consecutive quoted key-value pairs into a metadata dict.
+    Parse consecutive quoted or asterisk key-value pairs into a metadata dict.
+
+    Supports both formats:
+    - Old: "key": "value" or "key": 123
+    - New: - *key*: *value* or - *key*: 123
 
     Stops at first non-matching line.
 
@@ -405,14 +419,20 @@ def parse_metadata_block(lines: List[str], start_idx: int = 0) -> Tuple[Dict[str
             idx += 1
             break
 
-        # Try to parse as quoted value
-        result = parse_quoted_value(line)
+        # For the new format, we need to remove the leading "- " from the line
+        # before trying to parse it as a key-value pair
+        processed_line = line
+        if line.startswith('- '):
+            processed_line = line[2:]  # Remove leading "- "
+
+        # Try to parse as quoted/asterisk value
+        result = parse_quoted_value(processed_line)
         if result:
             key, value = result
             metadata[key] = value
             idx += 1
         else:
-            # Not a quoted value, stop parsing
+            # Not a quoted/asterisk value, stop parsing
             break
 
     return (metadata, idx)

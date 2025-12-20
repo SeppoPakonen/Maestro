@@ -1,13 +1,13 @@
 # Phase CLI3: AI Discussion System 📋 **[Planned]**
 
-"phase_id": "cli-tpt-3"
-"track": "Track/Phase/Task CLI and AI Discussion System"
-"track_id": "cli-tpt"
-"status": "planned"
-"completion": 0
-"duration": "2-3 weeks"
-"dependencies": ["cli-tpt-1", "cli-tpt-2"]
-"priority": "P0"
+- *phase_id*: *cli-tpt-3*
+- *track*: *Track/Phase/Task CLI and AI Discussion System*
+- *track_id*: *cli-tpt*
+- *status*: *planned*
+- *completion*: 0
+- *duration*: *2-3 weeks*
+- *dependencies*: [*cli-tpt-1*, *cli-tpt-2*]
+- *priority*: *P0*
 
 **Objective**: Implement a unified AI discussion interface that works across all track/phase/task contexts, supporting both editor-based and terminal stream modes, with JSON action processing for automated task management.
 
@@ -43,9 +43,9 @@ maestro task cli-tpt-1-1 discuss
 
 ### Task cli3.1: Core Discussion Module
 
-"task_id": "cli-tpt-3-1"
-"priority": "P0"
-"estimated_hours": 16
+- *task_id*: *cli-tpt-3-1*
+- *priority*: *P0*
+- *estimated_hours*: 16
 
 Create the unified discussion engine that all AI interactions use.
 
@@ -89,9 +89,9 @@ Create the unified discussion engine that all AI interactions use.
 
 ### Task cli3.2: Editor Mode
 
-"task_id": "cli-tpt-3-2"
-"priority": "P0"
-"estimated_hours": 12
+- *task_id*: *cli-tpt-3-2*
+- *priority*: *P0*
+- *estimated_hours*: 12
 
 Implement editor-based discussion mode using $EDITOR.
 
@@ -137,9 +137,9 @@ Implement editor-based discussion mode using $EDITOR.
 
 ### Task cli3.3: Terminal Stream Mode
 
-"task_id": "cli-tpt-3-3"
-"priority": "P0"
-"estimated_hours": 12
+- *task_id*: *cli-tpt-3-3*
+- *priority*: *P0*
+- *estimated_hours*: 12
 
 Implement terminal-based discussion mode with real-time interaction.
 
@@ -179,9 +179,9 @@ Implement terminal-based discussion mode with real-time interaction.
 
 ### Task cli3.4: JSON Action Processor
 
-"task_id": "cli-tpt-3-4"
-"priority": "P0"
-"estimated_hours": 16
+- *task_id*: *cli-tpt-3-4*
+- *priority*: *P0*
+- *estimated_hours*: 16
 
 Implement the action processor that executes AI-generated JSON actions.
 
@@ -235,9 +235,9 @@ Implement the action processor that executes AI-generated JSON actions.
 
 ### Task cli3.5: Discussion Commands
 
-"task_id": "cli-tpt-3-5"
-"priority": "P0"
-"estimated_hours": 8
+- *task_id*: *cli-tpt-3-5*
+- *priority*: *P0*
+- *estimated_hours*: 8
 
 Implement the CLI commands for starting discussions.
 
@@ -269,9 +269,9 @@ Implement the CLI commands for starting discussions.
 
 ### Task cli3.6: AI Integration
 
-"task_id": "cli-tpt-3-6"
-"priority": "P1"
-"estimated_hours": 12
+- *task_id*: *cli-tpt-3-6*
+- *priority*: *P1*
+- *estimated_hours*: 12
 
 Integrate with AI APIs (OpenAI, Anthropic, local models).
 
