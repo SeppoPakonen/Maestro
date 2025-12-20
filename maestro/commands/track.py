@@ -17,12 +17,183 @@ from __future__ import annotations
 
 import shutil
 import sys
+import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
 
+from maestro.config.settings import get_settings
 from maestro.data import parse_todo_md, parse_done_md
 from .discuss import handle_track_discuss
+
+ANSI_RESET = "\033[0m"
+ANSI_BOLD = "\033[1m"
+ANSI_DIM = "\033[2m"
+ANSI_COLORS = {
+    "red": "\033[31m",
+    "green": "\033[32m",
+    "yellow": "\033[33m",
+    "blue": "\033[34m",
+    "magenta": "\033[35m",
+    "cyan": "\033[36m",
+    "white": "\033[37m",
+    "bright_black": "\033[90m",
+    "bright_white": "\033[97m",
+}
+
+
+def _style_text(text: str, color: Optional[str] = None, bold: bool = False, dim: bool = False) -> str:
+    settings = get_settings()
+    if not settings.color_output:
+        return text
+    parts = []
+    if bold:
+        parts.append(ANSI_BOLD)
+    if dim:
+        parts.append(ANSI_DIM)
+    if color:
+        parts.append(ANSI_COLORS.get(color, ""))
+    if not parts:
+        return text
+    return "".join(parts) + text + ANSI_RESET
+
+
+def _truncate(text: str, width: int, unicode_symbols: bool) -> str:
+    if width <= 0:
+        return ""
+    if len(text) <= width:
+        return text
+    if width <= 1:
+        return text[:width]
+    ellipsis = "…" if unicode_symbols else "..."
+    if width <= len(ellipsis):
+        return text[:width]
+    return text[: width - len(ellipsis)] + ellipsis
+
+
+def _status_display(status: str, unicode_symbols: bool) -> tuple[str, str]:
+    normalized = (status or "unknown").lower()
+    status_map = {
+        "planned": ("Planned", "cyan", "🗓"),
+        "proposed": ("Proposed", "magenta", "💡"),
+        "in_progress": ("In Progress", "yellow", "🚧"),
+        "done": ("Done", "green", "✅"),
+    }
+    label, color, emoji = status_map.get(normalized, ("Unknown", "bright_black", "❔"))
+    if unicode_symbols:
+        return f"{emoji} {label}", color
+    return label, color
+
+
+def _box_chars(unicode_symbols: bool) -> dict[str, str]:
+    if unicode_symbols:
+        return {
+            "top_left": "╭",
+            "top_right": "╮",
+            "bottom_left": "╰",
+            "bottom_right": "╯",
+            "horizontal": "─",
+            "vertical": "│",
+            "top_sep": "┬",
+            "mid_left": "├",
+            "mid_right": "┤",
+            "mid_sep": "┼",
+            "mid_horizontal": "─",
+            "bottom_sep": "┴",
+        }
+    return {
+        "top_left": "+",
+        "top_right": "+",
+        "bottom_left": "+",
+        "bottom_right": "+",
+        "horizontal": "-",
+        "vertical": "|",
+        "top_sep": "+",
+        "mid_left": "+",
+        "mid_right": "+",
+        "mid_sep": "+",
+        "mid_horizontal": "-",
+        "bottom_sep": "+",
+    }
+
+
+def _render_table(title: str, rows: list[dict[str, str]], term_width: int) -> list[str]:
+    settings = get_settings()
+    unicode_symbols = settings.unicode_symbols
+    box = _box_chars(unicode_symbols)
+    ncol = 4
+    inner_width = max(term_width - 2, 10)
+    separator_width = ncol - 1
+    cell_width_total = max(inner_width - separator_width, ncol * 3)
+
+    idx_header = "#"
+    id_header = "ID"
+    name_header = "Name"
+    status_header = "Status"
+
+    idx_content = max(len(idx_header), len(str(len(rows) or 0)))
+    id_content = max(len(id_header), max((len(r["id"]) for r in rows), default=0))
+    status_content = max(len(status_header), max((len(r["status"]) for r in rows), default=0))
+
+    min_idx = 1
+    min_id = 2
+    min_status = 6
+    min_name = 6
+
+    idx_content = max(idx_content, min_idx)
+    id_content = max(id_content, min_id)
+    status_content = max(status_content, min_status)
+
+    available_content = cell_width_total - 2 * ncol
+    name_content = available_content - (idx_content + id_content + status_content)
+    name_content = max(name_content, min_name)
+
+    total_content = idx_content + id_content + name_content + status_content
+    if total_content > available_content:
+        overflow = total_content - available_content
+        name_content = max(min_name, name_content - overflow)
+
+    col_content_widths = [idx_content, id_content, name_content, status_content]
+    col_widths = [w + 2 for w in col_content_widths]
+
+    def border(left: str, sep: str, right: str, horizontal: str) -> str:
+        segments = [horizontal * w for w in col_widths]
+        return left + sep.join(segments) + right
+
+    lines = []
+    lines.append(border(box["top_left"], box["top_sep"], box["top_right"], box["horizontal"]))
+
+    title_text = _truncate(title, inner_width - 2, unicode_symbols)
+    title_line = f"{box['vertical']} " + title_text.ljust(inner_width - 2) + f" {box['vertical']}"
+    lines.append(_style_text(title_line, color="bright_white", bold=True))
+    lines.append(border(box["mid_left"], box["mid_sep"], box["mid_right"], box["mid_horizontal"]))
+
+    headers = [idx_header, id_header, name_header, status_header]
+    header_cells = []
+    for header, width in zip(headers, col_content_widths):
+        header_cells.append(" " + header.ljust(width) + " ")
+    header_line = box["vertical"] + box["vertical"].join(header_cells) + box["vertical"]
+    lines.append(_style_text(header_line, color="bright_white", bold=True))
+    lines.append(border(box["mid_left"], box["mid_sep"], box["mid_right"], box["mid_horizontal"]))
+
+    if rows:
+        for row in rows:
+            row_cells = []
+            values = [row["idx"], row["id"], row["name"], row["status"]]
+            colors = [None, None, None, row.get("status_color")]
+            for value, width, color in zip(values, col_content_widths, colors):
+                cell_text = _truncate(value, width, unicode_symbols)
+                padded = " " + cell_text.ljust(width) + " "
+                row_cells.append(_style_text(padded, color=color))
+            line = box["vertical"] + box["vertical"].join(row_cells) + box["vertical"]
+            lines.append(line)
+    else:
+        empty_text = _truncate("(none)", inner_width - 2, unicode_symbols)
+        empty_line = f"{box['vertical']} " + empty_text.ljust(inner_width - 2) + f" {box['vertical']}"
+        lines.append(_style_text(empty_line, color="bright_black", dim=True))
+
+    lines.append(border(box["bottom_left"], box["bottom_sep"], box["bottom_right"], box["horizontal"]))
+    return lines
 
 
 def resolve_track_identifier(identifier: str) -> Optional[str]:
@@ -174,53 +345,102 @@ def show_track(track_identifier: str, args) -> int:
         print(f"Error: Track '{track_identifier}' not found.")
         return 1
 
-    print()
-    print("=" * 80)
-    print(f"TRACK: {track.get('name', 'Unnamed')}")
-    print("=" * 80)
-    print()
+    settings = get_settings()
+    unicode_symbols = settings.unicode_symbols
+    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
+    term_width = max(term_width, 20)
+    box = _box_chars(unicode_symbols)
+    inner_width = term_width - 2
 
-    print(f"ID:          {track.get('track_id', 'N/A')}")
-    print(f"Priority:    {track.get('priority', 'N/A')}")
-    print(f"Status:      {track.get('status', 'N/A')}")
-    print(f"Completion:  {track.get('completion', 0)}%")
+    print()
+    header_title = f"🧭 Track: {track.get('name', 'Unnamed')}" if unicode_symbols else f"Track: {track.get('name', 'Unnamed')}"
+    completion = track.get('completion', 0)
+    if isinstance(completion, str) and completion.endswith("%"):
+        completion_text = completion
+    else:
+        completion_text = f"{completion}%"
+    header_lines = [
+        f"ID: {track.get('track_id', 'N/A')}",
+        f"Priority: {track.get('priority', 'N/A')}",
+        f"Status: {track.get('status', 'N/A')}",
+        f"Completion: {completion_text}",
+    ]
+
+    print(box["top_left"] + box["horizontal"] * inner_width + box["top_right"])
+    title_line = f"{box['vertical']} " + _truncate(header_title, inner_width - 2, unicode_symbols).ljust(inner_width - 2) + f" {box['vertical']}"
+    print(_style_text(title_line, color="bright_white", bold=True))
+    for line in header_lines:
+        content = _truncate(line, inner_width - 2, unicode_symbols)
+        padded = f"{box['vertical']} " + content.ljust(inner_width - 2) + f" {box['vertical']}"
+        print(padded)
+    print(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"])
     print()
 
     description = track.get('description', [])
     if description:
-        print("Description:")
+        desc_title = "📝 Description" if unicode_symbols else "Description"
+        print(box["top_left"] + box["horizontal"] * inner_width + box["top_right"])
+        title_line = f"{box['vertical']} " + _truncate(desc_title, inner_width - 2, unicode_symbols).ljust(inner_width - 2) + f" {box['vertical']}"
+        print(_style_text(title_line, color="bright_white", bold=True))
+        wrapped_lines = []
         for line in description:
-            print(f"  {line}")
+            wrapped_lines.extend(textwrap.wrap(line, width=max(inner_width - 2, 10)) or [""])
+        if not wrapped_lines:
+            wrapped_lines = ["(none)"]
+        for line in wrapped_lines:
+            content = _truncate(line, inner_width - 2, unicode_symbols)
+            padded = f"{box['vertical']} " + content.ljust(inner_width - 2) + f" {box['vertical']}"
+            print(padded)
+        print(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"])
         print()
 
     phases = track.get('phases', [])
     todo_phases = [phase for phase in phases if phase.get('status') != 'done']
 
-    print(f"Todo phases ({len(todo_phases)}):")
-    if todo_phases:
-        for i, phase in enumerate(todo_phases, 1):
-            phase_id = phase.get('phase_id', 'N/A')
-            phase_name = phase.get('name', 'Unnamed')
-            phase_status = phase.get('status', 'unknown')
-            print(f"  {i}. [{phase_id}] {phase_name} - {phase_status}")
-    else:
-        print("  (none)")
+    todo_rows = []
+    for i, phase in enumerate(todo_phases, 1):
+        phase_id = phase.get('phase_id', 'N/A')
+        phase_name = phase.get('name', 'Unnamed')
+        phase_status = phase.get('status', 'unknown')
+        status_label, status_color = _status_display(phase_status, unicode_symbols)
+        todo_rows.append({
+            "idx": str(i),
+            "id": phase_id,
+            "name": phase_name,
+            "status": status_label,
+            "status_color": status_color,
+        })
+
+    todo_title = f"Todo phases ({len(todo_rows)})"
+    todo_title = f"🧭 {todo_title}" if unicode_symbols else todo_title
+    for line in _render_table(todo_title, todo_rows, term_width):
+        print(line)
     print()
 
-    if done_phases:
-        total_done = len(done_phases)
-        visible_done = done_phases[-10:]
-        if total_done > len(visible_done):
-            done_label = f"Done phases ({len(visible_done)} of {total_done}):"
-        else:
-            done_label = f"Done phases ({len(visible_done)}):"
-        print(done_label)
-        for i, phase in enumerate(visible_done, 1):
-            phase_id = phase.get('phase_id', 'N/A')
-            phase_name = phase.get('name', 'Unnamed')
-            phase_status = phase.get('status', 'done')
-            print(f"  {i}. [{phase_id}] {phase_name} - {phase_status}")
-        print()
+    total_done = len(done_phases)
+    visible_done = done_phases[-10:] if done_phases else []
+    if total_done > len(visible_done):
+        done_title = f"Done phases ({len(visible_done)} of {total_done})"
+    else:
+        done_title = f"Done phases ({len(visible_done)})"
+    done_title = f"✅ {done_title}" if unicode_symbols else done_title
+
+    done_rows = []
+    for i, phase in enumerate(visible_done, 1):
+        phase_id = phase.get('phase_id', 'N/A')
+        phase_name = phase.get('name', 'Unnamed')
+        phase_status = phase.get('status', 'done')
+        status_label, status_color = _status_display(phase_status, unicode_symbols)
+        done_rows.append({
+            "idx": str(i),
+            "id": phase_id,
+            "name": phase_name,
+            "status": status_label,
+            "status_color": status_color,
+        })
+    for line in _render_table(done_title, done_rows, term_width):
+        print(line)
+    print()
 
     return 0
 
