@@ -27,6 +27,8 @@ from maestro.data.markdown_writer import (
     remove_task_block,
     replace_phase_block,
     replace_task_block,
+    update_task_metadata,
+    update_task_heading_status,
 )
 from .track import (
     _box_chars,
@@ -37,6 +39,7 @@ from .track import (
     _status_display,
     resolve_track_identifier,
 )
+from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
 
 
 def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
@@ -521,6 +524,19 @@ def _remove_task_from_todo(todo_path: Path, task_id: str) -> None:
     todo_path.write_text("".join(lines), encoding='utf-8')
 
 
+def _set_task_checkbox(todo_path: Path, task_id: str, checked: bool) -> bool:
+    text = todo_path.read_text(encoding='utf-8')
+    lines = text.splitlines(keepends=True)
+    pattern = re.compile(rf'^(\s*-\s+\[)[ x](\]\s+\*\*{re.escape(task_id)}\s*:)', re.IGNORECASE)
+    for idx, line in enumerate(lines):
+        if pattern.match(line):
+            mark = 'x' if checked else ' '
+            lines[idx] = pattern.sub(lambda m: f"{m.group(1)}{mark}{m.group(2)}", line)
+            todo_path.write_text("".join(lines), encoding='utf-8')
+            return True
+    return False
+
+
 def add_task(name: str, args):
     """
     Add a new task to a phase.
@@ -661,10 +677,48 @@ def complete_task(task_id: str, args):
         task_id: Task ID to complete
         args: Command arguments
     """
-    print(f"Marking task as complete: {task_id}")
-    print("Note: This requires the Writer module (Task 1.2) to be implemented.")
-    print("For now, please edit docs/phases/*.md manually.")
-    return 1
+    setattr(args, 'status', 'done')
+    return set_task_status(task_id, args)
+
+
+def set_task_status(task_id: str, args) -> int:
+    """
+    Update a task status in its phase file and docs/todo.md checkbox.
+    """
+    status_value = normalize_status(getattr(args, 'status', None))
+    if not status_value:
+        print(f"Error: Unknown status. Allowed: {allowed_statuses()}.")
+        return 1
+
+    verbose = getattr(args, 'verbose', False)
+    phase_file = _find_task_file(task_id)
+    if not phase_file:
+        print(f"Error: Task '{task_id}' not found in any phase file.")
+        if verbose:
+            print("Verbose: Use 'maestro task list' to see available task IDs.")
+        return 1
+
+    if not update_task_metadata(phase_file, task_id, 'status', status_value):
+        print(f"Error: Task '{task_id}' not found in {phase_file}.")
+        return 1
+
+    update_task_heading_status(phase_file, task_id, status_badge(status_value))
+
+    summary = getattr(args, 'summary', None)
+    if summary:
+        update_task_metadata(phase_file, task_id, 'status_summary', summary)
+    else:
+        print("Note: consider adding --summary to capture the status change context.")
+
+    changed_at = status_timestamp()
+    update_task_metadata(phase_file, task_id, 'status_changed', changed_at)
+
+    todo_path = Path('docs/todo.md')
+    if todo_path.exists():
+        _set_task_checkbox(todo_path, task_id, status_value == 'done')
+
+    print(f"Updated task '{task_id}' status to '{status_value}'.")
+    return 0
 
 
 def edit_task(task_id: str, args):
@@ -758,6 +812,14 @@ def handle_task_command(args):
                 print("Error: Task ID required. Usage: maestro task remove <id>")
                 return 1
             return remove_task(args.task_id, args)
+        elif args.task_subcommand in ['status', 'set-status']:
+            if not hasattr(args, 'task_id') or not args.task_id:
+                print("Error: Task ID required. Usage: maestro task status <id> <status>")
+                return 1
+            if not getattr(args, 'status', None):
+                print("Error: Status required. Usage: maestro task status <id> <status>")
+                return 1
+            return set_task_status(args.task_id, args)
         elif args.task_subcommand in ['text', 'raw']:
             if not hasattr(args, 'task_id') or not args.task_id:
                 print("Error: Task ID required. Usage: maestro task text <id>")
@@ -845,6 +907,7 @@ USAGE:
     maestro task <id> show                Show task details
     maestro task <id> edit                Edit task in $EDITOR
     maestro task <id> complete            Mark task as complete
+    maestro task <id> status <status>     Update task status
     maestro task text <id>                Show raw task block
     maestro task set-text <id>            Replace task block (stdin or --file)
     maestro task <id> discuss             Discuss task with AI
@@ -862,6 +925,7 @@ ALIASES:
     show:     sh
     edit:     e
     complete: c, done
+    status:   set-status
     discuss:  d
     set:      st
     text:     raw
@@ -877,6 +941,7 @@ EXAMPLES:
     maestro task cli-tpt-1-1              # Show task details
     maestro task cli-tpt-1-1 edit         # Edit task in $EDITOR
     maestro task cli-tpt-1-1 complete     # Mark task as complete
+    maestro task cli-tpt-1-1 status done --summary "Finished validation"
     maestro task cli-tpt-1-1 discuss      # Discuss task with AI
     maestro task cli-tpt-1-1 set          # Set current task context
 """
@@ -892,6 +957,7 @@ USAGE:
     maestro task <id> show                Show task details
     maestro task <id> edit                Edit task in $EDITOR
     maestro task <id> complete            Mark task as complete
+    maestro task <id> status <status>     Update task status
     maestro task <id> discuss             Discuss task with AI
     maestro task <id> set                 Set current task context
 
@@ -899,6 +965,7 @@ ALIASES:
     show:     sh
     edit:     e
     complete: c, done
+    status:   set-status
     discuss:  d
     set:      st
 
@@ -906,6 +973,7 @@ EXAMPLES:
     maestro task cli-tpt-1-1 show
     maestro task cli-tpt-1-1 edit
     maestro task cli-tpt-1-1 complete
+    maestro task cli-tpt-1-1 status in_progress
     maestro task cli-tpt-1-1 discuss
     maestro task cli-tpt-1-1 set
 """
@@ -923,17 +991,23 @@ def add_task_parser(subparsers):
         arg = sys.argv[2]
         known_subcommands = [
             'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'text', 'raw',
-            'set-text', 'setraw', 'help', 'h', 'discuss', 'd', 'show', 'sh'
+            'set-text', 'setraw', 'help', 'h', 'discuss', 'd', 'show', 'sh',
+            'status', 'set-status'
         ]
         if not arg.startswith('-') and arg not in known_subcommands:
             if len(sys.argv) >= 4 and sys.argv[3] in [
-                'show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd', 'set', 'st', 'help', 'h'
+                'show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd',
+                'set', 'st', 'help', 'h', 'status', 'set-status'
             ]:
                 subcommand = sys.argv[3]
                 task_id = sys.argv[2]
-                sys.argv[2] = 'show'
-                sys.argv[3] = task_id
-                sys.argv.insert(4, subcommand)
+                if subcommand in ['status', 'set-status']:
+                    sys.argv[2] = subcommand
+                    sys.argv[3] = task_id
+                else:
+                    sys.argv[2] = 'show'
+                    sys.argv[3] = task_id
+                    sys.argv.insert(4, subcommand)
             else:
                 sys.argv.insert(2, 'show')
 
@@ -996,6 +1070,15 @@ def add_task_parser(subparsers):
         help='Remove a task'
     )
     task_remove_parser.add_argument('task_id', help='Task ID to remove')
+
+    task_status_parser = task_subparsers.add_parser(
+        'status',
+        aliases=['set-status'],
+        help='Update task status'
+    )
+    task_status_parser.add_argument('task_id', help='Task ID to update')
+    task_status_parser.add_argument('status', help='Status (planned, in_progress, done, proposed)')
+    task_status_parser.add_argument('--summary', help='Status change summary')
 
     task_text_parser = task_subparsers.add_parser(
         'text',

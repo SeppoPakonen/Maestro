@@ -23,8 +23,11 @@ from maestro.data.markdown_writer import (
     insert_phase_block,
     remove_phase_block,
     replace_phase_block,
+    update_phase_metadata,
+    update_phase_heading_status,
 )
 from .track import _box_chars, _display_width, _pad_to_width, _style_text, _truncate, _status_display
+from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
 
 
 def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
@@ -622,6 +625,56 @@ def edit_phase(phase_id: str, args):
         return 1
 
 
+def set_phase_status(phase_id: str, args) -> int:
+    """
+    Update a phase status in docs/todo.md and phase file.
+    """
+    status_value = normalize_status(getattr(args, 'status', None))
+    if not status_value:
+        print(f"Error: Unknown status. Allowed: {allowed_statuses()}.")
+        return 1
+
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print("Error: docs/todo.md not found.")
+        return 1
+
+    available = _available_phase_ids(verbose=getattr(args, 'verbose', False))
+    if phase_id not in available:
+        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        if available:
+            print(f"Available phases: {', '.join(available)}")
+        return 1
+
+    if not update_phase_metadata(todo_path, phase_id, 'status', status_value):
+        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        return 1
+
+    update_phase_heading_status(todo_path, phase_id, status_badge(status_value))
+
+    summary = getattr(args, 'summary', None)
+    if summary:
+        update_phase_metadata(todo_path, phase_id, 'status_summary', summary)
+    else:
+        print("Note: consider adding --summary to capture the status change context.")
+
+    changed_at = status_timestamp()
+    update_phase_metadata(todo_path, phase_id, 'status_changed', changed_at)
+
+    phase_path = Path('docs/phases') / f"{phase_id}.md"
+    if phase_path.exists():
+        update_phase_metadata(phase_path, phase_id, 'status', status_value)
+        update_phase_heading_status(phase_path, phase_id, status_badge(status_value))
+        if summary:
+            update_phase_metadata(phase_path, phase_id, 'status_summary', summary)
+        update_phase_metadata(phase_path, phase_id, 'status_changed', changed_at)
+    else:
+        print(f"Warning: phase file not found at {phase_path}.")
+
+    print(f"Updated phase '{phase_id}' status to '{status_value}'.")
+    return 0
+
+
 def set_phase_context(phase_id: str, args):
     """Set the current phase context.
 
@@ -736,6 +789,14 @@ def handle_phase_command(args):
                 print("Error: Phase ID required. Usage: maestro phase edit <id>")
                 return 1
             return edit_phase(args.phase_id, args)
+        elif subcommand in ['status', 'set-status']:
+            if not hasattr(args, 'phase_id') or not args.phase_id:
+                print("Error: Phase ID required. Usage: maestro phase status <id> <status>")
+                return 1
+            if not getattr(args, 'status', None):
+                print("Error: Status required. Usage: maestro phase status <id> <status>")
+                return 1
+            return set_phase_status(args.phase_id, args)
         elif subcommand in ['text', 'raw']:
             if not hasattr(args, 'phase_id') or not args.phase_id:
                 print("Error: Phase ID required. Usage: maestro phase text <id>")
@@ -812,6 +873,7 @@ USAGE:
     maestro phase <id>                    Show phase details
     maestro phase <id> show               Show phase details
     maestro phase <id> edit               Edit phase in $EDITOR
+    maestro phase <id> status <status>    Update phase status
     maestro phase text <id>               Show raw phase block
     maestro phase set-text <id>           Replace phase block (stdin or --file)
     maestro phase <id> discuss            Discuss phase with AI
@@ -823,6 +885,7 @@ ALIASES:
     remove: rm, r
     show:   sh
     edit:   e
+    status: set-status
     discuss: d
     set:    st
     text:   raw
@@ -836,6 +899,7 @@ EXAMPLES:
     maestro phase list prop               # List proposed phases
     maestro phase cli-tpt-1               # Show phase details
     maestro phase cli-tpt-1 edit          # Edit phase in $EDITOR
+    maestro phase cli-tpt-1 status done --summary "Completed core work"
     maestro phase cli-tpt-1 discuss       # Discuss phase with AI
     maestro phase cli-tpt-1 set           # Set current phase context
 """
@@ -850,18 +914,21 @@ maestro phase <id> - Manage a specific phase
 USAGE:
     maestro phase <id> show               Show phase details
     maestro phase <id> edit               Edit phase in $EDITOR
+    maestro phase <id> status <status>    Update phase status
     maestro phase <id> discuss            Discuss phase with AI
     maestro phase <id> set                Set current phase context
 
 ALIASES:
     show: sh
     edit: e
+    status: set-status
     discuss: d
     set: st
 
 EXAMPLES:
     maestro phase cli-tpt-1 show
     maestro phase cli-tpt-1 edit
+    maestro phase cli-tpt-1 status in_progress
     maestro phase cli-tpt-1 discuss
     maestro phase cli-tpt-1 set
 """
@@ -909,11 +976,11 @@ def add_phase_parser(subparsers):
         known_subcommands = [
             'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'help', 'h',
             'show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st',
-            'text', 'raw', 'set-text', 'setraw'
+            'text', 'raw', 'set-text', 'setraw', 'status', 'set-status'
         ]
         if arg not in known_subcommands:
             # Check if there's a third argument that's a subcommand
-            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw']:
+            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw', 'status', 'set-status']:
                 # maestro phase <id> <subcommand> - already has subcommand, just move id after 'show'
                 subcommand = sys.argv[3]
                 phase_id = sys.argv[2]
@@ -999,6 +1066,15 @@ def add_phase_parser(subparsers):
         help='Edit phase in $EDITOR'
     )
     phase_edit_parser.add_argument('phase_id', help='Phase ID to edit')
+
+    phase_status_parser = phase_subparsers.add_parser(
+        'status',
+        aliases=['set-status'],
+        help='Update phase status'
+    )
+    phase_status_parser.add_argument('phase_id', help='Phase ID to update')
+    phase_status_parser.add_argument('status', help='Status (planned, in_progress, done, proposed)')
+    phase_status_parser.add_argument('--summary', help='Status change summary')
 
     phase_text_parser = phase_subparsers.add_parser(
         'text',

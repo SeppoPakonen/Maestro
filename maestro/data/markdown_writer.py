@@ -76,7 +76,11 @@ def _find_phase_bounds(lines: List[str], phase_id: str) -> Optional[Tuple[int, i
 
     start_idx = None
     for idx in range(phase_idx, -1, -1):
-        if parse_phase_heading(lines[idx].strip()):
+        line = lines[idx].strip()
+        if parse_phase_heading(line):
+            start_idx = idx
+            break
+        if re.match(rf'^#+\s+Phase\s+{re.escape(phase_id)}\s*:', line):
             start_idx = idx
             break
     if start_idx is None:
@@ -131,6 +135,146 @@ def _find_task_bounds(lines: List[str], task_id: str) -> Optional[Tuple[int, int
             end_idx = idx
             break
     return (start_idx, end_idx)
+
+
+def _metadata_line_regex(key: str) -> List[re.Pattern]:
+    escaped_key = re.escape(key)
+    return [
+        re.compile(rf'^\s*"{escaped_key}"\s*:\s*".*"\s*$'),
+        re.compile(rf'^\s*"{escaped_key}"\s*:\s*.*$'),
+        re.compile(rf'^\s*-\s*\*{escaped_key}\*\s*:\s*.*$'),
+    ]
+
+
+def _is_metadata_line(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if stripped.startswith("- *") and "*:" in stripped:
+        return True
+    return bool(re.match(r'^\s*"\w+"\s*:\s*.*$', stripped))
+
+
+def _render_metadata_line(key: str, value: str) -> str:
+    escaped_key = escape_asterisk_text(key)
+    escaped_value = escape_asterisk_text(value)
+    return f"- *{escaped_key}*: *{escaped_value}*\n"
+
+
+def _strip_status_badge(line: str) -> str:
+    return re.sub(r'\s+[✅🚧📋💡❔]\s*\*\*.*?\*\*\s*$', '', line)
+
+
+def _apply_heading_status(line: str, badge: str) -> str:
+    base = _strip_status_badge(line.rstrip())
+    return f"{base} {badge}\n"
+
+
+def _update_metadata_line(
+    lines: List[str],
+    start_idx: int,
+    end_idx: int,
+    key: str,
+    value: str,
+) -> bool:
+    patterns = _metadata_line_regex(key)
+    for idx in range(start_idx, end_idx):
+        stripped = lines[idx].strip()
+        if any(pat.match(stripped) for pat in patterns):
+            lines[idx] = _render_metadata_line(key, value)
+            return True
+    return False
+
+
+def _insert_metadata_line(
+    lines: List[str],
+    start_idx: int,
+    end_idx: int,
+    key: str,
+    value: str,
+) -> None:
+    insert_idx = None
+    for idx in range(start_idx, end_idx):
+        if _is_metadata_line(lines[idx]):
+            insert_idx = idx
+            while insert_idx + 1 < end_idx and _is_metadata_line(lines[insert_idx + 1]):
+                insert_idx += 1
+            insert_idx += 1
+            break
+    if insert_idx is None:
+        insert_idx = min(start_idx + 1, end_idx)
+        if insert_idx < end_idx and not lines[insert_idx].strip():
+            insert_idx += 1
+    lines[insert_idx:insert_idx] = [_render_metadata_line(key, value)]
+
+
+def update_track_metadata(path: Path, track_id: str, key: str, value: str) -> bool:
+    lines = _read_lines(path)
+    bounds = _find_track_bounds(lines, track_id)
+    if not bounds:
+        return False
+    start_idx, end_idx = bounds
+    if not _update_metadata_line(lines, start_idx, end_idx, key, value):
+        _insert_metadata_line(lines, start_idx, end_idx, key, value)
+    _write_lines(path, lines)
+    return True
+
+
+def update_track_heading_status(path: Path, track_id: str, badge: str) -> bool:
+    lines = _read_lines(path)
+    bounds = _find_track_bounds(lines, track_id)
+    if not bounds:
+        return False
+    start_idx, _ = bounds
+    lines[start_idx] = _apply_heading_status(lines[start_idx], badge)
+    _write_lines(path, lines)
+    return True
+
+
+def update_phase_metadata(path: Path, phase_id: str, key: str, value: str) -> bool:
+    lines = _read_lines(path)
+    bounds = _find_phase_bounds(lines, phase_id)
+    if not bounds:
+        return False
+    start_idx, end_idx = bounds
+    if not _update_metadata_line(lines, start_idx, end_idx, key, value):
+        _insert_metadata_line(lines, start_idx, end_idx, key, value)
+    _write_lines(path, lines)
+    return True
+
+
+def update_phase_heading_status(path: Path, phase_id: str, badge: str) -> bool:
+    lines = _read_lines(path)
+    bounds = _find_phase_bounds(lines, phase_id)
+    if not bounds:
+        return False
+    start_idx, _ = bounds
+    lines[start_idx] = _apply_heading_status(lines[start_idx], badge)
+    _write_lines(path, lines)
+    return True
+
+
+def update_task_metadata(path: Path, task_id: str, key: str, value: str) -> bool:
+    lines = _read_lines(path)
+    bounds = _find_task_bounds(lines, task_id)
+    if not bounds:
+        return False
+    start_idx, end_idx = bounds
+    if not _update_metadata_line(lines, start_idx, end_idx, key, value):
+        _insert_metadata_line(lines, start_idx, end_idx, key, value)
+    _write_lines(path, lines)
+    return True
+
+
+def update_task_heading_status(path: Path, task_id: str, badge: str) -> bool:
+    lines = _read_lines(path)
+    bounds = _find_task_bounds(lines, task_id)
+    if not bounds:
+        return False
+    start_idx, _ = bounds
+    lines[start_idx] = _apply_heading_status(lines[start_idx], badge)
+    _write_lines(path, lines)
+    return True
 
 
 def _first_nonempty_before(lines: List[str], idx: int) -> Optional[str]:

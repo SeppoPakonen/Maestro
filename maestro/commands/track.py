@@ -34,7 +34,10 @@ from maestro.data.markdown_writer import (
     insert_track_block,
     remove_track_block,
     replace_track_block,
+    update_track_metadata,
+    update_track_heading_status,
 )
+from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
 from .discuss import handle_track_discuss
 
 ANSI_RESET = "\033[0m"
@@ -879,9 +882,53 @@ def edit_track(track_identifier: str, args) -> int:
             return 1
         print(f"Updated track '{track_id}'.")
         return 0
-    except Exception as exc:
-        print(f"Error opening editor: {exc}")
+    except Exception as e:
+        print(f"Error opening editor: {e}")
         return 1
+
+
+def set_track_status(track_identifier: str, args) -> int:
+    """
+    Update a track status in docs/todo.md.
+    """
+    verbose = getattr(args, 'verbose', False)
+    track_id = resolve_track_identifier(track_identifier, verbose=verbose)
+    if not track_id:
+        print(f"Error: Track '{track_identifier}' not found.")
+        print("Use 'maestro track list' to see available tracks.")
+        if verbose:
+            available = _available_track_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available tracks: {', '.join(available)}")
+        return 1
+
+    status_value = normalize_status(getattr(args, 'status', None))
+    if not status_value:
+        print(f"Error: Unknown status. Allowed: {allowed_statuses()}.")
+        return 1
+
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print("Error: docs/todo.md not found.")
+        return 1
+
+    if not update_track_metadata(todo_path, track_id, 'status', status_value):
+        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+        return 1
+
+    update_track_heading_status(todo_path, track_id, status_badge(status_value))
+
+    summary = getattr(args, 'summary', None)
+    if summary:
+        update_track_metadata(todo_path, track_id, 'status_summary', summary)
+    else:
+        print("Note: consider adding --summary to capture the status change context.")
+
+    changed_at = status_timestamp()
+    update_track_metadata(todo_path, track_id, 'status_changed', changed_at)
+
+    print(f"Updated track '{track_id}' status to '{status_value}'.")
+    return 0
 
 
 def set_track_context(track_identifier: str, args) -> int:
@@ -987,6 +1034,15 @@ def handle_track_command(args) -> int:
                 return 1
             return edit_track(args.track_id, args)
 
+        if subcommand in ['status', 'set-status']:
+            if not hasattr(args, 'track_id') or not args.track_id:
+                print("Error: Track ID required. Usage: maestro track status <id> <status>")
+                return 1
+            if not getattr(args, 'status', None):
+                print("Error: Status required. Usage: maestro track status <id> <status>")
+                return 1
+            return set_track_status(args.track_id, args)
+
         if subcommand in ['text', 'raw']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track text <id>")
@@ -1049,6 +1105,7 @@ USAGE:
     maestro track <id|#> list             List phases in this track
     maestro track <id|#> details          Show track details with phases/tasks
     maestro track <id|#> edit             Edit track in $EDITOR
+    maestro track <id|#> status <status>  Update track status
     maestro track <id|#> set              Set current track context
     maestro track text <id|#>             Show raw track block
     maestro track set-text <id|#>         Replace track block (stdin or --file)
@@ -1065,6 +1122,7 @@ ALIASES:
     show:   s, sh
     details: dt
     edit:   e
+    status: set-status
     set:    st
     text:   raw
     set-text: setraw
@@ -1076,6 +1134,7 @@ EXAMPLES:
     maestro track 2 list
     maestro track umk details
     maestro track umk set
+    maestro track umk status in_progress --summary "Started core work"
     maestro track discuss
     maestro track umk discuss
     maestro track add --id cli-editing --after cleanup-migration "CLI Editing"
@@ -1124,10 +1183,10 @@ def add_track_parsers(subparsers):
         known_subcommands = [
             'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'discuss', 'd',
             'help', 'h', 'show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'set', 'st',
-            'text', 'raw', 'set-text', 'setraw'
+            'text', 'raw', 'set-text', 'setraw', 'status', 'set-status'
         ]
         if arg not in known_subcommands:
-            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw']:
+            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw', 'status', 'set-status']:
                 subcommand = sys.argv[3]
                 track_id = sys.argv[2]
                 sys.argv[2] = subcommand
@@ -1232,6 +1291,15 @@ def add_track_parsers(subparsers):
         help='Set current track context'
     )
     track_set_parser.add_argument('track_id', help='Track ID to set as current')
+
+    track_status_parser = track_subparsers.add_parser(
+        'status',
+        aliases=['set-status'],
+        help='Update track status'
+    )
+    track_status_parser.add_argument('track_id', help='Track ID to update')
+    track_status_parser.add_argument('status', help='Status (planned, in_progress, done, proposed)')
+    track_status_parser.add_argument('--summary', help='Status change summary')
 
     track_parser.add_argument(
         '--mode',
