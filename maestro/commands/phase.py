@@ -37,6 +37,19 @@ def list_phases(args):
 
     # If no track_id provided and context is set, use context
     track_filter = getattr(args, 'track_id', None)
+    status_filter = None
+    if track_filter:
+        status_aliases = {
+            'plan': 'planned',
+            'planned': 'planned',
+            'done': 'done',
+            'prop': 'proposed',
+            'proposed': 'proposed',
+        }
+        normalized = track_filter.strip().lower()
+        if normalized in status_aliases:
+            status_filter = status_aliases[normalized]
+            track_filter = None
     if not track_filter:
         settings = get_settings()
         if settings.current_track:
@@ -75,6 +88,12 @@ def list_phases(args):
                 phase['_track_id'] = track.get('track_id', 'N/A')
                 phase['_track_name'] = track.get('name', 'Unnamed')
                 phases_to_show.append(phase)
+
+    if status_filter:
+        phases_to_show = [
+            phase for phase in phases_to_show
+            if phase.get('status') == status_filter
+        ]
 
     if not phases_to_show:
         print("No phases found.")
