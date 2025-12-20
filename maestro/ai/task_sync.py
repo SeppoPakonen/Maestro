@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -96,3 +98,25 @@ def build_task_prompt(
     ])
 
     return "\n".join(lines).strip()
+
+
+def load_sync_state() -> Dict[str, Any]:
+    path = Path("docs/ai_sync.json")
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return {}
+
+
+def write_sync_state(session, task_queue: List[str], current_task_id: str) -> None:
+    path = Path("docs/ai_sync.json")
+    payload = {
+        "session_id": session.session_id,
+        "current_task_id": current_task_id,
+        "task_queue": task_queue,
+        "updated_at": datetime.now().isoformat(),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

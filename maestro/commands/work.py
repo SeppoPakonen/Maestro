@@ -17,7 +17,13 @@ from ..work_session import (
     complete_session,
     save_session
 )
-from ..ai.task_sync import build_task_prompt, build_task_queue, find_task_context, task_is_done
+from ..ai.task_sync import (
+    build_task_prompt,
+    build_task_queue,
+    find_task_context,
+    task_is_done,
+    write_sync_state,
+)
 from ..breadcrumb import (
     create_breadcrumb,
     write_breadcrumb,
@@ -818,6 +824,7 @@ async def handle_work_task(args):
             related_entity={"task_id": task_id, "phase_id": phase_id, "track_id": track_id},
             metadata=metadata,
         )
+        write_sync_state(session, metadata["task_queue"], task_id)
 
         prompt = build_task_prompt(task_id, task, phase, session_id=session.session_id, sync_source="work task")
         if getattr(args, "simulate", False):
@@ -872,6 +879,7 @@ async def handle_work_task(args):
         related_entity={"task_id": task_id, "phase_id": phase_id, "track_id": track_id},
         metadata=metadata,
     )
+    write_sync_state(session, metadata["task_queue"], task_id)
 
     prompt = build_task_prompt(task_id, task, phase, session_id=session.session_id, sync_source="work task")
     if getattr(args, "simulate", False):

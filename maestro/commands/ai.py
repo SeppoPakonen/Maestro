@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import time
 from typing import Any, Dict, Optional
 
-from maestro.ai.task_sync import build_task_prompt, build_task_queue, find_task_context, task_is_done
+from maestro.ai.task_sync import (
+    build_task_prompt,
+    build_task_queue,
+    find_task_context,
+    load_sync_state,
+    task_is_done,
+    write_sync_state,
+)
 from maestro.breadcrumb import create_breadcrumb, estimate_tokens, write_breadcrumb
 from maestro.work_session import SessionStatus, SessionType, WorkSession, list_sessions, load_session, save_session
 
@@ -18,6 +26,17 @@ def add_ai_parser(subparsers):
     sync_parser = ai_subparsers.add_parser("sync", help="Sync to the next task in the active AI session")
     sync_parser.add_argument("--session", help="Work session ID to sync (default: most recent work_task)")
     sync_parser.add_argument("--task", help="Override current task ID when syncing")
+    sync_parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Watch docs/ai_sync.json and sync whenever it changes",
+    )
+    sync_parser.add_argument(
+        "--poll-interval",
+        type=float,
+        default=1.0,
+        help="Polling interval in seconds when using --watch (default: 1.0)",
+    )
     sync_parser.add_argument("--verbose", action="store_true", help="Show extra selection details")
 
     ai_subparsers.add_parser("help", aliases=["h"], help="Show help for AI commands")
@@ -25,6 +44,9 @@ def add_ai_parser(subparsers):
 
 
 def handle_ai_sync(args) -> int:
+    if getattr(args, "watch", False):
+        return _watch_ai_sync(args)
+
     session = _resolve_session(args)
     if not session:
         print("Error: No work_task session found. Run: python maestro.py work task <id>")
@@ -35,7 +57,10 @@ def handle_ai_sync(args) -> int:
         print(f"Error: Could not locate session file for {session.session_id}.")
         return 1
 
-    task_id = getattr(args, "task", None) or session.metadata.get("current_task_id")
+    sync_state = load_sync_state()
+    task_id = getattr(args, "task", None)
+    if not task_id:
+        task_id = sync_state.get("current_task_id") or session.metadata.get("current_task_id")
     if not task_id:
         print("Error: No current task set for this session.")
         return 1
@@ -76,6 +101,7 @@ def handle_ai_sync(args) -> int:
     session.metadata["current_task_id"] = next_task_id
     session.metadata["last_sync"] = datetime.now().isoformat()
     save_session(session, session_path)
+    write_sync_state(session, task_queue, next_task_id)
 
     _write_sync_breadcrumb(session, prompt)
 
@@ -84,8 +110,11 @@ def handle_ai_sync(args) -> int:
 
 
 def _resolve_session(args) -> Optional[WorkSession]:
-    if getattr(args, "session", None):
-        session_path = _find_session_path(args.session)
+    sync_state = load_sync_state()
+    session_override = getattr(args, "session", None) or sync_state.get("session_id")
+
+    if session_override:
+        session_path = _find_session_path(session_override)
         if not session_path:
             return None
         return load_session(session_path)
@@ -164,3 +193,37 @@ def _write_sync_breadcrumb(session: WorkSession, prompt: str) -> None:
         cost=0.0,
     )
     write_breadcrumb(breadcrumb, session.session_id)
+
+
+def _watch_ai_sync(args) -> int:
+    sync_path = Path("docs/ai_sync.json")
+    last_mtime = None
+    if sync_path.exists():
+        last_mtime = sync_path.stat().st_mtime
+
+    if getattr(args, "verbose", False):
+        print("Watching docs/ai_sync.json for changes. Press Ctrl+C to stop.")
+
+    try:
+        while True:
+            if sync_path.exists():
+                mtime = sync_path.stat().st_mtime
+                if last_mtime is None or mtime > last_mtime:
+                    last_mtime = mtime
+                    handle_ai_sync(_clone_args_without_watch(args))
+            time.sleep(max(getattr(args, "poll_interval", 1.0), 0.1))
+    except KeyboardInterrupt:
+        if getattr(args, "verbose", False):
+            print("Stopped watching.")
+        return 0
+
+
+def _clone_args_without_watch(args):
+    class _Args:
+        pass
+    cloned = _Args()
+    for key, value in vars(args).items():
+        if key in ("watch", "poll_interval"):
+            continue
+        setattr(cloned, key, value)
+    return cloned
