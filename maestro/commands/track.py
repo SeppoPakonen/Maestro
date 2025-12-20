@@ -49,6 +49,11 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
     if done_path.exists():
         done_data = parse_done_md(str(done_path))
         done_tracks = done_data.get('tracks', [])
+    done_path = Path('docs/done.md')
+    done_tracks = []
+    if done_path.exists():
+        done_data = parse_done_md(str(done_path))
+        done_tracks = done_data.get('tracks', [])
 
     # Try as numeric index first
     if identifier.isdigit():
@@ -113,7 +118,11 @@ def list_tracks(args):
         todo_phases = track.get('phases', [])
         done_phase_count = done_phase_counts.get(track_id, 0)
         phase_count = len(todo_phases) + done_phase_count
-        todo_count = sum(1 for phase in todo_phases if phase.get('status') != 'done')
+        todo_count = sum(
+            1
+            for phase in todo_phases
+            if phase.get('status') not in ('done', 'proposed')
+        )
 
         # Truncate long names
         if len(name) > 30:
