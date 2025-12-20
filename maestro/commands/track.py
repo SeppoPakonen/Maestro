@@ -14,7 +14,7 @@ Commands:
 import sys
 from pathlib import Path
 from typing import Optional, Dict, List
-from maestro.data import parse_todo_md
+from maestro.data import parse_done_md, parse_todo_md
 
 
 def resolve_track_identifier(identifier: str) -> Optional[str]:
@@ -39,6 +39,11 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
+    done_path = Path('docs/done.md')
+    done_tracks = []
+    if done_path.exists():
+        done_data = parse_done_md(str(done_path))
+        done_tracks = done_data.get('tracks', [])
 
     # Try as numeric index first
     if identifier.isdigit():
@@ -81,21 +86,29 @@ def list_tracks(args):
 
     # Table format
     print()
-    print("=" * 80)
+    print("=" * 86)
     print("TRACKS")
-    print("=" * 80)
+    print("=" * 86)
     print()
 
     # Header
-    print(f"{'#':<3} {'Track ID':<15} {'Name':<32} {'Status':<12} {'Phases':<8}")
-    print("-" * 80)
+    print(f"{'#':<3} {'Track ID':<15} {'Name':<32} {'Status':<12} {'Phases':<8} {'Todo':<6}")
+    print("-" * 86)
+
+    done_phase_counts = {
+        track.get('track_id', ''): len(track.get('phases', []))
+        for track in done_tracks
+    }
 
     # Rows
     for i, track in enumerate(tracks, 1):
         track_id = track.get('track_id', 'N/A')
         name = track.get('name', 'Unnamed Track')
         status = track.get('status', 'unknown')
-        phase_count = len(track.get('phases', []))
+        todo_phases = track.get('phases', [])
+        done_phase_count = done_phase_counts.get(track_id, 0)
+        phase_count = len(todo_phases) + done_phase_count
+        todo_count = sum(1 for phase in todo_phases if phase.get('status') != 'done')
 
         # Truncate long names
         if len(name) > 32:
@@ -112,7 +125,7 @@ def list_tracks(args):
         elif status == 'proposed':
             status_display = '💡 Proposed'
 
-        print(f"{i:<3} {track_id:<15} {name:<32} {status_display:<12} {phase_count:<8}")
+        print(f"{i:<3} {track_id:<15} {name:<32} {status_display:<12} {phase_count:<8} {todo_count:<6}")
 
     print()
     print(f"Total: {len(tracks)} tracks")
