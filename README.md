@@ -137,6 +137,28 @@ cd maestro
 pip install -r requirements.txt
 ```
 
+If you want the forked AI agent CLIs used by Maestro, clone with submodules:
+
+```bash
+git clone --recurse-submodules git@github.com:OuluBSD/maestro.git
+```
+
+Or initialize them later:
+
+```bash
+git submodule update --init --recursive
+```
+
+Submodules live under `external/ai-agents/`:
+
+```text
+external/ai-agents/qwen-code
+external/ai-agents/codex
+external/ai-agents/claude-code
+external/ai-agents/copilot-cli
+external/ai-agents/gemini-cli
+```
+
 Or editable install:
 
 ```bash

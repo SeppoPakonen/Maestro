@@ -1165,3 +1165,100 @@ This track handles external dependencies, build scripts, and Gentoo Portage inte
 
 **Document Status**: Major restructuring complete. New tracks and phases defined for next-generation AI-powered development workflow.
 **Last Review**: 2025-12-19
+
+---
+
+## Track: AI CLI Live Tool Protocol
+
+- *track_id*: *ai-cli-protocol*
+- *priority*: 0
+- *status*: *planned*
+- *completion*: 0%
+
+Add live tool usage + input injection support to agent CLIs beyond qwen-code.
+Study qwen-code fork (Node + C++ client) to define JSON protocol and uniform messaging.
+Implement updates across agent submodules and document submodule cloning and protocol testing.
+
+### Phase aicli1: Submodules & Repo Wiring
+
+- *phase_id*: *aicli1*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli1: Submodules & Repo Wiring](phases/aicli1.md) 📋 **[Planned]**
+
+### Phase aicli2: Qwen-Code Baseline Analysis
+
+- *phase_id*: *aicli2*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli2: Qwen-Code Baseline Analysis](phases/aicli2.md) 📋 **[Planned]**
+
+### Phase aicli3: Protocol & TCP Server Spec
+
+- *phase_id*: *aicli3*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli3: Protocol & TCP Server Spec](phases/aicli3.md) 📋 **[Planned]**
+
+### Phase aicli4: Validation & Testing
+
+- *phase_id*: *aicli4*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli4: Validation & Testing](phases/aicli4.md) 📋 **[Planned]**
+
+### Phase aicli5: Agent Integration Planning
+
+- *phase_id*: *aicli5*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli5: Agent Integration Planning](phases/aicli5.md) 📋 **[Planned]**
+
+### Phase aicli6: TCP Server Design
+
+- *phase_id*: *aicli6*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli6: TCP Server Design](phases/aicli6.md) 📋 **[Planned]**
+
+### Phase aicli7: Integration Implementation
+
+- *phase_id*: *aicli7*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli7: Integration Implementation](phases/aicli7.md) 📋 **[Planned]**
+
+### Phase aicli8: End-to-End Testing
+
+- *phase_id*: *aicli8*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] [Phase aicli8: End-to-End Testing](phases/aicli8.md) 📋 **[Planned]**
+### Phase aicli6: TCP Server Design
+
+- *phase_id*: *aicli6*
+- *status*: *planned*
+- *completion*: 0
+
+
+### Phase aicli7: Integration Implementation
+
+- *phase_id*: *aicli7*
+- *status*: *planned*
+- *completion*: 0
+
+
+### Phase aicli8: End-to-End Testing
+
+- *phase_id*: *aicli8*
+- *status*: *planned*
+- *completion*: 0
+
