@@ -45,6 +45,7 @@
 | | CM1: Remove Deprecated Commands | 📋 Planned | 0% |
 | | CM2: Rename Settings File | 📋 Planned | 0% |
 | | CM3: Update Help System | 📋 Planned | 0% |
+| | CM4: Markdown Persistence Migration | 📋 Planned | 0% |
 | **🔥 Track/Phase/Task CLI** | | | |
 | | CLI1: Markdown Data Backend | ✅ Done | 100% |
 | | CLI2: Track/Phase/Task Commands | ✅ Done | 100% |
@@ -849,6 +850,42 @@ This track removes deprecated commands and migrates to new systems.
   - Add "See also" references
   - Group related commands visually
   - Color-code help output
+
+### Phase CM4: Markdown Persistence Migration
+
+"phase_id": "cm4"
+"status": "planned"
+"completion": 0
+
+**Goal**: Replace legacy `.maestro` persistence with `docs/*.md` read/write across the program, preserving user-authored content and round-tripping unchanged.
+
+- [ ] **CM4.1: Define MD Round-Trip Contract**
+  - Specify which sections are machine-managed vs. user-authored
+  - Preserve unknown/extra content verbatim between known blocks
+  - Ensure read → write produces identical content when no changes are requested
+
+- [ ] **CM4.2: Repo Scan Artifacts → docs/*.md**
+  - Migrate `.maestro/repo/*` reads/writes in `maestro/main.py`
+  - Update `maestro/repo/build_config.py` and `maestro/repo/assembly_commands.py`
+  - Add writer paths for index/state/assemblies in `docs/`
+
+- [ ] **CM4.3: Sessions and UI State → docs/*.md**
+  - Migrate session storage in `maestro/main.py`
+  - Update UI facades (`maestro/ui_facade/phases.py`, `maestro/ui_facade/root.py`)
+  - Align TUI state reads in `maestro/tui_mc2/panes/*`
+
+- [ ] **CM4.4: Build/Cache Persistence Audit**
+  - Move persisted build state to `docs/*.md` where applicable
+  - Keep ephemeral caches in `.maestro` only if explicitly non-persistent
+  - Update `maestro/builders/*`, `maestro/config.py`, `maestro/builders/cache.py`
+
+- [ ] **CM4.5: Convert Pipeline State → docs/*.md**
+  - Migrate `.maestro/convert/*` persistent state to `docs/`
+  - Update `maestro/convert/*`, `maestro/ui_facade/convert.py`, `maestro/ui_facade/semantic.py`
+
+- [ ] **CM4.6: End-to-End MD Persistence Tests**
+  - Add round-trip tests (read/write identical) for each migrated area
+  - Validate unknown user content is preserved
 
 ---
 
