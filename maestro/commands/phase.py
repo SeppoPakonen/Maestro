@@ -429,9 +429,9 @@ def add_phase(name: str, args):
     block_lines = [
         f"### Phase {phase_id}: {name}\n",
         "\n",
-        f"\"phase_id\": \"{phase_id}\"\n",
-        "\"status\": \"planned\"\n",
-        "\"completion\": 0\n",
+        f"- *phase_id*: *{phase_id}*\n",
+        "- *status*: *planned*\n",
+        "- *completion*: 0\n",
         "\n",
     ]
     for line in desc_lines:
@@ -458,11 +458,11 @@ def add_phase(name: str, args):
         header = [
             f"# Phase {phase_id}: {name} 📋 **[Planned]**\n",
             "\n",
-            f"\"phase_id\": \"{phase_id}\"\n",
-            f"\"track\": \"{track_name}\"\n",
-            f"\"track_id\": \"{track_id}\"\n",
-            "\"status\": \"planned\"\n",
-            "\"completion\": 0\n",
+            f"- *phase_id*: *{phase_id}*\n",
+            f"- *track*: *{track_name}*\n",
+            f"- *track_id*: *{track_id}*\n",
+            "- *status*: *planned*\n",
+            "- *completion*: 0\n",
             "\n",
             "## Tasks\n",
             "\n",

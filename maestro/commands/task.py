@@ -524,9 +524,9 @@ def add_task(name: str, args):
     task_block = [
         f"### Task {task_id}: {name}\n",
         "\n",
-        f"\"task_id\": \"{task_id}\"\n",
-        "\"priority\": \"P2\"\n",
-        "\"status\": \"planned\"\n",
+        f"- *task_id*: *{task_id}*\n",
+        "- *priority*: *P2*\n",
+        "- *status*: *planned*\n",
         "\n",
     ]
     for line in desc_lines:

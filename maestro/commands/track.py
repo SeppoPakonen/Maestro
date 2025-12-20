@@ -706,10 +706,10 @@ def add_track(name: str, args) -> int:
     block_lines = [
         f"## Track: {name}\n",
         "\n",
-        f"\"track_id\": \"{track_id}\"\n",
-        f"\"priority\": {getattr(args, 'priority', 0)}\n",
-        "\"status\": \"planned\"\n",
-        "\"completion\": 0%\n",
+        f"- *track_id*: *{track_id}*\n",
+        f"- *priority*: {getattr(args, 'priority', 0)}\n",
+        "- *status*: *planned*\n",
+        "- *completion*: 0%\n",
         "\n",
     ]
     for line in desc_lines:

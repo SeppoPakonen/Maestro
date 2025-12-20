@@ -27,10 +27,13 @@ def _write_lines(path: Path, lines: List[str]) -> None:
 
 
 def _find_track_bounds(lines: List[str], track_id: str) -> Optional[Tuple[int, int]]:
-    track_line_re = re.compile(rf'^\s*"track_id"\s*:\s*"{re.escape(track_id)}"\s*$')
+    # Match both old format ("track_id": "value") and new format (- *track_id*: *value*)
+    old_format_re = re.compile(rf'^\s*"track_id"\s*:\s*"{re.escape(track_id)}"\s*$')
+    new_format_re = re.compile(rf'^\s*-\s*\*track_id\*\s*:\s*\*{re.escape(track_id)}\*\s*$')
     track_idx = None
     for idx, line in enumerate(lines):
-        if track_line_re.match(line.strip()):
+        stripped = line.strip()
+        if old_format_re.match(stripped) or new_format_re.match(stripped):
             track_idx = idx
             break
     if track_idx is None:
@@ -53,10 +56,13 @@ def _find_track_bounds(lines: List[str], track_id: str) -> Optional[Tuple[int, i
 
 
 def _find_phase_bounds(lines: List[str], phase_id: str) -> Optional[Tuple[int, int]]:
-    phase_line_re = re.compile(rf'^\s*"phase_id"\s*:\s*"{re.escape(phase_id)}"\s*$')
+    # Match both old format ("phase_id": "value") and new format (- *phase_id*: *value*)
+    old_format_re = re.compile(rf'^\s*"phase_id"\s*:\s*"{re.escape(phase_id)}"\s*$')
+    new_format_re = re.compile(rf'^\s*-\s*\*phase_id\*\s*:\s*\*{re.escape(phase_id)}\*\s*$')
     phase_idx = None
     for idx, line in enumerate(lines):
-        if phase_line_re.match(line.strip()):
+        stripped = line.strip()
+        if old_format_re.match(stripped) or new_format_re.match(stripped):
             phase_idx = idx
             break
     if phase_idx is None:
@@ -84,12 +90,26 @@ def _find_phase_bounds(lines: List[str], phase_id: str) -> Optional[Tuple[int, i
 
 
 def _find_task_bounds(lines: List[str], task_id: str) -> Optional[Tuple[int, int]]:
+    # For tasks, we look for task headings but also handle the metadata format if present
     start_idx = None
     for idx, line in enumerate(lines):
         task = parse_task_heading(line.strip())
         if task and task[0].lower() == task_id.lower():
             start_idx = idx
             break
+        # Also check for task_id as a metadata field (for backward compatibility)
+        stripped = line.strip()
+        old_format_re = re.compile(rf'^\s*"task_id"\s*:\s*"{re.escape(task_id)}"\s*$')
+        new_format_re = re.compile(rf'^\s*-\s*\*task_id\*\s*:\s*\*{re.escape(task_id)}\*\s*$')
+        if old_format_re.match(stripped) or new_format_re.match(stripped):
+            # Find the task heading above this line
+            for j in range(idx - 1, -1, -1):
+                task = parse_task_heading(lines[j].strip())
+                if task:
+                    start_idx = j
+                    break
+            if start_idx is not None:
+                break
     if start_idx is None:
         return None
 
