@@ -36,3 +36,11 @@
 - Add example flows using python maestro.py
 - Confirm commands without m wrapper
 
+## Help-Driven Walkthrough
+
+- Start with `python maestro.py help`
+- Follow to `python maestro.py track help`
+- Navigate into `python maestro.py track cli-editing list`
+- Drill into phases with `python maestro.py phase list cli-editing`
+- Review tasks with `python maestro.py task list ce4`
+- Edit a block with `python maestro.py phase edit ce4`

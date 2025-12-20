@@ -46,6 +46,11 @@
 | | CM2: Rename Settings File | 📋 Planned | 0% |
 | | CM3: Update Help System | 📋 Planned | 0% |
 | | CM4: Markdown Persistence Migration | 📋 Planned | 0% |
+| **CLI Editing** | | | |
+| | CE1: Track Editing Commands | 📋 Planned | 0% |
+| | CE2: Phase Editing Commands | 📋 Planned | 0% |
+| | CE3: Task Editing Commands | 📋 Planned | 0% |
+| | CE4: CLI Help Navigation | 📋 Planned | 0% |
 | **🔥 Track/Phase/Task CLI** | | | |
 | | CLI1: Markdown Data Backend | ✅ Done | 100% |
 | | CLI2: Track/Phase/Task Commands | ✅ Done | 100% |
