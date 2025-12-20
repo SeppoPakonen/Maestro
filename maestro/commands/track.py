@@ -50,6 +50,17 @@ ANSI_COLORS = {
     "bright_white": "\033[97m",
 }
 
+EMOJI_WIDTH_2 = {
+    "✅",
+    "🚧",
+    "📅",
+    "📋",
+    "💡",
+    "❔",
+    "🧭",
+    "📝",
+}
+
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 try:
@@ -75,6 +86,8 @@ def _style_text(text: str, color: Optional[str] = None, bold: bool = False, dim:
 
 
 def _char_display_width(char: str) -> int:
+    if char in EMOJI_WIDTH_2:
+        return 2
     if _wcwidth is not None:
         width = _wcwidth(char)
         return width if width > 0 else 0
@@ -124,7 +137,7 @@ def _truncate(text: str, width: int, unicode_symbols: bool) -> str:
 def _status_display(status: str, unicode_symbols: bool) -> tuple[str, str]:
     normalized = (status or "unknown").lower()
     status_map = {
-        "planned": ("Planned", "cyan", "🗓"),
+        "planned": ("Planned", "cyan", "📅"),
         "proposed": ("Proposed", "magenta", "💡"),
         "in_progress": ("In Progress", "yellow", "🚧"),
         "done": ("Done", "green", "✅"),
@@ -315,7 +328,7 @@ def list_tracks(args) -> int:
     status_map = {
         "done": ("✅", "green"),
         "in_progress": ("🚧", "yellow"),
-        "planned": ("📋", "cyan"),
+        "planned": ("📅", "cyan"),
         "todo": ("📋", "cyan"),
         "proposed": ("💡", "magenta"),
     }
