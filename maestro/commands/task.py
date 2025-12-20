@@ -39,6 +39,58 @@ from .track import (
 )
 
 
+def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
+    try:
+        return parse_todo_md(str(todo_path))
+    except Exception as exc:
+        if verbose:
+            print(f"Verbose: Error parsing {todo_path}: {exc}")
+            import traceback
+            traceback.print_exc()
+        else:
+            print(f"Error parsing {todo_path}. Use --verbose for more details.")
+        return None
+
+
+def _parse_done_safe(done_path: Path, verbose: bool = False) -> Optional[dict]:
+    try:
+        return parse_done_md(str(done_path))
+    except Exception as exc:
+        if verbose:
+            print(f"Verbose: Error parsing {done_path}: {exc}")
+            import traceback
+            traceback.print_exc()
+        else:
+            print(f"Error parsing {done_path}. Use --verbose for more details.")
+        return None
+
+
+def _available_phase_ids(verbose: bool = False) -> List[str]:
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        return []
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if not data:
+        return []
+    phase_ids = []
+    for track in data.get('tracks', []):
+        for phase in track.get('phases', []):
+            phase_id = phase.get('phase_id')
+            if phase_id:
+                phase_ids.append(phase_id)
+    return phase_ids
+
+
+def _available_track_ids(verbose: bool = False) -> List[str]:
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        return []
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if not data:
+        return []
+    return [track.get('track_id') for track in data.get('tracks', []) if track.get('track_id')]
+
+
 def _normalize_task_status(status: Optional[str], completed: bool, phase_status: Optional[str]) -> str:
     if completed:
         return "done"
@@ -60,7 +112,7 @@ def _normalize_task_status(status: Optional[str], completed: bool, phase_status:
     return "planned"
 
 
-def _collect_phase_index() -> Tuple[Dict[str, Dict[str, str]], List[str]]:
+def _collect_phase_index(verbose: bool = False) -> Tuple[Dict[str, Dict[str, str]], List[str]]:
     todo_path = Path('docs/todo.md')
     done_path = Path('docs/done.md')
     phase_index: Dict[str, Dict[str, str]] = {}
@@ -85,16 +137,18 @@ def _collect_phase_index() -> Tuple[Dict[str, Dict[str, str]], List[str]]:
             phase_order.append(phase_id)
 
     if todo_path.exists():
-        todo_data = parse_todo_md(str(todo_path))
-        for track in todo_data.get('tracks', []):
-            for phase in track.get('phases', []):
-                add_phase(track, phase)
+        todo_data = _parse_todo_safe(todo_path, verbose=verbose)
+        if todo_data:
+            for track in todo_data.get('tracks', []):
+                for phase in track.get('phases', []):
+                    add_phase(track, phase)
 
     if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        for track in done_data.get('tracks', []):
-            for phase in track.get('phases', []):
-                add_phase(track, phase)
+        done_data = _parse_done_safe(done_path, verbose=verbose)
+        if done_data:
+            for track in done_data.get('tracks', []):
+                for phase in track.get('phases', []):
+                    add_phase(track, phase)
 
     phases_dir = Path('docs/phases')
     if phases_dir.exists():
@@ -108,12 +162,12 @@ def _collect_phase_index() -> Tuple[Dict[str, Dict[str, str]], List[str]]:
     return phase_index, phase_order
 
 
-def _collect_task_entries() -> List[Dict[str, str]]:
+def _collect_task_entries(verbose: bool = False) -> List[Dict[str, str]]:
     phases_dir = Path('docs/phases')
     if not phases_dir.exists():
         return []
 
-    phase_index, phase_order = _collect_phase_index()
+    phase_index, phase_order = _collect_phase_index(verbose=verbose)
     tasks: List[Dict[str, str]] = []
 
     for phase_id in phase_order:
@@ -221,13 +275,18 @@ def list_tasks(args):
         return 1
 
     if track_filter:
-        resolved = resolve_track_identifier(track_filter) if track_filter.isdigit() else track_filter
+        verbose = getattr(args, 'verbose', False)
+        resolved = resolve_track_identifier(track_filter, verbose=verbose) if track_filter.isdigit() else track_filter
         if track_filter.isdigit() and not resolved:
             print(f"Error: Track '{track_filter}' not found.")
+            if verbose:
+                available = _available_track_ids(verbose=verbose)
+                if available:
+                    print(f"Verbose: Available tracks: {', '.join(available)}")
             return 1
         track_filter = resolved
 
-    tasks = _collect_task_entries()
+    tasks = _collect_task_entries(verbose=getattr(args, 'verbose', False))
 
     if phase_filter:
         tasks = [task for task in tasks if task.get('phase_id') == phase_filter]
@@ -295,8 +354,8 @@ def list_tasks(args):
     return 0
 
 
-def _resolve_task_identifier(task_identifier: str) -> Optional[Dict[str, str]]:
-    tasks = _collect_task_entries()
+def _resolve_task_identifier(task_identifier: str, verbose: bool = False) -> Optional[Dict[str, str]]:
+    tasks = _collect_task_entries(verbose=verbose)
 
     for task in tasks:
         if task.get('task_id') == task_identifier or task.get('_task', {}).get('task_number') == task_identifier:
@@ -317,9 +376,12 @@ def show_task(task_id: str, args):
 
     Searches through all phase files to find the task.
     """
-    task_entry = _resolve_task_identifier(task_id)
+    verbose = getattr(args, 'verbose', False)
+    task_entry = _resolve_task_identifier(task_id, verbose=verbose)
     if not task_entry:
         print(f"Error: Task '{task_id}' not found.")
+        if verbose:
+            print("Verbose: Use 'maestro task list' to see available task IDs.")
         return 1
     task = task_entry.get('_task', {})
     phase_info = {
@@ -469,6 +531,7 @@ def add_task(name: str, args):
     """
     from maestro.config.settings import get_settings
 
+    verbose = getattr(args, 'verbose', False)
     phase_id = getattr(args, 'phase_id', None)
     if not phase_id:
         settings = get_settings()
@@ -480,9 +543,12 @@ def add_task(name: str, args):
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
         print("Error: docs/todo.md not found.")
+        print("Use 'maestro track add' and 'maestro phase add' to create phases first.")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if data is None:
+        return 1
     phase_info = None
     track_info = None
     for track in data.get('tracks', []):
@@ -495,6 +561,10 @@ def add_task(name: str, args):
             break
     if not phase_info:
         print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        if verbose:
+            available = _available_phase_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available phases: {', '.join(available)}")
         return 1
 
     task_id = getattr(args, 'task_id_opt', None)
@@ -563,9 +633,12 @@ def remove_task(task_id: str, args):
         task_id: Task ID to remove
         args: Command arguments
     """
+    verbose = getattr(args, 'verbose', False)
     phase_file = _find_task_file(task_id)
     if not phase_file:
         print(f"Error: Task '{task_id}' not found in any phase file.")
+        if verbose:
+            print("Verbose: Use 'maestro task list' to see available task IDs.")
         return 1
 
     if not remove_task_block(phase_file, task_id):
@@ -603,9 +676,12 @@ def edit_task(task_id: str, args):
     import os
     import subprocess
 
+    verbose = getattr(args, 'verbose', False)
     phase_file = _find_task_file(task_id)
     if not phase_file:
         print(f"Error: Task '{task_id}' not found in any phase file.")
+        if verbose:
+            print("Verbose: Use 'maestro task list' to see available task IDs.")
         return 1
 
     block = extract_task_block(phase_file, task_id)
@@ -953,6 +1029,11 @@ def add_task_parser(subparsers):
         '--dry-run',
         action='store_true',
         help='Preview actions without executing them'
+    )
+    task_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show verbose errors and parsing details'
     )
 
     # maestro task discuss <id>

@@ -1522,6 +1522,14 @@ def get_project_config_file(base_dir: str = None) -> str:
     return os.path.join(maestro_dir, 'config.json')
 
 
+def get_user_projects_config_file() -> str:
+    """
+    Get the path to the user-level projects configuration file.
+    This stores project IDs without requiring a .maestro directory.
+    """
+    return os.path.join(get_user_config_dir(), 'projects.json')
+
+
 def get_user_session_config_file() -> str:
     """
     Get the path to the user-level session configuration file.
@@ -1549,23 +1557,26 @@ def get_project_id(base_dir: str = None) -> str:
         base_dir = os.getcwd()
 
     config_file = get_project_config_file(base_dir)
-
     if os.path.exists(config_file):
         with open(config_file, 'r', encoding='utf-8') as f:
             config = json.load(f)
             return config.get('project_id', str(uuid.uuid4()))
-    else:
-        # Create a new project ID
+
+    projects_file = get_user_projects_config_file()
+    projects = {}
+    if os.path.exists(projects_file):
+        with open(projects_file, 'r', encoding='utf-8') as f:
+            projects = json.load(f)
+
+    base_dir_key = os.path.abspath(base_dir)
+    project_id = projects.get(base_dir_key)
+    if not project_id:
         project_id = str(uuid.uuid4())
-        config = {
-            'project_id': project_id,
-            'created_at': datetime.now().isoformat(),
-            'base_dir': base_dir
-        }
-        os.makedirs(os.path.dirname(config_file), exist_ok=True)
-        with open(config_file, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2)
-        return project_id
+        projects[base_dir_key] = project_id
+        with open(projects_file, 'w', encoding='utf-8') as f:
+            json.dump(projects, f, indent=2)
+
+    return project_id
 
 
 def get_active_session_name() -> Optional[str]:
@@ -16252,27 +16263,6 @@ def init_maestro_dir(target_dir: str, verbose: bool = False):
     if verbose:
         print_debug(f"Initializing maestro directory in: {target_dir}", 2)
 
-    # Check if MAESTRO_DIR environment variable is set to override
-    maestro_dir = os.environ.get('MAESTRO_DIR', os.path.join(target_dir, '.maestro'))
-
-    # Create the .maestro directory
-    os.makedirs(maestro_dir, exist_ok=True)
-
-    # Create .maestro subdirectories
-    sessions_dir = os.path.join(maestro_dir, 'sessions')
-    inputs_dir = os.path.join(maestro_dir, 'inputs')
-    outputs_dir = os.path.join(maestro_dir, 'outputs')
-    partials_dir = os.path.join(maestro_dir, 'partials')
-    conversations_dir = os.path.join(maestro_dir, 'conversations')
-    repo_dir = os.path.join(maestro_dir, 'repo')
-
-    os.makedirs(sessions_dir, exist_ok=True)
-    os.makedirs(inputs_dir, exist_ok=True)
-    os.makedirs(outputs_dir, exist_ok=True)
-    os.makedirs(partials_dir, exist_ok=True)
-    os.makedirs(conversations_dir, exist_ok=True)
-    os.makedirs(repo_dir, exist_ok=True)
-
     # Create docs/ directory structure (new Repository Foundation system)
     docs_dir = os.path.join(target_dir, 'docs')
     os.makedirs(docs_dir, exist_ok=True)
@@ -16280,24 +16270,12 @@ def init_maestro_dir(target_dir: str, verbose: bool = False):
     docs_sessions_dir = os.path.join(docs_dir, 'sessions')
     docs_issues_dir = os.path.join(docs_dir, 'issues')
     docs_solutions_dir = os.path.join(docs_dir, 'solutions')
+    docs_phases_dir = os.path.join(docs_dir, 'phases')
 
     os.makedirs(docs_sessions_dir, exist_ok=True)
     os.makedirs(docs_issues_dir, exist_ok=True)
     os.makedirs(docs_solutions_dir, exist_ok=True)
-
-    # Create a default configuration file (legacy JSON format in .maestro)
-    config_file = os.path.join(maestro_dir, 'config.json')
-    if not os.path.exists(config_file):
-        # Get a unique project ID to link this project to the user configuration
-        project_id = get_project_id(target_dir)
-        config = {
-            'project_id': project_id,
-            'created_at': datetime.now().isoformat(),
-            'maestro_version': __version__,
-            'base_dir': target_dir
-        }
-        with open(config_file, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2)
+    os.makedirs(docs_phases_dir, exist_ok=True)
 
     # Create docs/Settings.md (new markdown-based configuration)
     settings_file = os.path.join(docs_dir, 'Settings.md')
@@ -16372,6 +16350,30 @@ This configuration file is both human-readable and machine-parsable. You can:
 """
         with open(settings_file, 'w', encoding='utf-8') as f:
             f.write(settings_content)
+
+    todo_file = os.path.join(docs_dir, 'todo.md')
+    if not os.path.exists(todo_file):
+        todo_content = f"""# Maestro Development TODO
+
+**Last Updated**: {datetime.now().strftime('%Y-%m-%d')}
+
+---
+
+"""
+        with open(todo_file, 'w', encoding='utf-8') as f:
+            f.write(todo_content)
+
+    done_file = os.path.join(docs_dir, 'done.md')
+    if not os.path.exists(done_file):
+        done_content = f"""# Maestro Development DONE
+
+**Last Updated**: {datetime.now().strftime('%Y-%m-%d')}
+
+---
+
+"""
+        with open(done_file, 'w', encoding='utf-8') as f:
+            f.write(done_content)
 
     # Create docs/RepoRules.md (repository rules for AI injection)
     rules_file = os.path.join(docs_dir, 'RepoRules.md')

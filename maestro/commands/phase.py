@@ -27,6 +27,45 @@ from maestro.data.markdown_writer import (
 from .track import _box_chars, _display_width, _pad_to_width, _style_text, _truncate, _status_display
 
 
+def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
+    try:
+        return parse_todo_md(str(todo_path))
+    except Exception as exc:
+        if verbose:
+            print(f"Verbose: Error parsing {todo_path}: {exc}")
+            import traceback
+            traceback.print_exc()
+        else:
+            print(f"Error parsing {todo_path}. Use --verbose for more details.")
+        return None
+
+
+def _available_track_ids(verbose: bool = False) -> List[str]:
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        return []
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if not data:
+        return []
+    return [track.get('track_id') for track in data.get('tracks', []) if track.get('track_id')]
+
+
+def _available_phase_ids(verbose: bool = False) -> List[str]:
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        return []
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if not data:
+        return []
+    phase_ids = []
+    for track in data.get('tracks', []):
+        for phase in track.get('phases', []):
+            phase_id = phase.get('phase_id')
+            if phase_id:
+                phase_ids.append(phase_id)
+    return phase_ids
+
+
 def list_phases(args):
     """
     List all phases from docs/todo.md and docs/done.md.
@@ -290,6 +329,7 @@ def show_phase(phase_id: str, args):
     phase_file = Path(f'docs/phases/{phase_id}.md')
 
     phase = None
+    verbose = getattr(args, 'verbose', False)
 
     if phase_file.exists():
         # Parse from dedicated phase file
@@ -298,8 +338,8 @@ def show_phase(phase_id: str, args):
         # Search in todo.md
         todo_path = Path('docs/todo.md')
         if todo_path.exists():
-            data = parse_todo_md(str(todo_path))
-            tracks = data.get('tracks', [])
+            data = _parse_todo_safe(todo_path, verbose=verbose)
+            tracks = data.get('tracks', []) if data else []
 
             for track in tracks:
                 for p in track.get('phases', []):
@@ -312,6 +352,18 @@ def show_phase(phase_id: str, args):
 
     if not phase:
         print(f"Error: Phase '{phase_id}' not found.")
+        if verbose:
+            phase_ids = []
+            if Path('docs/todo.md').exists():
+                data = _parse_todo_safe(Path('docs/todo.md'), verbose=verbose)
+                if data:
+                    for track in data.get('tracks', []):
+                        for p in track.get('phases', []):
+                            pid = p.get('phase_id')
+                            if pid:
+                                phase_ids.append(pid)
+            if phase_ids:
+                print(f"Verbose: Available phases: {', '.join(phase_ids)}")
         return 1
 
     # Display phase details
@@ -399,6 +451,7 @@ def add_phase(name: str, args):
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
         print("Error: docs/todo.md not found.")
+        print("Use 'maestro track add' to create a track first or run 'maestro init'.")
         return 1
 
     track_id = getattr(args, 'track_id', None)
@@ -409,10 +462,17 @@ def add_phase(name: str, args):
         print("Error: Track ID required. Usage: maestro phase add --track <track_id> <name>")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    verbose = getattr(args, 'verbose', False)
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if data is None:
+        return 1
     track = next((t for t in data.get('tracks', []) if t.get('track_id') == track_id), None)
     if not track:
         print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+        if verbose:
+            available = _available_track_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
     phase_id = getattr(args, 'phase_id', None)
@@ -492,6 +552,10 @@ def remove_phase(phase_id: str, args):
 
     if not remove_phase_block(todo_path, phase_id):
         print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        if getattr(args, 'verbose', False):
+            available = _available_phase_ids(verbose=True)
+            if available:
+                print(f"Verbose: Available phases: {', '.join(available)}")
         return 1
 
     phase_file = Path(f'docs/phases/{phase_id}.md')
@@ -532,6 +596,10 @@ def edit_phase(phase_id: str, args):
     block = extract_phase_block(todo_path, phase_id)
     if not block:
         print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        if getattr(args, 'verbose', False):
+            available = _available_phase_ids(verbose=True)
+            if available:
+                print(f"Verbose: Available phases: {', '.join(available)}")
         return 1
 
     try:
@@ -562,7 +630,6 @@ def set_phase_context(phase_id: str, args):
         args: Command arguments
     """
     from maestro.config.settings import get_settings
-    from maestro.data import parse_todo_md
     from pathlib import Path
 
     # Find phase in docs/todo.md or docs/phases/*.md
@@ -575,7 +642,10 @@ def set_phase_context(phase_id: str, args):
         print(f"Error: docs/todo.md not found.")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    verbose = getattr(args, 'verbose', False)
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if data is None:
+        return 1
     tracks = data.get('tracks', [])
 
     phase = None
@@ -600,6 +670,15 @@ def set_phase_context(phase_id: str, args):
             phase = phase_data
         else:
             print(f"Error: Phase '{phase_id}' not found.")
+            if verbose:
+                phase_ids = []
+                for track in tracks:
+                    for p in track.get('phases', []):
+                        pid = p.get('phase_id')
+                        if pid:
+                            phase_ids.append(pid)
+                if phase_ids:
+                    print(f"Verbose: Available phases: {', '.join(phase_ids)}")
             return 1
 
     # Set context

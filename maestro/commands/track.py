@@ -21,12 +21,13 @@ import sys
 import tempfile
 import textwrap
 import unicodedata
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
+from typing import List, Optional
 
 from maestro.config.settings import get_settings
-from maestro.data import parse_todo_md, parse_done_md
+from maestro.data import parse_todo_md
 from maestro.data.markdown_writer import (
     escape_asterisk_text,
     extract_track_block,
@@ -265,7 +266,7 @@ def _render_table(
     return lines
 
 
-def resolve_track_identifier(identifier: str) -> Optional[str]:
+def resolve_track_identifier(identifier: str, verbose: bool = False) -> Optional[str]:
     """
     Resolve a track identifier (number or ID) to a track ID.
 
@@ -279,7 +280,9 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
     if not todo_path.exists():
         return None
 
-    data = parse_todo_md(str(todo_path))
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if not data:
+        return None
     tracks = data.get('tracks', [])
     if identifier.isdigit():
         index = int(identifier) - 1
@@ -294,25 +297,78 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
     return None
 
 
+def _ensure_todo_file(verbose: bool = False) -> Optional[Path]:
+    docs_dir = Path('docs')
+    todo_path = docs_dir / 'todo.md'
+    if todo_path.exists():
+        return todo_path
+
+    try:
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y-%m-%d')
+        todo_content = (
+            "# Maestro Development TODO\n\n"
+            f"**Last Updated**: {timestamp}\n\n"
+            "---\n\n"
+        )
+        todo_path.write_text(todo_content, encoding='utf-8')
+        if verbose:
+            print(f"Verbose: Created {todo_path}")
+        return todo_path
+    except Exception as exc:
+        if verbose:
+            print(f"Verbose: Failed to create {todo_path}: {exc}")
+        return None
+
+
+def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
+    try:
+        return parse_todo_md(str(todo_path))
+    except Exception as exc:
+        if verbose:
+            print(f"Verbose: Error parsing {todo_path}: {exc}")
+            import traceback
+            traceback.print_exc()
+        else:
+            print(f"Error parsing {todo_path}. Use --verbose for more details.")
+        return None
+
+
+def _available_track_ids(verbose: bool = False) -> List[str]:
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        return []
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if not data:
+        return []
+    return [track.get('track_id') for track in data.get('tracks', []) if track.get('track_id')]
+
+
 def list_tracks(args) -> int:
     """
     List all tracks from docs/todo.md.
     """
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
-        print("Error: docs/todo.md not found. Run 'maestro init' first.")
+        print("Error: docs/todo.md not found.")
+        print("Use 'maestro track add <name>' to create it or run 'maestro init'.")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    data = _parse_todo_safe(todo_path, verbose=getattr(args, 'verbose', False))
+    if data is None:
+        return 1
     tracks = data.get('tracks', [])
     done_path = Path('docs/done.md')
     done_tracks = []
     if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
+        done_data = _parse_todo_safe(done_path, verbose=getattr(args, 'verbose', False))
+        if done_data:
+            done_tracks = done_data.get('tracks', [])
 
     if not tracks:
         print("No tracks found.")
+        if getattr(args, 'verbose', False):
+            print("Verbose: No track headings parsed. Expected format: '## Track: <name>'.")
         return 0
 
     print()
@@ -421,10 +477,15 @@ def show_track(track_identifier: str, args) -> int:
     """
     Show detailed information about a specific track.
     """
-    track_id = resolve_track_identifier(track_identifier)
+    verbose = getattr(args, 'verbose', False)
+    track_id = resolve_track_identifier(track_identifier, verbose=verbose)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
+        if verbose:
+            available = _available_track_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
     todo_path = Path('docs/todo.md')
@@ -432,18 +493,21 @@ def show_track(track_identifier: str, args) -> int:
         print("Error: docs/todo.md not found.")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if data is None:
+        return 1
     tracks = data.get('tracks', [])
 
     done_path = Path('docs/done.md')
     done_phases = []
     if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
-        for done_track in done_tracks:
-            if done_track.get('track_id') == track_id:
-                done_phases = done_track.get('phases', [])
-                break
+        done_data = _parse_todo_safe(done_path, verbose=verbose)
+        if done_data:
+            done_tracks = done_data.get('tracks', [])
+            for done_track in done_tracks:
+                if done_track.get('track_id') == track_id:
+                    done_phases = done_track.get('phases', [])
+                    break
 
     track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
@@ -560,10 +624,15 @@ def show_track_details(track_identifier: str, args) -> int:
     """
     Show detailed information about a specific track with all phases and their sub-tasks.
     """
-    track_id = resolve_track_identifier(track_identifier)
+    verbose = getattr(args, 'verbose', False)
+    track_id = resolve_track_identifier(track_identifier, verbose=verbose)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
+        if verbose:
+            available = _available_track_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
     todo_path = Path('docs/todo.md')
@@ -571,18 +640,21 @@ def show_track_details(track_identifier: str, args) -> int:
         print("Error: docs/todo.md not found.")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if data is None:
+        return 1
     tracks = data.get('tracks', [])
 
     done_path = Path('docs/done.md')
     done_phases = []
     if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
-        for done_track in done_tracks:
-            if done_track.get('track_id') == track_id:
-                done_phases = done_track.get('phases', [])
-                break
+        done_data = _parse_todo_safe(done_path, verbose=verbose)
+        if done_data:
+            done_tracks = done_data.get('tracks', [])
+            for done_track in done_tracks:
+                if done_track.get('track_id') == track_id:
+                    done_phases = done_track.get('phases', [])
+                    break
 
     track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
@@ -684,9 +756,9 @@ def add_track(name: str, args) -> int:
     """
     Add a new track to docs/todo.md.
     """
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
+    todo_path = _ensure_todo_file(verbose=getattr(args, 'verbose', False))
+    if not todo_path:
+        print("Error: docs/todo.md not found and could not be created.")
         return 1
 
     track_id = getattr(args, 'track_id', None) or _slugify_track_id(name)
@@ -694,7 +766,9 @@ def add_track(name: str, args) -> int:
         print("Error: Track ID cannot be purely numeric.")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    data = _parse_todo_safe(todo_path, verbose=getattr(args, 'verbose', False))
+    if data is None:
+        return 1
     if any(t.get('track_id') == track_id for t in data.get('tracks', [])):
         print(f"Error: Track ID '{track_id}' already exists.")
         return 1
@@ -737,10 +811,15 @@ def remove_track(track_identifier: str, args) -> int:
     """
     Remove a track from docs/todo.md.
     """
-    track_id = resolve_track_identifier(track_identifier)
+    verbose = getattr(args, 'verbose', False)
+    track_id = resolve_track_identifier(track_identifier, verbose=verbose)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
+        if verbose:
+            available = _available_track_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
     todo_path = Path('docs/todo.md')
@@ -763,10 +842,15 @@ def edit_track(track_identifier: str, args) -> int:
     import os
     import subprocess
 
-    track_id = resolve_track_identifier(track_identifier)
+    verbose = getattr(args, 'verbose', False)
+    track_id = resolve_track_identifier(track_identifier, verbose=verbose)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
+        if verbose:
+            available = _available_track_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
     todo_path = Path('docs/todo.md')
@@ -806,10 +890,15 @@ def set_track_context(track_identifier: str, args) -> int:
     """
     from maestro.config.settings import get_settings
 
-    track_id = resolve_track_identifier(track_identifier)
+    verbose = getattr(args, 'verbose', False)
+    track_id = resolve_track_identifier(track_identifier, verbose=verbose)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
+        if verbose:
+            available = _available_track_ids(verbose=verbose)
+            if available:
+                print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
     todo_path = Path('docs/todo.md')
@@ -817,7 +906,9 @@ def set_track_context(track_identifier: str, args) -> int:
         print("Error: docs/todo.md not found.")
         return 1
 
-    data = parse_todo_md(str(todo_path))
+    data = _parse_todo_safe(todo_path, verbose=verbose)
+    if data is None:
+        return 1
     tracks = data.get('tracks', [])
 
     track = next((t for t in tracks if t.get('track_id') == track_id), None)
@@ -870,10 +961,15 @@ def handle_track_command(args) -> int:
                 print_track_item_help()
                 return 0
             if getattr(args, 'track_item_action', None) in ['list', 'ls', 'l']:
-                track_id = resolve_track_identifier(args.track_id)
+                verbose = getattr(args, 'verbose', False)
+                track_id = resolve_track_identifier(args.track_id, verbose=verbose)
                 if not track_id:
                     print(f"Error: Track '{args.track_id}' not found.")
                     print("Use 'maestro track list' to see available tracks.")
+                    if verbose:
+                        available = _available_track_ids(verbose=verbose)
+                        if available:
+                            print(f"Verbose: Available tracks: {', '.join(available)}")
                     return 1
                 from .phase import list_phases
                 return list_phases(SimpleNamespace(track_id=track_id))
@@ -896,6 +992,9 @@ def handle_track_command(args) -> int:
                 print("Error: Track ID required. Usage: maestro track text <id>")
                 return 1
             todo_path = Path('docs/todo.md')
+            if not todo_path.exists():
+                print("Error: docs/todo.md not found.")
+                return 1
             block = extract_track_block(todo_path, args.track_id)
             if not block:
                 print(f"Error: Track '{args.track_id}' not found in docs/todo.md.")
@@ -908,6 +1007,9 @@ def handle_track_command(args) -> int:
                 print("Error: Track ID required. Usage: maestro track set-text <id> [--file path]")
                 return 1
             todo_path = Path('docs/todo.md')
+            if not todo_path.exists():
+                print("Error: docs/todo.md not found.")
+                return 1
             new_block = _resolve_text_input(args)
             if not new_block.strip():
                 print("Error: Replacement text is empty.")
@@ -1140,6 +1242,11 @@ def add_track_parsers(subparsers):
         '--dry-run',
         action='store_true',
         help='Preview actions without executing them'
+    )
+    track_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show verbose errors and parsing details'
     )
 
     return track_parser
