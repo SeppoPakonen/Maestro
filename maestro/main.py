@@ -4055,32 +4055,6 @@ def main():
     # Add help/h subcommands for rules subparsers
     rules_subparsers.add_parser('help', aliases=['h'], help='Show help for rules commands')
 
-    # Task command
-    task_parser = subparsers.add_parser('task', help=argparse.SUPPRESS)
-    task_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
-    task_subparsers = task_parser.add_subparsers(dest='task_subcommand', help='Task subcommands')
-
-    # task list
-    task_list_parser = task_subparsers.add_parser('list', aliases=['ls'], help='List tasks in the current plan')
-    task_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show rule-based tasks too')
-
-    # task run (runs tasks, similar to resume)
-    task_run_parser = task_subparsers.add_parser('run', aliases=['r'], help='Run tasks (similar to resume)')
-    task_run_parser.add_argument('num_tasks', nargs='?', type=int, help='Number of tasks to run (if omitted, runs all pending tasks)')
-    task_run_parser.add_argument('--limit-subtasks', type=int, help='Limit the number of subtasks to execute in this run')
-    task_run_parser.add_argument('--retry-interrupted', action='store_true', help='Retry interrupted tasks')
-    task_run_parser.add_argument('-o', '--stream-ai-output', action='store_true', help='Stream AI output to terminal')
-    task_run_parser.add_argument('-P', '--print-ai-prompts', action='store_true', help='Print AI prompts to terminal')
-    task_run_parser.add_argument('-q', '--quiet', action='store_true', help='Suppress streaming AI output')
-    task_run_parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
-
-    # task log (synonymous to "log task")
-    task_log_parser = task_subparsers.add_parser('log', aliases=['l'], help='Show past tasks (limited to 10, -a shows all)')
-    task_log_parser.add_argument('-a', '--all', action='store_true', help='Show all tasks instead of just the last 10')
-
-    # Add help/h subcommands for task subparsers
-    task_subparsers.add_parser('help', aliases=['h'], help='Show help for task commands')
-
     # Log command
     log_parser = subparsers.add_parser('log', aliases=['l'], help='Log management commands')
     log_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
@@ -4269,6 +4243,7 @@ def main():
     from .commands import (
         add_track_parser,
         add_phase_parser,
+        add_task_parser,
         add_discuss_parser,
         add_settings_parser,
         add_issues_parser,
@@ -4276,7 +4251,7 @@ def main():
     )
     track_parser = add_track_parser(subparsers)
     phase_parser = add_phase_parser(subparsers)
-    # NOTE: New task parser has its own handler at line 3808 and is handled in dispatch section later
+    task_parser = add_task_parser(subparsers)
 
     # Context command
     from .commands.context import add_context_parser
@@ -4826,7 +4801,7 @@ def main():
 
     # Determine which action to take based on subcommands
     # For commands that require a session, look for active session first, then default if not provided
-    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'task', 'root', 'build']:
+    if args.command in ['resume', 'rules', 'plan', 'refine-root', 'log', 'root', 'build']:
         # For these commands, if session is not provided, look for active session first, then default
         if not args.session:
             # Check for an active session first
@@ -4879,12 +4854,6 @@ def main():
                             else:
                                 print_error("Session is required for log commands", 2)
                                 sys.exit(1)
-                        elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
-                            # For task subcommands specifically, if no session, show error
-                            # But help subcommand is already handled in task command logic
-                            if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
-                                print_error("Session is required for task commands", 2)
-                                sys.exit(1)
                         else:
                             # For other commands in this group, if no session, show error
                             print_error(f"Session is required for {args.command} command", 2)
@@ -4927,12 +4896,6 @@ def main():
                             return
                         else:
                             print_error("Session is required for log commands", 2)
-                            sys.exit(1)
-                    elif args.command == 'task' and hasattr(args, 'task_subcommand') and args.task_subcommand:
-                        # For task subcommands specifically, if no session, show error
-                        # But help subcommand is already handled in task command logic
-                        if args.task_subcommand not in ['help', 'h']:  # This case is already handled within task command logic
-                            print_error("Session is required for task commands", 2)
                             sys.exit(1)
                     else:
                         # For other commands in this group, if no session, show error
@@ -5095,36 +5058,8 @@ def main():
         print_warning("Deprecated: use 'maestro root refine' instead.")
         handle_refine_root(args.session, args.verbose, args.planner_order)
     elif args.command == 'task':
-        # Handle the task command and its subcommands
-        # Check if it's a help subcommand first, before requiring a session
-        if hasattr(args, 'task_subcommand') and args.task_subcommand in ('help', 'h'):
-            # Print help for task subcommands without requiring a session
-            task_parser.print_help()
-            return  # Exit after showing help
-
-        if not args.session:
-            print_error("Session is required for task commands", 2)
-            sys.exit(1)
-
-        if hasattr(args, 'task_subcommand') and args.task_subcommand:
-            if args.task_subcommand == 'list':
-                handle_task_list(args.session, args.verbose)
-            elif args.task_subcommand == 'run':
-                # For task run, we need to handle num_tasks properly
-                num_tasks = getattr(args, 'num_tasks', None)
-                # Use the new --limit-subtasks if provided, otherwise fall back to num_tasks positional arg
-                limit_subtasks = args.limit_subtasks if args.limit_subtasks is not None else num_tasks
-                handle_task_run(args.session, limit_subtasks, args.verbose, quiet=args.quiet,
-                               retry_interrupted=args.retry_interrupted, stream_ai_output=args.stream_ai_output,
-                               print_ai_prompts=args.print_ai_prompts)
-            elif args.task_subcommand == 'log':
-                handle_task_log(args.session, args.all, args.verbose)
-            else:
-                print_error(f"Unknown task subcommand: {args.task_subcommand}", 2)
-                sys.exit(1)
-        else:
-            # Default to task list if no subcommand specified
-            handle_task_list(args.session, args.verbose)
+        from .commands import handle_task_command
+        sys.exit(handle_task_command(args))
     elif args.command == 'log':
         if hasattr(args, 'log_subcommand') and args.log_subcommand:
             if args.log_subcommand == 'help' or args.log_subcommand == 'h':
@@ -6380,7 +6315,7 @@ def main():
     elif args.command == 'phase' or args.command == 'ph':
         from .commands import handle_phase_command
         sys.exit(handle_phase_command(args))
-    elif args.command == 'task' or args.command == 't':
+    elif args.command == 'task':
         from .commands import handle_task_command
         sys.exit(handle_task_command(args))
     # NOTE: Legacy task command was disabled to avoid conflicts with new task system

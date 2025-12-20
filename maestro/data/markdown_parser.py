@@ -328,7 +328,7 @@ def parse_task_heading(line: str) -> Optional[Tuple[str, str]]:
         ('1.3', 'Testing')
     """
     # Try h3 heading format first (### Task N.N: Name)
-    h3_pattern = r'^###\s+Task\s+([\d.]+):\s+(.+?)(?:\s+[📋🚧✅💡])?\s*(?:\*\*.*?\*\*)?\s*$'
+    h3_pattern = r'^###\s+Task\s+([A-Za-z0-9._-]+):\s+(.+?)(?:\s+[📋🚧✅💡])?\s*(?:\*\*.*?\*\*)?\s*$'
     match = re.match(h3_pattern, line.strip())
     if match:
         task_number = match.group(1)
@@ -336,7 +336,7 @@ def parse_task_heading(line: str) -> Optional[Tuple[str, str]]:
         return (task_number, task_name)
 
     # Try bold format (** Task N.N: Name **)
-    bold_pattern = r'(?:- \[[ x]\]\s+)?\*\*Task\s+([\d.]+):\s+(.+?)\*\*'
+    bold_pattern = r'(?:- \[[ x]\]\s+)?\*\*Task\s+([A-Za-z0-9._-]+):\s+(.+?)\*\*'
     match = re.search(bold_pattern, line)
 
     if not match:

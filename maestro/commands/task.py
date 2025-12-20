@@ -12,10 +12,20 @@ Commands:
 - maestro task <id> set - Set current task context
 """
 
+import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Optional, Dict, List
 from maestro.data import parse_todo_md, parse_phase_md, parse_config_md
+from maestro.data.markdown_writer import (
+    extract_phase_block,
+    extract_task_block,
+    insert_task_block,
+    remove_task_block,
+    replace_phase_block,
+    replace_task_block,
+)
 
 
 def list_tasks(args):
@@ -172,6 +182,89 @@ def show_task(task_id: str, args):
     return 0
 
 
+def _resolve_text_input(args) -> str:
+    if getattr(args, 'text_file', None):
+        return Path(args.text_file).read_text(encoding='utf-8')
+    return sys.stdin.read()
+
+
+def _find_task_file(task_id: str) -> Optional[Path]:
+    phases_dir = Path('docs/phases')
+    if not phases_dir.exists():
+        return None
+    for phase_file in phases_dir.glob('*.md'):
+        phase = parse_phase_md(str(phase_file))
+        for task in phase.get('tasks', []):
+            if task.get('task_id') == task_id or task.get('task_number') == task_id:
+                return phase_file
+    return None
+
+
+def _find_task_line(lines: List[str], task_id: str) -> Optional[int]:
+    pattern = re.compile(rf'\*\*{re.escape(task_id)}\s*:', re.IGNORECASE)
+    for idx, line in enumerate(lines):
+        if pattern.search(line):
+            return idx
+    return None
+
+
+def _insert_task_in_todo(
+    todo_path: Path,
+    phase_id: str,
+    task_id: str,
+    name: str,
+    desc_lines: List[str],
+    after_task_id: Optional[str],
+    before_task_id: Optional[str],
+) -> None:
+    block = extract_phase_block(todo_path, phase_id)
+    if not block:
+        return
+
+    lines = block.splitlines(keepends=True)
+    insert_idx = len(lines)
+
+    if after_task_id:
+        task_idx = _find_task_line(lines, after_task_id)
+        if task_idx is not None:
+            insert_idx = task_idx + 1
+            while insert_idx < len(lines) and not lines[insert_idx].lstrip().startswith("- ["):
+                insert_idx += 1
+    elif before_task_id:
+        task_idx = _find_task_line(lines, before_task_id)
+        if task_idx is not None:
+            insert_idx = task_idx
+
+    task_lines = [f"- [ ] **{task_id}: {name}**\n"]
+    for line in desc_lines:
+        if line.strip():
+            task_lines.append(f"  - {line.strip()}\n")
+
+    lines[insert_idx:insert_idx] = task_lines + ["\n"]
+    replace_phase_block(todo_path, phase_id, "".join(lines))
+
+
+def _remove_task_from_todo(todo_path: Path, task_id: str) -> None:
+    text = todo_path.read_text(encoding='utf-8')
+    lines = text.splitlines(keepends=True)
+    pattern = re.compile(rf'^\s*-\s+\[[ x]\]\s+\*\*{re.escape(task_id)}\s*:', re.IGNORECASE)
+    idx = 0
+    while idx < len(lines):
+        if pattern.search(lines[idx]):
+            start = idx
+            idx += 1
+            while idx < len(lines):
+                if lines[idx].lstrip().startswith("- [") and pattern.search(lines[idx]) is None:
+                    break
+                if lines[idx].startswith("### Phase") or lines[idx].startswith("## "):
+                    break
+                idx += 1
+            del lines[start:idx]
+            break
+        idx += 1
+    todo_path.write_text("".join(lines), encoding='utf-8')
+
+
 def add_task(name: str, args):
     """
     Add a new task to a phase.
@@ -180,10 +273,88 @@ def add_task(name: str, args):
         name: Name of the new task
         args: Command arguments
     """
-    print(f"Adding task: {name}")
-    print("Note: This requires the Writer module (Task 1.2) to be implemented.")
-    print("For now, please edit docs/phases/*.md manually.")
-    return 1
+    from maestro.config.settings import get_settings
+
+    phase_id = getattr(args, 'phase_id', None)
+    if not phase_id:
+        settings = get_settings()
+        phase_id = settings.current_phase
+    if not phase_id:
+        print("Error: Phase ID required. Usage: maestro task add --phase <phase_id> <name>")
+        return 1
+
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print("Error: docs/todo.md not found.")
+        return 1
+
+    data = parse_todo_md(str(todo_path))
+    phase_info = None
+    track_info = None
+    for track in data.get('tracks', []):
+        for phase in track.get('phases', []):
+            if phase.get('phase_id') == phase_id:
+                phase_info = phase
+                track_info = track
+                break
+        if phase_info:
+            break
+    if not phase_info:
+        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        return 1
+
+    task_id = getattr(args, 'task_id_opt', None)
+    if not task_id:
+        task_id = f"{phase_id}.1"
+
+    desc_lines = getattr(args, 'desc', None) or []
+
+    phases_dir = Path('docs/phases')
+    phases_dir.mkdir(parents=True, exist_ok=True)
+    phase_path = phases_dir / f"{phase_id}.md"
+    if not phase_path.exists():
+        track_name = track_info.get('name', 'Unknown Track') if track_info else 'Unknown Track'
+        header = [
+            f"# Phase {phase_id}: {phase_info.get('name', phase_id)} 📋 **[Planned]**\n",
+            "\n",
+            f"\"phase_id\": \"{phase_id}\"\n",
+            f"\"track\": \"{track_name}\"\n",
+            f"\"track_id\": \"{track_info.get('track_id', '') if track_info else ''}\"\n",
+            "\"status\": \"planned\"\n",
+            "\"completion\": 0\n",
+            "\n",
+            "## Tasks\n",
+            "\n",
+        ]
+        phase_path.write_text("".join(header), encoding='utf-8')
+
+    task_block = [
+        f"### Task {task_id}: {name}\n",
+        "\n",
+        f"\"task_id\": \"{task_id}\"\n",
+        "\"priority\": \"P2\"\n",
+        "\"status\": \"planned\"\n",
+        "\n",
+    ]
+    for line in desc_lines:
+        if line.strip():
+            task_block.append(f"- {line.strip()}\n")
+    task_block.append("\n")
+
+    inserted = insert_task_block(
+        phase_path,
+        "".join(task_block),
+        after_task_id=getattr(args, 'after', None),
+        before_task_id=getattr(args, 'before', None),
+    )
+    if not inserted:
+        print("Error: Unable to insert task block.")
+        return 1
+
+    _insert_task_in_todo(todo_path, phase_id, task_id, name, desc_lines, getattr(args, 'after', None), getattr(args, 'before', None))
+
+    print(f"Added task '{task_id}' ({name}) to phase '{phase_id}'.")
+    return 0
 
 
 def remove_task(task_id: str, args):
@@ -194,10 +365,21 @@ def remove_task(task_id: str, args):
         task_id: Task ID to remove
         args: Command arguments
     """
-    print(f"Removing task: {task_id}")
-    print("Note: This requires the Writer module (Task 1.2) to be implemented.")
-    print("For now, please edit docs/phases/*.md manually.")
-    return 1
+    phase_file = _find_task_file(task_id)
+    if not phase_file:
+        print(f"Error: Task '{task_id}' not found in any phase file.")
+        return 1
+
+    if not remove_task_block(phase_file, task_id):
+        print(f"Error: Task '{task_id}' not found in {phase_file}.")
+        return 1
+
+    todo_path = Path('docs/todo.md')
+    if todo_path.exists():
+        _remove_task_from_todo(todo_path, task_id)
+
+    print(f"Removed task: {task_id}")
+    return 0
 
 
 def complete_task(task_id: str, args):
@@ -223,31 +405,31 @@ def edit_task(task_id: str, args):
     import os
     import subprocess
 
-    # Search all phase files for the task
-    phases_dir = Path('docs/phases')
-    if not phases_dir.exists():
-        print("Error: docs/phases/ directory not found.")
-        return 1
-
-    phase_file = None
-
-    for pf in phases_dir.glob('*.md'):
-        phase = parse_phase_md(str(pf))
-        for task in phase.get('tasks', []):
-            if task.get('task_id') == task_id or task.get('task_number') == task_id:
-                phase_file = pf
-                break
-        if phase_file:
-            break
-
+    phase_file = _find_task_file(task_id)
     if not phase_file:
         print(f"Error: Task '{task_id}' not found in any phase file.")
         return 1
 
-    editor = os.environ.get('EDITOR', 'vim')
+    block = extract_task_block(phase_file, task_id)
+    if not block:
+        print(f"Error: Task '{task_id}' not found in {phase_file}.")
+        return 1
 
+    editor = os.environ.get('EDITOR', 'vim')
     try:
-        subprocess.run([editor, str(phase_file)])
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".md") as tmp:
+            tmp.write(block.encode('utf-8'))
+            tmp_path = tmp.name
+        subprocess.run([editor, tmp_path])
+        new_block = Path(tmp_path).read_text(encoding='utf-8')
+        Path(tmp_path).unlink(missing_ok=True)
+        if new_block == block:
+            print("No changes made.")
+            return 0
+        if not replace_task_block(phase_file, task_id, new_block):
+            print("Error: Failed to update task block.")
+            return 1
+        print(f"Updated task '{task_id}'.")
         return 0
     except Exception as e:
         print(f"Error opening editor: {e}")
@@ -295,19 +477,51 @@ def handle_task_command(args):
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Task name required. Usage: maestro task add <name>")
                 return 1
-            return add_task(args.name, args)
+            name = " ".join(args.name) if isinstance(args.name, list) else args.name
+            return add_task(name, args)
         elif args.task_subcommand == 'remove' or args.task_subcommand == 'rm':
             if not hasattr(args, 'task_id') or not args.task_id:
                 print("Error: Task ID required. Usage: maestro task remove <id>")
                 return 1
             return remove_task(args.task_id, args)
+        elif args.task_subcommand in ['text', 'raw']:
+            if not hasattr(args, 'task_id') or not args.task_id:
+                print("Error: Task ID required. Usage: maestro task text <id>")
+                return 1
+            phase_file = _find_task_file(args.task_id)
+            if not phase_file:
+                print(f"Error: Task '{args.task_id}' not found in any phase file.")
+                return 1
+            block = extract_task_block(phase_file, args.task_id)
+            if not block:
+                print(f"Error: Task '{args.task_id}' not found in {phase_file}.")
+                return 1
+            print(block.rstrip())
+            return 0
+        elif args.task_subcommand in ['set-text', 'setraw']:
+            if not hasattr(args, 'task_id') or not args.task_id:
+                print("Error: Task ID required. Usage: maestro task set-text <id> [--file path]")
+                return 1
+            phase_file = _find_task_file(args.task_id)
+            if not phase_file:
+                print(f"Error: Task '{args.task_id}' not found in any phase file.")
+                return 1
+            new_block = _resolve_text_input(args)
+            if not new_block.strip():
+                print("Error: Replacement text is empty.")
+                return 1
+            if not replace_task_block(phase_file, args.task_id, new_block):
+                print(f"Error: Task '{args.task_id}' not found in {phase_file}.")
+                return 1
+            print(f"Updated task '{args.task_id}'.")
+            return 0
         elif args.task_subcommand == 'help' or args.task_subcommand == 'h':
             print_task_help()
             return 0
 
     # Handle 'maestro task <id>' or 'maestro task <id> <subcommand>'
-    if hasattr(args, 'task_id') and args.task_id:
-        task_id = args.task_id
+    if hasattr(args, 'task_id_arg') and args.task_id_arg:
+        task_id = args.task_id_arg
 
         # Check if there's a task-specific subcommand
         subcommand = getattr(args, 'task_item_subcommand', None)
@@ -357,6 +571,8 @@ USAGE:
     maestro task <id> show                Show task details
     maestro task <id> edit                Edit task in $EDITOR
     maestro task <id> complete            Mark task as complete
+    maestro task text <id>                Show raw task block
+    maestro task set-text <id>            Replace task block (stdin or --file)
     maestro task <id> discuss             Discuss task with AI
     maestro task <id> set                 Set current task context
 
@@ -369,6 +585,8 @@ ALIASES:
     complete: c, done
     discuss:  d
     set:      st
+    text:     raw
+    set-text: setraw
 
 EXAMPLES:
     maestro task list                     # List tasks in current phase
@@ -448,7 +666,12 @@ def add_task_parser(subparsers):
         aliases=['a'],
         help='Add new task'
     )
-    task_add_parser.add_argument('name', help='Task name')
+    task_add_parser.add_argument('name', nargs='+', help='Task name')
+    task_add_parser.add_argument('--id', dest='task_id_opt', help='Task ID (default: <phase_id>.1)')
+    task_add_parser.add_argument('--phase', dest='phase_id', help='Phase ID to add the task to')
+    task_add_parser.add_argument('--after', help='Insert after task ID')
+    task_add_parser.add_argument('--before', help='Insert before task ID')
+    task_add_parser.add_argument('--desc', action='append', help='Description line (repeatable)')
 
     # maestro task remove <id>
     task_remove_parser = task_subparsers.add_parser(
@@ -457,6 +680,21 @@ def add_task_parser(subparsers):
         help='Remove a task'
     )
     task_remove_parser.add_argument('task_id', help='Task ID to remove')
+
+    task_text_parser = task_subparsers.add_parser(
+        'text',
+        aliases=['raw'],
+        help='Show raw task block from phase file'
+    )
+    task_text_parser.add_argument('task_id', help='Task ID to show')
+
+    task_set_text_parser = task_subparsers.add_parser(
+        'set-text',
+        aliases=['setraw'],
+        help='Replace task block from stdin or a file'
+    )
+    task_set_text_parser.add_argument('task_id', help='Task ID to replace')
+    task_set_text_parser.add_argument('--file', dest='text_file', help='Read replacement text from file')
 
     # maestro task help
     task_subparsers.add_parser(
@@ -467,7 +705,7 @@ def add_task_parser(subparsers):
 
     # Add task_id argument for 'maestro task <id>' commands
     task_parser.add_argument(
-        'task_id',
+        'task_id_arg',
         nargs='?',
         help='Task ID (for show/edit/complete/discuss commands)'
     )

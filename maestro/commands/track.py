@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+import tempfile
 import textwrap
 import unicodedata
 from pathlib import Path
@@ -26,6 +27,12 @@ from typing import Optional
 
 from maestro.config.settings import get_settings
 from maestro.data import parse_todo_md, parse_done_md
+from maestro.data.markdown_writer import (
+    extract_track_block,
+    insert_track_block,
+    remove_track_block,
+    replace_track_block,
+)
 from .discuss import handle_track_discuss
 
 ANSI_RESET = "\033[0m"
@@ -647,14 +654,68 @@ def show_track_details(track_identifier: str, args) -> int:
     return 0
 
 
+def _slugify_track_id(name: str) -> str:
+    slug = ''.join(ch.lower() if ch.isalnum() else '-' for ch in name.strip())
+    slug = re.sub(r'-{2,}', '-', slug).strip('-')
+    return slug
+
+
+def _resolve_text_input(args) -> str:
+    if getattr(args, 'text_file', None):
+        return Path(args.text_file).read_text(encoding='utf-8')
+    return sys.stdin.read()
+
+
 def add_track(name: str, args) -> int:
     """
     Add a new track to docs/todo.md.
     """
-    print(f"Adding track: {name}")
-    print("Note: This requires the Writer module (Task 1.2) to be implemented.")
-    print("For now, please edit docs/todo.md manually.")
-    return 1
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print("Error: docs/todo.md not found.")
+        return 1
+
+    track_id = getattr(args, 'track_id', None) or _slugify_track_id(name)
+    if track_id.isdigit():
+        print("Error: Track ID cannot be purely numeric.")
+        return 1
+
+    data = parse_todo_md(str(todo_path))
+    if any(t.get('track_id') == track_id for t in data.get('tracks', [])):
+        print(f"Error: Track ID '{track_id}' already exists.")
+        return 1
+
+    desc_lines = getattr(args, 'desc', None) or [
+        "Ensure track/phase/task entries can be created, edited, and reorganized from the CLI.",
+        "Provide both editor and direct text workflows for quick updates."
+    ]
+
+    block_lines = [
+        f"## Track: {name}\n",
+        "\n",
+        f"\"track_id\": \"{track_id}\"\n",
+        f"\"priority\": {getattr(args, 'priority', 0)}\n",
+        "\"status\": \"planned\"\n",
+        "\"completion\": 0%\n",
+        "\n",
+    ]
+    for line in desc_lines:
+        if line.strip():
+            block_lines.append(f"{line.strip()}\n")
+    block_lines.append("\n")
+
+    inserted = insert_track_block(
+        todo_path,
+        "".join(block_lines),
+        after_track_id=getattr(args, 'after', None),
+        before_track_id=getattr(args, 'before', None),
+    )
+    if not inserted:
+        print("Error: Unable to insert track block.")
+        return 1
+
+    print(f"Added track '{track_id}' ({name}).")
+    return 0
 
 
 def remove_track(track_identifier: str, args) -> int:
@@ -667,10 +728,17 @@ def remove_track(track_identifier: str, args) -> int:
         print("Use 'maestro track list' to see available tracks.")
         return 1
 
-    print(f"Removing track: {track_id}")
-    print("Note: This requires the Writer module (Task 1.2) to be implemented.")
-    print("For now, please edit docs/todo.md manually.")
-    return 1
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print("Error: docs/todo.md not found.")
+        return 1
+
+    if not remove_track_block(todo_path, track_id):
+        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+        return 1
+
+    print(f"Removed track: {track_id}")
+    return 0
 
 
 def edit_track(track_identifier: str, args) -> int:
@@ -691,9 +759,26 @@ def edit_track(track_identifier: str, args) -> int:
         print("Error: docs/todo.md not found.")
         return 1
 
+    block = extract_track_block(todo_path, track_id)
+    if not block:
+        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+        return 1
+
     editor = os.environ.get('EDITOR', 'vim')
     try:
-        subprocess.run([editor, str(todo_path)])
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".md") as tmp:
+            tmp.write(block.encode('utf-8'))
+            tmp_path = tmp.name
+        subprocess.run([editor, tmp_path])
+        new_block = Path(tmp_path).read_text(encoding='utf-8')
+        Path(tmp_path).unlink(missing_ok=True)
+        if new_block == block:
+            print("No changes made.")
+            return 0
+        if not replace_track_block(todo_path, track_id, new_block):
+            print("Error: Failed to update track block.")
+            return 1
+        print(f"Updated track '{track_id}'.")
         return 0
     except Exception as exc:
         print(f"Error opening editor: {exc}")
@@ -750,7 +835,8 @@ def handle_track_command(args) -> int:
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Track name required. Usage: maestro track add <name>")
                 return 1
-            return add_track(args.name, args)
+            name = " ".join(args.name) if isinstance(args.name, list) else args.name
+            return add_track(name, args)
 
         if subcommand in ['remove', 'rm', 'r']:
             if not hasattr(args, 'track_id') or not args.track_id:
@@ -790,6 +876,33 @@ def handle_track_command(args) -> int:
                 return 1
             return edit_track(args.track_id, args)
 
+        if subcommand in ['text', 'raw']:
+            if not hasattr(args, 'track_id') or not args.track_id:
+                print("Error: Track ID required. Usage: maestro track text <id>")
+                return 1
+            todo_path = Path('docs/todo.md')
+            block = extract_track_block(todo_path, args.track_id)
+            if not block:
+                print(f"Error: Track '{args.track_id}' not found in docs/todo.md.")
+                return 1
+            print(block.rstrip())
+            return 0
+
+        if subcommand in ['set-text', 'setraw']:
+            if not hasattr(args, 'track_id') or not args.track_id:
+                print("Error: Track ID required. Usage: maestro track set-text <id> [--file path]")
+                return 1
+            todo_path = Path('docs/todo.md')
+            new_block = _resolve_text_input(args)
+            if not new_block.strip():
+                print("Error: Replacement text is empty.")
+                return 1
+            if not replace_track_block(todo_path, args.track_id, new_block):
+                print(f"Error: Track '{args.track_id}' not found in docs/todo.md.")
+                return 1
+            print(f"Updated track '{args.track_id}'.")
+            return 0
+
         if subcommand in ['set', 'st']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track set <id>")
@@ -820,6 +933,8 @@ USAGE:
     maestro track <id|#> details          Show track details with phases/tasks
     maestro track <id|#> edit             Edit track in $EDITOR
     maestro track <id|#> set              Set current track context
+    maestro track text <id|#>             Show raw track block
+    maestro track set-text <id|#>         Replace track block (stdin or --file)
 
 TRACK IDENTIFIERS:
     You can use either the track ID (e.g., 'umk') or the track number (e.g., '2')
@@ -834,6 +949,8 @@ ALIASES:
     details: dt
     edit:   e
     set:    st
+    text:   raw
+    set-text: setraw
 
 EXAMPLES:
     maestro track list
@@ -844,6 +961,7 @@ EXAMPLES:
     maestro track umk set
     maestro track discuss
     maestro track umk discuss
+    maestro track add --id cli-editing --after cleanup-migration "CLI Editing"
 """
     print(help_text)
 
@@ -888,10 +1006,11 @@ def add_track_parsers(subparsers):
         arg = sys.argv[2]
         known_subcommands = [
             'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'discuss', 'd',
-            'help', 'h', 'show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'set', 'st'
+            'help', 'h', 'show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'set', 'st',
+            'text', 'raw', 'set-text', 'setraw'
         ]
         if arg not in known_subcommands:
-            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'discuss', 'd', 'set', 'st']:
+            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw']:
                 subcommand = sys.argv[3]
                 track_id = sys.argv[2]
                 sys.argv[2] = subcommand
@@ -921,7 +1040,12 @@ def add_track_parsers(subparsers):
         aliases=['a'],
         help='Add new track'
     )
-    track_add_parser.add_argument('name', help='Track name')
+    track_add_parser.add_argument('name', nargs='+', help='Track name')
+    track_add_parser.add_argument('--id', dest='track_id', help='Track ID (default: slugified name)')
+    track_add_parser.add_argument('--after', help='Insert after track ID')
+    track_add_parser.add_argument('--before', help='Insert before track ID')
+    track_add_parser.add_argument('--priority', type=int, default=0, help='Track priority number')
+    track_add_parser.add_argument('--desc', action='append', help='Description line (repeatable)')
 
     track_remove_parser = track_subparsers.add_parser(
         'remove',
@@ -969,6 +1093,21 @@ def add_track_parsers(subparsers):
         help='Edit track in $EDITOR'
     )
     track_edit_parser.add_argument('track_id', help='Track ID to edit')
+
+    track_text_parser = track_subparsers.add_parser(
+        'text',
+        aliases=['raw'],
+        help='Show raw track block from docs/todo.md'
+    )
+    track_text_parser.add_argument('track_id', help='Track ID to show')
+
+    track_set_text_parser = track_subparsers.add_parser(
+        'set-text',
+        aliases=['setraw'],
+        help='Replace track block from stdin or a file'
+    )
+    track_set_text_parser.add_argument('track_id', help='Track ID to replace')
+    track_set_text_parser.add_argument('--file', dest='text_file', help='Read replacement text from file')
 
     track_set_parser = track_subparsers.add_parser(
         'set',

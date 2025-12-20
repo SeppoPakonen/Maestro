@@ -13,9 +13,16 @@ Commands:
 
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 from typing import Optional, Dict, List
 from maestro.data import parse_todo_md, parse_phase_md, parse_config_md
+from maestro.data.markdown_writer import (
+    extract_phase_block,
+    insert_phase_block,
+    remove_phase_block,
+    replace_phase_block,
+)
 
 
 def list_phases(args):
@@ -305,6 +312,12 @@ def show_phase(phase_id: str, args):
     return 0
 
 
+def _resolve_text_input(args) -> str:
+    if getattr(args, 'text_file', None):
+        return Path(args.text_file).read_text(encoding='utf-8')
+    return sys.stdin.read()
+
+
 def add_phase(name: str, args):
     """
     Add a new phase to a track.
@@ -313,10 +326,84 @@ def add_phase(name: str, args):
         name: Name of the new phase
         args: Command arguments
     """
-    print(f"Adding phase: {name}")
-    print("Note: This requires the Writer module (Task 1.2) to be implemented.")
-    print("For now, please edit docs/todo.md manually.")
-    return 1
+    from maestro.config.settings import get_settings
+
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print("Error: docs/todo.md not found.")
+        return 1
+
+    track_id = getattr(args, 'track_id', None)
+    if not track_id:
+        settings = get_settings()
+        track_id = settings.current_track
+    if not track_id:
+        print("Error: Track ID required. Usage: maestro phase add --track <track_id> <name>")
+        return 1
+
+    data = parse_todo_md(str(todo_path))
+    track = next((t for t in data.get('tracks', []) if t.get('track_id') == track_id), None)
+    if not track:
+        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+        return 1
+
+    phase_id = getattr(args, 'phase_id', None)
+    if not phase_id:
+        phase_id = name.strip().split()[0].lower()
+    if phase_id.isdigit():
+        print("Error: Phase ID cannot be purely numeric.")
+        return 1
+
+    if any(p.get('phase_id') == phase_id for p in track.get('phases', [])):
+        print(f"Error: Phase ID '{phase_id}' already exists in track '{track_id}'.")
+        return 1
+
+    desc_lines = getattr(args, 'desc', None) or []
+    block_lines = [
+        f"### Phase {phase_id}: {name}\n",
+        "\n",
+        f"\"phase_id\": \"{phase_id}\"\n",
+        "\"status\": \"planned\"\n",
+        "\"completion\": 0\n",
+        "\n",
+    ]
+    for line in desc_lines:
+        if line.strip():
+            block_lines.append(f"{line.strip()}\n")
+    block_lines.append("\n")
+
+    inserted = insert_phase_block(
+        todo_path,
+        track_id,
+        "".join(block_lines),
+        after_phase_id=getattr(args, 'after', None),
+        before_phase_id=getattr(args, 'before', None),
+    )
+    if not inserted:
+        print("Error: Unable to insert phase block.")
+        return 1
+
+    phases_dir = Path('docs/phases')
+    phases_dir.mkdir(parents=True, exist_ok=True)
+    phase_path = phases_dir / f"{phase_id}.md"
+    if not phase_path.exists():
+        track_name = track.get('name', 'Unknown Track')
+        header = [
+            f"# Phase {phase_id}: {name} 📋 **[Planned]**\n",
+            "\n",
+            f"\"phase_id\": \"{phase_id}\"\n",
+            f"\"track\": \"{track_name}\"\n",
+            f"\"track_id\": \"{track_id}\"\n",
+            "\"status\": \"planned\"\n",
+            "\"completion\": 0\n",
+            "\n",
+            "## Tasks\n",
+            "\n",
+        ]
+        phase_path.write_text("".join(header), encoding='utf-8')
+
+    print(f"Added phase '{phase_id}' ({name}) to track '{track_id}'.")
+    return 0
 
 
 def remove_phase(phase_id: str, args):
@@ -327,10 +414,21 @@ def remove_phase(phase_id: str, args):
         phase_id: Phase ID to remove
         args: Command arguments
     """
-    print(f"Removing phase: {phase_id}")
-    print("Note: This requires the Writer module (Task 1.2) to be implemented.")
-    print("For now, please edit docs/todo.md manually.")
-    return 1
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print("Error: docs/todo.md not found.")
+        return 1
+
+    if not remove_phase_block(todo_path, phase_id):
+        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        return 1
+
+    phase_file = Path(f'docs/phases/{phase_id}.md')
+    if phase_file.exists():
+        phase_file.unlink()
+
+    print(f"Removed phase: {phase_id}")
+    return 0
 
 
 def edit_phase(phase_id: str, args):
@@ -346,19 +444,39 @@ def edit_phase(phase_id: str, args):
     # Check for dedicated phase file first
     phase_file = Path(f'docs/phases/{phase_id}.md')
 
+    editor = os.environ.get('EDITOR', 'vim')
     if phase_file.exists():
-        file_to_edit = phase_file
-    else:
-        # Edit todo.md
-        file_to_edit = Path('docs/todo.md')
-        if not file_to_edit.exists():
-            print(f"Error: Neither docs/phases/{phase_id}.md nor docs/todo.md found.")
+        try:
+            subprocess.run([editor, str(phase_file)])
+            return 0
+        except Exception as e:
+            print(f"Error opening editor: {e}")
             return 1
 
-    editor = os.environ.get('EDITOR', 'vim')
+    todo_path = Path('docs/todo.md')
+    if not todo_path.exists():
+        print(f"Error: Neither docs/phases/{phase_id}.md nor docs/todo.md found.")
+        return 1
+
+    block = extract_phase_block(todo_path, phase_id)
+    if not block:
+        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+        return 1
 
     try:
-        subprocess.run([editor, str(file_to_edit)])
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".md") as tmp:
+            tmp.write(block.encode('utf-8'))
+            tmp_path = tmp.name
+        subprocess.run([editor, tmp_path])
+        new_block = Path(tmp_path).read_text(encoding='utf-8')
+        Path(tmp_path).unlink(missing_ok=True)
+        if new_block == block:
+            print("No changes made.")
+            return 0
+        if not replace_phase_block(todo_path, phase_id, new_block):
+            print("Error: Failed to update phase block.")
+            return 1
+        print(f"Updated phase '{phase_id}'.")
         return 0
     except Exception as e:
         print(f"Error opening editor: {e}")
@@ -456,7 +574,8 @@ def handle_phase_command(args):
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Phase name required. Usage: maestro phase add <name>")
                 return 1
-            return add_phase(args.name, args)
+            name = " ".join(args.name) if isinstance(args.name, list) else args.name
+            return add_phase(name, args)
         elif subcommand in ['remove', 'rm', 'r']:
             if not hasattr(args, 'phase_id') or not args.phase_id:
                 print("Error: Phase ID required. Usage: maestro phase remove <id>")
@@ -467,6 +586,31 @@ def handle_phase_command(args):
                 print("Error: Phase ID required. Usage: maestro phase edit <id>")
                 return 1
             return edit_phase(args.phase_id, args)
+        elif subcommand in ['text', 'raw']:
+            if not hasattr(args, 'phase_id') or not args.phase_id:
+                print("Error: Phase ID required. Usage: maestro phase text <id>")
+                return 1
+            todo_path = Path('docs/todo.md')
+            block = extract_phase_block(todo_path, args.phase_id)
+            if not block:
+                print(f"Error: Phase '{args.phase_id}' not found in docs/todo.md.")
+                return 1
+            print(block.rstrip())
+            return 0
+        elif subcommand in ['set-text', 'setraw']:
+            if not hasattr(args, 'phase_id') or not args.phase_id:
+                print("Error: Phase ID required. Usage: maestro phase set-text <id> [--file path]")
+                return 1
+            todo_path = Path('docs/todo.md')
+            new_block = _resolve_text_input(args)
+            if not new_block.strip():
+                print("Error: Replacement text is empty.")
+                return 1
+            if not replace_phase_block(todo_path, args.phase_id, new_block):
+                print(f"Error: Phase '{args.phase_id}' not found in docs/todo.md.")
+                return 1
+            print(f"Updated phase '{args.phase_id}'.")
+            return 0
         elif subcommand in ['discuss', 'd']:
             if not hasattr(args, 'phase_id') or not args.phase_id:
                 print("Error: Phase ID required. Usage: maestro phase discuss <id>")
@@ -518,6 +662,8 @@ USAGE:
     maestro phase <id>                    Show phase details
     maestro phase <id> show               Show phase details
     maestro phase <id> edit               Edit phase in $EDITOR
+    maestro phase text <id>               Show raw phase block
+    maestro phase set-text <id>           Replace phase block (stdin or --file)
     maestro phase <id> discuss            Discuss phase with AI
     maestro phase <id> set                Set current phase context
 
@@ -529,6 +675,8 @@ ALIASES:
     edit:   e
     discuss: d
     set:    st
+    text:   raw
+    set-text: setraw
 
 EXAMPLES:
     maestro phase list                    # List all phases
@@ -652,7 +800,12 @@ def add_phase_parser(subparsers):
         aliases=['a'],
         help='Add new phase'
     )
-    phase_add_parser.add_argument('name', help='Phase name')
+    phase_add_parser.add_argument('name', nargs='+', help='Phase name')
+    phase_add_parser.add_argument('--id', dest='phase_id', help='Phase ID (default: first word of name)')
+    phase_add_parser.add_argument('--track', dest='track_id', help='Track ID to add the phase to')
+    phase_add_parser.add_argument('--after', help='Insert after phase ID')
+    phase_add_parser.add_argument('--before', help='Insert before phase ID')
+    phase_add_parser.add_argument('--desc', action='append', help='Description line (repeatable)')
 
     # maestro phase remove <id>
     phase_remove_parser = phase_subparsers.add_parser(
@@ -690,6 +843,21 @@ def add_phase_parser(subparsers):
         help='Edit phase in $EDITOR'
     )
     phase_edit_parser.add_argument('phase_id', help='Phase ID to edit')
+
+    phase_text_parser = phase_subparsers.add_parser(
+        'text',
+        aliases=['raw'],
+        help='Show raw phase block from docs/todo.md'
+    )
+    phase_text_parser.add_argument('phase_id', help='Phase ID to show')
+
+    phase_set_text_parser = phase_subparsers.add_parser(
+        'set-text',
+        aliases=['setraw'],
+        help='Replace phase block from stdin or a file'
+    )
+    phase_set_text_parser.add_argument('phase_id', help='Phase ID to replace')
+    phase_set_text_parser.add_argument('--file', dest='text_file', help='Read replacement text from file')
 
     # maestro phase discuss <id>
     phase_discuss_parser = phase_subparsers.add_parser(

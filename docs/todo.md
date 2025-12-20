@@ -889,6 +889,92 @@ This track removes deprecated commands and migrates to new systems.
 
 ---
 
+## Track: CLI Editing
+
+"track_id": "cli-editing"
+"priority": 7
+"status": "planned"
+"completion": 0%
+
+Ensure track/phase/task entries can be created, edited, and reorganized from the CLI.
+Provide both editor and direct text workflows for quick updates.
+
+### Phase ce1: Track Editing Commands
+
+"phase_id": "ce1"
+"status": "planned"
+"completion": 0
+
+
+- [ ] **ce1.1: Track add/insert/remove commands**
+  - Support --id, --after, --before
+  - Update docs/todo.md without rewriting
+
+- [ ] **ce1.2: Track edit block workflow**
+  - Edit track block in $EDITOR
+  - Replace block in docs/todo.md
+
+- [ ] **ce1.3: Track text get/set commands**
+  - Expose raw block output
+  - Replace block from stdin or file
+
+### Phase ce2: Phase Editing Commands
+
+"phase_id": "ce2"
+"status": "planned"
+"completion": 0
+
+
+- [ ] **ce2.1: Phase add/insert/remove commands**
+  - Insert phases into docs/todo.md
+  - Create phase files when needed
+
+- [ ] **ce2.2: Phase edit block workflow**
+  - Edit phase block in $EDITOR
+  - Replace block in docs/todo.md
+
+- [ ] **ce2.3: Phase text get/set commands**
+  - Expose raw phase block
+  - Replace block from stdin or file
+
+### Phase ce3: Task Editing Commands
+
+"phase_id": "ce3"
+"status": "planned"
+"completion": 0
+
+
+- [ ] **ce3.1: Task add/insert/remove commands**
+  - Insert tasks in phase files
+  - Keep docs/todo.md tasks in sync
+
+- [ ] **ce3.2: Task edit block workflow**
+  - Edit task block in $EDITOR
+  - Replace block in phase file
+
+- [ ] **ce3.3: Task text get/set commands**
+  - Expose raw task block
+  - Replace block from stdin or file
+
+### Phase ce4: CLI Help Navigation
+
+"phase_id": "ce4"
+"status": "planned"
+"completion": 0
+
+
+- [ ] **ce4.1: Help-only navigation runbook**
+  - Document help-driven flows
+  - Use python maestro.py only
+
+- [ ] **ce4.2: Validate help messages**
+  - Ensure task/phase/track help is discoverable
+  - Verify alias routing
+
+- [ ] **ce4.3: CLI-only walkthrough**
+  - Add example flows using python maestro.py
+  - Confirm commands without m wrapper
+
 ## ✅ COMPLETED Track: Track/Phase/Task CLI and AI Discussion System
 
 "track_id": "cli-tpt"
