@@ -161,6 +161,16 @@ def show_track(track_identifier: str, args):
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
 
+    done_path = Path('docs/done.md')
+    done_phases = []
+    if done_path.exists():
+        done_data = parse_done_md(str(done_path))
+        done_tracks = done_data.get('tracks', [])
+        for done_track in done_tracks:
+            if done_track.get('track_id') == track_id:
+                done_phases = done_track.get('phases', [])
+                break
+
     # Find the track
     track = None
     for t in tracks:
@@ -196,12 +206,34 @@ def show_track(track_identifier: str, args):
 
     # Phases
     phases = track.get('phases', [])
-    if phases:
-        print(f"Phases ({len(phases)}):")
-        for i, phase in enumerate(phases, 1):
+    todo_phases = [
+        phase for phase in phases
+        if phase.get('status') != 'done'
+    ]
+
+    print(f"Todo phases ({len(todo_phases)}):")
+    if todo_phases:
+        for i, phase in enumerate(todo_phases, 1):
             phase_id = phase.get('phase_id', 'N/A')
             phase_name = phase.get('name', 'Unnamed')
             phase_status = phase.get('status', 'unknown')
+            print(f"  {i}. [{phase_id}] {phase_name} - {phase_status}")
+    else:
+        print("  (none)")
+    print()
+
+    if done_phases:
+        total_done = len(done_phases)
+        visible_done = done_phases[-10:]
+        if total_done > len(visible_done):
+            done_label = f"Done phases ({len(visible_done)} of {total_done}):"
+        else:
+            done_label = f"Done phases ({len(visible_done)}):"
+        print(done_label)
+        for i, phase in enumerate(visible_done, 1):
+            phase_id = phase.get('phase_id', 'N/A')
+            phase_name = phase.get('name', 'Unnamed')
+            phase_status = phase.get('status', 'done')
             print(f"  {i}. [{phase_id}] {phase_name} - {phase_status}")
         print()
 
