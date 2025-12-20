@@ -20,6 +20,17 @@ from maestro.issues.issue_store import (
 from maestro.issues.model import ISSUE_TYPES, ISSUE_STATES
 from maestro.solutions.solution_store import SolutionMatch, match_solutions
 
+ISSUE_TYPE_ORDER = [
+    "hier",
+    "convention",
+    "build",
+    "runtime",
+    "features",
+    "product",
+    "look",
+    "ux",
+]
+
 
 def add_issues_parser(subparsers) -> argparse.ArgumentParser:
     issues_parser = subparsers.add_parser("issues", help="Issue tracking commands")
@@ -64,7 +75,9 @@ def add_issues_parser(subparsers) -> argparse.ArgumentParser:
     fix_parser.add_argument("--complete", action="store_true", help="Mark issue as fixed after session creation")
     fix_parser.add_argument("--external", action="store_true", help="Include external solutions")
 
-    for issue_type in sorted(ISSUE_TYPES):
+    issue_type_order = [issue_type for issue_type in ISSUE_TYPE_ORDER if issue_type in ISSUE_TYPES]
+    extra_types = sorted(set(ISSUE_TYPES) - set(issue_type_order))
+    for issue_type in issue_type_order + extra_types:
         type_parser = issues_subparsers.add_parser(issue_type, help=f"List {issue_type} issues")
         type_parser.set_defaults(issue_type=issue_type)
 

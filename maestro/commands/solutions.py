@@ -19,12 +19,6 @@ def add_solutions_parser(subparsers) -> argparse.ArgumentParser:
     solutions_parser = subparsers.add_parser("solutions", help="Solution management commands")
     solutions_subparsers = solutions_parser.add_subparsers(dest="solutions_subcommand", help="Solutions subcommands")
 
-    list_parser = solutions_subparsers.add_parser("list", aliases=["ls"], help="List solutions")
-    list_parser.add_argument("--external", action="store_true", help="Include external solutions")
-
-    show_parser = solutions_subparsers.add_parser("show", help="Show solution details")
-    show_parser.add_argument("solution_id", help="Solution ID to show")
-
     add_parser = solutions_subparsers.add_parser("add", help="Add a new solution")
     add_parser.add_argument("--id", dest="solution_id", help="Solution ID override")
     add_parser.add_argument("--title", help="Solution title")
@@ -37,8 +31,14 @@ def add_solutions_parser(subparsers) -> argparse.ArgumentParser:
     add_parser.add_argument("--success-rate", type=int, default=0, help="Success rate")
     add_parser.add_argument("--edit", action="store_true", help="Open in $EDITOR after creation")
 
+    list_parser = solutions_subparsers.add_parser("list", aliases=["ls"], help="List solutions")
+    list_parser.add_argument("--external", action="store_true", help="Include external solutions")
+
     remove_parser = solutions_subparsers.add_parser("remove", aliases=["rm"], help="Remove a solution")
     remove_parser.add_argument("solution_id", help="Solution ID to remove")
+
+    show_parser = solutions_subparsers.add_parser("show", help="Show solution details")
+    show_parser.add_argument("solution_id", help="Solution ID to show")
 
     edit_parser = solutions_subparsers.add_parser("edit", help="Edit a solution in $EDITOR")
     edit_parser.add_argument("solution_id", help="Solution ID to edit")

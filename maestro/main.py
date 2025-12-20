@@ -3737,6 +3737,49 @@ class PlannedSubtask:
         self.description = description
 
 
+def _reorder_subparser_actions(subparsers, preferred_order):
+    actions = list(getattr(subparsers, "_choices_actions", []))
+    if not actions:
+        return
+    preferred_set = set(preferred_order)
+    ordered = []
+    for name in preferred_order:
+        for action in actions:
+            if action.dest == name:
+                ordered.append(action)
+                break
+    for action in actions:
+        if action.dest not in preferred_set:
+            ordered.append(action)
+    subparsers._choices_actions[:] = ordered
+
+    name_map = getattr(subparsers, "_name_parser_map", None)
+    if not isinstance(name_map, dict):
+        return
+    new_map = {}
+    seen_parsers = set()
+    for name in preferred_order:
+        parser = name_map.get(name)
+        if not parser or parser in seen_parsers:
+            continue
+        seen_parsers.add(parser)
+        keys_for_parser = [key for key, value in name_map.items() if value is parser]
+        if name in keys_for_parser:
+            keys_for_parser.remove(name)
+            keys_for_parser = [name] + keys_for_parser
+        for key in keys_for_parser:
+            new_map[key] = parser
+    for key, parser in name_map.items():
+        if parser in seen_parsers:
+            continue
+        keys_for_parser = [alias for alias, value in name_map.items() if value is parser]
+        for alias in keys_for_parser:
+            new_map[alias] = parser
+        seen_parsers.add(parser)
+    subparsers._name_parser_map = new_map
+    subparsers.choices = new_map
+
+
 def main():
     parser = StyledArgumentParser(
         description="Maestro - AI Task Management & Orchestration\n\n"
@@ -3838,6 +3881,11 @@ def main():
         'pick',
         nargs='?',
         help='Show top 3 options and let user pick'
+    )
+
+    _reorder_subparser_actions(
+        work_subparsers,
+        ["any", "track", "phase", "issue"]
     )
 
     # Session command for work sessions (to differentiate from existing session command)
@@ -4166,6 +4214,11 @@ def main():
 
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
+
+    _reorder_subparser_actions(
+        repo_subparsers,
+        ["resolve", "hier", "conventions", "rules"]
+    )
 
     # Make command group (Universal Build Orchestration)
     make_parser = add_make_parser(subparsers)
@@ -4555,6 +4608,29 @@ def main():
 
     # Add help/h subcommands for build structure subparsers
     build_structure_subparsers.add_parser('help', aliases=['h'], help='Show help for build structure commands')
+
+    _reorder_subparser_actions(
+        subparsers,
+        [
+            "init",
+            "repo",
+            "track",
+            "phase",
+            "make",
+            "run",
+            "discuss",
+            "issues",
+            "solutions",
+            "settings",
+            "work",
+            "session",
+            "wsession",
+            "hub",
+            "log",
+            "convert",
+            "tu",
+        ],
+    )
 
     args = parser.parse_args()
 
