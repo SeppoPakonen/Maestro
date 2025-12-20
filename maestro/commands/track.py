@@ -54,6 +54,11 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
     if done_path.exists():
         done_data = parse_done_md(str(done_path))
         done_tracks = done_data.get('tracks', [])
+    done_path = Path('docs/done.md')
+    done_tracks = []
+    if done_path.exists():
+        done_data = parse_done_md(str(done_path))
+        done_tracks = done_data.get('tracks', [])
 
     # Try as numeric index first
     if identifier.isdigit():
