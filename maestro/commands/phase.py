@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, List
 from maestro.data import parse_todo_md, parse_phase_md, parse_config_md
-from maestro.commands.track import resolve_track_identifier
 
 
 def list_phases(args):
@@ -46,12 +45,13 @@ def list_phases(args):
 
     phases_to_show = []
 
-    if track_filter and track_filter.isdigit():
-        resolved_track_id = resolve_track_identifier(track_filter)
-        if not resolved_track_id:
-            print(f"Error: Track '{track_filter}' not found.")
-            return 1
-        track_filter = resolved_track_id
+    # TODO: Add support for numeric track identifiers
+    # if track_filter and track_filter.isdigit():
+    #     resolved_track_id = resolve_track_identifier(track_filter)
+    #     if not resolved_track_id:
+    #         print(f"Error: Track '{track_filter}' not found.")
+    #         return 1
+    #     track_filter = resolved_track_id
 
     if track_filter:
         # Find the specific track
@@ -81,23 +81,23 @@ def list_phases(args):
 
     # Table format
     print()
-    print("=" * 80)
+    print("=" * 120)
 
     # Header
     if not track_filter:
-        print(f"{'Phase ID':<15} {'Name':<30} {'Track':<15} {'Status':<12}")
+        print(f"{'#':<4} {'Phase ID':<15} {'Name':<45} {'Track':<20} {'Status':<15}")
     else:
-        print(f"{'Phase ID':<15} {'Name':<40} {'Status':<12}")
-    print("-" * 80)
+        print(f"{'#':<4} {'Phase ID':<15} {'Name':<60} {'Status':<15}")
+    print("-" * 120)
 
     # Rows
-    for phase in phases_to_show:
+    for idx, phase in enumerate(phases_to_show, 1):
         phase_id = phase.get('phase_id', 'N/A')
         name = phase.get('name', 'Unnamed Phase')
         status = phase.get('status', 'unknown')
 
         # Truncate long names
-        max_name_len = 30 if not track_filter else 40
+        max_name_len = 45 if not track_filter else 60
         if len(name) > max_name_len:
             name = name[:max_name_len - 3] + '...'
 
@@ -114,9 +114,9 @@ def list_phases(args):
 
         if not track_filter:
             track_id = phase.get('_track_id', 'N/A')
-            print(f"{phase_id:<15} {name:<30} {track_id:<15} {status_display:<12}")
+            print(f"{idx:<4} {phase_id:<15} {name:<45} {track_id:<20} {status_display:<15}")
         else:
-            print(f"{phase_id:<15} {name:<40} {status_display:<12}")
+            print(f"{idx:<4} {phase_id:<15} {name:<60} {status_display:<15}")
 
     print()
     print(f"Total: {len(phases_to_show)} phases")
@@ -501,8 +501,30 @@ def add_phase_parser(subparsers):
     # Check if we need to inject 'show' subcommand for backwards compatibility
     # This handles: maestro phase <id> [show|edit|discuss|set]
     # By transforming to: maestro phase show <id> [subcommand]
-    if len(sys.argv) >= 3 and sys.argv[1] in ['phase', 'ph']:
+    if len(sys.argv) >= 3 and sys.argv[1] in ['phase', 'ph', 'p']:
         arg = sys.argv[2]
+
+        # If arg is numeric, resolve it to a phase_id from the list
+        if arg.isdigit():
+            try:
+                from pathlib import Path
+                todo_path = Path('docs/todo.md')
+                if todo_path.exists():
+                    data = parse_todo_md(str(todo_path))
+                    tracks = data.get('tracks', [])
+                    all_phases = []
+                    for track in tracks:
+                        for phase in track.get('phases', []):
+                            all_phases.append(phase)
+
+                    idx = int(arg) - 1  # Convert to 0-based index
+                    if 0 <= idx < len(all_phases):
+                        # Replace numeric arg with actual phase_id
+                        sys.argv[2] = all_phases[idx].get('phase_id', arg)
+                        arg = sys.argv[2]
+            except:
+                pass  # If resolution fails, continue with original arg
+
         # If arg is not a known subcommand, treat it as phase_id and inject 'show'
         known_subcommands = ['list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'help', 'h', 'show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st']
         if arg not in known_subcommands:
@@ -520,7 +542,7 @@ def add_phase_parser(subparsers):
     # Main phase command
     phase_parser = subparsers.add_parser(
         'phase',
-        aliases=['ph'],
+        aliases=['ph', 'p'],
         help='Manage project phases'
     )
 
@@ -594,6 +616,9 @@ def add_phase_parser(subparsers):
         help='Discuss phase with AI'
     )
     phase_discuss_parser.add_argument('phase_id', help='Phase ID to discuss')
+    phase_discuss_parser.add_argument('--mode', choices=['editor', 'terminal'],
+                                     default='editor', help='Discussion mode')
+    phase_discuss_parser.add_argument('--resume', help='Resume previous discussion session')
 
     # maestro phase set <id>
     phase_set_parser = phase_subparsers.add_parser(

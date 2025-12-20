@@ -281,6 +281,12 @@ def handle_task_command(args):
 
     Routes to appropriate subcommand handler.
     """
+    # Handle 'maestro task discuss <task_id>' (new subcommand format)
+    if hasattr(args, 'task_subcommand') and args.task_subcommand in ['discuss', 'd']:
+        if hasattr(args, 'task_id_arg'):
+            from .discuss import handle_task_discuss
+            return handle_task_discuss(args.task_id_arg, args)
+
     # Handle 'maestro task list [phase_id]'
     if hasattr(args, 'task_subcommand'):
         if args.task_subcommand == 'list' or args.task_subcommand == 'ls':
@@ -463,12 +469,13 @@ def add_task_parser(subparsers):
     task_parser.add_argument(
         'task_id',
         nargs='?',
-        help='Task ID (for show/edit/complete commands)'
+        help='Task ID (for show/edit/complete/discuss commands)'
     )
     task_parser.add_argument(
         'task_item_subcommand',
         nargs='?',
-        help='Task item subcommand (show/edit/complete/discuss)'
+        choices=['show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd', 'set', 'st', 'help', 'h'],
+        help='Task item subcommand (show/edit/complete/discuss/set)'
     )
     task_parser.add_argument(
         '--mode',
@@ -480,6 +487,17 @@ def add_task_parser(subparsers):
         action='store_true',
         help='Preview actions without executing them'
     )
+
+    # maestro task discuss <id>
+    task_discuss_parser = task_subparsers.add_parser(
+        'discuss',
+        aliases=['d'],
+        help='Discuss task with AI'
+    )
+    task_discuss_parser.add_argument('task_id_arg', help='Task ID to discuss')
+    task_discuss_parser.add_argument('--mode', choices=['editor', 'terminal'],
+                                     default='editor', help='Discussion mode')
+    task_discuss_parser.add_argument('--resume', help='Resume previous discussion session')
 
     return task_parser
 

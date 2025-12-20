@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 import sys
+from datetime import datetime
 
 try:
     from ..work_session import (
@@ -20,6 +21,10 @@ try:
         get_breadcrumb_summary,
         reconstruct_session_timeline
     )
+    from ..visualization.tree import SessionTreeRenderer
+    from ..visualization.table import SessionTableFormatter
+    from ..visualization.detail import SessionDetailFormatter
+    from ..stats.session_stats import calculate_session_stats, calculate_tree_stats, SessionStats
 except ImportError:
     # Fallback for direct execution
     sys.path.append(str(Path(__file__).parent.parent))
@@ -35,39 +40,51 @@ except ImportError:
         get_breadcrumb_summary,
         reconstruct_session_timeline
     )
+    from visualization.tree import SessionTreeRenderer
+    from visualization.table import SessionTableFormatter
+    from visualization.detail import SessionDetailFormatter
+    from stats.session_stats import calculate_session_stats, calculate_tree_stats, SessionStats
 
 
 def handle_wsession_list(args) -> None:
     """Handle the 'wsession list' command."""
     try:
+        # Apply filters
         sessions = list_sessions(
-            session_type=args.type,
-            status=args.status
+            session_type=getattr(args, 'type', None),
+            status=getattr(args, 'status', None)
         )
-        
+
+        # Additional filtering based on args
+        if hasattr(args, 'since') and args.since:
+            from datetime import datetime
+            since_dt = datetime.fromisoformat(args.since)
+            sessions = [s for s in sessions if datetime.fromisoformat(s.created) >= since_dt]
+
+        if hasattr(args, 'entity') and args.entity:
+            sessions = [s for s in sessions if args.entity in str(s.related_entity)]
+
+        # Apply sorting
+        sort_key = getattr(args, 'sort_by', 'created')
+        reverse_order = getattr(args, 'reverse', False)
+
+        if sort_key == 'created':
+            sessions.sort(key=lambda s: s.created, reverse=reverse_order)
+        elif sort_key == 'modified':
+            sessions.sort(key=lambda s: s.modified, reverse=reverse_order)
+        elif sort_key == 'status':
+            sessions.sort(key=lambda s: s.status, reverse=reverse_order)
+        elif sort_key == 'type':
+            sessions.sort(key=lambda s: s.session_type, reverse=reverse_order)
+
         if not sessions:
             print("No work sessions found.")
             return
-        
-        print(f"Found {len(sessions)} work session(s):")
-        print("-" * 80)
-        for session in sessions:
-            parent_info = f" (child of {session.parent_session_id})" if session.parent_session_id else ""
-            status_icon = {
-                "running": "▶",
-                "paused": "⏸", 
-                "completed": "✅",
-                "interrupted": "⚠",
-                "failed": "❌"
-            }.get(session.status, "?")
-            
-            print(f"{status_icon} {session.session_id[:8]}... ({session.session_type}) - {session.status}{parent_info}")
-            print(f"  Created: {session.created}")
-            if session.related_entity:
-                entities = ", ".join([f"{k}:{v}" for k, v in session.related_entity.items()])
-                print(f"  Related: {entities}")
-            print()
-    
+
+        # Use the new visualization component for table formatting
+        formatter = SessionTableFormatter()
+        print(formatter.format_table(sessions))
+
     except Exception as e:
         logging.error(f"Error listing work sessions: {e}")
         print(f"Error listing work sessions: {e}")
@@ -79,17 +96,17 @@ def handle_wsession_show(args) -> None:
         # First try to find the session in the standard location
         base_path = Path("docs") / "sessions"
         session_found = False
-        
+        session = None
+
         # Look in top-level directories
         for session_dir in base_path.iterdir():
             if session_dir.is_dir() and args.session_id.startswith(session_dir.name):
                 session_file = session_dir / "session.json"
                 if session_file.exists():
                     session = load_session(session_file)
-                    _display_session_details(session)
                     session_found = True
                     break
-        
+
         # If not found in top-level, check nested directories
         if not session_found:
             for session_dir in base_path.iterdir():
@@ -99,16 +116,30 @@ def handle_wsession_show(args) -> None:
                             session_file = nested_dir / "session.json"
                             if session_file.exists():
                                 session = load_session(session_file)
-                                _display_session_details(session)
                                 session_found = True
                                 break
                 if session_found:
                     break
-        
+
         if not session_found:
             print(f"Session '{args.session_id}' not found.")
             return
-    
+
+        # Use the new visualization component for detailed display
+        formatter = SessionDetailFormatter()
+        show_all_breadcrumbs = hasattr(args, 'show_all_breadcrumbs') and args.show_all_breadcrumbs
+        print(formatter.format_details(session, show_all_breadcrumbs=show_all_breadcrumbs))
+
+        # Export to JSON if requested
+        if hasattr(args, 'export_json') and args.export_json:
+            export_session_json(session, args.export_json)
+            print(f"\nSession exported to {args.export_json}")
+
+        # Export to Markdown if requested
+        if hasattr(args, 'export_md') and args.export_md:
+            export_session_markdown(session, args.export_md)
+            print(f"\nSession exported to {args.export_md}")
+
     except FileNotFoundError:
         print(f"Session '{args.session_id}' not found.")
     except Exception as e:
@@ -142,53 +173,59 @@ def handle_wsession_tree(args) -> None:
     """Handle the 'wsession tree' command."""
     try:
         hierarchy = get_session_hierarchy()
-        _display_session_tree(hierarchy, level=0)
-        
+
         if not hierarchy.get("root"):
             print("No work sessions found in the hierarchy.")
-    
+            return
+
+        # Use the new visualization component for tree rendering
+        renderer = SessionTreeRenderer(color=True)
+        max_depth = getattr(args, 'depth', None)
+
+        # Apply status filter if specified
+        if hasattr(args, 'filter_status') and args.filter_status:
+            _filter_hierarchy_by_status(hierarchy, args.filter_status)
+
+        tree_output = renderer.render(hierarchy, max_depth=max_depth)
+        print(tree_output)
+
+        # Show breadcrumbs count if requested
+        if hasattr(args, 'show_breadcrumbs') and args.show_breadcrumbs:
+            print("\nBreadcrumb counts:")
+            _print_breadcrumb_counts(hierarchy["root"])
+
     except Exception as e:
         logging.error(f"Error showing session hierarchy: {e}")
         print(f"Error showing session hierarchy: {e}")
 
 
-def _display_session_tree(tree_node: dict, level: int = 0) -> None:
-    """Helper function to display session hierarchy as a tree."""
-    indent = "  " * level
-    prefix = "└─ " if level > 0 else ""
+def _filter_hierarchy_by_status(hierarchy: dict, status: str) -> None:
+    """Filter hierarchy to only include sessions with the specified status."""
+    def filter_recursive(nodes):
+        filtered_nodes = []
+        for node in nodes:
+            # Only keep nodes with matching status
+            if node["session"].status == status:
+                # Also filter children
+                if node.get("children"):
+                    node["children"] = filter_recursive(node["children"])
+                filtered_nodes.append(node)
+        return filtered_nodes
 
-    if "session" in tree_node:
-        session = tree_node["session"]
-        status_icon = {
-            "running": "▶",
-            "paused": "⏸",
-            "completed": "✅",
-            "interrupted": "⚠",
-            "failed": "❌"
-        }.get(session.status, "?")
+    hierarchy["root"] = filter_recursive(hierarchy["root"])
 
-        print(f"{indent}{prefix}{status_icon} {session.session_id[:8]}... ({session.session_type}) - {session.status}")
 
-        # Print any additional info
-        if session.related_entity:
-            entities_str = ", ".join([f"{k}:{str(v)[:10]}..." for k, v in session.related_entity.items()])
-            print(f"{indent}    └─ Related: {entities_str}")
+def _print_breadcrumb_counts(nodes, level=0):
+    """Print breadcrumb counts for each session in the hierarchy."""
+    for node in nodes:
+        session = node["session"]
+        breadcrumbs = list_breadcrumbs(session.session_id)
+        indent = "  " * (level + 1)
+        print(f"{indent}{session.session_id}: {len(breadcrumbs)} breadcrumbs")
 
-    # Process children if present
-    children = tree_node.get("children", [])
-    if isinstance(tree_node.get("session"), WorkSession):
-        # This is a node with a session
-        for child in children:
-            _display_session_tree(child, level + 1)
-    else:
-        # This is the root level (tree_node directly contains list of root sessions)
-        if "root" in tree_node:
-            for child in tree_node["root"]:
-                _display_session_tree(child, level)
-        else:
-            # This was processed as a child node previously
-            for child in children:
-                _display_session_tree(child, level + 1)
+        # Process children
+        if node.get("children"):
+            _print_breadcrumb_counts(node["children"], level + 1)
 
 
 def handle_wsession_breadcrumbs(args) -> None:
@@ -318,3 +355,210 @@ def handle_wsession_timeline(args) -> None:
     except Exception as e:
         logging.error(f"Error showing timeline for session {args.session_id}: {e}")
         print(f"Error showing timeline: {e}")
+
+
+def export_session_json(session: WorkSession, output_path: str):
+    """
+    Export session to JSON file.
+
+    Includes:
+    - Session metadata
+    - All breadcrumbs
+    - Child sessions
+    - Statistics
+    """
+    import json
+    from pathlib import Path
+
+    # Get session data
+    session_data = {
+        "session_id": session.session_id,
+        "session_type": session.session_type,
+        "parent_session_id": session.parent_session_id,
+        "status": session.status,
+        "created": session.created,
+        "modified": session.modified,
+        "related_entity": session.related_entity,
+        "breadcrumbs_dir": session.breadcrumbs_dir,
+        "metadata": session.metadata
+    }
+
+    # Include breadcrumbs
+    from ..breadcrumb import list_breadcrumbs
+    breadcrumbs = list_breadcrumbs(session.session_id)
+    session_data["breadcrumbs"] = [breadcrumb.__dict__ for breadcrumb in breadcrumbs]
+
+    # Include statistics
+    from ..stats.session_stats import calculate_session_stats
+    stats = calculate_session_stats(session)
+    session_data["statistics"] = stats.__dict__
+
+    # Include child sessions
+    from ..work_session import list_sessions
+    all_sessions = list_sessions()
+    child_sessions = [s for s in all_sessions if s.parent_session_id == session.session_id]
+    session_data["child_sessions"] = [child.__dict__ for child in child_sessions]
+
+    # Write to file
+    output_file = Path(output_path)
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(session_data, f, indent=2)
+
+
+def export_session_markdown(session: WorkSession, output_path: str):
+    """
+    Export session to Markdown file.
+
+    Formatted report suitable for documentation.
+    """
+    from pathlib import Path
+    from datetime import datetime
+    from ..breadcrumb import list_breadcrumbs
+    from ..stats.session_stats import calculate_session_stats
+
+    # Get session details
+    created_dt = datetime.fromisoformat(session.created.replace('Z', '+00:00'))
+    modified_dt = datetime.fromisoformat(session.modified.replace('Z', '+00:00'))
+
+    # Calculate stats
+    stats = calculate_session_stats(session)
+    breadcrumbs = list_breadcrumbs(session.session_id)
+
+    # Build markdown content
+    content = f"""# Session Report: {session.session_id}
+
+## Session Information
+- **Type**: {session.session_type}
+- **Status**: {session.status}
+- **Created**: {session.created}
+- **Modified**: {session.modified}
+- **Duration**: {modified_dt - created_dt}
+
+## Related Entities
+"""
+
+    if session.related_entity:
+        for key, value in session.related_entity.items():
+            content += f"- **{key}**: {value}\n"
+    else:
+        content += "- None\n"
+
+    content += f"""
+## Statistics
+- **Total Breadcrumbs**: {stats.total_breadcrumbs}
+- **Total Input Tokens**: {stats.total_tokens_input:,}
+- **Total Output Tokens**: {stats.total_tokens_output:,}
+- **Estimated Cost**: ${stats.estimated_cost:.2f}
+- **Files Modified**: {stats.files_modified}
+- **Tools Called**: {stats.tools_called}
+- **Duration (seconds)**: {int(stats.duration_seconds)}
+- **Success Rate**: {stats.success_rate:.1f}%
+
+## Breadcrumbs
+"""
+
+    for i, breadcrumb in enumerate(breadcrumbs):
+        content += f"### Breadcrumb {i+1}: {breadcrumb.timestamp}\n"
+        content += f"- **Model**: {breadcrumb.model_used}\n"
+        content += f"- **Tokens**: Input: {breadcrumb.token_count.get('input', 0)}, Output: {breadcrumb.token_count.get('output', 0)}\n"
+        if breadcrumb.cost:
+            content += f"- **Cost**: ${breadcrumb.cost:.6f}\n"
+        if breadcrumb.error:
+            content += f"- **Error**: {breadcrumb.error}\n"
+        content += f"\n**Prompt Preview**:\n```\n{breadcrumb.prompt[:200]}...\n```\n\n"
+        content += f"**Response Preview**:\n```\n{breadcrumb.response[:200]}...\n```\n\n---\n\n"
+
+    # Write to file
+    output_file = Path(output_path)
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
+def handle_wsession_stats(args) -> None:
+    """Handle the 'wsession stats' command."""
+    try:
+        if args.session_id:
+            # Show stats for specific session
+            base_path = Path("docs") / "sessions"
+            session_found = False
+            session = None
+
+            # Find the session
+            for session_dir in base_path.iterdir():
+                if session_dir.is_dir() and args.session_id.startswith(session_dir.name):
+                    session_file = session_dir / "session.json"
+                    if session_file.exists():
+                        session = load_session(session_file)
+                        session_found = True
+                        break
+
+            # Check nested directories
+            if not session_found:
+                for session_dir in base_path.iterdir():
+                    if session_dir.is_dir():
+                        for nested_dir in session_dir.iterdir():
+                            if nested_dir.is_dir() and args.session_id.startswith(nested_dir.name):
+                                session_file = nested_dir / "session.json"
+                                if session_file.exists():
+                                    session = load_session(session_file)
+                                    session_found = True
+                                    break
+                    if session_found:
+                        break
+
+            if not session_found:
+                print(f"Session '{args.session_id}' not found.")
+                return
+
+            # Calculate and display stats
+            from ..stats.session_stats import calculate_session_stats, calculate_tree_stats
+            if hasattr(args, 'tree') and args.tree:
+                stats = calculate_tree_stats(session)
+            else:
+                stats = calculate_session_stats(session)
+
+            formatter = SessionDetailFormatter()
+            print(formatter.format_statistics(session))
+        else:
+            # Show stats for all sessions
+            all_sessions = list_sessions()
+            if not all_sessions:
+                print("No sessions found.")
+                return
+
+            # Aggregate stats across all sessions
+            total_breadcrumbs = 0
+            total_tokens_input = 0
+            total_tokens_output = 0
+            total_cost = 0.0
+            total_files_modified = 0
+            total_tools_called = 0
+            total_duration = 0.0
+            total_sessions = len(all_sessions)
+
+            for session in all_sessions:
+                session_stats = calculate_session_stats(session)
+                total_breadcrumbs += session_stats.total_breadcrumbs
+                total_tokens_input += session_stats.total_tokens_input
+                total_tokens_output += session_stats.total_tokens_output
+                total_cost += session_stats.estimated_cost
+                total_files_modified += session_stats.files_modified
+                total_tools_called += session_stats.tools_called
+                total_duration += session_stats.duration_seconds
+
+            avg_success_rate = sum(calculate_session_stats(s).success_rate for s in all_sessions) / len(all_sessions) if all_sessions else 0.0
+
+            print("Aggregate Statistics for All Sessions:")
+            print(f"  Total Sessions: {total_sessions}")
+            print(f"  Total Breadcrumbs: {total_breadcrumbs}")
+            print(f"  Total Tokens (Input): {total_tokens_input:,}")
+            print(f"  Total Tokens (Output): {total_tokens_output:,}")
+            print(f"  Total Estimated Cost: ${total_cost:.2f}")
+            print(f"  Total Files Modified: {total_files_modified}")
+            print(f"  Total Tools Called: {total_tools_called}")
+            print(f"  Total Duration (seconds): {int(total_duration)}")
+            print(f"  Average Success Rate: {avg_success_rate:.1f}%")
+
+    except Exception as e:
+        logging.error(f"Error showing session stats: {e}")
+        print(f"Error showing session stats: {e}")

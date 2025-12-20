@@ -7,14 +7,21 @@ Commands:
 - maestro track remove <id> - Remove track
 - maestro track <id> - Show track details
 - maestro track <id> show - Show track details
+- maestro track <id> list - List phases in track
+- maestro track <id> details - Show track details with phases/tasks
 - maestro track <id> edit - Edit track in $EDITOR
 - maestro track <id> set - Set current track context
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
-from typing import Optional, Dict, List
-from maestro.data import parse_done_md, parse_todo_md
+from types import SimpleNamespace
+from typing import Optional
+
+from maestro.data import parse_todo_md, parse_done_md
+from .discuss import handle_track_discuss
 
 
 def resolve_track_identifier(identifier: str) -> Optional[str]:
@@ -26,12 +33,6 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
 
     Returns:
         Track ID if found, None otherwise
-
-    Examples:
-        >>> resolve_track_identifier('1')  # Returns first track's ID
-        'cli-tpt'
-        >>> resolve_track_identifier('umk')  # Returns as-is if valid
-        'umk'
     """
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
@@ -39,14 +40,13 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
-    # Try as numeric index first
+
     if identifier.isdigit():
-        index = int(identifier) - 1  # Convert to 0-based
+        index = int(identifier) - 1
         if 0 <= index < len(tracks):
             return tracks[index].get('track_id')
         return None
 
-    # Otherwise, treat as track_id and verify it exists
     for track in tracks:
         if track.get('track_id') == identifier:
             return identifier
@@ -54,17 +54,9 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
     return None
 
 
-def list_tracks(args):
+def list_tracks(args) -> int:
     """
     List all tracks from docs/todo.md.
-
-    Format:
-    +----+-----------+--------------------+----------+------------+
-    | #  | Track ID  | Name               | Status   | Completion |
-    +----+-----------+--------------------+----------+------------+
-    | 1  | cli-tpt   | CLI and AI System  | Planned  | 20%        |
-    | 2  | umk       | UMK Integration    | Planned  | 0%         |
-    +----+-----------+--------------------+----------+------------+
     """
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
@@ -73,80 +65,53 @@ def list_tracks(args):
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
-    done_path = Path('docs/done.md')
-    done_tracks = []
-    if done_path.exists():
-        done_data = parse_done_md(str(done_path))
-        done_tracks = done_data.get('tracks', [])
 
     if not tracks:
         print("No tracks found.")
         return 0
 
-    # Table format
     print()
     print("=" * 80)
     print("TRACKS")
     print("=" * 80)
     print()
 
-    # Header
-    print(f"{'#':<3} {'Track ID':<20} {'Name':<30} {'St':<4} {'Ph':<6} {'Todo':<6}")
+    print(f"{'#':<3} {'Track ID':<15} {'Name':<32} {'Status':<12} {'Phases':<8}")
     print("-" * 80)
 
-    done_phase_counts = {
-        track.get('track_id', ''): len(track.get('phases', []))
-        for track in done_tracks
-    }
-
-    # Rows
     for i, track in enumerate(tracks, 1):
         track_id = track.get('track_id', 'N/A')
         name = track.get('name', 'Unnamed Track')
         status = track.get('status', 'unknown')
-        todo_phases = track.get('phases', [])
-        done_phase_count = done_phase_counts.get(track_id, 0)
-        phase_count = len(todo_phases) + done_phase_count
-        todo_count = sum(
-            1
-            for phase in todo_phases
-            if phase.get('status') != 'done'
-        )
+        phase_count = len(track.get('phases', []))
 
-        # Truncate long names
-        if len(name) > 30:
-            name = name[:27] + '...'
+        if len(name) > 32:
+            name = name[:29] + '...'
 
-        # Format status with emoji
         status_display = status
         if status == 'done':
-            status_display = '✅'
+            status_display = '✅ Done'
         elif status == 'in_progress':
-            status_display = '🚧'
-        elif status == 'planned':
-            status_display = '📋'
+            status_display = '🚧 Active'
+        elif status in ('planned', 'todo'):
+            status_display = '📋 Planned'
         elif status == 'proposed':
-            status_display = '💡'
+            status_display = '💡 Proposed'
 
-        print(f"{i:<3} {track_id:<20} {name:<30} {status_display:<4} {phase_count:<6} {todo_count:<6}")
+        print(f"{i:<3} {track_id:<15} {name:<32} {status_display:<12} {phase_count:<8}")
 
     print()
     print(f"Total: {len(tracks)} tracks")
-    print(f"Use 'maestro track <#>' or 'maestro track <id>' to view details")
+    print("Use 'maestro track <#>' or 'maestro track <id>' to view details")
     print()
 
     return 0
 
 
-def show_track(track_identifier: str, args):
+def show_track(track_identifier: str, args) -> int:
     """
     Show detailed information about a specific track.
-
-    Args:
-        track_identifier: Track ID or number (e.g., 'umk' or '2')
-        args: Command arguments
     """
-    # Resolve identifier to track_id
     track_id = resolve_track_identifier(track_identifier)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
@@ -155,7 +120,7 @@ def show_track(track_identifier: str, args):
 
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
-        print(f"Error: docs/todo.md not found.")
+        print("Error: docs/todo.md not found.")
         return 1
 
     data = parse_todo_md(str(todo_path))
@@ -171,32 +136,23 @@ def show_track(track_identifier: str, args):
                 done_phases = done_track.get('phases', [])
                 break
 
-    # Find the track
-    track = None
-    for t in tracks:
-        if t.get('track_id') == track_id:
-            track = t
-            break
-
+    track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
         print(f"Error: Track '{track_identifier}' not found.")
         return 1
 
-    # Display track details
     print()
     print("=" * 80)
     print(f"TRACK: {track.get('name', 'Unnamed')}")
     print("=" * 80)
     print()
 
-    # Metadata
     print(f"ID:          {track.get('track_id', 'N/A')}")
     print(f"Priority:    {track.get('priority', 'N/A')}")
     print(f"Status:      {track.get('status', 'N/A')}")
     print(f"Completion:  {track.get('completion', 0)}%")
     print()
 
-    # Description
     description = track.get('description', [])
     if description:
         print("Description:")
@@ -204,12 +160,8 @@ def show_track(track_identifier: str, args):
             print(f"  {line}")
         print()
 
-    # Phases
     phases = track.get('phases', [])
-    todo_phases = [
-        phase for phase in phases
-        if phase.get('status') != 'done'
-    ]
+    todo_phases = [phase for phase in phases if phase.get('status') != 'done']
 
     print(f"Todo phases ({len(todo_phases)}):")
     if todo_phases:
@@ -240,15 +192,10 @@ def show_track(track_identifier: str, args):
     return 0
 
 
-def show_track_details(track_identifier: str, args):
+def show_track_details(track_identifier: str, args) -> int:
     """
     Show detailed information about a specific track with all phases and their sub-tasks.
-
-    Args:
-        track_identifier: Track ID or number (e.g., 'umk' or '2')
-        args: Command arguments
     """
-    # Resolve identifier to track_id
     track_id = resolve_track_identifier(track_identifier)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
@@ -257,7 +204,7 @@ def show_track_details(track_identifier: str, args):
 
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
-        print(f"Error: docs/todo.md not found.")
+        print("Error: docs/todo.md not found.")
         return 1
 
     data = parse_todo_md(str(todo_path))
@@ -273,32 +220,23 @@ def show_track_details(track_identifier: str, args):
                 done_phases = done_track.get('phases', [])
                 break
 
-    # Find the track
-    track = None
-    for t in tracks:
-        if t.get('track_id') == track_id:
-            track = t
-            break
-
+    track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
         print(f"Error: Track '{track_identifier}' not found.")
         return 1
 
-    # Display track details
     print()
     print("=" * 80)
     print(f"TRACK: {track.get('name', 'Unnamed')}")
     print("=" * 80)
     print()
 
-    # Metadata
     print(f"ID:          {track.get('track_id', 'N/A')}")
     print(f"Priority:    {track.get('priority', 'N/A')}")
     print(f"Status:      {track.get('status', 'N/A')}")
     print(f"Completion:  {track.get('completion', 0)}%")
     print()
 
-    # Description
     description = track.get('description', [])
     if description:
         print("Description:")
@@ -306,7 +244,6 @@ def show_track_details(track_identifier: str, args):
             print(f"  {line}")
         print()
 
-    # Combine phases from todo and done
     all_phases = track.get('phases', []) + done_phases
 
     print("=" * 80)
@@ -314,8 +251,10 @@ def show_track_details(track_identifier: str, args):
     print("=" * 80)
     print()
 
-    # Sort phases to show done first, then planned
-    sorted_phases = sorted(all_phases, key=lambda p: (p.get('status', 'planned') != 'done', p.get('phase_id', '')))
+    sorted_phases = sorted(
+        all_phases,
+        key=lambda p: (p.get('status', 'planned') != 'done', p.get('phase_id', '')),
+    )
 
     for phase in sorted_phases:
         phase_id = phase.get('phase_id', 'N/A')
@@ -323,14 +262,19 @@ def show_track_details(track_identifier: str, args):
         phase_status = phase.get('status', 'unknown')
         phase_completion = phase.get('completion', 0)
 
-        # Determine status emoji
-        status_emoji = "✅" if phase_status == 'done' else "📋" if phase_status == 'planned' else "🚧" if phase_status == 'in_progress' else "💡"
+        if phase_status == 'done':
+            status_emoji = "✅"
+        elif phase_status == 'planned':
+            status_emoji = "📋"
+        elif phase_status == 'in_progress':
+            status_emoji = "🚧"
+        else:
+            status_emoji = "💡"
 
         print(f"{status_emoji} Phase {phase_id}: {phase_name} [{phase_status.title()}]")
         print(f"   Completion: {phase_completion}%")
         print()
 
-        # Display tasks for this phase
         tasks = phase.get('tasks', [])
         if tasks:
             print(f"   Tasks ({len(tasks)}):")
@@ -340,15 +284,12 @@ def show_track_details(track_identifier: str, args):
                 task_completed = task.get('completed', False)
 
                 task_status_emoji = "✅" if task_completed else "⬜"
-
                 print(f"     {task_status_emoji} [{task_id}] {task_name}")
 
-                # Print task description if available
                 task_description = task.get('description', [])
                 if task_description:
                     for desc_line in task_description:
                         if desc_line.strip() and not desc_line.startswith('- [') and not desc_line.startswith('  - '):
-                            # Clean up the description line
                             cleaned_desc = desc_line.replace(f"**{task_id}**", "").strip()
                             if cleaned_desc.startswith('-'):
                                 cleaned_desc = cleaned_desc[1:].strip()
@@ -363,13 +304,9 @@ def show_track_details(track_identifier: str, args):
     return 0
 
 
-def add_track(name: str, args):
+def add_track(name: str, args) -> int:
     """
     Add a new track to docs/todo.md.
-
-    Args:
-        name: Name of the new track
-        args: Command arguments
     """
     print(f"Adding track: {name}")
     print("Note: This requires the Writer module (Task 1.2) to be implemented.")
@@ -377,15 +314,10 @@ def add_track(name: str, args):
     return 1
 
 
-def remove_track(track_identifier: str, args):
+def remove_track(track_identifier: str, args) -> int:
     """
     Remove a track from docs/todo.md.
-
-    Args:
-        track_identifier: Track ID or number to remove
-        args: Command arguments
     """
-    # Resolve identifier to track_id
     track_id = resolve_track_identifier(track_identifier)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
@@ -398,127 +330,95 @@ def remove_track(track_identifier: str, args):
     return 1
 
 
-def edit_track(track_identifier: str, args):
+def edit_track(track_identifier: str, args) -> int:
     """
     Edit a track in $EDITOR.
-
-    Args:
-        track_identifier: Track ID or number to edit
-        args: Command arguments
     """
     import os
     import subprocess
 
-    # Resolve identifier to track_id
     track_id = resolve_track_identifier(track_identifier)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
         return 1
 
-    # Find the track in todo.md to get line number
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
-        print(f"Error: docs/todo.md not found.")
+        print("Error: docs/todo.md not found.")
         return 1
 
     editor = os.environ.get('EDITOR', 'vim')
-
-    # For now, just open the file
-    # In the future, we could jump to the specific track
     try:
         subprocess.run([editor, str(todo_path)])
         return 0
-    except Exception as e:
-        print(f"Error opening editor: {e}")
+    except Exception as exc:
+        print(f"Error opening editor: {exc}")
         return 1
 
 
-def set_track_context(track_identifier: str, args):
+def set_track_context(track_identifier: str, args) -> int:
     """
     Set the current track context.
-
-    Args:
-        track_identifier: Track ID or number to set as current
-        args: Command arguments
     """
     from maestro.config.settings import get_settings
-    from maestro.data import parse_todo_md
-    from pathlib import Path
 
-    # Resolve identifier to track_id
     track_id = resolve_track_identifier(track_identifier)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
         return 1
 
-    # Verify track exists
     todo_path = Path('docs/todo.md')
     if not todo_path.exists():
-        print(f"Error: docs/todo.md not found.")
+        print("Error: docs/todo.md not found.")
         return 1
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
 
-    track = None
-    for t in tracks:
-        if t.get('track_id') == track_id:
-            track = t
-            break
-
+    track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
         print(f"Error: Track '{track_identifier}' not found.")
         return 1
 
-    # Set context
     settings = get_settings()
     settings.current_track = track_id
-    settings.current_phase = None  # Clear phase and task
+    settings.current_phase = None
     settings.current_task = None
     settings.save()
 
     print(f"Context set to track: {track_id} ({track.get('name', 'Unnamed')})")
-    print(f"Use 'maestro phase list' to see phases in this track.")
+    print("Use 'maestro phase list' to see phases in this track.")
     return 0
 
 
-def handle_track_command(args):
+def handle_track_command(args) -> int:
     """
     Main handler for track commands.
-
-    Routes to appropriate subcommand handler.
     """
-    # Handle track subcommands
     if hasattr(args, 'track_subcommand') and args.track_subcommand:
         subcommand = args.track_subcommand
 
-        # List tracks
         if subcommand in ['list', 'ls', 'l']:
             return list_tracks(args)
 
-        # Add track
-        elif subcommand in ['add', 'a']:
+        if subcommand in ['add', 'a']:
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Track name required. Usage: maestro track add <name>")
                 return 1
             return add_track(args.name, args)
 
-        # Remove track
-        elif subcommand in ['remove', 'rm', 'r']:
+        if subcommand in ['remove', 'rm', 'r']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track remove <id>")
                 return 1
             return remove_track(args.track_id, args)
 
-        # Discuss (general)
-        elif subcommand in ['discuss', 'd']:
-            from .discuss import handle_track_discuss
-            return handle_track_discuss(None, args)
+        if subcommand in ['discuss', 'd']:
+            return handle_track_discuss(getattr(args, 'track_id', None), args)
 
-        # Show track
-        elif subcommand in ['show', 'sh', 's']:
+        if subcommand in ['show', 'sh', 's']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track show <id>")
                 return 1
@@ -526,43 +426,42 @@ def handle_track_command(args):
                 print_track_item_help()
                 return 0
             if getattr(args, 'track_item_action', None) in ['list', 'ls', 'l']:
-                from types import SimpleNamespace
+                track_id = resolve_track_identifier(args.track_id)
+                if not track_id:
+                    print(f"Error: Track '{args.track_id}' not found.")
+                    print("Use 'maestro track list' to see available tracks.")
+                    return 1
                 from .phase import list_phases
-                return list_phases(SimpleNamespace(track_id=args.track_id))
+                return list_phases(SimpleNamespace(track_id=track_id))
             return show_track(args.track_id, args)
 
-        # Show track details with all phases and tasks
-        elif subcommand in ['details', 'dt']:
+        if subcommand in ['details', 'dt']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track details <id>")
                 return 1
             return show_track_details(args.track_id, args)
 
-        # Edit track
-        elif subcommand in ['edit', 'e']:
+        if subcommand in ['edit', 'e']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track edit <id>")
                 return 1
             return edit_track(args.track_id, args)
 
-        # Set track context
-        elif subcommand in ['set', 'st']:
+        if subcommand in ['set', 'st']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track set <id>")
                 return 1
             return set_track_context(args.track_id, args)
 
-        # Help
-        elif subcommand in ['help', 'h']:
+        if subcommand in ['help', 'h']:
             print_track_help()
             return 0
 
-    # No subcommand - show help
     print_track_help()
     return 0
 
 
-def print_track_help():
+def print_track_help() -> None:
     """Print help for track commands."""
     help_text = """
 maestro track - Manage project tracks
@@ -571,11 +470,12 @@ USAGE:
     maestro track list                    List all tracks
     maestro track add <name>              Add new track
     maestro track remove <id|#>           Remove a track
-    maestro track discuss                 Discuss tracks with AI
+    maestro track discuss [id|#]          Discuss tracks with AI
     maestro track <id|#>                  Show track details
     maestro track <id|#> show             Show track details
+    maestro track <id|#> list             List phases in this track
+    maestro track <id|#> details          Show track details with phases/tasks
     maestro track <id|#> edit             Edit track in $EDITOR
-    maestro track <id|#> discuss          Discuss track with AI
     maestro track <id|#> set              Set current track context
 
 TRACK IDENTIFIERS:
@@ -587,23 +487,25 @@ ALIASES:
     add:    a
     remove: rm, r
     discuss: d
-    show:   s
+    show:   s, sh
+    details: dt
     edit:   e
     set:    st
 
 EXAMPLES:
     maestro track list
-    maestro track 2                       # Show track #2
-    maestro track umk                     # Show track by ID
-    maestro track 2 edit                  # Edit track #2
-    maestro track umk set                 # Set track by ID
+    maestro track 2
+    maestro track umk
+    maestro track 2 list
+    maestro track umk details
+    maestro track umk set
     maestro track discuss
-    maestro track add "New Feature Track"
+    maestro track umk discuss
 """
     print(help_text)
 
 
-def print_track_item_help():
+def print_track_item_help() -> None:
     """Print help for track item commands."""
     help_text = """
 maestro track <id> - Manage a specific track
@@ -611,13 +513,15 @@ maestro track <id> - Manage a specific track
 USAGE:
     maestro track <id> show               Show track details
     maestro track <id> list               List phases in this track
+    maestro track <id> details            Show track details with phases/tasks
     maestro track <id> edit               Edit track in $EDITOR
     maestro track <id> discuss            Discuss track with AI
     maestro track <id> set                Set current track context
 
 ALIASES:
-    show: s
+    show: s, sh
     list: l, ls
+    details: dt
     edit: e
     discuss: d
     set: st
@@ -625,6 +529,7 @@ ALIASES:
 EXAMPLES:
     maestro track cli-tpt show
     maestro track cli-tpt list
+    maestro track cli-tpt details
     maestro track cli-tpt edit
     maestro track cli-tpt discuss
     maestro track cli-tpt set
@@ -632,55 +537,42 @@ EXAMPLES:
     print(help_text)
 
 
-def add_track_parser(subparsers):
+def add_track_parsers(subparsers):
     """
     Add track command parser to the main argument parser.
-
-    Args:
-        subparsers: The subparsers object from argparse
     """
-    # Main track command - use parse_known_args workaround for flexible syntax
-    import sys
-
-    # Check if we need to inject 'show' subcommand for backwards compatibility
-    # This handles: maestro track <id> [show|edit|discuss|set|details]
-    # By transforming to: maestro track show <id> [subcommand]
     if len(sys.argv) >= 3 and sys.argv[1] in ['track', 'tr', 't']:
         arg = sys.argv[2]
-        # If arg is not a known subcommand, treat it as track_id and inject 'show'
-        if arg not in ['list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'discuss', 'd', 'help', 'h', 'show', 'sh', 'details', 'dt', 'edit', 'e', 'set', 'st']:
-            # Check if there's a third argument that's a subcommand
-            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'details', 'dt', 'edit', 'e', 'discuss', 'd', 'set', 'st']:
-                # maestro track <id> <subcommand> - already has subcommand, just move id after 'show'
+        known_subcommands = [
+            'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'discuss', 'd',
+            'help', 'h', 'show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'set', 'st'
+        ]
+        if arg not in known_subcommands:
+            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'discuss', 'd', 'set', 'st']:
                 subcommand = sys.argv[3]
                 track_id = sys.argv[2]
                 sys.argv[2] = subcommand
                 sys.argv[3] = track_id
             else:
-                # maestro track <id> - inject 'show'
                 sys.argv.insert(2, 'show')
 
-    # Main track command
     track_parser = subparsers.add_parser(
         'track',
         aliases=['tr', 't'],
         help='Manage project tracks'
     )
 
-    # Track subcommands
     track_subparsers = track_parser.add_subparsers(
         dest='track_subcommand',
         help='Track subcommands'
     )
 
-    # maestro track list
-    track_list_parser = track_subparsers.add_parser(
+    track_subparsers.add_parser(
         'list',
         aliases=['ls', 'l'],
         help='List all tracks'
     )
 
-    # maestro track add <name>
     track_add_parser = track_subparsers.add_parser(
         'add',
         aliases=['a'],
@@ -688,7 +580,6 @@ def add_track_parser(subparsers):
     )
     track_add_parser.add_argument('name', help='Track name')
 
-    # maestro track remove <id>
     track_remove_parser = track_subparsers.add_parser(
         'remove',
         aliases=['rm', 'r'],
@@ -696,24 +587,22 @@ def add_track_parser(subparsers):
     )
     track_remove_parser.add_argument('track_id', help='Track ID to remove')
 
-    # maestro track discuss
     track_discuss_parser = track_subparsers.add_parser(
         'discuss',
         aliases=['d'],
         help='Discuss tracks with AI'
     )
+    track_discuss_parser.add_argument('track_id', nargs='?', help='Track ID to discuss')
 
-    # maestro track help
     track_subparsers.add_parser(
         'help',
         aliases=['h'],
         help='Show help for track commands'
     )
 
-    # maestro track show <id>
     track_show_parser = track_subparsers.add_parser(
         'show',
-        aliases=['s'],
+        aliases=['s', 'sh'],
         help='Show track details'
     )
     track_show_parser.add_argument('track_id', help='Track ID to show')
@@ -724,7 +613,6 @@ def add_track_parser(subparsers):
         help='Show help or list phases for a track'
     )
 
-    # maestro track details <id>
     track_details_parser = track_subparsers.add_parser(
         'details',
         aliases=['dt'],
@@ -732,7 +620,6 @@ def add_track_parser(subparsers):
     )
     track_details_parser.add_argument('track_id', help='Track ID to show details for')
 
-    # maestro track edit <id>
     track_edit_parser = track_subparsers.add_parser(
         'edit',
         aliases=['e'],
@@ -740,7 +627,6 @@ def add_track_parser(subparsers):
     )
     track_edit_parser.add_argument('track_id', help='Track ID to edit')
 
-    # maestro track set <id>
     track_set_parser = track_subparsers.add_parser(
         'set',
         aliases=['st'],
@@ -748,7 +634,6 @@ def add_track_parser(subparsers):
     )
     track_set_parser.add_argument('track_id', help='Track ID to set as current')
 
-    # Add optional arguments to main parser
     track_parser.add_argument(
         '--mode',
         choices=['editor', 'terminal'],

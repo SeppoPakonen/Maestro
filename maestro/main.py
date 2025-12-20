@@ -3744,7 +3744,8 @@ def main():
                     "Examples: 'maestro b p' (build plan), 'maestro s l' (session list),\n"
                     "          'maestro p tr' (plan tree), 'maestro t l' (track list)",
         formatter_class=argparse.RawTextHelpFormatter,
-        show_banner=True
+        show_banner=True,
+        allow_abbrev=False
     )
     parser.add_argument('--version', action='version',
                        version=f'maestro {__version__}',
@@ -3828,21 +3829,43 @@ def main():
     work_fix_parser.add_argument('target', help='Target to fix')
     work_fix_parser.add_argument('--issue', help='Issue ID to fix')
 
+    # work any - AI selects and works on best task
+    work_any_parser = work_subparsers.add_parser(
+        'any',
+        help='AI selects and works on best task'
+    )
+    work_any_parser.add_argument(
+        'pick',
+        nargs='?',
+        help='Show top 3 options and let user pick'
+    )
+
     # Session command for work sessions (to differentiate from existing session command)
     wsession_parser = subparsers.add_parser('wsession', aliases=['ws'], help='Work session management')
     wsession_subparsers = wsession_parser.add_subparsers(dest='wsession_subcommand', help='Work session subcommands')
 
     # wsession list
     wsession_list_parser = wsession_subparsers.add_parser('list', aliases=['ls'], help='List all work sessions')
+    wsession_list_parser.add_argument('--status', help='Filter by session status')
     wsession_list_parser.add_argument('--type', help='Filter by session type')
-    wsession_list_parser.add_argument('--status', help='Filter by status')
+    wsession_list_parser.add_argument('--since', help='Show sessions created since date')
+    wsession_list_parser.add_argument('--entity', help='Filter by related entity (track/phase/issue ID)')
+    wsession_list_parser.add_argument('--sort-by', default='created',
+                                     choices=['created', 'modified', 'status', 'type'], help='Sort by field')
+    wsession_list_parser.add_argument('--reverse', action='store_true', help='Reverse sort order')
 
     # wsession show <id>
     wsession_show_parser = wsession_subparsers.add_parser('show', aliases=['sh'], help='Show session details')
     wsession_show_parser.add_argument('session_id', help='Session ID to show')
+    wsession_show_parser.add_argument('--show-all-breadcrumbs', action='store_true', help='Display all breadcrumbs (not just latest)')
+    wsession_show_parser.add_argument('--export-json', help='Export session data to JSON file')
+    wsession_show_parser.add_argument('--export-md', help='Export session to Markdown file')
 
     # wsession tree
     wsession_tree_parser = wsession_subparsers.add_parser('tree', help='Show session hierarchy tree')
+    wsession_tree_parser.add_argument('--depth', type=int, help='Maximum depth to show (default: unlimited)')
+    wsession_tree_parser.add_argument('--filter-status', help='Only show sessions with status')
+    wsession_tree_parser.add_argument('--show-breadcrumbs', action='store_true', help='Include breadcrumb count')
 
     # wsession breadcrumbs <session-id>
     wsession_breadcrumbs_parser = wsession_subparsers.add_parser(
@@ -3862,6 +3885,15 @@ def main():
     wsession_timeline_parser.add_argument('session_id', help='Session ID')
     wsession_timeline_parser.add_argument('--include-children', action='store_true', help='Include child sessions')
 
+    # wsession stats
+    wsession_stats_parser = wsession_subparsers.add_parser(
+        'stats',
+        help='Show session statistics'
+    )
+    wsession_stats_parser.add_argument('session_id', nargs='?', help='Session ID (default: all)')
+    wsession_stats_parser.add_argument('--summary', action='store_true', help='Show summary only')
+    wsession_stats_parser.add_argument('--tree', action='store_true', help='Include children')
+
     # Add help/h subcommands for wsession subparsers
     wsession_subparsers.add_parser('help', aliases=['h'], help='Show help for work session commands')
 
@@ -3870,7 +3902,7 @@ def main():
     rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # Plan command
-    plan_parser = subparsers.add_parser('plan', aliases=['p'], help='Run planner and update subtask plan')
+    plan_parser = subparsers.add_parser('plan', help='Run planner and update subtask plan')
     plan_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_parser.add_argument('--one-shot', action='store_true', help='Run single planner call that rewrites root task and returns finalized JSON plan')
     plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
@@ -4532,7 +4564,7 @@ def main():
         command_alias_map = {
             's': 'session',
             'r': 'rules',
-            'p': 'plan',
+            'p': 'phase',
             't': 'track',
             'l': 'log',
             'c': 'convert',
@@ -6265,7 +6297,8 @@ def main():
             handle_wsession_show,
             handle_wsession_tree,
             handle_wsession_breadcrumbs,
-            handle_wsession_timeline
+            handle_wsession_timeline,
+            handle_wsession_stats
         )
         if not hasattr(args, 'wsession_subcommand') or not args.wsession_subcommand:
             # If no subcommand provided, default to list
@@ -6280,6 +6313,8 @@ def main():
             handle_wsession_breadcrumbs(args)
         elif args.wsession_subcommand == 'timeline' or args.wsession_subcommand == 'tl':
             handle_wsession_timeline(args)
+        elif args.wsession_subcommand == 'stats':
+            handle_wsession_stats(args)
         elif args.wsession_subcommand == 'help' or args.wsession_subcommand == 'h':
             # Print help for work session subcommands
             wsession_parser.print_help()
@@ -6295,24 +6330,55 @@ def main():
             handle_work_issue,
             handle_work_discuss,
             handle_work_analyze,
-            handle_work_fix
+            handle_work_fix,
+            handle_work_any,
+            handle_work_any_pick
         )
         if not hasattr(args, 'work_subcommand') or not args.work_subcommand:
             # If no subcommand provided, show help
             work_parser.print_help()
             return
         elif args.work_subcommand == 'track' or args.work_subcommand == 't':
-            handle_work_track(args)
+            # Check if we're using the legacy format (with track_name) or new format (with id)
+            if hasattr(args, 'track_name') and args.track_name:
+                # Legacy format: work track <track_name>
+                handle_work_track(args)
+            else:
+                # New format: work track [<id>]
+                import asyncio
+                asyncio.run(handle_work_track(args))
         elif args.work_subcommand == 'phase' or args.work_subcommand == 'p':
-            handle_work_phase(args)
+            # Check if we're using the legacy format (with phase_name) or new format (with id)
+            if hasattr(args, 'phase_name'):
+                # Legacy format: work phase <phase_name>
+                handle_work_phase(args)
+            else:
+                # New format: work phase [<id>]
+                import asyncio
+                asyncio.run(handle_work_phase(args))
         elif args.work_subcommand == 'issue' or args.work_subcommand == 'i':
-            handle_work_issue(args)
+            # Check if we're using the legacy format (with issue_id) or new format (with id)
+            if hasattr(args, 'issue_id'):
+                # Legacy format: work issue <issue_id>
+                handle_work_issue(args)
+            else:
+                # New format: work issue [<id>]
+                import asyncio
+                asyncio.run(handle_work_issue(args))
         elif args.work_subcommand == 'discuss' or args.work_subcommand == 'd':
             handle_work_discuss(args)
         elif args.work_subcommand == 'analyze' or args.work_subcommand == 'a':
             handle_work_analyze(args)
         elif args.work_subcommand == 'fix' or args.work_subcommand == 'f':
             handle_work_fix(args)
+        elif args.work_subcommand == 'any':
+            import asyncio
+            if args.pick:  # Check if pick argument is provided
+                # Run the pick functionality when 'any pick' is called
+                asyncio.run(handle_work_any_pick(args))
+            else:
+                # Run the automatic selection
+                asyncio.run(handle_work_any(args))
         else:
             print_error(f"Unknown work subcommand: {args.work_subcommand}", 2)
             sys.exit(1)

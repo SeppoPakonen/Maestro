@@ -2,7 +2,7 @@
 Commands package for Maestro CLI commands.
 """
 
-from .track import add_track_parser, handle_track_command
+from .track import add_track_parsers as add_track_parser, handle_track_command
 from .phase import add_phase_parser, handle_phase_command
 from .task import add_task_parser, handle_task_command
 from .discuss import add_discuss_parser, handle_discuss_command
