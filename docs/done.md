@@ -39,6 +39,8 @@
 | **Issues & Solutions** | | | |
 | | IS1: Issue Data Model | ✅ Done | 100% |
 | | IS2: Issue Categories | ✅ Done | 100% |
+| | IS3: Issue 4-Phase Workflow | ✅ Done | 100% |
+| | IS4: Solutions System | ✅ Done | 100% |
 | **Repository Scanning** | | | |
 | | U++ packages | ✅ Done | 100% |
 | | CMake packages | ✅ Done | 100% |
@@ -273,7 +275,7 @@ This track implements build and run commands with issue integration.
 "track_id": "issues-solutions"
 "priority": 2
 "status": "in_progress"
-"completion": 40%
+"completion": 80%
 
 ### Phase IS1: Issue Data Model ✅ **[Completed 2025-12-20]**
 
@@ -305,6 +307,40 @@ This track implements build and run commands with issue integration.
 **Files Updated**:
 - `maestro/issues/model.py` - Category registry
 - `maestro/commands/issues.py` - Category filtering
+
+### Phase IS3: Issue 4-Phase Workflow ✅ **[Completed 2025-12-20]**
+
+"phase_id": "is3"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- React/analyze/decide/fix workflow commands
+- Issue analysis metadata and history updates
+- Fix session scaffolding for issue remediation
+
+**Files Updated**:
+- `maestro/commands/issues.py` - Workflow commands and session creation
+- `maestro/issues/issue_store.py` - Metadata updates and sections
+- `maestro/issues/model.py` - Issue metadata fields
+
+### Phase IS4: Solutions System ✅ **[Completed 2025-12-20]**
+
+"phase_id": "is4"
+"status": "done"
+"completion": 100
+
+**Deliverables**:
+- Solution schema and markdown storage in `docs/solutions/`
+- Solution matching against issue context
+- CLI for solution management (list/show/add/remove/edit)
+- External solution discovery via `$HOME/.maestro/repos.json`
+
+**Files Updated**:
+- `maestro/solutions/solution_store.py` - Solution storage and matching
+- `maestro/commands/solutions.py` - CLI management
+- `maestro/commands/issues.py` - Solution matching integration
+- `maestro/main.py` - CLI wiring
 
 ## Primary Track: UMK Integration (Universal Build System)
 

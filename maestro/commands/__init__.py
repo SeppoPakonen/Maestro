@@ -8,6 +8,7 @@ from .task import add_task_parser, handle_task_command
 from .discuss import add_discuss_parser, handle_discuss_command
 from .settings import add_settings_parser, handle_settings_command
 from .issues import add_issues_parser, handle_issues_command
+from .solutions import add_solutions_parser, handle_solutions_command
 
 __all__ = [
     'add_track_parser',
@@ -22,4 +23,6 @@ __all__ = [
     'handle_settings_command',
     'add_issues_parser',
     'handle_issues_command',
+    'add_solutions_parser',
+    'handle_solutions_command',
 ]

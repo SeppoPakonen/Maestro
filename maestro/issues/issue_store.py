@@ -136,6 +136,11 @@ def load_issue(issue_path: str) -> IssueRecord:
         source=str(metadata.get("source", "")),
         tool=metadata.get("tool"),
         rule=metadata.get("rule"),
+        solutions=_parse_list(metadata.get("solutions")),
+        analysis_summary=str(metadata.get("analysis_summary", "")),
+        analysis_confidence=int(metadata.get("analysis_confidence", 0) or 0),
+        decision=str(metadata.get("decision", "")),
+        fix_session=str(metadata.get("fix_session", "")),
     )
 
 
@@ -188,6 +193,37 @@ def rollback_issue_state(repo_root: str, issue_id: str) -> bool:
     return True
 
 
+def update_issue_priority(repo_root: str, issue_id: str, priority: int) -> bool:
+    issue_path = _find_issue_path(repo_root, issue_id)
+    if not issue_path:
+        return False
+    now = datetime.now(timezone.utc).isoformat()
+    _update_metadata_line(issue_path, "priority", priority)
+    _update_metadata_line(issue_path, "modified_at", now)
+    _append_history(issue_path, now, f"priority:{priority}")
+    return True
+
+
+def update_issue_metadata(repo_root: str, issue_id: str, key: str, value: str | int) -> bool:
+    issue_path = _find_issue_path(repo_root, issue_id)
+    if not issue_path:
+        return False
+    now = datetime.now(timezone.utc).isoformat()
+    _update_metadata_line(issue_path, key, value)
+    _update_metadata_line(issue_path, "modified_at", now)
+    return True
+
+
+def update_issue_section(repo_root: str, issue_id: str, section: str, content: List[str]) -> bool:
+    issue_path = _find_issue_path(repo_root, issue_id)
+    if not issue_path:
+        return False
+    _upsert_section(issue_path, section, content)
+    now = datetime.now(timezone.utc).isoformat()
+    _update_metadata_line(issue_path, "modified_at", now)
+    return True
+
+
 def _find_issue_path(repo_root: str, issue_id: str) -> Optional[str]:
     issues_dir = os.path.join(repo_root, "docs", "issues")
     candidate = os.path.join(issues_dir, f"{issue_id}.md")
@@ -209,6 +245,14 @@ def _parse_value(raw_value: str):
     if re.match(r"^\d+$", raw_value):
         return int(raw_value)
     return raw_value
+
+
+def _parse_list(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value]
+    return [item.strip() for item in str(value).split(",") if item.strip()]
 
 
 def _update_metadata_line(issue_path: str, key: str, value: str) -> None:
@@ -261,6 +305,43 @@ def _append_history(issue_path: str, timestamp: str, state: str) -> None:
         while insert_at < len(lines) and not lines[insert_at].startswith("## "):
             insert_at += 1
         lines.insert(insert_at, entry)
+
+    with open(issue_path, "w", encoding="utf-8") as handle:
+        handle.writelines(lines)
+
+
+def _upsert_section(issue_path: str, section: str, content: List[str]) -> None:
+    header = f"## {section}"
+    with open(issue_path, "r", encoding="utf-8") as handle:
+        lines = handle.readlines()
+
+    start = None
+    end = None
+    for idx, line in enumerate(lines):
+        if line.strip() == header:
+            start = idx
+            end = idx + 1
+            while end < len(lines) and not lines[end].startswith("## "):
+                end += 1
+            break
+
+    new_block = [f"{header}\n"]
+    if content:
+        for item in content:
+            new_block.append(f"{item}\n")
+    else:
+        new_block.append("\n")
+    new_block.append("\n")
+
+    if start is None:
+        insert_at = len(lines)
+        for idx, line in enumerate(lines):
+            if line.strip() == "## History":
+                insert_at = idx
+                break
+        lines[insert_at:insert_at] = new_block
+    else:
+        lines[start:end] = new_block
 
     with open(issue_path, "w", encoding="utf-8") as handle:
         handle.writelines(lines)

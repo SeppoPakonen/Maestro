@@ -26,8 +26,6 @@
 | | RF4: Repository Rules | ✅ Done | 100% |
 | | RF5: Refresh All | ✅ Done | 100% |
 | **Issues & Solutions** | | | |
-| | IS3: Issue 4-Phase Workflow | 📋 Planned | 0% |
-| | IS4: Solutions System | 📋 Planned | 0% |
 | | IS5: Runtime Issue Collection | 💡 Proposed | 0% |
 | **Work & Session Framework** | | | |
 | | WS1: Session Infrastructure | 📋 Planned | 0% |
@@ -312,7 +310,7 @@ This track implements the foundational repository analysis and management comman
 "track_id": "issues-solutions"
 "priority": 2
 "status": "in_progress"
-"completion": 40%
+"completion": 80%
 
 This track implements the comprehensive issue tracking and solution management system.
 
@@ -327,93 +325,16 @@ This track implements the comprehensive issue tracking and solution management s
 - `maestro issues look` - Visual/aesthetic issues
 - `maestro issues ux` - User experience issues
 - `maestro issues show <id>` - Show issue details
+- `maestro issues react <id>` - React to issue, match solutions
+- `maestro issues analyze <id>` - Analyze issue and score confidence
+- `maestro issues decide <id>` - Decide whether to fix
 - `maestro issues fix <id>` - Start fixing an issue
 - `maestro solutions` - List all known solutions
 - `maestro solutions add` - Add new solution (AI discussion)
 - `maestro solutions remove <id>` - Remove solution
 - `maestro solutions list` - List solutions
-
-### Phase IS3: Issue 4-Phase Workflow
-
-"phase_id": "is3"
-"status": "planned"
-"completion": 0
-
-- [ ] **IS3.1: React Phase**
-  - Fully automatic and programmatic
-  - Match issue against known solutions
-  - Check error message keywords
-  - Check context (build system, language, framework)
-  - Mark issue as `reacted`
-  - If known solution exists: attach solution to issue
-  - If no match: pass directly to analyze phase
-
-- [ ] **IS3.2: Analyze Phase**
-  - AI analyzes issue
-  - Attempts to find solution without code modification
-  - AI provides confidence score (0-100)
-  - AI describes proposed solution
-  - Mark issue as `analyzed`
-  - If confidence < 50: suggest iterative fix approach
-  - If confidence >= 50: proceed to decide phase
-
-- [ ] **IS3.3: Decide Phase**
-  - Automatic if analyze phase confidence >= 80
-  - User prompt if confidence < 80
-  - User can: approve fix, reject, defer, cancel
-  - Mark issue as `decided`
-  - If approved: proceed to fix phase
-  - If deferred: change priority and re-queue
-  - If rejected/cancelled: close issue
-
-- [ ] **IS3.4: Fix Phase**
-  - Create dedicated AI session
-  - Apply solution (if known from react)
-  - Or implement analyzed solution
-  - Or use iterative change+test loop
-  - Write breadcrumbs throughout
-  - Mark issue as `fixing` during work
-  - Mark issue as `fixed` when complete
-  - Run tests to validate fix
-
-### Phase IS4: Solutions System
-
-"phase_id": "is4"
-"status": "planned"
-"completion": 0
-
-- [ ] **IS4.1: Solution Schema**
-  - Solution ID: auto-generated or descriptive
-  - Problem pattern: keywords, regex, error message fragments
-  - Applicable contexts: build system, language, framework
-  - Solution steps: structured list of actions
-  - Confidence applicability: how well pattern matches
-  - Success rate: tracked over time
-
-- [ ] **IS4.2: Solution Storage**
-  - Store in `docs/solutions/<solution-id>.md`
-  - Structured markdown with JSON metadata
-  - Version controlled in git
-  - Can reference solutions from other repos via hub
-
-- [ ] **IS4.3: Solution Matching**
-  - Keyword matching
-  - AI similarity scoring
-  - Context matching (language, build system)
-  - Return multiple matches if applicable
-  - Rank by confidence
-
-- [ ] **IS4.4: Solution Management**
-  - `maestro solutions add` - AI discussion to extract problem/solution
-  - `maestro solutions list` - Show all solutions
-  - `maestro solutions show <id>` - Show solution details
-  - `maestro solutions remove <id>` - Delete solution
-  - `maestro solutions edit <id>` - Edit in $EDITOR
-
-- [ ] **IS4.5: External Solutions**
-  - Query solutions from other repos via `$HOME/.maestro/` index
-  - Hub integration for shared solutions
-  - Remote solution repositories (future)
+- `maestro solutions show <id>` - Show solution details
+- `maestro solutions edit <id>` - Edit solution in $EDITOR
 
 ### Phase IS5: Runtime Issue Collection (Low Priority)
 

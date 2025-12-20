@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 
@@ -56,6 +56,11 @@ class IssueRecord:
     source: str = ""
     tool: Optional[str] = None
     rule: Optional[str] = None
+    solutions: List[str] = field(default_factory=list)
+    analysis_summary: str = ""
+    analysis_confidence: int = 0
+    decision: str = ""
+    fix_session: str = ""
 
     def is_valid_type(self) -> bool:
         return self.issue_type in ISSUE_TYPES

@@ -4075,6 +4075,7 @@ def main():
         add_discuss_parser,
         add_settings_parser,
         add_issues_parser,
+        add_solutions_parser,
     )
     track_parser = add_track_parser(subparsers)
     phase_parser = add_phase_parser(subparsers)
@@ -4092,6 +4093,9 @@ def main():
 
     # Issues command
     issues_parser = add_issues_parser(subparsers)
+
+    # Solutions command
+    solutions_parser = add_solutions_parser(subparsers)
 
     # Conversion pipeline command group
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Git-repo conversion pipeline commands')
@@ -6175,6 +6179,9 @@ def main():
     elif args.command == 'issues':
         from .commands import handle_issues_command
         sys.exit(handle_issues_command(args))
+    elif args.command == 'solutions':
+        from .commands import handle_solutions_command
+        sys.exit(handle_solutions_command(args))
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
