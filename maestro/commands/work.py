@@ -883,15 +883,29 @@ async def handle_work_analyze(args):
       - Provide actionable recommendations
 
     Args:
-        args: Arguments with optional target
+        args: Arguments with optional target and simulate flag
     """
-    print("Starting analysis...")
+    # Check if simulation mode
+    simulate = getattr(args, 'simulate', False)
 
-    # Create WorkSession for the analysis
-    session = create_session(
-        session_type="analyze",
-        related_entity={"target": getattr(args, 'target', None)}
-    )
+    if simulate:
+        print("=" * 60)
+        print("SIMULATION MODE - No actions will be executed")
+        print("=" * 60)
+
+    print("Starting analysis..." if not simulate else "Would start analysis...")
+
+    # In simulate mode, don't create actual session
+    if not simulate:
+        # Create WorkSession for the analysis
+        session = create_session(
+            session_type="analyze",
+            related_entity={"target": getattr(args, 'target', None)}
+        )
+    else:
+        print(f"\n[SIMULATE] Would create analysis session")
+        print(f"  - Session type: analyze")
+        print(f"  - Target: {getattr(args, 'target', 'current repository')}")
 
     try:
         if args.target:
@@ -901,19 +915,27 @@ async def handle_work_analyze(args):
             # Check if target is a file or directory
             if os.path.exists(target):
                 if os.path.isfile(target):
-                    print(f"Analyzing file: {target}")
-                    # Read file content
-                    with open(target, 'r', encoding='utf-8') as f:
-                        content = f.read()
-
-                    prompt = f"Analyze the following file content:\n\n{content[:4000]}...\n\nProvide insights about this file."
+                    print(f"{'Would analyze' if simulate else 'Analyzing'} file: {target}")
+                    if simulate:
+                        print(f"[SIMULATE] Would read file content (first 4000 chars)")
+                        prompt = f"Analyze the file '{target}'"
+                    else:
+                        # Read file content
+                        with open(target, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        prompt = f"Analyze the following file content:\n\n{content[:4000]}...\n\nProvide insights about this file."
                 elif os.path.isdir(target):
-                    print(f"Analyzing directory: {target}")
+                    print(f"{'Would analyze' if simulate else 'Analyzing'} directory: {target}")
                     # List directory contents
                     contents = os.listdir(target)
+                    if simulate:
+                        print(f"[SIMULATE] Directory contains {len(contents)} items")
+                        print(f"[SIMULATE] First 10: {', '.join(contents[:10])}")
                     prompt = f"Analyze the directory '{target}' containing {len(contents)} items: {', '.join(contents[:20])}.\n\nWhat can you infer about this directory and its purpose?"
                 else:
                     # Handle unknown target type
+                    if simulate:
+                        print(f"[SIMULATE] Would analyze unknown target type: {target}")
                     prompt = f"Analyze the target '{target}'. What can you tell me about this?"
             else:
                 # Check if target might be a track, phase, or issue ID
@@ -922,27 +944,33 @@ async def handle_work_analyze(args):
                 # Search in tracks
                 matching_track = next((t for t in work_items["tracks"] if t["id"] == target), None)
                 if matching_track:
-                    print(f"Analyzing track: {target}")
+                    print(f"{'Would analyze' if simulate else 'Analyzing'} track: {target}")
+                    if simulate:
+                        print(f"[SIMULATE] Track: {matching_track['name']} (status: {matching_track['status']})")
                     prompt = f"Analyze the track '{target}' with name '{matching_track['name']}' and status '{matching_track['status']}'.\n\nWhat are the characteristics of this track, and what should we consider when working on it?"
                 else:
                     # Search in phases
                     matching_phase = next((p for p in work_items["phases"] if p["id"] == target), None)
                     if matching_phase:
-                        print(f"Analyzing phase: {target}")
+                        print(f"{'Would analyze' if simulate else 'Analyzing'} phase: {target}")
+                        if simulate:
+                            print(f"[SIMULATE] Phase: {matching_phase['name']} (track: {matching_phase['track']}, status: {matching_phase['status']})")
                         prompt = f"Analyze the phase '{target}' with name '{matching_phase['name']}', track '{matching_phase['track']}', and status '{matching_phase['status']}'.\n\nWhat are the characteristics of this phase, and what should we consider when working on it?"
                     else:
                         # Search in issues
                         matching_issue = next((i for i in work_items["issues"] if i["id"] == target), None)
                         if matching_issue:
-                            print(f"Analyzing issue: {target}")
+                            print(f"{'Would analyze' if simulate else 'Analyzing'} issue: {target}")
+                            if simulate:
+                                print(f"[SIMULATE] Issue: {matching_issue['title']} (status: {matching_issue['status']})")
                             prompt = f"Analyze the issue '{target}' with title '{matching_issue['title']}' and status '{matching_issue['status']}'.\n\nWhat can you tell me about this issue, its complexity, and how to approach resolving it?"
                         else:
                             # Target not found, treat as generic analysis
-                            print(f"Target '{target}' not found. Performing general analysis.")
+                            print(f"Target '{target}' not found. {'Would perform' if simulate else 'Performing'} general analysis.")
                             prompt = f"Perform a general analysis of target '{target}'. Provide any insights you can."
         else:
             # Analyze current repository state
-            print("Analyzing current repository state...")
+            print(f"{'Would analyze' if simulate else 'Analyzing'} current repository state...")
 
             # Get available work items
             work_items = load_available_work()
@@ -951,6 +979,12 @@ async def handle_work_analyze(args):
             num_tracks = len(work_items["tracks"])
             num_phases = len(work_items["phases"])
             num_issues = len(work_items["issues"])
+
+            if simulate:
+                print(f"[SIMULATE] Repository stats:")
+                print(f"  - Available tracks: {num_tracks}")
+                print(f"  - Available phases: {num_phases}")
+                print(f"  - Open issues: {num_issues}")
 
             # Check for recent changes
             recent_changes = []
@@ -982,17 +1016,28 @@ async def handle_work_analyze(args):
             5. Any potential problems or risks
             """
 
-        # Run AI analysis with breadcrumbs
-        response = _run_ai_interaction_with_breadcrumb(session, prompt)
+        # Run AI analysis with breadcrumbs or simulate
+        if simulate:
+            print(f"\n[SIMULATE] Would send AI prompt:")
+            print("-" * 60)
+            print(prompt[:500] + "..." if len(prompt) > 500 else prompt)
+            print("-" * 60)
+            print(f"\n[SIMULATE] Would create breadcrumb with AI response")
+            print(f"[SIMULATE] Would complete analysis session")
+            print("\n" + "=" * 60)
+            print("SIMULATION COMPLETE - No actual work performed")
+            print("=" * 60)
+        else:
+            response = _run_ai_interaction_with_breadcrumb(session, prompt)
 
-        print("\nAnalysis Results:")
-        print("="*50)
-        print(response)
-        print("="*50)
+            print("\nAnalysis Results:")
+            print("="*50)
+            print(response)
+            print("="*50)
 
-        # Complete the session
-        complete_session(session)
-        print(f"\nAnalysis completed. Session ID: {session.session_id}")
+            # Complete the session
+            complete_session(session)
+            print(f"\nAnalysis completed. Session ID: {session.session_id}")
 
     except ImportError as e:
         print(f"Error importing required modules: {e}")
@@ -1028,15 +1073,30 @@ async def handle_work_fix(args):
       - Report success or failure
 
     Args:
-        args: Arguments with target and optional issue parameter
+        args: Arguments with target, optional issue parameter, and simulate flag
     """
-    print("Starting fix operation...")
+    # Check if simulation mode
+    simulate = getattr(args, 'simulate', False)
 
-    # Create the main fix session
-    session = create_session(
-        session_type="fix",
-        metadata={"target": args.target, "issue_id": getattr(args, 'issue', None)}
-    )
+    if simulate:
+        print("=" * 60)
+        print("SIMULATION MODE - No actions will be executed")
+        print("=" * 60)
+
+    print("Starting fix operation..." if not simulate else "Would start fix operation...")
+
+    # In simulate mode, don't create actual session
+    if not simulate:
+        # Create the main fix session
+        session = create_session(
+            session_type="fix",
+            metadata={"target": args.target, "issue_id": getattr(args, 'issue', None)}
+        )
+    else:
+        print(f"\n[SIMULATE] Would create fix session")
+        print(f"  - Session type: fix")
+        print(f"  - Target: {args.target}")
+        print(f"  - Issue ID: {getattr(args, 'issue', None)}")
 
     try:
         # Check if an issue ID is provided
@@ -1045,22 +1105,30 @@ async def handle_work_fix(args):
             issue_id = args.issue
             target = args.target
 
-            print(f"Starting 4-phase workflow to fix issue {issue_id} related to target '{target}'")
+            print(f"{'Would start' if simulate else 'Starting'} 4-phase workflow to fix issue {issue_id} related to target '{target}'")
 
             # Phase 1: Analyze Issue
-            print("\nPhase 1: Analyzing the issue...")
-            analyze_session = create_session(
-                session_type="analyze_issue",
-                parent_session_id=session.session_id,
-                related_entity={"issue_id": issue_id, "target": target},
-                metadata={"phase": "analyze"}
-            )
+            print(f"\n{'[SIMULATE] ' if simulate else ''}Phase 1: {'Would analyze' if simulate else 'Analyzing'} the issue...")
+
+            if not simulate:
+                analyze_session = create_session(
+                    session_type="analyze_issue",
+                    parent_session_id=session.session_id,
+                    related_entity={"issue_id": issue_id, "target": target},
+                    metadata={"phase": "analyze"}
+                )
+            else:
+                print(f"  [SIMULATE] Would create analyze_issue sub-session")
+                print(f"  [SIMULATE] Parent session: fix session")
 
             # Load issue details
             work_items = load_available_work()
             issue_details = next((i for i in work_items["issues"] if i["id"] == issue_id), None)
 
             if issue_details:
+                if simulate:
+                    print(f"  [SIMULATE] Issue: {issue_details['title']}")
+                    print(f"  [SIMULATE] Would analyze issue description and target")
                 analyze_prompt = f"""
                 Analyze the issue '{issue_id}' with title '{issue_details['title']}'.
                 Issue description:
@@ -1070,11 +1138,18 @@ async def handle_work_fix(args):
                 What is the root cause of this issue? What needs to be fixed?
                 """
             else:
+                if simulate:
+                    print(f"  [SIMULATE] Issue '{issue_id}' not found in database")
                 analyze_prompt = f"Analyze the issue '{issue_id}' related to target '{target}'. What is the root cause and what needs to be fixed?"
 
-            analyze_response = _run_ai_interaction_with_breadcrumb(analyze_session, analyze_prompt)
-            print(f"Analysis: {analyze_response[:200]}...")
-            complete_session(analyze_session)
+            if not simulate:
+                analyze_response = _run_ai_interaction_with_breadcrumb(analyze_session, analyze_prompt)
+                print(f"Analysis: {analyze_response[:200]}...")
+                complete_session(analyze_session)
+            else:
+                print(f"  [SIMULATE] Would send AI prompt for root cause analysis")
+                print(f"  [SIMULATE] Would receive analysis response")
+                analyze_response = "SIMULATED_ANALYSIS_RESPONSE"
 
             # Phase 2: Decide on Fix Approach
             print("\nPhase 2: Deciding on fix approach...")
@@ -1141,9 +1216,19 @@ async def handle_work_fix(args):
             print(f"Verification: {verify_response[:200]}...")
             complete_session(verify_session)
 
-            print(f"\n4-phase fix workflow completed for issue {issue_id}")
-            print(f"Main session: {session.session_id}")
-            print(f"Sub-sessions: {analyze_session.session_id}, {decide_session.session_id}, {fix_session.session_id}, {verify_session.session_id}")
+            if simulate:
+                print(f"\n[SIMULATE] 4-phase workflow simulation complete")
+                print(f"[SIMULATE] In real mode, would have created:")
+                print(f"  - 1 main fix session")
+                print(f"  - 4 sub-sessions (analyze, decide, fix, verify)")
+                print(f"  - All linked in parent-child hierarchy")
+                print("\n" + "=" * 60)
+                print("SIMULATION COMPLETE - No actual work performed")
+                print("=" * 60)
+            else:
+                print(f"\n4-phase fix workflow completed for issue {issue_id}")
+                print(f"Main session: {session.session_id}")
+                print(f"Sub-sessions: {analyze_session.session_id}, {decide_session.session_id}, {fix_session.session_id}, {verify_session.session_id}")
         else:
             # Direct fix without issue reference
             target = args.target

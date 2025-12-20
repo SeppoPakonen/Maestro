@@ -3883,29 +3883,35 @@ def main():
     work_track_parser = work_subparsers.add_parser('track', aliases=['t'], help='Work on a track')
     work_track_parser.add_argument('track_name', nargs='?', help='Name of the track to work on')
     work_track_parser.add_argument('--description', help='Description of the track')
+    work_track_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
     # work phase <name> - Work on a specific phase
     work_phase_parser = work_subparsers.add_parser('phase', aliases=['p'], help='Work on a phase')
     work_phase_parser.add_argument('phase_name', help='Name of the phase to work on')
     work_phase_parser.add_argument('--track', help='Parent track name')
+    work_phase_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
     # work issue <id> - Work on a specific issue
     work_issue_parser = work_subparsers.add_parser('issue', aliases=['i'], help='Work on an issue')
     work_issue_parser.add_argument('issue_id', help='ID of the issue to work on')
     work_issue_parser.add_argument('--phase', help='Parent phase name')
+    work_issue_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
     # work discuss - Start a discussion
     work_discuss_parser = work_subparsers.add_parser('discuss', aliases=['d'], help='Start a discussion')
     work_discuss_parser.add_argument('topic', nargs='*', help='Topic for discussion')
+    work_discuss_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
     # work analyze - Analyze the current state
     work_analyze_parser = work_subparsers.add_parser('analyze', aliases=['a'], help='Analyze the current state')
     work_analyze_parser.add_argument('target', nargs='?', help='Target to analyze')
+    work_analyze_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
     # work fix - Fix an issue
     work_fix_parser = work_subparsers.add_parser('fix', aliases=['f'], help='Fix an issue')
     work_fix_parser.add_argument('target', help='Target to fix')
     work_fix_parser.add_argument('--issue', help='Issue ID to fix')
+    work_fix_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
     # work any - AI selects and works on best task
     work_any_parser = work_subparsers.add_parser(
@@ -3917,6 +3923,7 @@ def main():
         nargs='?',
         help='Show top 3 options and let user pick'
     )
+    work_any_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
     _reorder_subparser_actions(
         work_subparsers,
