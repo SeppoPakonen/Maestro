@@ -3902,6 +3902,11 @@ def main():
     work_phase_parser.add_argument('--track', help='Parent track name')
     work_phase_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
 
+    # work task <id> - Work on a specific task
+    work_task_parser = work_subparsers.add_parser('task', aliases=['tk'], help='Work on a task')
+    work_task_parser.add_argument('id', nargs='?', help='Task ID to work on')
+    work_task_parser.add_argument('--simulate', action='store_true', help='Show what would be done without executing')
+
     # work issue <id> - Work on a specific issue
     work_issue_parser = work_subparsers.add_parser('issue', aliases=['i'], help='Work on an issue')
     work_issue_parser.add_argument('issue_id', help='ID of the issue to work on')
@@ -3938,7 +3943,7 @@ def main():
 
     _reorder_subparser_actions(
         work_subparsers,
-        ["any", "track", "phase", "issue"]
+        ["any", "track", "phase", "task", "issue"]
     )
 
     # Session command for work sessions (to differentiate from existing session command)
@@ -3997,6 +4002,10 @@ def main():
 
     # Add help/h subcommands for wsession subparsers
     wsession_subparsers.add_parser('help', aliases=['h'], help='Show help for work session commands')
+
+    # AI command group
+    from .commands.ai import add_ai_parser
+    ai_parser = add_ai_parser(subparsers)
 
     # Rules command
     rules_parser = subparsers.add_parser('rules', aliases=['r'], help='Edit the session\'s rules file in $EDITOR')
@@ -6389,11 +6398,24 @@ def main():
         else:
             print_error(f"Unknown work session subcommand: {args.wsession_subcommand}", 2)
             sys.exit(1)
+    elif args.command == 'ai':
+        from .commands.ai import handle_ai_sync
+        if not hasattr(args, 'ai_subcommand') or not args.ai_subcommand:
+            ai_parser.print_help()
+            return
+        if args.ai_subcommand in ['sync']:
+            sys.exit(handle_ai_sync(args))
+        if args.ai_subcommand in ['help', 'h']:
+            ai_parser.print_help()
+            return
+        print_error(f"Unknown AI subcommand: {args.ai_subcommand}", 2)
+        sys.exit(1)
     elif args.command == 'work' or args.command == 'w':
         # Import work command handlers
         from .commands.work import (
             handle_work_track,
             handle_work_phase,
+            handle_work_task,
             handle_work_issue,
             handle_work_discuss,
             handle_work_analyze,
@@ -6423,6 +6445,9 @@ def main():
                 # New format: work phase [<id>]
                 import asyncio
                 asyncio.run(handle_work_phase(args))
+        elif args.work_subcommand == 'task' or args.work_subcommand == 'tk':
+            import asyncio
+            asyncio.run(handle_work_task(args))
         elif args.work_subcommand == 'issue' or args.work_subcommand == 'i':
             # Check if we're using the legacy format (with issue_id) or new format (with id)
             if hasattr(args, 'issue_id'):
@@ -16464,12 +16489,10 @@ maestro repo refresh all
     # Update global repository index
     update_global_repo_index(target_dir, verbose)
 
-    print_success(f"Initialized maestro directory at: {maestro_dir}", 2)
-    print_success(f"Initialized docs directory at: {docs_dir}", 2)
+    print_success(f"Initialized Maestro docs at: {docs_dir}", 2)
     if verbose:
-        print_debug(f"Created .maestro directories: sessions, inputs, outputs, partials, conversations, repo", 2)
-        print_debug(f"Created docs directories: sessions, issues, solutions", 2)
-        print_debug(f"Created docs/Settings.md and docs/RepoRules.md", 2)
+        print_debug("Created docs directories: sessions, issues, solutions, phases", 2)
+        print_debug("Created docs/Settings.md, docs/RepoRules.md, docs/todo.md, docs/done.md", 2)
 
 
 def handle_session_new(session_name: str, verbose: bool = False, root_task_file: str = None):

@@ -26,6 +26,7 @@ class SessionType(Enum):
     """Types of work sessions."""
     WORK_TRACK = "work_track"
     WORK_PHASE = "work_phase"
+    WORK_TASK = "work_task"
     WORK_ISSUE = "work_issue"
     DISCUSSION = "discussion"
     ANALYZE = "analyze"

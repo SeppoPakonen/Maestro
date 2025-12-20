@@ -17,6 +17,7 @@ from ..work_session import (
     complete_session,
     save_session
 )
+from ..ai.task_sync import build_task_prompt, build_task_queue, find_task_context, task_is_done
 from ..breadcrumb import (
     create_breadcrumb,
     write_breadcrumb,
@@ -25,6 +26,7 @@ from ..breadcrumb import (
     capture_tool_call,
     track_file_modification
 )
+from ..data import parse_phase_md
 from ..engines import get_engine, EngineError
 
 
@@ -767,10 +769,122 @@ async def handle_work_issue(args):
             traceback.print_exc()
 
 
+def _load_task_entries() -> List[Dict[str, Any]]:
+    tasks: List[Dict[str, Any]] = []
+    phases_dir = Path("docs/phases")
+    if not phases_dir.exists():
+        return tasks
+
+    for phase_file in phases_dir.glob("*.md"):
+        phase = parse_phase_md(str(phase_file))
+        for task in phase.get("tasks", []):
+            task_id = task.get("task_id") or task.get("task_number")
+            if not task_id:
+                continue
+            if task_is_done(task):
+                continue
+            tasks.append({
+                "id": task_id,
+                "name": task.get("name", "Unnamed Task"),
+                "phase_id": phase.get("phase_id"),
+                "phase_name": phase.get("name"),
+                "track_id": phase.get("track_id"),
+            })
+    return tasks
+
+
+async def handle_work_task(args):
+    """
+    Work on a specific task or list tasks for selection.
+    """
+    if args.id:
+        task_id = args.id
+        task_context = find_task_context(task_id)
+        if not task_context:
+            print(f"Task with ID '{task_id}' not found.")
+            return
+
+        phase = task_context["phase"]
+        task = task_context["task"]
+        phase_id = phase.get("phase_id")
+        track_id = phase.get("track_id")
+        metadata = {
+            "task_queue": build_task_queue(phase),
+            "current_task_id": task_id,
+        }
+
+        session = create_session(
+            session_type="work_task",
+            related_entity={"task_id": task_id, "phase_id": phase_id, "track_id": track_id},
+            metadata=metadata,
+        )
+
+        prompt = build_task_prompt(task_id, task, phase, session_id=session.session_id, sync_source="work task")
+        if getattr(args, "simulate", False):
+            print(prompt)
+            return
+
+        response = _run_ai_interaction_with_breadcrumb(session, prompt)
+        print(f"AI response: {response}")
+        return
+
+    tasks = _load_task_entries()
+    if not tasks:
+        print("No tasks available!")
+        return
+
+    print("Available tasks:")
+    for i, task in enumerate(tasks, 1):
+        phase_info = f" (phase {task.get('phase_id')})" if task.get("phase_id") else ""
+        print(f"{i}. {task['id']}: {task['name']}{phase_info}")
+
+    if len(tasks) == 1:
+        selected_task = tasks[0]
+    else:
+        while True:
+            try:
+                choice = int(input(f"\nSelect task (1-{len(tasks)}): "))
+                if 1 <= choice <= len(tasks):
+                    selected_task = tasks[choice - 1]
+                    break
+                else:
+                    print(f"Please enter a number between 1 and {len(tasks)}")
+            except ValueError:
+                print("Please enter a valid number")
+
+    task_id = selected_task["id"]
+    task_context = find_task_context(task_id)
+    if not task_context:
+        print(f"Task with ID '{task_id}' not found.")
+        return
+
+    phase = task_context["phase"]
+    task = task_context["task"]
+    phase_id = phase.get("phase_id")
+    track_id = phase.get("track_id")
+    metadata = {
+        "task_queue": build_task_queue(phase),
+        "current_task_id": task_id,
+    }
+
+    session = create_session(
+        session_type="work_task",
+        related_entity={"task_id": task_id, "phase_id": phase_id, "track_id": track_id},
+        metadata=metadata,
+    )
+
+    prompt = build_task_prompt(task_id, task, phase, session_id=session.session_id, sync_source="work task")
+    if getattr(args, "simulate", False):
+        print(prompt)
+        return
+
+    response = _run_ai_interaction_with_breadcrumb(session, prompt)
+    print(f"AI response: {response}")
+
 def _run_ai_interaction_with_breadcrumb(
     session: WorkSession,
     prompt: str,
-    model_used: str = "claude-3-5-sonnet",
+    model_used: str = "claude",
     tools_called: Optional[list] = None,
     files_modified: Optional[list] = None
 ) -> str:
