@@ -16,7 +16,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Optional, Dict, List
-from maestro.data import parse_todo_md, parse_phase_md, parse_config_md
+from maestro.data import parse_todo_md, parse_done_md, parse_phase_md, parse_config_md
 from maestro.data.markdown_writer import (
     extract_phase_block,
     insert_phase_block,
@@ -28,20 +28,50 @@ from .track import _box_chars, _display_width, _pad_to_width, _style_text, _trun
 
 def list_phases(args):
     """
-    List all phases from docs/todo.md.
+    List all phases from docs/todo.md and docs/done.md.
 
     If track_id is provided, list only phases in that track.
     Otherwise, list all phases across all tracks.
     """
     from maestro.config.settings import get_settings
 
+    # Read phases from both todo.md and done.md
     todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found. Run 'maestro init' first.")
-        return 1
+    done_path = Path('docs/done.md')
 
-    data = parse_todo_md(str(todo_path))
-    tracks = data.get('tracks', [])
+    all_tracks = []
+
+    # Parse todo.md if it exists
+    if todo_path.exists():
+        try:
+            todo_data = parse_todo_md(str(todo_path))
+            all_tracks.extend(todo_data.get('tracks', []))
+        except Exception as e:
+            if getattr(args, 'verbose', False):
+                print(f"Verbose: Error parsing {todo_path}: {e}")
+                import traceback
+                traceback.print_exc()
+            else:
+                print(f"Error parsing {todo_path}. Use --verbose for more details.")
+    else:
+        print("Warning: docs/todo.md not found.")
+
+    # Parse done.md if it exists
+    if done_path.exists():
+        try:
+            done_data = parse_done_md(str(done_path))
+            all_tracks.extend(done_data.get('tracks', []))
+        except Exception as e:
+            if getattr(args, 'verbose', False):
+                print(f"Verbose: Error parsing {done_path}: {e}")
+                import traceback
+                traceback.print_exc()
+            else:
+                print(f"Error parsing {done_path}. Use --verbose for more details.")
+    else:
+        print("Warning: docs/done.md not found.")
+
+    tracks = all_tracks
 
     # If no track_id provided and context is set, use context
     track_filter = getattr(args, 'track_id', None)
@@ -798,6 +828,8 @@ def add_phase_parser(subparsers):
         nargs='?',
         help='Track ID to filter phases (optional)'
     )
+    phase_list_parser.add_argument('-v', '--verbose', action='store_true',
+                                  help='Show detailed debug information including parsing failures')
 
     # maestro phase add <name>
     phase_add_parser = phase_subparsers.add_parser(
@@ -894,6 +926,8 @@ def add_phase_parser(subparsers):
         action='store_true',
         help='Preview actions without executing them'
     )
+    phase_parser.add_argument('-v', '--verbose', action='store_true',
+                              help='Show detailed debug information including parsing failures')
 
     return phase_parser
 
