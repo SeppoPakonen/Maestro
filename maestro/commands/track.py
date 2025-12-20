@@ -300,14 +300,6 @@ def list_tracks(args) -> int:
     term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
     term_width = max(term_width, 20)
     box = _box_chars(unicode_symbols)
-    inner_width = term_width - 2
-    title = "🧭 Tracks" if unicode_symbols else "Tracks"
-    print(_style_text(box["top_left"] + box["horizontal"] * inner_width + box["top_right"], color="cyan"))
-    title_text = _truncate(title, inner_width - 2, unicode_symbols)
-    title_line = f"{box['vertical']} " + _pad_to_width(title_text, inner_width - 2) + f" {box['vertical']}"
-    print(_style_text(title_line, color="bright_white", bold=True))
-    print(_style_text(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"], color="cyan"))
-
     done_phase_counts = {
         track.get('track_id', ''): len(track.get('phases', []))
         for track in done_tracks
@@ -377,14 +369,21 @@ def list_tracks(args) -> int:
         track_id = _truncate(track_id, id_w, unicode_symbols)
         name = _truncate(name, name_w, unicode_symbols)
 
+        if todo_count == 0:
+            todo_color = "green"
+        elif todo_count == phase_count:
+            todo_color = "red"
+        else:
+            todo_color = "yellow"
         status_cell = _style_text(" " + _pad_to_width(status_display, st_w) + " ", color=status_color)
+        todo_cell = _style_text(" " + _pad_to_width(str(todo_count), todo_w) + " ", color=todo_color)
         row_cells = [
             " " + _pad_to_width(str(i), idx_w) + " ",
             " " + _pad_to_width(track_id, id_w) + " ",
             " " + _pad_to_width(name, name_w) + " ",
             status_cell,
             " " + _pad_to_width(str(phase_count), ph_w) + " ",
-            " " + _pad_to_width(str(todo_count), todo_w) + " ",
+            todo_cell,
         ]
         row_content = "  ".join(row_cells)
         row_line = box["vertical"] + _pad_to_width(row_content, inner_width) + box["vertical"]
