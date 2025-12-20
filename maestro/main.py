@@ -3792,6 +3792,34 @@ def main():
     work_parser = subparsers.add_parser('work', aliases=['w'], help='AI work commands')
     work_subparsers = work_parser.add_subparsers(dest='work_subcommand', help='Work subcommands')
 
+    # work track <name> - Create and work on a track
+    work_track_parser = work_subparsers.add_parser('track', aliases=['t'], help='Work on a track')
+    work_track_parser.add_argument('track_name', nargs='?', help='Name of the track to work on')
+    work_track_parser.add_argument('--description', help='Description of the track')
+
+    # work phase <name> - Work on a specific phase
+    work_phase_parser = work_subparsers.add_parser('phase', aliases=['p'], help='Work on a phase')
+    work_phase_parser.add_argument('phase_name', help='Name of the phase to work on')
+    work_phase_parser.add_argument('--track', help='Parent track name')
+
+    # work issue <id> - Work on a specific issue
+    work_issue_parser = work_subparsers.add_parser('issue', aliases=['i'], help='Work on an issue')
+    work_issue_parser.add_argument('issue_id', help='ID of the issue to work on')
+    work_issue_parser.add_argument('--phase', help='Parent phase name')
+
+    # work discuss - Start a discussion
+    work_discuss_parser = work_subparsers.add_parser('discuss', aliases=['d'], help='Start a discussion')
+    work_discuss_parser.add_argument('topic', nargs='*', help='Topic for discussion')
+
+    # work analyze - Analyze the current state
+    work_analyze_parser = work_subparsers.add_parser('analyze', aliases=['a'], help='Analyze the current state')
+    work_analyze_parser.add_argument('target', nargs='?', help='Target to analyze')
+
+    # work fix - Fix an issue
+    work_fix_parser = work_subparsers.add_parser('fix', aliases=['f'], help='Fix an issue')
+    work_fix_parser.add_argument('target', help='Target to fix')
+    work_fix_parser.add_argument('--issue', help='Issue ID to fix')
+
     # Session command for work sessions (to differentiate from existing session command)
     wsession_parser = subparsers.add_parser('wsession', aliases=['ws'], help='Work session management')
     wsession_subparsers = wsession_parser.add_subparsers(dest='wsession_subcommand', help='Work session subcommands')
@@ -3807,6 +3835,24 @@ def main():
 
     # wsession tree
     wsession_tree_parser = wsession_subparsers.add_parser('tree', help='Show session hierarchy tree')
+
+    # wsession breadcrumbs <session-id>
+    wsession_breadcrumbs_parser = wsession_subparsers.add_parser(
+        'breadcrumbs',
+        help='Show breadcrumbs for a session'
+    )
+    wsession_breadcrumbs_parser.add_argument('session_id', help='Session ID')
+    wsession_breadcrumbs_parser.add_argument('--depth', type=int, help='Filter by depth level')
+    wsession_breadcrumbs_parser.add_argument('--limit', type=int, default=20, help='Max breadcrumbs to show')
+    wsession_breadcrumbs_parser.add_argument('--summary', action='store_true', help='Show summary only')
+
+    # wsession timeline <session-id>
+    wsession_timeline_parser = wsession_subparsers.add_parser(
+        'timeline',
+        help='Show full session timeline with breadcrumbs'
+    )
+    wsession_timeline_parser.add_argument('session_id', help='Session ID')
+    wsession_timeline_parser.add_argument('--include-children', action='store_true', help='Include child sessions')
 
     # Add help/h subcommands for wsession subparsers
     wsession_subparsers.add_parser('help', aliases=['h'], help='Show help for work session commands')
@@ -6209,7 +6255,9 @@ def main():
         from .commands.work_session import (
             handle_wsession_list,
             handle_wsession_show,
-            handle_wsession_tree
+            handle_wsession_tree,
+            handle_wsession_breadcrumbs,
+            handle_wsession_timeline
         )
         if not hasattr(args, 'wsession_subcommand') or not args.wsession_subcommand:
             # If no subcommand provided, default to list
@@ -6220,12 +6268,45 @@ def main():
             handle_wsession_show(args)
         elif args.wsession_subcommand == 'tree' or args.wsession_subcommand == 't':
             handle_wsession_tree(args)
+        elif args.wsession_subcommand == 'breadcrumbs' or args.wsession_subcommand == 'bc':
+            handle_wsession_breadcrumbs(args)
+        elif args.wsession_subcommand == 'timeline' or args.wsession_subcommand == 'tl':
+            handle_wsession_timeline(args)
         elif args.wsession_subcommand == 'help' or args.wsession_subcommand == 'h':
             # Print help for work session subcommands
             wsession_parser.print_help()
             return  # Exit after showing help
         else:
             print_error(f"Unknown work session subcommand: {args.wsession_subcommand}", 2)
+            sys.exit(1)
+    elif args.command == 'work' or args.command == 'w':
+        # Import work command handlers
+        from .commands.work import (
+            handle_work_track,
+            handle_work_phase,
+            handle_work_issue,
+            handle_work_discuss,
+            handle_work_analyze,
+            handle_work_fix
+        )
+        if not hasattr(args, 'work_subcommand') or not args.work_subcommand:
+            # If no subcommand provided, show help
+            work_parser.print_help()
+            return
+        elif args.work_subcommand == 'track' or args.work_subcommand == 't':
+            handle_work_track(args)
+        elif args.work_subcommand == 'phase' or args.work_subcommand == 'p':
+            handle_work_phase(args)
+        elif args.work_subcommand == 'issue' or args.work_subcommand == 'i':
+            handle_work_issue(args)
+        elif args.work_subcommand == 'discuss' or args.work_subcommand == 'd':
+            handle_work_discuss(args)
+        elif args.work_subcommand == 'analyze' or args.work_subcommand == 'a':
+            handle_work_analyze(args)
+        elif args.work_subcommand == 'fix' or args.work_subcommand == 'f':
+            handle_work_fix(args)
+        else:
+            print_error(f"Unknown work subcommand: {args.work_subcommand}", 2)
             sys.exit(1)
     else:
         print_error(f"Unknown command: {args.command}", 2)

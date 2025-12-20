@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 from enum import Enum
+import yaml
 
 
 class SessionStatus(Enum):
@@ -365,10 +366,96 @@ def pause_session_for_user_input(session: WorkSession, question: str) -> None:
     """
     STUB: Pause session and request user input.
     TODO: Implement in future phase.
-    
+
     This function will eventually:
     - Allow AI to ask questions via JSON response
     - Block execution waiting for user response
     - Continue with user's answer in new context
     """
     raise NotImplementedError("Session pausing not yet implemented")
+
+
+def load_breadcrumb_settings(settings_path: str = "docs/Settings.md") -> Dict[str, Any]:
+    """
+    Load breadcrumb settings from Settings.md.
+
+    Args:
+        settings_path: Path to the settings file
+
+    Returns:
+        Dictionary with breadcrumb settings
+    """
+    # Default settings
+    default_settings = {
+        "breadcrumb_enabled": True,
+        "breadcrumb_auto_write": True,
+        "breadcrumb_include_tool_results": True,
+        "breadcrumb_max_response_length": 50000,
+        "breadcrumb_cost_tracking": True
+    }
+
+    try:
+        # Check if settings file exists
+        if not Path(settings_path).exists():
+            logging.info(f"Settings file {settings_path} not found. Using defaults.")
+            return default_settings
+
+        # Read the settings file
+        with open(settings_path, 'r') as f:
+            content = f.read()
+
+        # Simple parsing for markdown settings section
+        lines = content.split('\n')
+        settings_section = False
+        settings_data = {}
+
+        for line in lines:
+            if line.strip().startswith('## Work Session Settings'):
+                settings_section = True
+                continue
+
+            if settings_section and line.strip().startswith('#'):
+                # Stop when we reach another header
+                break
+
+            # Look for key: value pairs
+            if settings_section and ':' in line and line.strip()[0] not in ['#', '-', '*']:
+                parts = line.split(':', 1)
+                if len(parts) == 2:
+                    key = parts[0].strip()
+                    value = parts[1].strip()
+
+                    # Convert value to appropriate type
+                    if value.lower() == 'true':
+                        value = True
+                    elif value.lower() == 'false':
+                        value = False
+                    elif value.isdigit():
+                        value = int(value)
+                    elif value.replace('.', '').isdigit():
+                        value = float(value)
+
+                    settings_data[key] = value
+
+        # Merge with defaults
+        final_settings = default_settings.copy()
+        final_settings.update(settings_data)
+
+        return final_settings
+    except Exception as e:
+        logging.error(f"Error loading breadcrumb settings: {e}")
+        return default_settings
+
+
+def is_breadcrumb_enabled(settings_path: str = "docs/Settings.md") -> bool:
+    """
+    Check if breadcrumbs are enabled in the settings.
+
+    Args:
+        settings_path: Path to the settings file
+
+    Returns:
+        Boolean indicating if breadcrumbs are enabled
+    """
+    settings = load_breadcrumb_settings(settings_path)
+    return settings.get("breadcrumb_enabled", True)

@@ -57,6 +57,16 @@
 
 ---
 
+## Work Session Settings
+
+breadcrumb_enabled: true
+breadcrumb_auto_write: true
+breadcrumb_include_tool_results: true
+breadcrumb_max_response_length: 50000
+breadcrumb_cost_tracking: true
+
+---
+
 ## Notes
 
 This configuration file is both human-readable and machine-parsable. You can:

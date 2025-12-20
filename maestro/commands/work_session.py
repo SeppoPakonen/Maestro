@@ -9,21 +9,31 @@ import sys
 
 try:
     from ..work_session import (
-        WorkSession, 
-        list_sessions, 
-        load_session, 
+        WorkSession,
+        list_sessions,
+        load_session,
         get_session_hierarchy,
         create_session
+    )
+    from ..breadcrumb import (
+        list_breadcrumbs,
+        get_breadcrumb_summary,
+        reconstruct_session_timeline
     )
 except ImportError:
     # Fallback for direct execution
     sys.path.append(str(Path(__file__).parent.parent))
     from work_session import (
-        WorkSession, 
-        list_sessions, 
-        load_session, 
+        WorkSession,
+        list_sessions,
+        load_session,
         get_session_hierarchy,
         create_session
+    )
+    from breadcrumb import (
+        list_breadcrumbs,
+        get_breadcrumb_summary,
+        reconstruct_session_timeline
     )
 
 
@@ -146,24 +156,24 @@ def _display_session_tree(tree_node: dict, level: int = 0) -> None:
     """Helper function to display session hierarchy as a tree."""
     indent = "  " * level
     prefix = "└─ " if level > 0 else ""
-    
+
     if "session" in tree_node:
         session = tree_node["session"]
         status_icon = {
             "running": "▶",
-            "paused": "⏸", 
+            "paused": "⏸",
             "completed": "✅",
             "interrupted": "⚠",
             "failed": "❌"
         }.get(session.status, "?")
-        
+
         print(f"{indent}{prefix}{status_icon} {session.session_id[:8]}... ({session.session_type}) - {session.status}")
-        
+
         # Print any additional info
         if session.related_entity:
             entities_str = ", ".join([f"{k}:{str(v)[:10]}..." for k, v in session.related_entity.items()])
             print(f"{indent}    └─ Related: {entities_str}")
-    
+
     # Process children if present
     children = tree_node.get("children", [])
     if isinstance(tree_node.get("session"), WorkSession):
@@ -179,3 +189,132 @@ def _display_session_tree(tree_node: dict, level: int = 0) -> None:
             # This was processed as a child node previously
             for child in children:
                 _display_session_tree(child, level + 1)
+
+
+def handle_wsession_breadcrumbs(args) -> None:
+    """Handle the 'wsession breadcrumbs' command."""
+    try:
+        # Find the session directory
+        base_path = Path("docs") / "sessions"
+        session_dir = None
+
+        # Look for the session directory
+        for item in base_path.iterdir():
+            if item.is_dir() and args.session_id.startswith(item.name):
+                session_dir = item
+                break
+
+        # Check nested directories as well
+        if not session_dir:
+            for item in base_path.iterdir():
+                if item.is_dir():
+                    for nested_item in item.iterdir():
+                        if nested_item.is_dir() and args.session_id.startswith(nested_item.name):
+                            session_dir = nested_item
+                            break
+
+        if not session_dir:
+            print(f"Session '{args.session_id}' not found.")
+            return
+
+        if args.summary:
+            # Show summary
+            summary = get_breadcrumb_summary(args.session_id)
+            print(f"Breadcrumb Summary for Session: {args.session_id}")
+            print(f"Total Breadcrumbs: {summary['total_breadcrumbs']}")
+            print(f"Total Tokens: Input: {summary['total_tokens']['input']}, Output: {summary['total_tokens']['output']}")
+            print(f"Total Cost: ${summary['total_cost']:.6f}")
+            print(f"Duration: {summary['duration']:.2f} seconds")
+        else:
+            # List breadcrumbs
+            breadcrumbs = list_breadcrumbs(
+                args.session_id,
+                depth=args.depth
+            )
+
+            # Apply limit if specified
+            if args.limit and args.limit > 0:
+                breadcrumbs = breadcrumbs[:args.limit]
+
+            print(f"Breadcrumbs for Session: {args.session_id}")
+            if args.depth is not None:
+                print(f"Depth Level: {args.depth}")
+            print(f"Found {len(breadcrumbs)} breadcrumb(s)")
+            print("-" * 80)
+
+            for i, breadcrumb in enumerate(breadcrumbs):
+                print(f"{i+1}. [{breadcrumb.timestamp}] - {breadcrumb.model_used}")
+                print(f"   Prompt: {breadcrumb.prompt[:50]}...")
+                print(f"   Response: {breadcrumb.response[:50]}...")
+                print(f"   Tools Called: {len(breadcrumb.tools_called)}")
+                print(f"   Files Modified: {len(breadcrumb.files_modified)}")
+                print(f"   Depth: {breadcrumb.depth_level}")
+                print(f"   Tokens: Input: {breadcrumb.token_count.get('input', 0)}, Output: {breadcrumb.token_count.get('output', 0)}")
+                if breadcrumb.cost:
+                    print(f"   Cost: ${breadcrumb.cost:.6f}")
+                if breadcrumb.error:
+                    print(f"   Error: {breadcrumb.error}")
+                print()
+
+    except Exception as e:
+        logging.error(f"Error showing breadcrumbs for session {args.session_id}: {e}")
+        print(f"Error showing breadcrumbs: {e}")
+
+
+def handle_wsession_timeline(args) -> None:
+    """Handle the 'wsession timeline' command."""
+    try:
+        # Find the session directory
+        base_path = Path("docs") / "sessions"
+        session_dir = None
+
+        # Look for the session directory
+        for item in base_path.iterdir():
+            if item.is_dir() and args.session_id.startswith(item.name):
+                session_dir = item
+                break
+
+        # Check nested directories as well
+        if not session_dir:
+            for item in base_path.iterdir():
+                if item.is_dir():
+                    for nested_item in item.iterdir():
+                        if nested_item.is_dir() and args.session_id.startswith(nested_item.name):
+                            session_dir = nested_item
+                            break
+
+        if not session_dir:
+            print(f"Session '{args.session_id}' not found.")
+            return
+
+        # Reconstruct the full session timeline
+        timeline = reconstruct_session_timeline(args.session_id)
+        print(f"Timeline for Session: {args.session_id}")
+        print(f"Total Events: {len(timeline)}")
+        print("-" * 80)
+
+        for i, event in enumerate(timeline):
+            print(f"{i+1}. [{event.timestamp}] Depth: {event.depth_level}, Model: {event.model_used}")
+            print(f"   Prompt: {event.prompt[:100]}...")
+            print(f"   Response: {event.response[:100]}...")
+
+            if event.tools_called:
+                print(f"   Tools Called: {len(event.tools_called)}")
+
+            if event.files_modified:
+                print(f"   Files Modified: {len(event.files_modified)}")
+
+            if event.token_count:
+                print(f"   Tokens: Input: {event.token_count.get('input', 0)}, Output: {event.token_count.get('output', 0)}")
+
+            if event.cost:
+                print(f"   Cost: ${event.cost:.6f}")
+
+            if event.error:
+                print(f"   Error: {event.error}")
+
+            print()
+
+    except Exception as e:
+        logging.error(f"Error showing timeline for session {args.session_id}: {e}")
+        print(f"Error showing timeline: {e}")
