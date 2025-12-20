@@ -38,6 +38,11 @@ def add_ai_parser(subparsers):
         default=1.0,
         help="Polling interval in seconds when using --watch (default: 1.0)",
     )
+    sync_parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Exit after the first sync when using --watch",
+    )
     sync_parser.add_argument("--verbose", action="store_true", help="Show extra selection details")
 
     ai_subparsers.add_parser("help", aliases=["h"], help="Show help for AI commands")
@@ -214,8 +219,6 @@ def _watch_ai_sync(args) -> int:
             if sync_path.exists():
                 signature = _read_sync_signature(sync_path)
                 if signature != last_signature:
-                    if getattr(args, "verbose", False):
-                        print("Detected ai_sync.json update.", flush=True)
                     handle_ai_sync(_clone_args_without_watch(args))
                     try:
                         sys.stdout.flush()
@@ -224,6 +227,8 @@ def _watch_ai_sync(args) -> int:
                         pass
                     if sync_path.exists():
                         last_signature = _read_sync_signature(sync_path)
+                    if getattr(args, "once", False):
+                        return 0
             time.sleep(max(getattr(args, "poll_interval", 1.0), 0.1))
     except KeyboardInterrupt:
         if getattr(args, "verbose", False):
