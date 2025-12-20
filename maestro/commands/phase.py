@@ -533,6 +533,9 @@ ALIASES:
 EXAMPLES:
     maestro phase list                    # List all phases
     maestro phase list cli-tpt            # List phases in track 'cli-tpt'
+    maestro phase list plan               # List planned phases
+    maestro phase list done               # List done phases
+    maestro phase list prop               # List proposed phases
     maestro phase cli-tpt-1               # Show phase details
     maestro phase cli-tpt-1 edit          # Edit phase in $EDITOR
     maestro phase cli-tpt-1 discuss       # Discuss phase with AI
