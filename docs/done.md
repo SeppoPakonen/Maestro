@@ -347,6 +347,11 @@ This track implements build and run commands with issue integration.
 
 ## Primary Track: UMK Integration (Universal Build System)
 
+"track_id": "umk"
+"priority": 1
+"status": "done"
+"completion": 100
+
 This track implements all phases from `docs/umk.md`, creating a universal build orchestration system.
 
 ### Phase umk1: Core Builder Abstraction ✅ **[Design Complete]** ✅ **[Implementation Complete]**

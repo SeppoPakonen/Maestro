@@ -41,11 +41,59 @@ def list_phases(args):
 
     all_tracks = []
 
-    # Parse todo.md if it exists
+    # Process done.md first to get precedence phases
+    done_phase_ids = set()  # Track which phase IDs we've seen in done.md
+    processed_track_map = {}  # Map of track_id to track data to consolidate
+
+    # Parse done.md and store its phases with precedence
+    if done_path.exists():
+        try:
+            done_data = parse_done_md(str(done_path))
+            for track in done_data.get('tracks', []):
+                track_id = track.get('track_id')
+                if track_id not in processed_track_map:
+                    processed_track_map[track_id] = {
+                        'name': track.get('name', 'Unknown Track'),
+                        'track_id': track_id,
+                        'description': track.get('description', []),
+                        'phases': []
+                    }
+
+                for phase in track.get('phases', []):
+                    phase_id = phase.get('phase_id')
+                    if phase_id:
+                        done_phase_ids.add(phase_id)
+                        # Add this phase to its track
+                        processed_track_map[track_id]['phases'].append(phase)
+        except Exception as e:
+            if getattr(args, 'verbose', False):
+                print(f"Verbose: Error parsing {done_path}: {e}")
+                import traceback
+                traceback.print_exc()
+            else:
+                print(f"Error parsing {done_path}. Use --verbose for more details.")
+    else:
+        print("Warning: docs/done.md not found.")
+
+    # Parse todo.md and add only phases that weren't in done.md
     if todo_path.exists():
         try:
             todo_data = parse_todo_md(str(todo_path))
-            all_tracks.extend(todo_data.get('tracks', []))
+            for track in todo_data.get('tracks', []):
+                track_id = track.get('track_id')
+                if track_id not in processed_track_map:
+                    processed_track_map[track_id] = {
+                        'name': track.get('name', 'Unknown Track'),
+                        'track_id': track_id,
+                        'description': track.get('description', []),
+                        'phases': []
+                    }
+
+                for phase in track.get('phases', []):
+                    phase_id = phase.get('phase_id')
+                    if phase_id and phase_id not in done_phase_ids:
+                        # Add phase from todo.md only if not present in done.md
+                        processed_track_map[track_id]['phases'].append(phase)
         except Exception as e:
             if getattr(args, 'verbose', False):
                 print(f"Verbose: Error parsing {todo_path}: {e}")
@@ -56,20 +104,8 @@ def list_phases(args):
     else:
         print("Warning: docs/todo.md not found.")
 
-    # Parse done.md if it exists
-    if done_path.exists():
-        try:
-            done_data = parse_done_md(str(done_path))
-            all_tracks.extend(done_data.get('tracks', []))
-        except Exception as e:
-            if getattr(args, 'verbose', False):
-                print(f"Verbose: Error parsing {done_path}: {e}")
-                import traceback
-                traceback.print_exc()
-            else:
-                print(f"Error parsing {done_path}. Use --verbose for more details.")
-    else:
-        print("Warning: docs/done.md not found.")
+    # Add all processed tracks to all_tracks
+    all_tracks.extend(processed_track_map.values())
 
     tracks = all_tracks
 
