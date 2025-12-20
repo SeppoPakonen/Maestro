@@ -295,26 +295,65 @@ def list_tracks(args) -> int:
         return 0
 
     print()
+    settings = get_settings()
+    unicode_symbols = settings.unicode_symbols
     term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
-    term_width = max(term_width, 80)
-    print("=" * term_width)
-    print("TRACKS")
-    print("=" * term_width)
-    print()
-
-    max_name_len = max(
-        (len(track.get('name', '')) for track in tracks),
-        default=len('Name'),
-    )
-    name_width = min(max(max_name_len, len('Name')), term_width - 3 - 1 - 22 - 1 - 4 - 1 - 6 - 1 - 6)
-    name_width = max(name_width, len('Name'))
-    print(f"{'#':<3} {'Track ID':<22} {'Name':<{name_width}} {'St':<4} {'Ph':<6} {'Todo':<6}")
-    print("-" * term_width)
+    term_width = max(term_width, 20)
+    box = _box_chars(unicode_symbols)
+    inner_width = term_width - 2
+    title = "🧭 Tracks" if unicode_symbols else "Tracks"
+    print(_style_text(box["top_left"] + box["horizontal"] * inner_width + box["top_right"], color="cyan"))
+    title_text = _truncate(title, inner_width - 2, unicode_symbols)
+    title_line = f"{box['vertical']} " + _pad_to_width(title_text, inner_width - 2) + f" {box['vertical']}"
+    print(_style_text(title_line, color="bright_white", bold=True))
+    print(_style_text(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"], color="cyan"))
 
     done_phase_counts = {
         track.get('track_id', ''): len(track.get('phases', []))
         for track in done_tracks
     }
+
+    status_map = {
+        "done": ("✅", "green"),
+        "in_progress": ("🚧", "yellow"),
+        "planned": ("📋", "cyan"),
+        "todo": ("📋", "cyan"),
+        "proposed": ("💡", "magenta"),
+    }
+
+    statuses = []
+    for track in tracks:
+        status = track.get('status', 'unknown')
+        status_display, _ = status_map.get(status, ("❔", "bright_black"))
+        statuses.append(status_display)
+
+    idx_w = max(_display_width("#"), _display_width(str(len(tracks))))
+    id_w = max(_display_width("Track ID"), max((_display_width(t.get('track_id', '')) for t in tracks), default=0))
+    name_w = max(_display_width("Name"), max((_display_width(t.get('name', '')) for t in tracks), default=0))
+    st_w = max(_display_width("St"), max((_display_width(s) for s in statuses), default=0))
+    ph_w = max(_display_width("Ph"), _display_width(str(len(tracks))))
+    todo_w = max(_display_width("Todo"), _display_width(str(len(tracks))))
+
+    col_widths = [idx_w, id_w, name_w, st_w, ph_w, todo_w]
+    ncol = len(col_widths)
+    content_width = sum(w + 2 for w in col_widths) + (ncol - 1) * 2
+    inner_width = min(term_width - 2, max(content_width, 20))
+    available = inner_width - (ncol - 1) * 2 - (2 * ncol)
+    name_w = max(_display_width("Name"), available - (idx_w + id_w + st_w + ph_w + todo_w))
+    col_widths = [idx_w, id_w, name_w, st_w, ph_w, todo_w]
+
+    header_cells = [
+        " " + _pad_to_width("#", idx_w) + " ",
+        " " + _pad_to_width("Track ID", id_w) + " ",
+        " " + _pad_to_width("Name", name_w) + " ",
+        " " + _pad_to_width("St", st_w) + " ",
+        " " + _pad_to_width("Ph", ph_w) + " ",
+        " " + _pad_to_width("Todo", todo_w) + " ",
+    ]
+    header_line = box["vertical"] + _pad_to_width("  ".join(header_cells), inner_width) + box["vertical"]
+    print(_style_text(box["top_left"] + box["horizontal"] * inner_width + box["top_right"], color="yellow"))
+    print(_style_text(header_line, color="bright_white", bold=True))
+    print(_style_text(box["mid_left"] + box["mid_horizontal"] * inner_width + box["mid_right"], color="yellow"))
 
     for i, track in enumerate(tracks, 1):
         track_id = track.get('track_id', 'N/A')
@@ -334,28 +373,26 @@ def list_tracks(args) -> int:
         done_phase_count = done_phase_counts.get(track_id, 0)
         phase_count = todo_count + done_in_todo_count + done_phase_count
 
-        if len(name) > name_width:
-            if name_width >= 4:
-                name = name[:name_width - 3] + '...'
-            else:
-                name = name[:name_width]
+        status_display, status_color = status_map.get(status, ("❔", "bright_black"))
+        track_id = _truncate(track_id, id_w, unicode_symbols)
+        name = _truncate(name, name_w, unicode_symbols)
 
-        status_display = status
-        if status == 'done':
-            status_display = '✅'
-        elif status == 'in_progress':
-            status_display = '🚧'
-        elif status in ('planned', 'todo'):
-            status_display = '📋'
-        elif status == 'proposed':
-            status_display = '💡'
+        status_cell = _style_text(" " + _pad_to_width(status_display, st_w) + " ", color=status_color)
+        row_cells = [
+            " " + _pad_to_width(str(i), idx_w) + " ",
+            " " + _pad_to_width(track_id, id_w) + " ",
+            " " + _pad_to_width(name, name_w) + " ",
+            status_cell,
+            " " + _pad_to_width(str(phase_count), ph_w) + " ",
+            " " + _pad_to_width(str(todo_count), todo_w) + " ",
+        ]
+        row_content = "  ".join(row_cells)
+        row_line = box["vertical"] + _pad_to_width(row_content, inner_width) + box["vertical"]
+        print(row_line)
 
-        print(f"{i:<3} {track_id:<22} {name:<{name_width}} {status_display:<4} {phase_count:<6} {todo_count:<6}")
-
-    print()
-    print(f"Total: {len(tracks)} tracks")
-    print("Use 'maestro track <#>' or 'maestro track <id>' to view details")
-    print()
+    print(_style_text(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"], color="yellow"))
+    print(_style_text(f"Total: {len(tracks)} tracks", color="bright_black", dim=True))
+    print(_style_text("Use 'maestro track <#>' or 'maestro track <id>' to view details", color="bright_black", dim=True))
 
     return 0
 
