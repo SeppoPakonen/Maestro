@@ -399,6 +399,9 @@ def handle_track_command(args):
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track show <id>")
                 return 1
+            if getattr(args, 'track_item_help', None) in ['help', 'h']:
+                print_track_item_help()
+                return 0
             return show_track(args.track_id, args)
 
         # Edit track
@@ -577,6 +580,12 @@ def add_track_parser(subparsers):
         help='Show track details'
     )
     track_show_parser.add_argument('track_id', help='Track ID to show')
+    track_show_parser.add_argument(
+        'track_item_help',
+        nargs='?',
+        choices=['help', 'h'],
+        help='Show help for track item commands'
+    )
 
     # maestro track edit <id>
     track_edit_parser = track_subparsers.add_parser(
