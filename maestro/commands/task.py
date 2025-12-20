@@ -415,7 +415,6 @@ def add_task_parser(subparsers):
     # Main task command
     task_parser = subparsers.add_parser(
         'task',
-        aliases=['t'],
         help='Manage project tasks'
     )
 

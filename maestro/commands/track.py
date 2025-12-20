@@ -450,7 +450,7 @@ ALIASES:
     add:    a
     remove: rm, r
     discuss: d
-    show:   sh
+    show:   s
     edit:   e
     set:    st
 
@@ -478,7 +478,7 @@ USAGE:
     maestro track <id> set                Set current track context
 
 ALIASES:
-    show: sh
+    show: s
     edit: e
     discuss: d
     set: st
@@ -505,7 +505,7 @@ def add_track_parser(subparsers):
     # Check if we need to inject 'show' subcommand for backwards compatibility
     # This handles: maestro track <id> [show|edit|discuss|set]
     # By transforming to: maestro track show <id> [subcommand]
-    if len(sys.argv) >= 3 and sys.argv[1] in ['track', 'tr']:
+    if len(sys.argv) >= 3 and sys.argv[1] in ['track', 'tr', 't']:
         arg = sys.argv[2]
         # If arg is not a known subcommand, treat it as track_id and inject 'show'
         if arg not in ['list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'discuss', 'd', 'help', 'h', 'show', 'sh', 'edit', 'e', 'set', 'st']:
@@ -523,7 +523,7 @@ def add_track_parser(subparsers):
     # Main track command
     track_parser = subparsers.add_parser(
         'track',
-        aliases=['tr'],
+        aliases=['tr', 't'],
         help='Manage project tracks'
     )
 
@@ -573,7 +573,7 @@ def add_track_parser(subparsers):
     # maestro track show <id>
     track_show_parser = track_subparsers.add_parser(
         'show',
-        aliases=['sh'],
+        aliases=['s'],
         help='Show track details'
     )
     track_show_parser.add_argument('track_id', help='Track ID to show')

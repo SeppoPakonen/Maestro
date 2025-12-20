@@ -3735,7 +3735,7 @@ def main():
         description="Maestro - AI Task Management & Orchestration\n\n"
                     "Short aliases are available for all commands and subcommands.\n"
                     "Examples: 'maestro b p' (build plan), 'maestro s l' (session list),\n"
-                    "          'maestro p tr' (plan tree), 'maestro t r' (task run)",
+                    "          'maestro p tr' (plan tree), 'maestro t l' (track list)",
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--version', action='version',
@@ -3787,6 +3787,29 @@ def main():
 
     # Add help/h subcommands for session subparsers
     session_subparsers.add_parser('help', aliases=['h'], help='Show help for session commands')
+
+    # Work command (basic structure)
+    work_parser = subparsers.add_parser('work', aliases=['w'], help='AI work commands')
+    work_subparsers = work_parser.add_subparsers(dest='work_subcommand', help='Work subcommands')
+
+    # Session command for work sessions (to differentiate from existing session command)
+    wsession_parser = subparsers.add_parser('wsession', aliases=['ws'], help='Work session management')
+    wsession_subparsers = wsession_parser.add_subparsers(dest='wsession_subcommand', help='Work session subcommands')
+
+    # wsession list
+    wsession_list_parser = wsession_subparsers.add_parser('list', aliases=['ls'], help='List all work sessions')
+    wsession_list_parser.add_argument('--type', help='Filter by session type')
+    wsession_list_parser.add_argument('--status', help='Filter by status')
+
+    # wsession show <id>
+    wsession_show_parser = wsession_subparsers.add_parser('show', aliases=['sh'], help='Show session details')
+    wsession_show_parser.add_argument('session_id', help='Session ID to show')
+
+    # wsession tree
+    wsession_tree_parser = wsession_subparsers.add_parser('tree', help='Show session hierarchy tree')
+
+    # Add help/h subcommands for wsession subparsers
+    wsession_subparsers.add_parser('help', aliases=['h'], help='Show help for work session commands')
 
     # Rules command
     rules_parser = subparsers.add_parser('rules', aliases=['r'], help='Edit the session\'s rules file in $EDITOR')
@@ -3864,7 +3887,7 @@ def main():
     rules_subparsers.add_parser('help', aliases=['h'], help='Show help for rules commands')
 
     # Task command
-    task_parser = subparsers.add_parser('task', aliases=['t'], help='Task management commands')
+    task_parser = subparsers.add_parser('task', help='Task management commands')
     task_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     task_subparsers = task_parser.add_subparsers(dest='task_subcommand', help='Task subcommands')
 
@@ -4456,7 +4479,7 @@ def main():
             's': 'session',
             'r': 'rules',
             'p': 'plan',
-            't': 'task',
+            't': 'track',
             'l': 'log',
             'c': 'convert',
             'b': 'build'
@@ -6154,7 +6177,7 @@ def main():
         sys.exit(result)
     elif args.command == 'hub':
         handle_hub_command(args)
-    elif args.command == 'track' or args.command == 'tr':
+    elif args.command == 'track' or args.command == 'tr' or args.command == 't':
         from .commands import handle_track_command
         sys.exit(handle_track_command(args))
     elif args.command == 'phase' or args.command == 'ph':
@@ -6182,6 +6205,28 @@ def main():
     elif args.command == 'solutions':
         from .commands import handle_solutions_command
         sys.exit(handle_solutions_command(args))
+    elif args.command == 'wsession' or args.command == 'ws':
+        from .commands.work_session import (
+            handle_wsession_list,
+            handle_wsession_show,
+            handle_wsession_tree
+        )
+        if not hasattr(args, 'wsession_subcommand') or not args.wsession_subcommand:
+            # If no subcommand provided, default to list
+            handle_wsession_list(args)
+        elif args.wsession_subcommand == 'list' or args.wsession_subcommand == 'ls':
+            handle_wsession_list(args)
+        elif args.wsession_subcommand == 'show' or args.wsession_subcommand == 'sh':
+            handle_wsession_show(args)
+        elif args.wsession_subcommand == 'tree' or args.wsession_subcommand == 't':
+            handle_wsession_tree(args)
+        elif args.wsession_subcommand == 'help' or args.wsession_subcommand == 'h':
+            # Print help for work session subcommands
+            wsession_parser.print_help()
+            return  # Exit after showing help
+        else:
+            print_error(f"Unknown work session subcommand: {args.wsession_subcommand}", 2)
+            sys.exit(1)
     else:
         print_error(f"Unknown command: {args.command}", 2)
         sys.exit(1)
