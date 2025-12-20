@@ -12,7 +12,8 @@
 2. [Track: Track/Phase/Task CLI and AI Discussion System](#track-trackphasetask-cli-and-ai-discussion-system)
 3. [Track: Build & Run](#track-build--run)
 4. [Track: Issues & Solutions](#track-issues--solutions)
-5. [Primary Track: UMK Integration (Universal Build System)](#primary-track-umk-integration-universal-build-system)
+5. [Track: Work & Session Framework](#track-work--session-framework)
+6. [Primary Track: UMK Integration (Universal Build System)](#primary-track-umk-integration-universal-build-system)
 
 ---
 
@@ -56,6 +57,8 @@
 | | TU5: Build integration | ✅ Done | 100% |
 | | TU6: Code transformation | ✅ Done | 100% |
 | | TU7: Multi-language AST testing | ✅ Done | 100% |
+| **Work & Session Framework** | | | |
+| | WS3: Work Command | ✅ Done | 100% |
 
 ---
 
@@ -1151,3 +1154,142 @@ maestro tu print-ast <file> --no-types --no-locations
 
 **Track Completed**: 2025-12-19 (Phase tu7 - 100%)
 **Implementation**: Direct implementation (Claude Code with qwen for low/medium tasks)
+
+---
+
+## Track: Work & Session Framework
+
+"track_id": "work-session"
+"priority": 2
+"status": "in-progress"
+"completion": 20%
+
+This track implements AI-powered work automation with session tracking and breadcrumb system for tracking AI interactions and maintaining project state.
+
+**Track Started**: 2025-12-20
+
+### Phase ws3: Work Command ✅ **[Completed 2025-12-20]**
+
+"phase_id": "ws3"
+"status": "done"
+"completion": 100
+
+**Objective**: Implement AI-powered work command system that can select and execute work on tracks, phases, and issues.
+
+**Deliverables**:
+- Work selection algorithm with AI-powered prioritization
+- `maestro work any` - AI automatically picks and works on best task
+- `maestro work any pick` - AI shows top 3 options for user selection
+- `maestro work track/phase/issue` - Work on specific entities
+- 4-phase workflow for issues (analyze → decide → fix → verify)
+- Session and breadcrumb creation for all work operations
+
+**Tasks Completed**:
+
+- [x] **WS3.1: Work Selection Algorithm** ✅
+  - AI evaluates open tracks/phases/issues using get_engine("claude_planner")
+  - Considers priority, dependencies, complexity, user preferences
+  - Returns JSON with sorted list and reasoning
+  - Fallback to simple heuristics if AI fails
+
+- [x] **WS3.2: Work Any** ✅
+  - `maestro work any` - AI picks best work and starts automatically
+  - Auto-creates work session with appropriate type (work_track, work_phase, work_issue)
+  - Writes breadcrumbs throughout execution
+  - Reports progress and results
+  - Handles completion or pauses with status updates
+
+- [x] **WS3.3: Work Any Pick** ✅
+  - `maestro work any pick` - AI shows top 3 recommended options
+  - Displays: type (track/phase/issue), name, reason, difficulty, priority
+  - User selects from numbered list (1-3) or quits
+  - Proceeds with selected work using appropriate worker
+
+- [x] **WS3.4: Work Track/Phase/Issue** ✅
+  - Lists entities if no ID provided
+  - AI sorting of list by recommendation
+  - User selection from ranked list
+  - Creates work session linked to entity
+  - Executes appropriate worker (track_worker, phase_worker, issue_worker)
+
+- [x] **WS3.5: Work Integration with Issues** ✅
+  - 4-phase workflow implemented in issue_worker.py
+  - Phase 1: Analyze (create analyze_issue session, understand problem)
+  - Phase 2: Decide (create decide_fix session, determine approach)
+  - Phase 3: Fix (create fix_issue session, implement solution)
+  - Phase 4: Verify (create verify_fix session, test and validate)
+  - All phases create sub-sessions linked via parent_session_id
+  - Timeline visualization shows full workflow hierarchy
+
+**Additional Implementations**:
+
+- [x] **handle_work_analyze** ✅
+  - Analyzes files, directories, tracks, phases, or issues
+  - Provides AI-powered insights and recommendations
+  - Creates analysis sessions with breadcrumbs
+  - Supports general repository health analysis
+
+- [x] **handle_work_fix** ✅
+  - Fixes issues with 4-phase workflow when --issue flag provided
+  - Direct target fixing without issue reference
+  - Creates hierarchical sessions (main fix session + 4 sub-sessions)
+  - Generates specific code changes and validation steps
+
+**Files Created**:
+- `maestro/workers/track_worker.py` - Execute work on tracks
+- `maestro/workers/phase_worker.py` - Execute work on phases
+- `maestro/workers/issue_worker.py` - Execute 4-phase issue workflow
+- `maestro/workers/__init__.py` - Package initialization
+- `qwen_tasks/ws3_missing_handlers.md` - Task specification for qwen
+- `qwen_tasks/ws3_output/implementation.patch` - Unified diff of changes
+- `qwen_tasks/ws3_output/summary.md` - Implementation summary
+
+**Files Modified**:
+- `maestro/commands/work.py` - Added handle_work_analyze and handle_work_fix
+- `maestro/main.py` - Updated to call async handlers with asyncio.run()
+
+**Command Reference**:
+```bash
+# AI automatically picks and works on best task
+maestro work any
+
+# AI shows top 3 options, user picks
+maestro work any pick
+
+# Work on specific track (with AI ranking if ID not provided)
+maestro work track [<id>]
+
+# Work on specific phase (with AI ranking if ID not provided)
+maestro work phase [<id>]
+
+# Work on specific issue (with 4-phase workflow)
+maestro work issue [<id>]
+
+# Analyze target or repository state
+maestro work analyze [<target>]
+
+# Fix target or issue
+maestro work fix <target> [--issue <issue-id>]
+```
+
+**Session Types Created**:
+- `work_track` - Work session for track
+- `work_phase` - Work session for phase
+- `work_issue` - Work session for issue
+- `analyze` - Analysis session
+- `fix` - Fix session
+- `analyze_issue` - Issue analysis sub-session
+- `decide_fix` - Fix decision sub-session
+- `fix_issue` - Fix implementation sub-session
+- `verify_fix` - Fix verification sub-session
+
+**Integration Points**:
+- Works with existing breadcrumb system from WS2
+- Creates sessions using work_session.py infrastructure from WS1
+- Integrates with AI engines via maestro/engines.py
+- Uses load_available_work() to scan docs/todo.md and docs/issues/
+- Compatible with upcoming session visualization (WS4)
+
+**Implementation Method**: Claude Code with qwen for low/medium complexity tasks
+**Track Completion**: WS3 done (20% of track), WS1, WS2, WS4, WS5 remain planned
+
