@@ -1,4 +1,4 @@
-# Phase 1: Core Builder Abstraction ✅ **[Design Complete]** 📋 **[Implementation Planned]**
+# Phase umk1: Core Builder Abstraction ✅ **[Design Complete]** 📋 **[Implementation Planned]**
 
 **Reference**: `docs/umk.md` Phase 1
 **Duration**: 2-3 weeks

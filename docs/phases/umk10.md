@@ -1,4 +1,4 @@
-# Phase 10: Universal Hub System (MaestroHub) 📋 **[Planned]**
+# Phase umk10: Universal Hub System (MaestroHub) 📋 **[Planned]**
 
 **Reference**: `docs/umk.md` Phase 10
 **Duration**: 4-5 weeks

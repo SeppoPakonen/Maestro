@@ -1,4 +1,4 @@
-# Phase 11: Internal Package Groups 📋 **[Planned]**
+# Phase umk11: Internal Package Groups 📋 **[Planned]**
 
 **Reference**: `docs/umk.md` Phase 11
 **Duration**: 2-3 weeks

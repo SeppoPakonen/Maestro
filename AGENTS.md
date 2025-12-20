@@ -14,3 +14,7 @@ At the **end of a Phase**, the agent must:
 4. Never leave completed tasks in `todo.md`
 
 This rule ensures the task tracking system remains accurate and up-to-date.
+
+### Phase ID Policy
+
+- Phase IDs must be non-numeric and should include a track prefix (e.g., `umk1`).

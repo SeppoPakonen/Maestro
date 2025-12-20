@@ -1,4 +1,4 @@
-# Phase 6: Universal Build Configuration 📋 **[Planned]**
+# Phase umk6: Universal Build Configuration 📋 **[Planned]**
 
 **Reference**: `docs/umk.md` Phase 6
 **Duration**: 2-3 weeks

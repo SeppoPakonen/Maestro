@@ -346,7 +346,7 @@ This track implements build and run commands with issue integration.
 
 This track implements all phases from `docs/umk.md`, creating a universal build orchestration system.
 
-### Phase 1: Core Builder Abstraction ✅ **[Design Complete]** ✅ **[Implementation Complete]**
+### Phase umk1: Core Builder Abstraction ✅ **[Design Complete]** ✅ **[Implementation Complete]**
 
 **Reference**: `docs/umk.md` Phase 1
 **Duration**: 2-3 weeks

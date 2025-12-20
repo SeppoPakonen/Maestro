@@ -287,8 +287,8 @@ def parse_phase_heading(line: str) -> Optional[Tuple[str, str]]:
     Examples:
         >>> parse_phase_heading('### Phase CLI1: Markdown Data Backend')
         ('CLI1', 'Markdown Data Backend')
-        >>> parse_phase_heading('### Phase 1: Core Builder Abstraction')
-        ('1', 'Core Builder Abstraction')
+        >>> parse_phase_heading('### Phase umk1: Core Builder Abstraction')
+        ('umk1', 'Core Builder Abstraction')
     """
     # Pattern matches:
     # ### Phase CLI1: Name

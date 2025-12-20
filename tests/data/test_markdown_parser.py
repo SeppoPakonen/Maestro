@@ -83,7 +83,7 @@ class TestParseStatusBadge:
         assert result == 'in_progress'
 
     def test_parse_in_context(self):
-        result = parse_status_badge('- [ ] [Phase 1: Core](phases/phase1.md) 📋 **[Planned]**')
+        result = parse_status_badge('- [ ] [Phase umk1: Core](phases/umk1.md) 📋 **[Planned]**')
         assert result == 'planned'
 
     def test_parse_no_match(self):
@@ -191,8 +191,8 @@ class TestParsePhaseHeading:
     """Tests for parse_phase_heading function."""
 
     def test_parse_numeric_phase(self):
-        result = parse_phase_heading('### Phase 1: Core Builder Abstraction')
-        assert result == ('1', 'Core Builder Abstraction')
+        result = parse_phase_heading('### Phase umk1: Core Builder Abstraction')
+        assert result == ('umk1', 'Core Builder Abstraction')
 
     def test_parse_alphanumeric_phase(self):
         result = parse_phase_heading('### Phase CLI1: Markdown Data Backend')

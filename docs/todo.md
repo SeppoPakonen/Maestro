@@ -965,19 +965,19 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
   - BR1.1: Group-specific builds
   - CT2.4: IDE project export
 
-- [ ] [Phase 1: Core Builder Abstraction](phases/phase1.md) ✅ **[Design Complete]** 📋 **[Implementation Planned]**
-- [ ] [Phase 2: U++ Builder Implementation](phases/phase2.md) 📋 **[Planned]**
-- [ ] [Phase 3: CMake Builder](phases/phase3.md) 📋 **[Planned]**
-- [ ] [Phase 4: Autotools Builder](phases/phase4.md) 📋 **[Planned]**
-- [ ] [Phase 5: MSBuild / Visual Studio Builder](phases/phase5.md) 📋 **[Planned]**
-- [ ] [Phase 5.5: Maven Builder](phases/phase5_5.md) 📋 **[Planned]**
-- [ ] [Phase 6: Universal Build Configuration](phases/phase6.md) 📋 **[Planned]**
-- [ ] [Phase 7: CLI Integration](phases/phase7.md) 📋 **[Planned]**
-- [ ] [Phase 8: Advanced Features](phases/phase8.md) 📋 **[Planned]**
-- [ ] [Phase 9: TUI Integration](phases/phase9.md) 📋 **[Planned]**
-- [ ] [Phase 10: Universal Hub System (MaestroHub)](phases/phase10.md) 📋 **[Planned]**
-- [ ] [Phase 11: Internal Package Groups](phases/phase11.md) 📋 **[Planned]**
-- [ ] [Phase 12: Retroactive Fixes and Missing Components](phases/phase12.md) 🚧 **[CURRENT - Critical]**
+- [ ] [Phase umk1: Core Builder Abstraction](phases/umk1.md) ✅ **[Design Complete]** 📋 **[Implementation Planned]**
+- [ ] [Phase umk2: U++ Builder Implementation](phases/umk2.md) 📋 **[Planned]**
+- [ ] [Phase umk3: CMake Builder](phases/umk3.md) 📋 **[Planned]**
+- [ ] [Phase umk4: Autotools Builder](phases/umk4.md) 📋 **[Planned]**
+- [ ] [Phase umk5: MSBuild / Visual Studio Builder](phases/umk5.md) 📋 **[Planned]**
+- [ ] [Phase umk5_5: Maven Builder](phases/umk5_5.md) 📋 **[Planned]**
+- [ ] [Phase umk6: Universal Build Configuration](phases/umk6.md) 📋 **[Planned]**
+- [ ] [Phase umk7: CLI Integration](phases/umk7.md) 📋 **[Planned]**
+- [ ] [Phase umk8: Advanced Features](phases/umk8.md) 📋 **[Planned]**
+- [ ] [Phase umk9: TUI Integration](phases/umk9.md) 📋 **[Planned]**
+- [ ] [Phase umk10: Universal Hub System (MaestroHub)](phases/umk10.md) 📋 **[Planned]**
+- [ ] [Phase umk11: Internal Package Groups](phases/umk11.md) 📋 **[Planned]**
+- [ ] [Phase umk12: Retroactive Fixes and Missing Components](phases/umk12.md) 🚧 **[CURRENT - Critical]**
 
 ---
 

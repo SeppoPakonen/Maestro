@@ -1,4 +1,4 @@
-# Phase 7: CLI Integration 📋 **[Planned]**
+# Phase umk7: CLI Integration 📋 **[Planned]**
 
 **Reference**: `docs/umk.md` Phase 7
 **Duration**: 3-4 weeks

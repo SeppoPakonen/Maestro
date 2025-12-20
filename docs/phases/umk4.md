@@ -1,4 +1,4 @@
-# Phase 4: Autotools Builder 📋 **[Planned]**
+# Phase umk4: Autotools Builder 📋 **[Planned]**
 
 **Reference**: `docs/umk.md` Phase 4
 **Duration**: 2-3 weeks
