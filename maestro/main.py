@@ -4703,8 +4703,10 @@ def main():
         if args.command == 'task':
             task_subcommand_alias_map = {
                 'ls': 'list',
-                'r': 'run',
-                'l': 'log',
+                'l': 'list',
+                'a': 'add',
+                'rm': 'remove',
+                'r': 'remove',
                 'h': 'help'
             }
             args.task_subcommand = task_subcommand_alias_map.get(args.task_subcommand, args.task_subcommand)
@@ -5057,7 +5059,7 @@ def main():
     elif args.command == 'refine-root':
         print_warning("Deprecated: use 'maestro root refine' instead.")
         handle_refine_root(args.session, args.verbose, args.planner_order)
-    elif args.command == 'task':
+    elif args.command == 'task' or args.command == 'ta':
         from .commands import handle_task_command
         sys.exit(handle_task_command(args))
     elif args.command == 'log':

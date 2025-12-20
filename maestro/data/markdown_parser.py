@@ -311,7 +311,9 @@ def parse_task_heading(line: str) -> Optional[Tuple[str, str]]:
 
     Format: **Task N.N: Task Name**
     or: - [ ] **Task N.N: Task Name**
+    or: - [ ] **N.N: Task Name**
     or: ### Task N.N: Task Name (in phase files)
+    or: ### N.N: Task Name (in phase files)
 
     Args:
         line: Line of text containing task heading
@@ -326,6 +328,8 @@ def parse_task_heading(line: str) -> Optional[Tuple[str, str]]:
         ('1.2', 'Writer Module')
         >>> parse_task_heading('### Task 1.3: Testing')
         ('1.3', 'Testing')
+        >>> parse_task_heading('- [ ] **1.4: Console**')
+        ('1.4', 'Console')
     """
     # Try h3 heading format first (### Task N.N: Name)
     h3_pattern = r'^###\s+Task\s+([A-Za-z0-9._-]+):\s+(.+?)(?:\s+[📋🚧✅💡])?\s*(?:\*\*.*?\*\*)?\s*$'
@@ -335,10 +339,25 @@ def parse_task_heading(line: str) -> Optional[Tuple[str, str]]:
         task_name = match.group(2).strip()
         return (task_number, task_name)
 
+    # Try h3 heading format without "Task" (### 1.2: Name)
+    h3_bare_pattern = r'^###\s+([A-Za-z0-9._-]*\d[A-Za-z0-9._-]*):\s+(.+?)(?:\s+[📋🚧✅💡])?\s*(?:\*\*.*?\*\*)?\s*$'
+    match = re.match(h3_bare_pattern, line.strip())
+    if match:
+        task_number = match.group(1)
+        task_name = match.group(2).strip()
+        return (task_number, task_name)
+
     # Try bold format (** Task N.N: Name **)
     bold_pattern = r'(?:- \[[ x]\]\s+)?\*\*Task\s+([A-Za-z0-9._-]+):\s+(.+?)\*\*'
     match = re.search(bold_pattern, line)
+    if match:
+        task_number = match.group(1)
+        task_name = match.group(2).strip()
+        return (task_number, task_name)
 
+    # Try bold format without "Task" (** 1.2: Name **)
+    bold_bare_pattern = r'(?:- \[[ x]\]\s+)?\*\*([A-Za-z0-9._-]*\d[A-Za-z0-9._-]*):\s+(.+?)\*\*'
+    match = re.search(bold_bare_pattern, line)
     if not match:
         return None
 

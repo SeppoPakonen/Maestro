@@ -2,7 +2,7 @@
 Task command implementation for Maestro CLI.
 
 Commands:
-- maestro task list [phase_id] - List all tasks (or tasks in phase)
+- maestro task list [filters] - List tasks across all tracks/phases
 - maestro task add <name> - Add new task
 - maestro task remove <id> - Remove task
 - maestro task <id> - Show task details
@@ -13,11 +13,12 @@ Commands:
 """
 
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Optional, Dict, List
-from maestro.data import parse_todo_md, parse_phase_md, parse_config_md
+from typing import Optional, Dict, List, Tuple
+from maestro.data import parse_todo_md, parse_done_md, parse_phase_md, parse_config_md
 from maestro.data.markdown_writer import (
     extract_phase_block,
     extract_task_block,
@@ -26,84 +27,287 @@ from maestro.data.markdown_writer import (
     replace_phase_block,
     replace_task_block,
 )
+from .track import (
+    _box_chars,
+    _display_width,
+    _pad_to_width,
+    _style_text,
+    _truncate,
+    _status_display,
+    resolve_track_identifier,
+)
+
+
+def _normalize_task_status(status: Optional[str], completed: bool, phase_status: Optional[str]) -> str:
+    if completed:
+        return "done"
+    if status:
+        normalized = status.strip().lower().replace("-", "_")
+        if normalized in {"done", "completed", "complete"}:
+            return "done"
+        if normalized in {"in_progress", "inprogress", "in-progress"}:
+            return "in_progress"
+        if normalized in {"planned", "plan", "todo"}:
+            return "planned"
+        if normalized in {"proposed", "prop"}:
+            return "proposed"
+        return normalized
+    if phase_status:
+        phase_normalized = phase_status.strip().lower()
+        if phase_normalized in {"done", "in_progress", "planned", "proposed"}:
+            return phase_normalized
+    return "planned"
+
+
+def _collect_phase_index() -> Tuple[Dict[str, Dict[str, str]], List[str]]:
+    todo_path = Path('docs/todo.md')
+    done_path = Path('docs/done.md')
+    phase_index: Dict[str, Dict[str, str]] = {}
+    phase_order: List[str] = []
+
+    def add_phase(track: Dict, phase: Dict) -> None:
+        phase_id = phase.get('phase_id')
+        if not phase_id:
+            return
+        entry = phase_index.setdefault(phase_id, {})
+        track_id = track.get('track_id')
+        track_name = track.get('name')
+        if track_id and not entry.get('track_id'):
+            entry['track_id'] = track_id
+        if track_name and not entry.get('track_name'):
+            entry['track_name'] = track_name
+        if phase.get('name') and not entry.get('phase_name'):
+            entry['phase_name'] = phase.get('name')
+        if phase.get('status') and not entry.get('phase_status'):
+            entry['phase_status'] = phase.get('status')
+        if phase_id not in phase_order:
+            phase_order.append(phase_id)
+
+    if todo_path.exists():
+        todo_data = parse_todo_md(str(todo_path))
+        for track in todo_data.get('tracks', []):
+            for phase in track.get('phases', []):
+                add_phase(track, phase)
+
+    if done_path.exists():
+        done_data = parse_done_md(str(done_path))
+        for track in done_data.get('tracks', []):
+            for phase in track.get('phases', []):
+                add_phase(track, phase)
+
+    phases_dir = Path('docs/phases')
+    if phases_dir.exists():
+        for phase_file in sorted(phases_dir.glob('*.md')):
+            phase_id = phase_file.stem
+            if phase_id not in phase_index:
+                phase_index[phase_id] = {}
+            if phase_id not in phase_order:
+                phase_order.append(phase_id)
+
+    return phase_index, phase_order
+
+
+def _collect_task_entries() -> List[Dict[str, str]]:
+    phases_dir = Path('docs/phases')
+    if not phases_dir.exists():
+        return []
+
+    phase_index, phase_order = _collect_phase_index()
+    tasks: List[Dict[str, str]] = []
+
+    for phase_id in phase_order:
+        phase_file = phases_dir / f"{phase_id}.md"
+        if not phase_file.exists():
+            continue
+        phase = parse_phase_md(str(phase_file))
+        phase_info = phase_index.get(phase_id, {})
+        phase_name = phase.get('name') or phase_info.get('phase_name') or phase_id
+        phase_status = phase_info.get('phase_status')
+        track_id = phase_info.get('track_id') or phase.get('track_id') or "N/A"
+        track_name = phase_info.get('track_name') or phase.get('track') or "Unnamed Track"
+
+        for task in phase.get('tasks', []):
+            task_id = task.get('task_id') or task.get('task_number') or "N/A"
+            completed = bool(task.get('completed', False))
+            task_status = _normalize_task_status(task.get('status'), completed, phase_status)
+            tasks.append({
+                "task_id": task_id,
+                "name": task.get('name', 'Unnamed Task'),
+                "status": task_status,
+                "priority": task.get('priority', 'N/A'),
+                "phase_id": phase_id,
+                "phase_name": phase_name,
+                "phase_status": phase_status,
+                "track_id": track_id,
+                "track_name": track_name,
+                "phase_file": str(phase_file),
+                "_task": task,
+            })
+
+    for idx, task in enumerate(tasks, 1):
+        task["list_number"] = idx
+
+    return tasks
+
+
+def _parse_task_list_filters(tokens: List[str]) -> Tuple[Optional[str], Optional[str], Optional[str], List[str]]:
+    status_filter = None
+    track_filter = None
+    phase_filter = None
+    extras: List[str] = []
+    status_aliases = {
+        'plan': 'planned',
+        'planned': 'planned',
+        'prop': 'proposed',
+        'proposed': 'proposed',
+        'done': 'done',
+        'inprogress': 'in_progress',
+        'in-progress': 'in_progress',
+        'in_progress': 'in_progress',
+    }
+    idx = 0
+    while idx < len(tokens):
+        token = tokens[idx]
+        normalized = token.lower()
+        if normalized in status_aliases:
+            status_filter = status_aliases[normalized]
+            idx += 1
+            continue
+        if normalized in {'track', 'tr'}:
+            if idx + 1 >= len(tokens):
+                extras.append(token)
+                break
+            track_filter = tokens[idx + 1]
+            idx += 2
+            continue
+        if normalized in {'phase', 'ph'}:
+            if idx + 1 >= len(tokens):
+                extras.append(token)
+                break
+            phase_filter = tokens[idx + 1]
+            idx += 2
+            continue
+        if len(tokens) == 1 and not phase_filter and not track_filter and not status_filter:
+            phase_filter = token
+            idx += 1
+            continue
+        if not phase_filter:
+            phase_filter = token
+            idx += 1
+            continue
+        extras.append(token)
+        idx += 1
+
+    return status_filter, track_filter, phase_filter, extras
 
 
 def list_tasks(args):
     """
     List all tasks from phase files.
 
-    If phase_id is provided, list only tasks in that phase.
-    Otherwise, list tasks from current phase (if set) or show error.
+    Supports optional filters:
+      - plan/prop/done for status
+      - track <id|#> to filter by track
+      - phase <id> to filter by phase
     """
     from maestro.config.settings import get_settings
 
-    # If no phase_id provided and context is set, use context
-    phase_filter = getattr(args, 'phase_id', None)
-    if not phase_filter:
-        settings = get_settings()
-        if settings.current_phase:
-            phase_filter = settings.current_phase
-            print(f"Using current phase context: {phase_filter}")
-            print()
-
-    if not phase_filter:
-        print("Error: No phase specified and no current phase set.")
-        print("Usage: maestro task list <phase_id>")
-        print("   or: maestro phase <id> set  (to set current phase)")
+    tokens = getattr(args, 'filters', None) or []
+    status_filter, track_filter, phase_filter, extras = _parse_task_list_filters(tokens)
+    if extras:
+        print(f"Error: Unrecognized filters: {' '.join(extras)}")
+        print("Use 'maestro task help' for list filter usage.")
         return 1
 
-    # Try to find phase file
-    phase_file = Path(f'docs/phases/{phase_filter}.md')
+    if track_filter:
+        resolved = resolve_track_identifier(track_filter) if track_filter.isdigit() else track_filter
+        if track_filter.isdigit() and not resolved:
+            print(f"Error: Track '{track_filter}' not found.")
+            return 1
+        track_filter = resolved
 
-    if not phase_file.exists():
-        print(f"Error: Phase file 'docs/phases/{phase_filter}.md' not found.")
-        return 1
+    tasks = _collect_task_entries()
 
-    phase = parse_phase_md(str(phase_file))
-    tasks = phase.get('tasks', [])
+    if phase_filter:
+        tasks = [task for task in tasks if task.get('phase_id') == phase_filter]
+    if track_filter:
+        tasks = [task for task in tasks if task.get('track_id') == track_filter]
+    if status_filter:
+        tasks = [task for task in tasks if task.get('status') == status_filter]
 
     if not tasks:
-        print(f"No tasks found in phase '{phase_filter}'.")
+        print("No tasks found.")
         return 0
 
-    # Display header
-    print()
-    print("=" * 80)
-    print(f"TASKS in Phase: {phase.get('name', 'Unnamed')}")
-    print("=" * 80)
-    print()
+    settings = get_settings()
+    unicode_symbols = settings.unicode_symbols
+    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
+    term_width = max(term_width, 20)
+    box = _box_chars(unicode_symbols)
 
-    # Table header
-    print(f"{'Task ID':<15} {'Name':<35} {'Priority':<10} {'Hours':<8}")
-    print("-" * 80)
+    idx_width = max(_display_width('#'), max((_display_width(str(t.get('list_number', ''))) for t in tasks), default=0))
+    task_id_width = max(_display_width('Task ID'), max((_display_width(t.get('task_id', 'N/A')) for t in tasks), default=0))
+    name_width = max(_display_width('Name'), max((_display_width(t.get('name', 'Unnamed Task')) for t in tasks), default=0))
+    track_width = max(_display_width('Track'), max((_display_width(t.get('track_id', 'N/A')) for t in tasks), default=0))
+    phase_width = max(_display_width('Phase'), max((_display_width(t.get('phase_id', 'N/A')) for t in tasks), default=0))
+    status_width = max(
+        _display_width('Status'),
+        max((_display_width(_status_display(t.get('status', 'unknown'), unicode_symbols)[0]) for t in tasks), default=0),
+    )
 
-    # Rows
+    col_widths = [idx_width, task_id_width, name_width, track_width, phase_width, status_width]
+    ncol = len(col_widths)
+    content_width = sum(w + 2 for w in col_widths) + (ncol - 1) * 2
+    inner_width = min(term_width - 2, max(content_width, 20))
+    available = inner_width - (ncol - 1) * 2 - (2 * ncol)
+    name_width = max(_display_width('Name'), available - (idx_width + task_id_width + track_width + phase_width + status_width))
+    col_widths = [idx_width, task_id_width, name_width, track_width, phase_width, status_width]
+
+    headers = ['#', 'Task ID', 'Name', 'Track', 'Phase', 'Status']
+    header_cells = []
+    for header, width in zip(headers, col_widths):
+        header_cells.append(" " + _pad_to_width(header, width) + " ")
+    header_line = box['vertical'] + _pad_to_width("  ".join(header_cells), inner_width) + box['vertical']
+
+    print()
+    print(_style_text(box['top_left'] + box['horizontal'] * inner_width + box['top_right'], color='yellow'))
+    print(_style_text(header_line, color='bright_white', bold=True))
+    print(_style_text(box['mid_left'] + box['mid_horizontal'] * inner_width + box['mid_right'], color='yellow'))
+
     for task in tasks:
-        task_id = task.get('task_id', task.get('task_number', 'N/A'))
-        name = task.get('name', 'Unnamed Task')
-        priority = task.get('priority', 'N/A')
-        hours = task.get('estimated_hours', '?')
+        status_display, status_color = _status_display(task.get('status', 'unknown'), unicode_symbols)
+        row_cells = [
+            " " + _pad_to_width(str(task.get('list_number', '')), idx_width) + " ",
+            " " + _pad_to_width(_truncate(task.get('task_id', 'N/A'), task_id_width, unicode_symbols), task_id_width) + " ",
+            " " + _pad_to_width(_truncate(task.get('name', 'Unnamed Task'), name_width, unicode_symbols), name_width) + " ",
+            " " + _pad_to_width(_truncate(task.get('track_id', 'N/A'), track_width, unicode_symbols), track_width) + " ",
+            " " + _pad_to_width(_truncate(task.get('phase_id', 'N/A'), phase_width, unicode_symbols), phase_width) + " ",
+            _style_text(" " + _pad_to_width(status_display, status_width) + " ", color=status_color),
+        ]
+        row_line = box['vertical'] + _pad_to_width("  ".join(row_cells), inner_width) + box['vertical']
+        print(row_line)
 
-        # Truncate long names
-        if len(name) > 35:
-            name = name[:32] + '...'
-
-        # Format priority with color/emoji
-        priority_display = priority
-        if priority == 'P0':
-            priority_display = '🔴 P0'
-        elif priority == 'P1':
-            priority_display = '🟡 P1'
-        elif priority == 'P2':
-            priority_display = '⚪ P2'
-
-        print(f"{task_id:<15} {name:<35} {priority_display:<10} {hours:<8}")
-
-    print()
-    print(f"Total: {len(tasks)} tasks")
-    print()
+    print(_style_text(box['bottom_left'] + box['horizontal'] * inner_width + box['bottom_right'], color='yellow'))
+    print(_style_text(f"Total: {len(tasks)} tasks", color='bright_black', dim=True))
+    print(_style_text("Use 'maestro task <#>' or 'maestro task <id>' to view details", color='bright_black', dim=True))
 
     return 0
+
+
+def _resolve_task_identifier(task_identifier: str) -> Optional[Dict[str, str]]:
+    tasks = _collect_task_entries()
+
+    for task in tasks:
+        if task.get('task_id') == task_identifier or task.get('_task', {}).get('task_number') == task_identifier:
+            return task
+
+    if task_identifier.isdigit():
+        index = int(task_identifier)
+        for task in tasks:
+            if task.get('list_number') == index:
+                return task
+
+    return None
 
 
 def show_task(task_id: str, args):
@@ -112,32 +316,21 @@ def show_task(task_id: str, args):
 
     Searches through all phase files to find the task.
     """
-    # Search all phase files
-    phases_dir = Path('docs/phases')
-    if not phases_dir.exists():
-        print("Error: docs/phases/ directory not found.")
-        return 1
-
-    task = None
-    phase_info = None
-
-    for phase_file in phases_dir.glob('*.md'):
-        phase = parse_phase_md(str(phase_file))
-        for t in phase.get('tasks', []):
-            if t.get('task_id') == task_id or t.get('task_number') == task_id:
-                task = t
-                phase_info = {
-                    'id': phase.get('phase_id', 'N/A'),
-                    'name': phase.get('name', 'Unnamed'),
-                    'file': phase_file
-                }
-                break
-        if task:
-            break
-
-    if not task:
+    task_entry = _resolve_task_identifier(task_id)
+    if not task_entry:
         print(f"Error: Task '{task_id}' not found.")
         return 1
+    task = task_entry.get('_task', {})
+    phase_info = {
+        'id': task_entry.get('phase_id', 'N/A'),
+        'name': task_entry.get('phase_name', 'Unnamed'),
+        'file': task_entry.get('phase_file', 'N/A'),
+    }
+    completed = bool(task.get('completed', False))
+    status_value = _normalize_task_status(task.get('status'), completed, task_entry.get('phase_status'))
+    from maestro.config.settings import get_settings
+    settings = get_settings()
+    status_display, _ = _status_display(status_value, settings.unicode_symbols)
 
     # Display task details
     print()
@@ -150,7 +343,7 @@ def show_task(task_id: str, args):
     print(f"ID:          {task.get('task_id', task.get('task_number', 'N/A'))}")
     print(f"Phase:       {phase_info['name']} ({phase_info['id']})")
     print(f"Priority:    {task.get('priority', 'N/A')}")
-    print(f"Status:      {'✅ Complete' if task.get('completed', False) else '⏳ Pending'}")
+    print(f"Status:      {status_display}")
     print(f"Est. Hours:  {task.get('estimated_hours', 'N/A')}")
     print()
 
@@ -471,15 +664,15 @@ def handle_task_command(args):
 
     # Handle 'maestro task list [phase_id]'
     if hasattr(args, 'task_subcommand'):
-        if args.task_subcommand == 'list' or args.task_subcommand == 'ls':
+        if args.task_subcommand in ['list', 'ls', 'l']:
             return list_tasks(args)
-        elif args.task_subcommand == 'add':
+        elif args.task_subcommand in ['add', 'a']:
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Task name required. Usage: maestro task add <name>")
                 return 1
             name = " ".join(args.name) if isinstance(args.name, list) else args.name
             return add_task(name, args)
-        elif args.task_subcommand == 'remove' or args.task_subcommand == 'rm':
+        elif args.task_subcommand in ['remove', 'rm', 'r']:
             if not hasattr(args, 'task_id') or not args.task_id:
                 print("Error: Task ID required. Usage: maestro task remove <id>")
                 return 1
@@ -515,7 +708,7 @@ def handle_task_command(args):
                 return 1
             print(f"Updated task '{args.task_id}'.")
             return 0
-        elif args.task_subcommand == 'help' or args.task_subcommand == 'h':
+        elif args.task_subcommand in ['help', 'h']:
             print_task_help()
             return 0
 
@@ -551,7 +744,7 @@ def handle_task_command(args):
         current_phase = config.get('current_phase')
         if current_phase:
             # List tasks in current phase
-            args.phase_id = current_phase
+            args.filters = [current_phase]
             return list_tasks(args)
 
     print_task_help()
@@ -564,7 +757,7 @@ def print_task_help():
 maestro task - Manage project tasks
 
 USAGE:
-    maestro task list [phase_id]          List all tasks (or tasks in phase)
+    maestro task list [filters]           List tasks across all tracks/phases
     maestro task add <name>               Add new task
     maestro task remove <id>              Remove a task
     maestro task <id>                     Show task details
@@ -575,6 +768,11 @@ USAGE:
     maestro task set-text <id>            Replace task block (stdin or --file)
     maestro task <id> discuss             Discuss task with AI
     maestro task <id> set                 Set current task context
+
+LIST FILTERS:
+    plan | prop | done                    Filter by task status
+    track <id|#>                          Filter by track ID or number
+    phase <id>                            Filter by phase ID
 
 ALIASES:
     list:     ls, l
@@ -589,8 +787,12 @@ ALIASES:
     set-text: setraw
 
 EXAMPLES:
-    maestro task list                     # List tasks in current phase
-    maestro task list cli-tpt-1           # List tasks in phase 'cli-tpt-1'
+    maestro task list                     # List all tasks
+    maestro task list plan                # List planned tasks
+    maestro task list track umk           # List tasks in track 'umk'
+    maestro task list phase umk1          # List tasks in phase 'umk1'
+    maestro task list track umk phase umk1
+    maestro task 12                       # Show task by list number
     maestro task cli-tpt-1-1              # Show task details
     maestro task cli-tpt-1-1 edit         # Edit task in $EDITOR
     maestro task cli-tpt-1-1 complete     # Mark task as complete
@@ -636,9 +838,28 @@ def add_task_parser(subparsers):
     Args:
         subparsers: The subparsers object from argparse
     """
+    if len(sys.argv) >= 3 and sys.argv[1] in ['task', 'ta']:
+        arg = sys.argv[2]
+        known_subcommands = [
+            'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'text', 'raw',
+            'set-text', 'setraw', 'help', 'h', 'discuss', 'd', 'show', 'sh'
+        ]
+        if not arg.startswith('-') and arg not in known_subcommands:
+            if len(sys.argv) >= 4 and sys.argv[3] in [
+                'show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd', 'set', 'st', 'help', 'h'
+            ]:
+                subcommand = sys.argv[3]
+                task_id = sys.argv[2]
+                sys.argv[2] = 'show'
+                sys.argv[3] = task_id
+                sys.argv.insert(4, subcommand)
+            else:
+                sys.argv.insert(2, 'show')
+
     # Main task command
     task_parser = subparsers.add_parser(
         'task',
+        aliases=['ta'],
         help='Manage project tasks'
     )
 
@@ -655,9 +876,23 @@ def add_task_parser(subparsers):
         help='List all tasks (or tasks in phase)'
     )
     task_list_parser.add_argument(
-        'phase_id',
+        'filters',
+        nargs='*',
+        help='Optional filters: [plan|prop|done] [track <id|#>] [phase <id>]'
+    )
+
+    # maestro task show <id> [action]
+    task_show_parser = task_subparsers.add_parser(
+        'show',
+        aliases=['sh'],
+        help='Show task details'
+    )
+    task_show_parser.add_argument('task_id_arg', help='Task ID (or list #)')
+    task_show_parser.add_argument(
+        'task_item_subcommand',
         nargs='?',
-        help='Phase ID to filter tasks (optional)'
+        choices=['show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd', 'set', 'st', 'help', 'h'],
+        help='Task item subcommand (show/edit/complete/discuss/set)'
     )
 
     # maestro task add <name>
@@ -703,18 +938,7 @@ def add_task_parser(subparsers):
         help='Show help for task commands'
     )
 
-    # Add task_id argument for 'maestro task <id>' commands
-    task_parser.add_argument(
-        'task_id_arg',
-        nargs='?',
-        help='Task ID (for show/edit/complete/discuss commands)'
-    )
-    task_parser.add_argument(
-        'task_item_subcommand',
-        nargs='?',
-        choices=['show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd', 'set', 'st', 'help', 'h'],
-        help='Task item subcommand (show/edit/complete/discuss/set)'
-    )
+    # NOTE: task_id_arg is handled via the "show" subcommand to allow "task <id>" parsing.
     task_parser.add_argument(
         '--mode',
         choices=['editor', 'terminal'],
