@@ -23,6 +23,7 @@ from maestro.data.markdown_writer import (
     remove_phase_block,
     replace_phase_block,
 )
+from .track import _box_chars, _display_width, _pad_to_width, _style_text, _truncate, _status_display
 
 
 def list_phases(args):
@@ -106,106 +107,106 @@ def list_phases(args):
         print("No phases found.")
         return 0
 
+    settings = get_settings()
+    unicode_symbols = settings.unicode_symbols
     term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
-    term_width = max(term_width, 80)
+    term_width = max(term_width, 20)
+    box = _box_chars(unicode_symbols)
 
-    def format_status(status_value: str) -> str:
-        if status_value == 'done':
-            return '✅ Done'
-        if status_value == 'in_progress':
-            return '🚧 Active'
-        if status_value == 'planned':
-            return '📋 Planned'
-        if status_value == 'proposed':
-            return '💡 Proposed'
-        return status_value
-
-    def truncate(value: str, width: int) -> str:
-        if len(value) <= width:
-            return value
-        if width >= 4:
-            return value[:width - 3] + '...'
-        return value[:width]
-
-    print()
-    print("=" * term_width)
-
-    idx_width = max(len('#'), len(str(len(phases_to_show))))
+    idx_width = max(_display_width('#'), _display_width(str(len(phases_to_show))))
 
     if not track_filter:
-        phase_id_len = max((len(p.get('phase_id', 'N/A')) for p in phases_to_show), default=len('Phase ID'))
-        name_len = max((len(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=len('Name'))
-        track_len = max((len(p.get('_track_id', 'N/A')) for p in phases_to_show), default=len('Track'))
-        status_len = max(
-            (len(format_status(p.get('status', 'unknown'))) for p in phases_to_show),
-            default=len('Status'),
+        phase_id_width = max(
+            _display_width('Phase ID'),
+            max((_display_width(p.get('phase_id', 'N/A')) for p in phases_to_show), default=0),
+        )
+        name_width = max(
+            _display_width('Name'),
+            max((_display_width(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=0),
+        )
+        track_width = max(
+            _display_width('Track'),
+            max((_display_width(p.get('_track_id', 'N/A')) for p in phases_to_show), default=0),
+        )
+        status_width = max(
+            _display_width('Status'),
+            max((_display_width(_status_display(p.get('status', 'unknown'), unicode_symbols)[0]) for p in phases_to_show), default=0),
         )
 
-        phase_id_width = max(len('Phase ID'), phase_id_len)
-        track_width = max(len('Track'), track_len)
-        status_width = max(len('Status'), status_len)
-        available = term_width - (idx_width + phase_id_width + track_width + status_width + 4)
-        name_width = min(name_len, max(len('Name'), available))
-        if available < len('Name'):
-            name_width = max(1, available)
-
-        print(
-            f"{'#':<{idx_width}} "
-            f"{'Phase ID':<{phase_id_width}} "
-            f"{'Name':<{name_width}} "
-            f"{'Track':<{track_width}} "
-            f"{'Status':<{status_width}}"
-        )
-        print("-" * term_width)
+        col_widths = [idx_width, phase_id_width, name_width, track_width, status_width]
     else:
-        phase_id_len = max((len(p.get('phase_id', 'N/A')) for p in phases_to_show), default=len('Phase ID'))
-        name_len = max((len(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=len('Name'))
-        status_len = max(
-            (len(format_status(p.get('status', 'unknown'))) for p in phases_to_show),
-            default=len('Status'),
+        phase_id_width = max(
+            _display_width('Phase ID'),
+            max((_display_width(p.get('phase_id', 'N/A')) for p in phases_to_show), default=0),
+        )
+        name_width = max(
+            _display_width('Name'),
+            max((_display_width(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=0),
+        )
+        status_width = max(
+            _display_width('Status'),
+            max((_display_width(_status_display(p.get('status', 'unknown'), unicode_symbols)[0]) for p in phases_to_show), default=0),
         )
 
-        phase_id_width = max(len('Phase ID'), phase_id_len)
-        status_width = max(len('Status'), status_len)
-        available = term_width - (idx_width + phase_id_width + status_width + 3)
-        name_width = min(name_len, max(len('Name'), available))
-        if available < len('Name'):
-            name_width = max(1, available)
+        col_widths = [idx_width, phase_id_width, name_width, status_width]
 
-        print(
-            f"{'#':<{idx_width}} "
-            f"{'Phase ID':<{phase_id_width}} "
-            f"{'Name':<{name_width}} "
-            f"{'Status':<{status_width}}"
-        )
-        print("-" * term_width)
+    ncol = len(col_widths)
+    content_width = sum(w + 2 for w in col_widths) + (ncol - 1) * 2
+    inner_width = min(term_width - 2, max(content_width, 20))
+    available = inner_width - (ncol - 1) * 2 - (2 * ncol)
+    if not track_filter:
+        name_width = max(_display_width('Name'), available - (idx_width + phase_id_width + track_width + status_width))
+        col_widths = [idx_width, phase_id_width, name_width, track_width, status_width]
+    else:
+        name_width = max(_display_width('Name'), available - (idx_width + phase_id_width + status_width))
+        col_widths = [idx_width, phase_id_width, name_width, status_width]
+
+    headers = ['#', 'Phase ID', 'Name']
+    if not track_filter:
+        headers.append('Track')
+    headers.append('Status')
+
+    header_cells = []
+    for header, width in zip(headers, col_widths):
+        header_cells.append(" " + _pad_to_width(header, width) + " ")
+    header_line = box['vertical'] + _pad_to_width("  ".join(header_cells), inner_width) + box['vertical']
+
+    print()
+    print(_style_text(box['top_left'] + box['horizontal'] * inner_width + box['top_right'], color='yellow'))
+    print(_style_text(header_line, color='bright_white', bold=True))
+    print(_style_text(box['mid_left'] + box['mid_horizontal'] * inner_width + box['mid_right'], color='yellow'))
 
     # Rows
     for idx, phase in enumerate(phases_to_show, 1):
         phase_id = phase.get('phase_id', 'N/A')
         name = phase.get('name', 'Unnamed Phase')
         status = phase.get('status', 'unknown')
-        status_display = format_status(status)
+        status_display, status_color = _status_display(status, unicode_symbols)
 
         if not track_filter:
             track_id = phase.get('_track_id', 'N/A')
-            print(
-                f"{str(idx):<{idx_width}} "
-                f"{truncate(phase_id, phase_id_width):<{phase_id_width}} "
-                f"{truncate(name, name_width):<{name_width}} "
-                f"{truncate(track_id, track_width):<{track_width}} "
-                f"{truncate(status_display, status_width):<{status_width}}"
-            )
+            track_id = _truncate(track_id, track_width, unicode_symbols)
+            row_cells = [
+                " " + _pad_to_width(str(idx), idx_width) + " ",
+                " " + _pad_to_width(_truncate(phase_id, phase_id_width, unicode_symbols), phase_id_width) + " ",
+                " " + _pad_to_width(_truncate(name, name_width, unicode_symbols), name_width) + " ",
+                " " + _pad_to_width(track_id, track_width) + " ",
+                _style_text(" " + _pad_to_width(status_display, status_width) + " ", color=status_color),
+            ]
+            row_line = box['vertical'] + _pad_to_width("  ".join(row_cells), inner_width) + box['vertical']
+            print(row_line)
         else:
-            print(
-                f"{str(idx):<{idx_width}} "
-                f"{truncate(phase_id, phase_id_width):<{phase_id_width}} "
-                f"{truncate(name, name_width):<{name_width}} "
-                f"{truncate(status_display, status_width):<{status_width}}"
-            )
+            row_cells = [
+                " " + _pad_to_width(str(idx), idx_width) + " ",
+                " " + _pad_to_width(_truncate(phase_id, phase_id_width, unicode_symbols), phase_id_width) + " ",
+                " " + _pad_to_width(_truncate(name, name_width, unicode_symbols), name_width) + " ",
+                _style_text(" " + _pad_to_width(status_display, status_width) + " ", color=status_color),
+            ]
+            row_line = box['vertical'] + _pad_to_width("  ".join(row_cells), inner_width) + box['vertical']
+            print(row_line)
 
-    print()
-    print(f"Total: {len(phases_to_show)} phases")
+    print(_style_text(box['bottom_left'] + box['horizontal'] * inner_width + box['bottom_right'], color='yellow'))
+    print(_style_text(f"Total: {len(phases_to_show)} phases", color="bright_black", dim=True))
     print()
 
     return 0
@@ -756,10 +757,14 @@ def add_phase_parser(subparsers):
                 pass  # If resolution fails, continue with original arg
 
         # If arg is not a known subcommand, treat it as phase_id and inject 'show'
-        known_subcommands = ['list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'help', 'h', 'show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st']
+        known_subcommands = [
+            'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'help', 'h',
+            'show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st',
+            'text', 'raw', 'set-text', 'setraw'
+        ]
         if arg not in known_subcommands:
             # Check if there's a third argument that's a subcommand
-            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st']:
+            if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw']:
                 # maestro phase <id> <subcommand> - already has subcommand, just move id after 'show'
                 subcommand = sys.argv[3]
                 phase_id = sys.argv[2]
