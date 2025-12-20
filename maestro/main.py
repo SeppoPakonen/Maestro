@@ -9017,6 +9017,8 @@ def handle_plan_list(session_path, verbose=False):
     """
     List all plans in the session as a numbered list.
     """
+    import shutil
+
     try:
         session = load_session(session_path)
         # Update summary file paths for backward compatibility with old sessions
@@ -9032,11 +9034,28 @@ def handle_plan_list(session_path, verbose=False):
         print("No plans in session yet.")
         return
 
-    print_header("PLANS LIST")
+    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
+    term_width = max(term_width, 80)
+    print()
+    print("=" * term_width)
+    print("PLANS LIST")
+    print("=" * term_width)
+
     for i, plan in enumerate(session.plans, 1):
         marker = "[*]" if plan.plan_id == session.active_plan_id else "[ ]"
         status_symbol = "✓" if plan.status == "active" else "✗" if plan.status == "dead" else "○"
-        print(f"{i:2d}. {marker} {status_symbol} {plan.plan_id}  {plan.label} ({plan.status})")
+        prefix = f"{i:2d}. {marker} {status_symbol} {plan.plan_id}  "
+        suffix = f" ({plan.status})"
+        available = term_width - len(prefix) - len(suffix)
+        if available < 1:
+            available = 1
+        label = plan.label
+        if len(label) > available:
+            if available >= 4:
+                label = label[:available - 3] + "..."
+            else:
+                label = label[:available]
+        print(f"{prefix}{label}{suffix}")
 
 
 def handle_plan_show(session_path, plan_id, verbose=False):
