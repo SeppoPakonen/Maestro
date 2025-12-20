@@ -6,6 +6,8 @@ Commands:
 - maestro context clear - Clear all context
 """
 
+import argparse
+
 from maestro.config.settings import get_settings
 from maestro.data import parse_todo_md
 from pathlib import Path
@@ -145,7 +147,7 @@ def add_context_parser(subparsers):
     context_parser = subparsers.add_parser(
         'context',
         aliases=['ctx'],
-        help='Manage current track/phase/task context'
+        help=argparse.SUPPRESS
     )
 
     # Context subcommands

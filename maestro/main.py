@@ -1161,6 +1161,41 @@ def print_tool_usage(text, indent=0):
     print(f"{indent_str}{dark_color}{formatted_text}{reset_color}")
 
 
+def _filter_suppressed_help(help_text):
+    import re
+
+    lines = help_text.split('\n')
+    suppressed = set()
+    for line in lines:
+        if "==SUPPRESS==" not in line:
+            continue
+        name_match = re.match(r'^\s*([^\s(]+)', line)
+        if name_match:
+            suppressed.add(name_match.group(1))
+        alias_match = re.search(r'\(([^)]+)\)', line)
+        if alias_match:
+            aliases = [alias.strip() for alias in alias_match.group(1).split(',')]
+            suppressed.update(alias for alias in aliases if alias)
+    if not suppressed:
+        return help_text
+
+    def replace_choices(line):
+        def repl(match):
+            items = [item.strip() for item in match.group(1).split(',')]
+            kept = [item for item in items if item not in suppressed]
+            return '{' + ','.join(kept) + '}'
+        return re.sub(r'\{([^}]+)\}', repl, line)
+
+    filtered = []
+    for line in lines:
+        if "==SUPPRESS==" in line:
+            continue
+        if '{' in line and '}' in line:
+            line = replace_choices(line)
+        filtered.append(line)
+    return '\n'.join(filtered)
+
+
 class StyledArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser that provides styled help output."""
 
@@ -1172,7 +1207,7 @@ class StyledArgumentParser(argparse.ArgumentParser):
     def format_help(self):
         """Override format_help to return styled output."""
         # Get the original help text
-        original_help = super().format_help()
+        original_help = _filter_suppressed_help(super().format_help())
 
         # Apply styling to the help text
         lines = original_help.split('\n')
@@ -1216,7 +1251,7 @@ class StyledArgumentParser(argparse.ArgumentParser):
             print()
 
         # Print the styled help using our functions
-        original_help = super().format_help()
+        original_help = _filter_suppressed_help(super().format_help())
         lines = original_help.split('\n')
 
         if self.show_banner:
@@ -3950,7 +3985,7 @@ def main():
     rules_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
 
     # Plan command
-    plan_parser = subparsers.add_parser('plan', help='Run planner and update subtask plan')
+    plan_parser = subparsers.add_parser('plan', help=argparse.SUPPRESS)
     plan_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     plan_parser.add_argument('--one-shot', action='store_true', help='Run single planner call that rewrites root task and returns finalized JSON plan')
     plan_parser.add_argument('--discuss', action='store_true', help='Enter interactive planning mode for back-and-forth discussion')
@@ -4021,7 +4056,7 @@ def main():
     rules_subparsers.add_parser('help', aliases=['h'], help='Show help for rules commands')
 
     # Task command
-    task_parser = subparsers.add_parser('task', help='Task management commands')
+    task_parser = subparsers.add_parser('task', help=argparse.SUPPRESS)
     task_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     task_subparsers = task_parser.add_subparsers(dest='task_subcommand', help='Task subcommands')
 
@@ -4065,7 +4100,7 @@ def main():
     log_subparsers.add_parser('list-plan', aliases=['lp'], help='List all plan changes')
 
     # Root command group
-    root_parser = subparsers.add_parser('root', help='Root task management commands')
+    root_parser = subparsers.add_parser('root', help=argparse.SUPPRESS)
     root_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     root_subparsers = root_parser.add_subparsers(dest='root_subcommand', help='Root subcommands')
 
@@ -4461,7 +4496,7 @@ def main():
     refine_parser.add_argument('-O', '--planner-order', help='Comma-separated order: codex,claude', default="codex,claude")
 
     # Builder command group
-    builder_parser = subparsers.add_parser('build', aliases=['b'], help='Debug-only build workflows')
+    builder_parser = subparsers.add_parser('build', aliases=['b'], help=argparse.SUPPRESS)
     builder_parser.add_argument('-s', '--session', help='Path to session JSON file (default: session.json if exists)')
     builder_subparsers = builder_parser.add_subparsers(dest='builder_subcommand', help='Builder subcommands')
 
