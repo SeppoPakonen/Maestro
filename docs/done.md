@@ -70,7 +70,7 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 **Track Completed**: 2025-12-19
 
-### Phase CLI1: Markdown Data Backend ✅ **[Completed 2025-12-18]**
+### Phase cli1: Markdown Data Backend ✅ **[Completed 2025-12-18]**
 
 "phase_id": "cli-tpt-1"
 "status": "done"
@@ -88,7 +88,7 @@ This track implements the new Track/Phase/Task command-line interface with integ
 - `maestro/data/markdown_parser.py` - Comprehensive markdown parser with support for todos, phases, tasks, and config
 - `maestro/data/__init__.py` - Package initialization
 
-### Phase CLI2: Track/Phase/Task Commands ✅ **[Completed 2025-12-18]**
+### Phase cli2: Track/Phase/Task Commands ✅ **[Completed 2025-12-18]**
 
 "phase_id": "cli-tpt-2"
 "status": "done"
@@ -108,7 +108,7 @@ This track implements the new Track/Phase/Task command-line interface with integ
 - `maestro/commands/phase.py` - Phase command implementation with context-aware listing
 - `maestro/commands/task.py` - Task command implementation with context-aware listing
 
-### Phase CLI3: AI Discussion System ✅ **[Completed 2025-12-18]**
+### Phase cli3: AI Discussion System ✅ **[Completed 2025-12-18]**
 
 "phase_id": "cli-tpt-3"
 "status": "done"
@@ -127,7 +127,7 @@ This track implements the new Track/Phase/Task command-line interface with integ
 - `maestro/commands/discuss.py` - AI discussion command implementation
 - `maestro/ai/action_processor.py` - JSON action processor for track/phase/task operations
 
-### Phase CLI4: Settings and Configuration ✅ **[Completed 2025-12-19]**
+### Phase cli4: Settings and Configuration ✅ **[Completed 2025-12-19]**
 
 "phase_id": "cli-tpt-4"
 "status": "done"
@@ -155,7 +155,7 @@ This track implements the new Track/Phase/Task command-line interface with integ
 - `docs/feature_matrix.md` - Added CLI4 features and track/phase/task terminology
 - `docs/config.md` - Markdown-based configuration format documentation
 
-### Phase CLI5: TUI Conversion ✅ **[Completed 2025-12-19]**
+### Phase cli5: TUI Conversion ✅ **[Completed 2025-12-19]**
 
 "phase_id": "cli-tpt-5"
 "status": "done"
@@ -209,7 +209,7 @@ This track implements the new Track/Phase/Task command-line interface with integ
 
 This track implements build and run commands with issue integration.
 
-### Phase BR1: Make Integration with Issues ✅ **[Completed 2025-12-20]**
+### Phase br1: Make Integration with Issues ✅ **[Completed 2025-12-20]**
 
 "phase_id": "br1"
 "status": "done"
@@ -227,7 +227,7 @@ This track implements build and run commands with issue integration.
 - `maestro/issues/issue_store.py` - Issue file writer
 - `maestro/issues/parsers.py` - Build error parsing helpers
 
-### Phase BR2: Static Analyzer Integration ✅ **[Completed 2025-12-20]**
+### Phase br2: Static Analyzer Integration ✅ **[Completed 2025-12-20]**
 
 "phase_id": "br2"
 "status": "done"
@@ -242,7 +242,7 @@ This track implements build and run commands with issue integration.
 - `maestro/commands/make.py` - Analyzer command and issue integration
 - `maestro/issues/parsers.py` - Analyzer output parsing
 
-### Phase BR3: Run Command ✅ **[Completed 2025-12-20]**
+### Phase br3: Run Command ✅ **[Completed 2025-12-20]**
 
 "phase_id": "br3"
 "status": "done"
@@ -257,7 +257,7 @@ This track implements build and run commands with issue integration.
 - `maestro/commands/run.py` - Run command implementation
 - `maestro/main.py` - CLI wiring and dispatch
 
-### Phase BR4: Profiling Support ✅ **[Completed 2025-12-20]**
+### Phase br4: Profiling Support ✅ **[Completed 2025-12-20]**
 
 "phase_id": "br4"
 "status": "done"
@@ -277,7 +277,7 @@ This track implements build and run commands with issue integration.
 "status": "in_progress"
 "completion": 80%
 
-### Phase IS1: Issue Data Model ✅ **[Completed 2025-12-20]**
+### Phase is1: Issue Data Model ✅ **[Completed 2025-12-20]**
 
 "phase_id": "is1"
 "status": "done"
@@ -294,7 +294,7 @@ This track implements build and run commands with issue integration.
 - `maestro/commands/issues.py` - CLI access to issue records
 - `maestro/main.py` - CLI wiring
 
-### Phase IS2: Issue Categories ✅ **[Completed 2025-12-20]**
+### Phase is2: Issue Categories ✅ **[Completed 2025-12-20]**
 
 "phase_id": "is2"
 "status": "done"
@@ -308,7 +308,7 @@ This track implements build and run commands with issue integration.
 - `maestro/issues/model.py` - Category registry
 - `maestro/commands/issues.py` - Category filtering
 
-### Phase IS3: Issue 4-Phase Workflow ✅ **[Completed 2025-12-20]**
+### Phase is3: Issue 4-Phase Workflow ✅ **[Completed 2025-12-20]**
 
 "phase_id": "is3"
 "status": "done"
@@ -324,7 +324,7 @@ This track implements build and run commands with issue integration.
 - `maestro/issues/issue_store.py` - Metadata updates and sections
 - `maestro/issues/model.py` - Issue metadata fields
 
-### Phase IS4: Solutions System ✅ **[Completed 2025-12-20]**
+### Phase is4: Solutions System ✅ **[Completed 2025-12-20]**
 
 "phase_id": "is4"
 "status": "done"
@@ -447,18 +447,18 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
 
 ## Assemblies and Packages Track
 
-\"track_id\": \"assemblies\"
-\"priority\": 2
-\"status\": \"in_progress\"
-\"completion\": 50%
+"track_id": "assemblies"
+"priority": 2
+"status": "in_progress"
+"completion": 50%
 
 This track handles the organization of packages into logical assemblies that represent cohesive units of code.
 
-### Phase AS1: Assemblies in Maestro Repository System ✅ **[Completed 2025-12-19]**
+### Phase as1: Assemblies in Maestro Repository System ✅ **[Completed 2025-12-19]**
 
-\"phase_id\": \"assemblies-1\"
-\"status\": \"done\"
-\"completion\": 100
+"phase_id": "as1"
+"status": "done"
+"completion": 100
 
 **Objective**: Implement the concept of "assemblies" - logical groups of packages that represent cohesive units of code, rather than treating every directory as a potential package.
 
@@ -549,20 +549,20 @@ This track handles the organization of packages into logical assemblies that rep
 
 ## TU/AST Track: Translation Unit and AST Generation
 
-\"track_id\": \"tu-ast\"
-\"priority\": 1
-\"status\": \"in_progress\"
-\"completion\": 83%
+"track_id": "tu-ast"
+"priority": 1
+"status": "in_progress"
+"completion": 83%
 
 This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) generation for advanced code analysis, auto-completion, symbol resolution, and code transformation across multiple programming languages.
 
 **Track Progress**: 5 of 6 phases complete (TU1-TU5: Done, TU6: Planned)
 
-### Phase TU1: Core AST Infrastructure ✅ **[Completed 2025-12-19]**
+### Phase tu1: Core AST Infrastructure ✅ **[Completed 2025-12-19]**
 
-\"phase_id\": \"tu-ast-1\"
-\"status\": \"done\"
-\"completion\": 100
+"phase_id": "tu-ast-1"
+"status": "done"
+"completion": 100
 
 **Objective**: Create universal AST node representation and parsers for C++, Java, and Kotlin.
 
@@ -624,11 +624,11 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 - Round-trip serialization verified
 - Integration with TUBuilder tested
 
-### Phase TU2: Incremental TU Builder ✅ **[Completed 2025-12-19]**
+### Phase tu2: Incremental TU Builder ✅ **[Completed 2025-12-19]**
 
-\"phase_id\": \"tu-ast-2\"
-\"status\": \"done\"
-\"completion\": 100
+"phase_id": "tu-ast-2"
+"status": "done"
+"completion": 100
 
 **Objective**: Implement incremental compilation with file hashing and AST caching.
 
@@ -668,11 +668,11 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 - Cache round-trip tested (compressed and uncompressed)
 - Incremental behavior verified
 
-### Phase TU3: Symbol Resolution and Indexing ✅ **[Completed 2025-12-19]**
+### Phase tu3: Symbol Resolution and Indexing ✅ **[Completed 2025-12-19]**
 
-\"phase_id\": \"tu-ast-3\"
-\"status\": \"done\"
-\"completion\": 100
+"phase_id": "tu-ast-3"
+"status": "done"
+"completion": 100
 
 **Objective**: Implement symbol table, cross-file symbol resolution, and SQLite-based symbol indexing.
 
@@ -710,11 +710,11 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 - SQLite index rebuild tested
 - Integration with TUBuilder tested
 
-### Phase TU4: Auto-Completion Engine ✅ **[Completed 2025-12-19]**
+### Phase tu4: Auto-Completion Engine ✅ **[Completed 2025-12-19]**
 
-\"phase_id\": \"tu-ast-4\"
-\"status\": \"done\"
-\"completion\": 100
+"phase_id": "tu-ast-4"
+"status": "done"
+"completion": 100
 
 **Objective**: Implement auto-completion provider and LSP server integration.
 
@@ -747,11 +747,11 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 - Completion provider tests passing
 - Integration verified
 
-### Phase TU5: Integration with Build System and CLI ✅ **[Completed 2025-12-19]**
+### Phase tu5: Integration with Build System and CLI ✅ **[Completed 2025-12-19]**
 
-\"phase_id\": \"tu-ast-5\"
-\"status\": \"done\"
-\"completion\": 100
+"phase_id": "tu-ast-5"
+"status": "done"
+"completion": 100
 
 **Objective**: Integrate TU system with Maestro build system and implement `maestro tu` CLI.
 
@@ -858,7 +858,7 @@ maestro tu cache stats
 - Command integration verified
 - Cache management tested
 
-### Phase TU6: Code Transformation and Convention Enforcement ✅ **[Completed 2025-12-19]**
+### Phase tu6: Code Transformation and Convention Enforcement ✅ **[Completed 2025-12-19]**
 
 "phase_id": "tu-ast-6"
 "status": "done"
@@ -1040,10 +1040,10 @@ maestro tu cache stats
 - `maestro/tu/transformers.py` - Transformation framework with dependency analysis
 - `maestro/tu/code_generator.py` - Full C++ code generation with class support
 
-**Track Completed**: 2025-12-19 (Phase TU6 - 100%)
+**Track Completed**: 2025-12-19 (Phase tu6 - 100%)
 **Implementation**: qwen (via Claude Code)
 
-### Phase TU7: Multi-Language AST Testing ✅ **[Completed 2025-12-19]**
+### Phase tu7: Multi-Language AST Testing ✅ **[Completed 2025-12-19]**
 
 "phase_id": "tu-ast-7"
 "status": "done"
@@ -1149,5 +1149,5 @@ maestro tu print-ast <file> --max-depth 4
 maestro tu print-ast <file> --no-types --no-locations
 ```
 
-**Track Completed**: 2025-12-19 (Phase TU7 - 100%)
+**Track Completed**: 2025-12-19 (Phase tu7 - 100%)
 **Implementation**: Direct implementation (Claude Code with qwen for low/medium tasks)

@@ -29,43 +29,43 @@ For misc packages (root files), auto-group by file type:
 
 ## Tasks
 
-- [ ] **11.1: Group Representation**
+- [ ] **umk11.1: Group Representation**
   - [ ] Create `FileGroup` dataclass in package metadata
   - [ ] Add `groups` and `ungrouped_files` fields to `PackageInfo`
   - [ ] Support readonly flag on groups
 
-- [ ] **11.2: U++ Separator Parsing**
+- [ ] **umk11.2: U++ Separator Parsing**
   - [ ] Enhance `upp_parser.py` to extract separator names
   - [ ] Build group structure from separator markers
   - [ ] Handle multiple consecutive separators
   - [ ] Support quoted separator names with spaces
 
-- [ ] **11.3: Auto-Grouping for Misc Packages**
+- [ ] **umk11.3: Auto-Grouping for Misc Packages**
   - [ ] Create `AutoGrouper` class
   - [ ] Define GROUP_RULES for file extensions
   - [ ] Implement pattern matching for file grouping
   - [ ] Group by extension and file patterns
   - [ ] Sort groups and files within groups
 
-- [ ] **11.4: CLI Support**
+- [ ] **umk11.4: CLI Support**
   - [ ] Implement `maestro repo pkg [ID] --show-groups`
   - [ ] Implement `maestro repo pkg [ID] --group [GROUP]`
   - [ ] Display group headers with file counts
   - [ ] Support collapsed/expanded view
 
-- [ ] **11.5: TUI Integration**
+- [ ] **umk11.5: TUI Integration**
   - [ ] Show groups in package view (collapsible tree)
   - [ ] Navigate between groups (Tab/Shift+Tab)
   - [ ] Filter/search within group
   - [ ] Show group statistics (file count, LOC)
   - [ ] Syntax highlighting for group headers
 
-- [ ] **11.6: Build Integration**
+- [ ] **umk11.6: Build Integration**
   - [ ] Implement `maestro make build [PACKAGE] --group [GROUP]`
   - [ ] Build specific group only (useful for platform-specific code)
   - [ ] Dependency tracking per group
 
-- [ ] **11.7: Export Support**
+- [ ] **umk11.7: Export Support**
   - [ ] Export groups to Visual Studio filters (.vcxproj.filters)
   - [ ] Export groups to CMake source_group()
   - [ ] Export groups to IntelliJ modules

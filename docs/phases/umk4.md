@@ -8,19 +8,19 @@
 
 ## Tasks
 
-- [ ] **4.1: Autotools Builder Implementation**
+- [ ] **umk4.1: Autotools Builder Implementation**
   - [ ] Create `autotools.py` module
   - [ ] Implement `configure()` method
   - [ ] Run `autoreconf` if needed
   - [ ] Support `./configure` arguments
 
-- [ ] **4.2: Configuration Options**
+- [ ] **umk4.2: Configuration Options**
   - [ ] Map Maestro config → configure flags
   - [ ] Support `--prefix`, `--enable-debug`
   - [ ] Support custom `CFLAGS`, `CXXFLAGS`
   - [ ] Support cross-compilation (host/build/target)
 
-- [ ] **4.3: Build Execution**
+- [ ] **umk4.3: Build Execution**
   - [ ] Implement parallel make (`-j`)
   - [ ] Support VPATH builds (out-of-source)
   - [ ] Handle GNU Make and BSD Make

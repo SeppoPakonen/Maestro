@@ -74,7 +74,7 @@
 "status": "planned"
 "completion": 0%
 
-This track implements the foundational repository analysis and management commands that users interact with first when working with a codebase. Integrates the completed assembly detection system (Phase AS1) into repository hierarchy analysis.
+This track implements the foundational repository analysis and management commands that users interact with first when working with a codebase. Integrates the completed assembly detection system (Phase as1) into repository hierarchy analysis.
 
 **Command Hierarchy**:
 - `maestro init` - Initialize Maestro in a repository
@@ -88,7 +88,7 @@ This track implements the foundational repository analysis and management comman
 - `maestro repo conventions detect` - Explicitly detect conventions
 - `maestro repo rules` - Show/edit repository rules
 
-### Phase RF1: Init & Resolve ✅ **[Completed 2025-12-20]**
+### Phase rf1: Init & Resolve ✅ **[Completed 2025-12-20]**
 
 "phase_id": "rf1"
 "status": "done"
@@ -107,12 +107,12 @@ This track implements the foundational repository analysis and management comman
 - [x] **RF1.2: Repository Resolve** ✅ (Already implemented)
   - Scan for packages (U++, CMake, Autotools, Maven, Gradle, etc.)
   - Detect build systems
-  - Identify assemblies (U++, custom) - ✅ Infrastructure exists from Phase AS1
+  - Identify assemblies (U++, custom) - ✅ Infrastructure exists from Phase as1
   - Create repository metadata
   - Integration with existing package scanners
   - Integration with completed assembly detection system
 
-### Phase RF2: Repository Hierarchy Analysis ✅ **[Completed 2025-12-20]**
+### Phase rf2: Repository Hierarchy Analysis ✅ **[Completed 2025-12-20]**
 
 "phase_id": "rf2"
 "status": "done"
@@ -122,7 +122,7 @@ This track implements the foundational repository analysis and management comman
   - AI-powered analysis of directory structure ✅
   - Identify logical groupings (not just filesystem) ✅
   - Detect package groups ✅
-  - Recognize assemblies and their structure - ✅ Assembly system from Phase AS1
+  - Recognize assemblies and their structure - ✅ Assembly system from Phase as1
   - Map relationships between components ✅
   - Leverage completed assembly detection infrastructure ✅
   - **Internal Package Groups** (from UMK Phase 11):
@@ -132,7 +132,7 @@ This track implements the foundational repository analysis and management comman
 
 - [x] **RF2.2: Hierarchy Visualization** ✅
   - Tree-view terminal output ✅
-  - Show packages, assemblies, groups - ✅ Assembly data available from Phase AS1
+  - Show packages, assemblies, groups - ✅ Assembly data available from Phase as1
   - Hierarchical display of build systems ✅
   - Color-coded output ✅
   - Export to JSON format ✅
@@ -178,7 +178,7 @@ This track implements the foundational repository analysis and management comman
 - ✅ Override system allows manual customization
 - ✅ All test criteria met
 
-### Phase RF3: Convention Detection ✅ **[Completed 2025-12-20]**
+### Phase rf3: Convention Detection ✅ **[Completed 2025-12-20]**
 
 "phase_id": "rf3"
 "status": "done"
@@ -237,7 +237,7 @@ This track implements the foundational repository analysis and management comman
 - ✅ Manual override capability available
 - ✅ All test criteria met
 
-### Phase RF4: Repository Rules ✅ **[Completed 2025-12-20]**
+### Phase rf4: Repository Rules ✅ **[Completed 2025-12-20]**
 
 "phase_id": "rf4"
 "status": "done"
@@ -291,7 +291,7 @@ This track implements the foundational repository analysis and management comman
 - ✅ Ready for AI workflow integration
 - ✅ All test criteria met
 
-### Phase RF5: Refresh All ✅ **[Completed 2025-12-20]**
+### Phase rf5: Refresh All ✅ **[Completed 2025-12-20]**
 
 "phase_id": "rf5"
 "status": "done"
@@ -299,8 +299,8 @@ This track implements the foundational repository analysis and management comman
 
 - [x] **RF5.1: Refresh All Implementation** ✅
   - Execute `repo resolve` ✅
-  - Execute `repo conventions detect` (placeholder - Phase RF3)
-  - Execute `repo hier` analysis (placeholder - Phase RF2)
+  - Execute `repo conventions detect` (placeholder - Phase rf3)
+  - Execute `repo hier` analysis (placeholder - Phase rf2)
   - Update all caches and indices ✅
   - Incremental refresh support (future)
 
@@ -342,7 +342,7 @@ This track implements the comprehensive issue tracking and solution management s
 - `maestro solutions show <id>` - Show solution details
 - `maestro solutions edit <id>` - Edit solution in $EDITOR
 
-### Phase IS5: Runtime Issue Collection (Low Priority)
+### Phase is5: Runtime Issue Collection (Low Priority)
 
 "phase_id": "is5"
 "status": "proposed"
@@ -390,7 +390,7 @@ This track implements the AI pair programming system with hierarchical session m
 - `maestro session <id>` - Show session details
 - `maestro discuss` - General AI discussion (creates session)
 
-### Phase WS1: Session Infrastructure ✅ **[Completed 2025-12-20]**
+### Phase ws1: Session Infrastructure ✅ **[Completed 2025-12-20]**
 
 "phase_id": "ws1"
 "status": "done"
@@ -427,7 +427,7 @@ This track implements the AI pair programming system with hierarchical session m
   - pause_session_for_user_input() - Stub function created ✅
   - Full implementation deferred to future phase ✅
 
-### Phase WS2: Breadcrumb System ✅ **[Completed 2025-12-20]**
+### Phase ws2: Breadcrumb System ✅ **[Completed 2025-12-20]**
 
 "phase_id": "ws2"
 "status": "done"
@@ -474,7 +474,7 @@ This track implements the AI pair programming system with hierarchical session m
   - CLI: `maestro wsession timeline <session-id>` ✅
   - Token counting and cost estimation ✅
 
-### Phase WS3: Work Command
+### Phase ws3: Work Command
 
 "phase_id": "ws3"
 "status": "planned"
@@ -512,7 +512,7 @@ This track implements the AI pair programming system with hierarchical session m
   - Link sessions in parent-child relationship
   - Timeline shows full workflow
 
-### Phase WS4: Session Visualization
+### Phase ws4: Session Visualization
 
 "phase_id": "ws4"
 "status": "planned"
@@ -540,7 +540,7 @@ This track implements the AI pair programming system with hierarchical session m
   - Show token counts and costs
   - Display sub-sessions
 
-### Phase WS5: Migrate CLI Discussions to Sessions
+### Phase ws5: Migrate CLI Discussions to Sessions
 
 "phase_id": "ws5"
 "status": "planned"
@@ -586,7 +586,7 @@ This track implements visualization and logging of project state, dependencies, 
 - `maestro log builds` - Show build history
 - `maestro log filter <criteria>` - Filtered log view
 
-### Phase OB1: Hub System
+### Phase ob1: Hub System
 
 "phase_id": "ob1"
 "status": "planned"
@@ -621,7 +621,7 @@ This track implements visualization and logging of project state, dependencies, 
   - Export to JSON for custom tools
   - TUI integration (future)
 
-### Phase OB2: Log System
+### Phase ob2: Log System
 
 "phase_id": "ob2"
 "status": "planned"
@@ -653,7 +653,7 @@ This track implements visualization and logging of project state, dependencies, 
   - Track build duration
   - Show build trends over time
 
-### Phase OB3: Global Repo Index Management
+### Phase ob3: Global Repo Index Management
 
 "phase_id": "ob3"
 "status": "planned"
@@ -694,7 +694,7 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
 - `maestro tu analyze <binary>` - Analyze built executable for TU/AST
 - `maestro tu print-ast <file>` - Print AST (already implemented)
 
-### Phase CT1: TU/AST for Issue Fixing
+### Phase ct1: TU/AST for Issue Fixing
 
 "phase_id": "ct1"
 "status": "planned"
@@ -719,7 +719,7 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
   - Create convention issues
   - Suggest fixes based on AST analysis
 
-### Phase CT2: Conversion Pipeline
+### Phase ct2: Conversion Pipeline
 
 "phase_id": "ct2"
 "status": "planned"
@@ -748,7 +748,7 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
   - Export package groups to IntelliJ modules
   - Preserve internal package group structure in IDE projects
 
-### Phase CT3: Multi-Language Convert (Experimental)
+### Phase ct3: Multi-Language Convert (Experimental)
 
 "phase_id": "ct3"
 "status": "proposed"
@@ -782,7 +782,7 @@ This track extends the completed TU/AST system (TU1-TU7) with issue-fixing and c
 
 This track removes deprecated commands and migrates to new systems.
 
-### Phase CM1: Remove Deprecated Commands
+### Phase cm1: Remove Deprecated Commands
 
 "phase_id": "cm1"
 "status": "planned"
@@ -812,7 +812,7 @@ This track removes deprecated commands and migrates to new systems.
   - Remove from help system
   - Update all documentation
 
-### Phase CM2: Rename Settings File
+### Phase cm2: Rename Settings File
 
 "phase_id": "cm2"
 "status": "planned"
@@ -829,7 +829,7 @@ This track removes deprecated commands and migrates to new systems.
   - Update CLI help text
   - Update phase files (cli4.md)
 
-### Phase CM3: Update Help System
+### Phase cm3: Update Help System
 
 "phase_id": "cm3"
 "status": "planned"
@@ -856,7 +856,7 @@ This track removes deprecated commands and migrates to new systems.
   - Group related commands visually
   - Color-code help output
 
-### Phase CM4: Markdown Persistence Migration
+### Phase cm4: Markdown Persistence Migration
 
 "phase_id": "cm4"
 "status": "planned"
@@ -1003,39 +1003,39 @@ This track implements the new Track/Phase/Task command-line interface with integ
 - **AI Discussion**: Unified discussion interface for tracks, phases, and tasks
 - **Markdown Storage**: All data in human-readable, machine-parsable markdown
 
-### Phase CLI1: Markdown Data Backend
+### Phase cli1: Markdown Data Backend
 
 "phase_id": "cli-tpt-1"
 "status": "done"
 "completion": 100
 
-- [x] [Phase CLI1: Markdown Data Backend](phases/cli1.md) ✅ **[Done]**
+- [x] [Phase cli1: Markdown Data Backend](phases/cli1.md) ✅ **[Done]**
   - Parser module for markdown data format
   - Writer module for markdown data format
   - Migration from JSON to markdown
   - Data validation and error recovery
 
-### Phase CLI2: Track/Phase/Task Commands
+### Phase cli2: Track/Phase/Task Commands
 
 "phase_id": "cli-tpt-2"
 "status": "done"
 "completion": 100
 
-- [x] [Phase CLI2: Track/Phase/Task Commands](phases/cli2.md) ✅ **[Done]**
+- [x] [Phase cli2: Track/Phase/Task Commands](phases/cli2.md) ✅ **[Done]**
   - `maestro track {help,list,add,remove,<id>}` commands
   - `maestro phase {help,list,add,remove,<id>}` commands
   - `maestro task {help,list,add,remove,<id>}` commands
   - `maestro track <id> phase` navigation
   - `maestro {track,phase,task} <id> {show,edit}` subcommands
 
-### Phase CLI3: AI Discussion System
+### Phase cli3: AI Discussion System
 
 "phase_id": "cli-tpt-3"
 "status": "done"
 "completion": 100
 "notes": "⚠️ Will be migrated to Session Framework in WS5"
 
-- [x] [Phase CLI3: AI Discussion System](phases/cli3.md) ⚠️ **[Done - Needs Migration]**
+- [x] [Phase cli3: AI Discussion System](phases/cli3.md) ⚠️ **[Done - Needs Migration]**
   - Unified discussion module for all AI interactions
   - `maestro track discuss` - general track planning
   - `maestro phase <id> discuss` - phase-specific discussion
@@ -1047,26 +1047,26 @@ This track implements the new Track/Phase/Task command-line interface with integ
   - JSON action processor for track/phase/task operations
   - Settings management: `maestro settings` for defaults
 
-### Phase CLI4: Settings and Configuration
+### Phase cli4: Settings and Configuration
 
 "phase_id": "cli-tpt-4"
 "status": "done"
 "completion": 100
 "notes": "⚠️ Needs migration from config.md to Settings.md in CM2"
 
-- [x] [Phase CLI4: Settings and Configuration](phases/cli4.md) ⚠️ **[Done - Needs Migration]**
+- [x] [Phase cli4: Settings and Configuration](phases/cli4.md) ⚠️ **[Done - Needs Migration]**
   - Move all config from `~/.maestro/` to `docs/config.md`
   - `maestro settings` command
   - User preferences (editor mode, AI context, etc.)
   - Project-level settings in docs/config.md
 
-### Phase CLI5: TUI Track/Phase/Task Conversion
+### Phase cli5: TUI Track/Phase/Task Conversion
 
 "phase_id": "cli-tpt-5"
 "status": "done"
 "completion": 100
 
-- [x] [Phase CLI5: TUI Conversion](phases/cli5.md) ✅ **[Done]**
+- [x] [Phase cli5: TUI Conversion](phases/cli5.md) ✅ **[Done]**
   - Convert TUI to use Track/Phase/Task terminology
   - Integrate with markdown data backend
   - Update status badges and visual indicators
@@ -1117,13 +1117,13 @@ This track implements all phases from `docs/umk.md`, creating a universal build 
 
 This track focuses on evaluating and improving the meaningfulness and reliability of the test suite so failures reflect real regressions, not environment noise.
 
-### Phase TM1: Test Meaningfulness Audit
+### Phase tm1: Test Meaningfulness Audit
 
 "phase_id": "test-meaningfulness-1"
 "status": "planned"
 "completion": 0
 
-- [ ] [Phase TM1: Test Meaningfulness Audit](phases/tm1.md) 📋 **[Planned]**
+- [ ] [Phase tm1: Test Meaningfulness Audit](phases/tm1.md) 📋 **[Planned]**
   - Categorize failing tests by value and stability
   - Decide which tests to fix, update, or retire
 
@@ -1143,13 +1143,13 @@ This track implements Translation Unit (TU) and Abstract Syntax Tree (AST) gener
 - Conversion pipeline will leverage TU1-TU7 (CT2)
 - AST analysis will detect convention violations (CT1.3)
 
-- [x] [Phase TU1: Core AST Infrastructure](phases/tu1.md) ✅ **[Done - 2025-12-19]**
-- [x] [Phase TU2: Incremental TU Builder with File Hashing](phases/tu2.md) ✅ **[Done - 2025-12-19]**
-- [x] [Phase TU3: Symbol Resolution and Indexing](phases/tu3.md) ✅ **[Done - 2025-12-19]**
-- [x] [Phase TU4: Auto-Completion Engine](phases/tu4.md) ✅ **[Done - 2025-12-19]**
-- [x] [Phase TU5: Integration with Build System and CLI](phases/tu5.md) ✅ **[Done - 2025-12-19]**
-- [x] [Phase TU6: Code Transformation and Convention Enforcement](phases/tu6.md) ✅ **[Done - 2025-12-19]**
-- [x] [Phase TU7: Multi-Language AST Testing](phases/tu7.md) ✅ **[Done - 2025-12-19]**
+- [x] [Phase tu1: Core AST Infrastructure](phases/tu1.md) ✅ **[Done - 2025-12-19]**
+- [x] [Phase tu2: Incremental TU Builder with File Hashing](phases/tu2.md) ✅ **[Done - 2025-12-19]**
+- [x] [Phase tu3: Symbol Resolution and Indexing](phases/tu3.md) ✅ **[Done - 2025-12-19]**
+- [x] [Phase tu4: Auto-Completion Engine](phases/tu4.md) ✅ **[Done - 2025-12-19]**
+- [x] [Phase tu5: Integration with Build System and CLI](phases/tu5.md) ✅ **[Done - 2025-12-19]**
+- [x] [Phase tu6: Code Transformation and Convention Enforcement](phases/tu6.md) ✅ **[Done - 2025-12-19]**
+- [x] [Phase tu7: Multi-Language AST Testing](phases/tu7.md) ✅ **[Done - 2025-12-19]**
 
 ---
 
@@ -1167,11 +1167,11 @@ This track extends repository scanning and build support to additional ecosystem
 - Package scanning will be used by `repo resolve` (RF1)
 - Assembly detection (completed in AS1) integrated into `repo hier` (RF2)
 
-- [ ] [Phase E1: Python Project Support](phases/e1.md) 📋 **[Planned]**
-- [ ] [Phase E2: Node.js / npm Project Support](phases/e2.md) 📋 **[Planned]**
-- [ ] [Phase E3: Go Project Support](phases/e3.md) 📋 **[Planned]**
-- [ ] [Phase E4: Pedigree pup Package System Support](phases/e4.md) 📋 **[Planned]**
-- [ ] [Phase E5: Additional Build Systems (Future)](phases/e5.md) 💡 **[Proposed]**
+- [ ] [Phase e1: Python Project Support](phases/e1.md) 📋 **[Planned]**
+- [ ] [Phase e2: Node.js / npm Project Support](phases/e2.md) 📋 **[Planned]**
+- [ ] [Phase e3: Go Project Support](phases/e3.md) 📋 **[Planned]**
+- [ ] [Phase e4: Pedigree pup Package System Support](phases/e4.md) 📋 **[Planned]**
+- [ ] [Phase e5: Additional Build Systems (Future)](phases/e5.md) 💡 **[Proposed]**
 
 ---
 
@@ -1184,20 +1184,20 @@ This track extends repository scanning and build support to additional ecosystem
 
 This track handles external dependencies, build scripts, and Gentoo Portage integration.
 
-- [ ] [Phase A1: Git Submodule and Build Script Handling](phases/a1.md) 💡 **[Proposed]**
-- [ ] [Phase A2: Gentoo Portage Integration - Design](phases/a2.md) 💡 **[Proposed]**
-- [ ] [Phase A3: Portage Integration - Implementation](phases/a3.md) 💡 **[Proposed]**
-- [ ] [Phase A4: Host System Package Recognition](phases/a4.md) 💡 **[Proposed]**
-- [ ] [Phase A5: Portage Superset Integration](phases/a5.md) 💡 **[Proposed]**
-- [ ] [Phase A6: External Dependency Workflow](phases/a6.md) 💡 **[Proposed]**
+- [ ] [Phase a1: Git Submodule and Build Script Handling](phases/a1.md) 💡 **[Proposed]**
+- [ ] [Phase a2: Gentoo Portage Integration - Design](phases/a2.md) 💡 **[Proposed]**
+- [ ] [Phase a3: Portage Integration - Implementation](phases/a3.md) 💡 **[Proposed]**
+- [ ] [Phase a4: Host System Package Recognition](phases/a4.md) 💡 **[Proposed]**
+- [ ] [Phase a5: Portage Superset Integration](phases/a5.md) 💡 **[Proposed]**
+- [ ] [Phase a6: External Dependency Workflow](phases/a6.md) 💡 **[Proposed]**
 
 ---
 
 ## Integration and Testing
 
-- [ ] [Phase IT1: Integration Testing](phases/it1.md)
-- [ ] [Phase IT2: Notes and Considerations](phases/it2.md)
-- [ ] [Phase IT3: Next Steps](phases/it3.md)
+- [ ] [Phase it1: Integration Testing](phases/it1.md)
+- [ ] [Phase it2: Notes and Considerations](phases/it2.md)
+- [ ] [Phase it3: Next Steps](phases/it3.md)
 
 ---
 

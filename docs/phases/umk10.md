@@ -8,20 +8,20 @@
 
 ## Tasks
 
-- [ ] **10.1: Hub Metadata Format**
+- [ ] **umk10.1: Hub Metadata Format**
   - [ ] Define JSON schema for hub registries (see umk.md lines 260-292)
   - [ ] Support UppHub compatibility
   - [ ] Multi-build-system package metadata
   - [ ] Versioning and compatibility tracking
 
-- [ ] **10.2: Hub Client**
+- [ ] **umk10.2: Hub Client**
   - [ ] Create `hub/client.py` module
   - [ ] Implement `load_hub(url)`
   - [ ] Implement `search_package(name)`
   - [ ] Implement `install_nest(name)`
   - [ ] Implement `auto_resolve(workspace)`
 
-- [ ] **10.3: CLI Integration** (see umk.md lines 999-1020)
+- [ ] **umk10.3: CLI Integration** (see umk.md lines 999-1020)
   - [ ] Implement `maestro hub list`
   - [ ] Implement `maestro hub search`
   - [ ] Implement `maestro hub install`
@@ -30,25 +30,25 @@
   - [ ] Implement `maestro hub sync`
   - [ ] Implement `maestro hub info`
 
-- [ ] **10.4: Auto-Resolution**
+- [ ] **umk10.4: Auto-Resolution**
   - [ ] Detect missing packages during build
   - [ ] Search registered hubs
   - [ ] Prompt user for installation
   - [ ] Clone repositories to `~/.maestro/hub/`
   - [ ] Recursive dependency resolution
 
-- [ ] **10.5: Hub Registry Management**
+- [ ] **umk10.5: Hub Registry Management**
   - [ ] Create official MaestroHub registry
   - [ ] Import existing UppHub
   - [ ] Support custom/private hubs
   - [ ] Support organization-specific hubs
 
-- [ ] **10.6: Package Path Resolution**
+- [ ] **umk10.6: Package Path Resolution**
   - [ ] Search order: local → hub → system
   - [ ] Package name disambiguation
   - [ ] Version conflict resolution
 
-- [ ] **10.7: Integration with Package Managers**
+- [ ] **umk10.7: Integration with Package Managers**
   - [ ] Conan wrapper for C++ packages
   - [ ] vcpkg integration
   - [ ] npm/pip/cargo bridge (future)

@@ -30,7 +30,7 @@ These TUIs need to:
 
 ## Tasks
 
-### Task 5.1: TUI Terminology Update
+### Task cli5.1: TUI Terminology Update
 
 "task_id": "cli-tpt-5-1"
 "priority": "P1"
@@ -38,13 +38,13 @@ These TUIs need to:
 
 Update all UI text, variable names, and documentation to use Track/Phase/Task.
 
-- [ ] **5.1.1: Audit Current TUI Code**
+- [ ] **cli5.1.1: Audit Current TUI Code**
   - [ ] Scan maestro/tui/ for "roadmap", "plan" references
   - [ ] Scan maestro/tui_mc2/ for "roadmap", "plan" references
   - [ ] Create list of all files needing changes
   - [ ] Document current navigation structure
 
-- [ ] **5.1.2: Update maestro/tui/ Terminology**
+- [ ] **cli5.1.2: Update maestro/tui/ Terminology**
   - [ ] Replace "Roadmap" with "Track" in UI text
   - [ ] Replace "Plan" with "Phase" in UI text
   - [ ] Update menu labels and help text
@@ -52,7 +52,7 @@ Update all UI text, variable names, and documentation to use Track/Phase/Task.
   - [ ] Rename internal variables (roadmap → track, plan → phase)
   - [ ] Update function and class names
 
-- [ ] **5.1.3: Update maestro/tui_mc2/ Terminology**
+- [ ] **cli5.1.3: Update maestro/tui_mc2/ Terminology**
   - [ ] Replace "Roadmap" with "Track" in UI text
   - [ ] Replace "Plan" with "Phase" in UI text
   - [ ] Update menu labels and help text
@@ -60,12 +60,12 @@ Update all UI text, variable names, and documentation to use Track/Phase/Task.
   - [ ] Rename internal variables
   - [ ] Update function and class names
 
-- [ ] **5.1.4: Update Comments and Documentation**
+- [ ] **cli5.1.4: Update Comments and Documentation**
   - [ ] Update inline comments
   - [ ] Update docstrings
   - [ ] Update any TUI-specific README or docs
 
-### Task 5.2: Markdown Data Backend Integration
+### Task cli5.2: Markdown Data Backend Integration
 
 "task_id": "cli-tpt-5-2"
 "priority": "P1"
@@ -73,27 +73,27 @@ Update all UI text, variable names, and documentation to use Track/Phase/Task.
 
 Integrate TUI with the new markdown data backend.
 
-- [ ] **5.2.1: Replace JSON Data Access**
+- [ ] **cli5.2.1: Replace JSON Data Access**
   - [ ] Remove direct .maestro/*.json file access
   - [ ] Use maestro.data.parse_todo_md() for track/phase data
   - [ ] Use maestro.data.parse_config_md() for configuration
   - [ ] Use maestro.data.parse_phase_md() for phase details
   - [ ] Handle file not found errors gracefully
 
-- [ ] **5.2.2: Update Track/Phase/Task Models**
+- [ ] **cli5.2.2: Update Track/Phase/Task Models**
   - [ ] Update data models to match new markdown format
   - [ ] Support new metadata fields (track_id, phase_id, etc.)
   - [ ] Handle new status types (done, in_progress, planned, proposed)
   - [ ] Support completion percentages
   - [ ] Support priority levels (P0, P1, P2)
 
-- [ ] **5.2.3: Real-time Data Refresh**
+- [ ] **cli5.2.3: Real-time Data Refresh**
   - [ ] Detect when markdown files change
   - [ ] Refresh TUI display when docs/*.md files updated
   - [ ] Handle parse errors gracefully (show error, don't crash)
   - [ ] Cache parsed data to avoid re-parsing on every render
 
-- [ ] **5.2.4: Navigation Updates**
+- [ ] **cli5.2.4: Navigation Updates**
   - [ ] Update navigation tree to show Track → Phase → Task hierarchy
   - [ ] Add breadcrumbs showing current track/phase/task
   - [ ] Support keyboard shortcuts:
@@ -102,7 +102,7 @@ Integrate TUI with the new markdown data backend.
     - `k` - view tasks in current phase
   - [ ] Update search to work across tracks/phases/tasks
 
-### Task 5.3: Status Badge and Emoji Support
+### Task cli5.3: Status Badge and Emoji Support
 
 "task_id": "cli-tpt-5-3"
 "priority": "P1"
@@ -110,26 +110,26 @@ Integrate TUI with the new markdown data backend.
 
 Add visual status indicators using emojis and colors.
 
-- [ ] **5.3.1: Emoji Status Indicators**
+- [ ] **cli5.3.1: Emoji Status Indicators**
   - [ ] Display ✅ for done status
   - [ ] Display 🚧 for in_progress status
   - [ ] Display 📋 for planned status
   - [ ] Display 💡 for proposed status
   - [ ] Handle terminals that don't support emoji (fallback to text)
 
-- [ ] **5.3.2: Completion Progress Bars**
+- [ ] **cli5.3.2: Completion Progress Bars**
   - [ ] Show completion percentage for phases
   - [ ] Visual progress bar for phases with tasks
   - [ ] Color coding: red < 30%, yellow 30-70%, green > 70%
   - [ ] Show overall track completion
 
-- [ ] **5.3.3: Priority Indicators**
+- [ ] **cli5.3.3: Priority Indicators**
   - [ ] Show P0 tasks in red/bold
   - [ ] Show P1 tasks in yellow
   - [ ] Show P2 tasks in normal text
   - [ ] Allow filtering by priority
 
-### Task 5.4: Feature Parity with CLI
+### Task cli5.4: Feature Parity with CLI
 
 "task_id": "cli-tpt-5-4"
 "priority": "P2"
@@ -137,7 +137,7 @@ Add visual status indicators using emojis and colors.
 
 Ensure TUI supports all CLI operations.
 
-- [ ] **5.4.1: CRUD Operations**
+- [ ] **cli5.4.1: CRUD Operations**
   - [ ] Add new track (interactive form)
   - [ ] Add new phase to track
   - [ ] Add new task to phase
@@ -145,20 +145,20 @@ Ensure TUI supports all CLI operations.
   - [ ] Delete/archive track/phase/task
   - [ ] Mark task as completed
 
-- [ ] **5.4.2: Context Management**
+- [ ] **cli5.4.2: Context Management**
   - [ ] Display current context (track/phase/task)
   - [ ] Allow setting current track
   - [ ] Allow setting current phase
   - [ ] Allow setting current task
   - [ ] Context-aware operations (default to current when no selection)
 
-- [ ] **5.4.3: Discussion Integration**
+- [ ] **cli5.4.3: Discussion Integration**
   - [ ] Launch AI discussion from TUI
   - [ ] Integrate with maestro discuss commands
   - [ ] Show discussion history for track/phase/task
   - [ ] Preview suggested actions from AI
 
-### Task 5.5: textual-mc Deprecation Decision
+### Task cli5.5: textual-mc Deprecation Decision
 
 "task_id": "cli-tpt-5-5"
 "priority": "P2"
@@ -166,20 +166,20 @@ Ensure TUI supports all CLI operations.
 
 Decide fate of textual-mc implementation and clean up if needed.
 
-- [ ] **5.5.1: Evaluate textual-mc**
+- [ ] **cli5.5.1: Evaluate textual-mc**
   - [ ] Review textual-mc code quality and usage
   - [ ] Check if anyone is using textual-mc
   - [ ] Compare features with main TUI
   - [ ] Document pros/cons
 
-- [ ] **5.5.2: Deprecation Path**
+- [ ] **cli5.5.2: Deprecation Path**
   - [ ] If deprecating: Add deprecation notice
   - [ ] If deprecating: Document migration to main TUI
   - [ ] If deprecating: Move to maestro/tui/archived/
   - [ ] If keeping: Update to Track/Phase/Task as well
   - [ ] Update docs to reflect decision
 
-### Task 5.6: Testing and Polish
+### Task cli5.6: Testing and Polish
 
 "task_id": "cli-tpt-5-6"
 "priority": "P1"
@@ -187,7 +187,7 @@ Decide fate of textual-mc implementation and clean up if needed.
 
 Test TUI thoroughly and polish the user experience.
 
-- [ ] **5.6.1: Manual Testing**
+- [ ] **cli5.6.1: Manual Testing**
   - [ ] Test track navigation
   - [ ] Test phase navigation
   - [ ] Test task operations
@@ -195,20 +195,20 @@ Test TUI thoroughly and polish the user experience.
   - [ ] Test error handling (missing files, parse errors)
   - [ ] Test on different terminal emulators
 
-- [ ] **5.6.2: Edge Cases**
+- [ ] **cli5.6.2: Edge Cases**
   - [ ] Empty project (no tracks)
   - [ ] Track with no phases
   - [ ] Phase with no tasks
   - [ ] Malformed markdown data
   - [ ] Missing docs/ directory
 
-- [ ] **5.6.3: Performance**
+- [ ] **cli5.6.3: Performance**
   - [ ] Optimize markdown parsing (cache results)
   - [ ] Profile rendering performance
   - [ ] Ensure smooth scrolling with large lists
   - [ ] Lazy-load phase details
 
-- [ ] **5.6.4: User Experience Polish**
+- [ ] **cli5.6.4: User Experience Polish**
   - [ ] Add helpful tooltips/hints
   - [ ] Improve keyboard navigation
   - [ ] Add vim-style keybindings (hjkl navigation)

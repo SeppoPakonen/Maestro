@@ -8,24 +8,24 @@
 
 ## Tasks
 
-- [ ] **3.1: CMake Builder Implementation**
+- [ ] **umk3.1: CMake Builder Implementation**
   - [ ] Create `cmake.py` module
   - [ ] Implement `configure()` method
   - [ ] Implement `build_package()` method
   - [ ] Support CMake arguments: `-DCMAKE_BUILD_TYPE`, `-DCMAKE_INSTALL_PREFIX`
 
-- [ ] **3.2: Configuration Mapping**
+- [ ] **umk3.2: Configuration Mapping**
   - [ ] Map Maestro config → CMake variables
   - [ ] Support Debug/Release builds
   - [ ] Support compiler selection
   - [ ] Generate toolchain files for cross-compilation
 
-- [ ] **3.3: Target Support**
+- [ ] **umk3.3: Target Support**
   - [ ] Build specific targets
   - [ ] Support install targets
   - [ ] Support CPack package generation
 
-- [ ] **3.4: Generator Support**
+- [ ] **umk3.4: Generator Support**
   - [ ] Support Unix Makefiles
   - [ ] Support Ninja
   - [ ] Support Visual Studio (multi-config)

@@ -22,7 +22,7 @@ This replaces the old "plan/task" terminology and provides richer navigation and
 
 ## Tasks
 
-### Task 2.1: Track Commands
+### Task cli2.1: Track Commands
 
 "task_id": "cli-tpt-2-1"
 "priority": "P0"
@@ -30,7 +30,7 @@ This replaces the old "plan/task" terminology and provides richer navigation and
 
 Implement `maestro track` command group.
 
-- [ ] **2.1.1: Track List Command**
+- [ ] **cli2.1.1: Track List Command**
   - [ ] Implement `maestro track list`
     - Display all tracks from docs/todo.md
     - Show track ID, name, status, phase count
@@ -44,7 +44,7 @@ Implement `maestro track` command group.
   - [ ] Add `--all` flag to include completed tracks from docs/done.md
   - [ ] Add `--json` flag for machine-readable output
 
-- [ ] **2.1.2: Track Show Command**
+- [ ] **cli2.1.2: Track Show Command**
   - [ ] Implement `maestro track <id>` (alias for `maestro track <id> show`)
     - Display track details: name, status, description
     - List all phases with status
@@ -52,7 +52,7 @@ Implement `maestro track` command group.
   - [ ] Support both numeric ID and track_id string
   - [ ] Add `--verbose` for full details including metadata
 
-- [ ] **2.1.3: Track Add Command**
+- [ ] **cli2.1.3: Track Add Command**
   - [ ] Implement `maestro track add <name>`
     - Prompt for track description
     - Generate unique track_id
@@ -61,7 +61,7 @@ Implement `maestro track` command group.
   - [ ] Add `--description` flag for non-interactive mode
   - [ ] Add `--priority` flag to set priority (default: lowest+1)
 
-- [ ] **2.1.4: Track Remove Command**
+- [ ] **cli2.1.4: Track Remove Command**
   - [ ] Implement `maestro track remove <id>`
     - Prompt for confirmation
     - Move to docs/done.md if has completed work
@@ -69,21 +69,21 @@ Implement `maestro track` command group.
   - [ ] Add `--force` to skip confirmation
   - [ ] Add `--archive` to move to done even if not complete
 
-- [ ] **2.1.5: Track Edit Command**
+- [ ] **cli2.1.5: Track Edit Command**
   - [ ] Implement `maestro track <id> edit`
     - Open docs/todo.md in $EDITOR at track location
     - Jump to track heading line
   - [ ] Validate markdown after editing
   - [ ] Offer to fix if validation fails
 
-- [ ] **2.1.6: Track Phase Navigation**
+- [ ] **cli2.1.6: Track Phase Navigation**
   - [ ] Implement `maestro track <id> phase`
     - Alias for `maestro phase list --track <id>`
     - Show phases filtered to specific track
   - [ ] Implement `maestro track <id> phase <phase-id>`
     - Direct navigation to phase within track
 
-### Task 2.2: Phase Commands
+### Task cli2.2: Phase Commands
 
 "task_id": "cli-tpt-2-2"
 "priority": "P0"
@@ -91,7 +91,7 @@ Implement `maestro track` command group.
 
 Implement `maestro phase` command group.
 
-- [ ] **2.2.1: Phase List Command**
+- [ ] **cli2.2.1: Phase List Command**
   - [ ] Implement `maestro phase list`
     - Display all phases from all tracks
     - Show phase ID, name, track, status, completion
@@ -107,7 +107,7 @@ Implement `maestro phase` command group.
   - [ ] Add `--all` to include completed phases from docs/done.md
   - [ ] Add `--json` for machine-readable output
 
-- [ ] **2.2.2: Phase Show Command**
+- [ ] **cli2.2.2: Phase Show Command**
   - [ ] Implement `maestro phase <id>` (alias for `maestro phase <id> show`)
     - Display phase details from docs/phases/*.md
     - Show: name, track, status, completion, duration, dependencies
@@ -117,7 +117,7 @@ Implement `maestro phase` command group.
   - [ ] Add `--tasks` to show task details inline
   - [ ] Add `--verbose` for full details
 
-- [ ] **2.2.3: Phase Add Command**
+- [ ] **cli2.2.3: Phase Add Command**
   - [ ] Implement `maestro phase add <track-id> <name>`
     - Prompt for phase details (duration, dependencies, objective)
     - Generate unique phase_id
@@ -126,7 +126,7 @@ Implement `maestro phase` command group.
   - [ ] Add `--template <file>` to use phase template
   - [ ] Add non-interactive mode with flags
 
-- [ ] **2.2.4: Phase Remove Command**
+- [ ] **cli2.2.4: Phase Remove Command**
   - [ ] Implement `maestro phase remove <id>`
     - Prompt for confirmation
     - Check for dependent phases
@@ -135,19 +135,19 @@ Implement `maestro phase` command group.
   - [ ] Add `--force` to skip confirmation
   - [ ] Warn if other phases depend on this one
 
-- [ ] **2.2.5: Phase Edit Command**
+- [ ] **cli2.2.5: Phase Edit Command**
   - [ ] Implement `maestro phase <id> edit`
     - Open docs/phases/<phase-id>.md in $EDITOR
   - [ ] Validate markdown after editing
   - [ ] Sync changes back to docs/todo.md summary
 
-- [ ] **2.2.6: Phase Task Navigation**
+- [ ] **cli2.2.6: Phase Task Navigation**
   - [ ] Implement `maestro phase <id> task`
     - Alias for `maestro task list --phase <id>`
   - [ ] Implement `maestro phase <id> task <task-id>`
     - Direct navigation to task within phase
 
-### Task 2.3: Task Commands
+### Task cli2.3: Task Commands
 
 "task_id": "cli-tpt-2-3"
 "priority": "P0"
@@ -155,7 +155,7 @@ Implement `maestro phase` command group.
 
 Implement `maestro task` command group.
 
-- [ ] **2.3.1: Task List Command**
+- [ ] **cli2.3.1: Task List Command**
   - [ ] Implement `maestro task list`
     - Display all tasks from all phases
     - Show task ID, name, phase, status, priority
@@ -173,7 +173,7 @@ Implement `maestro task` command group.
   - [ ] Add `--all` to include completed tasks
   - [ ] Add `--json` for machine-readable output
 
-- [ ] **2.3.2: Task Show Command**
+- [ ] **cli2.3.2: Task Show Command**
   - [ ] Implement `maestro task <id>` (alias for `maestro task <id> show`)
     - Display task details from docs/phases/*.md
     - Show: name, phase, track, priority, estimated hours
@@ -182,7 +182,7 @@ Implement `maestro task` command group.
   - [ ] Support both numeric index and task_id string
   - [ ] Add `--verbose` for full context (including phase details)
 
-- [ ] **2.3.3: Task Add Command**
+- [ ] **cli2.3.3: Task Add Command**
   - [ ] Implement `maestro task add <phase-id> <name>`
     - Prompt for task details (priority, description, subtasks)
     - Generate unique task_id
@@ -192,20 +192,20 @@ Implement `maestro task` command group.
   - [ ] Add `--hours <num>` for estimated hours
   - [ ] Add non-interactive mode with flags
 
-- [ ] **2.3.4: Task Remove Command**
+- [ ] **cli2.3.4: Task Remove Command**
   - [ ] Implement `maestro task remove <id>`
     - Prompt for confirmation
     - Remove from docs/phases/<phase-id>.md
     - Update docs/todo.md or docs/done.md if needed
   - [ ] Add `--force` to skip confirmation
 
-- [ ] **2.3.5: Task Edit Command**
+- [ ] **cli2.3.5: Task Edit Command**
   - [ ] Implement `maestro task <id> edit`
     - Open docs/phases/<phase-id>.md in $EDITOR at task location
     - Jump to task heading line
   - [ ] Validate markdown after editing
 
-- [ ] **2.3.6: Task Status Management**
+- [ ] **cli2.3.6: Task Status Management**
   - [ ] Implement `maestro task <id> start`
     - Mark task as in_progress
     - Update checkbox to `- [ ]` (in progress, not checked)
@@ -217,7 +217,7 @@ Implement `maestro task` command group.
     - Mark task as blocked
     - Add blocker note to task
 
-### Task 2.4: Navigation and Aliases
+### Task cli2.4: Navigation and Aliases
 
 "task_id": "cli-tpt-2-4"
 "priority": "P1"
@@ -225,7 +225,7 @@ Implement `maestro task` command group.
 
 Implement convenient navigation patterns and command aliases.
 
-- [ ] **2.4.1: Numeric vs ID Access**
+- [ ] **cli2.4.1: Numeric vs ID Access**
   - [ ] Support numeric indices from list commands
     - `maestro track 0` → first track in list
     - `maestro phase 5` → fifth phase in list
@@ -234,13 +234,13 @@ Implement convenient navigation patterns and command aliases.
     - `maestro phase cli-tpt-1` → phase by ID
   - [ ] Auto-detect which type is provided
 
-- [ ] **2.4.2: Command Aliases**
+- [ ] **cli2.4.2: Command Aliases**
   - [ ] `maestro t` → `maestro track`
   - [ ] `maestro p` → `maestro phase`
   - [ ] `maestro ts` → `maestro task`
   - [ ] Support all subcommands with aliases
 
-- [ ] **2.4.3: Current Context**
+- [ ] **cli2.4.3: Current Context**
   - [ ] Implement context tracking in docs/config.md
     - `current_track`, `current_phase`, `current_task`
   - [ ] Implement `maestro track <id> set`
@@ -249,7 +249,7 @@ Implement convenient navigation patterns and command aliases.
     - `maestro phase list` (no args) → list phases in current track
     - `maestro task list` (no args) → list tasks in current phase
 
-### Task 2.5: Help System
+### Task cli2.5: Help System
 
 "task_id": "cli-tpt-2-5"
 "priority": "P1"
@@ -257,21 +257,21 @@ Implement convenient navigation patterns and command aliases.
 
 Implement comprehensive help for all commands.
 
-- [ ] **2.5.1: Track Help**
+- [ ] **cli2.5.1: Track Help**
   - [ ] Implement `maestro track help`
     - Show all track subcommands with examples
     - Show navigation patterns
   - [ ] Add examples for common workflows
 
-- [ ] **2.5.2: Phase Help**
+- [ ] **cli2.5.2: Phase Help**
   - [ ] Implement `maestro phase help`
     - Show all phase subcommands with examples
 
-- [ ] **2.5.3: Task Help**
+- [ ] **cli2.5.3: Task Help**
   - [ ] Implement `maestro task help`
     - Show all task subcommands with examples
 
-- [ ] **2.5.4: Global Help Updates**
+- [ ] **cli2.5.4: Global Help Updates**
   - [ ] Update `maestro help` to include track/phase/task
   - [ ] Add navigation guide section
 

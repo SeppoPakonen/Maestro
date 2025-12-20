@@ -41,7 +41,7 @@ maestro task cli-tpt-1-1 discuss
 
 ## Tasks
 
-### Task 3.1: Core Discussion Module
+### Task cli3.1: Core Discussion Module
 
 "task_id": "cli-tpt-3-1"
 "priority": "P0"
@@ -49,7 +49,7 @@ maestro task cli-tpt-1-1 discuss
 
 Create the unified discussion engine that all AI interactions use.
 
-- [ ] **3.1.1: Discussion Module Structure**
+- [ ] **cli3.1.1: Discussion Module Structure**
   - [ ] Create `maestro/ai/discussion.py`
   - [ ] Define `DiscussionContext` dataclass:
     - `context_type`: "track" | "phase" | "task" | "general"
@@ -66,7 +66,7 @@ Create the unified discussion engine that all AI interactions use.
     - `add_ai_message(msg: str)`
     - `process_command(cmd: str) -> bool`  # Returns True if should exit
 
-- [ ] **3.1.2: Context Builders**
+- [ ] **cli3.1.2: Context Builders**
   - [ ] Implement `build_track_context(track_id: Optional[str]) -> DiscussionContext`
     - Load track data if ID provided
     - Set allowed actions: track.add, track.edit, phase.add
@@ -80,14 +80,14 @@ Create the unified discussion engine that all AI interactions use.
     - Set allowed actions: task.edit, task.complete
     - Build system prompt with task info
 
-- [ ] **3.1.3: Discussion Result**
+- [ ] **cli3.1.3: Discussion Result**
   - [ ] Define `DiscussionResult` dataclass:
     - `messages`: List of user/AI message pairs
     - `actions`: List of JSON actions to execute
     - `completed`: bool (True if /done, False if /quit)
   - [ ] Implement result serialization to docs/discussions/*.md
 
-### Task 3.2: Editor Mode
+### Task cli3.2: Editor Mode
 
 "task_id": "cli-tpt-3-2"
 "priority": "P0"
@@ -95,7 +95,7 @@ Create the unified discussion engine that all AI interactions use.
 
 Implement editor-based discussion mode using $EDITOR.
 
-- [ ] **3.2.1: Editor Interface**
+- [ ] **cli3.2.1: Editor Interface**
   - [ ] Implement `EditorDiscussion` class (inherits from `Discussion`)
   - [ ] Create temporary markdown file format:
     ```markdown
@@ -115,7 +115,7 @@ Implement editor-based discussion mode using $EDITOR.
   - [ ] Parse user input from non-comment lines
   - [ ] Detect special commands (/done, /quit)
 
-- [ ] **3.2.2: Editor Loop**
+- [ ] **cli3.2.2: Editor Loop**
   - [ ] Implement main loop:
     1. Write current state to temp file
     2. Open $EDITOR on temp file
@@ -127,7 +127,7 @@ Implement editor-based discussion mode using $EDITOR.
   - [ ] Handle editor errors (file not saved, editor crash)
   - [ ] Support $VISUAL fallback if $EDITOR not set
 
-- [ ] **3.2.3: AI Response Integration**
+- [ ] **cli3.2.3: AI Response Integration**
   - [ ] Call AI API with user message and context
   - [ ] Parse AI response for:
     - Natural language reply
@@ -135,7 +135,7 @@ Implement editor-based discussion mode using $EDITOR.
   - [ ] Append AI reply as # comments for next iteration
   - [ ] Extract and queue JSON actions
 
-### Task 3.3: Terminal Stream Mode
+### Task cli3.3: Terminal Stream Mode
 
 "task_id": "cli-tpt-3-3"
 "priority": "P0"
@@ -143,7 +143,7 @@ Implement editor-based discussion mode using $EDITOR.
 
 Implement terminal-based discussion mode with real-time interaction.
 
-- [ ] **3.3.1: Terminal Interface**
+- [ ] **cli3.3.1: Terminal Interface**
   - [ ] Implement `TerminalDiscussion` class (inherits from `Discussion`)
   - [ ] Use readline for input handling
   - [ ] Key bindings:
@@ -156,19 +156,19 @@ Implement terminal-based discussion mode with real-time interaction.
     - AI messages: `AI: <message>`
     - System messages: `[System] <message>`
 
-- [ ] **3.3.2: Multi-line Input**
+- [ ] **cli3.3.2: Multi-line Input**
   - [ ] Implement multi-line input buffer
   - [ ] Show continuation prompt for multi-line: `...`
   - [ ] Handle Ctrl+J to add newline without sending
   - [ ] Handle pasted text with embedded newlines correctly
 
-- [ ] **3.3.3: Streaming AI Responses**
+- [ ] **cli3.3.3: Streaming AI Responses**
   - [ ] Support streaming AI API responses
   - [ ] Display AI response in real-time as tokens arrive
   - [ ] Show typing indicator while waiting: `AI: ...`
   - [ ] Allow Ctrl+C to cancel mid-response
 
-- [ ] **3.3.4: Command Handling**
+- [ ] **cli3.3.4: Command Handling**
   - [ ] Detect commands: `/done`, `/quit`, `/help`
   - [ ] Implement `/help` to show available commands
   - [ ] Clear indication when command is processed:
@@ -177,7 +177,7 @@ Implement terminal-based discussion mode with real-time interaction.
     [System] Processing actions and exiting...
     ```
 
-### Task 3.4: JSON Action Processor
+### Task cli3.4: JSON Action Processor
 
 "task_id": "cli-tpt-3-4"
 "priority": "P0"
@@ -185,7 +185,7 @@ Implement terminal-based discussion mode with real-time interaction.
 
 Implement the action processor that executes AI-generated JSON actions.
 
-- [ ] **3.4.1: Action Schema**
+- [ ] **cli3.4.1: Action Schema**
   - [ ] Define JSON action format:
     ```json
     {
@@ -210,19 +210,19 @@ Implement the action processor that executes AI-generated JSON actions.
     - `phase.add`, `phase.edit`, `phase.remove`
     - `task.add`, `task.edit`, `task.complete`, `task.remove`
 
-- [ ] **3.4.2: Action Validators**
+- [ ] **cli3.4.2: Action Validators**
   - [ ] Implement validator for each action type
   - [ ] Check required fields
   - [ ] Validate references (track_id exists, phase_id exists, etc.)
   - [ ] Check permissions (only allowed actions for context)
 
-- [ ] **3.4.3: Action Executors**
+- [ ] **cli3.4.3: Action Executors**
   - [ ] Implement executor for each action type
   - [ ] Use markdown writer to update docs/todo.md
   - [ ] Create/update docs/phases/*.md as needed
   - [ ] Handle errors gracefully (rollback on failure)
 
-- [ ] **3.4.4: Action Processing Pipeline**
+- [ ] **cli3.4.4: Action Processing Pipeline**
   - [ ] Implement `ActionProcessor` class:
     - `validate_actions(actions: List, context: DiscussionContext) -> List[str]`
       - Returns list of validation errors, empty if valid
@@ -233,7 +233,7 @@ Implement the action processor that executes AI-generated JSON actions.
   - [ ] Transaction support (all-or-nothing execution)
   - [ ] Preview mode (`--dry-run`) to show what would happen
 
-### Task 3.5: Discussion Commands
+### Task cli3.5: Discussion Commands
 
 "task_id": "cli-tpt-3-5"
 "priority": "P0"
@@ -241,7 +241,7 @@ Implement the action processor that executes AI-generated JSON actions.
 
 Implement the CLI commands for starting discussions.
 
-- [ ] **3.5.1: Track Discussion**
+- [ ] **cli3.5.1: Track Discussion**
   - [ ] Implement `maestro track discuss`
     - General track planning (no specific track)
     - Can create new tracks
@@ -249,7 +249,7 @@ Implement the CLI commands for starting discussions.
     - Discussion about specific track
     - Can add phases, edit track details
 
-- [ ] **3.5.2: Phase Discussion**
+- [ ] **cli3.5.2: Phase Discussion**
   - [ ] Implement `maestro phase <id> discuss`
     - Discussion about specific phase
     - Can add tasks, edit phase details
@@ -257,17 +257,17 @@ Implement the CLI commands for starting discussions.
     - If current_phase is set, discuss that phase
     - Otherwise, general discussion
 
-- [ ] **3.5.3: Task Discussion**
+- [ ] **cli3.5.3: Task Discussion**
   - [ ] Implement `maestro task <id> discuss`
     - Discussion about specific task
     - Can edit task, add subtasks
 
-- [ ] **3.5.4: Mode Selection**
+- [ ] **cli3.5.4: Mode Selection**
   - [ ] Add `--mode <editor|terminal>` flag to all discuss commands
   - [ ] Respect default from `docs/config.md`: `"discussion_mode"`
   - [ ] Auto-detect: use editor if $EDITOR set, terminal otherwise
 
-### Task 3.6: AI Integration
+### Task cli3.6: AI Integration
 
 "task_id": "cli-tpt-3-6"
 "priority": "P1"
@@ -275,7 +275,7 @@ Implement the CLI commands for starting discussions.
 
 Integrate with AI APIs (OpenAI, Anthropic, local models).
 
-- [ ] **3.6.1: AI Client Abstraction**
+- [ ] **cli3.6.1: AI Client Abstraction**
   - [ ] Create `maestro/ai/client.py`
   - [ ] Define `AIClient` abstract base class:
     - `send_message(messages: List, context: str) -> str`
@@ -285,7 +285,7 @@ Integrate with AI APIs (OpenAI, Anthropic, local models).
     - Anthropic (Claude)
     - Local (Ollama, llama.cpp)
 
-- [ ] **3.6.2: System Prompts**
+- [ ] **cli3.6.2: System Prompts**
   - [ ] Design system prompt template:
     ```
     You are a project planning assistant for Maestro.
@@ -305,13 +305,13 @@ Integrate with AI APIs (OpenAI, Anthropic, local models).
   - [ ] Include context-specific details (track/phase/task info)
   - [ ] Include examples of valid JSON actions
 
-- [ ] **3.6.3: Response Parsing**
+- [ ] **cli3.6.3: Response Parsing**
   - [ ] Extract natural language from AI response
   - [ ] Extract JSON blocks (```json...```)
   - [ ] Handle mixed responses (text + JSON)
   - [ ] Validate JSON syntax
 
-- [ ] **3.6.4: Configuration**
+- [ ] **cli3.6.4: Configuration**
   - [ ] Add AI config to docs/config.md:
     - `"ai_provider"`: "openai" | "anthropic" | "local"
     - `"ai_model"`: model name

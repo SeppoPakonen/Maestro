@@ -8,18 +8,18 @@
 
 ## Tasks
 
-- [ ] **5.1: MSBuild Builder Implementation**
+- [ ] **umk5.1: MSBuild Builder Implementation**
   - [ ] Create `msbuild.py` module
   - [ ] Implement MSBuild invocation
   - [ ] Support Configuration selection (Debug/Release)
   - [ ] Support Platform selection (Win32/x64/ARM/ARM64)
 
-- [ ] **5.2: Project Types**
+- [ ] **umk5.2: Project Types**
   - [ ] Support `.vcxproj` (MSBuild C++)
   - [ ] Support `.csproj` (MSBuild C#)
   - [ ] Support `.vcproj` (legacy VCBuild)
 
-- [ ] **5.3: Solution Builds**
+- [ ] **umk5.3: Solution Builds**
   - [ ] Parse `.sln` files
   - [ ] Resolve project dependencies
   - [ ] Build projects in correct order

@@ -8,7 +8,7 @@
 
 ## Tasks
 
-- [ ] **7.1: Command Structure**
+- [ ] **umk7.1: Command Structure**
   - [ ] Implement `maestro make build` (see umk.md lines 723-735)
   - [ ] Implement `maestro make clean` (lines 736-737)
   - [ ] Implement `maestro make rebuild` (lines 739-741)
@@ -18,24 +18,24 @@
   - [ ] Implement `maestro make android` (lines 763-773)
   - [ ] Implement `maestro make jar` (lines 775-782)
 
-- [ ] **7.2: Package Selection**
+- [ ] **umk7.2: Package Selection**
   - [ ] By name: `maestro make build MyPackage`
   - [ ] By pattern: `maestro make build "core/*"`
   - [ ] Main package: `maestro make build` (from current dir)
   - [ ] Build all: `maestro make build --all`
 
-- [ ] **7.3: Method Selection**
+- [ ] **umk7.3: Method Selection**
   - [ ] Auto-detect: Use package's native build system
   - [ ] Explicit: `maestro make build --method gcc-debug`
   - [ ] U++ config: `maestro make build --config "GUI MT"`
 
-- [ ] **7.4: Output Formatting**
+- [ ] **umk7.4: Output Formatting**
   - [ ] Progress indicator for parallel builds
   - [ ] Error highlighting
   - [ ] Warning/error count summary
   - [ ] Build time reporting
 
-- [ ] **7.5: Repository Integration**
+- [ ] **umk7.5: Repository Integration**
   - [ ] Load packages from `.maestro/repo/index.json`
   - [ ] Resolve dependencies using `repo pkg tree`
   - [ ] Build in dependency order

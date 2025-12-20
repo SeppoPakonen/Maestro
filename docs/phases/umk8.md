@@ -8,24 +8,24 @@
 
 ## Tasks
 
-- [ ] **8.1: Blitz Build (Unity Build)**
+- [ ] **umk8.1: Blitz Build (Unity Build)**
   - [ ] Create `blitz.py` module
   - [ ] Concatenate multiple .cpp files
   - [ ] Auto-generate blitz files
   - [ ] Detect blitz-safe files
   - [ ] Support per-file opt-out
 
-- [ ] **8.2: Precompiled Headers (PCH)**
+- [ ] **umk8.2: Precompiled Headers (PCH)**
   - [ ] Implement PCH generation
   - [ ] Auto-detect frequently used headers
   - [ ] Support per-file PCH opt-out
 
-- [ ] **8.3: Binary Resource Compilation (.brc)**
+- [ ] **umk8.3: Binary Resource Compilation (.brc)**
   - [ ] Embed binary files in executables
   - [ ] Generate C++ arrays from binary data
   - [ ] Support compression (gzip, bz2, lzma, zstd)
 
-- [ ] **8.4: Android Builds** (see umk.md lines 836-881)
+- [ ] **umk8.4: Android Builds** (see umk.md lines 836-881)
   - [ ] Create `android_sdk.py` module
   - [ ] Create `android_ndk.py` module
   - [ ] Create `android_manifest.py` module
@@ -37,7 +37,7 @@
   - [ ] Implement resource compilation (aapt)
   - [ ] Implement DEX generation (d8/dx)
 
-- [ ] **8.5: Java Builds** (see umk.md lines 883-916)
+- [ ] **umk8.5: Java Builds** (see umk.md lines 883-916)
   - [ ] Create `jdk.py` module
   - [ ] Create `jar.py` module
   - [ ] Implement JDK detection
@@ -45,14 +45,14 @@
   - [ ] Implement JAR packaging
   - [ ] Implement JNI support
 
-- [ ] **8.6: Export Features**
+- [ ] **umk8.6: Export Features**
   - [ ] Create `export.py` module
   - [ ] Generate Makefile from any package
   - [ ] Generate CMakeLists.txt from U++ package
   - [ ] Generate Visual Studio project from U++ package
   - [ ] Generate Ninja build file
 
-- [ ] **8.7: Cross-Compilation**
+- [ ] **umk8.7: Cross-Compilation**
   - [ ] Toolchain file support
   - [ ] Sysroot configuration
   - [ ] Host vs target tool selection

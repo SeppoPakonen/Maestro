@@ -26,7 +26,7 @@ The new system stores configuration in `docs/config.md`:
 
 ## Tasks
 
-### Task 4.1: Configuration Schema
+### Task cli4.1: Configuration Schema
 
 "task_id": "cli-tpt-4-1"
 "priority": "P1"
@@ -34,7 +34,7 @@ The new system stores configuration in `docs/config.md`:
 
 Define the complete configuration schema and structure.
 
-- [ ] **4.1.1: Configuration Sections**
+- [ ] **cli4.1.1: Configuration Sections**
   - [ ] Define `docs/config.md` structure:
     ```markdown
     # Maestro Configuration
@@ -72,13 +72,13 @@ Define the complete configuration schema and structure.
     "current_task": null
     ```
 
-- [ ] **4.1.2: Schema Validation**
+- [ ] **cli4.1.2: Schema Validation**
   - [ ] Define `ConfigSchema` dataclass with all fields
   - [ ] Implement type validation for each field
   - [ ] Define default values for all settings
   - [ ] Implement schema version for future migrations
 
-### Task 4.2: Settings Module
+### Task cli4.2: Settings Module
 
 "task_id": "cli-tpt-4-2"
 "priority": "P1"
@@ -86,7 +86,7 @@ Define the complete configuration schema and structure.
 
 Implement the settings management module.
 
-- [ ] **4.2.1: Settings Class**
+- [ ] **cli4.2.1: Settings Class**
   - [ ] Create `maestro/config/settings.py`
   - [ ] Implement `Settings` class:
     - `load() -> Settings` - Load from docs/config.md
@@ -99,14 +99,14 @@ Implement the settings management module.
     - `settings.get("ai.provider")` → "anthropic"
     - `settings.set("ai.model", "claude-3-opus")`
 
-- [ ] **4.2.2: Settings Validation**
+- [ ] **cli4.2.2: Settings Validation**
   - [ ] Validate on load and save
   - [ ] Type checking (string, int, bool, etc.)
   - [ ] Enum validation (e.g., discussion_mode must be "editor" or "terminal")
   - [ ] Path expansion ($EDITOR, ~/ paths)
   - [ ] Raise `InvalidSettingError` with helpful message
 
-- [ ] **4.2.3: Defaults and Migration**
+- [ ] **cli4.2.3: Defaults and Migration**
   - [ ] Implement `create_default_config() -> Settings`
     - Generate new project_id (UUID)
     - Set created_at to current timestamp
@@ -116,7 +116,7 @@ Implement the settings management module.
     - Map old settings to new schema
     - Add new settings with defaults
 
-### Task 4.3: Settings Command
+### Task cli4.3: Settings Command
 
 "task_id": "cli-tpt-4-3"
 "priority": "P1"
@@ -124,7 +124,7 @@ Implement the settings management module.
 
 Implement the `maestro settings` command for managing configuration.
 
-- [ ] **4.3.1: Settings List**
+- [ ] **cli4.3.1: Settings List**
   - [ ] Implement `maestro settings list`
     - Display all settings organized by section
     - Format:
@@ -145,14 +145,14 @@ Implement the `maestro settings` command for managing configuration.
   - [ ] Add `--section <name>` to show only one section
   - [ ] Add `--json` for machine-readable output
 
-- [ ] **4.3.2: Settings Get**
+- [ ] **cli4.3.2: Settings Get**
   - [ ] Implement `maestro settings get <key>`
     - Show single setting value
     - Support dot notation: `maestro settings get ai.provider`
     - Show resolved value for paths and env vars
   - [ ] Add `--raw` to show unresolved value
 
-- [ ] **4.3.3: Settings Set**
+- [ ] **cli4.3.3: Settings Set**
   - [ ] Implement `maestro settings set <key> <value>`
     - Update single setting
     - Validate before saving
@@ -164,7 +164,7 @@ Implement the `maestro settings` command for managing configuration.
       ```
   - [ ] Add `--no-confirm` to skip confirmation
 
-- [ ] **4.3.4: Settings Edit**
+- [ ] **cli4.3.4: Settings Edit**
   - [ ] Implement `maestro settings edit`
     - Open docs/config.md in $EDITOR
     - Validate after editing
@@ -173,7 +173,7 @@ Implement the `maestro settings` command for managing configuration.
     - Open editor at specific section
     - Jump to section heading
 
-- [ ] **4.3.5: Settings Reset**
+- [ ] **cli4.3.5: Settings Reset**
   - [ ] Implement `maestro settings reset <key>`
     - Reset single setting to default
     - Preserve project metadata (project_id, created_at)
@@ -181,7 +181,7 @@ Implement the `maestro settings` command for managing configuration.
     - Reset all settings to defaults
     - Require `--force` confirmation
 
-- [ ] **4.3.6: Settings Wizard**
+- [ ] **cli4.3.6: Settings Wizard**
   - [ ] Implement `maestro settings wizard`
     - Interactive setup for new projects
     - Prompt for common settings:
@@ -191,7 +191,7 @@ Implement the `maestro settings` command for managing configuration.
       - Build settings (parallel jobs, etc.)
     - Save to docs/config.md
 
-### Task 4.4: Context Management
+### Task cli4.4: Context Management
 
 "task_id": "cli-tpt-4-4"
 "priority": "P1"
@@ -199,7 +199,7 @@ Implement the `maestro settings` command for managing configuration.
 
 Implement current context tracking for track/phase/task.
 
-- [ ] **4.4.1: Context Commands**
+- [ ] **cli4.4.1: Context Commands**
   - [ ] Implement `maestro context show`
     - Display current track/phase/task
     - Format:
@@ -212,7 +212,7 @@ Implement current context tracking for track/phase/task.
   - [ ] Implement `maestro context clear`
     - Clear all context (reset to null)
 
-- [ ] **4.4.2: Context Setting**
+- [ ] **cli4.4.2: Context Setting**
   - [ ] Update `maestro track <id> set`
     - Set current_track in config
     - Clear current_phase and current_task
@@ -224,7 +224,7 @@ Implement current context tracking for track/phase/task.
     - Set current_task in config
     - Set current_phase and current_track appropriately
 
-- [ ] **4.4.3: Contextual Commands**
+- [ ] **cli4.4.3: Contextual Commands**
   - [ ] Update commands to use context when no ID provided:
     - `maestro phase list` → list phases in current track
     - `maestro task list` → list tasks in current phase
@@ -234,7 +234,7 @@ Implement current context tracking for track/phase/task.
     [Track: cli-tpt, Phase: cli-tpt-1] maestro task list
     ```
 
-### Task 4.5: Feature Matrix Update
+### Task cli4.5: Feature Matrix Update
 
 "task_id": "cli-tpt-4-5"
 "priority": "P2"
@@ -242,18 +242,18 @@ Implement current context tracking for track/phase/task.
 
 Update CLI/TUI feature matrix with roadmap/plan/task → track/phase/task conversion.
 
-- [ ] **4.5.1: Locate Feature Matrix**
+- [ ] **cli4.5.1: Locate Feature Matrix**
   - [ ] Find existing feature matrix documentation
   - [ ] Identify all references to "roadmap", "plan", "task" terminology
 
-- [ ] **4.5.2: Update Terminology**
+- [ ] **cli4.5.2: Update Terminology**
   - [ ] Replace "roadmap" with "track"
   - [ ] Replace "plan" with "phase"
   - [ ] Keep "task" as is (no change)
   - [ ] Update all command examples
   - [ ] Update all documentation references
 
-- [ ] **4.5.3: Add New Features**
+- [ ] **cli4.5.3: Add New Features**
   - [ ] Document track/phase/task commands
   - [ ] Document discuss commands
   - [ ] Document settings commands

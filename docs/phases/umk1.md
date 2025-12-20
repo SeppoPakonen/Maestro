@@ -8,7 +8,7 @@
 
 ## Tasks
 
-- [ ] **1.1: Module Structure**
+- [ ] **umk1.1: Module Structure**
   - [ ] Create `maestro/builders/` module
   - [ ] Implement `base.py` with abstract `Builder` base class
   - [ ] Define builder interface methods:
@@ -18,27 +18,27 @@
     - `get_target_ext()`
   - [ ] Add type hints and docstrings
 
-- [ ] **1.2: Build Method Configuration**
+- [ ] **umk1.2: Build Method Configuration**
   - [ ] Design TOML/JSON format for build methods (see umk.md lines 657-703)
   - [ ] Implement method storage in `.maestro/methods/`
   - [ ] Create method parser and validator
   - [ ] Support method inheritance
   - [ ] Implement method auto-detection for system compilers
 
-- [ ] **1.3: Host Abstraction**
+- [ ] **umk1.3: Host Abstraction**
   - [ ] Create `host.py` module
   - [ ] Support local builds
   - [ ] Design interface for remote builds (future)
   - [ ] Design interface for Docker builds (future)
 
-- [ ] **1.4: Console Process Management**
+- [ ] **umk1.4: Console Process Management**
   - [ ] Create `console.py` module
   - [ ] Implement parallel job execution using `multiprocessing`
   - [ ] Add process output capture and streaming
   - [ ] Implement error tracking and reporting
   - [ ] Add Ctrl+C handling and cleanup
 
-- [ ] **1.5: Configuration System**
+- [ ] **umk1.5: Configuration System**
   - [ ] Create `config.py` module
   - [ ] Define `BuildConfig` dataclass
   - [ ] Implement platform detection

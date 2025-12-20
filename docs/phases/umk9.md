@@ -8,19 +8,19 @@
 
 ## Tasks
 
-- [ ] **9.1: Build Pane**
+- [ ] **umk9.1: Build Pane**
   - [ ] Create build progress display
   - [ ] Show compiler output
   - [ ] Highlight errors and warnings
   - [ ] Enable navigation to error locations
 
-- [ ] **9.2: Build Configuration UI**
+- [ ] **umk9.2: Build Configuration UI**
   - [ ] Method selection widget
   - [ ] Package selection tree
   - [ ] Build options editor
   - [ ] Parallel job control
 
-- [ ] **9.3: Interactive Build Features**
+- [ ] **umk9.3: Interactive Build Features**
   - [ ] Stop/resume builds
   - [ ] Build selected packages
   - [ ] Jump to error in editor

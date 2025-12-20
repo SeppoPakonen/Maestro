@@ -8,24 +8,24 @@
 
 ## Tasks
 
-- [ ] **5.5.1: Maven Builder Implementation**
+- [ ] **umk5_5.1: Maven Builder Implementation**
   - [ ] Create `maven.py` module
   - [ ] Implement `build_package()` method
   - [ ] Support Maven lifecycle phases (clean, compile, test, package, install)
   - [ ] Support parallel module builds (`-T` flag)
 
-- [ ] **5.5.2: Maven Features**
+- [ ] **umk5_5.2: Maven Features**
   - [ ] Profile activation (`-P` flag)
   - [ ] Offline mode (`--offline`)
   - [ ] Skip tests (`-DskipTests`)
   - [ ] Property overrides (`-D` flags)
 
-- [ ] **5.5.3: Multi-Module Support**
+- [ ] **umk5_5.3: Multi-Module Support**
   - [ ] Reactor builds
   - [ ] Module ordering
   - [ ] Partial reactor builds
 
-- [ ] **5.5.4: Packaging Types**
+- [ ] **umk5_5.4: Packaging Types**
   - [ ] JAR packaging
   - [ ] WAR packaging
   - [ ] AAR packaging (Android)
