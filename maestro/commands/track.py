@@ -28,6 +28,7 @@ from typing import Optional
 from maestro.config.settings import get_settings
 from maestro.data import parse_todo_md, parse_done_md
 from maestro.data.markdown_writer import (
+    escape_asterisk_text,
     extract_track_block,
     insert_track_block,
     remove_track_block,
@@ -703,10 +704,11 @@ def add_track(name: str, args) -> int:
         "Provide both editor and direct text workflows for quick updates."
     ]
 
+    escaped_track_id = escape_asterisk_text(track_id)
     block_lines = [
         f"## Track: {name}\n",
         "\n",
-        f"- *track_id*: *{track_id}*\n",
+        f"- *track_id*: *{escaped_track_id}*\n",
         f"- *priority*: {getattr(args, 'priority', 0)}\n",
         "- *status*: *planned*\n",
         "- *completion*: 0%\n",

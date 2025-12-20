@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Optional, Dict, List
 from maestro.data import parse_todo_md, parse_done_md, parse_phase_md, parse_config_md
 from maestro.data.markdown_writer import (
+    escape_asterisk_text,
     extract_phase_block,
     insert_phase_block,
     remove_phase_block,
@@ -426,10 +427,11 @@ def add_phase(name: str, args):
         return 1
 
     desc_lines = getattr(args, 'desc', None) or []
+    escaped_phase_id = escape_asterisk_text(phase_id)
     block_lines = [
         f"### Phase {phase_id}: {name}\n",
         "\n",
-        f"- *phase_id*: *{phase_id}*\n",
+        f"- *phase_id*: *{escaped_phase_id}*\n",
         "- *status*: *planned*\n",
         "- *completion*: 0\n",
         "\n",
@@ -455,12 +457,14 @@ def add_phase(name: str, args):
     phase_path = phases_dir / f"{phase_id}.md"
     if not phase_path.exists():
         track_name = track.get('name', 'Unknown Track')
+        escaped_track_name = escape_asterisk_text(track_name)
+        escaped_track_id = escape_asterisk_text(track_id)
         header = [
             f"# Phase {phase_id}: {name} 📋 **[Planned]**\n",
             "\n",
-            f"- *phase_id*: *{phase_id}*\n",
-            f"- *track*: *{track_name}*\n",
-            f"- *track_id*: *{track_id}*\n",
+            f"- *phase_id*: *{escaped_phase_id}*\n",
+            f"- *track*: *{escaped_track_name}*\n",
+            f"- *track_id*: *{escaped_track_id}*\n",
             "- *status*: *planned*\n",
             "- *completion*: 0\n",
             "\n",

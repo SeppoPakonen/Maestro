@@ -18,6 +18,10 @@ from .markdown_parser import (
 )
 
 
+def escape_asterisk_text(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("*", "\\*")
+
+
 def _read_lines(path: Path) -> List[str]:
     return path.read_text(encoding="utf-8").splitlines(keepends=True)
 
@@ -28,8 +32,9 @@ def _write_lines(path: Path, lines: List[str]) -> None:
 
 def _find_track_bounds(lines: List[str], track_id: str) -> Optional[Tuple[int, int]]:
     # Match both old format ("track_id": "value") and new format (- *track_id*: *value*)
+    escaped_track_id = escape_asterisk_text(track_id)
     old_format_re = re.compile(rf'^\s*"track_id"\s*:\s*"{re.escape(track_id)}"\s*$')
-    new_format_re = re.compile(rf'^\s*-\s*\*track_id\*\s*:\s*\*{re.escape(track_id)}\*\s*$')
+    new_format_re = re.compile(rf'^\s*-\s*\*track_id\*\s*:\s*\*{re.escape(escaped_track_id)}\*\s*$')
     track_idx = None
     for idx, line in enumerate(lines):
         stripped = line.strip()
@@ -57,8 +62,9 @@ def _find_track_bounds(lines: List[str], track_id: str) -> Optional[Tuple[int, i
 
 def _find_phase_bounds(lines: List[str], phase_id: str) -> Optional[Tuple[int, int]]:
     # Match both old format ("phase_id": "value") and new format (- *phase_id*: *value*)
+    escaped_phase_id = escape_asterisk_text(phase_id)
     old_format_re = re.compile(rf'^\s*"phase_id"\s*:\s*"{re.escape(phase_id)}"\s*$')
-    new_format_re = re.compile(rf'^\s*-\s*\*phase_id\*\s*:\s*\*{re.escape(phase_id)}\*\s*$')
+    new_format_re = re.compile(rf'^\s*-\s*\*phase_id\*\s*:\s*\*{re.escape(escaped_phase_id)}\*\s*$')
     phase_idx = None
     for idx, line in enumerate(lines):
         stripped = line.strip()
@@ -99,8 +105,9 @@ def _find_task_bounds(lines: List[str], task_id: str) -> Optional[Tuple[int, int
             break
         # Also check for task_id as a metadata field (for backward compatibility)
         stripped = line.strip()
+        escaped_task_id = escape_asterisk_text(task_id)
         old_format_re = re.compile(rf'^\s*"task_id"\s*:\s*"{re.escape(task_id)}"\s*$')
-        new_format_re = re.compile(rf'^\s*-\s*\*task_id\*\s*:\s*\*{re.escape(task_id)}\*\s*$')
+        new_format_re = re.compile(rf'^\s*-\s*\*task_id\*\s*:\s*\*{re.escape(escaped_task_id)}\*\s*$')
         if old_format_re.match(stripped) or new_format_re.match(stripped):
             # Find the task heading above this line
             for j in range(idx - 1, -1, -1):

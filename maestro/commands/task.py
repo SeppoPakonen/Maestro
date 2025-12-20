@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 from maestro.data import parse_todo_md, parse_done_md, parse_phase_md, parse_config_md
 from maestro.data.markdown_writer import (
+    escape_asterisk_text,
     extract_phase_block,
     extract_task_block,
     insert_task_block,
@@ -507,12 +508,15 @@ def add_task(name: str, args):
     phase_path = phases_dir / f"{phase_id}.md"
     if not phase_path.exists():
         track_name = track_info.get('name', 'Unknown Track') if track_info else 'Unknown Track'
+        escaped_track_name = escape_asterisk_text(track_name)
+        escaped_phase_id = escape_asterisk_text(phase_id)
+        escaped_track_id = escape_asterisk_text(track_info.get('track_id', '') if track_info else '')
         header = [
             f"# Phase {phase_id}: {phase_info.get('name', phase_id)} 📋 **[Planned]**\n",
             "\n",
-            f"- *phase_id*: *{phase_id}*\n",
-            f"- *track*: *{track_name}*\n",
-            f"- *track_id*: *{track_info.get('track_id', '') if track_info else ''}*\n",
+            f"- *phase_id*: *{escaped_phase_id}*\n",
+            f"- *track*: *{escaped_track_name}*\n",
+            f"- *track_id*: *{escaped_track_id}*\n",
             "- *status*: *planned*\n",
             "- *completion*: 0\n",
             "\n",
@@ -521,10 +525,11 @@ def add_task(name: str, args):
         ]
         phase_path.write_text("".join(header), encoding='utf-8')
 
+    escaped_task_id = escape_asterisk_text(task_id)
     task_block = [
         f"### Task {task_id}: {name}\n",
         "\n",
-        f"- *task_id*: *{task_id}*\n",
+        f"- *task_id*: *{escaped_task_id}*\n",
         "- *priority*: *P2*\n",
         "- *status*: *planned*\n",
         "\n",

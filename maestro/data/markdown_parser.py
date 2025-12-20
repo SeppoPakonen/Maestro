@@ -14,6 +14,36 @@ from pathlib import Path
 # Task 1.1.1: Basic Parsing Infrastructure
 # ============================================================================
 
+def _parse_asterisk_token(text: str) -> Optional[Tuple[str, str]]:
+    if not text.startswith('*'):
+        return None
+    buf = []
+    escaped = False
+    for idx in range(1, len(text)):
+        ch = text[idx]
+        if escaped:
+            buf.append(ch)
+            escaped = False
+            continue
+        if ch == '\\':
+            escaped = True
+            continue
+        if ch == '*':
+            return ("".join(buf), text[idx + 1:])
+        buf.append(ch)
+    return None
+
+
+def _parse_asterisk_wrapped_value(value_str: str) -> Optional[str]:
+    token = _parse_asterisk_token(value_str)
+    if not token:
+        return None
+    value, remainder = token
+    if remainder.strip():
+        return None
+    return value
+
+
 def parse_quoted_value(line: str) -> Optional[Tuple[str, Any]]:
     """
     Parse a quoted or asterisk key-value pair from a line.
@@ -44,35 +74,48 @@ def parse_quoted_value(line: str) -> Optional[Tuple[str, Any]]:
     """
     # Pattern: "key": value or *key*: value (with flexible whitespace)
     # Key is in quotes or asterisks, value can be quoted/asterisked string, number, boolean, or null
+    stripped = line.strip()
     quoted_pattern = r'"([^"]+)"\s*:\s*(.+)$'
-    asterisk_pattern = r'\*([^*]+)\*\s*:\s*(.+)$'
 
-    # Try quoted format first
-    match = re.match(quoted_pattern, line.strip())
-    if not match:
-        # Try asterisk format
-        match = re.match(asterisk_pattern, line.strip())
-        if not match:
+    key = None
+    value_str = None
+
+    match = re.match(quoted_pattern, stripped)
+    if match:
+        key = match.group(1)
+        value_str = match.group(2).strip()
+    elif stripped.startswith('*'):
+        token = _parse_asterisk_token(stripped)
+        if not token:
             return None
-
-    key = match.group(1)
-    value_str = match.group(2).strip()
+        key, remainder = token
+        remainder = remainder.lstrip()
+        if not remainder.startswith(':'):
+            return None
+        value_str = remainder[1:].strip()
+    else:
+        return None
 
     # Parse value based on format
     # Quoted or asterisked string
-    if (value_str.startswith('"') and value_str.endswith('"')) or \
-       (value_str.startswith('*') and value_str.endswith('*')):
-        value = value_str[1:-1]  # Remove quotes or asterisks
+    if value_str.startswith('"') and value_str.endswith('"'):
+        value = value_str[1:-1]  # Remove quotes
+    else:
+        asterisk_value = _parse_asterisk_wrapped_value(value_str)
+        if asterisk_value is not None:
+            value = asterisk_value
+        else:
+            value = None
     # Boolean
-    elif value_str == 'true':
+    if value is None and value_str == 'true':
         value = True
-    elif value_str == 'false':
+    elif value is None and value_str == 'false':
         value = False
     # Null
-    elif value_str == 'null':
+    elif value is None and value_str == 'null':
         value = None
     # Number
-    else:
+    elif value is None:
         try:
             # Try int first
             if '.' not in value_str:
