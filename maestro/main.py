@@ -4626,6 +4626,7 @@ def main():
             "repo",
             "track",
             "phase",
+            "task",
             "make",
             "run",
             "discuss",
