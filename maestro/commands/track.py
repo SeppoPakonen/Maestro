@@ -15,6 +15,7 @@ Commands:
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -75,13 +76,21 @@ def list_tracks(args) -> int:
         return 0
 
     print()
-    print("=" * 100)
+    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
+    term_width = max(term_width, 80)
+    print("=" * term_width)
     print("TRACKS")
-    print("=" * 100)
+    print("=" * term_width)
     print()
 
-    print(f"{'#':<3} {'Track ID':<22} {'Name':<40} {'St':<4} {'Ph':<6} {'Todo':<6}")
-    print("-" * 100)
+    max_name_len = max(
+        (len(track.get('name', '')) for track in tracks),
+        default=len('Name'),
+    )
+    name_width = min(max(max_name_len, len('Name')), term_width - 3 - 1 - 22 - 1 - 4 - 1 - 6 - 1 - 6)
+    name_width = max(name_width, len('Name'))
+    print(f"{'#':<3} {'Track ID':<22} {'Name':<{name_width}} {'St':<4} {'Ph':<6} {'Todo':<6}")
+    print("-" * term_width)
 
     done_phase_counts = {
         track.get('track_id', ''): len(track.get('phases', []))
@@ -106,8 +115,11 @@ def list_tracks(args) -> int:
         done_phase_count = done_phase_counts.get(track_id, 0)
         phase_count = todo_count + done_in_todo_count + done_phase_count
 
-        if len(name) > 40:
-            name = name[:37] + '...'
+        if len(name) > name_width:
+            if name_width >= 4:
+                name = name[:name_width - 3] + '...'
+            else:
+                name = name[:name_width]
 
         status_display = status
         if status == 'done':
@@ -119,7 +131,7 @@ def list_tracks(args) -> int:
         elif status == 'proposed':
             status_display = '💡'
 
-        print(f"{i:<3} {track_id:<22} {name:<40} {status_display:<4} {phase_count:<6} {todo_count:<6}")
+        print(f"{i:<3} {track_id:<22} {name:<{name_width}} {status_display:<4} {phase_count:<6} {todo_count:<6}")
 
     print()
     print(f"Total: {len(tracks)} tracks")
