@@ -40,7 +40,6 @@ def resolve_track_identifier(identifier: str) -> Optional[str]:
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
-
     if identifier.isdigit():
         index = int(identifier) - 1
         if 0 <= index < len(tracks):
@@ -65,40 +64,62 @@ def list_tracks(args) -> int:
 
     data = parse_todo_md(str(todo_path))
     tracks = data.get('tracks', [])
+    done_path = Path('docs/done.md')
+    done_tracks = []
+    if done_path.exists():
+        done_data = parse_done_md(str(done_path))
+        done_tracks = done_data.get('tracks', [])
 
     if not tracks:
         print("No tracks found.")
         return 0
 
     print()
-    print("=" * 80)
+    print("=" * 100)
     print("TRACKS")
-    print("=" * 80)
+    print("=" * 100)
     print()
 
-    print(f"{'#':<3} {'Track ID':<15} {'Name':<32} {'Status':<12} {'Phases':<8}")
-    print("-" * 80)
+    print(f"{'#':<3} {'Track ID':<22} {'Name':<40} {'St':<4} {'Ph':<6} {'Todo':<6}")
+    print("-" * 100)
+
+    done_phase_counts = {
+        track.get('track_id', ''): len(track.get('phases', []))
+        for track in done_tracks
+    }
 
     for i, track in enumerate(tracks, 1):
         track_id = track.get('track_id', 'N/A')
         name = track.get('name', 'Unnamed Track')
         status = track.get('status', 'unknown')
-        phase_count = len(track.get('phases', []))
+        phases = track.get('phases', [])
+        todo_count = sum(
+            1
+            for phase in phases
+            if phase.get('status') in ('planned', 'proposed', 'in_progress')
+        )
+        done_in_todo_count = sum(
+            1
+            for phase in phases
+            if phase.get('status') == 'done'
+        )
+        done_phase_count = done_phase_counts.get(track_id, 0)
+        phase_count = todo_count + done_in_todo_count + done_phase_count
 
-        if len(name) > 32:
-            name = name[:29] + '...'
+        if len(name) > 40:
+            name = name[:37] + '...'
 
         status_display = status
         if status == 'done':
-            status_display = '✅ Done'
+            status_display = '✅'
         elif status == 'in_progress':
-            status_display = '🚧 Active'
+            status_display = '🚧'
         elif status in ('planned', 'todo'):
-            status_display = '📋 Planned'
+            status_display = '📋'
         elif status == 'proposed':
-            status_display = '💡 Proposed'
+            status_display = '💡'
 
-        print(f"{i:<3} {track_id:<15} {name:<32} {status_display:<12} {phase_count:<8}")
+        print(f"{i:<3} {track_id:<22} {name:<40} {status_display:<4} {phase_count:<6} {todo_count:<6}")
 
     print()
     print(f"Total: {len(tracks)} tracks")
