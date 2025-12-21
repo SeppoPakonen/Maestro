@@ -1172,8 +1172,8 @@ This track handles external dependencies, build scripts, and Gentoo Portage inte
 
 - *track_id*: *ai-cli-protocol*
 - *priority*: 0
-- *status*: *planned*
-- *completion*: 0%
+- *status*: *in_progress*
+- *completion*: 50%
 
 Add live tool usage + input injection support to agent CLIs beyond qwen-code.
 Study qwen-code fork (Node + C++ client) to define JSON protocol and uniform messaging.
@@ -1182,34 +1182,34 @@ Implement updates across agent submodules and document submodule cloning and pro
 ### Phase aicli1: Submodules & Repo Wiring
 
 - *phase_id*: *aicli1*
-- *status*: *planned*
-- *completion*: 0
+- *status*: *done*
+- *completion*: 100
 
-- [ ] [Phase aicli1: Submodules & Repo Wiring](phases/aicli1.md) 📋 **[Planned]**
+- [x] [Phase aicli1: Submodules & Repo Wiring](phases/aicli1.md) ✅ **[Done]**
 
 ### Phase aicli2: Qwen-Code Baseline Analysis
 
 - *phase_id*: *aicli2*
-- *status*: *planned*
-- *completion*: 0
+- *status*: *done*
+- *completion*: 100
 
-- [ ] [Phase aicli2: Qwen-Code Baseline Analysis](phases/aicli2.md) 📋 **[Planned]**
+- [x] [Phase aicli2: Qwen-Code Baseline Analysis](phases/aicli2.md) ✅ **[Done]**
 
 ### Phase aicli3: Protocol & TCP Server Spec
 
 - *phase_id*: *aicli3*
-- *status*: *planned*
-- *completion*: 0
+- *status*: *done*
+- *completion*: 100
 
-- [ ] [Phase aicli3: Protocol & TCP Server Spec](phases/aicli3.md) 📋 **[Planned]**
+- [x] [Phase aicli3: Protocol & TCP Server Spec](phases/aicli3.md) ✅ **[Done]**
 
 ### Phase aicli4: Validation & Testing
 
 - *phase_id*: *aicli4*
-- *status*: *planned*
-- *completion*: 0
+- *status*: *in_progress*
+- *completion*: 50
 
-- [ ] [Phase aicli4: Validation & Testing](phases/aicli4.md) 📋 **[Planned]**
+- [ ] [Phase aicli4: Validation & Testing](phases/aicli4.md) 🚧 **[In Progress]**
 
 ### Phase aicli5: Agent Integration Planning
 

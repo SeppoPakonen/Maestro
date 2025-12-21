@@ -37,6 +37,7 @@ setup(
         # For now, no external dependencies beyond standard library
         "toml>=0.10.0",
         "pyfiglet>=0.8.0",
+        "pyyaml>=6.0",
     ],
     extras_require={
         "tui": ["textual>=0.40.0"],

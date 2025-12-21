@@ -1,10 +1,10 @@
-# Phase aicli2: Qwen-Code Baseline Analysis 📋 **[Planned]**
+# Phase aicli2: Qwen-Code Baseline Analysis ✅ **[Done]**
 
 - *phase_id*: *aicli2*
 - *track*: *AI CLI Live Tool Protocol*
 - *track_id*: *ai-cli-protocol*
-- *status*: *planned*
-- *completion*: 0
+- *status*: *done*
+- *completion*: 100
 
 ## Tasks
 

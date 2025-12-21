@@ -1302,3 +1302,75 @@ maestro work fix <target> [--issue <issue-id>]
 **Implementation Method**: Claude Code with qwen for low/medium complexity tasks
 **Track Completion**: WS3 done (20% of track), WS1, WS2, WS4, WS5 remain planned
 
+
+---
+
+## Track: AI CLI Live Tool Protocol
+
+- *track_id*: *ai-cli-protocol*
+- *priority*: 0
+- *status*: *done*
+- *completion*: 100%
+
+Added live tool usage + input injection support to agent CLIs beyond qwen-code.
+Studied qwen-code fork (Node + C++ client) to define JSON protocol and uniform messaging.
+Implemented updates across agent submodules and documented submodule cloning and protocol testing.
+
+### Phase aicli1: Submodules & Repo Wiring ✅ **[Completed 2025-12-21]**
+
+- *phase_id*: *aicli1*
+- *status*: *done*
+- *completion*: 100
+
+**Objective**: Added AI agent forks as git submodules under `external/ai-agents/`.
+
+**Deliverables**:
+- AI agent forks added as git submodules in `.gitmodules`
+- Documentation added to README.md about submodule usage
+- Repo reference hygiene maintained
+
+**Files Created/Modified**:
+- `.gitmodules` - Added submodules for qwen-code, codex, claude-code, copilot-cli, and gemini-cli
+- `README.md` - Added submodule cloning and initialization instructions
+- `AGENTS.md` - Added repo layout notes about submodule maintenance
+
+### Phase aicli2: Qwen-Code Baseline Analysis ✅ **[Completed 2025-12-21]**
+
+- *phase_id*: *aicli2*
+- *status*: *done*
+- *completion*: 100
+
+**Objective**: Analyzed qwen-code fork entrypoints, event flows, and protocol details.
+
+**Deliverables**:
+- Entry point inventory for NodeJS CLI runtime and C++ client
+- NodeJS event flow map with hook points and emitters
+- Tool event payload capture with sample JSON
+- C++ transport and framing inspection
+- Input injection path tracing
+
+**Key Findings**:
+- Identified message types and directions in qwen-code implementation
+- Mapped streaming output and tool event pathways
+- Documented transport mechanism and framing rules
+- Traced user input injection into active sessions
+
+### Phase aicli3: Protocol & TCP Server Spec ✅ **[Completed 2025-12-21]**
+
+- *phase_id*: *aicli3*
+- *status*: *done*
+- *completion*: 100
+
+**Objective**: Defined the uniform JSON protocol specification before agent implementation.
+
+**Deliverables**:
+- Protocol goals and constraints document with message types
+- Message framing and reliability specifications
+- Agent-side capability contract with required hooks
+- Qwen-Code alignment plan with minimal changes
+
+**Protocol Design**:
+- Required message types (tool, output, input, status, error)
+- Required fields and correlations (ids, timestamps, session ids)
+- Message framing using newline JSON format
+- Error response schema and connection handling
