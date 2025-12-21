@@ -1179,11 +1179,13 @@ Add live tool usage + input injection support to agent CLIs beyond qwen-code.
 Study qwen-code fork (Node + C++ client) to define JSON protocol and uniform messaging.
 Implement updates across agent submodules and document submodule cloning and protocol testing.
 
-### Phase aicli1: Submodules & Repo Wiring
+### Phase aicli1: Submodules & Repo Wiring ✅ **[Done]**
 
 - *phase_id*: *aicli1*
-- *status*: *planned*
+- *status*: *done*
 - *completion*: 0
+- *status_summary*: *Submodule wiring verified*
+- *status_changed*: *2025-12-21T16:16:58*
 
 - [ ] [Phase aicli1: Submodules & Repo Wiring](phases/aicli1.md) 📋 **[Planned]**
 
