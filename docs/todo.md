@@ -1168,12 +1168,13 @@ This track handles external dependencies, build scripts, and Gentoo Portage inte
 
 ---
 
-## Track: AI CLI Live Tool Protocol
+## Track: AI CLI Live Tool Protocol ✅ **[Done]**
 
 - *track_id*: *ai-cli-protocol*
 - *priority*: 0
-- *status*: *in_progress*
+- *status*: *done*
 - *completion*: 50%
+- *status_changed*: *2025-12-21T13:38:16*
 
 Add live tool usage + input injection support to agent CLIs beyond qwen-code.
 Study qwen-code fork (Node + C++ client) to define JSON protocol and uniform messaging.
@@ -1203,19 +1204,21 @@ Implement updates across agent submodules and document submodule cloning and pro
 
 - [x] [Phase aicli3: Protocol & TCP Server Spec](phases/aicli3.md) ✅ **[Done]**
 
-### Phase aicli4: Validation & Testing
+### Phase aicli4: Validation & Testing ✅ **[Done]**
 
 - *phase_id*: *aicli4*
-- *status*: *in_progress*
+- *status*: *done*
 - *completion*: 50
+- *status_changed*: *2025-12-21T13:38:39*
 
 - [ ] [Phase aicli4: Validation & Testing](phases/aicli4.md) 🚧 **[In Progress]**
 
-### Phase aicli5: Agent Integration Planning
+### Phase aicli5: Agent Integration Planning ✅ **[Done]**
 
 - *phase_id*: *aicli5*
-- *status*: *planned*
+- *status*: *done*
 - *completion*: 0
+- *status_changed*: *2025-12-21T13:38:51*
 
 - [ ] [Phase aicli5: Agent Integration Planning](phases/aicli5.md) 📋 **[Planned]**
 
