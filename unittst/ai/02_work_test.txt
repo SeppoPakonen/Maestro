@@ -1,0 +1,28 @@
+# Unit Test 2: Work-test
+Objective: Verify the work feature with breadcrumbs and AI synchronization
+
+Setup:
+- Remove ./tmp directory if it exists
+- Create a fresh ./tmp directory in the project root
+- Verify that ./tmp is listed in .gitignore (it should be already)
+- The point is to use "python ../maestro.py" from the ./tmp directory
+
+Steps:
+1. From the ./tmp directory, run `python ../maestro.py init` to initialize the project
+2. From the ./tmp directory, create a track, phase and task using `python ../maestro.py`
+3. Define 5 points for the task (foobar points - be creative):
+   - Point A: Implement basic calculation function
+   - Point B: Add input validation
+   - Point C: Create output formatting
+   - Point D: Add error handling
+   - Point E: Optimize performance
+4. After each point, verify breadcrumbs are created (as implemented in phase ws2)
+5. After the 5th point, use AI to respond as JSON using `python ../maestro.py ai` command
+6. Execute `python ../maestro.py work task <task-id>` to start working on the task
+7. Use the appropriate command to display all breadcrumbs, responses, and AI synchronizations
+
+Expected Success Criteria:
+- Breadcrumbs are properly recorded between each point
+- AI responds with JSON after the 5th point
+- The command to display breadcrumbs shows all recorded breadcrumbs and responses
+- AI synchronization works as expected
