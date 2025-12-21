@@ -77,3 +77,14 @@ Expected output: a message catalog with types, directions, and example payloads.
 Compare qwen-code behavior to the desired uniform protocol and list gaps.
 
 Expected output: a change list with recommended adjustments for qwen-code alignment.
+
+## Notes
+
+### NodeJS TCP server (structured server mode)
+
+- **Location**: `external/ai-agents/qwen-code/packages/cli/src/structuredServerMode.ts`
+- **Lifecycle**: `TCPServer.start()` creates a `net.Server`, listens on `tcpPort` (default 7777), and stores a single active socket; `stop()` closes client and server.
+- **Framing**: newline-delimited JSON; incoming data is buffered until `\n`, then parsed per line.
+- **Accepted commands**: `user_input`, `tool_approval`, `interrupt`, `model_switch`; invalid JSON or unknown `type` is logged and dropped.
+- **Outbound messages**: serialized `QwenStateMessage` objects (see `external/ai-agents/qwen-code/packages/cli/src/qwenStateSerializer.ts`) written as JSON + `\n`.
+- **Gaps**: single-client only (new connection overwrites previous); no backpressure handling or buffer size limits; no heartbeat/ping for liveness.
