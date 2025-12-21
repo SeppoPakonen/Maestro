@@ -47,21 +47,27 @@ Extract tool usage event payloads (start/end/updates) and record sample JSON.
 
 Expected output: sample JSON messages and a field list with required/optional tags.
 
-### Task aicli2.4: C++ Transport and Framing
+### Task aicli2.4: C++ Transport and Framing ✅ **[Done]**
 
 - *task_id*: *aicli2-4*
 - *priority*: *P0*
 - *estimated_hours*: 4
+- *status*: *done*
+- *status_summary*: *Documented C++ transport/framing*
+- *status_changed*: *2025-12-21T16:38:46*
 
 Inspect the C++ client transport mechanism and framing rules.
 
 Expected output: transport type (TCP/stdio), framing details, and handshake steps.
 
-### Task aicli2.5: Input Injection Path
+### Task aicli2.5: Input Injection Path ✅ **[Done]**
 
 - *task_id*: *aicli2-5*
 - *priority*: *P0*
 - *estimated_hours*: 3
+- *status*: *done*
+- *status_summary*: *Documented input injection path*
+- *status_changed*: *2025-12-21T16:38:52*
 
 Trace how the client injects user input into active sessions.
 
@@ -192,3 +198,19 @@ Example result message:
   "permission_denials": []
 }
 ```
+
+### C++ transport + framing (uppsrc/Qwen)
+
+- **Transports**: `STDIN_STDOUT` (subprocess pipes) and `TCP` socket are implemented; `NAMED_PIPE` is defined but not implemented (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.h`, `external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.cpp`).
+- **Subprocess mode**: forks a child, execs `qwen` with `--server-mode stdin`, and wires stdin/stdout pipes; stderr redirected to `/dev/null` unless verbose (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.cpp`).
+- **TCP mode**: connects to `tcp_host`/`tcp_port` (defaults `localhost:8765`) and uses the socket for both reads and writes (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.h`, `external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.cpp`).
+- **Framing**: newline-delimited JSON; sender appends `\n`, receiver buffers and splits on `\n` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.cpp`).
+- **Server wrapper**: `QwenTCPServer` spawns a `QwenClient` in `STDIN_STDOUT` mode and also accepts TCP clients that send newline JSON (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenTCPServer.cpp`).
+
+### C++ input injection path (user + tool approval + model switch)
+
+- **User input**: `QwenClient::send_user_input()` -> `ProtocolParser::create_user_input()` -> `serialize_command()` -> write JSON + `\n` to stdin/socket (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.cpp`, `external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
+- **Tool approval**: `send_tool_approval(tool_id, approved)` emits `{ "type":"tool_approval", "tool_id":"...", "approved":true|false }` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
+- **Model switch**: `send_model_switch(model_id)` emits `{ "type":"model_switch", "model_id":"..." }` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
+- **Interrupt**: `send_interrupt()` emits `{ "type":"interrupt" }` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
+- **TCP server entry**: `QwenTCPServer::handle_client_message()` accepts `type` of `user_input` and `tool_approval` from TCP clients and forwards via `QwenClient` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenTCPServer.cpp`).
