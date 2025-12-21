@@ -1,10 +1,12 @@
-# Phase aicli2: Qwen-Code Baseline Analysis
+# Phase aicli2: Qwen-Code Baseline Analysis ✅ **[Done]**
 
 - *phase_id*: *aicli2*
 - *track*: *AI CLI Live Tool Protocol*
 - *track_id*: *ai-cli-protocol*
-- *status*: *planned*
-- *completion*: 0
+- *status*: *done*
+- *completion*: 100
+- *status_summary*: *Baseline analysis complete*
+- *status_changed*: *2025-12-21T16:41:54*
 
 ## Tasks
 
@@ -73,21 +75,27 @@ Trace how the client injects user input into active sessions.
 
 Expected output: message type(s), required fields, and timing constraints.
 
-### Task aicli2.6: As-Is Protocol Map
+### Task aicli2.6: As-Is Protocol Map ✅ **[Done]**
 
 - *task_id*: *aicli2-6*
 - *priority*: *P0*
 - *estimated_hours*: 3
+- *status*: *done*
+- *status_summary*: *Added as-is protocol map*
+- *status_changed*: *2025-12-21T16:41:31*
 
 Consolidate findings into an "as-is" protocol map for qwen-code.
 
 Expected output: a message catalog with types, directions, and example payloads.
 
-### Task aicli2.7: Uniform Protocol Gap Review
+### Task aicli2.7: Uniform Protocol Gap Review ✅ **[Done]**
 
 - *task_id*: *aicli2-7*
 - *priority*: *P0*
 - *estimated_hours*: 3
+- *status*: *done*
+- *status_summary*: *Logged evidence-based protocol gaps*
+- *status_changed*: *2025-12-21T16:41:37*
 
 Compare qwen-code behavior to the desired uniform protocol and list gaps.
 
@@ -214,3 +222,21 @@ Example result message:
 - **Model switch**: `send_model_switch(model_id)` emits `{ "type":"model_switch", "model_id":"..." }` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
 - **Interrupt**: `send_interrupt()` emits `{ "type":"interrupt" }` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
 - **TCP server entry**: `QwenTCPServer::handle_client_message()` accepts `type` of `user_input` and `tool_approval` from TCP clients and forwards via `QwenClient` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenTCPServer.cpp`).
+
+### As-is protocol map (message catalog)
+
+- **NodeJS structured server (TCP, newline JSON)**: accepts `CLIMessage` payloads with `type` of `user`, `control_request`, or `control_response`; runs `runNonInteractive()` and sends back `CLIMessage` or `CLIControlResponse` as JSON lines (`external/ai-agents/qwen-code/packages/cli/src/structuredServerMode.ts`, `external/ai-agents/qwen-code/packages/cli/src/nonInteractive/types.ts`).
+- **NodeJS non-interactive stdout (JSON array)**: outputs `[CLIMessage...]` at end of turn; common sequence: `system` -> `assistant` -> `user` (tool_result) -> `result` (`external/ai-agents/qwen-code/packages/cli/src/nonInteractive/io/JsonOutputAdapter.ts`, `external/ai-agents/qwen-code/packages/cli/src/nonInteractive/types.ts`).
+- **NodeJS non-interactive stdout (STREAM_JSON)**: emits each `CLIMessage` line as it becomes available; also emits `stream_event` messages for `message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_stop` (`external/ai-agents/qwen-code/packages/cli/src/nonInteractive/io/StreamJsonOutputAdapter.ts`, `external/ai-agents/qwen-code/packages/cli/src/nonInteractive/types.ts`).
+- **C++ client commands (stdin/stdout or TCP, newline JSON)**: `user_input` (content), `tool_approval` (tool_id, approved), `interrupt`, `model_switch` (model_id) (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
+- **C++ client responses (newline JSON)**: `init`, `conversation` (role, content, id, isStreaming), `tool_group` (id, tools[]), `status` (state, message?, thought?), `info`, `error`, `completion_stats` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.h`, `external/ai-agents/qwen-code/uppsrc/Qwen/QwenProtocol.cpp`).
+- **C++ TCP server**: accepts TCP client messages `{ "type":"user_input", "content":"..." }` and `{ "type":"tool_approval", "tool_id":"...", "approved":true|false }`, forwards via `QwenClient` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenTCPServer.cpp`).
+
+### Uniform protocol gap review (evidence-based)
+
+- **Structured server single-client**: NodeJS `TCPServer` stores one active socket; new connections overwrite previous (`external/ai-agents/qwen-code/packages/cli/src/structuredServerMode.ts`).
+- **No backpressure/limits**: NodeJS server and C++ client buffer newline data without size limits; no backpressure or max message size enforcement (`external/ai-agents/qwen-code/packages/cli/src/structuredServerMode.ts`, `external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.cpp`).
+- **C++ named-pipe mode missing**: `NAMED_PIPE` exists in config but returns not implemented (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.h`, `external/ai-agents/qwen-code/uppsrc/Qwen/QwenClient.cpp`).
+- **Protocol mismatch (NodeJS vs C++)**: NodeJS structured server expects `CLIMessage` (`user`, `control_request`, `control_response`) while the C++ TCP server expects `user_input`/`tool_approval` and the C++ client expects `init`/`conversation`/`tool_group`/`status` response shapes; these are different wire formats with no explicit translation layer in the snippets.
+- **Unsupported commands in C++ TCP server**: `interrupt` and `model_switch` are defined in C++ protocol but not handled by `QwenTCPServer::handle_client_message()` (`external/ai-agents/qwen-code/uppsrc/Qwen/QwenTCPServer.cpp`).
+- **Uniform protocol alignment**: deeper gaps (required ids, timestamps, error schemas, reliability rules) are blocked until `aicli3` defines the uniform protocol spec.

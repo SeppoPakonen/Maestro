@@ -1188,13 +1188,15 @@ Implement updates across agent submodules and document submodule cloning and pro
 - *status_changed*: *2025-12-21T16:16:58*
 
 - [x] [Phase aicli1: Submodules & Repo Wiring](phases/aicli1.md) ✅ **[Done]**
-### Phase aicli2: Qwen-Code Baseline Analysis
+### Phase aicli2: Qwen-Code Baseline Analysis ✅ **[Done]**
 
 - *phase_id*: *aicli2*
-- *status*: *planned*
+- *status*: *done*
 - *completion*: 0
+- *status_summary*: *Baseline analysis complete*
+- *status_changed*: *2025-12-21T16:41:54*
 
-- [ ] [Phase aicli2: Qwen-Code Baseline Analysis](phases/aicli2.md) 📋 **[Planned]**
+- [x] [Phase aicli2: Qwen-Code Baseline Analysis](phases/aicli2.md) ✅ **[Done]**
 
 ### Phase aicli3: Protocol & TCP Server Spec
 
