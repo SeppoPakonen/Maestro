@@ -978,7 +978,8 @@ def add_phase_parser(subparsers):
             'show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st',
             'text', 'raw', 'set-text', 'setraw', 'status', 'set-status'
         ]
-        if arg not in known_subcommands:
+        # Only modify the command if it's not a global argument like --help
+        if arg not in known_subcommands and arg not in ['--help', '-h']:
             # Check if there's a third argument that's a subcommand
             if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw', 'status', 'set-status']:
                 # maestro phase <id> <subcommand> - already has subcommand, just move id after 'show'

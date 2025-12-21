@@ -7,12 +7,6 @@ Setup:
 - Verify that ./tmp is listed in .gitignore (it should be already)
 - The point is to use "python ../maestro.py" from the ./tmp directory
 
-Improvement Requirement:
-The `--help` command for track and phase should show complete command structure for creating entities.
-Currently: `python ../maestro.py track --help` shows limited info, but `python ../maestro.py track` (without --help) shows the full usage.
-The same applies to phase commands.
-This should be improved so users can discover how to create tracks/phases via help commands.
-
 Steps:
 1. From the ./tmp directory, run `python ../maestro.py init` to initialize the project
 2. From the ./tmp directory, use `python ../maestro.py` to add tracks, phases and tasks to create a simple CLI program for scientific calculation

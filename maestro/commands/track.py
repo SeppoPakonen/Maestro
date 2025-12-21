@@ -1185,7 +1185,8 @@ def add_track_parsers(subparsers):
             'help', 'h', 'show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'set', 'st',
             'text', 'raw', 'set-text', 'setraw', 'status', 'set-status'
         ]
-        if arg not in known_subcommands:
+        # Only modify the command if it's not a global argument like --help
+        if arg not in known_subcommands and arg not in ['--help', '-h']:
             if len(sys.argv) >= 4 and sys.argv[3] in ['show', 'sh', 's', 'details', 'dt', 'edit', 'e', 'discuss', 'd', 'set', 'st', 'text', 'raw', 'set-text', 'setraw', 'status', 'set-status']:
                 subcommand = sys.argv[3]
                 track_id = sys.argv[2]

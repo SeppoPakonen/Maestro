@@ -994,7 +994,8 @@ def add_task_parser(subparsers):
             'set-text', 'setraw', 'help', 'h', 'discuss', 'd', 'show', 'sh',
             'status', 'set-status'
         ]
-        if not arg.startswith('-') and arg not in known_subcommands:
+        # Only modify the command if it's not a global argument like --help
+        if not arg.startswith('-') and arg not in known_subcommands and arg not in ['--help', '-h']:
             if len(sys.argv) >= 4 and sys.argv[3] in [
                 'show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd',
                 'set', 'st', 'help', 'h', 'status', 'set-status'
