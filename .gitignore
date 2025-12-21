@@ -20,3 +20,18 @@ tests/fixtures/**/.maestro/
 *.orig
 *_test.cpp
 test_sample.*
+
+# Python virtual environment
+venv/
+env/
+ENV/
+.venv/
+.pyenv/
+bin/
+lib/
+lib64/
+include/
+pyvenv.cfg
+*.pyc
+__pycache__/
+
