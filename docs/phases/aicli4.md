@@ -64,7 +64,8 @@ Run a smoke test that exercises tool events + input injection in one session.
 ### Execution blockers
 
 - `external/ai-agents/qwen-code/bin/Qwen --help` fails with "CPU ISA level is lower than required" on this host.
-- NodeJS CLI bundle is not built yet (`external/ai-agents/qwen-code/packages/cli` has no `dist/cli.js`), so `qwen` CLI tests are blocked until a build/install step is run.
+- NodeJS CLI bundle now built at `external/ai-agents/qwen-code/packages/cli/dist`, but live tool validation still needs working auth + model access.
+- `node external/ai-agents/qwen-code/packages/cli/dist/index.js --output-format stream-json --prompt "hello"` emits init then aborts with `OpenAI API Streaming Error: Request was aborted`, so tool events and content streaming cannot be validated without auth.
 
 ### Test plan
 
