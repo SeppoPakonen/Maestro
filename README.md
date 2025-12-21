@@ -21,7 +21,7 @@ Maestro helps humans and AIs work together to **shape, refine, and restructure**
 ### **1. Conversational Planning (The Opening Movement)**
 
 Plans don't appear fully formed  they are *composed*.
-Maestro lets you **talk** with its planning AIs (Codex or Claude):
+Maestro lets you **talk** with its planning AIs:
 
 * Discuss, revise, and sculpt the plan
 * Rewrite or clean" the root task
@@ -153,9 +153,6 @@ Submodules live under `external/ai-agents/`:
 
 ```text
 external/ai-agents/qwen-code
-external/ai-agents/codex
-external/ai-agents/claude-code
-external/ai-agents/copilot-cli
 external/ai-agents/gemini-cli
 ```
 
