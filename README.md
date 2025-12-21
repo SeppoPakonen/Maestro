@@ -132,7 +132,7 @@ Maestro ensures that every run is reproducible — every rehearsal preserved.
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/maestro.git
+git clone https://github.com/OuluBSD/maestro.git
 cd maestro
 pip install -r requirements.txt
 ```
