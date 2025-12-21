@@ -8,31 +8,40 @@
 
 ## Tasks
 
-### Task aicli2.1: Entry Point Inventory
+### Task aicli2.1: Entry Point Inventory ✅ **[Done]**
 
 - *task_id*: *aicli2-1*
 - *priority*: *P0*
 - *estimated_hours*: 3
+- *status*: *done*
+- *status_summary*: *Documented NodeJS/C++ entry points*
+- *status_changed*: *2025-12-21T16:32:48*
 
 Identify qwen-code fork entrypoints for the NodeJS CLI runtime and the C++ client.
 
 Expected output: a short list of files/binaries with their roles and call graph notes.
 
-### Task aicli2.2: NodeJS Event Flow Map
+### Task aicli2.2: NodeJS Event Flow Map ✅ **[Done]**
 
 - *task_id*: *aicli2-2*
 - *priority*: *P0*
 - *estimated_hours*: 4
+- *status*: *done*
+- *status_summary*: *Mapped non-interactive event flow*
+- *status_changed*: *2025-12-21T16:32:52*
 
 Map the NodeJS runtime flow for streaming output, tool events, and session state.
 
 Expected output: a flow diagram (textual) listing hook points and event emitters.
 
-### Task aicli2.3: Tool Event Payload Capture
+### Task aicli2.3: Tool Event Payload Capture ✅ **[Done]**
 
 - *task_id*: *aicli2-3*
 - *priority*: *P0*
 - *estimated_hours*: 4
+- *status*: *done*
+- *status_summary*: *Captured JSON/stream payloads*
+- *status_changed*: *2025-12-21T16:32:58*
 
 Extract tool usage event payloads (start/end/updates) and record sample JSON.
 
