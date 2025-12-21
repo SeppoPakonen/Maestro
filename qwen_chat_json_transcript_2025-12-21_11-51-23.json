@@ -1,0 +1,48 @@
+[
+  {
+    "type": "session_start",
+    "timestamp": "2025-12-21T11:51:23.819887Z",
+    "session_id": "session_2025-12-21_11-51-23",
+    "data": {
+      "session_type": "qwen_chat",
+      "agent": "qwen"
+    }
+  },
+  {
+    "type": "user_input",
+    "timestamp": "2025-12-21T11:51:23.819902Z",
+    "session_id": "session_2025-12-21_11-51-23",
+    "correlation_id": "input_1",
+    "data": {
+      "content": "Hello, can you help me create a simple Python script?",
+      "input_type": "chat_message"
+    }
+  },
+  {
+    "type": "tool_call_request",
+    "timestamp": "2025-12-21T11:51:23.819912Z",
+    "session_id": "session_2025-12-21_11-51-23",
+    "correlation_id": "tool_1",
+    "data": {
+      "call_id": "generate_code_1",
+      "name": "generate_code",
+      "args": {
+        "language": "python",
+        "description": "simple hello world script"
+      }
+    }
+  },
+  {
+    "type": "tool_call_response",
+    "timestamp": "2025-12-21T11:51:23.819922Z",
+    "session_id": "session_2025-12-21_11-51-23",
+    "correlation_id": "tool_1",
+    "data": {
+      "call_id": "generate_code_1",
+      "result": {
+        "code": "print('Hello, World!')"
+      },
+      "execution_time_ms": 150
+    }
+  }
+]

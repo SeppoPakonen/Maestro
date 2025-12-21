@@ -1,0 +1,133 @@
+[
+  {
+    "type": "session_start",
+    "timestamp": "2025-12-21T11:53:32.574709Z",
+    "session_id": "input_injection_test_session",
+    "data": {
+      "session_type": "qwen_chat",
+      "agent": "qwen"
+    }
+  },
+  {
+    "type": "user_input",
+    "timestamp": "2025-12-21T11:53:32.574765Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "input_1",
+    "data": {
+      "content": "Can you help me create a file with some content?",
+      "input_type": "chat_message"
+    }
+  },
+  {
+    "type": "tool_call_request",
+    "timestamp": "2025-12-21T11:53:32.574775Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "tool_1",
+    "data": {
+      "call_id": "write_file_1",
+      "name": "write_file",
+      "args": {
+        "file_path": "/tmp/test_file.txt",
+        "content": "Initial content for the test file."
+      }
+    }
+  },
+  {
+    "type": "tool_execution_status",
+    "timestamp": "2025-12-21T11:53:32.574785Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "tool_1",
+    "data": {
+      "call_id": "write_file_1",
+      "status": "in_progress",
+      "progress": 0.3,
+      "message": "Writing content to file..."
+    }
+  },
+  {
+    "type": "user_input",
+    "timestamp": "2025-12-21T11:53:32.574795Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "input_2",
+    "data": {
+      "content": "Actually, can you also create another file?",
+      "input_type": "injected_input_during_execution"
+    }
+  },
+  {
+    "type": "status_update",
+    "timestamp": "2025-12-21T11:53:32.574804Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "input_2",
+    "data": {
+      "status": "input_queued",
+      "message": "Injected input received and queued for processing",
+      "queued_input_id": "input_2"
+    }
+  },
+  {
+    "type": "tool_execution_status",
+    "timestamp": "2025-12-21T11:53:32.574813Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "tool_1",
+    "data": {
+      "call_id": "write_file_1",
+      "status": "in_progress",
+      "progress": 0.7,
+      "message": "Almost done writing to file..."
+    }
+  },
+  {
+    "type": "tool_call_response",
+    "timestamp": "2025-12-21T11:53:32.574822Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "tool_1",
+    "data": {
+      "call_id": "write_file_1",
+      "result": {
+        "success": true,
+        "file_path": "/tmp/test_file.txt",
+        "bytes_written": 32
+      },
+      "execution_time_ms": 350
+    }
+  },
+  {
+    "type": "tool_call_request",
+    "timestamp": "2025-12-21T11:53:32.574831Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "tool_2",
+    "data": {
+      "call_id": "write_file_2",
+      "name": "write_file",
+      "args": {
+        "file_path": "/tmp/second_file.txt",
+        "content": "Content for the second file as requested."
+      }
+    }
+  },
+  {
+    "type": "tool_call_response",
+    "timestamp": "2025-12-21T11:53:32.574841Z",
+    "session_id": "input_injection_test_session",
+    "correlation_id": "tool_2",
+    "data": {
+      "call_id": "write_file_2",
+      "result": {
+        "success": true,
+        "file_path": "/tmp/second_file.txt",
+        "bytes_written": 44
+      },
+      "execution_time_ms": 280
+    }
+  },
+  {
+    "type": "session_end",
+    "timestamp": "2025-12-21T11:53:32.574851Z",
+    "session_id": "input_injection_test_session",
+    "data": {
+      "session_type": "qwen_chat",
+      "termination_reason": "user_request"
+    }
+  }
+]

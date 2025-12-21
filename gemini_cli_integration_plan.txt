@@ -1,0 +1,424 @@
+I'll help you create a detailed Gemini-CLI integration plan based on the AI CLI Live Tool Protocol specification. Let me first understand the protocol and the existing agent hooks in your codebase.
+
+Now let me check the agent hooks implementation guide to better understand how agents are integrated:
+
+Let me also check any existing agent implementations to better understand the architecture:
+
+Let me check for any existing CLI tool implementations or examples in the codebase:
+
+Let me check the CLI client implementation to understand the current architecture:
+
+Let me also check the AI client to see how AI interactions are currently handled:
+
+Now let me check the main maestro.py file to understand the overall structure:
+
+Let me check the maestro/main.py file:
+
+Let me continue reading the main.py file to see more of the implementation, especially focusing on the operations handling:
+
+Let me continue reading to find the operations handling functions:
+
+Let me search for the operation handling functions more specifically:
+
+Perfect! Let me read the `apply_fix_plan_operations` function:
+
+Let me search for the main AI streaming functions:
+
+Let me check the engines.py file to understand how streaming is handled:
+
+Let me check the engines.py file directly to understand the streaming implementation:
+
+Now I have a better understanding of the architecture. Let me create a detailed Gemini-CLI integration plan that identifies potential hook points where tool events and output streams would be emitted in a typical Gemini-CLI application based on the AI CLI Live Tool Protocol specification.
+
+Now I'll analyze the GeminiWorkerEngine and understand how it handles tool events:
+
+I can see from the code that the `GeminiWorkerEngine` uses the `run_cli_engine` function, which supports streaming output. The engine doesn't directly handle tool events yet, but it uses the same architecture as other engines. Let me analyze how tool events would be handled.
+
+Looking at the `maestro/ai/client.py` file, I can see how the `ExternalCommandClient` works and how it calls the different engines. The current implementation doesn't have tool event reporting, but I can identify where the hook points would be placed.
+
+For the `GeminiWorkerEngine`, tool call requests would be emitted:
+
+1. When the AI tool is invoked with specific arguments that represent a tool call
+2. Before executing the actual tool command in the `run_cli_engine` function
+
+Since we're implementing the AI CLI Live Tool Protocol, I need to identify where these events would be emitted based on the existing architecture and the protocol specification.
+
+For tool call responses in the Gemini engine, these would be emitted after the tool execution completes, in the same `run_cli_engine` function where I identified the tool call requests. The response would be captured in the `EngineResult` and could trigger an event after the tool execution.
+
+ stream stream events in the Gemini engine, I can see there's a `stream_output` parameter that controls whether output is streamed to stdout. The streaming occurs in the `run_cli_engine` function where it processes line by line and optionally writes to stdout. This is where content streaming events would be emitted according to the protocol.
+
+# Gemini-CLI Integration Plan for AI CLI Live Tool Protocol
+
+## Overview
+
+This document outlines the integration of the AI CLI Live Tool Protocol with the Gemini-CLI application. The plan identifies specific hook points where tool events and output streams will be emitted during Gemini operations, focusing on the tool lifecycle, streaming responses, and event emission points.
+
+## Architecture Overview
+
+The Gemini-CLI application follows a modular architecture with distinct layers that handle:
+1. **User Input Layer**: Processes user commands and requests
+2. **AI Interaction Layer**: Communicates with Gemini API/cli
+3. **Tool Execution Layer**: Handles local tool calls initiated by AI
+4. **Response Processing Layer**: Processes AI responses
+5. **Output Streaming Layer**: Manages real-time output to the terminal
+
+Each of these layers represents specific places where tool events and output streams would be emitted according to the protocol specification.
+
+## Hook Points for Tool Events and Output Streams
+
+### 1. Tool Call Request Hook Points
+
+**Location**: `maestro/engines.py` - In `run_cli_engine` function, before tool execution
+
+**Specific Implementation**:
+```python
+# In run_cli_engine function, before executing the actual command
+def run_cli_engine(config, prompt, debug=False, stream_output=False):
+    # Build the command
+    cmd = [config.binary] + config.base_args
+    stdin_data = None
+
+    if config.use_stdin:
+        stdin_data = prompt if prompt.endswith("\n") else prompt + "\n"
+    else:
+        cmd.append(prompt)
+
+    # Emit tool_call_request before executing
+    tool_call_id = generate_call_id()
+    correlation_id = generate_correlation_id()
+    
+    emit_protocol_message({
+        "type": "tool_call_request",
+        "timestamp": iso_timestamp(),
+        "session_id": current_session_id,
+        "correlation_id": correlation_id,
+        "data": {
+            "call_id": tool_call_id,
+            "name": config.binary,
+            "args": config.base_args + ([prompt] if not config.use_stdin else []),
+            "is_client_initiated": False
+        }
+    })
+
+    # Prepare environment and execute
+    # ... existing code continues ...
+```
+
+**Location**: `maestro/main.py` - In operation execution functions like `apply_fix_plan_operations`
+
+**Specific Implementation**:
+```python
+# In apply_fix_plan_operations function, before actual operation
+if isinstance(op, WriteFileOperation):
+    # Emit tool_call_request
+    tool_call_id = generate_call_id()
+    correlation_id = generate_correlation_id()
+    
+    emit_protocol_message({
+        "type": "tool_call_request",
+        "timestamp": iso_timestamp(),
+        "session_id": session_id,
+        "correlation_id": correlation_id,
+        "data": {
+            "call_id": tool_call_id,
+            "name": "write_file",
+            "args": {"path": op.path, "content": op.content},
+            "is_client_initiated": False
+        }
+    })
+
+    # Ensure directory exists
+    dest_dir = os.path.dirname(op.path)
+    os.makedirs(dest_dir, exist_ok=True)
+    with open(op.path, 'w', encoding='utf-8') as f:
+        f.write(op.content)
+    print_success(f"Written: {op.path}", 2)
+```
+
+### 2. Tool Call Response Hook Points
+
+**Location**: `maestro/engines.py` - In `run_cli_engine` function, after tool execution
+
+**Specific Implementation**:
+```python
+# In run_cli_engine function, after operation completes
+try:
+    # ... existing execution code ...
+    exit_code = process.wait()
+    if process.stderr:
+        stderr_text = process.stderr.read()
+        if stderr_text:
+            stderr_chunks.append(stderr_text)
+
+    stdout_text = "".join(stdout_chunks)
+    stderr_text = "".join(stderr_chunks)
+
+    # Emit tool_call_response for success
+    emit_protocol_message({
+        "type": "tool_call_response",
+        "timestamp": iso_timestamp(),
+        "session_id": current_session_id,
+        "correlation_id": correlation_id,  # From the request
+        "data": {
+            "call_id": tool_call_id,  # From the request
+            "result": stdout_text,
+            "error": None,
+            "execution_time_ms": (time.time() - start_time) * 1000
+        }
+    })
+
+    return EngineResult(
+        exit_code=exit_code,
+        stdout=stdout_text,
+        stderr=stderr_text,
+        interrupted=interrupted
+    )
+except Exception as e:
+    # Emit tool_call_response for error
+    emit_protocol_message({
+        "type": "tool_call_response",
+        "timestamp": iso_timestamp(),
+        "session_id": current_session_id,
+        "correlation_id": correlation_id,  # From the request
+        "data": {
+            "call_id": tool_call_id,  # From the request
+            "result": None,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "execution_time_ms": (time.time() - start_time) * 1000
+        }
+    })
+    raise e
+```
+
+**Location**: `maestro/main.py` - In operation execution functions, after each operation completes
+
+**Specific Implementation**:
+```python
+# In apply_fix_plan_operations function, after operation
+if isinstance(op, WriteFileOperation):
+    try:
+        # Ensure directory exists
+        dest_dir = os.path.dirname(op.path)
+        os.makedirs(dest_dir, exist_ok=True)
+        with open(op.path, 'w', encoding='utf-8') as f:
+            f.write(op.content)
+        print_success(f"Written: {op.path}", 2)
+
+        # Emit tool_call_response for success
+        emit_protocol_message({
+            "type": "tool_call_response",
+            "timestamp": iso_timestamp(),
+            "session_id": session_id,
+            "correlation_id": correlation_id,  # From the request
+            "data": {
+                "call_id": tool_call_id,  # From the request
+                "responseParts": [{"text": f"Successfully wrote file: {op.path}"}],
+                "resultDisplay": f"File {op.path} written successfully",
+                "error": None,
+                "contentLength": len(op.content)
+            }
+        })
+    except Exception as e:
+        # Emit tool_call_response for error
+        emit_protocol_message({
+            "type": "tool_call_response",
+            "timestamp": iso_timestamp(),
+            "session_id": session_id,
+            "correlation_id": correlation_id,  # From the request
+            "data": {
+                "call_id": call_call_id,  # From the request
+                "responseParts": [],
+                "resultDisplay": f"Error writing file: {op.path}",
+                "error": str(e),
+                "errorType": type(e).__name__
+            }
+        })
+```
+
+### 3. Tool Call Confirmation Hook Points
+
+**Location**: `maestro/engines.py` - In tool validation functions before execution
+
+**Specific Implementation**:
+```python
+# Before executing any tool that modifies the system state
+def confirm_tool_execution(tool_name, args, session_id):
+    # Emit tool_call_confirmation before making changes
+    confirmation_needed = emit_protocol_message({
+        "type": "tool_call_confirmation",
+        "timestamp": iso_timestamp(),
+        "session_id": session_id,
+        "data": {
+            "request": {
+                "callId": generate_call_id(),
+                "name": tool_name,
+                "args": args,
+                "isClientInitiated": False,
+                "prompt_id": current_prompt_id,
+                "response_id": current_response_id
+            },
+            "details": {
+                "type": "edit",
+                "title": f"{tool_name} Confirmation",
+                "onConfirm": "function reference",
+                "fileName": args.get("path") if "path" in args else "unknown",
+                "filePath": args.get("path") if "path" in args else "unknown",
+                "fileDiff": generate_diff_preview(args) if "content" in args else None,
+                "originalContent": "",
+                "newContent": args.get("content") if "content" in args else "",
+                "isModifying": True
+            }
+        }
+    })
+
+    # Wait for confirmation or proceed based on approval mode
+    if confirmation_needed:
+        wait_for_user_confirmation()
+```
+
+### 4. Stream Event Hook Points
+
+**Location**: `maestro/engines.py` - In the streaming response functions
+
+**Specific Implementation**:
+```python
+# In run_cli_engine function, in stream_output mode
+if stream_output:
+    # Emit message_start
+    emit_protocol_message({
+        "type": "message_start",
+        "timestamp": iso_timestamp(),
+        "session_id": current_session_id,
+        "message": {
+            "id": generate_message_id(),
+            "role": "assistant",
+            "model": config.binary  # or appropriate model name
+        }
+    })
+
+    # Stream output mode: process line by line with tool usage detection
+    content_block_index = 0
+    
+    for line in process.stdout:
+        # Emit content_block_delta for each chunk
+        emit_protocol_message({
+            "type": "content_block_delta",
+            "timestamp": iso_timestamp(),
+            "session_id": current_session_id,
+            "index": content_block_index,
+            "delta": {
+                "type": "text_delta",
+                "text": line
+            }
+        })
+        
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        stdout_chunks.append(line)
+        content_block_index += 1
+
+    # Emit message_stop
+    emit_protocol_message({
+        "type": "message_stop",
+        "timestamp": iso_timestamp(),
+        "session_id": current_session_id
+    })
+```
+
+## Error Notification Hook Points
+
+**Location**: Throughout the codebase in error handling blocks
+
+**Specific Locations**:
+- `maestro/engines.py` - In engine execution functions
+- `maestro/main.py` - In operation execution functions
+- `maestro/ai/client.py` - In AI interaction functions
+
+**Code Example**:
+```python
+# In run_cli_engine function, in exception blocks
+except Exception as e:
+    emit_protocol_message({
+        "type": "error",
+        "timestamp": iso_timestamp(),
+        "session_id": current_session_id,
+        "correlation_id": correlation_id,
+        "data": {
+            "error_code": "OPERATION_FAILED",
+            "message": f"Operation failed: {str(e)}",
+            "details": {"operation_type": "engine_execution", "engine": config.binary},
+            "severity": "error",
+            "retriable": True
+        }
+    })
+    raise e
+```
+
+## Session Management Hook Points
+
+**Location**: `maestro/session_model.py` - In session creation and completion functions
+
+**Specific Functions**:
+- `load_session()` - Emit `session_start`
+- `save_session()` - Emit `session_end`
+- `Session` class methods - Emit `session_state`
+
+**Code Example**:
+```python
+def load_session(session_path: str) -> Session:
+    # ... existing session loading logic ...
+    
+    # Emit session_start event
+    emit_protocol_message({
+        "type": "session_start",
+        "timestamp": iso_timestamp(),
+        "session_id": session.session_id,
+        "data": {
+            "session_type": "gemini_interaction",
+            "related_entity": session_path,
+            "metadata": session.metadata or {},
+            "parent_session_id": session.parent_session_id
+        }
+    })
+
+    return session
+```
+
+## Flow Control Hook Points
+
+**Location**: `maestro/engines.py` - In the message emission system
+
+**Specific Functions**:
+- A new function to manage message flow and capacity
+- Should be called periodically during high-volume message transmission
+
+**Code Example**:
+```python
+def manage_flow_control():
+    # Track available capacity
+    available_capacity = get_available_capacity()
+
+    # Emit flow_control message if capacity is low
+    if available_capacity < THRESHOLD:
+        emit_protocol_message({
+            "type": "flow_control",
+            "timestamp": iso_timestamp(),
+            "session_id": current_session_id,
+            "data": {
+                "available_capacity": available_capacity,
+                "requested_capacity": DESIRED_CAPACITY
+            }
+        })
+```
+
+## Implementation Priority
+
+1. **High Priority**: Tool call request/response hooks in engine execution functions
+2. **Medium Priority**: Session management hooks in session creation/completion functions
+3. **Medium Priority**: Error notification hooks in error handling blocks
+4. **Low Priority**: Flow control and stream event hooks (for advanced features)
+
+This integration plan provides the framework for implementing the AI CLI Live Tool Protocol with Gemini-CLI, ensuring all tool events and stream events are properly emitted at the appropriate points in the AI interaction lifecycle.
+
+The detailed Gemini-CLI integration plan has been created, identifying all the potential hook points where tool events and output streams would be emitted in a typical Gemini-CLI application based on the AI CLI Live Tool Protocol specification. The plan includes specific locations in the codebase, implementation examples, and considerations for each type of event.

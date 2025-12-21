@@ -1,0 +1,471 @@
+I'll create a detailed Codex integration plan that identifies hook points for tool events and output streams based on the AI CLI Live Tool Protocol specification. Let me first examine the relevant documentation to understand the protocol requirements.
+
+ I I'll also examine the success criteria document to better understand how the protocol should be implemented effectively.
+
+Now I'll look for any agent hooks documentation to better understand how these events integrate with the Maestro system:
+
+Let me also check the implementation guide for agent hooks:
+
+Now let me search for CLI-related files and understand the general architecture of the Maestro system to better identify hook points:
+
+Let me continue reading the maestro/main.py file to see more of the implementation:
+
+Let me continue reading the file to find the operation execution functions:
+
+Let me continue reading to find more of the operation execution implementation:
+
+Let me continue reading to find the operation execution functions:
+
+Let me search for the apply_fix_plan_operations function which was mentioned in the implementation guide:
+
+Perfect! Let me read the apply_fix_plan_operations function:
+
+Now let me look at the actual implementation of the apply_fix_plan_operations function to see where I need to add the hooks:
+
+Let me search for the beginning of the apply_fix_plan_operations function to see the full implementation:
+
+Let me search in the file to find the complete function:
+
+Now I need to find the implementation of the streaming message function from the engines module:
+
+Let me also check for the session handling code to understand how to implement the session hooks:
+
+Now I need to understand how the AI tools are called for implementing the hook points. Let me look at the commands/work.py file:
+
+Now I have a good understanding of the codebase. Let me create a comprehensive Codex integration plan with detailed hook points for the AI CLI Live Tool Protocol.
+
+# Detailed Codex Integration Plan for AI CLI Live Tool Protocol
+
+## Overview
+This document outlines the comprehensive integration plan for implementing the AI CLI Live Tool Protocol within the Maestro system. The protocol enables real-time tool usage events, live output streaming, and bidirectional communication between AI agents and CLI tools.
+
+## Hook Points Identification
+
+### 1. Tool Call Request Hooks
+**Location**: `maestro/main.py` in the `apply_fix_plan_operations()` function
+
+**Specific Hook Points**:
+- **Before WriteFileOperation execution**:
+  ```python
+  # Before: with open(op.path, 'w', encoding='utf-8') as f:
+  # Emit tool_call_request
+  emit_protocol_message({
+      "type": "tool_call_request",
+      "timestamp": iso_timestamp(),
+      "session_id": session_id,
+      "correlation_id": generate_correlation_id(),
+      "data": {
+          "call_id": generate_call_id(),
+          "name": "write_file",
+          "args": {"path": op.path, "content": op.content},
+          "is_client_initiated": False
+      }
+  })
+  ```
+
+- **Before RenameOperation execution**:
+  ```python
+  # Before: os.rename(op.from_path, op.to_path)
+  # Emit tool_call_request
+  emit_protocol_message({
+      "type": "tool_call_request",
+      "timestamp": iso_timestamp(),
+      "session_id": session_id,
+      "correlation_id": generate_correlation_id(),
+      "data": {
+          "call_id": generate_call_id(),
+          "name": "rename_file",
+          "args": {"from": op.from_path, "to": op.to_path},
+          "is_client_initiated": False
+      }
+  })
+  ```
+
+- **Before UpdateUppOperation execution**:
+  ```python
+  # Before: update_upp_file(op.path, op.changes, verbose)
+  # Emit tool_call_request
+  emit_protocol_message({
+      "type": "tool_call_request",
+      "timestamp": iso_timestamp(),
+      "session_id": session_id,
+      "correlation_id": generate_correlation_id(),
+      "data": {
+          "call_id": generate_call_id(),
+          "name": "update_upp",
+          "args": {"path": op.path, "changes": op.changes},
+          "is_client_initiated": False
+      }
+  })
+  ```
+
+### 2. Tool Call Response Hooks
+**Location**: `maestro/main.py` in the `apply_fix_plan_operations()` function
+
+**Specific Hook Points**:
+- **After WriteFileOperation execution (success)**:
+  ```python
+  # After: print_success(f"Written: {op.path}", 2)
+  # Emit tool_call_response for success
+  emit_protocol_message({
+      "type": "tool_call_response",
+      "timestamp": iso_timestamp(),
+      "session_id": session_id,
+      "correlation_id": correlation_id,  # From the request
+      "data": {
+          "call_id": call_id,  # From the request
+          "responseParts": [{"text": f"Successfully wrote file: {op.path}"}],
+          "resultDisplay": f"File {op.path} written successfully",
+          "error": None,
+          "contentLength": len(op.content)
+      }
+  })
+  ```
+
+- **After RenameOperation execution (success)**:
+  ```python
+  # After: print_success(f"Renamed: {op.from_path} -> {op.to_path}", 2)
+  # Emit tool_call_response for success  
+  emit_protocol_message({
+      "type": "tool_call_response",
+      "timestamp": iso_timestamp(),
+      "session_id": session_id,
+      "correlation_id": correlation_id,
+      "data": {
+          "call_id": call_id,
+          "responseParts": [{"text": f"Successfully renamed: {op.from_path} -> {op.to_path}"}],
+          "resultDisplay": f"File renamed: {op.from_path} -> {op.to_path}",
+          "error": None
+      }
+  })
+  ```
+
+- **After UpdateUppOperation execution (success)**:
+  ```python
+  # After: print_success(f"Updated UPP: {op.path}", 2)
+  # Emit tool_call_response for success
+  emit_protocol_message({
+      "type": "tool_call_response",
+      "timestamp": iso_timestamp(),
+      "session_id": session_id,
+      "correlation_id": correlation_id,
+      "data": {
+          "call_id": call_id,
+          "responseParts": [{"text": f"Successfully updated UPP file: {op.path}"}],
+          "resultDisplay": f"UPP file {op.path} updated successfully",
+          "error": None
+      }
+  })
+  ```
+
+- **In exception handling blocks**:
+  ```python
+  # In exception blocks after operation failures
+  except Exception as e:
+      emit_protocol_message({
+          "type": "tool_call_response",
+          "timestamp": iso_timestamp(),
+          "session_id": session_id,
+          "correlation_id": correlation_id,
+          "data": {
+              "call_id": call_id,
+              "responseParts": [],
+              "resultDisplay": f"Error executing operation: {op.op}",
+              "error": str(e),
+              "errorType": type(e).__name__
+          }
+      })
+  ```
+
+### 3. Tool Call Confirmation Hooks
+**Location**: `maestro/ai/actions.py` and similar action validation functions
+
+**Specific Hook Points**:
+- **Before making changes that affect system state**:
+  ```python
+  # Before applying critical changes that need user confirmation
+  confirmation_needed = emit_protocol_message({
+      "type": "tool_call_confirmation",
+      "timestamp": iso_timestamp(),
+      "session_id": session_id,
+      "data": {
+          "request": {
+              "callId": generate_call_id(),
+              "name": "rename_file",  # or other operation name
+              "args": {"from": op.from_path, "to": op.to_path},
+              "isClientInitiated": False,
+              "prompt_id": current_prompt_id,
+              "response_id": current_response_id
+          },
+          "details": {
+              "type": "edit",
+              "title": "File Operation Confirmation",
+              "onConfirm": "function reference",
+              "fileName": op.to_path,
+              "filePath": op.to_path,
+              "fileDiff": generate_diff_preview(op),
+              "originalContent": "",
+              "newContent": generate_new_content(op),
+              "isModifying": True
+          }
+      }
+  })
+  ```
+
+### 4. Streaming Response Hooks
+**Location**: `maestro/engines.py` in streaming functions
+
+**Specific Hook Points**:
+- **In stream_message() function (ExternalCommandClient)**:
+  ```python
+  def stream_message(self, messages: List[Dict[str, str]], context: str) -> Iterator[str]:
+      # Emit message_start
+      emit_protocol_message({
+          "type": "message_start",
+          "timestamp": iso_timestamp(),
+          "session_id": current_session_id,
+          "message": {
+              "id": generate_message_id(),
+              "role": "assistant",
+              "model": self.provider
+          }
+      })
+
+      prompt = self._build_prompt(messages, context)
+      process = subprocess.Popen(
+          self.command,
+          stdin=subprocess.PIPE,
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          text=True,
+      )
+      assert process.stdin is not None
+      assert process.stdout is not None
+      process.stdin.write(prompt)
+      process.stdin.close()
+
+      for line in process.stdout:
+          # Emit content_block_delta for each chunk
+          emit_protocol_message({
+              "type": "content_block_delta",
+              "timestamp": iso_timestamp(),
+              "session_id": current_session_id,
+              "index": 0,
+              "delta": {
+                  "type": "text_delta",
+                  "text": line
+              }
+          })
+          yield line
+
+      process.wait()
+
+      # Emit message_stop
+      emit_protocol_message({
+          "type": "message_stop",
+          "timestamp": iso_timestamp(),
+          "session_id": current_session_id
+      })
+  ```
+
+### 5. Session Management Hooks
+**Location**: `maestro/work_session.py` in session creation/completion functions
+
+**Specific Hook Points**:
+- **Session Creation**:
+  ```python
+  def create_session(session_type, related_entity=None, metadata=None, parent_session_id=None):
+      # ... existing session creation logic ...
+      
+      # Emit session_start event
+      emit_protocol_message({
+          "type": "session_start",
+          "timestamp": iso_timestamp(),
+          "session_id": session.session_id,
+          "data": {
+              "session_type": session_type,
+              "related_entity": related_entity,
+              "metadata": metadata or {},
+              "parent_session_id": parent_session_id
+          }
+      })
+      
+      return session
+  ```
+
+- **Session Completion**:
+  ```python
+  def complete_session(session):
+      # ... existing session completion logic ...
+      
+      # Emit session_end event
+      emit_protocol_message({
+          "type": "session_end",
+          "timestamp": iso_timestamp(),
+          "session_id": session.session_id,
+          "data": {
+              "status": session.status,
+              "completion_reason": "completed"
+          }
+      })
+  ```
+
+- **Session State Updates**:
+  ```python
+  def save_session(session):
+      # ... existing session saving logic ...
+      
+      # Emit session_state event
+      emit_protocol_message({
+          "type": "session_state",
+          "timestamp": iso_timestamp(),
+          "session_id": session.session_id,
+          "data": {
+              "status": session.status,
+              "subtasks": [subtask.status for subtask in session.subtasks],
+              "updated_at": session.updated_at
+          }
+      })
+  ```
+
+### 6. Error Notification Hooks
+**Location**: Throughout the codebase in error handling blocks
+
+**Specific Locations**:
+- `maestro/main.py` - In `apply_fix_plan_operations()` for file operation errors
+- `maestro/engines.py` - In engine execution functions
+- `maestro/commands/work.py` - In AI interaction functions
+- `maestro/breadcrumb.py` - In breadcrumb creation functions
+
+**Specific Hook Points**:
+```python
+# In apply_fix_plan_operations function, in exception blocks
+except Exception as e:
+    emit_protocol_message({
+        "type": "error",
+        "timestamp": iso_timestamp(),
+        "session_id": session_id,
+        "correlation_id": correlation_id,
+        "data": {
+            "error_code": "OPERATION_FAILED",
+            "message": f"Operation failed: {str(e)}",
+            "details": {"operation_type": op.op, "operation_path": getattr(op, 'path', 'unknown')},
+            "severity": "error",
+            "retriable": False
+        }
+    })
+    raise e
+```
+
+### 7. Flow Control Hooks
+**Location**: `maestro/main.py` - In the message emission system
+
+**Specific Hook Points**:
+```python
+def manage_flow_control():
+    # Track available capacity
+    available_capacity = get_available_capacity()
+
+    # Emit flow_control message if capacity is low
+    if available_capacity < THRESHOLD:
+        emit_protocol_message({
+            "type": "flow_control",
+            "timestamp": iso_timestamp(),
+            "session_id": current_session_id,
+            "data": {
+                "available_capacity": available_capacity,
+                "requested_capacity": DESIRED_CAPACITY
+            }
+        })
+```
+
+### 8. Input Injection Points
+**Location**: `maestro/commands/work.py` and related AI interaction functions
+
+**Specific Hook Points**:
+- **User Input Handling**:
+  ```python
+  # In handle_work_any_pick when user selects an option
+  emit_protocol_message({
+      "type": "user_input",
+      "timestamp": iso_timestamp(),
+      "session_id": current_session_id,
+      "data": {
+          "input": choice,
+          "input_type": "selection",
+          "context": "user selected work item"
+      }
+  })
+  
+  # In other input handling functions
+  emit_protocol_message({
+      "type": "user_input",
+      "timestamp": iso_timestamp(),
+      "session_id": current_session_id,
+      "data": {
+          "input": user_input,
+          "input_type": "text",
+          "context": "user provided text input"
+      }
+  })
+  ```
+
+### 9. Tool Execution Status Hooks
+**Location**: `maestro/main.py` in the `apply_fix_plan_operations()` function
+
+**Specific Hook Points**:
+```python
+# Inside the operation execution loop
+# Periodically emit status updates for long-running operations
+if isinstance(op, WriteFileOperation) and len(op.content) > LARGE_FILE_THRESHOLD:
+    emit_protocol_message({
+        "type": "tool_execution_status",
+        "timestamp": iso_timestamp(),
+        "session_id": session_id,
+        "correlation_id": correlation_id,
+        "data": {
+            "call_id": call_id,
+            "status": "running",
+            "progress": {"percentage": 0.5, "message": "Writing large file..."},
+            "details": {"path": op.path}
+        }
+    })
+```
+
+## Implementation Priority
+
+1. **High Priority**: Tool call request/response hooks in operation execution functions
+2. **Medium Priority**: Session management hooks in session creation/completion functions
+3. **Medium Priority**: Error notification hooks in error handling blocks
+4. **Low Priority**: Flow control and stream event hooks (for advanced features)
+
+## Implementation Steps
+
+1. **Create Protocol Emitter Function**: Implement a centralized function that emits protocol messages in the proper JSON format
+2. **Add Session ID Management**: Implement session ID generation and tracking
+3. **Add Correlation ID Management**: Implement correlation ID generation and tracking
+4. **Integrate Hooks**: Add the hook points to the identified locations
+5. **Test Implementation**: Test the hooks with various operations to ensure proper functioning
+6. **Error Handling**: Ensure robust error handling for hook emission failures
+
+## Testing Strategy
+
+1. **Unit Tests**: Test each hook point individually to ensure proper message generation
+2. **Integration Tests**: Test the entire protocol flow with end-to-end operations
+3. **Error Tests**: Test how the system behaves when hook emission fails
+4. **Performance Tests**: Ensure hooks don't significantly impact performance
+
+This codex integration plan provides a comprehensive approach to implementing the AI CLI Live Tool Protocol in the Maestro system, ensuring all relevant events and streams are properly captured and emitted according to the protocol specification.
+
+The detailed Codex integration plan for the AI CLI Live Tool Protocol has been completed. The plan identifies all potential hook points throughout the Maestro system where tool events and output streams would be emitted, including:
+
+1. Tool call request/response hooks in operation execution functions
+2. Session management hooks in session creation/completion functions
+3. Streaming response hooks in engine communication
+4. Error notification hooks in error handling blocks
+5. Tool call confirmation hooks for user approvals
+6. Flow control hooks for message rate management
+7. Input injection points for user interactions
+8. Tool execution status hooks for long-running operations
+
+Each hook point is precisely located within the codebase and includes the specific message format required by the protocol. The plan also includes implementation priorities, steps, and testing strategies to ensure successful integration of the AI CLI Live Tool Protocol in the Maestro system.

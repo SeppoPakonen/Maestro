@@ -1,0 +1,339 @@
+I'll create a detailed Copilot-CLI integration plan focusing on hook points where tool events and output streams would be emitted based on the AI CLI Live Tool Protocol specification.
+
+First, let me examine the relevant documentation files to understand the protocol specifications.
+
+Now I'll also check the AGENT_HOOKS_DOCUMENTATION.md and AGENT_HOOKS_IMPLEMENTATION_GUIDE.md to understand the hook system better:
+
+Let me also check the AGENT_HOOKS_IMPLEMENTATION_GUIDE.md:
+
+Now that I have reviewed the relevant documentation, I'll create a comprehensive Copilot-CLI integration plan identifying potential hook points for tool events and output streams. Let me create a detailed plan:
+
+I'll start with analyzing the Copilot-CLI architecture to identify potential hook points.
+
+In a typical Copilot-CLI application, the architecture consists of several key components that would serve as potential hook points for AI CLI Live Tool Protocol events:
+
+1. **Command Handler Layer**: Entry point where user commands are parsed and executed
+2. **AI Interaction Layer**: Manages communication with AI models and processes requests
+3. **Tool Execution Layer**: Responsible for executing specific tools based on AI decisions
+4. **Response Processing Layer**: Formats and handles responses from tools or AI
+5. **Output Streaming Layer**: Manages real-time output to the terminal
+6. **Session Management Layer**: Maintains context and state across interactions
+7. **Error Handling Layer**: Catches, processes, and reports errors
+
+Each of these layers represents specific places where tool events and output streams would be emitted according to the protocol specification. Let me continue analyzing the specific hook points for tool call requests.
+
+For tool call request hook points in typical AI CLI applications, there are several strategic locations where these would be implemented:
+
+1. **Before Tool Execution Function**: Just before invoking the actual tool function, where parameters are known but execution hasn't begun
+2. **In AI Response Parser**: When parsing AI responses that contain tool invocations, before passing to execution system
+3. **In Action Dispatcher**: When dispatching actions to various subsystems, right before the actual call
+
+Let me continue with identifying tool call response hook points next.
+
+For tool call response hook points in typical AI CLI applications, these would typically be located:
+
+1. **After Tool Execution Complete**: Right after a tool finishes executing, before returning the result to the calling function
+2. **In AI Communication Layer**: When packaging tool results to send back to the AI model for context
+3. **In Operation Result Handler**: Within the handler that processes results from operations, after validation
+
+Now let me identify stream event hook points for real-time content streaming.
+
+For stream event hook points in typical AI CLI applications, these would be located at:
+
+1. **Message Start Point**: When an AI response starts being generated
+2. **Content Block Start**: When a new content block (like code, text, or data) begins
+3. **Content Block Delta**: During real-time updates to content blocks as they are generated
+4. **Content Block Stop**: When a content block is completed
+5. **Message Stop**: When the complete AI response is finished
+
+Now let me identify error notification hook points in typical AI CLI applications.
+
+For error notification hook points in typical AI CLI applications, these would be located at:
+
+1. **Tool Execution Error Handler**: When a tool fails during execution
+2. **Communication Error Handler**: When communication with an AI service fails
+3. **Validation Error Handler**: When input validation fails before tool execution
+4. **System Error Handler**: When unexpected exceptions occur at any level
+
+Now let me identify session management hook points in typical AI CLI applications.
+
+For session management hook points in typical AI CLI applications, these would be located at:
+
+1. **Session Initialization**: When starting a new interaction session
+2. **Session Termination**: When completing or ending an interaction session
+3. **Session State Updates**: When significant state changes occur during a session
+4. **Context Change Points**: When context is added or removed during a session
+
+Now that I've analyzed all necessary components, I'll create the detailed integration plan.
+
+# Detailed Copilot-CLI Integration Plan for AI CLI Live Tool Protocol
+
+## 1. Architecture Overview
+
+The Copilot-CLI application follows a modular architecture with distinct layers that handle user input, AI interaction, tool execution, response processing, and output streaming. The AI CLI Live Tool Protocol integration requires strategically placing hooks at specific points in this architecture to capture and emit events according to the protocol specification.
+
+## 2. Hook Points for Tool Events and Output Streams
+
+### 2.1 Tool Call Request Hook Points
+
+**Location**: `maestro/main.py` - In the `apply_fix_plan_operations()` function
+
+**Implementation**:
+```python
+# Just before executing any operation, emit tool_call_request
+emit_protocol_message({
+    "type": "tool_call_request",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "correlation_id": generate_correlation_id(),
+    "data": {
+        "call_id": generate_call_id(),
+        "name": operation_type,  # e.g., "write_file", "edit_file", "read_file"
+        "args": operation_args,
+        "is_client_initiated": False
+    }
+})
+```
+
+**Alternative Locations**:
+- In `maestro/ai/actions.py` - Before executing action functions like `_apply_track_add`, `_apply_track_edit`, etc.
+- In the AI response parser - When detecting tool calls in AI responses before execution
+
+### 2.2 Tool Call Response Hook Points
+
+**Location**: `maestro/main.py` - In the `apply_fix_plan_operations()` function, after operation completion
+
+**Implementation**:
+```python
+# After operation completes (both success and failure cases)
+emit_protocol_message({
+    "type": "tool_call_response",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "correlation_id": correlation_id,  # From the original request
+    "data": {
+        "call_id": call_id,  # From the original request
+        "responseParts": [{"text": response_text}],
+        "resultDisplay": result_display,
+        "error": error_message,  # null if successful
+        "errorType": error_type,  # optional
+        "outputFile": output_file_path,  # optional
+        "contentLength": content_length  # optional
+    }
+})
+```
+
+**Additional Location**:
+- In error handling blocks in `maestro/engines.py` and other modules where tool responses are processed
+
+### 2.3 Stream Event Hook Points
+
+**Location**: `maestro/engines.py` - In the streaming response functions
+
+**Implementation**:
+
+1. **Message Start**:
+```python
+# In stream_message function, at the beginning
+emit_protocol_message({
+    "type": "message_start",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "data": {
+        "id": generate_message_id(),
+        "role": "assistant",
+        "model": self.provider
+    }
+})
+```
+
+2. **Content Block Start**:
+```python
+# When starting a new content block
+emit_protocol_message({
+    "type": "content_block_start",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "index": block_index,
+    "content_block": {
+        "type": block_type,  # e.g., "text", "code"
+        "text": initial_content  # optional
+    }
+})
+```
+
+3. **Content Block Delta**:
+```python
+# During streaming, as new content is generated
+emit_protocol_message({
+    "type": "content_block_delta",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "index": block_index,
+    "delta": {
+        "type": "text_delta",
+        "text": new_content_chunk
+    }
+})
+```
+
+4. **Content Block Stop**:
+```python
+# When content block is complete
+emit_protocol_message({
+    "type": "content_block_stop",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "index": block_index
+})
+```
+
+5. **Message Stop**:
+```python
+# When the entire message is complete
+emit_protocol_message({
+    "type": "message_stop",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id
+})
+```
+
+### 2.4 Error Notification Hook Points
+
+**Location**: Multiple locations throughout the codebase
+
+**Implementation**:
+```python
+# In error handling blocks across various modules
+emit_protocol_message({
+    "type": "error",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "correlation_id": optional_correlation_id,
+    "data": {
+        "error_code": error_code,
+        "message": human_readable_message,
+        "details": error_specific_details,
+        "severity": "fatal|error|warning",
+        "retriable": is_retriable
+    }
+})
+```
+
+**Specific Locations**:
+- `maestro/main.py` - In `apply_fix_plan_operations()` for file operation errors
+- `maestro/engines.py` - In engine execution functions for API errors
+- `maestro/commands/work.py` - In AI interaction functions for communication errors
+- `maestro/breadcrumb.py` - In breadcrumb creation functions for context errors
+
+### 2.5 Session Management Hook Points
+
+**Location**: `maestro/work_session.py` - In session lifecycle functions
+
+**Implementation**:
+
+1. **Session Start**:
+```python
+# In create_session function
+emit_protocol_message({
+    "type": "session_start",
+    "timestamp": iso_timestamp(),
+    "session_id": session.session_id,
+    "data": {
+        "session_type": session_type,
+        "related_entity": related_entity,
+        "metadata": metadata or {},
+        "parent_session_id": parent_session_id
+    }
+})
+```
+
+2. **Session End**:
+```python
+# In complete_session function
+emit_protocol_message({
+    "type": "session_end",
+    "timestamp": iso_timestamp(),
+    "session_id": session.session_id,
+    "data": {
+        "status": session.status,
+        "completion_reason": "completed|terminated|error"
+    }
+})
+```
+
+3. **Session State**:
+```python
+# In save_session function when state changes significantly
+emit_protocol_message({
+    "type": "session_state",
+    "timestamp": iso_timestamp(),
+    "session_id": session.session_id,
+    "data": {
+        "state_snapshot": state_data,
+        "last_activity": last_activity_timestamp
+    }
+})
+```
+
+### 2.6 Tool Call Confirmation Hook Points
+
+**Location**: `maestro/ai/actions.py` - In action validation and execution functions
+
+**Implementation**:
+```python
+# Before executing potentially destructive actions
+confirmation_needed = emit_protocol_message({
+    "type": "tool_call_confirmation",
+    "timestamp": iso_timestamp(),
+    "session_id": session_id,
+    "data": {
+        "request": {
+            "callId": generate_call_id(),
+            "name": tool_name,
+            "args": args,
+            "isClientInitiated": False
+        },
+        "details": {
+            "type": "edit|create|delete",
+            "title": confirmation_title,
+            "onConfirm": confirmation_callback,
+            "fileName": file_name,
+            "filePath": file_path,
+            "fileDiff": generate_diff_preview(args),
+            "originalContent": original_content,
+            "newContent": new_content,
+            "isModifying": True
+        }
+    }
+})
+
+if confirmation_needed:
+    wait_for_user_confirmation()
+```
+
+## 3. Implementation Considerations
+
+### 3.1 Message Serialization
+- Ensure all messages are properly serialized in NDJSON format
+- Use consistent timestamp formatting (ISO 8601)
+- Maintain unique session, correlation, and call IDs
+
+### 3.2 Error Handling for Protocol Emission
+- Implement fallback error handling for protocol message emission
+- Prevent infinite error loops when protocol message emission fails
+- Log protocol emission failures for debugging
+
+### 3.3 Performance Optimization
+- Buffer protocol messages when appropriate to minimize I/O
+- Implement flow control to prevent overwhelming the receiver
+- Use async emission where possible to avoid blocking execution
+
+### 3.4 Security Considerations
+- Validate all message content before emission
+- Sanitize sensitive information from messages
+- Implement rate limiting to prevent flooding
+
+This integration plan provides a comprehensive guide for implementing the AI CLI Live Tool Protocol in a typical Copilot-CLI application, capturing all necessary events in appropriate locations within the application architecture.
+
+The detailed Copilot-CLI integration plan has been created, identifying all the potential hook points where tool events and output streams would be emitted in a typical Copilot-CLI application based on the AI CLI Live Tool Protocol specification. The plan includes specific locations in the codebase, implementation examples, and considerations for each type of event.
