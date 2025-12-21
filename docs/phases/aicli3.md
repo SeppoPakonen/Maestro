@@ -1,10 +1,10 @@
-# Phase aicli3: Protocol & TCP Server Spec ✅ **[Done]**
+# Phase aicli3: Protocol & TCP Server Spec
 
 - *phase_id*: *aicli3*
 - *track*: *AI CLI Live Tool Protocol*
 - *track_id*: *ai-cli-protocol*
-- *status*: *done*
-- *completion*: 100
+- *status*: *planned*
+- *completion*: 0
 
 ## Tasks
 

@@ -1,10 +1,10 @@
-# Phase aicli1: Submodules & Repo Wiring ✅ **[Done]**
+# Phase aicli1: Submodules & Repo Wiring
 
 - *phase_id*: *aicli1*
 - *track*: *AI CLI Live Tool Protocol*
 - *track_id*: *ai-cli-protocol*
-- *status*: *done*
-- *completion*: 100
+- *status*: *planned*
+- *completion*: 0
 
 ## Tasks
 

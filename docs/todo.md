@@ -1168,13 +1168,12 @@ This track handles external dependencies, build scripts, and Gentoo Portage inte
 
 ---
 
-## Track: AI CLI Live Tool Protocol ✅ **[Done]**
+## Track: AI CLI Live Tool Protocol
 
 - *track_id*: *ai-cli-protocol*
 - *priority*: 0
-- *status*: *done*
-- *completion*: 50%
-- *status_changed*: *2025-12-21T13:38:16*
+- *status*: *planned*
+- *completion*: 0%
 
 Add live tool usage + input injection support to agent CLIs beyond qwen-code.
 Study qwen-code fork (Node + C++ client) to define JSON protocol and uniform messaging.
@@ -1183,42 +1182,40 @@ Implement updates across agent submodules and document submodule cloning and pro
 ### Phase aicli1: Submodules & Repo Wiring
 
 - *phase_id*: *aicli1*
-- *status*: *done*
-- *completion*: 100
+- *status*: *planned*
+- *completion*: 0
 
-- [x] [Phase aicli1: Submodules & Repo Wiring](phases/aicli1.md) ✅ **[Done]**
+- [ ] [Phase aicli1: Submodules & Repo Wiring](phases/aicli1.md) 📋 **[Planned]**
 
 ### Phase aicli2: Qwen-Code Baseline Analysis
 
 - *phase_id*: *aicli2*
-- *status*: *done*
-- *completion*: 100
+- *status*: *planned*
+- *completion*: 0
 
-- [x] [Phase aicli2: Qwen-Code Baseline Analysis](phases/aicli2.md) ✅ **[Done]**
+- [ ] [Phase aicli2: Qwen-Code Baseline Analysis](phases/aicli2.md) 📋 **[Planned]**
 
 ### Phase aicli3: Protocol & TCP Server Spec
 
 - *phase_id*: *aicli3*
-- *status*: *done*
-- *completion*: 100
+- *status*: *planned*
+- *completion*: 0
 
-- [x] [Phase aicli3: Protocol & TCP Server Spec](phases/aicli3.md) ✅ **[Done]**
+- [ ] [Phase aicli3: Protocol & TCP Server Spec](phases/aicli3.md) 📋 **[Planned]**
 
-### Phase aicli4: Validation & Testing ✅ **[Done]**
+### Phase aicli4: Validation & Testing
 
 - *phase_id*: *aicli4*
-- *status*: *done*
-- *completion*: 50
-- *status_changed*: *2025-12-21T13:38:39*
+- *status*: *planned*
+- *completion*: 0
 
-- [ ] [Phase aicli4: Validation & Testing](phases/aicli4.md) 🚧 **[In Progress]**
+- [ ] [Phase aicli4: Validation & Testing](phases/aicli4.md) 📋 **[Planned]**
 
-### Phase aicli5: Agent Integration Planning ✅ **[Done]**
+### Phase aicli5: Agent Integration Planning
 
 - *phase_id*: *aicli5*
-- *status*: *done*
+- *status*: *planned*
 - *completion*: 0
-- *status_changed*: *2025-12-21T13:38:51*
 
 - [ ] [Phase aicli5: Agent Integration Planning](phases/aicli5.md) 📋 **[Planned]**
 
@@ -1245,3 +1242,27 @@ Implement updates across agent submodules and document submodule cloning and pro
 - *completion*: 0
 
 - [ ] [Phase aicli8: End-to-End Testing](phases/aicli8.md) 📋 **[Planned]**
+
+### Phase aicli9: Watchdog for Agent Streams
+
+- *phase_id*: *aicli9*
+- *status*: *planned*
+- *completion*: 0
+
+- [ ] **AICLI9.1: Implement Watchdog for Hanging Commands** 📋
+  - Monitor agent sessions for hanging commands (waiting for input, listening for connections, etc.)
+  - Detect when a command has been running for over 10 minutes with no new activity
+  - Apply to prompt-based, stdio-based, and TCP server-based streams
+  - Create timeout mechanisms to detect inactivity
+
+- [ ] **AICLI9.2: Session Recovery System** 📋
+  - When watchdog detects hanging state, create new AI-session
+  - Pass last messages and tool usage from hanging session to new session
+  - Decision engine to determine if hanging session should be interrupted or killed
+  - Preserve session context and state during handoff
+
+- [ ] **AICLI9.3: Testing and Validation** 📋
+  - Test hanging command detection with various scenarios
+  - Validate that watchdog properly handles different stream types
+  - Verify session recovery maintains continuity
+  - Ensure no false positives in hanging command detection

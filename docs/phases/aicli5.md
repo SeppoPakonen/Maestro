@@ -1,9 +1,9 @@
-# Phase aicli5: Agent Integration Planning ✅ **[Done]**
+# Phase aicli5: Agent Integration Planning
 
 - *phase_id*: *aicli5*
 - *track*: *AI CLI Live Tool Protocol*
 - *track_id*: *ai-cli-protocol*
-- *status*: *done*
+- *status*: *planned*
 - *completion*: 0
 - *status_changed*: *2025-12-21T13:38:51*
 

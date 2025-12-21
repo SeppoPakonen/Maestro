@@ -1,10 +1,10 @@
-# Phase aicli4: Validation & Testing ✅ **[Done]**
+# Phase aicli4: Validation & Testing
 
 - *phase_id*: *aicli4*
 - *track*: *AI CLI Live Tool Protocol*
 - *track_id*: *ai-cli-protocol*
-- *status*: *done*
-- *completion*: 50
+- *status*: *planned*
+- *completion*: 0
 - *status_changed*: *2025-12-21T13:38:39*
 
 ## Tasks
