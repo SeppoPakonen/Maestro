@@ -61,6 +61,11 @@ Run a smoke test that exercises tool events + input injection in one session.
 
 ## Notes
 
+### Execution blockers
+
+- `external/ai-agents/qwen-code/bin/Qwen --help` fails with "CPU ISA level is lower than required" on this host.
+- NodeJS CLI bundle is not built yet (`external/ai-agents/qwen-code/packages/cli` has no `dist/cli.js`), so `qwen` CLI tests are blocked until a build/install step is run.
+
 ### Test plan
 
 1. Verify live tool events emit proper JSON frames with `message_id`, `tool_use_id`, and correct event types (`tool_call_start`, `tool_call_update`, `tool_call_result`)
