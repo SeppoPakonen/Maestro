@@ -6,6 +6,7 @@ This is the main entry point for the Maestro AI task orchestrator.
 """
 
 # Import all the functionality from the modules
+import asyncio
 from .modules.dataclasses import *
 from .modules.utils import *
 from .modules.cli_parser import *
@@ -32,6 +33,7 @@ def main():
 
     # Import command handlers from the commands module
     from maestro.commands import (
+        handle_init_command,
         handle_track_command,
         handle_phase_command,
         handle_task_command,
@@ -40,9 +42,32 @@ def main():
         handle_issues_command,
         handle_solutions_command,
     )
+    from maestro.commands.ai import handle_ai_qwen, handle_ai_sync
+    from maestro.commands.work import (
+        handle_work_any,
+        handle_work_any_pick,
+        handle_work_track,
+        handle_work_phase,
+        handle_work_issue,
+        handle_work_task,
+        handle_work_discuss,
+        handle_work_analyze,
+        handle_work_fix,
+    )
+    from maestro.commands.work_session import (
+        handle_wsession_list,
+        handle_wsession_show,
+        handle_wsession_tree,
+        handle_wsession_breadcrumbs,
+        handle_wsession_timeline,
+        handle_wsession_stats,
+    )
 
     # Handle different commands based on the parsed arguments
-    if args.command == 'track':
+    if args.command == 'init':
+        handle_init_command(args)
+
+    elif args.command == 'track':
         handle_track_command(args)
 
     elif args.command == 'phase':
@@ -76,6 +101,12 @@ def main():
             handle_session_remove(args.name, args.skip_confirmation, args.verbose)
         elif args.session_subcommand == 'details':
             handle_session_details(args.name, args.list_number, args.verbose)
+        elif args.session_subcommand == 'breadcrumbs':
+            handle_wsession_breadcrumbs(args)
+        elif args.session_subcommand == 'timeline':
+            handle_wsession_timeline(args)
+        elif args.session_subcommand == 'stats':
+            handle_wsession_stats(args)
         else:
             parser.print_help()
 
@@ -159,15 +190,58 @@ def main():
         )
 
     elif args.command == 'work':
-        handle_task_run(
-            args.session,
-            args.num_tasks,
-            args.verbose,
-            args.quiet,
-            args.retry_interrupted,
-            args.stream_ai_output,
-            args.print_ai_prompts
-        )
+        work_subcommand = getattr(args, 'work_subcommand', None)
+        if work_subcommand is None:
+            asyncio.run(handle_work_any(args))
+        elif work_subcommand == 'any':
+            if getattr(args, 'any_subcommand', None) == 'pick':
+                asyncio.run(handle_work_any_pick(args))
+            else:
+                asyncio.run(handle_work_any(args))
+        elif work_subcommand == 'track':
+            asyncio.run(handle_work_track(args))
+        elif work_subcommand == 'phase':
+            asyncio.run(handle_work_phase(args))
+        elif work_subcommand == 'issue':
+            asyncio.run(handle_work_issue(args))
+        elif work_subcommand == 'task':
+            asyncio.run(handle_work_task(args))
+        elif work_subcommand == 'discuss':
+            handle_work_discuss(args)
+        elif work_subcommand == 'analyze':
+            asyncio.run(handle_work_analyze(args))
+        elif work_subcommand == 'fix':
+            asyncio.run(handle_work_fix(args))
+        else:
+            parser.print_help()
+
+    elif args.command == 'ai':
+        if args.ai_subcommand == 'sync':
+            exit_code = handle_ai_sync(args)
+            if exit_code:
+                raise SystemExit(exit_code)
+        elif args.ai_subcommand == 'qwen':
+            exit_code = handle_ai_qwen(args)
+            if exit_code:
+                raise SystemExit(exit_code)
+        else:
+            parser.print_help()
+
+    elif args.command == 'wsession':
+        if args.wsession_subcommand == 'list':
+            handle_wsession_list(args)
+        elif args.wsession_subcommand == 'show':
+            handle_wsession_show(args)
+        elif args.wsession_subcommand == 'tree':
+            handle_wsession_tree(args)
+        elif args.wsession_subcommand == 'breadcrumbs':
+            handle_wsession_breadcrumbs(args)
+        elif args.wsession_subcommand == 'timeline':
+            handle_wsession_timeline(args)
+        elif args.wsession_subcommand == 'stats':
+            handle_wsession_stats(args)
+        else:
+            parser.print_help()
 
     else:
         # If no command is provided, show help

@@ -46,6 +46,67 @@ except ImportError:
     from stats.session_stats import calculate_session_stats, calculate_tree_stats, SessionStats
 
 
+def add_wsession_parser(subparsers):
+    wsession_parser = subparsers.add_parser("wsession", aliases=["ws"], help="Work session management")
+    wsession_subparsers = wsession_parser.add_subparsers(dest="wsession_subcommand", help="Work session subcommands")
+
+    list_parser = wsession_subparsers.add_parser("list", aliases=["ls", "l"], help="List work sessions")
+    list_parser.add_argument("--type", help="Filter by session type")
+    list_parser.add_argument("--status", help="Filter by session status")
+    list_parser.add_argument("--since", help="Filter by created ISO timestamp (YYYY-MM-DD...)")
+    list_parser.add_argument("--entity", help="Filter by related entity value")
+    list_parser.add_argument(
+        "--sort-by",
+        choices=["created", "modified", "status", "type"],
+        default="created",
+        help="Sort field (default: created)",
+    )
+    list_parser.add_argument("--reverse", action="store_true", help="Reverse sort order")
+
+    show_parser = wsession_subparsers.add_parser("show", aliases=["sh"], help="Show work session details")
+    show_parser.add_argument("session_id", help="Session ID (or prefix)")
+    show_parser.add_argument("--all", dest="show_all_breadcrumbs", action="store_true", help="Show all breadcrumbs")
+    show_parser.add_argument("--export-json", dest="export_json", help="Export session JSON to file")
+    show_parser.add_argument("--export-md", dest="export_md", help="Export session Markdown to file")
+
+    tree_parser = wsession_subparsers.add_parser("tree", aliases=["tr"], help="Show session hierarchy tree")
+    tree_parser.add_argument("--depth", type=int, help="Max depth to display")
+    tree_parser.add_argument("--status", dest="filter_status", help="Filter by session status")
+    tree_parser.add_argument("--show-breadcrumbs", action="store_true", help="Show breadcrumb counts")
+
+    breadcrumbs_parser = wsession_subparsers.add_parser("breadcrumbs", help="Show breadcrumbs for a session")
+    breadcrumbs_parser.add_argument("session_id", help="Session ID (or prefix)")
+    breadcrumbs_parser.add_argument("--summary", action="store_true", help="Show summary only")
+    breadcrumbs_parser.add_argument("--depth", type=int, help="Depth level to include")
+    breadcrumbs_parser.add_argument("--limit", type=int, help="Limit number of breadcrumbs displayed")
+
+    timeline_parser = wsession_subparsers.add_parser("timeline", help="Show timeline for a session")
+    timeline_parser.add_argument("session_id", help="Session ID (or prefix)")
+
+    stats_parser = wsession_subparsers.add_parser("stats", help="Show work session stats")
+    stats_parser.add_argument("session_id", nargs="?", help="Session ID (or prefix)")
+    stats_parser.add_argument("--tree", action="store_true", help="Include child sessions")
+
+    return wsession_parser
+
+
+def _resolve_session_id(session_id: str) -> Optional[str]:
+    if session_id != "latest":
+        return session_id
+
+    sessions = list_sessions()
+    if not sessions:
+        return None
+
+    def _parse_time(value: str) -> datetime:
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return datetime.min
+
+    sessions.sort(key=lambda s: _parse_time(s.modified), reverse=True)
+    return sessions[0].session_id
+
 def handle_wsession_list(args) -> None:
     """Handle the 'wsession list' command."""
     try:
@@ -93,6 +154,11 @@ def handle_wsession_list(args) -> None:
 def handle_wsession_show(args) -> None:
     """Handle the 'wsession show' command."""
     try:
+        session_id = _resolve_session_id(args.session_id)
+        if not session_id:
+            print("No work sessions found.")
+            return
+
         # First try to find the session in the standard location
         base_path = Path("docs") / "sessions"
         session_found = False
@@ -100,7 +166,7 @@ def handle_wsession_show(args) -> None:
 
         # Look in top-level directories
         for session_dir in base_path.iterdir():
-            if session_dir.is_dir() and args.session_id.startswith(session_dir.name):
+            if session_dir.is_dir() and session_id.startswith(session_dir.name):
                 session_file = session_dir / "session.json"
                 if session_file.exists():
                     session = load_session(session_file)
@@ -112,7 +178,7 @@ def handle_wsession_show(args) -> None:
             for session_dir in base_path.iterdir():
                 if session_dir.is_dir():
                     for nested_dir in session_dir.iterdir():
-                        if nested_dir.is_dir() and args.session_id.startswith(nested_dir.name):
+                        if nested_dir.is_dir() and session_id.startswith(nested_dir.name):
                             session_file = nested_dir / "session.json"
                             if session_file.exists():
                                 session = load_session(session_file)
@@ -122,7 +188,7 @@ def handle_wsession_show(args) -> None:
                     break
 
         if not session_found:
-            print(f"Session '{args.session_id}' not found.")
+            print(f"Session '{session_id}' not found.")
             return
 
         # Use the new visualization component for detailed display
@@ -231,13 +297,18 @@ def _print_breadcrumb_counts(nodes, level=0):
 def handle_wsession_breadcrumbs(args) -> None:
     """Handle the 'wsession breadcrumbs' command."""
     try:
+        session_id = _resolve_session_id(args.session_id)
+        if not session_id:
+            print("No work sessions found.")
+            return
+
         # Find the session directory
         base_path = Path("docs") / "sessions"
         session_dir = None
 
         # Look for the session directory
         for item in base_path.iterdir():
-            if item.is_dir() and args.session_id.startswith(item.name):
+            if item.is_dir() and session_id.startswith(item.name):
                 session_dir = item
                 break
 
@@ -246,18 +317,18 @@ def handle_wsession_breadcrumbs(args) -> None:
             for item in base_path.iterdir():
                 if item.is_dir():
                     for nested_item in item.iterdir():
-                        if nested_item.is_dir() and args.session_id.startswith(nested_item.name):
+                        if nested_item.is_dir() and session_id.startswith(nested_item.name):
                             session_dir = nested_item
                             break
 
         if not session_dir:
-            print(f"Session '{args.session_id}' not found.")
+            print(f"Session '{session_id}' not found.")
             return
 
         if args.summary:
             # Show summary
-            summary = get_breadcrumb_summary(args.session_id)
-            print(f"Breadcrumb Summary for Session: {args.session_id}")
+            summary = get_breadcrumb_summary(session_id)
+            print(f"Breadcrumb Summary for Session: {session_id}")
             print(f"Total Breadcrumbs: {summary['total_breadcrumbs']}")
             print(f"Total Tokens: Input: {summary['total_tokens']['input']}, Output: {summary['total_tokens']['output']}")
             print(f"Total Cost: ${summary['total_cost']:.6f}")
@@ -265,7 +336,7 @@ def handle_wsession_breadcrumbs(args) -> None:
         else:
             # List breadcrumbs
             breadcrumbs = list_breadcrumbs(
-                args.session_id,
+                session_id,
                 depth=args.depth
             )
 
@@ -273,7 +344,7 @@ def handle_wsession_breadcrumbs(args) -> None:
             if args.limit and args.limit > 0:
                 breadcrumbs = breadcrumbs[:args.limit]
 
-            print(f"Breadcrumbs for Session: {args.session_id}")
+            print(f"Breadcrumbs for Session: {session_id}")
             if args.depth is not None:
                 print(f"Depth Level: {args.depth}")
             print(f"Found {len(breadcrumbs)} breadcrumb(s)")
@@ -301,13 +372,18 @@ def handle_wsession_breadcrumbs(args) -> None:
 def handle_wsession_timeline(args) -> None:
     """Handle the 'wsession timeline' command."""
     try:
+        session_id = _resolve_session_id(args.session_id)
+        if not session_id:
+            print("No work sessions found.")
+            return
+
         # Find the session directory
         base_path = Path("docs") / "sessions"
         session_dir = None
 
         # Look for the session directory
         for item in base_path.iterdir():
-            if item.is_dir() and args.session_id.startswith(item.name):
+            if item.is_dir() and session_id.startswith(item.name):
                 session_dir = item
                 break
 
@@ -316,17 +392,17 @@ def handle_wsession_timeline(args) -> None:
             for item in base_path.iterdir():
                 if item.is_dir():
                     for nested_item in item.iterdir():
-                        if nested_item.is_dir() and args.session_id.startswith(nested_item.name):
+                        if nested_item.is_dir() and session_id.startswith(nested_item.name):
                             session_dir = nested_item
                             break
 
         if not session_dir:
-            print(f"Session '{args.session_id}' not found.")
+            print(f"Session '{session_id}' not found.")
             return
 
         # Reconstruct the full session timeline
-        timeline = reconstruct_session_timeline(args.session_id)
-        print(f"Timeline for Session: {args.session_id}")
+        timeline = reconstruct_session_timeline(session_id)
+        print(f"Timeline for Session: {session_id}")
         print(f"Total Events: {len(timeline)}")
         print("-" * 80)
 
@@ -477,7 +553,14 @@ def export_session_markdown(session: WorkSession, output_path: str):
 def handle_wsession_stats(args) -> None:
     """Handle the 'wsession stats' command."""
     try:
+        session_id = None
         if args.session_id:
+            session_id = _resolve_session_id(args.session_id)
+            if not session_id:
+                print("No work sessions found.")
+                return
+
+        if session_id:
             # Show stats for specific session
             base_path = Path("docs") / "sessions"
             session_found = False
@@ -485,7 +568,7 @@ def handle_wsession_stats(args) -> None:
 
             # Find the session
             for session_dir in base_path.iterdir():
-                if session_dir.is_dir() and args.session_id.startswith(session_dir.name):
+                if session_dir.is_dir() and session_id.startswith(session_dir.name):
                     session_file = session_dir / "session.json"
                     if session_file.exists():
                         session = load_session(session_file)
@@ -497,7 +580,7 @@ def handle_wsession_stats(args) -> None:
                 for session_dir in base_path.iterdir():
                     if session_dir.is_dir():
                         for nested_dir in session_dir.iterdir():
-                            if nested_dir.is_dir() and args.session_id.startswith(nested_dir.name):
+                            if nested_dir.is_dir() and session_id.startswith(nested_dir.name):
                                 session_file = nested_dir / "session.json"
                                 if session_file.exists():
                                     session = load_session(session_file)
@@ -507,7 +590,7 @@ def handle_wsession_stats(args) -> None:
                         break
 
             if not session_found:
-                print(f"Session '{args.session_id}' not found.")
+                print(f"Session '{session_id}' not found.")
                 return
 
             # Calculate and display stats

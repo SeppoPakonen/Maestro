@@ -483,7 +483,12 @@ class TCPServer(BaseQwenServer):
             self.client_thread.join(timeout=1)
 
 
-def create_qwen_server(mode: str, pipe_path: Optional[str] = None, tcp_port: Optional[int] = None):
+def create_qwen_server(
+    mode: str,
+    pipe_path: Optional[str] = None,
+    tcp_port: Optional[int] = None,
+    tcp_host: Optional[str] = None,
+):
     """Factory function to create the appropriate server based on mode"""
     if mode == 'stdin':
         return StdinStdoutServer()
@@ -493,6 +498,7 @@ def create_qwen_server(mode: str, pipe_path: Optional[str] = None, tcp_port: Opt
         return NamedPipeServer(pipe_path)
     elif mode == 'tcp':
         port = tcp_port or 7777
-        return TCPServer(port)
+        host = tcp_host or "localhost"
+        return TCPServer(port, host=host)
     else:
         raise ValueError(f"Unknown server mode: {mode}")

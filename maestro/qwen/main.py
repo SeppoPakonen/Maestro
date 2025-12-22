@@ -24,13 +24,19 @@ class QwenManager:
         self.running = False
         self.main_thread: Optional[threading.Thread] = None
     
-    def start(self, mode: str = 'stdin', pipe_path: Optional[str] = None, tcp_port: Optional[int] = None):
+    def start(
+        self,
+        mode: str = 'stdin',
+        pipe_path: Optional[str] = None,
+        tcp_port: Optional[int] = None,
+        tcp_host: Optional[str] = None,
+    ):
         """Start the Qwen manager with specified communication mode"""
         self.running = True
         
         # Create server based on mode
         try:
-            self.server = create_qwen_server(mode, pipe_path, tcp_port)
+            self.server = create_qwen_server(mode, pipe_path, tcp_port, tcp_host)
             self.server.start()
         except Exception as e:
             print(f"[QwenManager] Failed to start server: {e}", file=sys.stderr)
@@ -148,12 +154,18 @@ class QwenManager:
         return self.running
 
 
-def run_qwen_server(mode: str = 'stdin', pipe_path: Optional[str] = None, tcp_port: Optional[int] = None):
+def run_qwen_server(
+    mode: str = 'stdin',
+    pipe_path: Optional[str] = None,
+    tcp_port: Optional[int] = None,
+    tcp_host: Optional[str] = None,
+    qwen_executable: Optional[str] = None,
+):
     """Run the Qwen server with the specified mode"""
-    manager = QwenManager()
+    manager = QwenManager(qwen_executable=qwen_executable or "npx qwen-code")
     
     try:
-        success = manager.start(mode, pipe_path, tcp_port)
+        success = manager.start(mode, pipe_path, tcp_port, tcp_host)
         if not success:
             print("[QwenManager] Failed to start Qwen manager", file=sys.stderr)
             return False
@@ -183,11 +195,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Qwen Server Implementation")
     parser.add_argument("--mode", choices=['stdin', 'pipe', 'tcp'], default='stdin',
                         help="Communication mode (default: stdin)")
-    parser.add_argument("--pipe-path", type=str,
-                        help="Named pipe path for pipe mode")
-    parser.add_argument("--tcp-port", type=int, default=7777,
-                        help="TCP port for tcp mode (default: 7777)")
+    parser.add_argument("--pipe-path", type=str, help="Named pipe path for pipe mode")
+    parser.add_argument("--tcp-host", type=str, default="127.0.0.1", help="TCP host (default: 127.0.0.1)")
+    parser.add_argument("--tcp-port", type=int, default=7777, help="TCP port for tcp mode (default: 7777)")
+    parser.add_argument(
+        "--qwen-executable",
+        type=str,
+        help="Path to qwen-code.sh or a qwen-code executable",
+    )
     
     args = parser.parse_args()
     
-    run_qwen_server(args.mode, args.pipe_path, args.tcp_port)
+    run_qwen_server(
+        args.mode,
+        args.pipe_path,
+        args.tcp_port,
+        args.tcp_host,
+        args.qwen_executable,
+    )

@@ -15,6 +15,9 @@ Commands:
 
 from __future__ import annotations
 
+import os
+import re
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -430,6 +433,10 @@ def _slugify_track_id(name: str) -> str:
     return slug
 
 
+def _looks_like_track_id(value: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", value))
+
+
 def _resolve_text_input(args) -> str:
     if getattr(args, 'text_file', None):
         return Path(args.text_file).read_text(encoding='utf-8')
@@ -523,9 +530,6 @@ def edit_track(track_identifier: str, args) -> int:
     """
     Edit a track in $EDITOR.
     """
-    import os
-    import subprocess
-
     verbose = getattr(args, 'verbose', False)
     track_id = resolve_track_identifier(track_identifier, verbose=verbose)
     if not track_id:
@@ -669,7 +673,16 @@ def handle_track_command(args) -> int:
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Track name required. Usage: maestro track add <name>")
                 return 1
-            name = " ".join(args.name) if isinstance(args.name, list) else args.name
+            name_parts = args.name if isinstance(args.name, list) else [args.name]
+            track_id = getattr(args, 'track_id', None)
+            if not track_id and len(name_parts) == 2:
+                candidate_id, candidate_name = name_parts
+                if _looks_like_track_id(candidate_id) and " " in candidate_name:
+                    track_id = candidate_id
+                    name_parts = [candidate_name]
+            if track_id:
+                args.track_id = track_id
+            name = " ".join(name_parts)
             return add_track(name, args)
 
         if subcommand in ['remove', 'rm', 'r']:

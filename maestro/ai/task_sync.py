@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from maestro.commands.status_utils import normalize_status
 from maestro.data import parse_phase_md
+
+try:
+    from multiprocessing import shared_memory
+except ImportError:  # pragma: no cover - shared_memory not available on older runtimes
+    shared_memory = None
+
+SHARED_SYNC_NAME = "maestro_ai_sync"
+SHARED_SYNC_SIZE = 65536
 
 
 def find_task_context(task_id: str) -> Optional[Dict[str, Any]]:
@@ -101,6 +110,10 @@ def build_task_prompt(
 
 
 def load_sync_state() -> Dict[str, Any]:
+    shared_state = _read_shared_sync_state()
+    if shared_state is not None:
+        return shared_state
+
     path = Path("docs/ai_sync.json")
     if not path.exists():
         return {}
@@ -118,5 +131,60 @@ def write_sync_state(session, task_queue: List[str], current_task_id: str) -> No
         "task_queue": task_queue,
         "updated_at": datetime.now().isoformat(),
     }
+    _write_shared_sync_state(payload)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _read_shared_sync_state() -> Optional[Dict[str, Any]]:
+    if shared_memory is None:
+        return None
+
+    try:
+        shm = shared_memory.SharedMemory(name=SHARED_SYNC_NAME, create=False)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        logging.debug("Shared memory not available: %s", exc)
+        return None
+
+    try:
+        raw = bytes(shm.buf).split(b"\x00", 1)[0].decode("utf-8").strip()
+    except Exception as exc:
+        logging.debug("Failed to read shared sync state: %s", exc)
+        raw = ""
+    finally:
+        shm.close()
+
+    if not raw:
+        return None
+
+    try:
+        return json.loads(raw)
+    except ValueError:
+        logging.debug("Shared sync state contained invalid JSON.")
+        return None
+
+
+def _write_shared_sync_state(payload: Dict[str, Any]) -> None:
+    if shared_memory is None:
+        return
+
+    data = json.dumps(payload).encode("utf-8")
+    if len(data) >= SHARED_SYNC_SIZE:
+        logging.warning("Shared sync state exceeds %s bytes; skipping shared memory.", SHARED_SYNC_SIZE)
+        return
+
+    try:
+        shm = shared_memory.SharedMemory(name=SHARED_SYNC_NAME, create=True, size=SHARED_SYNC_SIZE)
+    except FileExistsError:
+        shm = shared_memory.SharedMemory(name=SHARED_SYNC_NAME, create=False)
+    except OSError as exc:
+        logging.debug("Failed to allocate shared sync memory: %s", exc)
+        return
+
+    try:
+        shm.buf[:len(data)] = data
+        shm.buf[len(data):] = b"\x00" * (SHARED_SYNC_SIZE - len(data))
+    finally:
+        shm.close()

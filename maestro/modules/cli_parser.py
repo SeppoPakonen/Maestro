@@ -183,9 +183,14 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_settings_parser,
         add_issues_parser,
         add_solutions_parser,
+        add_ai_parser,
+        add_work_parser,
+        add_wsession_parser,
+        add_init_parser,
     )
 
     # Register all available command parsers
+    add_init_parser(subparsers)
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
     add_task_parser(subparsers)
@@ -193,6 +198,9 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_settings_parser(subparsers)
     add_issues_parser(subparsers)
     add_solutions_parser(subparsers)
+    add_ai_parser(subparsers)
+    add_work_parser(subparsers)
+    add_wsession_parser(subparsers)
 
     # Also add the original core commands
     add_core_subparsers(subparsers)
@@ -203,7 +211,12 @@ def create_main_parser() -> argparse.ArgumentParser:
 def add_core_subparsers(subparsers):
     """Add the original core subparsers that were handled in main.py"""
     # Session subparsers
-    session_parser = subparsers.add_parser('session', aliases=['s'], help='Session management')
+    session_parser = subparsers.add_parser(
+        'session',
+        aliases=['s'],
+        help='Legacy session management',
+        description="Legacy session management. For work sessions and breadcrumbs use 'maestro wsession ...'."
+    )
     session_subparsers = session_parser.add_subparsers(dest='session_subcommand', help='Session subcommands')
     session_subparsers.add_parser('new', aliases=['n'], help='Create new session')
     session_subparsers.add_parser('list', aliases=['ls', 'l'], help='List sessions')
@@ -211,6 +224,18 @@ def add_core_subparsers(subparsers):
     session_subparsers.add_parser('get', aliases=['g'], help='Get active session')
     session_subparsers.add_parser('remove', aliases=['rm'], help='Remove session')
     session_subparsers.add_parser('details', aliases=['d'], help='Show session details')
+    breadcrumbs_parser = session_subparsers.add_parser('breadcrumbs', aliases=['bc'], help='Show work session breadcrumbs')
+    breadcrumbs_parser.add_argument('session_id', help='Session ID (or prefix)')
+    breadcrumbs_parser.add_argument('--summary', action='store_true', help='Show summary only')
+    breadcrumbs_parser.add_argument('--depth', type=int, help='Depth level to include')
+    breadcrumbs_parser.add_argument('--limit', type=int, help='Limit number of breadcrumbs displayed')
+
+    timeline_parser = session_subparsers.add_parser('timeline', aliases=['tl'], help='Show work session timeline')
+    timeline_parser.add_argument('session_id', help='Session ID (or prefix)')
+
+    stats_parser = session_subparsers.add_parser('stats', aliases=['stt'], help='Show work session stats')
+    stats_parser.add_argument('session_id', nargs='?', help='Session ID (or prefix)')
+    stats_parser.add_argument('--tree', action='store_true', help='Include child sessions')
 
     # Plan subparsers
     plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
@@ -248,12 +273,7 @@ def add_core_subparsers(subparsers):
     # Resume command (no subcommands)
     subparsers.add_parser('resume', aliases=['rs'], help='Resume session')
 
-    # Work command (no subcommands)
-    work_parser = subparsers.add_parser('work', aliases=['wk'], help='Work on tasks')
-    work_parser.add_argument('num_tasks', type=int, nargs='?', help='Number of tasks to run')
-    work_parser.add_argument('--retry-interrupted', action='store_true', help='Retry interrupted tasks')
-    work_parser.add_argument('--stream-ai-output', '-S', action='store_true', help='Stream AI output')
-    work_parser.add_argument('--print-ai-prompts', '-P', action='store_true', help='Print AI prompts')
+    # Work command is registered in maestro.commands.work
 
 
 def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
@@ -267,7 +287,9 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
         't': 'track',
         'l': 'log',
         'c': 'convert',
-        'b': 'build'
+        'b': 'build',
+        'wk': 'work',
+        'ws': 'wsession'
     }
     # Map alias to main command name if present
     args.command = command_alias_map.get(args.command, args.command)
@@ -283,6 +305,9 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
                 'g': 'get',
                 'rm': 'remove',
                 'd': 'details',
+                'bc': 'breadcrumbs',
+                'tl': 'timeline',
+                'stt': 'stats',
                 'h': 'help'
             }
             args.session_subcommand = session_subcommand_alias_map.get(args.session_subcommand, args.session_subcommand)

@@ -32,75 +32,53 @@ from ..breadcrumb import (
     capture_tool_call,
     track_file_modification
 )
-from ..data import parse_phase_md
+from ..data import parse_phase_md, parse_todo_md
 from ..engines import get_engine, EngineError
 
 
-def parse_todo_md() -> Dict[str, Any]:
-    """
-    Parse docs/todo.md for tracks and phases.
+def add_work_parser(subparsers):
+    work_parser = subparsers.add_parser("work", aliases=["wk"], help="AI work sessions")
+    work_subparsers = work_parser.add_subparsers(dest="work_subcommand", help="Work subcommands")
 
-    Returns:
-        {
-          "tracks": [...],
-          "phases": [...]
-        }
-    """
-    todo_path = Path("docs/todo.md")
-    if not todo_path.exists():
-        return {"tracks": [], "phases": []}
+    any_parser = work_subparsers.add_parser("any", help="Let AI select the best work item")
+    any_subparsers = any_parser.add_subparsers(dest="any_subcommand", help="Any subcommands")
+    any_subparsers.add_parser("pick", help="Show top 3 work items and select one")
 
-    content = todo_path.read_text()
-    lines = content.splitlines()
+    track_parser = work_subparsers.add_parser("track", help="Work on a track")
+    track_parser.add_argument("id", nargs="?", help="Track ID")
 
-    result = {"tracks": [], "phases": []}
-    current_track = None
+    phase_parser = work_subparsers.add_parser("phase", help="Work on a phase")
+    phase_parser.add_argument("id", nargs="?", help="Phase ID")
 
-    for line in lines:
-        # Match track headers (## <id>_<name>)
-        track_match = re.match(r'^##\s+([a-zA-Z0-9]+)_([^\n]+)$', line)
-        if track_match:
-            track_id = track_match.group(1)
-            track_name = track_match.group(2).strip()
-            current_track = {
-                "id": track_id,
-                "name": track_name,
-                "type": "track",
-                "status": "todo",
-                "description": ""
-            }
-            result["tracks"].append(current_track)
-            continue
+    issue_parser = work_subparsers.add_parser("issue", help="Work on an issue")
+    issue_parser.add_argument("id", nargs="?", help="Issue ID")
 
-        # Match phase headers (### <id>_<name>)
-        phase_match = re.match(r'^###\s+([a-zA-Z0-9]+)_([^\n]+)$', line)
-        if phase_match and current_track:
-            phase_id = phase_match.group(1)
-            phase_name = phase_match.group(2).strip()
+    task_parser = work_subparsers.add_parser("task", help="Work on a task")
+    task_parser.add_argument("id", nargs="?", help="Task ID")
+    task_parser.add_argument("--simulate", action="store_true", help="Print the prompt without executing work")
 
-            # Check if phase is completed (has checklist with all items checked)
-            is_completed = False
-            for i, next_line in enumerate(lines[lines.index(line)+1:], lines.index(line)+1):
-                if next_line.startswith("## ") or next_line.startswith("# "):
-                    break
-                if next_line.startswith("- [x]") or next_line.startswith("- [X]"):
-                    is_completed = True
-                    break
-                if next_line.startswith("- [ ]"):
-                    is_completed = False
-                    break
+    discuss_parser = work_subparsers.add_parser("discuss", help="Start a discussion for a work item")
+    discuss_parser.add_argument("entity_type", choices=["track", "phase", "task"], help="Entity type")
+    discuss_parser.add_argument("entity_id", help="Entity ID")
 
-            phase = {
-                "id": phase_id,
-                "name": phase_name,
-                "type": "phase",
-                "track": current_track["id"],
-                "status": "done" if is_completed else "todo",
-                "description": ""
-            }
-            result["phases"].append(phase)
+    analyze_parser = work_subparsers.add_parser("analyze", help="Analyze a target before work")
+    analyze_parser.add_argument("target", nargs="?", help="Target to analyze (file, directory, or ID)")
+    analyze_parser.add_argument("--simulate", action="store_true", help="Print the prompt without executing work")
 
-    return result
+    fix_parser = work_subparsers.add_parser("fix", help="Fix a target or issue")
+    fix_parser.add_argument("target", nargs="?", help="Target to fix (file, directory, or ID)")
+    fix_parser.add_argument("--issue", help="Issue ID to fix")
+    fix_parser.add_argument("--simulate", action="store_true", help="Print the prompt without executing work")
+
+    return work_parser
+
+def _normalize_work_status(value: Optional[str]) -> str:
+    if not value:
+        return "todo"
+    normalized = value.strip().lower()
+    if normalized in {"done", "completed", "complete", "closed"}:
+        return "done"
+    return "todo"
 
 
 def load_issues() -> List[Dict[str, Any]]:
@@ -147,13 +125,44 @@ def load_available_work() -> Dict[str, List[Dict[str, Any]]]:
         }
     """
     # Parse docs/todo.md for tracks and phases
-    todo_data = parse_todo_md()
+    todo_data = parse_todo_md("docs/todo.md")
     # Scan docs/issues/ for open issues
     issues = load_issues()
 
+    tracks: List[Dict[str, Any]] = []
+    phases: List[Dict[str, Any]] = []
+
+    for track in todo_data.get("tracks", []):
+        track_id = track.get("track_id")
+        if not track_id:
+            continue
+        track_status = _normalize_work_status(track.get("status"))
+        track_item = {
+            "id": track_id,
+            "name": track.get("name", "Unnamed Track"),
+            "type": "track",
+            "status": track_status,
+            "description": "\n".join(track.get("description", [])),
+        }
+        tracks.append(track_item)
+
+        for phase in track.get("phases", []):
+            phase_id = phase.get("phase_id")
+            if not phase_id:
+                continue
+            phase_status = _normalize_work_status(phase.get("status"))
+            phases.append({
+                "id": phase_id,
+                "name": phase.get("name", "Unnamed Phase"),
+                "type": "phase",
+                "track": track_id,
+                "status": phase_status,
+                "description": "\n".join(phase.get("description", [])),
+            })
+
     return {
-        "tracks": [t for t in todo_data["tracks"] if t["status"] == "todo"],
-        "phases": [p for p in todo_data["phases"] if p["status"] == "todo"],
+        "tracks": [t for t in tracks if t["status"] == "todo"],
+        "phases": [p for p in phases if p["status"] == "todo"],
         "issues": [i for i in issues if i["status"] == "open"]
     }
 
@@ -914,57 +923,39 @@ def _run_ai_interaction_with_breadcrumb(
     if files_modified is None:
         files_modified = []
 
-    # Check if breadcrumbs are enabled
+    response, error = _safe_generate(prompt, model_used)
+
     if not is_breadcrumb_enabled():
-        # If not enabled, just run the interaction without breadcrumbs
-        engine = get_engine(model_used)
-        response = engine.run(prompt)
         return response
 
-    # Run the AI interaction
+    input_tokens = estimate_tokens(prompt, model_used)
+    output_tokens = estimate_tokens(response, model_used)
+    cost = calculate_cost(input_tokens, output_tokens, model_used)
+
+    breadcrumb = create_breadcrumb(
+        prompt=prompt,
+        response=response,
+        tools_called=tools_called,
+        files_modified=files_modified,
+        parent_session_id=session.parent_session_id,
+        depth_level=0,  # This would need to be determined based on session hierarchy
+        model_used=model_used,
+        token_count={"input": input_tokens, "output": output_tokens},
+        cost=cost,
+        error=error
+    )
+
+    write_breadcrumb(breadcrumb, session.session_id)
+
+    return response
+
+
+def _safe_generate(prompt: str, model_used: str) -> tuple[str, Optional[str]]:
     try:
         engine = get_engine(model_used)
-        response = engine.run(prompt)
-
-        # Calculate tokens and cost
-        input_tokens = estimate_tokens(prompt, model_used)
-        output_tokens = estimate_tokens(response, model_used)
-        cost = calculate_cost(input_tokens, output_tokens, model_used)
-
-        # Create breadcrumb
-        breadcrumb = create_breadcrumb(
-            prompt=prompt,
-            response=response,
-            tools_called=tools_called,
-            files_modified=files_modified,
-            parent_session_id=session.parent_session_id,
-            depth_level=0,  # This would need to be determined based on session hierarchy
-            model_used=model_used,
-            token_count={"input": input_tokens, "output": output_tokens},
-            cost=cost
-        )
-
-        # Write breadcrumb to disk
-        write_breadcrumb(breadcrumb, session.session_id)
-
-        return response
-    except Exception as e:
-        # Create breadcrumb with error info
-        breadcrumb = create_breadcrumb(
-            prompt=prompt,
-            response="",
-            tools_called=tools_called,
-            files_modified=files_modified,
-            parent_session_id=session.parent_session_id,
-            depth_level=0,
-            model_used=model_used,
-            token_count={"input": estimate_tokens(prompt, model_used), "output": 0},
-            cost=0.0,
-            error=str(e)
-        )
-
-        write_breadcrumb(breadcrumb, session.session_id)
-        raise e
+        return engine.generate(prompt), None
+    except (EngineError, KeyError, AttributeError, OSError) as exc:
+        return f"[SIMULATED RESPONSE] {prompt[:200]}", str(exc)
 
 
 def handle_work_discuss(args):

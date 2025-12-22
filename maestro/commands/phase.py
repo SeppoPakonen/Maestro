@@ -11,6 +11,7 @@ Commands:
 - maestro phase <id> set - Set current phase context
 """
 
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -37,6 +38,14 @@ from maestro.data.common_utils import (
     print_info
 )
 from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
+
+
+def _parse_todo_safe(todo_path: Path, verbose: bool = False):
+    return parse_todo_safe(todo_path, verbose=verbose)
+
+
+def _looks_like_phase_id(value: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", value))
 
 
 def _available_track_ids(verbose: bool = False) -> List[str]:
@@ -608,7 +617,27 @@ def handle_phase_command(args):
             if not hasattr(args, 'name') or not args.name:
                 print("Error: Phase name required. Usage: maestro phase add <name>")
                 return 1
-            name = " ".join(args.name) if isinstance(args.name, list) else args.name
+            name_parts = args.name if isinstance(args.name, list) else [args.name]
+            track_id = getattr(args, 'track_id', None)
+            phase_id = getattr(args, 'phase_id', None)
+            if not track_id and name_parts:
+                track_ids = _available_track_ids(verbose=getattr(args, 'verbose', False))
+                if track_ids and name_parts[0] in track_ids:
+                    track_id = name_parts[0]
+                    name_parts = name_parts[1:]
+            if not phase_id and len(name_parts) >= 2:
+                candidate_phase_id = name_parts[0]
+                if _looks_like_phase_id(candidate_phase_id):
+                    phase_id = candidate_phase_id
+                    name_parts = name_parts[1:]
+            if not name_parts:
+                print("Error: Phase name required. Usage: maestro phase add <name>")
+                return 1
+            if track_id:
+                args.track_id = track_id
+            if phase_id:
+                args.phase_id = phase_id
+            name = " ".join(name_parts)
             return add_phase(name, args)
         elif subcommand in ['remove', 'rm', 'r']:
             if not hasattr(args, 'phase_id') or not args.phase_id:
