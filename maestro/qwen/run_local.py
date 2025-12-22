@@ -21,29 +21,38 @@ def run_local_qwen():
     env['HOME'] = os.path.expanduser('~')
     
     # Path to the locally built qwen-code
-    qwen_executable = "/common/active/sblo/Dev/Maestro/external/ai-agents/qwen-code/node packages/cli/dist/index.js"
+    qwen_executable = "node packages/cli/dist/index.js"
+
+    # Change to the qwen-code directory to run the command
+    original_cwd = os.getcwd()
+    os.chdir("/common/active/sblo/Dev/Maestro/external/ai-agents/qwen-code")
     
     manager = QwenManager(qwen_executable=qwen_executable, env=env)
-    
+
     # Start in stdin mode
     success = manager.start(mode='stdin')
     if not success:
         print("Failed to start manager with local built version")
+        os.chdir(original_cwd)  # Change back to original directory on failure
         return False
-    
+
     print("QwenManager started with local built qwen-code.")
     print("Send JSON commands to stdin, for example:")
     print('{"type":"user_input","content":"Hello, Qwen!"}')
     print()
     print("Press Ctrl+C to stop.")
-    
+
     try:
         while manager.is_running():
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nStopping manager...")
-    
+
     manager.stop()
+
+    # Change back to original directory
+    os.chdir(original_cwd)
+
     return True
 
 
@@ -56,26 +65,26 @@ def run_with_npx():
     env['HOME'] = os.path.expanduser('~')
     
     manager = QwenManager(qwen_executable="npx qwen-code", env=env)
-    
+
     # Start in stdin mode
     success = manager.start(mode='stdin')
     if not success:
         print("Failed to start manager with npx")
         return False
-    
+
     print("QwenManager started with npx qwen-code.")
     print("Note: This may not work if npx version doesn't have --server-mode option.")
     print("Send JSON commands to stdin, for example:")
     print('{"type":"user_input","content":"Hello, Qwen!"}')
     print()
     print("Press Ctrl+C to stop.")
-    
+
     try:
         while manager.is_running():
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nStopping manager...")
-    
+
     manager.stop()
     return True
 
