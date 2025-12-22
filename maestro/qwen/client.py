@@ -15,7 +15,7 @@ from typing import Optional, Dict, Any, Callable, List
 from queue import Queue, Empty
 from .server import (
     QwenUserInput, QwenToolApproval, QwenInterrupt, QwenModelSwitch,
-    QwenInitMessage, QwenConversationMessage, QwenToolGroup,
+    QwenInitMessage, QwenConversationMessage, QwenToolCall, QwenToolGroup,
     QwenStatusUpdate, QwenInfoMessage, QwenErrorMessage, QwenCompletionStats
 )
 

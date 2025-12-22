@@ -175,20 +175,242 @@ def handle_ai_qwen(args) -> int:
             port = 7777
         return _run_qwen_tui(host, port, getattr(args, "prompt", None))
 
-    if port is None:
-        port = _pick_free_port()
+    # For TUI mode, we'll start the manager directly in stdin mode for a better user experience
+    if mode == "tui":
+        return _run_qwen_stdin_chat(qwen_script, repo_root, verbose, getattr(args, "prompt", None))
 
-    server_proc = _start_qwen_server(qwen_script, repo_root, host, port, verbose)
-    if not server_proc:
+
+def _run_qwen_stdin_chat(qwen_script: Path, repo_root: Path, verbose: bool, initial_prompt: Optional[str] = None) -> int:
+    """Run Qwen in a user-friendly chat interface using stdin/stdout mode"""
+    from maestro.qwen.client import MessageHandlers, QwenClientConfig, QwenClient
+    from maestro.qwen.server import QwenInitMessage, QwenConversationMessage, QwenToolGroup, QwenStatusUpdate, QwenInfoMessage, QwenErrorMessage, QwenCompletionStats
+    import threading
+    import json
+    import sys
+    import time
+
+    # Create client directly instead of using the manager
+    client_config = QwenClientConfig()
+    client_config.qwen_executable = str(qwen_script)
+    client_config.qwen_args = ["--server-mode", "stdin"]
+    client_config.verbose = verbose
+
+    client = QwenClient(client_config)
+
+    # Set up message handlers for streaming output
+    handlers = MessageHandlers()
+
+    # Track streaming state
+    current_streaming_id = None
+    current_streaming_buffer = ""
+
+    def handle_init(msg: QwenInitMessage):
+        nonlocal current_streaming_id, current_streaming_buffer
+        if verbose:
+            print(f"Connected to Qwen service. Version: {msg.version}, Model: {msg.model}")
+
+    def handle_conversation(msg: QwenConversationMessage):
+        nonlocal current_streaming_id, current_streaming_buffer
+        if msg.role == 'user':
+            # Print user message
+            print(f"\nYou: {msg.content}")
+            print()  # Add a blank line after user input
+        elif msg.role == 'assistant':
+            if msg.isStreaming:
+                # Handle streaming responses
+                if current_streaming_id != msg.id:
+                    # New streaming response
+                    if current_streaming_id is not None:
+                        # Finish previous streaming if needed
+                        print()  # New line after previous response
+                    current_streaming_id = msg.id
+                    current_streaming_buffer = ""
+                    print(f"AI: ", end="", flush=True)
+
+                # Append to current streaming buffer and print
+                current_streaming_buffer += msg.content
+                print(msg.content, end="", flush=True)
+            else:
+                # Non-streaming or end of streaming
+                if current_streaming_id == msg.id and current_streaming_buffer:
+                    # This is the end of a streaming response
+                    print()  # New line after response
+                    current_streaming_id = None
+                    current_streaming_buffer = ""
+                    streaming_active.clear()  # Clear flag when streaming ends
+                elif msg.content:  # Non-streaming response
+                    print(f"AI: {msg.content}")
+                    print()  # Add a blank line after AI response
+        else:
+            # System messages
+            print(f"[System]: {msg.content}")
+            print()
+
+    def handle_tool_group(group: QwenToolGroup):
+        # Calculate terminal width for the box
+        import os
+        try:
+            terminal_width = os.get_terminal_size().columns if hasattr(os, 'get_terminal_size') else 80
+        except OSError:
+            # Handle case where we're not connected to a terminal (e.g. piped input)
+            terminal_width = 80
+        # Limit the box width to 80% of terminal width, but minimum 60
+        box_width = max(min(int(terminal_width * 0.9), 120), 60)
+
+        # Print the top border
+        print("╭" + "─" * (box_width - 2) + "╮")
+
+        # Print tool information
+        for tool in group.tools:
+            # Extract command from args if available
+            command = ''
+            description = f'{tool.tool_name} execution'
+
+            if tool.args and isinstance(tool.args, dict):
+                command = tool.args.get('command', '')
+                description = tool.args.get('description', f'{tool.tool_name} execution')
+
+            # Create a summary line for the tool
+            tool_summary = f"✓  {tool.tool_name} {command} ({description})"
+            # Truncate if too long
+            if len(tool_summary) > box_width - 4:  # -4 for borders and padding
+                tool_summary = tool_summary[:box_width - 7] + "..."
+
+            print(f"│ {tool_summary:<{box_width - 3}}│")  # -3 for border and padding
+
+        # Print an empty line inside the box if there are results
+        has_results = any(tool.result for tool in group.tools)
+        if has_results:
+            print("│" + " " * (box_width - 2) + "│")
+
+        # If the tool has results, print them inside the box
+        for tool in group.tools:
+            if tool.result is not None:
+                # Format the tool result, adding it inside the box
+                result_str = str(tool.result)
+                lines = result_str.split('\n')
+                for line in lines:
+                    # Truncate lines that are too long
+                    if len(line) > box_width - 4:  # -4 for borders and padding
+                        line = line[:box_width - 7] + "..."
+                    print(f"│ {line:<{box_width - 3}}│")  # -3 for border and padding
+
+        # Print the bottom border
+        print("╰" + "─" * (box_width - 2) + "╯")
+        print()  # Add a blank line after the box
+
+    def handle_status(msg: QwenStatusUpdate):
+        if verbose:
+            print(f"[Status: {msg.state}] {msg.message or ''}")
+            print()
+
+    def handle_info(msg: QwenInfoMessage):
+        if verbose:
+            print(f"[Info] {msg.message}")
+            print()
+
+    def handle_error(msg: QwenErrorMessage):
+        print(f"[Error] {msg.message}")
+        print()
+
+    def handle_completion_stats(stats: QwenCompletionStats):
+        if verbose:
+            print(f"[Stats] {stats.duration or ''} | Prompt: {stats.prompt_tokens or 0}, Completion: {stats.completion_tokens or 0}")
+            print()
+
+    # Set up the handlers
+    handlers.on_init = handle_init
+    handlers.on_conversation = handle_conversation
+    handlers.on_tool_group = handle_tool_group
+    handlers.on_status = handle_status
+    handlers.on_info = handle_info
+    handlers.on_error = handle_error
+    handlers.on_completion_stats = handle_completion_stats
+
+    # Apply handlers to the client
+    client.set_handlers(handlers)
+
+    # Start the client
+    if not client.start():
+        print("Error: Failed to start Qwen client")
         return 1
 
+    # Wait for initialization
+    time.sleep(0.5)
+
+    # Print initial instructions after connection
+    print("Qwen is ready! You can start chatting now.")
+    print("Send messages directly, for example:")
+    print('Hello, Qwen!')
+    print()
+    print("Type 'exit' or 'quit' to stop.")
+    print()
+
+    # Send initial prompt if provided
+    if initial_prompt:
+        client.send_user_input(initial_prompt)
+
+    # Global flag to indicate when streaming is active
+    streaming_active = threading.Event()
+
+    # Update the conversation handler to manage the streaming flag
+    original_handle_conversation = handle_conversation
+    def enhanced_handle_conversation(msg: QwenConversationMessage):
+        nonlocal current_streaming_id, current_streaming_buffer
+        if msg.role == 'assistant':
+            if msg.isStreaming:
+                streaming_active.set()  # Set flag when streaming starts
+            else:
+                # Only clear the flag if this is the end of a streaming response
+                if current_streaming_id is not None and current_streaming_buffer:
+                    streaming_active.clear()  # Clear flag when streaming ends
+                    current_streaming_id = None
+                    current_streaming_buffer = ""
+
+        original_handle_conversation(msg)
+
+    # Update the handler
+    handlers.on_conversation = enhanced_handle_conversation
+
+    # Start a thread to handle user input
+    def input_thread():
+        try:
+            while client.is_running():
+                try:
+                    # Wait for streaming to finish before showing the prompt
+                    while streaming_active.is_set() and client.is_running():
+                        time.sleep(0.1)  # Small delay to avoid busy waiting
+                    user_input = input(">>> ").strip()
+                    if user_input.lower() in ['/exit', '/quit', 'exit', 'quit']:
+                        print("\nExiting...")
+                        client.stop()
+                        break
+                    if user_input:
+                        client.send_user_input(user_input)
+                except EOFError:
+                    break
+                except KeyboardInterrupt:
+                    print("\nExiting...")
+                    client.stop()
+                    break
+        except Exception as e:
+            if client.is_running():
+                print(f"Error in input thread: {e}")
+
+    input_thread = threading.Thread(target=input_thread, daemon=True)
+    input_thread.start()
+
     try:
-        if not _wait_for_server(host, port, timeout=10.0):
-            print("Error: Qwen server did not become ready in time.")
-            return 1
-        return _run_qwen_tui(host, port, getattr(args, "prompt", None))
+        # Keep the main thread alive
+        while client.is_running():
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\nStopping client...")
     finally:
-        _stop_server_process(server_proc, verbose)
+        client.stop()
+        input_thread.join(timeout=1)
+
+    return 0
 
 
 def _resolve_qwen_script(args, repo_root: Path) -> Optional[Path]:
