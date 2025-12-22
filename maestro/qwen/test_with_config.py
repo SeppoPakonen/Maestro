@@ -73,7 +73,7 @@ def test_hello_world():
     print("QwenManager started in stdin mode with OAuth config.")
     print("You can now send JSON commands to this process's stdin.")
     print("For example, you can run in another terminal:")
-    print('echo \'{"type":"user_input","content":"Hello, Qwen!"}\' | python3 -c "import sys; import time; [print(line, end=\\'\\') for line in sys.stdin]; time.sleep(10)"')
+    print('echo \'{"type":"user_input","content":"Hello, Qwen!"}\' | python3 -c "import sys; import time; [print(line, end=\'\') for line in sys.stdin]; time.sleep(10)"')
     print()
     print("Press Ctrl+C to stop.")
     
