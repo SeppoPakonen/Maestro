@@ -62,6 +62,7 @@
 | Settings: engine matrix | CLI v1.2.0 | — | Per-engine settings with four states: disabled, planner, worker, both |
 | Settings: AI stacking_mode | CLI v1.2.0 | — | Managed vs handsoff mode for AI orchestration |
 | Settings: Qwen transport | CLI v1.2.0 | — | Configurable Qwen transport: binary prompt, stdio, or TCP |
+| Settings: profiles | CLI v1.4.0 | — | Named settings profiles with save/load/list functionality and default/active tracking |
 
 ## Development Philosophy
 

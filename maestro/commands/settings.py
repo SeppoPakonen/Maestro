@@ -9,15 +9,21 @@ Commands:
 - maestro settings reset <key> - Reset a single setting to default
 - maestro settings reset --all --force - Reset all settings
 - maestro settings wizard - Interactive setup wizard
+- maestro settings profile list - List all settings profiles
+- maestro settings profile save <name> - Save current settings to a profile
+- maestro settings profile load <name|number> - Load settings from a profile
+- maestro settings profile get - Get active profile
+- maestro settings profile set-default <name|number> - Set default profile
 """
 
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 from maestro.config.settings import get_settings, create_default_config, Settings
-import sys
+from maestro.config.settings_profiles import SettingsProfileManager
 
 
 def list_settings(args):
@@ -196,9 +202,20 @@ def set_setting(args):
         target_type = type(current_value) if current_value is not None else str
         converted_value = convert_value_to_type(args.value, target_type)
 
+        # Get the original hash to detect changes
+        profile_manager = SettingsProfileManager()
+        original_hash = profile_manager.get_settings_hash()
+
         settings.set(args.key, converted_value)
         settings.validate()
         settings.save()
+
+        # Check if settings have changed compared to the active profile
+        new_hash = profile_manager.get_settings_hash()
+        if original_hash != new_hash:
+            active_profile = profile_manager.get_active_profile()
+            if active_profile:
+                print(f"Active profile: {active_profile['name']} (unsaved changes)")
 
         if not args.no_confirm:
             print(f"Updated {args.key}:")
@@ -253,6 +270,10 @@ def edit_settings(args):
         settings.save(config_path)
         print(f"Created default config at {config_path}")
 
+    # Get the original hash to detect changes
+    profile_manager = SettingsProfileManager()
+    original_hash = profile_manager.get_settings_hash()
+
     try:
         # Open editor
         subprocess.run([editor, str(config_path)])
@@ -262,6 +283,14 @@ def edit_settings(args):
             new_settings = Settings.load(config_path)
             new_settings.validate()
             print(f"Configuration validated successfully")
+
+            # Check if settings have changed compared to the active profile
+            new_hash = profile_manager.get_settings_hash()
+            if original_hash != new_hash:
+                active_profile = profile_manager.get_active_profile()
+                if active_profile:
+                    print(f"Active profile: {active_profile['name']} (unsaved changes)")
+
             return 0
         except Exception as e:
             print(f"Error: Configuration validation failed after editing - {e}")
@@ -275,6 +304,10 @@ def edit_settings(args):
 
 def reset_settings(args):
     """Reset settings to defaults."""
+    # Get the original hash to detect changes
+    profile_manager = SettingsProfileManager()
+    original_hash = profile_manager.get_settings_hash()
+
     if args.all:
         if not args.force:
             print("Error: This will reset ALL settings to defaults. Use --force to confirm.")
@@ -295,7 +328,6 @@ def reset_settings(args):
         # Save the new settings
         new_settings.save()
         print("All settings reset to defaults. Project metadata preserved.")
-        return 0
     else:
         if not args.key:
             print("Error: Key required for reset. Usage: maestro settings reset <key>")
@@ -323,7 +355,15 @@ def reset_settings(args):
         settings.set(args.key, default_value)
         settings.save()
         print(f"Reset {args.key} to default value: {default_value}")
-        return 0
+
+    # Check if settings have changed compared to the active profile
+    new_hash = profile_manager.get_settings_hash()
+    if original_hash != new_hash:
+        active_profile = profile_manager.get_active_profile()
+        if active_profile:
+            print(f"Active profile: {active_profile['name']} (unsaved changes)")
+
+    return 0
 
 
 def settings_wizard(args):
@@ -335,6 +375,10 @@ def settings_wizard(args):
 
     # Start with default config and update values based on user input
     settings = create_default_config()
+
+    # Get the original hash to detect changes
+    profile_manager = SettingsProfileManager()
+    original_hash = profile_manager.get_settings_hash()
 
     # AI Provider (legacy)
     print("AI Settings:")
@@ -433,6 +477,13 @@ def settings_wizard(args):
     # Save the new settings
     saved_successfully = settings.save()
     if saved_successfully:
+        # Check if settings have changed compared to the active profile
+        new_hash = profile_manager.get_settings_hash()
+        if original_hash != new_hash:
+            active_profile = profile_manager.get_active_profile()
+            if active_profile:
+                print(f"Active profile: {active_profile['name']} (unsaved changes)")
+
         print("\nConfiguration saved to docs/config.md")
         print("Run 'maestro settings list' to view your settings.")
         return 0
@@ -456,6 +507,22 @@ def handle_settings_command(args):
             return reset_settings(args)
         elif args.settings_subcommand in ['wizard', 'w']:
             return settings_wizard(args)
+        elif args.settings_subcommand in ['profile', 'prof', 'pr']:
+            # Handle profile subcommands
+            if hasattr(args, 'profile_subcommand'):
+                if args.profile_subcommand in ['list', 'ls']:
+                    return profile_list(args)
+                elif args.profile_subcommand in ['save', 's']:
+                    return profile_save(args)
+                elif args.profile_subcommand in ['load', 'l']:
+                    return profile_load(args)
+                elif args.profile_subcommand in ['get', 'g']:
+                    return profile_get(args)
+                elif args.profile_subcommand in ['set-default', 'sd']:
+                    return profile_set_default(args)
+                elif args.profile_subcommand in ['help', 'h']:
+                    print_profile_help()
+                    return 0
         elif args.settings_subcommand in ['help', 'h']:
             print_settings_help()
             return 0
@@ -467,8 +534,279 @@ def handle_settings_command(args):
         args.json = False
     if not hasattr(args, 'section'):
         args.section = None
-    
+
     return list_settings(args)
+
+
+def print_profile_help():
+    """Print help for settings profile commands."""
+    help_text = """
+maestro settings profile - Manage settings profiles
+
+USAGE:
+    maestro settings profile list                List all profiles
+    maestro settings profile save [name]         Save current settings to a profile
+    maestro settings profile load <name|number>  Load settings from a profile
+    maestro settings profile get                 Get active profile
+    maestro settings profile set-default <name|number> Set default profile
+
+FLAGS:
+    -y, --yes              Auto-confirm operations (skip prompts)
+    --make-active          Set saved profile as active immediately
+    --set-default          Set saved profile as default
+
+OPTIONS:
+    --json                 Output in JSON format (for list)
+
+EXAMPLES:
+    maestro settings profile list
+    maestro settings profile save dev-fast
+    maestro settings profile save dev-fast --make-active --set-default -y
+    maestro settings profile load dev-fast
+    maestro settings profile load 1
+    maestro settings profile get
+    maestro settings profile set-default dev-fast
+"""
+    print(help_text)
+
+
+def profile_list(args):
+    """List all settings profiles."""
+    profile_manager = SettingsProfileManager()
+    profiles = profile_manager.list_profiles()
+    active_profile = profile_manager.get_active_profile()
+    default_profile = profile_manager.get_default_profile()
+
+    if args.json:
+        # Output JSON format
+        result = {
+            "profiles": profiles,
+            "active_profile": active_profile,
+            "default_profile": default_profile
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+
+    # Human-readable format
+    if not profiles:
+        print("No profiles found.")
+        return 0
+
+    for i, profile in enumerate(profiles, 1):
+        is_active = active_profile and profile["id"] == active_profile["id"]
+        is_default = default_profile and profile["id"] == default_profile["id"]
+
+        marker = ""
+        if is_active and is_default:
+            marker = "*D"
+        elif is_active:
+            marker = "* "
+        elif is_default:
+            marker = " D"
+        else:
+            marker = "  "
+
+        # Format the updated time
+        updated_at = profile.get("updated_at", "")
+        if updated_at:
+            # Parse and format the datetime
+            try:
+                dt = updated_at.split("T")[0] + " " + updated_at.split("T")[1].split(".")[0][:5]
+            except:
+                dt = updated_at
+        else:
+            dt = "unknown"
+
+        # Truncate ID to 8 characters for display
+        profile_id = profile["id"][:8]
+
+        print(f"[{i}] {marker} {profile['name']} ({profile_id})  updated {dt}")
+
+    return 0
+
+
+def profile_save(args):
+    """Save current settings to a profile."""
+    profile_manager = SettingsProfileManager()
+
+    # Determine the profile name to use
+    profile_id = None
+    profile_name = None
+
+    if args.name_or_number is None:
+        # If no name provided, check for active or default profile
+        active_profile = profile_manager.get_active_profile()
+        default_profile = profile_manager.get_default_profile()
+
+        if active_profile:
+            profile_id = active_profile["id"]
+            profile_name = active_profile["name"]
+        elif default_profile:
+            profile_id = default_profile["id"]
+            profile_name = default_profile["name"]
+        else:
+            print("Error: No active or default profile. Please provide a name or set default.")
+            return 1
+    else:
+        # Check if the argument is a number
+        try:
+            profile_num = int(args.name_or_number)
+            profile_info = profile_manager.get_profile_by_number(profile_num)
+            if profile_info:
+                profile_id = profile_info["id"]
+                profile_name = profile_info["name"]
+            else:
+                print(f"Error: Profile number {profile_num} not found.")
+                return 1
+        except ValueError:
+            # Not a number, treat as name
+            profile_info = profile_manager.get_profile_by_name(args.name_or_number)
+            if profile_info:
+                # Profile exists, we'll update it
+                profile_id = profile_info["id"]
+                profile_name = profile_info["name"]
+            else:
+                # Profile doesn't exist, we'll create a new one
+                profile_name = args.name_or_number
+                profile_id = None
+
+    current_settings = get_settings()
+
+    if profile_id is not None:
+        # Profile exists, ask for confirmation if not using --yes
+        if not args.yes:
+            response = input(f"Profile '{profile_name}' exists. Overwrite? (y/N): ")
+            if response.lower() not in ['y', 'yes']:
+                print("Operation cancelled.")
+                return 0
+
+        # Update existing profile
+        success = profile_manager.update_profile(profile_id, current_settings)
+        if success:
+            print(f"Profile '{profile_name}' updated successfully.")
+        else:
+            print(f"Error updating profile '{profile_name}'.")
+            return 1
+    else:
+        # Create new profile
+        profile_id = profile_manager.create_profile(profile_name, current_settings)
+        if profile_id:
+            print(f"Profile '{profile_name}' created successfully.")
+
+            # Set as active if --make-active flag is provided
+            if args.make_active:
+                profile_manager.set_active_profile(profile_id)
+                print(f"Profile '{profile_name}' set as active.")
+
+            # Set as default if --set-default flag is provided
+            if args.set_default:
+                profile_manager.set_default_profile(profile_id)
+                print(f"Profile '{profile_name}' set as default.")
+        else:
+            print(f"Error creating profile '{profile_name}'.")
+            return 1
+
+    return 0
+
+
+def profile_load(args):
+    """Load settings from a profile."""
+    if not args.name_or_number:
+        print("Error: Profile name or number required for load command.")
+        return 1
+
+    profile_manager = SettingsProfileManager()
+
+    # Try to find the profile by number first
+    try:
+        profile_num = int(args.name_or_number)
+        profile_info = profile_manager.get_profile_by_number(profile_num)
+    except ValueError:
+        # Not a number, try by name
+        profile_info = profile_manager.get_profile_by_name(args.name_or_number)
+
+    if not profile_info:
+        print(f"Error: Profile '{args.name_or_number}' not found.")
+        return 1
+
+    # Get current settings hash for audit trail
+    current_hash = profile_manager.get_settings_hash()
+
+    # Load the profile settings
+    profile_settings = profile_manager.load_profile(profile_info["id"])
+    if not profile_settings:
+        print(f"Error: Could not load settings from profile '{profile_info['name']}'.")
+        return 1
+
+    # Check for unsaved changes before applying
+    if profile_manager.has_unsaved_changes():
+        print("Warning: Current settings have unsaved changes compared to the active profile.")
+        if not args.yes:
+            response = input("Continue anyway? (y/N): ")
+            if response.lower() not in ['y', 'yes']:
+                print("Operation cancelled.")
+                return 0
+
+    # Apply the settings by saving to the active config file
+    profile_settings.save()
+    print(f"Settings loaded from profile '{profile_info['name']}' successfully.")
+
+    # Calculate new hash for audit trail
+    new_hash = profile_manager.get_settings_hash()
+
+    # Create audit trail
+    profile_manager.create_audit_log(
+        previous_settings_hash=current_hash,
+        new_settings_hash=new_hash,
+        profile_id=profile_info["id"],
+        profile_name=profile_info["name"],
+        diff_summary="Settings loaded from profile"
+    )
+
+    return 0
+
+
+def profile_get(args):
+    """Get the active profile."""
+    profile_manager = SettingsProfileManager()
+    active_profile = profile_manager.get_active_profile()
+
+    if active_profile:
+        print(f"{active_profile['name']} ({active_profile['id'][:8]})")
+    else:
+        print("none")
+
+    return 0
+
+
+def profile_set_default(args):
+    """Set the default profile."""
+    if not args.name_or_number:
+        print("Error: Profile name or number required for set-default command.")
+        return 1
+
+    profile_manager = SettingsProfileManager()
+
+    # Try to find the profile by number first
+    try:
+        profile_num = int(args.name_or_number)
+        profile_info = profile_manager.get_profile_by_number(profile_num)
+    except ValueError:
+        # Not a number, try by name
+        profile_info = profile_manager.get_profile_by_name(args.name_or_number)
+
+    if not profile_info:
+        print(f"Error: Profile '{args.name_or_number}' not found.")
+        return 1
+
+    success = profile_manager.set_default_profile(profile_info["id"])
+    if success:
+        print(f"Profile '{profile_info['name']}' set as default.")
+    else:
+        print(f"Error setting profile '{profile_info['name']}' as default.")
+        return 1
+
+    return 0
 
 
 def print_settings_help():
@@ -486,6 +824,13 @@ USAGE:
     maestro settings reset --all --force      Reset all settings
     maestro settings wizard                   Interactive setup wizard
 
+PROFILE COMMANDS:
+    maestro settings profile list              List all profiles
+    maestro settings profile save [name]       Save current settings
+    maestro settings profile load <name>       Load settings from profile
+    maestro settings profile get               Get active profile
+    maestro settings profile set-default <name> Set default profile
+
 OPTIONS:
     --section <name>    Show only one section (for list)
     --json              Output in JSON format (for list)
@@ -501,6 +846,11 @@ EXAMPLES:
     maestro settings edit
     maestro settings reset ai_model
     maestro settings wizard
+
+    maestro settings profile list
+    maestro settings profile save dev-fast --make-active --set-default
+    maestro settings profile load dev-fast
+    maestro settings profile get
 """
     print(help_text)
 
@@ -548,7 +898,35 @@ def add_settings_parser(subparsers):
     # maestro settings wizard
     wizard_parser = settings_subparsers.add_parser('wizard', aliases=['w'])
 
+    # maestro settings profile
+    profile_parser = settings_subparsers.add_parser('profile', aliases=['prof', 'pr'], help='Manage settings profiles')
+    profile_subparsers = profile_parser.add_subparsers(dest='profile_subcommand', help='Profile subcommands')
+
+    # maestro settings profile list
+    profile_list_parser = profile_subparsers.add_parser('list', aliases=['ls'], help='List all profiles')
+    profile_list_parser.add_argument('--json', action='store_true', help='Output JSON')
+
+    # maestro settings profile save
+    profile_save_parser = profile_subparsers.add_parser('save', aliases=['s'], help='Save current settings to a profile')
+    profile_save_parser.add_argument('name_or_number', nargs='?', help='Profile name or number')
+    profile_save_parser.add_argument('-y', '--yes', action='store_true', help='Auto-confirm operations')
+    profile_save_parser.add_argument('--make-active', action='store_true', help='Set saved profile as active')
+    profile_save_parser.add_argument('--set-default', action='store_true', help='Set saved profile as default')
+
+    # maestro settings profile load
+    profile_load_parser = profile_subparsers.add_parser('load', aliases=['l'], help='Load settings from a profile')
+    profile_load_parser.add_argument('name_or_number', help='Profile name or number')
+    profile_load_parser.add_argument('-y', '--yes', action='store_true', help='Auto-confirm operations')
+
+    # maestro settings profile get
+    profile_get_parser = profile_subparsers.add_parser('get', aliases=['g'], help='Get active profile')
+
+    # maestro settings profile set-default
+    profile_set_default_parser = profile_subparsers.add_parser('set-default', aliases=['sd'], help='Set default profile')
+    profile_set_default_parser.add_argument('name_or_number', help='Profile name or number')
+
     # maestro settings help
     settings_subparsers.add_parser('help', aliases=['h'])
+    profile_subparsers.add_parser('help', aliases=['h'])
 
     return settings_parser
