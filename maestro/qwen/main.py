@@ -15,9 +15,10 @@ from .client import QwenClient, QwenClientConfig, MessageHandlers
 
 class QwenManager:
     """Main manager class that combines server and client functionality"""
-    
-    def __init__(self, qwen_executable: str = "npx qwen-code"):
+
+    def __init__(self, qwen_executable: str = "npx qwen-code", env: Optional[Dict[str, str]] = None):
         self.qwen_executable = qwen_executable
+        self.env = env
         self.server: Optional[BaseQwenServer] = None
         self.client: Optional[QwenClient] = None
         self.running = False
@@ -40,6 +41,7 @@ class QwenManager:
         client_config.qwen_executable = self.qwen_executable
         client_config.qwen_args = ["--server-mode", "stdin"]
         client_config.verbose = True
+        client_config.env = self.env
         
         self.client = QwenClient(client_config)
         

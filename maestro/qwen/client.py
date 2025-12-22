@@ -22,13 +22,14 @@ from .server import (
 
 class QwenClientConfig:
     """Configuration for the Qwen client"""
-    
+
     def __init__(self):
         self.qwen_executable = "npx qwen-code"  # Default to npx command
         self.qwen_args = ["--server-mode", "stdin"]  # Default args for server mode
         self.auto_restart = True
         self.verbose = True
         self.max_restarts = 5
+        self.env = None  # Environment variables to pass to subprocess
 
 
 class MessageHandlers:
@@ -69,6 +70,11 @@ class QwenClient:
             if self.config.verbose:
                 print(f"[QwenClient] Starting subprocess: {' '.join(cmd)}", file=sys.stderr)
             
+            # Prepare environment
+            env = os.environ.copy()
+            if self.config.env:
+                env.update(self.config.env)
+
             # Start the subprocess
             self.process = subprocess.Popen(
                 cmd,
@@ -76,7 +82,8 @@ class QwenClient:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
-                bufsize=1  # Line buffered
+                bufsize=1,  # Line buffered
+                env=env
             )
             
             self.running = True
