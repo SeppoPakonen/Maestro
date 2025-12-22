@@ -1,13 +1,13 @@
 """
-Maestro package - AI Task Management & Orchestration
+Maestro - AI Task Management CLI
+
+This package provides a command-line interface for managing AI task sessions.
 """
 
-try:
-    from .main import main, __version__  # type: ignore
-except Exception:
-    __version__ = "unknown"
+__version__ = "1.2.1"
 
-    def main(*args, **kwargs):  # type: ignore
-        raise RuntimeError("maestro.main could not be imported") from None
+# Import key components for easy access
+from .main import main
 
-__all__ = ["main", "__version__"]
+# Define what gets imported with "from maestro import *"
+__all__ = ['main', '__version__']
