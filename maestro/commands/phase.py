@@ -11,7 +11,6 @@ Commands:
 - maestro phase <id> set - Set current phase context
 """
 
-import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -26,21 +25,18 @@ from maestro.data.markdown_writer import (
     update_phase_metadata,
     update_phase_heading_status,
 )
-from .track import _box_chars, _display_width, _pad_to_width, _style_text, _truncate, _status_display
+from maestro.display.table_renderer import render_phase_table
+from maestro.data.common_utils import (
+    parse_todo_safe,
+    parse_done_safe,
+    get_all_tracks_with_phases_and_tasks,
+    resolve_identifier_by_type,
+    filter_items_by_track,
+    print_error,
+    print_warning,
+    print_info
+)
 from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
-
-
-def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
-    try:
-        return parse_todo_md(str(todo_path))
-    except Exception as exc:
-        if verbose:
-            print(f"Verbose: Error parsing {todo_path}: {exc}")
-            import traceback
-            traceback.print_exc()
-        else:
-            print(f"Error parsing {todo_path}. Use --verbose for more details.")
-        return None
 
 
 def _available_track_ids(verbose: bool = False) -> List[str]:
@@ -78,79 +74,7 @@ def list_phases(args):
     """
     from maestro.config.settings import get_settings
 
-    # Read phases from both todo.md and done.md
-    todo_path = Path('docs/todo.md')
-    done_path = Path('docs/done.md')
-
-    all_tracks = []
-
-    # Process done.md first to get precedence phases
-    done_phase_ids = set()  # Track which phase IDs we've seen in done.md
-    processed_track_map = {}  # Map of track_id to track data to consolidate
-
-    # Parse done.md and store its phases with precedence
-    if done_path.exists():
-        try:
-            done_data = parse_done_md(str(done_path))
-            for track in done_data.get('tracks', []):
-                track_id = track.get('track_id')
-                if track_id not in processed_track_map:
-                    processed_track_map[track_id] = {
-                        'name': track.get('name', 'Unknown Track'),
-                        'track_id': track_id,
-                        'description': track.get('description', []),
-                        'phases': []
-                    }
-
-                for phase in track.get('phases', []):
-                    phase_id = phase.get('phase_id')
-                    if phase_id:
-                        done_phase_ids.add(phase_id)
-                        # Add this phase to its track
-                        processed_track_map[track_id]['phases'].append(phase)
-        except Exception as e:
-            if getattr(args, 'verbose', False):
-                print(f"Verbose: Error parsing {done_path}: {e}")
-                import traceback
-                traceback.print_exc()
-            else:
-                print(f"Error parsing {done_path}. Use --verbose for more details.")
-    else:
-        print("Warning: docs/done.md not found.")
-
-    # Parse todo.md and add only phases that weren't in done.md
-    if todo_path.exists():
-        try:
-            todo_data = parse_todo_md(str(todo_path))
-            for track in todo_data.get('tracks', []):
-                track_id = track.get('track_id')
-                if track_id not in processed_track_map:
-                    processed_track_map[track_id] = {
-                        'name': track.get('name', 'Unknown Track'),
-                        'track_id': track_id,
-                        'description': track.get('description', []),
-                        'phases': []
-                    }
-
-                for phase in track.get('phases', []):
-                    phase_id = phase.get('phase_id')
-                    if phase_id and phase_id not in done_phase_ids:
-                        # Add phase from todo.md only if not present in done.md
-                        processed_track_map[track_id]['phases'].append(phase)
-        except Exception as e:
-            if getattr(args, 'verbose', False):
-                print(f"Verbose: Error parsing {todo_path}: {e}")
-                import traceback
-                traceback.print_exc()
-            else:
-                print(f"Error parsing {todo_path}. Use --verbose for more details.")
-    else:
-        print("Warning: docs/todo.md not found.")
-
-    # Add all processed tracks to all_tracks
-    all_tracks.extend(processed_track_map.values())
-
-    tracks = all_tracks
+    tracks = get_all_tracks_with_phases_and_tasks(verbose=getattr(args, 'verbose', False))
 
     # If no track_id provided and context is set, use context
     track_filter = getattr(args, 'track_id', None)
@@ -175,14 +99,6 @@ def list_phases(args):
             print()
 
     phases_to_show = []
-
-    # TODO: Add support for numeric track identifiers
-    # if track_filter and track_filter.isdigit():
-    #     resolved_track_id = resolve_track_identifier(track_filter)
-    #     if not resolved_track_id:
-    #         print(f"Error: Track '{track_filter}' not found.")
-    #         return 1
-    #     track_filter = resolved_track_id
 
     if track_filter:
         # Find the specific track
@@ -216,107 +132,22 @@ def list_phases(args):
         print("No phases found.")
         return 0
 
-    settings = get_settings()
-    unicode_symbols = settings.unicode_symbols
-    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
-    term_width = max(term_width, 20)
-    box = _box_chars(unicode_symbols)
+    # Format the data with index values for the table renderer
+    formatted_phases = []
+    for i, phase in enumerate(phases_to_show, 1):
+        formatted_phase = {
+            'idx': str(i),
+            'phase_id': phase.get('phase_id', 'N/A'),
+            'name': phase.get('name', 'Unnamed Phase'),
+            'status': phase.get('status', 'unknown'),
+            'track': phase.get('_track_id', 'N/A')
+        }
+        formatted_phases.append(formatted_phase)
 
-    idx_width = max(_display_width('#'), _display_width(str(len(phases_to_show))))
-
-    if not track_filter:
-        phase_id_width = max(
-            _display_width('Phase ID'),
-            max((_display_width(p.get('phase_id', 'N/A')) for p in phases_to_show), default=0),
-        )
-        name_width = max(
-            _display_width('Name'),
-            max((_display_width(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=0),
-        )
-        track_width = max(
-            _display_width('Track'),
-            max((_display_width(p.get('_track_id', 'N/A')) for p in phases_to_show), default=0),
-        )
-        status_width = max(
-            _display_width('Status'),
-            max((_display_width(_status_display(p.get('status', 'unknown'), unicode_symbols)[0]) for p in phases_to_show), default=0),
-        )
-
-        col_widths = [idx_width, phase_id_width, name_width, track_width, status_width]
-    else:
-        phase_id_width = max(
-            _display_width('Phase ID'),
-            max((_display_width(p.get('phase_id', 'N/A')) for p in phases_to_show), default=0),
-        )
-        name_width = max(
-            _display_width('Name'),
-            max((_display_width(p.get('name', 'Unnamed Phase')) for p in phases_to_show), default=0),
-        )
-        status_width = max(
-            _display_width('Status'),
-            max((_display_width(_status_display(p.get('status', 'unknown'), unicode_symbols)[0]) for p in phases_to_show), default=0),
-        )
-
-        col_widths = [idx_width, phase_id_width, name_width, status_width]
-
-    ncol = len(col_widths)
-    content_width = sum(w + 2 for w in col_widths) + (ncol - 1) * 2
-    inner_width = min(term_width - 2, max(content_width, 20))
-    available = inner_width - (ncol - 1) * 2 - (2 * ncol)
-    if not track_filter:
-        name_width = max(_display_width('Name'), available - (idx_width + phase_id_width + track_width + status_width))
-        col_widths = [idx_width, phase_id_width, name_width, track_width, status_width]
-    else:
-        name_width = max(_display_width('Name'), available - (idx_width + phase_id_width + status_width))
-        col_widths = [idx_width, phase_id_width, name_width, status_width]
-
-    headers = ['#', 'Phase ID', 'Name']
-    if not track_filter:
-        headers.append('Track')
-    headers.append('Status')
-
-    header_cells = []
-    for header, width in zip(headers, col_widths):
-        header_cells.append(" " + _pad_to_width(header, width) + " ")
-    header_line = box['vertical'] + _pad_to_width("  ".join(header_cells), inner_width) + box['vertical']
-
-    print()
-    print(_style_text(box['top_left'] + box['horizontal'] * inner_width + box['top_right'], color='yellow'))
-    print(_style_text(header_line, color='bright_white', bold=True))
-    print(_style_text(box['mid_left'] + box['mid_horizontal'] * inner_width + box['mid_right'], color='yellow'))
-
-    # Rows
-    for idx, phase in enumerate(phases_to_show, 1):
-        phase_id = phase.get('phase_id', 'N/A')
-        name = phase.get('name', 'Unnamed Phase')
-        status = phase.get('status', 'unknown')
-        status_display, status_color = _status_display(status, unicode_symbols)
-
-        if not track_filter:
-            track_id = phase.get('_track_id', 'N/A')
-            track_id = _truncate(track_id, track_width, unicode_symbols)
-            row_cells = [
-                " " + _pad_to_width(str(idx), idx_width) + " ",
-                " " + _pad_to_width(_truncate(phase_id, phase_id_width, unicode_symbols), phase_id_width) + " ",
-                " " + _pad_to_width(_truncate(name, name_width, unicode_symbols), name_width) + " ",
-                " " + _pad_to_width(track_id, track_width) + " ",
-                _style_text(" " + _pad_to_width(status_display, status_width) + " ", color=status_color),
-            ]
-            row_line = box['vertical'] + _pad_to_width("  ".join(row_cells), inner_width) + box['vertical']
-            print(row_line)
-        else:
-            row_cells = [
-                " " + _pad_to_width(str(idx), idx_width) + " ",
-                " " + _pad_to_width(_truncate(phase_id, phase_id_width, unicode_symbols), phase_id_width) + " ",
-                " " + _pad_to_width(_truncate(name, name_width, unicode_symbols), name_width) + " ",
-                _style_text(" " + _pad_to_width(status_display, status_width) + " ", color=status_color),
-            ]
-            row_line = box['vertical'] + _pad_to_width("  ".join(row_cells), inner_width) + box['vertical']
-            print(row_line)
-
-    print(_style_text(box['bottom_left'] + box['horizontal'] * inner_width + box['bottom_right'], color='yellow'))
-    print(_style_text(f"Total: {len(phases_to_show)} phases", color="bright_black", dim=True))
-    print()
+    # Render the table using unified renderer
+    table_lines = render_phase_table(formatted_phases, track_filter)
+    for line in table_lines:
+        print(line)
 
     return 0
 

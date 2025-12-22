@@ -171,10 +171,89 @@ def create_main_parser() -> argparse.ArgumentParser:
     # Create subparsers for command-based interface
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
-    # Add all the subparsers here (this would include all the subparsers from the original main.py)
-    # For brevity, I'll just return the main parser here since the subparsers would be extensive
-    
+    # Add the help command first to ensure it's always available
+    subparsers.add_parser('help', aliases=['h'], help='Show help for all commands')
+
+    # Import and register all command parsers
+    from ..commands import (
+        add_track_parser,
+        add_phase_parser,
+        add_task_parser,
+        add_discuss_parser,
+        add_settings_parser,
+        add_issues_parser,
+        add_solutions_parser,
+    )
+
+    # Register all available command parsers
+    add_track_parser(subparsers)
+    add_phase_parser(subparsers)
+    add_task_parser(subparsers)
+    add_discuss_parser(subparsers)
+    add_settings_parser(subparsers)
+    add_issues_parser(subparsers)
+    add_solutions_parser(subparsers)
+
+    # Also add the original core commands
+    add_core_subparsers(subparsers)
+
     return parser
+
+
+def add_core_subparsers(subparsers):
+    """Add the original core subparsers that were handled in main.py"""
+    # Session subparsers
+    session_parser = subparsers.add_parser('session', aliases=['s'], help='Session management')
+    session_subparsers = session_parser.add_subparsers(dest='session_subcommand', help='Session subcommands')
+    session_subparsers.add_parser('new', aliases=['n'], help='Create new session')
+    session_subparsers.add_parser('list', aliases=['ls', 'l'], help='List sessions')
+    session_subparsers.add_parser('set', aliases=['st'], help='Set active session')
+    session_subparsers.add_parser('get', aliases=['g'], help='Get active session')
+    session_subparsers.add_parser('remove', aliases=['rm'], help='Remove session')
+    session_subparsers.add_parser('details', aliases=['d'], help='Show session details')
+
+    # Plan subparsers
+    plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
+    plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands')
+    plan_subparsers.add_parser('list', aliases=['ls'], help='List plans')
+    plan_subparsers.add_parser('show', aliases=['sh'], help='Show plan details')
+    plan_subparsers.add_parser('discuss', aliases=['d'], help='Interactive planning discussion')
+    plan_subparsers.add_parser('tree', aliases=['tr'], help='Show plan tree')
+    plan_subparsers.add_parser('set', aliases=['st'], help='Set active plan')
+    plan_subparsers.add_parser('get', aliases=['g'], help='Get active plan')
+    plan_subparsers.add_parser('kill', aliases=['k'], help='Kill a plan')
+
+    # Rules subparsers
+    rules_parser = subparsers.add_parser('rules', aliases=['r'], help='Rules management')
+    rules_subparsers = rules_parser.add_subparsers(dest='rules_subcommand', help='Rules subcommands')
+    rules_subparsers.add_parser('list', aliases=['ls'], help='List rules')
+    rules_subparsers.add_parser('edit', aliases=['e'], help='Edit rules file')
+
+    # Root subparsers
+    root_parser = subparsers.add_parser('root', help='Root task management')
+    root_subparsers = root_parser.add_subparsers(dest='root_subcommand', help='Root subcommands')
+    root_subparsers.add_parser('set', aliases=['s'], help='Set root task')
+    root_subparsers.add_parser('get', aliases=['g'], help='Get root task')
+    root_subparsers.add_parser('refine', aliases=['r'], help='Refine root task')
+    root_subparsers.add_parser('discuss', aliases=['d'], help='Discuss root task')
+    root_subparsers.add_parser('show', aliases=['sh'], help='Show root task details')
+
+    # Log subparsers
+    log_parser = subparsers.add_parser('log', aliases=['lg'], help='Log management')
+    log_subparsers = log_parser.add_subparsers(dest='log_subcommand', help='Log subcommands')
+    log_subparsers.add_parser('list', aliases=['ls'], help='List all logs')
+    log_subparsers.add_parser('list-work', aliases=['lw'], help='List work logs')
+    log_subparsers.add_parser('list-plan', aliases=['lp'], help='List plan logs')
+
+    # Resume command (no subcommands)
+    subparsers.add_parser('resume', aliases=['rs'], help='Resume session')
+
+    # Work command (no subcommands)
+    work_parser = subparsers.add_parser('work', aliases=['wk'], help='Work on tasks')
+    work_parser.add_argument('num_tasks', type=int, nargs='?', help='Number of tasks to run')
+    work_parser.add_argument('--retry-interrupted', action='store_true', help='Retry interrupted tasks')
+    work_parser.add_argument('--stream-ai-output', '-S', action='store_true', help='Stream AI output')
+    work_parser.add_argument('--print-ai-prompts', '-P', action='store_true', help='Print AI prompts')
 
 
 def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:

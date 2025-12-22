@@ -15,12 +15,9 @@ Commands:
 
 from __future__ import annotations
 
-import re
-import shutil
 import sys
 import tempfile
 import textwrap
-import unicodedata
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,236 +34,17 @@ from maestro.data.markdown_writer import (
     update_track_metadata,
     update_track_heading_status,
 )
+from maestro.display.table_renderer import render_track_table
+from maestro.data.common_utils import (
+    parse_todo_safe,
+    get_all_tracks_with_phases_and_tasks,
+    resolve_identifier_by_type,
+    print_error,
+    print_warning,
+    print_info
+)
 from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
 from .discuss import handle_track_discuss
-
-ANSI_RESET = "\033[0m"
-ANSI_BOLD = "\033[1m"
-ANSI_DIM = "\033[2m"
-ANSI_COLORS = {
-    "red": "\033[31m",
-    "green": "\033[32m",
-    "yellow": "\033[33m",
-    "blue": "\033[34m",
-    "magenta": "\033[35m",
-    "cyan": "\033[36m",
-    "white": "\033[37m",
-    "bright_black": "\033[90m",
-    "bright_white": "\033[97m",
-}
-
-EMOJI_WIDTH_2 = {
-    "✅",
-    "🚧",
-    "📅",
-    "📋",
-    "💡",
-    "❔",
-    "🧭",
-    "📝",
-}
-
-ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-
-try:
-    from wcwidth import wcwidth as _wcwidth
-except ImportError:  # pragma: no cover - optional dependency
-    _wcwidth = None
-
-
-def _style_text(text: str, color: Optional[str] = None, bold: bool = False, dim: bool = False) -> str:
-    settings = get_settings()
-    if not settings.color_output:
-        return text
-    parts = []
-    if bold:
-        parts.append(ANSI_BOLD)
-    if dim:
-        parts.append(ANSI_DIM)
-    if color:
-        parts.append(ANSI_COLORS.get(color, ""))
-    if not parts:
-        return text
-    return "".join(parts) + text + ANSI_RESET
-
-
-def _char_display_width(char: str) -> int:
-    if char in EMOJI_WIDTH_2:
-        return 2
-    if _wcwidth is not None:
-        width = _wcwidth(char)
-        return width if width > 0 else 0
-    east_asian = unicodedata.east_asian_width(char)
-    if east_asian in ("W", "F"):
-        return 2
-    if unicodedata.category(char) == "So":
-        return 2
-    return 1
-
-
-def _display_width(text: str) -> int:
-    stripped = ANSI_ESCAPE_RE.sub("", text)
-    return sum(_char_display_width(ch) for ch in stripped)
-
-
-def _pad_to_width(text: str, width: int) -> str:
-    padding = width - _display_width(text)
-    if padding <= 0:
-        return text
-    return text + (" " * padding)
-
-
-def _truncate(text: str, width: int, unicode_symbols: bool) -> str:
-    if width <= 0:
-        return ""
-    if _display_width(text) <= width:
-        return text
-    if width <= 1:
-        return text[:width]
-    ellipsis = "…" if unicode_symbols else "..."
-    ellipsis_width = _display_width(ellipsis)
-    if width <= ellipsis_width:
-        return text[:width]
-    remaining = width - ellipsis_width
-    clipped = []
-    current = 0
-    for ch in text:
-        ch_width = _char_display_width(ch)
-        if current + ch_width > remaining:
-            break
-        clipped.append(ch)
-        current += ch_width
-    return "".join(clipped) + ellipsis
-
-
-def _status_display(status: str, unicode_symbols: bool) -> tuple[str, str]:
-    normalized = (status or "unknown").lower()
-    status_map = {
-        "planned": ("Planned", "cyan", "📅"),
-        "proposed": ("Proposed", "magenta", "💡"),
-        "in_progress": ("In Progress", "yellow", "🚧"),
-        "done": ("Done", "green", "✅"),
-    }
-    label, color, emoji = status_map.get(normalized, ("Unknown", "bright_black", "❔"))
-    if unicode_symbols:
-        return f"{emoji} {label}", color
-    return label, color
-
-
-def _box_chars(unicode_symbols: bool) -> dict[str, str]:
-    if unicode_symbols:
-        return {
-            "top_left": "╭",
-            "top_right": "╮",
-            "bottom_left": "╰",
-            "bottom_right": "╯",
-            "horizontal": "─",
-            "vertical": "│",
-            "top_sep": "┬",
-            "mid_left": "├",
-            "mid_right": "┤",
-            "mid_sep": "┼",
-            "mid_horizontal": "─",
-            "bottom_sep": "┴",
-        }
-    return {
-        "top_left": "+",
-        "top_right": "+",
-        "bottom_left": "+",
-        "bottom_right": "+",
-        "horizontal": "-",
-        "vertical": "|",
-        "top_sep": "+",
-        "mid_left": "+",
-        "mid_right": "+",
-        "mid_sep": "+",
-        "mid_horizontal": "-",
-        "bottom_sep": "+",
-    }
-
-
-def _render_table(
-    title: str,
-    rows: list[dict[str, str]],
-    term_width: int,
-    border_color: Optional[str] = None,
-) -> list[str]:
-    settings = get_settings()
-    unicode_symbols = settings.unicode_symbols
-    box = _box_chars(unicode_symbols)
-    ncol = 4
-    max_term_width = max(term_width - 2, 10)
-
-    idx_header = "#"
-    id_header = "ID"
-    name_header = "Name"
-    status_header = "Status"
-
-    idx_content = max(_display_width(idx_header), _display_width(str(len(rows) or 0)))
-    id_content = max(_display_width(id_header), max((_display_width(r["id"]) for r in rows), default=0))
-    status_content = max(_display_width(status_header), max((_display_width(r["status"]) for r in rows), default=0))
-    name_content = max(_display_width(name_header), max((_display_width(r["name"]) for r in rows), default=0))
-
-    min_idx = 1
-    min_id = 2
-    min_status = 6
-    min_name = 6
-
-    idx_content = max(idx_content, min_idx)
-    id_content = max(id_content, min_id)
-    status_content = max(status_content, min_status)
-    name_content = max(name_content, min_name)
-
-    col_content_widths = [idx_content, id_content, name_content, status_content]
-    col_widths = [w + 2 for w in col_content_widths]
-    content_width = sum(col_widths) + (ncol - 1) * 2
-    inner_width = min(max_term_width, max(content_width, 10))
-
-    max_content_width = inner_width
-    if content_width > max_content_width:
-        available = max_content_width - (ncol - 1) * 2
-        name_content = max(min_name, available - (idx_content + id_content + status_content + 2 * ncol))
-        col_content_widths = [idx_content, id_content, name_content, status_content]
-        col_widths = [w + 2 for w in col_content_widths]
-
-    def border(left: str, sep: str, right: str, horizontal: str) -> str:
-        return left + (horizontal * inner_width) + right
-
-    lines = []
-    lines.append(_style_text(border(box["top_left"], box["top_sep"], box["top_right"], box["horizontal"]), color=border_color))
-
-    title_text = _truncate(title, inner_width - 2, unicode_symbols)
-    title_line = f"{box['vertical']} " + _pad_to_width(title_text, inner_width - 2) + f" {box['vertical']}"
-    lines.append(_style_text(title_line, color="bright_white", bold=True))
-
-    headers = [idx_header, id_header, name_header, status_header]
-    header_cells = []
-    for header, width in zip(headers, col_content_widths):
-        header_cells.append(" " + _pad_to_width(header, width) + " ")
-    header_content = "  ".join(header_cells)
-    header_line = box["vertical"] + _pad_to_width(header_content, inner_width) + box["vertical"]
-    lines.append(_style_text(header_line, color="bright_white", bold=True))
-    lines.append(_style_text(border(box["mid_left"], box["mid_sep"], box["mid_right"], box["mid_horizontal"]), color=border_color))
-
-    if rows:
-        for row in rows:
-            row_cells = []
-            values = [row["idx"], row["id"], row["name"], row["status"]]
-            colors = [None, None, None, row.get("status_color")]
-            for value, width, color in zip(values, col_content_widths, colors):
-                cell_text = _truncate(value, width, unicode_symbols)
-                padded = " " + _pad_to_width(cell_text, width) + " "
-                row_cells.append(_style_text(padded, color=color))
-            row_content = "  ".join(row_cells)
-            line = box["vertical"] + _pad_to_width(row_content, inner_width) + box["vertical"]
-            lines.append(line)
-    else:
-        empty_text = _truncate("(none)", inner_width - 2, unicode_symbols)
-        empty_line = f"{box['vertical']} " + _pad_to_width(empty_text, inner_width - 2) + f" {box['vertical']}"
-        lines.append(_style_text(empty_line, color="bright_black", dim=True))
-
-    lines.append(_style_text(border(box["bottom_left"], box["bottom_sep"], box["bottom_right"], box["horizontal"]), color=border_color))
-    return lines
 
 
 def resolve_track_identifier(identifier: str, verbose: bool = False) -> Optional[str]:
@@ -279,25 +57,7 @@ def resolve_track_identifier(identifier: str, verbose: bool = False) -> Optional
     Returns:
         Track ID if found, None otherwise
     """
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        return None
-
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if not data:
-        return None
-    tracks = data.get('tracks', [])
-    if identifier.isdigit():
-        index = int(identifier) - 1
-        if 0 <= index < len(tracks):
-            return tracks[index].get('track_id')
-        return None
-
-    for track in tracks:
-        if track.get('track_id') == identifier:
-            return identifier
-
-    return None
+    return resolve_identifier_by_type(identifier, 'track', verbose)
 
 
 def _ensure_todo_file(verbose: bool = False) -> Optional[Path]:
@@ -351,22 +111,7 @@ def list_tracks(args) -> int:
     """
     List all tracks from docs/todo.md.
     """
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        print("Use 'maestro track add <name>' to create it or run 'maestro init'.")
-        return 1
-
-    data = _parse_todo_safe(todo_path, verbose=getattr(args, 'verbose', False))
-    if data is None:
-        return 1
-    tracks = data.get('tracks', [])
-    done_path = Path('docs/done.md')
-    done_tracks = []
-    if done_path.exists():
-        done_data = _parse_todo_safe(done_path, verbose=getattr(args, 'verbose', False))
-        if done_data:
-            done_tracks = done_data.get('tracks', [])
+    tracks = get_all_tracks_with_phases_and_tasks(verbose=getattr(args, 'verbose', False))
 
     if not tracks:
         print("No tracks found.")
@@ -374,104 +119,40 @@ def list_tracks(args) -> int:
             print("Verbose: No track headings parsed. Expected format: '## Track: <name>'.")
         return 0
 
-    print()
-    settings = get_settings()
-    unicode_symbols = settings.unicode_symbols
-    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
-    term_width = max(term_width, 20)
-    box = _box_chars(unicode_symbols)
-    done_phase_counts = {
-        track.get('track_id', ''): len(track.get('phases', []))
-        for track in done_tracks
-    }
-
-    status_map = {
-        "done": ("✅", "green"),
-        "in_progress": ("🚧", "yellow"),
-        "planned": ("📅", "cyan"),
-        "todo": ("📋", "cyan"),
-        "proposed": ("💡", "magenta"),
-    }
-
-    statuses = []
-    for track in tracks:
-        status = track.get('status', 'unknown')
-        status_display, _ = status_map.get(status, ("❔", "bright_black"))
-        statuses.append(status_display)
-
-    idx_w = max(_display_width("#"), _display_width(str(len(tracks))))
-    id_w = max(_display_width("Track ID"), max((_display_width(t.get('track_id', '')) for t in tracks), default=0))
-    name_w = max(_display_width("Name"), max((_display_width(t.get('name', '')) for t in tracks), default=0))
-    st_w = max(_display_width("St"), max((_display_width(s) for s in statuses), default=0))
-    ph_w = max(_display_width("Ph"), _display_width(str(len(tracks))))
-    todo_w = max(_display_width("Todo"), _display_width(str(len(tracks))))
-
-    col_widths = [idx_w, id_w, name_w, st_w, ph_w, todo_w]
-    ncol = len(col_widths)
-    content_width = sum(w + 2 for w in col_widths) + (ncol - 1) * 2
-    inner_width = min(term_width - 2, max(content_width, 20))
-    available = inner_width - (ncol - 1) * 2 - (2 * ncol)
-    name_w = max(_display_width("Name"), available - (idx_w + id_w + st_w + ph_w + todo_w))
-    col_widths = [idx_w, id_w, name_w, st_w, ph_w, todo_w]
-
-    header_cells = [
-        " " + _pad_to_width("#", idx_w) + " ",
-        " " + _pad_to_width("Track ID", id_w) + " ",
-        " " + _pad_to_width("Name", name_w) + " ",
-        " " + _pad_to_width("St", st_w) + " ",
-        " " + _pad_to_width("Ph", ph_w) + " ",
-        " " + _pad_to_width("Todo", todo_w) + " ",
-    ]
-    header_line = box["vertical"] + _pad_to_width("  ".join(header_cells), inner_width) + box["vertical"]
-    print(_style_text(box["top_left"] + box["horizontal"] * inner_width + box["top_right"], color="yellow"))
-    print(_style_text(header_line, color="bright_white", bold=True))
-    print(_style_text(box["mid_left"] + box["mid_horizontal"] * inner_width + box["mid_right"], color="yellow"))
-
+    # Calculate additional fields for display and format for table renderer
+    formatted_tracks = []
     for i, track in enumerate(tracks, 1):
-        track_id = track.get('track_id', 'N/A')
-        name = track.get('name', 'Unnamed Track')
-        status = track.get('status', 'unknown')
         phases = track.get('phases', [])
         todo_count = sum(
             1
             for phase in phases
             if phase.get('status') in ('planned', 'proposed', 'in_progress')
         )
-        done_in_todo_count = sum(
-            1
-            for phase in phases
-            if phase.get('status') == 'done'
-        )
-        done_phase_count = done_phase_counts.get(track_id, 0)
-        phase_count = todo_count + done_in_todo_count + done_phase_count
 
-        status_display, status_color = status_map.get(status, ("❔", "bright_black"))
-        track_id = _truncate(track_id, id_w, unicode_symbols)
-        name = _truncate(name, name_w, unicode_symbols)
-
-        if todo_count == 0:
-            todo_color = "green"
-        elif todo_count == phase_count:
-            todo_color = "red"
+        # Calculate track status based on phases
+        if not phases:
+            track_status = 'proposed'  # No phases yet
+        elif all(p.get('status') == 'done' for p in phases):
+            track_status = 'done'
+        elif any(p.get('status') in ('in_progress', 'planned', 'proposed') for p in phases):
+            track_status = 'in_progress'
         else:
-            todo_color = "yellow"
-        status_cell = _style_text(" " + _pad_to_width(status_display, st_w) + " ", color=status_color)
-        todo_cell = _style_text(" " + _pad_to_width(str(todo_count), todo_w) + " ", color=todo_color)
-        row_cells = [
-            " " + _pad_to_width(str(i), idx_w) + " ",
-            " " + _pad_to_width(track_id, id_w) + " ",
-            " " + _pad_to_width(name, name_w) + " ",
-            status_cell,
-            " " + _pad_to_width(str(phase_count), ph_w) + " ",
-            todo_cell,
-        ]
-        row_content = "  ".join(row_cells)
-        row_line = box["vertical"] + _pad_to_width(row_content, inner_width) + box["vertical"]
-        print(row_line)
+            track_status = 'unknown'
 
-    print(_style_text(box["bottom_left"] + box["horizontal"] * inner_width + box["bottom_right"], color="yellow"))
-    print(_style_text(f"Total: {len(tracks)} tracks", color="bright_black", dim=True))
-    print(_style_text("Use 'maestro track <#>' or 'maestro track <id>' to view details", color="bright_black", dim=True))
+        formatted_track = {
+            'idx': str(i),
+            'track_id': track.get('track_id', 'N/A'),
+            'name': track.get('name', 'Unnamed Track'),
+            'status': track_status,
+            'phases': str(len(phases)),
+            'todo': str(todo_count)
+        }
+        formatted_tracks.append(formatted_track)
+
+    # Render the table using unified renderer
+    table_lines = render_track_table(formatted_tracks)
+    for line in table_lines:
+        print(line)
 
     return 0
 

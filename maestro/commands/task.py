@@ -13,7 +13,6 @@ Commands:
 """
 
 import re
-import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -30,68 +29,32 @@ from maestro.data.markdown_writer import (
     update_task_metadata,
     update_task_heading_status,
 )
-from .track import (
-    _box_chars,
-    _display_width,
-    _pad_to_width,
-    _style_text,
-    _truncate,
-    _status_display,
-    resolve_track_identifier,
+from maestro.display.table_renderer import render_task_table
+from maestro.data.common_utils import (
+    parse_todo_safe,
+    parse_done_safe,
+    get_all_tracks_with_phases_and_tasks,
+    resolve_identifier_by_type,
+    filter_items_by_track,
+    print_error,
+    print_warning,
+    print_info
 )
 from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
 
 
-def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
-    try:
-        return parse_todo_md(str(todo_path))
-    except Exception as exc:
-        if verbose:
-            print(f"Verbose: Error parsing {todo_path}: {exc}")
-            import traceback
-            traceback.print_exc()
-        else:
-            print(f"Error parsing {todo_path}. Use --verbose for more details.")
-        return None
+# Using the unified parse_todo_safe from common_utils
 
 
-def _parse_done_safe(done_path: Path, verbose: bool = False) -> Optional[dict]:
-    try:
-        return parse_done_md(str(done_path))
-    except Exception as exc:
-        if verbose:
-            print(f"Verbose: Error parsing {done_path}: {exc}")
-            import traceback
-            traceback.print_exc()
-        else:
-            print(f"Error parsing {done_path}. Use --verbose for more details.")
-        return None
+# Functions are now using the unified versions from common_utils
 
 
 def _available_phase_ids(verbose: bool = False) -> List[str]:
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        return []
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if not data:
-        return []
-    phase_ids = []
-    for track in data.get('tracks', []):
-        for phase in track.get('phases', []):
-            phase_id = phase.get('phase_id')
-            if phase_id:
-                phase_ids.append(phase_id)
-    return phase_ids
+    return get_available_ids('phase', verbose=verbose)
 
 
 def _available_track_ids(verbose: bool = False) -> List[str]:
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        return []
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if not data:
-        return []
-    return [track.get('track_id') for track in data.get('tracks', []) if track.get('track_id')]
+    return get_available_ids('track', verbose=verbose)
 
 
 def _normalize_task_status(status: Optional[str], completed: bool, phase_status: Optional[str]) -> str:
@@ -140,14 +103,14 @@ def _collect_phase_index(verbose: bool = False) -> Tuple[Dict[str, Dict[str, str
             phase_order.append(phase_id)
 
     if todo_path.exists():
-        todo_data = _parse_todo_safe(todo_path, verbose=verbose)
+        todo_data = parse_todo_safe(todo_path, verbose=verbose)
         if todo_data:
             for track in todo_data.get('tracks', []):
                 for phase in track.get('phases', []):
                     add_phase(track, phase)
 
     if done_path.exists():
-        done_data = _parse_done_safe(done_path, verbose=verbose)
+        done_data = parse_done_safe(done_path, verbose=verbose)
         if done_data:
             for track in done_data.get('tracks', []):
                 for phase in track.get('phases', []):
@@ -268,8 +231,6 @@ def list_tasks(args):
       - track <id|#> to filter by track
       - phase <id> to filter by phase
     """
-    from maestro.config.settings import get_settings
-
     tokens = getattr(args, 'filters', None) or []
     status_filter, track_filter, phase_filter, extras = _parse_task_list_filters(tokens)
     if extras:
@@ -279,11 +240,12 @@ def list_tasks(args):
 
     if track_filter:
         verbose = getattr(args, 'verbose', False)
-        resolved = resolve_track_identifier(track_filter, verbose=verbose) if track_filter.isdigit() else track_filter
+        # Use the unified identifier resolver
+        resolved = resolve_identifier_by_type(track_filter, 'track', verbose=verbose) if track_filter.isdigit() else track_filter
         if track_filter.isdigit() and not resolved:
             print(f"Error: Track '{track_filter}' not found.")
             if verbose:
-                available = _available_track_ids(verbose=verbose)
+                available = get_available_ids('track', verbose=verbose)
                 if available:
                     print(f"Verbose: Available tracks: {', '.join(available)}")
             return 1
@@ -302,57 +264,23 @@ def list_tasks(args):
         print("No tasks found.")
         return 0
 
-    settings = get_settings()
-    unicode_symbols = settings.unicode_symbols
-    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
-    term_width = max(term_width, 20)
-    box = _box_chars(unicode_symbols)
+    # Format the data with index values for the table renderer
+    formatted_tasks = []
+    for i, task in enumerate(tasks, 1):
+        formatted_task = {
+            'idx': str(i),
+            'task_id': task.get('task_id', 'N/A'),
+            'name': task.get('name', 'Unnamed Task'),
+            'track': task.get('track_id', 'N/A'),
+            'phase': task.get('phase_id', 'N/A'),
+            'status': task.get('status', 'unknown')
+        }
+        formatted_tasks.append(formatted_task)
 
-    idx_width = max(_display_width('#'), max((_display_width(str(t.get('list_number', ''))) for t in tasks), default=0))
-    task_id_width = max(_display_width('Task ID'), max((_display_width(t.get('task_id', 'N/A')) for t in tasks), default=0))
-    name_width = max(_display_width('Name'), max((_display_width(t.get('name', 'Unnamed Task')) for t in tasks), default=0))
-    track_width = max(_display_width('Track'), max((_display_width(t.get('track_id', 'N/A')) for t in tasks), default=0))
-    phase_width = max(_display_width('Phase'), max((_display_width(t.get('phase_id', 'N/A')) for t in tasks), default=0))
-    status_width = max(
-        _display_width('Status'),
-        max((_display_width(_status_display(t.get('status', 'unknown'), unicode_symbols)[0]) for t in tasks), default=0),
-    )
-
-    col_widths = [idx_width, task_id_width, name_width, track_width, phase_width, status_width]
-    ncol = len(col_widths)
-    content_width = sum(w + 2 for w in col_widths) + (ncol - 1) * 2
-    inner_width = min(term_width - 2, max(content_width, 20))
-    available = inner_width - (ncol - 1) * 2 - (2 * ncol)
-    name_width = max(_display_width('Name'), available - (idx_width + task_id_width + track_width + phase_width + status_width))
-    col_widths = [idx_width, task_id_width, name_width, track_width, phase_width, status_width]
-
-    headers = ['#', 'Task ID', 'Name', 'Track', 'Phase', 'Status']
-    header_cells = []
-    for header, width in zip(headers, col_widths):
-        header_cells.append(" " + _pad_to_width(header, width) + " ")
-    header_line = box['vertical'] + _pad_to_width("  ".join(header_cells), inner_width) + box['vertical']
-
-    print()
-    print(_style_text(box['top_left'] + box['horizontal'] * inner_width + box['top_right'], color='yellow'))
-    print(_style_text(header_line, color='bright_white', bold=True))
-    print(_style_text(box['mid_left'] + box['mid_horizontal'] * inner_width + box['mid_right'], color='yellow'))
-
-    for task in tasks:
-        status_display, status_color = _status_display(task.get('status', 'unknown'), unicode_symbols)
-        row_cells = [
-            " " + _pad_to_width(str(task.get('list_number', '')), idx_width) + " ",
-            " " + _pad_to_width(_truncate(task.get('task_id', 'N/A'), task_id_width, unicode_symbols), task_id_width) + " ",
-            " " + _pad_to_width(_truncate(task.get('name', 'Unnamed Task'), name_width, unicode_symbols), name_width) + " ",
-            " " + _pad_to_width(_truncate(task.get('track_id', 'N/A'), track_width, unicode_symbols), track_width) + " ",
-            " " + _pad_to_width(_truncate(task.get('phase_id', 'N/A'), phase_width, unicode_symbols), phase_width) + " ",
-            _style_text(" " + _pad_to_width(status_display, status_width) + " ", color=status_color),
-        ]
-        row_line = box['vertical'] + _pad_to_width("  ".join(row_cells), inner_width) + box['vertical']
-        print(row_line)
-
-    print(_style_text(box['bottom_left'] + box['horizontal'] * inner_width + box['bottom_right'], color='yellow'))
-    print(_style_text(f"Total: {len(tasks)} tasks", color='bright_black', dim=True))
-    print(_style_text("Use 'maestro task <#>' or 'maestro task <id>' to view details", color='bright_black', dim=True))
+    # Render the table using unified renderer
+    table_lines = render_task_table(formatted_tasks)
+    for line in table_lines:
+        print(line)
 
     return 0
 
@@ -562,7 +490,7 @@ def add_task(name: str, args):
         print("Use 'maestro track add' and 'maestro phase add' to create phases first.")
         return 1
 
-    data = _parse_todo_safe(todo_path, verbose=verbose)
+    data = parse_todo_safe(todo_path, verbose=verbose)
     if data is None:
         return 1
     phase_info = None
