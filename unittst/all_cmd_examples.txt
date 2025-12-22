@@ -1,0 +1,63 @@
+# Maestro CLI Practical Real-World Examples
+
+## Project Initialization
+- `maestro track add "Backend API Development"` - Create a main track for backend work
+- `maestro phase add "Database Schema Design" --track "backend-api"` - Add a phase to design database
+- `maestro task add "Design user authentication tables" --phase "db-schema"` - Add specific task
+
+## Daily Work Session
+- `maestro track list` - See what tracks are available to work on
+- `maestro phase list --track backend-api` - Check phases in the backend track
+- `maestro task list --phase db-schema` - See tasks that need to be done
+- `maestro discuss` - Start a discussion with AI about the current context
+- `maestro work` - Start working on the next available task
+
+## Planning and Management
+- `maestro plan discuss` - Discuss and plan the next steps with AI
+- `maestro session new` - Start a new session for focused work
+- `maestro settings get ai.model` - Check current AI model configuration
+- `maestro settings set ai.model gpt-4` - Update AI model preference
+
+## Issue Tracking
+- `maestro issues list` - See all open issues
+- `maestro issues add "Fix user login bug"` - Create a new issue
+- `maestro issues analyze <issue-id>` - Have AI analyze the issue
+- `maestro issues fix <issue-id>` - Start fixing the issue
+
+## Progress Tracking
+- `maestro task status <task-id>` - Update task status to in-progress
+- `maestro task set-status <task-id> done` - Mark task as completed
+- `maestro phase status <phase-id>` - Check phase completion status
+- `maestro log list` - Review work logs from the session
+
+## Solution Development
+- `maestro solutions add` - Add a new solution to an issue
+- `maestro solutions list` - See all proposed solutions
+- `maestro solutions show <solution-id>` - Review a specific solution
+
+## Session Management
+- `maestro session list` - See all available sessions
+- `maestro session set <session-name>` - Switch to a different session
+- `maestro session details <session-name>` - Get detailed info about a session
+- `maestro resume` - Resume a previous work session
+
+## Rules and Constraints
+- `maestro rules list` - View project rules and constraints
+- `maestro rules edit` - Edit the rules file in your default editor
+- `maestro root refine` - Refine the main project objective
+
+## Context and Discussion
+- `maestro root discuss` - Discuss the main project goal with AI
+- `maestro discuss` - Start an AI discussion in the current context
+- `maestro track discuss <track-id>` - Discuss specific track with AI
+
+## Complex Multi-step Workflow
+1. `maestro track add "User Dashboard"` - Create main feature track
+2. `maestro phase add "UI Design" --track "user-dashboard"` - Add design phase
+3. `maestro phase add "Frontend Implementation" --track "user-dashboard"` - Add implementation phase
+4. `maestro task add "Create wireframes" --phase "ui-design"` - Add design tasks
+5. `maestro task add "Implement React components" --phase "frontend-impl"` - Add implementation tasks
+6. `maestro discuss` - Discuss the approach with AI
+7. `maestro work` - Start working on tasks
+8. `maestro log list` - Review progress
+9. `maestro session list` - Check session status

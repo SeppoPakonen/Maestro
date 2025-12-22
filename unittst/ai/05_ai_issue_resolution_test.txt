@@ -1,0 +1,27 @@
+# Unit Test 5: AI Issue Resolution Test
+Objective: Verify AI's ability to help identify, analyze, and resolve issues
+
+Setup:
+- Remove ./tmp directory if it exists
+- Create a fresh ./tmp directory in the project root
+- Verify that ./tmp is listed in .gitignore (it should be already)
+- The point is to use "python ../maestro.py" from the ./tmp directory
+
+Steps:
+1. From the ./tmp directory, run `python ../maestro.py init` to initialize the project
+2. Create a track "Bug Fixes" and a phase "Q4 Issues"
+3. Create a problematic task or introduce an error in code
+4. Use `python ../maestro.py issues add "Login authentication fails"` to register the issue
+5. Run `python ../maestro.py issues analyze <issue-id>` to have AI analyze the problem
+6. Use `python ../maestro.py discuss` to brainstorm solutions with AI
+7. Add solutions using `python ../maestro.py solutions add` based on AI suggestions
+8. Implement the fix using `python ../maestro.py work` on the related task
+9. Verify the issue is resolved with `python ../maestro.py issues state <issue-id> closed`
+
+Expected Success Criteria:
+- AI correctly identifies the issue from context
+- Analysis provides meaningful insights
+- Solutions are practical and implementable
+- Fix implementation works as expected
+- Issue status updates correctly
+- No regression in other functionality

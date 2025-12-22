@@ -1,0 +1,118 @@
+# Maestro CLI Command Combinations
+
+## Top-level commands
+help
+track
+phase
+task
+discuss
+settings
+issues
+solutions
+session
+plan
+rules
+root
+log
+resume
+work
+
+## Track subcommands
+track list
+track add
+track show
+track edit
+track remove
+track status
+
+## Phase subcommands
+phase list
+phase add
+phase show
+phase edit
+phase remove
+phase status
+
+## Task subcommands
+task list
+task add
+task show
+task edit
+task remove
+task status
+task set-status
+task text
+task set-text
+task discuss
+
+## Discuss subcommands
+discuss
+
+## Settings subcommands
+settings list
+settings get
+settings set
+settings edit
+settings reset
+settings wizard
+
+## Issues subcommands
+issues list
+issues show
+issues state
+issues rollback
+issues react
+issues analyze
+issues decide
+issues fix
+issues bug
+issues task
+issues feature
+issues chore
+issues spike
+
+## Solutions subcommands
+solutions list
+solutions add
+solutions remove
+solutions show
+solutions edit
+
+## Session subcommands
+session list
+session new
+session set
+session get
+session remove
+session details
+
+## Plan subcommands
+plan list
+plan show
+plan discuss
+plan tree
+plan set
+plan get
+plan kill
+
+## Rules subcommands
+rules list
+rules edit
+
+## Root subcommands
+root set
+root get
+root refine
+root discuss
+root show
+
+## Log subcommands
+log list
+log list-work
+log list-plan
+
+## Resume command
+resume
+
+## Work command
+work

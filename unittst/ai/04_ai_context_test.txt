@@ -1,0 +1,26 @@
+# Unit Test 4: AI Context Management Test
+Objective: Verify AI context management and switching between different project elements
+
+Setup:
+- Remove ./tmp directory if it exists
+- Create a fresh ./tmp directory in the project root
+- Verify that ./tmp is listed in .gitignore (it should be already)
+- The point is to use "python ../maestro.py" from the ./tmp directory
+
+Steps:
+1. From the ./tmp directory, run `python ../maestro.py init` to initialize the project
+2. Create multiple tracks: "Frontend", "Backend", "DevOps"
+3. Create phases and tasks within each track
+4. Start a discussion with AI about the Frontend track: `python ../maestro.py discuss --track frontend`
+5. Switch context to Backend track and continue discussion
+6. Use breadcrumbs to navigate between contexts
+7. Verify that AI remembers context when switching between tracks/phases/tasks
+8. Test context switching with `python ../maestro.py context` commands
+9. Verify that session context is preserved across multiple AI interactions
+
+Expected Success Criteria:
+- AI maintains appropriate context for each track/phase/task
+- Context switching works smoothly without confusion
+- Breadcrumbs properly track context navigation
+- Session context is preserved between interactions
+- No context bleeding between different project areas

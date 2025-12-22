@@ -1,0 +1,25 @@
+# Unit Test 3: AI Planning Test
+Objective: Verify AI planning capabilities with track/phase/task creation
+
+Setup:
+- Remove ./tmp directory if it exists
+- Create a fresh ./tmp directory in the project root
+- Verify that ./tmp is listed in .gitignore (it should be already)
+- The point is to use "python ../maestro.py" from the ./tmp directory
+
+Steps:
+1. From the ./tmp directory, run `python ../maestro.py init` to initialize the project
+2. Create a main track for "Website Redesign" project
+3. Use AI to plan phases for the project by running `python ../maestro.py discuss` and asking AI to suggest phases
+4. Based on AI's suggestions, create 4-5 phases: "Research", "Design", "Development", "Testing", "Deployment"
+5. For each phase, create 2-3 tasks using AI suggestions
+6. Verify that the plan is properly structured with tracks, phases, and tasks
+7. Use `python ../maestro.py plan tree` to visualize the plan hierarchy
+8. Mark early tasks as done and verify progress tracking
+
+Expected Success Criteria:
+- AI provides meaningful phase suggestions
+- All phases and tasks are created successfully
+- Plan tree shows proper hierarchy
+- Progress tracking works correctly
+- No errors during creation process
