@@ -377,7 +377,7 @@ def _run_qwen_stdin_chat(qwen_script: Path, repo_root: Path, verbose: bool, init
         try:
             while client.is_running():
                 try:
-                    # Wait for streaming to finish before showing the prompt
+                    # Wait for any previous streaming to finish before showing the prompt
                     while streaming_active.is_set() and client.is_running():
                         time.sleep(0.1)  # Small delay to avoid busy waiting
                     user_input = input(">>> ").strip()
@@ -387,6 +387,9 @@ def _run_qwen_stdin_chat(qwen_script: Path, repo_root: Path, verbose: bool, init
                         break
                     if user_input:
                         client.send_user_input(user_input)
+                        # Now wait for the response to finish before continuing
+                        while streaming_active.is_set() and client.is_running():
+                            time.sleep(0.1)  # Wait for response to finish
                 except EOFError:
                     break
                 except KeyboardInterrupt:
