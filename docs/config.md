@@ -1,6 +1,6 @@
 # Maestro Configuration
 
-**Last Updated**: 2025-12-19
+**Last Updated**: 2025-12-23
 
 ---
 
@@ -28,6 +28,15 @@
 "ai_api_key_file": "~/.anthropic_key"
 "ai_context_window": 8192
 "ai_temperature": 0.7
+"ai_engines_claude": "planner"
+"ai_engines_codex": "both"
+"ai_engines_gemini": "both"
+"ai_engines_qwen": "both"
+"ai_stacking_mode": "handsoff"
+"ai_qwen_use_stdio_or_tcp": true
+"ai_qwen_transport": "stdio"
+"ai_qwen_tcp_host": "localhost"
+"ai_qwen_tcp_port": 7777
 
 ---
 

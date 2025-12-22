@@ -74,10 +74,36 @@ def list_settings(args):
             if section_data:  # Only show sections that have data
                 print(f"{section_name}:")
                 print("-" * len(section_name))
-                
-                for key, value in section_data.items():
-                    formatted_value = format_value_for_display(key, value)
-                    print(f"  {key}: {formatted_value}")
+
+                # Special handling for AI settings to show engine matrix
+                if section_key == 'ai_settings':
+                    # Group and display AI engine settings together
+                    engine_keys = ['ai_engines_claude', 'ai_engines_codex', 'ai_engines_gemini', 'ai_engines_qwen']
+                    engine_settings = {}
+
+                    # Extract engine settings
+                    for key in engine_keys:
+                        if key in section_data:
+                            engine_settings[key] = section_data[key]
+
+                    # Create a copy of section_data without engine settings for other AI settings
+                    other_ai_settings = {k: v for k, v in section_data.items() if k not in engine_keys}
+
+                    # Display AI engine matrix if any engine settings exist
+                    if engine_settings:
+                        print("  AI Engines:")
+                        for engine_key, engine_value in engine_settings.items():
+                            print(f"    {engine_key}: {format_value_for_display(engine_key, engine_value)}")
+
+                    # Display other AI settings
+                    for key, value in other_ai_settings.items():
+                        formatted_value = format_value_for_display(key, value)
+                        print(f"  {key}: {formatted_value}")
+                else:
+                    # Display other sections normally
+                    for key, value in section_data.items():
+                        formatted_value = format_value_for_display(key, value)
+                        print(f"  {key}: {formatted_value}")
                 print()
 
     return 0
@@ -88,7 +114,7 @@ def format_value_for_display(key: str, value: Any) -> str:
     if key == 'default_editor' and value == '$EDITOR':
         resolved_editor = os.environ.get('EDITOR', 'vim')
         return f'$EDITOR (resolved: {resolved_editor})'
-    
+
     if isinstance(value, bool):
         return str(value).lower()
     elif value is None:
@@ -103,11 +129,23 @@ def format_value_for_display(key: str, value: Any) -> str:
 def get_setting(args):
     """Get a single setting value."""
     settings = get_settings()
-    
+
     # Try to get the setting value
     value = settings.get(args.key, None)
-    
-    if value is None:
+
+    # Check if this is a valid AI engine setting path before checking if value is None
+    parts = args.key.split('.')
+    is_valid_ai_path = False
+    if parts[0] == 'ai' and len(parts) >= 2:
+        if parts[1] == 'engines' and len(parts) == 3 and parts[2] in ['claude', 'codex', 'gemini', 'qwen']:
+            is_valid_ai_path = True
+        elif parts[1] == 'qwen' and len(parts) >= 3 and parts[2] in ['use_stdio_or_tcp', 'transport', 'tcp_host', 'tcp_port']:
+            is_valid_ai_path = True
+        elif parts[1] == 'stacking_mode' and len(parts) == 2:
+            is_valid_ai_path = True
+
+    # If it's a valid path but value is None, it means the setting doesn't exist
+    if value is None and not is_valid_ai_path:
         print(f"Error: Setting '{args.key}' not found.")
         return 1
 
@@ -121,7 +159,7 @@ def get_setting(args):
         # Resolve paths and env vars for display
         formatted_value = format_value_for_display(args.key, value)
         print(formatted_value)
-    
+
     return 0
 
 
@@ -131,15 +169,32 @@ def set_setting(args):
 
     # Check if the key exists by trying to get it first
     old_value = settings.get(args.key, None)
-    if old_value is None and not hasattr(settings, args.key):
-        print(f"Error: Setting '{args.key}' does not exist.")
-        return 1
+    if old_value is None and not hasattr(settings, args.key.split('.')[-1]):
+        # Check for dot notation keys specifically for AI engine settings
+        parts = args.key.split('.')
+        if parts[0] == 'ai' and len(parts) >= 2:
+            if parts[1] == 'engines' and len(parts) == 3:
+                # Valid engine setting path
+                pass
+            elif parts[1] == 'qwen' and len(parts) >= 3:
+                # Valid qwen setting path
+                pass
+            elif parts[1] == 'stacking_mode' and len(parts) == 2:
+                # Valid stacking mode setting path
+                pass
+            else:
+                print(f"Error: Setting '{args.key}' does not exist.")
+                return 1
+        else:
+            print(f"Error: Setting '{args.key}' does not exist.")
+            return 1
 
     try:
         # Convert the value to the appropriate type if needed
         # First, get the current type to determine conversion
         current_value = settings.get(args.key)
-        converted_value = convert_value_to_type(args.value, type(current_value))
+        target_type = type(current_value) if current_value is not None else str
+        converted_value = convert_value_to_type(args.value, target_type)
 
         settings.set(args.key, converted_value)
         settings.validate()
@@ -281,30 +336,76 @@ def settings_wizard(args):
     # Start with default config and update values based on user input
     settings = create_default_config()
 
-    # AI Provider
-    ai_provider = input(f"AI Provider (anthropic/openai/local) [{settings.ai_provider}]: ").strip()
+    # AI Provider (legacy)
+    print("AI Settings:")
+    ai_provider = input(f"  AI Provider (anthropic/openai/local) [{settings.ai_provider}]: ").strip()
     if ai_provider:
         settings.ai_provider = ai_provider
 
-    # AI Model
-    ai_model = input(f"AI Model [{settings.ai_model}]: ").strip()
+    # AI Model (legacy)
+    ai_model = input(f"  AI Model [{settings.ai_model}]: ").strip()
     if ai_model:
         settings.ai_model = ai_model
 
-    # AI API Key File
-    ai_api_key_file = input(f"AI API Key File [{settings.ai_api_key_file}]: ").strip()
+    # AI API Key File (legacy)
+    ai_api_key_file = input(f"  AI API Key File [{settings.ai_api_key_file}]: ").strip()
     if ai_api_key_file:
         settings.ai_api_key_file = ai_api_key_file
 
+    # AI Engine Matrix
+    print("\nAI Engine Configuration:")
+    print("  Engine roles: disabled, planner, worker, both")
+    claude_role = input(f"  Claude role (disabled/planner/worker/both) [{settings.ai_engines_claude}]: ").strip()
+    if claude_role:
+        settings.ai_engines_claude = claude_role
+
+    codex_role = input(f"  Codex role (disabled/planner/worker/both) [{settings.ai_engines_codex}]: ").strip()
+    if codex_role:
+        settings.ai_engines_codex = codex_role
+
+    gemini_role = input(f"  Gemini role (disabled/planner/worker/both) [{settings.ai_engines_gemini}]: ").strip()
+    if gemini_role:
+        settings.ai_engines_gemini = gemini_role
+
+    qwen_role = input(f"  Qwen role (disabled/planner/worker/both) [{settings.ai_engines_qwen}]: ").strip()
+    if qwen_role:
+        settings.ai_engines_qwen = qwen_role
+
+    # AI Stacking Mode
+    stacking_mode = input(f"  AI Stacking Mode (managed/handsoff) [{settings.ai_stacking_mode}]: ").strip()
+    if stacking_mode:
+        settings.ai_stacking_mode = stacking_mode
+
+    # Qwen Transport Settings
+    print("\nQwen Transport Settings:")
+    qwen_use_stdio = input(f"  Use stdio/tcp for Qwen? (true/false) [{settings.ai_qwen_use_stdio_or_tcp}]: ").strip()
+    if qwen_use_stdio:
+        settings.ai_qwen_use_stdio_or_tcp = qwen_use_stdio.lower() in ['true', '1', 'yes', 'on']
+
+    if settings.ai_qwen_use_stdio_or_tcp:
+        qwen_transport = input(f"  Qwen transport (stdio/tcp) [{settings.ai_qwen_transport}]: ").strip()
+        if qwen_transport:
+            settings.ai_qwen_transport = qwen_transport
+        qwen_tcp_host = input(f"  Qwen TCP host [{settings.ai_qwen_tcp_host}]: ").strip()
+        if qwen_tcp_host:
+            settings.ai_qwen_tcp_host = qwen_tcp_host
+        qwen_tcp_port = input(f"  Qwen TCP port [{settings.ai_qwen_tcp_port}]: ").strip()
+        if qwen_tcp_port:
+            try:
+                settings.ai_qwen_tcp_port = int(qwen_tcp_port)
+            except ValueError:
+                print(f"Warning: Invalid value for qwen_tcp_port, keeping default: {settings.ai_qwen_tcp_port}")
+
     # Default Editor
-    default_editor = input(f"Default Editor [$EDITOR]: ").strip()
+    print("\nUser Preferences:")
+    default_editor = input(f"  Default Editor [$EDITOR]: ").strip()
     if default_editor:
         settings.default_editor = default_editor
     elif default_editor == "":  # User pressed Enter to keep default
         pass  # Keep the default '$EDITOR'
 
     # Discussion Mode
-    discussion_mode = input(f"Discussion Mode (editor/terminal) [{settings.discussion_mode}]: ").strip()
+    discussion_mode = input(f"  Discussion Mode (editor/terminal) [{settings.discussion_mode}]: ").strip()
     if discussion_mode:
         settings.discussion_mode = discussion_mode
 

@@ -59,6 +59,9 @@
 | Context commands | CLI v1.3.0 | — | maestro context show/clear for current track/phase/task context |
 | AI discuss commands | CLI v1.3.0 | — | maestro track/phase/task discuss for AI-assisted planning |
 | Markdown data backend | CLI v1.3.0 | — | Human-readable markdown format for todo/done/config data |
+| Settings: engine matrix | CLI v1.2.0 | — | Per-engine settings with four states: disabled, planner, worker, both |
+| Settings: AI stacking_mode | CLI v1.2.0 | — | Managed vs handsoff mode for AI orchestration |
+| Settings: Qwen transport | CLI v1.2.0 | — | Configurable Qwen transport: binary prompt, stdio, or TCP |
 
 ## Development Philosophy
 

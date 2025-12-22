@@ -346,7 +346,11 @@ class QwenWorkerEngine:
     """
     name = QWEN_WORKER
 
-    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False, stream_output: bool = False):
+    def __init__(self, config: CliEngineConfig | None = None, debug: bool = False, stream_output: bool = False, use_stdio_or_tcp: bool = False, tcp_host: str = "localhost", tcp_port: int = 7777):
+        self.use_stdio_or_tcp = use_stdio_or_tcp
+        self.tcp_host = tcp_host
+        self.tcp_port = tcp_port
+
         if config is None:
             config = CliEngineConfig(
                 binary="qwen",
@@ -369,6 +373,15 @@ class QwenWorkerEngine:
         Raises:
             EngineError: If the qwen CLI returns a non-zero exit code
         """
+        if self.use_stdio_or_tcp:
+            # Use stdio/tcp transport
+            return self._generate_with_stdio_or_tcp(prompt)
+        else:
+            # Use the original CLI approach
+            return self._generate_with_cli(prompt)
+
+    def _generate_with_cli(self, prompt: str) -> str:
+        """Generate using the CLI approach."""
         result = run_cli_engine(self.config, prompt, debug=self.debug, stream_output=self.stream_output)
 
         if result.interrupted:
@@ -380,6 +393,69 @@ class QwenWorkerEngine:
             raise EngineError(self.name, result.exit_code, result.stderr)
 
         return result.stdout
+
+    def _generate_with_stdio_or_tcp(self, prompt: str) -> str:
+        """Generate using the stdio/tcp approach."""
+        import socket
+        import json
+
+        print(f"[engine] Using stdio/tcp transport for {self.name} to {self.tcp_host}:{self.tcp_port}", file=sys.stderr)
+
+        try:
+            # Connect to the TCP server
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(30)  # 30 second timeout
+                sock.connect((self.tcp_host, self.tcp_port))
+
+                # Prepare the request as JSON
+                request = {
+                    "type": "user_input",
+                    "content": prompt
+                }
+
+                # Send the request
+                request_json = json.dumps(request) + '\n'
+                sock.sendall(request_json.encode('utf-8'))
+
+                # Receive the response
+                response_data = b""
+                while True:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+                    response_data += chunk
+
+                    # Try to parse the response
+                    try:
+                        response_str = response_data.decode('utf-8').strip()
+                        if response_str:
+                            # If we have a complete response, break
+                            break
+                    except UnicodeDecodeError:
+                        # If we can't decode yet, continue receiving
+                        continue
+
+                # Parse the response
+                response_str = response_data.decode('utf-8').strip()
+                if response_str:
+                    try:
+                        response_json = json.loads(response_str)
+                        # Extract the content from the response
+                        if isinstance(response_json, dict) and 'content' in response_json:
+                            return response_json['content']
+                        else:
+                            return response_str
+                    except json.JSONDecodeError:
+                        return response_str
+                else:
+                    return "No response received from Qwen TCP server"
+
+        except socket.timeout:
+            raise EngineError(self.name, 1, f"Timeout connecting to Qwen TCP server at {self.tcp_host}:{self.tcp_port}")
+        except ConnectionRefusedError:
+            raise EngineError(self.name, 1, f"Connection refused by Qwen TCP server at {self.tcp_host}:{self.tcp_port}")
+        except Exception as e:
+            raise EngineError(self.name, 1, f"Error connecting to Qwen TCP server: {str(e)}")
 
 
 class GeminiWorkerEngine:
@@ -432,7 +508,7 @@ ALIASES = {
 }
 
 
-def get_engine(name: str, debug: bool = False, stream_output: bool = False) -> Engine:
+def get_engine(name: str, debug: bool = False, stream_output: bool = False, **kwargs) -> Engine:
     """
     Registry function to get an engine instance by name.
 
@@ -440,15 +516,24 @@ def get_engine(name: str, debug: bool = False, stream_output: bool = False) -> E
         name: The name of the engine to retrieve (can be direct name or alias)
         debug: Whether to enable debug mode
         stream_output: Whether to stream output to stdout
+        **kwargs: Additional engine-specific parameters
 
     Returns:
         An instance of the requested engine
     """
     # Check if the name is a direct engine name first
+    if name == QWEN_WORKER:
+        return QwenWorkerEngine(
+            debug=debug,
+            stream_output=stream_output,
+            use_stdio_or_tcp=kwargs.get('use_stdio_or_tcp', False),
+            tcp_host=kwargs.get('tcp_host', 'localhost'),
+            tcp_port=kwargs.get('tcp_port', 7777)
+        )
+
     direct_engines = {
         CODEX_PLANNER: CodexPlannerEngine(debug=debug, stream_output=stream_output),
         CLAUDE_PLANNER: ClaudePlannerEngine(debug=debug, stream_output=stream_output),
-        QWEN_WORKER: QwenWorkerEngine(debug=debug, stream_output=stream_output),  # Uses default config
         GEMINI_WORKER: GeminiWorkerEngine(debug=debug, stream_output=stream_output),
     }
 
@@ -460,6 +545,14 @@ def get_engine(name: str, debug: bool = False, stream_output: bool = False) -> E
         alias_target = ALIASES[name]
         if alias_target in direct_engines:
             return direct_engines[alias_target]
+        elif alias_target == QWEN_WORKER:
+            return QwenWorkerEngine(
+                debug=debug,
+                stream_output=stream_output,
+                use_stdio_or_tcp=kwargs.get('use_stdio_or_tcp', False),
+                tcp_host=kwargs.get('tcp_host', 'localhost'),
+                tcp_port=kwargs.get('tcp_port', 7777)
+            )
 
     # If we get here, the name is unknown
     raise KeyError(f"Unknown engine name or alias: {name}")
