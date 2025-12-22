@@ -1,12 +1,6 @@
 [submodule "external/ai-agents/qwen-code"]
 	path = external/ai-agents/qwen-code
 	url = git@github.com:OuluBSD/qwen-code.git
-[submodule "external/ai-agents/codex"]
-	path = external/ai-agents/codex
-	url = git@github.com:OuluBSD/codex.git
-[submodule "external/ai-agents/copilot-cli"]
-	path = external/ai-agents/copilot-cli
-	url = git@github.com:OuluBSD/copilot-cli.git
 [submodule "external/ai-agents/gemini-cli"]
 	path = external/ai-agents/gemini-cli
 	url = git@github.com:OuluBSD/gemini-cli.git
