@@ -1,1 +1,0 @@
-Convert the project structure to the target technology stack.

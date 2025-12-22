@@ -1,1 +1,0 @@
-Verify that all source files have been properly converted.
