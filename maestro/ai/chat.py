@@ -1,35 +1,111 @@
 """Chat interface for the unified AI Engine Manager."""
 
+import sys
+from typing import Optional, List
 from .manager import AiEngineManager
-from .types import AiEngineName
-from typing import Optional
+from .types import AiEngineName, PromptRef, RunOpts
+from .runner import run_engine_command
 
 
 def run_interactive_chat(
-    manager: AiEngineManager, 
-    engine: AiEngineName, 
+    manager: AiEngineManager,
+    engine: AiEngineName,
+    opts: RunOpts,
     initial_prompt: Optional[str] = None
 ) -> None:
     """
     Run an interactive chat session with the specified engine.
-    
-    This will wrap or extend the existing chat functionality.
     """
-    # Placeholder implementation - will be connected to existing chat loop later
     print(f"Starting interactive chat with {engine} engine")
     if initial_prompt:
         print(f"Initial prompt: {initial_prompt}")
-    # This will eventually connect to the existing discussion loop in maestro/ai/discussion.py
+
+    # Process initial prompt if provided
+    if initial_prompt:
+        prompt_ref = PromptRef(source=initial_prompt)
+        try:
+            cmd = manager.build_command(engine, prompt_ref, opts)
+            result = run_engine_command(cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            print(f"Exit code: {result.exit_code}")
+            if result.session_id:
+                print(f"Session ID: {result.session_id}")
+        except ValueError as e:
+            print(f"Error: {e}")
+            return
+
+    # Main chat loop
+    print("Enter your message (use '/done' to finish, '/quit' to exit, Ctrl+J for newline):")
+    while True:
+        try:
+            user_input = _read_multiline_input()
+        except KeyboardInterrupt:
+            print("\n[Interrupted]")
+            break
+
+        if user_input.lower() == '/quit':
+            print("Exiting chat...")
+            break
+        elif user_input.lower() == '/done':
+            print("Done.")
+            break
+        elif user_input.lower() == '/help':
+            _print_help()
+            continue
+
+        # Process the user input
+        prompt_ref = PromptRef(source=user_input)
+        try:
+            cmd = manager.build_command(engine, prompt_ref, opts)
+            result = run_engine_command(cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            print(f"Exit code: {result.exit_code}")
+            if result.session_id:
+                print(f"Session ID: {result.session_id}")
+        except ValueError as e:
+            print(f"Error: {e}")
 
 
 def run_one_shot(
     manager: AiEngineManager,
     engine: AiEngineName,
-    prompt: str
+    prompt: str,
+    opts: RunOpts
 ) -> None:
     """
     Run a one-shot query with the specified engine.
     """
-    # Placeholder implementation
-    print(f"Running one-shot query with {engine} engine")
-    print(f"Prompt: {prompt}")
+    prompt_ref = PromptRef(source=prompt)
+    try:
+        cmd = manager.build_command(engine, prompt_ref, opts)
+        result = run_engine_command(cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+        print(f"Exit code: {result.exit_code}")
+        if result.session_id:
+            print(f"Session ID: {result.session_id}")
+        return result
+    except ValueError as e:
+        print(f"Error: {e}")
+
+
+def _read_multiline_input() -> str:
+    """
+    Read multiline input from user.
+    Allows for Ctrl+J-like functionality by using special syntax.
+    """
+    lines: List[str] = []
+    print("You: ", end='', flush=True)
+
+    # For now, we'll read a single line
+    # In a more advanced implementation, we might support multiline input
+    line = input()
+
+    # Process special commands that might span multiple lines
+    # For now, just return the single line
+    return line
+
+
+def _print_help() -> None:
+    """Print help information for the chat interface."""
+    print("Commands:")
+    print("  /done  - finish and exit")
+    print("  /quit  - exit without finishing")
+    print("  /help  - show this help")
+    print("Note: Use \\n in text for newlines if needed.")

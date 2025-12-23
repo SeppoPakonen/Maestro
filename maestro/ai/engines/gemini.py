@@ -27,7 +27,7 @@ def get_spec():
 
             # Add dangerous permissions flag if requested
             if opts.dangerously_skip_permissions:
-                cmd.extend(["--approval-mode", "yolo"])
+                cmd.append("-y")  # Use -y instead of --approval-mode yolo
 
             # Add stream-json flag if requested
             if opts.stream_json:
@@ -58,15 +58,15 @@ def get_spec():
 
         def build_resume_args(self, opts: RunOpts) -> list[str]:
             """Build arguments for resuming a session."""
-            if opts.resume is True:
-                # If resume is True without a session ID, we can't build resume args
-                return []
-            elif isinstance(opts.resume, str):
-                # If resume is a session ID, use it
-                return ["-r", opts.resume]
-            else:
-                # If resume is False, don't add resume args
-                return []
+            args = []
+
+            # For gemini, use -r for resume with ID or "latest"
+            if opts.continue_latest:
+                args.extend(["-r", "latest"])  # Continue most recent session
+            elif opts.resume_id:
+                args.extend(["-r", opts.resume_id])  # Resume with specific session ID
+
+            return args
 
         def validate(self):
             return True

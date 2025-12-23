@@ -30,7 +30,8 @@ class PromptRef:
 class RunOpts:
     """Options for running an AI engine."""
     dangerously_skip_permissions: bool = False
-    resume: Union[bool, str] = False  # False | True | session_id
+    continue_latest: bool = False  # Continue the most recent session
+    resume_id: Optional[str] = None  # Resume with specific session ID
     stream_json: bool = False
     quiet: bool = False
     model: Optional[str] = None

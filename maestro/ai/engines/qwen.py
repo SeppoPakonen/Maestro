@@ -27,7 +27,7 @@ def get_spec():
 
             # Add dangerous permissions flag if requested
             if opts.dangerously_skip_permissions:
-                cmd.append("-y")  # or "--yolo"
+                cmd.append("-y")  # --yolo
 
             # Add stream-json flag if requested
             if opts.stream_json:
@@ -58,15 +58,17 @@ def get_spec():
 
         def build_resume_args(self, opts: RunOpts) -> list[str]:
             """Build arguments for resuming a session."""
-            if opts.resume is True:
-                # If resume is True without a session ID, we can't build resume args
-                return []
-            elif isinstance(opts.resume, str):
-                # If resume is a session ID, use it
-                return ["-c", opts.resume]
-            else:
-                # If resume is False, don't add resume args
-                return []
+            args = []
+
+            # Add continue_latest flag if requested
+            if opts.continue_latest:
+                args.extend(["-c"])  # Continue most recent session
+
+            # Add resume_id flag if specified
+            if opts.resume_id:
+                args.extend(["-c", opts.resume_id])  # Resume with specific session ID
+
+            return args
 
         def validate(self):
             return True

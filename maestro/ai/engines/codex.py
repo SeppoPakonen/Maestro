@@ -24,7 +24,7 @@ def get_spec():
         def build_base_cmd(self, opts: RunOpts) -> list[str]:
             """Build the base command with options."""
             # For resume sessions, the base command is different
-            if isinstance(opts.resume, str):
+            if opts.continue_latest or opts.resume_id:
                 # If resuming, the base command is just "codex" without "exec"
                 cmd = [self.binary]
             else:
@@ -63,15 +63,14 @@ def get_spec():
 
         def build_resume_args(self, opts: RunOpts) -> list[str]:
             """Build arguments for resuming a session."""
-            if opts.resume is True:
-                # If resume is True without a session ID, we can't build resume args
-                return []
-            elif isinstance(opts.resume, str):
-                # If resume is a session ID, use the resume subcommand
-                return ["exec", "resume", opts.resume]
-            else:
-                # If resume is False, don't add resume args
-                return []
+            args = []
+
+            if opts.continue_latest:
+                args.extend(["exec", "resume", "--last"])  # Continue most recent session
+            elif opts.resume_id:
+                args.extend(["exec", "resume", opts.resume_id])  # Resume with specific session ID
+
+            return args
 
         def validate(self):
             return True

@@ -32,19 +32,8 @@ class AiEngineManager:
 
         # Combine all command parts
         cmd = base_cmd
-
-        # Add resume args if applicable
-        if resume_args:
-            # For some engines like codex, resume completely changes the command structure
-            # In this case, we use the resume args as the main command
-            if engine == "codex" and isinstance(opts.resume, str):
-                # For codex with resume, the command is [codex, exec, resume, session_id, prompt]
-                cmd = [spec.binary, "exec", "resume", opts.resume] + prompt_args
-            else:
-                cmd.extend(resume_args)
-                cmd.extend(prompt_args)
-        else:
-            cmd.extend(prompt_args)
+        cmd.extend(resume_args)
+        cmd.extend(prompt_args)
 
         return cmd
 
@@ -73,11 +62,11 @@ class AiEngineManager:
         if opts.model:
             explanation.append(f"  Model specified: {opts.model}")
 
-        if opts.resume:
-            if opts.resume is True:
-                explanation.append("  Resume requested (without session ID)")
-            elif isinstance(opts.resume, str):
-                explanation.append(f"  Resume with session ID: {opts.resume}")
+        if opts.continue_latest:
+            explanation.append("  Continue latest session enabled")
+
+        if opts.resume_id:
+            explanation.append(f"  Resume with session ID: {opts.resume_id}")
 
         if prompt.is_stdin:
             explanation.append("  Prompt input: stdin")

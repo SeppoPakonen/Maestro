@@ -42,7 +42,7 @@ def main():
         handle_issues_command,
         handle_solutions_command,
     )
-    from maestro.commands.ai import handle_ai_qwen, handle_ai_sync
+    from maestro.commands.ai import handle_ai_qwen, handle_ai_sync, handle_ai_gemini, handle_ai_codex, handle_ai_claude
     from maestro.commands.work import (
         handle_work_any,
         handle_work_any_pick,
@@ -222,6 +222,18 @@ def main():
                 raise SystemExit(exit_code)
         elif args.ai_subcommand == 'qwen':
             exit_code = handle_ai_qwen(args)
+            if exit_code:
+                raise SystemExit(exit_code)
+        elif args.ai_subcommand == 'gemini':
+            exit_code = handle_ai_gemini(args)
+            if exit_code:
+                raise SystemExit(exit_code)
+        elif args.ai_subcommand == 'codex':
+            exit_code = handle_ai_codex(args)
+            if exit_code:
+                raise SystemExit(exit_code)
+        elif args.ai_subcommand == 'claude':
+            exit_code = handle_ai_claude(args)
             if exit_code:
                 raise SystemExit(exit_code)
         else:
