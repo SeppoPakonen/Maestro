@@ -163,12 +163,12 @@ def get_worker_engine(preferred_order: Optional[List[str]] = None, debug: bool =
     raise ValueError(f"Could not get any worker engine. Available: {eligible_engines}")
 
 
-def get_qwen_engine(use_stdio_or_tcp: Optional[bool] = None, debug: bool = False, stream_output: bool = False) -> Engine:
+def get_qwen_engine(transport: Optional[str] = None, debug: bool = False, stream_output: bool = False) -> Engine:
     """
     Get a Qwen engine with the appropriate transport based on settings.
 
     Args:
-        use_stdio_or_tcp: Override the setting for using stdio/tcp transport
+        transport: Override the setting for using transport method (cmdline, stdio, tcp)
         debug: Whether to enable debug mode
         stream_output: Whether to stream output
 
@@ -178,11 +178,11 @@ def get_qwen_engine(use_stdio_or_tcp: Optional[bool] = None, debug: bool = False
     settings = get_settings()
 
     # Determine transport method
-    use_stdio = use_stdio_or_tcp if use_stdio_or_tcp is not None else settings.ai_qwen_use_stdio_or_tcp
+    transport_method = transport if transport is not None else settings.ai_qwen_transport
 
-    if use_stdio:
-        # Use stdio/tcp transport
-        print(f"[DEBUG] Qwen transport: stdio/tcp (host: {settings.ai_qwen_tcp_host}, port: {settings.ai_qwen_tcp_port})" if debug else "", file=sys.stderr)
+    if transport_method == 'stdio':
+        # Use stdio transport
+        print(f"[DEBUG] Qwen transport: stdio" if debug else "", file=sys.stderr)
         return get_engine(
             'qwen_worker',
             debug=debug,
@@ -191,9 +191,20 @@ def get_qwen_engine(use_stdio_or_tcp: Optional[bool] = None, debug: bool = False
             tcp_host=settings.ai_qwen_tcp_host,
             tcp_port=settings.ai_qwen_tcp_port
         )
-    else:
+    elif transport_method == 'tcp':
+        # Use tcp transport
+        print(f"[DEBUG] Qwen transport: tcp (host: {settings.ai_qwen_tcp_host}, port: {settings.ai_qwen_tcp_port})" if debug else "", file=sys.stderr)
+        return get_engine(
+            'qwen_worker',
+            debug=debug,
+            stream_output=stream_output,
+            use_stdio_or_tcp=True,
+            tcp_host=settings.ai_qwen_tcp_host,
+            tcp_port=settings.ai_qwen_tcp_port
+        )
+    else:  # default to cmdline
         # Use the standard binary prompt interface
-        print(f"[DEBUG] Qwen transport: binary prompt" if debug else "", file=sys.stderr)
+        print(f"[DEBUG] Qwen transport: cmdline" if debug else "", file=sys.stderr)
         return get_engine(
             'qwen_worker',
             debug=debug,

@@ -16,14 +16,14 @@ from maestro.ai.stacking_enforcer import validate_planner_output, is_managed_mod
 def test_ai_engine_settings_default_values():
     """Test that new AI engine settings have correct default values."""
     settings = create_default_config()
-    
+
     assert settings.ai_engines_claude == "both"
     assert settings.ai_engines_codex == "both"
     assert settings.ai_engines_gemini == "both"
     assert settings.ai_engines_qwen == "both"
     assert settings.ai_stacking_mode == "managed"
-    assert settings.ai_qwen_use_stdio_or_tcp is False
-    assert settings.ai_qwen_transport == "stdio"
+    assert settings.ai_dangerously_skip_permissions is True
+    assert settings.ai_qwen_transport == "cmdline"
     assert settings.ai_qwen_tcp_host == "localhost"
     assert settings.ai_qwen_tcp_port == 7777
 
@@ -64,29 +64,32 @@ def test_ai_stacking_mode_validation():
 def test_qwen_transport_settings_validation():
     """Test validation of Qwen transport settings."""
     settings = create_default_config()
-    
+
     # Test valid transport
+    settings.ai_qwen_transport = "cmdline"
+    assert settings.validate() is True
+
     settings.ai_qwen_transport = "stdio"
     assert settings.validate() is True
-    
+
     settings.ai_qwen_transport = "tcp"
     assert settings.validate() is True
-    
+
     # Test invalid transport
     settings.ai_qwen_transport = "invalid_transport"
     with pytest.raises(InvalidSettingError):
         settings.validate()
-    
+
     # Test valid port
     settings.ai_qwen_transport = "stdio"  # Reset to valid
     settings.ai_qwen_tcp_port = 8080
     assert settings.validate() is True
-    
+
     # Test invalid port
     settings.ai_qwen_tcp_port = 0
     with pytest.raises(InvalidSettingError):
         settings.validate()
-    
+
     settings.ai_qwen_tcp_port = 65536  # Too high
     with pytest.raises(InvalidSettingError):
         settings.validate()
@@ -95,36 +98,39 @@ def test_qwen_transport_settings_validation():
 def test_settings_get_set_dot_notation():
     """Test getting and setting settings using dot notation."""
     settings = create_default_config()
-    
+
     # Test getting engine settings
     assert settings.get("ai.engines.claude") == "both"
     assert settings.get("ai.engines.codex") == "both"
     assert settings.get("ai.engines.gemini") == "both"
     assert settings.get("ai.engines.qwen") == "both"
-    
+
+    # Test getting global permissions setting
+    assert settings.get("ai.dangerously_skip_permissions") is True
+
     # Test getting qwen transport settings
-    assert settings.get("ai.qwen.use_stdio_or_tcp") is False
-    assert settings.get("ai.qwen.transport") == "stdio"
+    assert settings.get("ai.qwen.transport") == "cmdline"
     assert settings.get("ai.qwen.tcp_host") == "localhost"
     assert settings.get("ai.qwen.tcp_port") == 7777
-    
+
     # Test getting stacking mode
     assert settings.get("ai.stacking_mode") == "managed"
-    
+
     # Test setting engine settings
     settings.set("ai.engines.claude", "planner")
     assert settings.get("ai.engines.claude") == "planner"
-    
+
     settings.set("ai.engines.qwen", "worker")
     assert settings.get("ai.engines.qwen") == "worker"
-    
+
+    # Test setting global permissions
+    settings.set("ai.dangerously_skip_permissions", False)
+    assert settings.get("ai.dangerously_skip_permissions") is False
+
     # Test setting qwen transport settings
-    settings.set("ai.qwen.use_stdio_or_tcp", True)
-    assert settings.get("ai.qwen.use_stdio_or_tcp") is True
-    
     settings.set("ai.qwen.tcp_port", 8080)
     assert settings.get("ai.qwen.tcp_port") == 8080
-    
+
     # Test setting stacking mode
     settings.set("ai.stacking_mode", "handsoff")
     assert settings.get("ai.stacking_mode") == "handsoff"
@@ -239,7 +245,7 @@ def test_settings_persistence():
     """Test that settings are properly saved and loaded."""
     with tempfile.TemporaryDirectory() as temp_dir:
         config_path = Path(temp_dir) / "config.md"
-        
+
         # Create settings with custom values
         settings = create_default_config()
         settings.ai_engines_claude = "planner"
@@ -247,21 +253,23 @@ def test_settings_persistence():
         settings.ai_engines_gemini = "disabled"
         settings.ai_engines_qwen = "both"
         settings.ai_stacking_mode = "handsoff"
-        settings.ai_qwen_use_stdio_or_tcp = True
+        settings.ai_dangerously_skip_permissions = False
+        settings.ai_qwen_transport = "stdio"
         settings.ai_qwen_tcp_port = 9999
-        
+
         # Save settings
         success = settings.save(config_path)
         assert success is True
-        
+
         # Load settings
         loaded_settings = Settings.load(config_path)
-        
+
         # Verify values
         assert loaded_settings.ai_engines_claude == "planner"
         assert loaded_settings.ai_engines_codex == "worker"
         assert loaded_settings.ai_engines_gemini == "disabled"
         assert loaded_settings.ai_engines_qwen == "both"
         assert loaded_settings.ai_stacking_mode == "handsoff"
-        assert loaded_settings.ai_qwen_use_stdio_or_tcp is True
+        assert loaded_settings.ai_dangerously_skip_permissions is False
+        assert loaded_settings.ai_qwen_transport == "stdio"
         assert loaded_settings.ai_qwen_tcp_port == 9999

@@ -10,6 +10,7 @@
 "created_at": "2025-12-18T01:16:53.355885"
 "maestro_version": "1.2.1"
 "base_dir": "/home/sblo/Dev/Maestro"
+"settings_schema_version": "1.2.1"
 
 ---
 
@@ -33,8 +34,8 @@
 "ai_engines_gemini": "both"
 "ai_engines_qwen": "both"
 "ai_stacking_mode": "handsoff"
-"ai_qwen_use_stdio_or_tcp": true
-"ai_qwen_transport": "stdio"
+"ai_dangerously_skip_permissions": false
+"ai_qwen_transport": "cmdline"
 "ai_qwen_tcp_host": "localhost"
 "ai_qwen_tcp_port": 7777
 

@@ -229,7 +229,7 @@ def test_settings_hash():
             ai_engines_gemini=settings1.ai_engines_gemini,
             ai_engines_qwen=settings1.ai_engines_qwen,
             ai_stacking_mode=settings1.ai_stacking_mode,
-            ai_qwen_use_stdio_or_tcp=settings1.ai_qwen_use_stdio_or_tcp,
+            ai_dangerously_skip_permissions=settings1.ai_dangerously_skip_permissions,
             ai_qwen_transport=settings1.ai_qwen_transport,
             ai_qwen_tcp_host=settings1.ai_qwen_tcp_host,
             ai_qwen_tcp_port=settings1.ai_qwen_tcp_port,

@@ -61,7 +61,8 @@
 | Markdown data backend | CLI v1.3.0 | — | Human-readable markdown format for todo/done/config data |
 | Settings: engine matrix | CLI v1.2.0 | — | Per-engine settings with four states: disabled, planner, worker, both |
 | Settings: AI stacking_mode | CLI v1.2.0 | — | Managed vs handsoff mode for AI orchestration |
-| Settings: Qwen transport | CLI v1.2.0 | — | Configurable Qwen transport: binary prompt, stdio, or TCP |
+| Settings: Qwen transport | CLI v1.2.1 | — | Configurable Qwen transport: cmdline (default), stdio, or TCP |
+| Settings: global dangerously_skip_permissions | CLI v1.2.1 | — | Global flag to enable bypass of AI approval flows for all engines |
 | Settings: profiles | CLI v1.4.0 | — | Named settings profiles with save/load/list functionality and default/active tracking |
 
 ## Development Philosophy

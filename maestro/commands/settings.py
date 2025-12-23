@@ -420,25 +420,26 @@ def settings_wizard(args):
     if stacking_mode:
         settings.ai_stacking_mode = stacking_mode
 
+    # Global AI Permissions
+    print("\nGlobal AI Permissions:")
+    dangerously_skip_permissions = input(f"  Dangerously skip permissions (true/false) [{settings.ai_dangerously_skip_permissions}]: ").strip()
+    if dangerously_skip_permissions:
+        settings.ai_dangerously_skip_permissions = dangerously_skip_permissions.lower() in ['true', '1', 'yes', 'on']
+
     # Qwen Transport Settings
     print("\nQwen Transport Settings:")
-    qwen_use_stdio = input(f"  Use stdio/tcp for Qwen? (true/false) [{settings.ai_qwen_use_stdio_or_tcp}]: ").strip()
-    if qwen_use_stdio:
-        settings.ai_qwen_use_stdio_or_tcp = qwen_use_stdio.lower() in ['true', '1', 'yes', 'on']
-
-    if settings.ai_qwen_use_stdio_or_tcp:
-        qwen_transport = input(f"  Qwen transport (stdio/tcp) [{settings.ai_qwen_transport}]: ").strip()
-        if qwen_transport:
-            settings.ai_qwen_transport = qwen_transport
-        qwen_tcp_host = input(f"  Qwen TCP host [{settings.ai_qwen_tcp_host}]: ").strip()
-        if qwen_tcp_host:
-            settings.ai_qwen_tcp_host = qwen_tcp_host
-        qwen_tcp_port = input(f"  Qwen TCP port [{settings.ai_qwen_tcp_port}]: ").strip()
-        if qwen_tcp_port:
-            try:
-                settings.ai_qwen_tcp_port = int(qwen_tcp_port)
-            except ValueError:
-                print(f"Warning: Invalid value for qwen_tcp_port, keeping default: {settings.ai_qwen_tcp_port}")
+    qwen_transport = input(f"  Qwen transport (cmdline/stdio/tcp) [{settings.ai_qwen_transport}]: ").strip()
+    if qwen_transport:
+        settings.ai_qwen_transport = qwen_transport
+    qwen_tcp_host = input(f"  Qwen TCP host [{settings.ai_qwen_tcp_host}]: ").strip()
+    if qwen_tcp_host:
+        settings.ai_qwen_tcp_host = qwen_tcp_host
+    qwen_tcp_port = input(f"  Qwen TCP port [{settings.ai_qwen_tcp_port}]: ").strip()
+    if qwen_tcp_port:
+        try:
+            settings.ai_qwen_tcp_port = int(qwen_tcp_port)
+        except ValueError:
+            print(f"Warning: Invalid value for qwen_tcp_port, keeping default: {settings.ai_qwen_tcp_port}")
 
     # Default Editor
     print("\nUser Preferences:")

@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 from typing import Protocol
+from maestro.config.settings import get_settings
 
 
 # Define symbolic engine names
@@ -232,7 +233,10 @@ class CodexPlannerEngine:
     def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False, stream_output: bool = False):
         self.use_json = use_json
         if config is None:
-            base_args = ["exec", "--dangerously-bypass-approvals-and-sandbox"]
+            settings = get_settings()
+            base_args = ["exec"]
+            if settings.ai_dangerously_skip_permissions:
+                base_args.append("--dangerously-bypass-approvals-and-sandbox")
             if use_json:
                 # For future JSON support, though codex may not support it directly
                 pass  # Currently codex just uses exec, no specific JSON format option
@@ -289,13 +293,14 @@ class ClaudePlannerEngine:
     def __init__(self, config: CliEngineConfig | None = None, use_json: bool = False, debug: bool = False, stream_output: bool = False):
         self.use_json = use_json
         if config is None:
+            settings = get_settings()
             base_args = [
                 "--print",
                 "--output-format",
                 "json" if use_json else "text",
-                "--permission-mode",
-                "bypassPermissions",  # Auto-approve all permissions
             ]
+            if settings.ai_dangerously_skip_permissions:
+                base_args.extend(["--permission-mode", "bypassPermissions"])  # Auto-approve all permissions
             config = CliEngineConfig(
                 binary="claude",
                 base_args=base_args,
@@ -352,9 +357,13 @@ class QwenWorkerEngine:
         self.tcp_port = tcp_port
 
         if config is None:
+            settings = get_settings()
+            base_args = []
+            if settings.ai_dangerously_skip_permissions:
+                base_args.append("--yolo")  # Auto-approve all permissions
             config = CliEngineConfig(
                 binary="qwen",
-                base_args=["--yolo"]  # Auto-approve all permissions
+                base_args=base_args
             )
         self.config = config
         self.debug = debug
@@ -466,9 +475,13 @@ class GeminiWorkerEngine:
 
     def __init__(self, config: CliEngineConfig | None = None, debug: bool = False, stream_output: bool = False):
         if config is None:
+            settings = get_settings()
+            base_args = []
+            if settings.ai_dangerously_skip_permissions:
+                base_args.extend(["--approval-mode", "yolo"])  # Auto-approve all permissions
             config = CliEngineConfig(
                 binary="gemini",
-                base_args=["--approval-mode", "yolo"]  # Auto-approve all permissions
+                base_args=base_args
             )
         self.config = config
         self.debug = debug

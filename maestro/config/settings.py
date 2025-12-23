@@ -26,6 +26,7 @@ class Settings:
     created_at: str
     maestro_version: str
     base_dir: str
+    settings_schema_version: str = "1.2.1"  # Version of the settings schema
 
     # User Preferences
     default_editor: str = "$EDITOR"
@@ -45,9 +46,10 @@ class Settings:
     ai_engines_qwen: str = "both"    # disabled, planner, worker, both
     # AI Stacking Mode
     ai_stacking_mode: str = "managed"  # managed, handsoff
+    # Global AI Permissions
+    ai_dangerously_skip_permissions: bool = True  # Allow wrappers to use bypass flags automatically
     # Qwen Transport Settings
-    ai_qwen_use_stdio_or_tcp: bool = False  # If True, use stdio/tcp client instead of binary prompt
-    ai_qwen_transport: str = "stdio"  # stdio, tcp (when use_stdio_or_tcp is True)
+    ai_qwen_transport: str = "cmdline"  # cmdline, stdio, tcp
     ai_qwen_tcp_host: str = "localhost"  # TCP host for qwen transport
     ai_qwen_tcp_port: int = 7777  # TCP port for qwen transport
 
@@ -97,6 +99,7 @@ class Settings:
         settings_kwargs['created_at'] = config_data.get('created_at', datetime.now().isoformat())
         settings_kwargs['maestro_version'] = config_data.get('maestro_version', '1.0.0')
         settings_kwargs['base_dir'] = config_data.get('base_dir', str(Path.cwd()))
+        settings_kwargs['settings_schema_version'] = config_data.get('settings_schema_version', '1.2.1')
 
         # User Preferences
         settings_kwargs['default_editor'] = config_data.get('default_editor', '$EDITOR')
@@ -116,9 +119,10 @@ class Settings:
         settings_kwargs['ai_engines_qwen'] = config_data.get('ai_engines_qwen', 'both')
         # AI Stacking Mode
         settings_kwargs['ai_stacking_mode'] = config_data.get('ai_stacking_mode', 'managed')
+        # Global AI Permissions
+        settings_kwargs['ai_dangerously_skip_permissions'] = config_data.get('ai_dangerously_skip_permissions', True)
         # Qwen Transport Settings
-        settings_kwargs['ai_qwen_use_stdio_or_tcp'] = config_data.get('ai_qwen_use_stdio_or_tcp', False)
-        settings_kwargs['ai_qwen_transport'] = config_data.get('ai_qwen_transport', 'stdio')
+        settings_kwargs['ai_qwen_transport'] = config_data.get('ai_qwen_transport', 'cmdline')
         settings_kwargs['ai_qwen_tcp_host'] = config_data.get('ai_qwen_tcp_host', 'localhost')
         settings_kwargs['ai_qwen_tcp_port'] = config_data.get('ai_qwen_tcp_port', 7777)
 
@@ -301,7 +305,6 @@ class Settings:
                     return getattr(self, engine_map[parts[2]])
             elif parts[1] == 'qwen' and len(parts) >= 3:
                 qwen_setting_map = {
-                    'use_stdio_or_tcp': 'ai_qwen_use_stdio_or_tcp',
                     'transport': 'ai_qwen_transport',
                     'tcp_host': 'ai_qwen_tcp_host',
                     'tcp_port': 'ai_qwen_tcp_port'
@@ -310,6 +313,8 @@ class Settings:
                     return getattr(self, qwen_setting_map[parts[2]])
             elif parts[1] == 'stacking_mode' and len(parts) == 2:
                 return getattr(self, 'ai_stacking_mode')
+            elif parts[1] == 'dangerously_skip_permissions' and len(parts) == 2:
+                return getattr(self, 'ai_dangerously_skip_permissions')
 
         # Navigate through sections using the parts
         current_obj = self
@@ -355,7 +360,6 @@ class Settings:
                         return
                 elif parts[1] == 'qwen' and len(parts) >= 3:
                     qwen_setting_map = {
-                        'use_stdio_or_tcp': 'ai_qwen_use_stdio_or_tcp',
                         'transport': 'ai_qwen_transport',
                         'tcp_host': 'ai_qwen_tcp_host',
                         'tcp_port': 'ai_qwen_tcp_port'
@@ -363,6 +367,9 @@ class Settings:
                     if parts[2] in qwen_setting_map:
                         setattr(self, qwen_setting_map[parts[2]], value)
                         return
+                elif parts[1] == 'dangerously_skip_permissions' and len(parts) == 2:
+                    setattr(self, 'ai_dangerously_skip_permissions', value)
+                    return
                 elif parts[1] == 'stacking_mode' and len(parts) == 2:
                     setattr(self, 'ai_stacking_mode', value)
                     return
@@ -393,7 +400,8 @@ class Settings:
                 # New AI engine settings
                 'ai_engines_claude', 'ai_engines_codex', 'ai_engines_gemini', 'ai_engines_qwen',
                 'ai_stacking_mode',
-                'ai_qwen_use_stdio_or_tcp', 'ai_qwen_transport', 'ai_qwen_tcp_host', 'ai_qwen_tcp_port'
+                'ai_dangerously_skip_permissions',
+                'ai_qwen_transport', 'ai_qwen_tcp_host', 'ai_qwen_tcp_port'
             ],
             'build_settings': [
                 'default_build_method', 'parallel_jobs', 'verbose_builds',
@@ -483,8 +491,8 @@ class Settings:
             errors.append(f"ai_stacking_mode must be 'managed' or 'handsoff', got '{self.ai_stacking_mode}'")
 
         # Validate Qwen transport settings
-        if self.ai_qwen_transport not in ['stdio', 'tcp']:
-            errors.append(f"ai_qwen_transport must be 'stdio' or 'tcp', got '{self.ai_qwen_transport}'")
+        if self.ai_qwen_transport not in ['cmdline', 'stdio', 'tcp']:
+            errors.append(f"ai_qwen_transport must be 'cmdline', 'stdio', or 'tcp', got '{self.ai_qwen_transport}'")
         if self.ai_qwen_tcp_port <= 0 or self.ai_qwen_tcp_port > 65535:
             errors.append(f"ai_qwen_tcp_port must be between 1 and 65535, got {self.ai_qwen_tcp_port}")
 
@@ -505,7 +513,8 @@ class Settings:
                 'project_id': self.project_id,
                 'created_at': self.created_at,
                 'maestro_version': self.maestro_version,
-                'base_dir': self.base_dir
+                'base_dir': self.base_dir,
+                'settings_schema_version': self.settings_schema_version
             },
             'user_preferences': {
                 'default_editor': self.default_editor,
@@ -524,7 +533,7 @@ class Settings:
                 'ai_engines_gemini': self.ai_engines_gemini,
                 'ai_engines_qwen': self.ai_engines_qwen,
                 'ai_stacking_mode': self.ai_stacking_mode,
-                'ai_qwen_use_stdio_or_tcp': self.ai_qwen_use_stdio_or_tcp,
+                'ai_dangerously_skip_permissions': self.ai_dangerously_skip_permissions,
                 'ai_qwen_transport': self.ai_qwen_transport,
                 'ai_qwen_tcp_host': self.ai_qwen_tcp_host,
                 'ai_qwen_tcp_port': self.ai_qwen_tcp_port
@@ -573,6 +582,7 @@ def create_default_config() -> Settings:
         created_at=datetime.now().isoformat(),
         maestro_version="1.2.1",  # Use the current version from the existing config
         base_dir=str(Path.cwd()),
+        settings_schema_version="1.2.1",
         default_editor="$EDITOR",
         discussion_mode="editor",
         list_format="table",
@@ -588,9 +598,10 @@ def create_default_config() -> Settings:
         ai_engines_qwen="both",
         # AI Stacking Mode
         ai_stacking_mode="managed",
+        # Global AI Permissions
+        ai_dangerously_skip_permissions=True,
         # Qwen Transport Settings
-        ai_qwen_use_stdio_or_tcp=False,
-        ai_qwen_transport="stdio",
+        ai_qwen_transport="cmdline",
         ai_qwen_tcp_host="localhost",
         ai_qwen_tcp_port=7777,
         default_build_method="auto",

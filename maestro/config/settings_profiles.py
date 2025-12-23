@@ -143,10 +143,12 @@ class SettingsProfileManager:
             
             # AI Stacking Mode
             settings_kwargs['ai_stacking_mode'] = settings_data.get('ai_settings', {}).get('ai_stacking_mode', 'managed')
-            
+
+            # Global AI Permissions
+            settings_kwargs['ai_dangerously_skip_permissions'] = settings_data.get('ai_settings', {}).get('ai_dangerously_skip_permissions', True)
+
             # Qwen Transport Settings
-            settings_kwargs['ai_qwen_use_stdio_or_tcp'] = settings_data.get('ai_settings', {}).get('ai_qwen_use_stdio_or_tcp', False)
-            settings_kwargs['ai_qwen_transport'] = settings_data.get('ai_settings', {}).get('ai_qwen_transport', 'stdio')
+            settings_kwargs['ai_qwen_transport'] = settings_data.get('ai_settings', {}).get('ai_qwen_transport', 'cmdline')
             settings_kwargs['ai_qwen_tcp_host'] = settings_data.get('ai_settings', {}).get('ai_qwen_tcp_host', 'localhost')
             settings_kwargs['ai_qwen_tcp_port'] = settings_data.get('ai_settings', {}).get('ai_qwen_tcp_port', 7777)
             
