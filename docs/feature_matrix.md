@@ -2,6 +2,8 @@
 
 > **Notice:** TUI development has not started yet. All TUI versions listed below are either `—` or `planned`. TUI versioning will begin at `0.x` when development starts.
 
+> **TUI:** unchanged — this update affects CLI only.
+
 ## Feature Comparison
 
 | Feature | CLI Version | TUI Version | Notes |
@@ -68,6 +70,7 @@
 | CLI: ai gemini | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
 | CLI: ai codex | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
 | CLI: ai claude | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
+| CLI: ai qwen/gemini/codex/claude | CLI v1.6.0 | — | Unified AI engine manager with shared chat UX, streaming JSON, resume support, and engine-specific safety flags. Introduced a single unified AI engine manager driving Qwen, Gemini, Codex, and Claude through a shared execution and chat pipeline. |
 | Mocked test coverage for unified AI engine manager | CLI v1.5.1 | — | Non-interactive, fully mocked test suite proving unified AI engine manager behaves correctly without requiring qwen/gemini/codex/claude binaries |
 
 ## Development Philosophy
