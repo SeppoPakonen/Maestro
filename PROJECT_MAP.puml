@@ -1,0 +1,60 @@
+@startuml PROJECT_MAP
+
+title Maestro Project Map
+
+package "Human Interaction" {
+  actor "Human User" as User
+  interface "CLI" as CLI
+  interface "TUI (Planned)" as TUI
+
+  User -right-> CLI : "maestro ..."
+  User .right.> TUI : (Future)
+}
+
+package "Maestro Core" {
+  CLI -down-> "Maestro Orchestrator" as Orchestrator
+
+  component "todo.md" as Todo
+  component "done.md" as Done
+  component "config.md" as Config
+  component "phases/*.md" as Phases
+  component "repo/state.md" as RepoState
+
+  Orchestrator -down-> Todo : Manages
+  Orchestrator -down-> Done : Manages
+  Orchestrator -down-> Config : Reads/Writes
+  Orchestrator -down-> Phases : Reads/Writes
+
+  package "AI Interaction" {
+    object "Prompt Builder" as PromptBuilder
+    object "Prompt Contract" as Contract
+    object "AI Engine Manager" as AIManager
+
+    Orchestrator -right-> PromptBuilder : Builds Prompts
+    PromptBuilder -> Contract : Enforces
+    PromptBuilder -> AIManager : Sends Prompts
+  }
+}
+
+package "AI Services" {
+  component "Planners (Claude, Codex)" as Planners
+  component "Workers (Qwen, Gemini)" as Workers
+
+  AIManager -right-> Planners : "Plan this"
+  AIManager -right-> Workers : "Do this"
+
+  Planners ..> AIManager : Proposes JSON
+  Workers ..> AIManager : Returns results
+}
+
+package "Project Artifacts" {
+    package "sessions/" as Sessions
+    package "external/ai-agents" as ExternalAI
+}
+
+AIManager -> Sessions : Logs I/O
+CLI -> ExternalAI : Invokes
+
+User -> Orchestrator : Directs
+
+@enduml

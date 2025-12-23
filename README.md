@@ -239,6 +239,16 @@ Maestro exists to ensure your composition — technical or artistic — can unfo
 
 ---
 
+## Automation, Autonomy, and Assertive Control
+
+Maestro is designed to facilitate powerful AI-driven workflows, including those that are fully automated and operate autonomously. The system’s safety and reliability stem from a robust **rule-based assertive validation layer**, rather than a blanket restriction on AI action.
+
+*   **Configurable Autonomy**: AI can operate autonomously when configured to do so, for example, in scenarios like stress-testing, automated refactoring, or continuous integration pipelines. This is not the default mode but is a fully supported and intentional capability.
+*   **Safety Through Rules**: All AI-initiated actions, whether proposed for human review or executed autonomously, are funneled through Maestro’s validation mechanisms. These mechanisms enforce structural, syntactic, and semantic correctness, ensuring that only valid and coherent changes are applied to the project state.
+*   **Controlled Mutation**: AI *may* mutate project state when these actions are mediated and validated by Maestro. The system resists *uncontrolled* automation, guaranteeing that every change is auditable and adheres to predefined rules. This ensures predictability and maintains the integrity of the project.
+
+---
+
 ## Prompt Contract Enforcement
 
 Maestro enforces a **strict, auditable prompt contract** for all AI invocations to ensure:
@@ -444,23 +454,25 @@ The panel integrates directly with the conversion pipeline:
 
 ---
 
-## Architectural Rule: AI Never Mutates Project State Directly
+## Architectural Principle: Rule-Enforced AI Control and Mutation Boundaries
 
-Maestro enforces a critical architectural constraint: **AI never directly mutates project state**. This ensures deterministic, reviewable changes and maintains human oversight of all modifications.
+Maestro operates under a critical architectural principle: **AI actions on project state are always mediated and validated by Maestro's assertive control layer.** This means AI does not *bypass* Maestro to make changes. Instead, it interacts through structured mechanisms that enforce deterministic, reviewable changes and maintain project integrity.
 
 ### How It Works
 
-1. **AI Proposes Changes**: AI models generate structured JSON operations through the DiscussionRouter
-2. **Human Review**: All proposed changes are displayed in a diff-like preview
-3. **Explicit Approval**: Users must explicitly approve changes before application
-4. **Audit Trail**: All discussions and applied changes are logged with metadata
+1. **AI Initiates Actions**: AI models generate structured JSON operations (e.g., via the DiscussionRouter) that represent desired changes or proposals.
+2. **Maestro's Validation Layer**: All AI-initiated operations are subjected to Maestro's rule-based validation. This layer rigorously checks for structural, syntactic, and semantic correctness against predefined contracts and project rules. Invalid operations are rejected.
+3. **Controlled Application**: Depending on configuration (e.g., manual approval, `ai_dangerously_skip_permissions` setting), valid operations are either:
+    *   **Proposed for Human Review**: Displayed as a diff-like preview requiring explicit user approval before application. This is the default for interactive workflows.
+    *   **Applied Autonomously**: Executed directly by Maestro if configured for autonomous mode (e.g., in CI/CD, stress testing). This leverages Maestro's validation to ensure safety even without immediate human oversight.
+4. **Audit Trail**: All discussions, proposed operations, and applied changes are logged with metadata, ensuring full auditability.
 
 ### JSON Patch Contracts
 
-Each discussion scope has specific allowed operations:
+Each discussion scope has specific allowed operations that define what the AI can initiate and what Maestro will validate:
 
-* **Track Contract**: `add_track`, `add_phase`, `add_task`, `mark_done`, `mark_todo`
-* **Phase Contract**: `add_phase`, `add_task`, `move_task`, `edit_task_fields`, `mark_done`, `mark_todo`
-* **Task Contract**: `add_task`, `move_task`, `edit_task_fields`, `mark_done`, `mark_todo`
+*   **Track Contract**: `add_track`, `add_phase`, `add_task`, `mark_done`, `mark_todo`
+*   **Phase Contract**: `add_phase`, `add_task`, `move_task`, `edit_task_fields`, `mark_done`, `mark_todo`
+*   **Task Contract**: `add_task`, `move_task`, `edit_task_fields`, `mark_done`, `mark_todo`
 
-This ensures AI proposals are constrained to appropriate scopes and operations.
+This structured approach ensures AI proposals are constrained to appropriate scopes and operations, and are always processed through Maestro's assertive control.
