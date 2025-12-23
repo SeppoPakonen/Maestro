@@ -11,7 +11,7 @@ def get_spec():
         name: AiEngineName = "claude"
         binary = "claude"
         capabilities = EngineCapabilities(
-            supports_stdin=False,  # Claude does not support stdin
+            supports_stdin=True,  # Claude supports stdin via temp file workaround
             supports_resume=True,
             supports_stream_json=True,
             supports_model_select=True,
@@ -50,8 +50,9 @@ def get_spec():
         def build_prompt_args(self, prompt_ref: PromptRef, opts: RunOpts) -> list[str]:
             """Build arguments for the prompt."""
             if prompt_ref.is_stdin:
-                # Claude does not support stdin, so this should raise an error
-                raise ValueError("Claude engine does not support stdin input")
+                # For stdin, we'll handle this specially in the runner with a temp file
+                # Return empty here as the stdin handling will be done in the runner
+                return []
             else:
                 # For prompt text, add it as an argument
                 return [str(prompt_ref.source)]

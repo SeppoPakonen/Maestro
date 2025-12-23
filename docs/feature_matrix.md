@@ -64,6 +64,10 @@
 | Settings: Qwen transport | CLI v1.2.1 | — | Configurable Qwen transport: cmdline (default), stdio, or TCP |
 | Settings: global dangerously_skip_permissions | CLI v1.2.1 | — | Global flag to enable bypass of AI approval flows for all engines |
 | Settings: profiles | CLI v1.4.0 | — | Named settings profiles with save/load/list functionality and default/active tracking |
+| CLI: ai qwen | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
+| CLI: ai gemini | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
+| CLI: ai codex | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
+| CLI: ai claude | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
 
 ## Development Philosophy
 

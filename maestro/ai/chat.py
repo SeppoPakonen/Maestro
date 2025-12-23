@@ -24,13 +24,7 @@ def run_interactive_chat(
     if initial_prompt:
         prompt_ref = PromptRef(source=initial_prompt)
         try:
-            if engine == "qwen":
-                # For Qwen, we need to handle transport mode
-                cmd = manager.build_command(engine, prompt_ref, opts)
-                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
-            else:
-                cmd = manager.build_command(engine, prompt_ref, opts)
-                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            result = manager.run_once(engine, prompt_ref, opts)
             print(f"Exit code: {result.exit_code}")
             if result.session_id:
                 print(f"Session ID: {result.session_id}")
@@ -63,13 +57,23 @@ def run_interactive_chat(
         # Process the user input
         prompt_ref = PromptRef(source=user_input)
         try:
-            if engine == "qwen":
-                # For Qwen, we need to handle transport mode
-                cmd = manager.build_command(engine, prompt_ref, opts)
-                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
-            else:
-                cmd = manager.build_command(engine, prompt_ref, opts)
-                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            # Update opts to use the session ID from the session manager if available
+            updated_opts = opts
+            if opts.continue_latest and not opts.resume_id:
+                # If continue_latest is set and no specific resume_id, get the last session ID
+                last_session_id = manager.session_manager.get_last_session_id(engine)
+                if last_session_id:
+                    updated_opts = RunOpts(
+                        dangerously_skip_permissions=opts.dangerously_skip_permissions,
+                        continue_latest=False,  # We're now using a specific session ID
+                        resume_id=last_session_id,
+                        stream_json=opts.stream_json,
+                        quiet=opts.quiet,
+                        model=opts.model,
+                        extra_args=opts.extra_args
+                    )
+
+            result = manager.run_once(engine, prompt_ref, updated_opts)
             print(f"Exit code: {result.exit_code}")
             if result.session_id:
                 print(f"Session ID: {result.session_id}")
@@ -90,13 +94,23 @@ def run_one_shot(
     """
     prompt_ref = PromptRef(source=prompt)
     try:
-        if engine == "qwen":
-            # For Qwen, we need to handle transport mode
-            cmd = manager.build_command(engine, prompt_ref, opts)
-            result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
-        else:
-            cmd = manager.build_command(engine, prompt_ref, opts)
-            result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+        # Update opts to use the session ID from the session manager if available
+        updated_opts = opts
+        if opts.continue_latest and not opts.resume_id:
+            # If continue_latest is set and no specific resume_id, get the last session ID
+            last_session_id = manager.session_manager.get_last_session_id(engine)
+            if last_session_id:
+                updated_opts = RunOpts(
+                    dangerously_skip_permissions=opts.dangerously_skip_permissions,
+                    continue_latest=False,  # We're now using a specific session ID
+                    resume_id=last_session_id,
+                    stream_json=opts.stream_json,
+                    quiet=opts.quiet,
+                    model=opts.model,
+                    extra_args=opts.extra_args
+                )
+
+        result = manager.run_once(engine, prompt_ref, updated_opts)
         print(f"Exit code: {result.exit_code}")
         if result.session_id:
             print(f"Session ID: {result.session_id}")

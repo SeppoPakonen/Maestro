@@ -25,6 +25,7 @@ from .chat import run_interactive_chat, run_one_shot
 from .types import AiEngineName, PromptRef, RunOpts, AiEngineSpec, AiRunResult
 from .runner import run_engine_command, RunResult
 from .discuss_router import DiscussionRouter, JsonContract, PatchOperation, PatchOperationType
+from .session_manager import AISessionManager, extract_session_id
 
 __all__ = [
     "Discussion",
@@ -60,4 +61,6 @@ __all__ = [
     "RunOpts",
     "AiEngineSpec",
     "AiRunResult",
+    "AISessionManager",
+    "extract_session_id",
 ]

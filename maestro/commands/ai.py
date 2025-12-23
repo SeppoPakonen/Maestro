@@ -49,46 +49,38 @@ def add_ai_parser(subparsers):
     )
     sync_parser.add_argument("--verbose", action="store_true", help="Show extra selection details")
 
-    # Add new unified AI engine subcommands
+    # Add new unified AI engine subcommands with consistent flags
     qwen_parser = ai_subparsers.add_parser("qwen", help="Run Qwen engine interactively")
-    qwen_parser.add_argument("prompt", nargs="?", help="Prompt to send to the engine")
+    qwen_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     qwen_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
-    qwen_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
-    qwen_parser.add_argument("--resume", help="Resume with specific session ID")
-    qwen_parser.add_argument("--stream-json", action="store_true", help="Stream JSON output")
-    qwen_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    qwen_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
     qwen_parser.add_argument("--model", help="Specify model to use")
-    qwen_parser.add_argument("--print-cmd", action="store_true", help="Print the command that would be executed and exit")
+    qwen_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    qwen_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
 
     gemini_parser = ai_subparsers.add_parser("gemini", help="Run Gemini engine interactively")
-    gemini_parser.add_argument("prompt", nargs="?", help="Prompt to send to the engine")
+    gemini_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     gemini_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
-    gemini_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
-    gemini_parser.add_argument("--resume", help="Resume with specific session ID")
-    gemini_parser.add_argument("--stream-json", action="store_true", help="Stream JSON output")
-    gemini_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    gemini_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
     gemini_parser.add_argument("--model", help="Specify model to use")
-    gemini_parser.add_argument("--print-cmd", action="store_true", help="Print the command that would be executed and exit")
+    gemini_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    gemini_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
 
     codex_parser = ai_subparsers.add_parser("codex", help="Run Codex engine interactively")
-    codex_parser.add_argument("prompt", nargs="?", help="Prompt to send to the engine")
+    codex_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     codex_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
-    codex_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
-    codex_parser.add_argument("--resume", help="Resume with specific session ID")
-    codex_parser.add_argument("--stream-json", action="store_true", help="Stream JSON output")
-    codex_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    codex_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
     codex_parser.add_argument("--model", help="Specify model to use")
-    codex_parser.add_argument("--print-cmd", action="store_true", help="Print the command that would be executed and exit")
+    codex_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    codex_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
 
     claude_parser = ai_subparsers.add_parser("claude", help="Run Claude engine interactively")
-    claude_parser.add_argument("prompt", nargs="?", help="Prompt to send to the engine")
+    claude_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     claude_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
-    claude_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
-    claude_parser.add_argument("--resume", help="Resume with specific session ID")
-    claude_parser.add_argument("--stream-json", action="store_true", help="Stream JSON output")
-    claude_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    claude_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
     claude_parser.add_argument("--model", help="Specify model to use")
-    claude_parser.add_argument("--print-cmd", action="store_true", help="Print the command that would be executed and exit")
+    claude_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    claude_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
 
     # Keep the original qwen command for backward compatibility
     old_qwen_parser = ai_subparsers.add_parser("qwen-old", help="Run Qwen server or TUI client (legacy)")
@@ -233,22 +225,26 @@ def handle_ai_qwen(args) -> int:
         settings = get_settings()
 
         # Build RunOpts from command line arguments
+        # Override dangerous permissions if --no-danger is set
+        dangerously_skip_permissions = settings.ai_dangerously_skip_permissions
+        if getattr(args, 'no_danger', False):
+            dangerously_skip_permissions = False
+
+        # Handle resume flag - if it's 'latest', we'll handle it specially
+        resume_id = getattr(args, 'resume', None)
+        continue_latest = False
+        if resume_id == 'latest':
+            continue_latest = True
+            resume_id = None
+
         opts = RunOpts(
-            dangerously_skip_permissions=settings.ai_dangerously_skip_permissions,
-            continue_latest=getattr(args, 'continue_latest', False),
-            resume_id=getattr(args, 'resume', None),
-            stream_json=getattr(args, 'stream_json', False),
+            dangerously_skip_permissions=dangerously_skip_permissions,
+            continue_latest=continue_latest,
+            resume_id=resume_id,
+            stream_json=True,  # Enable stream_json by default for session ID extraction
             quiet=getattr(args, 'quiet', False),
             model=getattr(args, 'model', None)
         )
-
-        # Check if --print-cmd flag is set
-        if getattr(args, 'print_cmd', False):
-            prompt_source = getattr(args, 'prompt', '') or ('' if not opts.continue_latest else 'Continue session')
-            prompt = PromptRef(source=prompt_source, is_stdin=getattr(args, 'stdin', False))
-            cmd = manager.build_command('qwen', prompt, opts)
-            print(' '.join(cmd))
-            return 0
 
         # Determine if reading from stdin
         if getattr(args, 'stdin', False):
@@ -260,12 +256,12 @@ def handle_ai_qwen(args) -> int:
             from maestro.ai import run_one_shot
             run_one_shot(manager, 'qwen', prompt_text, opts)
         else:
-            # Get the prompt from command line argument or start interactive chat
-            prompt_text = getattr(args, 'prompt', '')
-            if prompt_text:
+            # Check if --one-shot flag is set
+            one_shot_text = getattr(args, 'one_shot', None)
+            if one_shot_text is not None:
                 # One-shot mode
                 from maestro.ai import run_one_shot
-                run_one_shot(manager, 'qwen', prompt_text, opts)
+                run_one_shot(manager, 'qwen', one_shot_text, opts)
             else:
                 # Interactive mode
                 run_interactive_chat(manager, 'qwen', opts)
@@ -281,22 +277,26 @@ def handle_ai_gemini(args) -> int:
     settings = get_settings()
 
     # Build RunOpts from command line arguments
+    # Override dangerous permissions if --no-danger is set
+    dangerously_skip_permissions = settings.ai_dangerously_skip_permissions
+    if getattr(args, 'no_danger', False):
+        dangerously_skip_permissions = False
+
+    # Handle resume flag - if it's 'latest', we'll handle it specially
+    resume_id = getattr(args, 'resume', None)
+    continue_latest = False
+    if resume_id == 'latest':
+        continue_latest = True
+        resume_id = None
+
     opts = RunOpts(
-        dangerously_skip_permissions=settings.ai_dangerously_skip_permissions,
-        continue_latest=getattr(args, 'continue_latest', False),
-        resume_id=getattr(args, 'resume', None),
-        stream_json=getattr(args, 'stream_json', False),
+        dangerously_skip_permissions=dangerously_skip_permissions,
+        continue_latest=continue_latest,
+        resume_id=resume_id,
+        stream_json=True,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
         model=getattr(args, 'model', None)
     )
-
-    # Check if --print-cmd flag is set
-    if getattr(args, 'print_cmd', False):
-        prompt_source = getattr(args, 'prompt', '') or ('' if not opts.continue_latest else 'Continue session')
-        prompt = PromptRef(source=prompt_source, is_stdin=getattr(args, 'stdin', False))
-        cmd = manager.build_command('gemini', prompt, opts)
-        print(' '.join(cmd))
-        return 0
 
     # Determine if reading from stdin
     if getattr(args, 'stdin', False):
@@ -308,12 +308,12 @@ def handle_ai_gemini(args) -> int:
         from maestro.ai import run_one_shot
         run_one_shot(manager, 'gemini', prompt_text, opts)
     else:
-        # Get the prompt from command line argument or start interactive chat
-        prompt_text = getattr(args, 'prompt', '')
-        if prompt_text:
+        # Check if --one-shot flag is set
+        one_shot_text = getattr(args, 'one_shot', None)
+        if one_shot_text is not None:
             # One-shot mode
             from maestro.ai import run_one_shot
-            run_one_shot(manager, 'gemini', prompt_text, opts)
+            run_one_shot(manager, 'gemini', one_shot_text, opts)
         else:
             # Interactive mode
             run_interactive_chat(manager, 'gemini', opts)
@@ -329,22 +329,26 @@ def handle_ai_codex(args) -> int:
     settings = get_settings()
 
     # Build RunOpts from command line arguments
+    # Override dangerous permissions if --no-danger is set
+    dangerously_skip_permissions = settings.ai_dangerously_skip_permissions
+    if getattr(args, 'no_danger', False):
+        dangerously_skip_permissions = False
+
+    # Handle resume flag - if it's 'latest', we'll handle it specially
+    resume_id = getattr(args, 'resume', None)
+    continue_latest = False
+    if resume_id == 'latest':
+        continue_latest = True
+        resume_id = None
+
     opts = RunOpts(
-        dangerously_skip_permissions=settings.ai_dangerously_skip_permissions,
-        continue_latest=getattr(args, 'continue_latest', False),
-        resume_id=getattr(args, 'resume', None),
-        stream_json=getattr(args, 'stream_json', False),
+        dangerously_skip_permissions=dangerously_skip_permissions,
+        continue_latest=continue_latest,
+        resume_id=resume_id,
+        stream_json=True,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
         model=getattr(args, 'model', None)
     )
-
-    # Check if --print-cmd flag is set
-    if getattr(args, 'print_cmd', False):
-        prompt_source = getattr(args, 'prompt', '') or ('' if not opts.continue_latest else 'Continue session')
-        prompt = PromptRef(source=prompt_source, is_stdin=getattr(args, 'stdin', False))
-        cmd = manager.build_command('codex', prompt, opts)
-        print(' '.join(cmd))
-        return 0
 
     # Determine if reading from stdin
     if getattr(args, 'stdin', False):
@@ -356,12 +360,12 @@ def handle_ai_codex(args) -> int:
         from maestro.ai import run_one_shot
         run_one_shot(manager, 'codex', prompt_text, opts)
     else:
-        # Get the prompt from command line argument or start interactive chat
-        prompt_text = getattr(args, 'prompt', '')
-        if prompt_text:
+        # Check if --one-shot flag is set
+        one_shot_text = getattr(args, 'one_shot', None)
+        if one_shot_text is not None:
             # One-shot mode
             from maestro.ai import run_one_shot
-            run_one_shot(manager, 'codex', prompt_text, opts)
+            run_one_shot(manager, 'codex', one_shot_text, opts)
         else:
             # Interactive mode
             run_interactive_chat(manager, 'codex', opts)
@@ -377,22 +381,26 @@ def handle_ai_claude(args) -> int:
     settings = get_settings()
 
     # Build RunOpts from command line arguments
+    # Override dangerous permissions if --no-danger is set
+    dangerously_skip_permissions = settings.ai_dangerously_skip_permissions
+    if getattr(args, 'no_danger', False):
+        dangerously_skip_permissions = False
+
+    # Handle resume flag - if it's 'latest', we'll handle it specially
+    resume_id = getattr(args, 'resume', None)
+    continue_latest = False
+    if resume_id == 'latest':
+        continue_latest = True
+        resume_id = None
+
     opts = RunOpts(
-        dangerously_skip_permissions=settings.ai_dangerously_skip_permissions,
-        continue_latest=getattr(args, 'continue_latest', False),
-        resume_id=getattr(args, 'resume', None),
-        stream_json=getattr(args, 'stream_json', False),
+        dangerously_skip_permissions=dangerously_skip_permissions,
+        continue_latest=continue_latest,
+        resume_id=resume_id,
+        stream_json=True,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
         model=getattr(args, 'model', None)
     )
-
-    # Check if --print-cmd flag is set
-    if getattr(args, 'print_cmd', False):
-        prompt_source = getattr(args, 'prompt', '') or ('' if not opts.continue_latest else 'Continue session')
-        prompt = PromptRef(source=prompt_source, is_stdin=getattr(args, 'stdin', False))
-        cmd = manager.build_command('claude', prompt, opts)
-        print(' '.join(cmd))
-        return 0
 
     # Determine if reading from stdin
     if getattr(args, 'stdin', False):
@@ -408,13 +416,13 @@ def handle_ai_claude(args) -> int:
             print(f"Error: {e}", file=sys.stderr)
             return 1
     else:
-        # Get the prompt from command line argument or start interactive chat
-        prompt_text = getattr(args, 'prompt', '')
-        if prompt_text:
+        # Check if --one-shot flag is set
+        one_shot_text = getattr(args, 'one_shot', None)
+        if one_shot_text is not None:
             # One-shot mode
             from maestro.ai import run_one_shot
             try:
-                run_one_shot(manager, 'claude', prompt_text, opts)
+                run_one_shot(manager, 'claude', one_shot_text, opts)
             except ValueError as e:
                 print(f"Error: {e}", file=sys.stderr)
                 return 1

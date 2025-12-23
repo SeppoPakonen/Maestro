@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 from .types import AiEngineName, PromptRef, RunOpts, AiEngineSpec, AiRunResult
 from maestro.config.settings import get_settings
+from .session_manager import AISessionManager, extract_session_id
 
 
 class AiEngineManager:
@@ -13,6 +14,7 @@ class AiEngineManager:
         """Initialize the manager with optional config."""
         self.config_path = config_path
         self.settings = get_settings()
+        self.session_manager = AISessionManager()
 
     def get_engine_spec(self, name: AiEngineName) -> AiEngineSpec:
         """Get the specification for an engine."""
@@ -121,4 +123,40 @@ class AiEngineManager:
 
     def run_once(self, engine: AiEngineName, prompt: PromptRef, opts: RunOpts) -> AiRunResult:
         """Run an engine once with the given prompt and options."""
-        raise NotImplementedError("Engine execution not implemented yet")
+        from .runner import run_engine_command
+
+        # Build the command
+        cmd = self.build_command(engine, prompt, opts)
+
+        # Run the command
+        result = run_engine_command(
+            engine=engine,
+            argv=cmd,
+            stdin_text=prompt.source if prompt.is_stdin else None,
+            stream=not opts.quiet,
+            stream_json=opts.stream_json,
+            quiet=opts.quiet
+        )
+
+        # Extract session ID from the result
+        session_id = result.session_id
+        if not session_id and result.parsed_events:
+            session_id = extract_session_id(engine, result.parsed_events)
+
+        # Update session manager if a session ID was found
+        if session_id:
+            self.session_manager.update_session(
+                engine=engine,
+                session_id=session_id,
+                model=opts.model,
+                danger_mode=opts.dangerously_skip_permissions
+            )
+
+        # Create and return the result
+        return AiRunResult(
+            stdout_path=result.stdout_path,
+            stderr_path=result.stderr_path,
+            session_id=session_id,
+            raw_events_count=len(result.parsed_events),
+            exit_code=result.exit_code
+        )
