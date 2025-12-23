@@ -1,0 +1,16 @@
+{
+  "type": "message",
+  "content": "Hello, this is a test response",
+  "session": {
+    "id": "codex-session-abc",
+    "model": "codex-main"
+  },
+  "timestamp": "2023-10-01T10:00:00Z"
+}
+{
+  "type": "status",
+  "status": "completed",
+  "session": {
+    "id": "codex-session-abc"
+  }
+}

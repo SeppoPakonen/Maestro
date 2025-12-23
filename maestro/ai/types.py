@@ -1,7 +1,7 @@
 """Shared types for the unified AI Engine Manager."""
 
 from dataclasses import dataclass
-from typing import Literal, Union, Optional, Callable, Protocol
+from typing import Literal, Union, Optional, Callable, Protocol, List
 from pathlib import Path
 
 
@@ -36,6 +36,22 @@ class RunOpts:
     quiet: bool = False
     model: Optional[str] = None
     extra_args: Optional[list[str]] = None
+
+
+class AiSubprocessRunner(Protocol):
+    """Protocol for AI subprocess runner."""
+
+    def run(self, argv: List[str], *, input_bytes: Optional[bytes] = None) -> 'FakeProcessResult':
+        """Run a subprocess command and return the result."""
+        ...
+
+
+@dataclass
+class FakeProcessResult:
+    """Result of a fake process run."""
+    stdout_chunks: List[bytes]
+    stderr_chunks: List[bytes]
+    returncode: int
 
 
 class AiEngineSpec(Protocol):

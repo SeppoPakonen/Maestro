@@ -77,14 +77,28 @@ def extract_session_id(engine: AiEngineName, parsed_events: Optional[list] = Non
     for event in parsed_events:
         if isinstance(event, dict):
             # Check for various possible session ID field names
-            for key in ['session_id', 'sessionId', 'session', 'id']:
+            for key in ['session_id', 'sessionId', 'id']:
                 if key in event and event[key]:
                     return str(event[key])
-            
+
+            # Special handling for 'session' key - look for ID inside it
+            if 'session' in event and isinstance(event['session'], dict):
+                session_data = event['session']
+                for key in ['session_id', 'sessionId', 'id']:
+                    if key in session_data and session_data[key]:
+                        return str(session_data[key])
+
             # Check for session info in nested structures
             if 'metadata' in event and isinstance(event['metadata'], dict):
-                for key in ['session_id', 'sessionId', 'session', 'id']:
+                for key in ['session_id', 'sessionId', 'id']:
                     if key in event['metadata'] and event['metadata'][key]:
                         return str(event['metadata'][key])
-    
+
+                # Special handling for 'session' in metadata
+                if 'session' in event['metadata'] and isinstance(event['metadata']['session'], dict):
+                    session_data = event['metadata']['session']
+                    for key in ['session_id', 'sessionId', 'id']:
+                        if key in session_data and session_data[key]:
+                            return str(session_data[key])
+
     return None

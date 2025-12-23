@@ -166,22 +166,24 @@ def test_claude_command_building():
     cmd = manager.build_command("claude", prompt, opts)
     assert cmd == ["claude", "--model", "claude-opus", "Hello, Claude!"]
 
-    # Test that Claude rejects stdin
-    prompt_stdin = PromptRef(source="", is_stdin=True)
+    # Test that Claude accepts stdin (handled via temp file in runner)
+    prompt_stdin = PromptRef(source="Test stdin content", is_stdin=True)
     opts = RunOpts()
-    with pytest.raises(ValueError, match="claude engine does not support stdin input"):
-        manager.build_command("claude", prompt_stdin, opts)
+    cmd = manager.build_command("claude", prompt_stdin, opts)
+    # Should just be the binary without the prompt since it's stdin
+    assert cmd == ["claude"]
 
 
-def test_invalid_stdin_for_claude():
-    """Test that Claude engine properly rejects stdin input."""
+def test_stdin_for_claude():
+    """Test that Claude engine accepts stdin (handled via temp file in runner)."""
     manager = AiEngineManager()
-    
-    prompt_stdin = PromptRef(source="", is_stdin=True)
+
+    prompt_stdin = PromptRef(source="Test stdin content", is_stdin=True)
     opts = RunOpts()
-    
-    with pytest.raises(ValueError, match="claude engine does not support stdin input"):
-        manager.build_command("claude", prompt_stdin, opts)
+
+    cmd = manager.build_command("claude", prompt_stdin, opts)
+    # Should just be the binary without the prompt since it's stdin
+    assert cmd == ["claude"]
 
 
 def test_explain_command():

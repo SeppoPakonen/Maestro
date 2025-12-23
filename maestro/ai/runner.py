@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Generator
 from maestro.config.settings import get_settings
+from .types import AiSubprocessRunner, FakeProcessResult
 
 
 class RunResult:
@@ -40,7 +41,8 @@ def run_engine_command(
     stdin_text: Optional[str] = None,
     stream: bool = False,
     stream_json: bool = False,
-    quiet: bool = False
+    quiet: bool = False,
+    runner: Optional[AiSubprocessRunner] = None
 ) -> RunResult:
     """
     Run an AI engine command via subprocess or internal client (for Qwen transport).
@@ -54,6 +56,7 @@ def run_engine_command(
         stream: Whether to stream output to stdout
         stream_json: Whether to parse session IDs from JSON output
         quiet: Whether to suppress streaming output
+        runner: Optional runner to use for subprocess execution (for testing)
 
     Returns:
         RunResult with exit code, stdout, stderr, and optionally session ID
@@ -65,7 +68,105 @@ def run_engine_command(
         return _run_qwen_transport(engine, stdin_text, stream, stream_json, quiet, settings)
 
     # For all other engines or Qwen with cmdline transport, use subprocess
-    return _run_subprocess_command(argv, cwd, env, stdin_text, stream, stream_json, quiet)
+    # If a custom runner is provided, use it instead of the default subprocess runner
+    if runner:
+        return _run_with_custom_runner(runner, engine, argv, cwd, env, stdin_text, stream, stream_json, quiet)
+    else:
+        return _run_subprocess_command(argv, cwd, env, stdin_text, stream, stream_json, quiet)
+
+
+def _run_with_custom_runner(
+    runner: AiSubprocessRunner,
+    engine: str,
+    argv: List[str],
+    cwd: str = ".",
+    env: Optional[Dict[str, str]] = None,
+    stdin_text: Optional[str] = None,
+    stream: bool = False,
+    stream_json: bool = False,
+    quiet: bool = False
+) -> RunResult:
+    """Run command using a custom runner (for testing purposes)."""
+    import tempfile
+    from datetime import datetime
+
+    # Create log directories
+    log_dir = Path("docs/logs/ai") / engine
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate timestamp for log files
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Include milliseconds
+
+    # Create log file paths
+    stdout_path = log_dir / f"{timestamp}_stdout.txt"
+    stderr_path = log_dir / f"{timestamp}_stderr.txt"
+    events_path = log_dir / f"{timestamp}_events.jsonl"
+
+    # Handle Claude stdin workaround - create a temporary file for stdin content
+    temp_file_path = None
+    if engine == "claude" and stdin_text:
+        # Create a temporary file with the stdin content
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', prefix='claude_stdin_') as temp_file:
+            temp_file.write(stdin_text)
+            temp_file_path = temp_file.name
+        # Modify the command to use the temp file instead of stdin
+        # Replace the last argument (which would be the prompt) with the temp file path
+        # This assumes the prompt is passed as the last argument, adjust as needed
+        if len(argv) > 0 and not argv[-1].startswith('-'):  # If the last argument is not an option
+            argv = argv[:-1]  # Remove the last argument
+        # Add the file path as the prompt argument
+        argv.extend(["read", f"@{temp_file_path}"])
+
+    try:
+        # Prepare input bytes for the runner
+        input_bytes = stdin_text.encode('utf-8') if stdin_text and not temp_file_path else None
+
+        # Run the command with the custom runner
+        result = runner.run(argv, input_bytes=input_bytes)
+
+        # Convert bytes to string
+        stdout_text = b''.join(result.stdout_chunks).decode('utf-8')
+        stderr_text = b''.join(result.stderr_chunks).decode('utf-8')
+
+        # Write logs to files
+        with open(stdout_path, 'w', encoding='utf-8') as f:
+            f.write(stdout_text)
+
+        with open(stderr_path, 'w', encoding='utf-8') as f:
+            f.write(stderr_text)
+
+        # Initialize JSON buffer for stream-json parsing
+        json_buffer = stdout_text
+        parsed_events = _parse_json_events(json_buffer)
+
+        # Write parsed events to JSONL file
+        with open(events_path, 'w', encoding='utf-8') as f:
+            for event in parsed_events:
+                f.write(json.dumps(event) + '\n')
+
+        # Attempt to extract session ID from parsed events
+        session_id = None
+        if parsed_events:
+            session_id = _extract_session_id_from_events(parsed_events)
+
+        return RunResult(
+            exit_code=result.returncode,
+            stdout_text=stdout_text,
+            stderr_text=stderr_text,
+            session_id=session_id,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            events_path=events_path,
+            parsed_events=parsed_events
+        )
+
+    finally:
+        # Clean up temporary file if created
+        if temp_file_path and Path(temp_file_path).exists():
+            try:
+                Path(temp_file_path).unlink()
+            except:
+                pass  # Ignore errors when deleting temp file
 
 
 def _run_subprocess_command(

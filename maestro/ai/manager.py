@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Optional
-from .types import AiEngineName, PromptRef, RunOpts, AiEngineSpec, AiRunResult
+from .types import AiEngineName, PromptRef, RunOpts, AiEngineSpec, AiRunResult, AiSubprocessRunner
 from maestro.config.settings import get_settings
 from .session_manager import AISessionManager, extract_session_id
 
@@ -10,11 +10,12 @@ from .session_manager import AISessionManager, extract_session_id
 class AiEngineManager:
     """Unified manager for all AI engines."""
 
-    def __init__(self, config_path: Optional[Path] = None):
-        """Initialize the manager with optional config."""
+    def __init__(self, config_path: Optional[Path] = None, runner: Optional[AiSubprocessRunner] = None):
+        """Initialize the manager with optional config and runner."""
         self.config_path = config_path
         self.settings = get_settings()
         self.session_manager = AISessionManager()
+        self.runner = runner  # Store the runner for use in run_once
 
     def get_engine_spec(self, name: AiEngineName) -> AiEngineSpec:
         """Get the specification for an engine."""
@@ -128,14 +129,15 @@ class AiEngineManager:
         # Build the command
         cmd = self.build_command(engine, prompt, opts)
 
-        # Run the command
+        # Run the command with the optional runner
         result = run_engine_command(
             engine=engine,
             argv=cmd,
             stdin_text=prompt.source if prompt.is_stdin else None,
             stream=not opts.quiet,
             stream_json=opts.stream_json,
-            quiet=opts.quiet
+            quiet=opts.quiet,
+            runner=self.runner
         )
 
         # Extract session ID from the result

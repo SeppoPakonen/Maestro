@@ -68,6 +68,7 @@
 | CLI: ai gemini | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
 | CLI: ai codex | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
 | CLI: ai claude | CLI v1.5.0 | — | Unified AI Engine Manager used by all ai chat commands with streaming, resume, and session persistence |
+| Mocked test coverage for unified AI engine manager | CLI v1.5.1 | — | Non-interactive, fully mocked test suite proving unified AI engine manager behaves correctly without requiring qwen/gemini/codex/claude binaries |
 
 ## Development Philosophy
 

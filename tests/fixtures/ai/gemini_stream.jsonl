@@ -1,0 +1,2 @@
+{"type": "message", "content": "Hello, this is a test response", "sessionId": "gemini-session-456", "timestamp": "2023-10-01T10:00:00Z"}
+{"type": "status", "status": "completed", "sessionId": "gemini-session-456"}
