@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List, Generator
 from maestro.config.settings import get_settings
 from .types import AiSubprocessRunner, FakeProcessResult
+from .stream_render import AiStreamEvent, EventType, StreamRenderer
 
 
 class RunResult:
@@ -42,6 +43,7 @@ def run_engine_command(
     stream: bool = False,
     stream_json: bool = False,
     quiet: bool = False,
+    verbose: bool = False,
     runner: Optional[AiSubprocessRunner] = None
 ) -> RunResult:
     """
@@ -56,6 +58,7 @@ def run_engine_command(
         stream: Whether to stream output to stdout
         stream_json: Whether to parse session IDs from JSON output
         quiet: Whether to suppress streaming output
+        verbose: Whether to show parsed JSON events in addition to assistant text
         runner: Optional runner to use for subprocess execution (for testing)
 
     Returns:
@@ -65,14 +68,14 @@ def run_engine_command(
 
     # Special handling for Qwen with stdio/tcp transport
     if engine == "qwen" and settings.ai_qwen_transport in ["stdio", "tcp"]:
-        return _run_qwen_transport(engine, stdin_text, stream, stream_json, quiet, settings)
+        return _run_qwen_transport(engine, stdin_text, stream, stream_json, quiet, verbose, settings)
 
     # For all other engines or Qwen with cmdline transport, use subprocess
     # If a custom runner is provided, use it instead of the default subprocess runner
     if runner:
-        return _run_with_custom_runner(runner, engine, argv, cwd, env, stdin_text, stream, stream_json, quiet)
+        return _run_with_custom_runner(runner, engine, argv, cwd, env, stdin_text, stream, stream_json, quiet, verbose)
     else:
-        return _run_subprocess_command(argv, cwd, env, stdin_text, stream, stream_json, quiet)
+        return _run_subprocess_command(engine, argv, cwd, env, stdin_text, stream, stream_json, quiet, verbose)
 
 
 def _run_with_custom_runner(
@@ -84,7 +87,8 @@ def _run_with_custom_runner(
     stdin_text: Optional[str] = None,
     stream: bool = False,
     stream_json: bool = False,
-    quiet: bool = False
+    quiet: bool = False,
+    verbose: bool = False
 ) -> RunResult:
     """Run command using a custom runner (for testing purposes)."""
     import tempfile
@@ -101,6 +105,9 @@ def _run_with_custom_runner(
     stdout_path = log_dir / f"{timestamp}_stdout.txt"
     stderr_path = log_dir / f"{timestamp}_stderr.txt"
     events_path = log_dir / f"{timestamp}_events.jsonl"
+
+    # Initialize stream renderer
+    renderer = StreamRenderer(engine, verbose=verbose)
 
     # Handle Claude stdin workaround - create a temporary file for stdin content
     temp_file_path = None
@@ -139,6 +146,11 @@ def _run_with_custom_runner(
         json_buffer = stdout_text
         parsed_events = _parse_json_events(json_buffer)
 
+        # Render parsed events using the stream renderer
+        for raw_event in parsed_events:
+            normalized_event = _normalize_event(raw_event, engine)
+            renderer.render_event(normalized_event)
+
         # Write parsed events to JSONL file
         with open(events_path, 'w', encoding='utf-8') as f:
             for event in parsed_events:
@@ -148,6 +160,9 @@ def _run_with_custom_runner(
         session_id = None
         if parsed_events:
             session_id = _extract_session_id_from_events(parsed_events)
+
+        # Finalize the renderer
+        renderer.finalize(result.returncode)
 
         return RunResult(
             exit_code=result.returncode,
@@ -170,13 +185,15 @@ def _run_with_custom_runner(
 
 
 def _run_subprocess_command(
+    engine: str,
     argv: List[str],
     cwd: str = ".",
     env: Optional[Dict[str, str]] = None,
     stdin_text: Optional[str] = None,
     stream: bool = False,
     stream_json: bool = False,
-    quiet: bool = False
+    quiet: bool = False,
+    verbose: bool = False
 ) -> RunResult:
     """Run command via subprocess with streaming and event parsing."""
     import tempfile
@@ -198,6 +215,9 @@ def _run_subprocess_command(
     stdout_path = log_dir / f"{timestamp}_stdout.txt"
     stderr_path = log_dir / f"{timestamp}_stderr.txt"
     events_path = log_dir / f"{timestamp}_events.jsonl"
+
+    # Initialize stream renderer
+    renderer = StreamRenderer(engine, verbose=verbose)
 
     # Handle Claude stdin workaround - create a temporary file for stdin content
     temp_file_path = None
@@ -257,8 +277,18 @@ def _run_subprocess_command(
 
                     if remaining_stdout:
                         stdout_lines.append(remaining_stdout)
-                        if stream and not quiet:
-                            print(remaining_stdout, end='', flush=True)
+                        # Parse for JSON events if stream_json is enabled
+                        if stream_json:
+                            # Add to buffer and try to parse JSON lines
+                            json_buffer += remaining_stdout
+                            # Try to parse JSON events from the buffer
+                            new_events = _parse_json_events(json_buffer)
+                            for raw_event in new_events:
+                                normalized_event = _normalize_event(raw_event, engine)
+                                renderer.render_event(normalized_event)
+                                parsed_events.append(raw_event)
+                            # Keep only unparsed part of the buffer
+                            json_buffer = _get_remaining_buffer(json_buffer)
 
                     if remaining_stderr:
                         stderr_lines.append(remaining_stderr)
@@ -281,16 +311,16 @@ def _run_subprocess_command(
                     if line:
                         stdout_lines.append(line)
 
-                        # Stream to stdout if requested
-                        if stream and not quiet:
-                            print(line, end='', flush=True)
-
                         # Parse for JSON events if stream_json is enabled
                         if stream_json:
                             # Add to buffer and try to parse JSON lines
                             json_buffer += line
                             # Try to parse JSON events from the buffer
-                            parsed_events.extend(_parse_json_events(json_buffer))
+                            new_events = _parse_json_events(json_buffer)
+                            for raw_event in new_events:
+                                normalized_event = _normalize_event(raw_event, engine)
+                                renderer.render_event(normalized_event)
+                                parsed_events.append(raw_event)
                             # Keep only unparsed part of the buffer
                             json_buffer = _get_remaining_buffer(json_buffer)
 
@@ -305,14 +335,14 @@ def _run_subprocess_command(
                         if line:
                             stdout_lines.append(line)
 
-                            # Stream to stdout if requested
-                            if stream and not quiet:
-                                print(line, end='', flush=True)
-
                             # Parse for JSON events if stream_json is enabled
                             if stream_json:
                                 json_buffer += line
-                                parsed_events.extend(_parse_json_events(json_buffer))
+                                new_events = _parse_json_events(json_buffer)
+                                for raw_event in new_events:
+                                    normalized_event = _normalize_event(raw_event, engine)
+                                    renderer.render_event(normalized_event)
+                                    parsed_events.append(raw_event)
                                 json_buffer = _get_remaining_buffer(json_buffer)
                     else:
                         # On Unix systems, if select failed for some reason, just continue
@@ -370,6 +400,9 @@ def _run_subprocess_command(
         if parsed_events:
             session_id = _extract_session_id_from_events(parsed_events)
 
+        # Finalize the renderer
+        renderer.finalize(exit_code)
+
         return RunResult(
             exit_code=exit_code,
             stdout_text=stdout_text,
@@ -402,11 +435,14 @@ def _run_subprocess_command(
         except:
             pass  # Process might already be terminated
 
+        # Use renderer for interrupt handling
+        renderer.handle_interrupt()
+
         return RunResult(
             exit_code=130,  # Standard Unix code for Ctrl+C
             stdout_text="",
             stderr_text="Process interrupted by user",
-            session_id=None
+            session_id=renderer.session_id  # Preserve session ID if it was already seen
         )
     finally:
         # Clean up temporary file if created
@@ -490,12 +526,125 @@ def _extract_session_id_from_events(events: List[Dict[str, Any]]) -> Optional[st
     return None
 
 
+def _normalize_event(raw_event: Dict[str, Any], engine: str) -> AiStreamEvent:
+    """
+    Normalize raw event from AI engine to a standard format.
+    """
+    # Determine the event type based on the raw event structure
+    event_type = EventType.MESSAGE  # Default
+    role = None
+    text_delta = None
+    text_full = None
+    session_id = None
+
+    # Common fields across engines
+    if 'type' in raw_event:
+        raw_type = raw_event['type']
+        if raw_type in ['init', 'initialize', 'start']:
+            event_type = EventType.INIT
+        elif raw_type in ['delta', 'chunk', 'stream']:
+            event_type = EventType.DELTA
+        elif raw_type in ['message', 'response', 'completion']:
+            event_type = EventType.MESSAGE
+        elif raw_type in ['result', 'status', 'done']:
+            event_type = EventType.RESULT
+        elif raw_type in ['error', 'exception']:
+            event_type = EventType.ERROR
+
+    # Extract role if present
+    if 'role' in raw_event:
+        role = raw_event['role']
+    elif 'author' in raw_event:
+        role = raw_event['author']
+
+    # Extract text content
+    if 'content' in raw_event:
+        text_full = raw_event['content']
+    elif 'text' in raw_event:
+        text_full = raw_event['text']
+    elif 'delta' in raw_event:
+        text_delta = raw_event['delta']
+
+    # Extract session ID
+    if 'session_id' in raw_event:
+        session_id = raw_event['session_id']
+    elif 'sessionId' in raw_event:
+        session_id = raw_event['sessionId']
+    elif 'session' in raw_event:
+        session_id = raw_event['session']
+
+    # Engine-specific normalization
+    if engine == 'gemini':
+        # Gemini-specific fields
+        if 'candidates' in raw_event:
+            for candidate in raw_event.get('candidates', []):
+                if 'content' in candidate:
+                    content = candidate['content']
+                    if 'parts' in content:
+                        for part in content['parts']:
+                            if 'text' in part:
+                                text_full = part['text']
+                                break
+        elif 'error' in raw_event:
+            event_type = EventType.ERROR
+            text_full = str(raw_event['error'])
+    elif engine == 'claude':
+        # Claude-specific fields
+        if 'delta' in raw_event and 'text' in raw_event['delta']:
+            text_delta = raw_event['delta']['text']
+            event_type = EventType.DELTA
+        elif 'message' in raw_event:
+            text_full = raw_event['message']
+        elif 'error' in raw_event:
+            event_type = EventType.ERROR
+            text_full = str(raw_event['error'])
+    elif engine == 'qwen':
+        # Qwen-specific fields
+        if 'response' in raw_event:
+            text_full = raw_event['response']
+        elif 'delta' in raw_event:
+            text_delta = raw_event['delta']
+            event_type = EventType.DELTA
+        elif 'error' in raw_event:
+            event_type = EventType.ERROR
+            text_full = str(raw_event['error'])
+    elif engine == 'codex':
+        # Codex-specific fields
+        if 'choices' in raw_event:
+            for choice in raw_event['choices']:
+                if 'text' in choice:
+                    text_full = choice['text']
+                    break
+                elif 'delta' in choice and 'content' in choice['delta']:
+                    text_delta = choice['delta']['content']
+                    event_type = EventType.DELTA
+        elif 'error' in raw_event:
+            event_type = EventType.ERROR
+            text_full = str(raw_event['error'])
+
+    # Handle generic error case - if type is 'error', use 'message' field
+    if raw_event.get('type') == 'error' and 'message' in raw_event:
+        event_type = EventType.ERROR
+        text_full = str(raw_event['message'])
+
+    # Create and return the normalized event
+    return AiStreamEvent(
+        type=event_type,
+        role=role,
+        text_delta=text_delta,
+        text_full=text_full,
+        session_id=session_id,
+        raw=raw_event
+    )
+
+
 def _run_qwen_transport(
     engine: str,
     stdin_text: Optional[str],
     stream: bool,
     stream_json: bool,
     quiet: bool,
+    verbose: bool,
     settings
 ) -> RunResult:
     """
@@ -508,6 +657,9 @@ def _run_qwen_transport(
     import time
     import threading
     from datetime import datetime
+
+    # Initialize stream renderer
+    renderer = StreamRenderer(engine, verbose=verbose)
 
     # Determine transport mode
     transport_mode = settings.ai_qwen_transport
@@ -538,7 +690,7 @@ def _run_qwen_transport(
 
             # For now, return a mock result - in a real implementation,
             # we would handle the communication properly
-            return RunResult(
+            result = RunResult(
                 exit_code=0,
                 stdout_text="Qwen response via stdio transport",
                 stderr_text="",
@@ -548,7 +700,7 @@ def _run_qwen_transport(
             # Use TCP transport
             # In a real implementation, we would connect to the TCP server
             # For now, return a mock result
-            return RunResult(
+            result = RunResult(
                 exit_code=0,
                 stdout_text="Qwen response via TCP transport",
                 stderr_text="",
@@ -556,19 +708,24 @@ def _run_qwen_transport(
             )
         else:
             # Should not happen, but just in case
-            return RunResult(
+            result = RunResult(
                 exit_code=1,
                 stdout_text="",
                 stderr_text=f"Unknown transport mode: {transport_mode}",
                 session_id=None
             )
     except Exception as e:
-        return RunResult(
+        result = RunResult(
             exit_code=1,
             stdout_text="",
             stderr_text=f"Error running Qwen transport: {str(e)}",
             session_id=None
         )
+
+    # Finalize the renderer
+    renderer.finalize(result.exit_code)
+
+    return result
 
 
 def _parse_session_id(output: str) -> Optional[str]:

@@ -5,6 +5,7 @@ from typing import Optional, List
 from .manager import AiEngineManager
 from .types import AiEngineName, PromptRef, RunOpts
 from .runner import run_engine_command
+from .stream_render import StreamRenderer
 
 
 def run_interactive_chat(
@@ -16,6 +17,9 @@ def run_interactive_chat(
     """
     Run an interactive chat session with the specified engine.
     """
+    verbose = getattr(opts, 'verbose', False)
+    renderer = StreamRenderer(engine, verbose=verbose)
+
     print(f"Starting interactive chat with {engine} engine")
     if initial_prompt:
         print(f"Initial prompt: {initial_prompt}")
@@ -25,14 +29,17 @@ def run_interactive_chat(
         prompt_ref = PromptRef(source=initial_prompt)
         try:
             result = manager.run_once(engine, prompt_ref, opts)
-            print(f"Exit code: {result.exit_code}")
-            if result.session_id:
-                print(f"Session ID: {result.session_id}")
+            renderer.finalize(result.exit_code)
         except ValueError as e:
             print(f"Error: {e}")
+            renderer.handle_interrupt()
             return
         except NotImplementedError as e:
             print(f"Transport mode error: {e}")
+            renderer.handle_interrupt()
+            return
+        except KeyboardInterrupt:
+            renderer.handle_interrupt()
             return
 
     # Main chat loop
@@ -41,7 +48,7 @@ def run_interactive_chat(
         try:
             user_input = _read_multiline_input()
         except KeyboardInterrupt:
-            print("\n[Interrupted]")
+            renderer.handle_interrupt()
             break
 
         if user_input.lower() == '/quit':
@@ -70,17 +77,19 @@ def run_interactive_chat(
                         stream_json=opts.stream_json,
                         quiet=opts.quiet,
                         model=opts.model,
-                        extra_args=opts.extra_args
+                        extra_args=opts.extra_args,
+                        verbose=opts.verbose if hasattr(opts, 'verbose') else False
                     )
 
             result = manager.run_once(engine, prompt_ref, updated_opts)
-            print(f"Exit code: {result.exit_code}")
-            if result.session_id:
-                print(f"Session ID: {result.session_id}")
+            renderer.finalize(result.exit_code)
         except ValueError as e:
             print(f"Error: {e}")
         except NotImplementedError as e:
             print(f"Transport mode error: {e}")
+        except KeyboardInterrupt:
+            renderer.handle_interrupt()
+            break
 
 
 def run_one_shot(
@@ -92,6 +101,9 @@ def run_one_shot(
     """
     Run a one-shot query with the specified engine.
     """
+    verbose = getattr(opts, 'verbose', False)
+    renderer = StreamRenderer(engine, verbose=verbose)
+
     prompt_ref = PromptRef(source=prompt)
     try:
         # Update opts to use the session ID from the session manager if available
@@ -107,18 +119,21 @@ def run_one_shot(
                     stream_json=opts.stream_json,
                     quiet=opts.quiet,
                     model=opts.model,
-                    extra_args=opts.extra_args
+                    extra_args=opts.extra_args,
+                    verbose=opts.verbose if hasattr(opts, 'verbose') else False
                 )
 
         result = manager.run_once(engine, prompt_ref, updated_opts)
-        print(f"Exit code: {result.exit_code}")
-        if result.session_id:
-            print(f"Session ID: {result.session_id}")
+        renderer.finalize(result.exit_code)
         return result
     except ValueError as e:
         print(f"Error: {e}")
+        renderer.handle_interrupt()
     except NotImplementedError as e:
         print(f"Transport mode error: {e}")
+        renderer.handle_interrupt()
+    except KeyboardInterrupt:
+        renderer.handle_interrupt()
 
 
 def _read_multiline_input() -> str:

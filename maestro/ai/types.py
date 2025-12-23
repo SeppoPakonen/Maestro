@@ -36,6 +36,7 @@ class RunOpts:
     quiet: bool = False
     model: Optional[str] = None
     extra_args: Optional[list[str]] = None
+    verbose: bool = False  # Show parsed JSON events in addition to assistant text
 
 
 class AiSubprocessRunner(Protocol):

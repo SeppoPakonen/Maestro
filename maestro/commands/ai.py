@@ -57,6 +57,7 @@ def add_ai_parser(subparsers):
     qwen_parser.add_argument("--model", help="Specify model to use")
     qwen_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
     qwen_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
+    qwen_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
     gemini_parser = ai_subparsers.add_parser("gemini", help="Run Gemini engine interactively")
     gemini_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
@@ -65,6 +66,7 @@ def add_ai_parser(subparsers):
     gemini_parser.add_argument("--model", help="Specify model to use")
     gemini_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
     gemini_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
+    gemini_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
     codex_parser = ai_subparsers.add_parser("codex", help="Run Codex engine interactively")
     codex_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
@@ -73,6 +75,7 @@ def add_ai_parser(subparsers):
     codex_parser.add_argument("--model", help="Specify model to use")
     codex_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
     codex_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
+    codex_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
     claude_parser = ai_subparsers.add_parser("claude", help="Run Claude engine interactively")
     claude_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
@@ -81,6 +84,7 @@ def add_ai_parser(subparsers):
     claude_parser.add_argument("--model", help="Specify model to use")
     claude_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
     claude_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
+    claude_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
     # Keep the original qwen command for backward compatibility
     old_qwen_parser = ai_subparsers.add_parser("qwen-old", help="Run Qwen server or TUI client (legacy)")
@@ -295,7 +299,8 @@ def handle_ai_gemini(args) -> int:
         resume_id=resume_id,
         stream_json=True,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
-        model=getattr(args, 'model', None)
+        model=getattr(args, 'model', None),
+        verbose=getattr(args, 'verbose', False)
     )
 
     # Determine if reading from stdin
@@ -347,7 +352,8 @@ def handle_ai_codex(args) -> int:
         resume_id=resume_id,
         stream_json=True,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
-        model=getattr(args, 'model', None)
+        model=getattr(args, 'model', None),
+        verbose=getattr(args, 'verbose', False)
     )
 
     # Determine if reading from stdin
@@ -399,7 +405,8 @@ def handle_ai_claude(args) -> int:
         resume_id=resume_id,
         stream_json=True,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
-        model=getattr(args, 'model', None)
+        model=getattr(args, 'model', None),
+        verbose=getattr(args, 'verbose', False)
     )
 
     # Determine if reading from stdin
