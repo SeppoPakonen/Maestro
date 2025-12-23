@@ -22,7 +22,7 @@
 | Phase management | 1.3.0 | planned | Phase listing, viewing, and context setting |
 | Task progress tracking | 0.3.2 | 0.3.2 | Progress bars and status updates |
 | Context management | 1.3.0 | planned | Track/Phase/Task context for efficient workflow |
-| AI Discussion System | 1.3.0 | planned | Integrated AI discussions for tracks, phases, and tasks |
+| AI Discussion System | 1.4.0 | planned | Integrated AI discussions for tracks, phases, and tasks with JSON patch contracts |
 | Log visualization | 0.2.8 | planned | Structured log display |
 | Rulebook creation wizard | — | planned | Guided rulebook authoring |
 | Live execution view | — | planned | Real-time process monitoring |

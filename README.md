@@ -441,3 +441,26 @@ The panel integrates directly with the conversion pipeline:
 * Displays associated checkpoint IDs
 * Updates pipeline status immediately when findings are resolved
 * Maintains audit trail of all human decisions
+
+---
+
+## Architectural Rule: AI Never Mutates Project State Directly
+
+Maestro enforces a critical architectural constraint: **AI never directly mutates project state**. This ensures deterministic, reviewable changes and maintains human oversight of all modifications.
+
+### How It Works
+
+1. **AI Proposes Changes**: AI models generate structured JSON operations through the DiscussionRouter
+2. **Human Review**: All proposed changes are displayed in a diff-like preview
+3. **Explicit Approval**: Users must explicitly approve changes before application
+4. **Audit Trail**: All discussions and applied changes are logged with metadata
+
+### JSON Patch Contracts
+
+Each discussion scope has specific allowed operations:
+
+* **Track Contract**: `add_track`, `add_phase`, `add_task`, `mark_done`, `mark_todo`
+* **Phase Contract**: `add_phase`, `add_task`, `move_task`, `edit_task_fields`, `mark_done`, `mark_todo`
+* **Task Contract**: `add_task`, `move_task`, `edit_task_fields`, `mark_done`, `mark_todo`
+
+This ensures AI proposals are constrained to appropriate scopes and operations.
