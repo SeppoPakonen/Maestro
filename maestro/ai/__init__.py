@@ -13,6 +13,9 @@ from .editor import EditorDiscussion
 from .terminal import TerminalDiscussion
 from .actions import ActionProcessor, ActionResult, extract_json_actions
 from .client import AIClient, ExternalCommandClient
+from .manager import AiEngineManager
+from .chat import run_interactive_chat, run_one_shot
+from .types import AiEngineName, PromptRef, RunOpts, AiEngineSpec, AiRunResult
 
 __all__ = [
     "Discussion",
@@ -29,4 +32,12 @@ __all__ = [
     "build_track_context",
     "build_phase_context",
     "build_task_context",
+    "AiEngineManager",
+    "run_interactive_chat", 
+    "run_one_shot",
+    "AiEngineName",
+    "PromptRef", 
+    "RunOpts",
+    "AiEngineSpec",
+    "AiRunResult",
 ]
