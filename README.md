@@ -62,7 +62,68 @@ Each branch represents a different interpretation of your original composition.
 
 ---
 
-### **3. Multi-Engine Orchestration (Your Orchestra of AIs)**
+### **3. Plan Exploration (Iterative Structure Refinement)**
+
+Maestro provides an iterative planning mechanism to convert high-level plans into concrete project structures:
+
+* **Iterative Planning**: `maestro plan explore` runs an iterative loop that converts plan bullet points into canonical `project_ops` JSON
+* **Preview & Apply**: Each iteration shows a preview of proposed changes before applying them
+* **Minimal Steps**: AI proposes the smallest useful step to advance the project structure
+* **Safety First**: Changes are validated and previewed before application
+
+Example usage:
+```
+# Explore all plans in docs/plans.md
+maestro plan explore
+
+# Explore a specific plan
+maestro plan explore "My Feature Plan"
+
+# Explore with custom parameters
+maestro plan explore --max-iterations 5 --apply
+```
+
+The explore command follows these steps:
+1. Loads plans and current project state
+2. Asks AI to propose minimal `ProjectOpsResult` JSON
+3. Validates the JSON against strict schema
+4. Previews changes via executor logic
+5. Applies changes with user approval (or automatically with `--apply`)
+
+### **Work Session Mode for Explore**
+
+The explore command supports persistent work sessions for long-running autonomous planning/execution:
+
+* **Session Persistence**: Use `--save-session` to enable detailed logging of each iteration
+* **Resume Capability**: Use `--session <id>` to resume an interrupted exploration
+* **Safe Autonomy**: Use `--auto-apply` for autonomous execution (with preview logging)
+* **Controlled Execution**: Use `--stop-after-apply` to apply one iteration then pause
+
+Session artifacts are stored in `docs/sessions/explore/<session-id>/` and include:
+* Per-iteration data: prompt hash, AI response, validation result, preview summary
+* Applied status and timestamps
+* Error tracking for debugging
+
+Example work session usage:
+```
+# Start a new explore session with persistent logging
+maestro plan explore --save-session
+
+# Resume an existing session (e.g., after interruption)
+maestro plan explore --session abc123-def456
+
+# Run in autonomous mode (apply without prompts)
+maestro plan explore --auto-apply --max-iterations 10
+
+# Apply one iteration, then pause for review
+maestro plan explore --stop-after-apply
+```
+
+Sessions provide auditability, safe interruption (Ctrl+C), and deterministic resume without "lost context".
+
+---
+
+### **4. Multi-Engine Orchestration (Your Orchestra of AIs)**
 
 Maestro assigns roles according to each model's strengths:
 
@@ -476,3 +537,28 @@ Each discussion scope has specific allowed operations that define what the AI ca
 *   **Task Contract**: `add_task`, `move_task`, `edit_task_fields`, `mark_done`, `mark_todo`
 
 This structured approach ensures AI proposals are constrained to appropriate scopes and operations, and are always processed through Maestro's assertive control.
+
+---
+
+## Project Understanding Snapshots
+
+Maestro provides a command to generate a canonical "project understanding snapshot" that captures the current state of project knowledge:
+
+```bash
+maestro understand dump
+```
+
+This command generates a Markdown file at `docs/UNDERSTANDING_SNAPSHOT.md` (or a custom path with `--output`) that contains:
+
+- Identity: What Maestro is and is not
+- Authority Model: What humans control vs. what AI can do
+- Assertive Rule Gates: Hard-stop conditions and where they're enforced
+- Mutation Boundaries: What may change and through which channel
+- Automation & Long-Run Mode: Explore sessions, resume capability, and auto-apply meaning
+- Directory Semantics: Distinction between `.maestro/` and `$HOME/.maestro/`
+- Contracts: Summary of `plan_ops` and `project_ops` canonical expectations
+- Evidence Index: Claims mapped to file path references
+
+Use `maestro understand dump --check` in CI to ensure the snapshot is up-to-date, or `maestro understand dump --output <path>` to specify a custom output location.
+
+The snapshot is derived from actual code/config/docs, not narrative assumptions, making it a reliable source of truth about the project's capabilities and constraints.

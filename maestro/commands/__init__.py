@@ -13,6 +13,8 @@ from .ai import add_ai_parser
 from .work import add_work_parser
 from .work_session import add_wsession_parser
 from .init import add_init_parser, handle_init_command
+from .plan import add_plan_parser, handle_plan_add, handle_plan_list, handle_plan_remove, handle_plan_show, handle_plan_add_item, handle_plan_remove_item, handle_plan_discuss
+from .understand import add_understand_parser, handle_understand_dump
 
 __all__ = [
     'add_track_parser',
@@ -34,4 +36,14 @@ __all__ = [
     'add_wsession_parser',
     'add_init_parser',
     'handle_init_command',
+    'add_plan_parser',
+    'handle_plan_add',
+    'handle_plan_list',
+    'handle_plan_remove',
+    'handle_plan_show',
+    'handle_plan_add_item',
+    'handle_plan_remove_item',
+    'handle_plan_discuss',
+    'add_understand_parser',
+    'handle_understand_dump',
 ]

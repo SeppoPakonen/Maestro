@@ -187,10 +187,13 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_work_parser,
         add_wsession_parser,
         add_init_parser,
+        add_plan_parser,
+        add_understand_parser,
     )
 
     # Register all available command parsers
     add_init_parser(subparsers)
+    add_plan_parser(subparsers)  # Add plan parser to position between init and track
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
     add_task_parser(subparsers)
@@ -201,6 +204,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_ai_parser(subparsers)
     add_work_parser(subparsers)
     add_wsession_parser(subparsers)
+    add_understand_parser(subparsers)
 
     # Also add the original core commands
     add_core_subparsers(subparsers)
@@ -237,16 +241,8 @@ def add_core_subparsers(subparsers):
     stats_parser.add_argument('session_id', nargs='?', help='Session ID (or prefix)')
     stats_parser.add_argument('--tree', action='store_true', help='Include child sessions')
 
-    # Plan subparsers
-    plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
-    plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands')
-    plan_subparsers.add_parser('list', aliases=['ls'], help='List plans')
-    plan_subparsers.add_parser('show', aliases=['sh'], help='Show plan details')
-    plan_subparsers.add_parser('discuss', aliases=['d'], help='Interactive planning discussion')
-    plan_subparsers.add_parser('tree', aliases=['tr'], help='Show plan tree')
-    plan_subparsers.add_parser('set', aliases=['st'], help='Set active plan')
-    plan_subparsers.add_parser('get', aliases=['g'], help='Get active plan')
-    plan_subparsers.add_parser('kill', aliases=['k'], help='Kill a plan')
+    # Note: Plan subparsers are now handled in the commands module
+    # See maestro/commands/plan.py for the current implementation
 
     # Rules subparsers
     rules_parser = subparsers.add_parser('rules', aliases=['r'], help='Rules management')
@@ -272,6 +268,16 @@ def add_core_subparsers(subparsers):
 
     # Resume command (no subcommands)
     subparsers.add_parser('resume', aliases=['rs'], help='Resume session')
+
+    # Project ops command
+    ops_parser = subparsers.add_parser('ops', help='Project operations automation')
+    ops_subparsers = ops_parser.add_subparsers(dest='ops_subcommand', help='Project ops subcommands')
+    validate_parser = ops_subparsers.add_parser('validate', help='Validate project operations JSON file')
+    validate_parser.add_argument('json_file', help='JSON file containing project operations')
+    preview_parser = ops_subparsers.add_parser('preview', help='Preview changes from project operations')
+    preview_parser.add_argument('json_file', help='JSON file containing project operations')
+    apply_parser = ops_subparsers.add_parser('apply', help='Apply project operations')
+    apply_parser.add_argument('json_file', help='JSON file containing project operations')
 
     # Work command is registered in maestro.commands.work
 

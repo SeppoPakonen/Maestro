@@ -34,6 +34,12 @@ def main():
     # Import command handlers from the commands module
     from maestro.commands import (
         handle_init_command,
+        handle_plan_add,
+        handle_plan_list,
+        handle_plan_remove,
+        handle_plan_show,
+        handle_plan_add_item,
+        handle_plan_remove_item,
         handle_track_command,
         handle_phase_command,
         handle_task_command,
@@ -41,6 +47,7 @@ def main():
         handle_settings_command,
         handle_issues_command,
         handle_solutions_command,
+        handle_understand_dump,
     )
     from maestro.commands.ai import handle_ai_qwen, handle_ai_sync, handle_ai_gemini, handle_ai_codex, handle_ai_claude
     from maestro.commands.work import (
@@ -111,35 +118,56 @@ def main():
             parser.print_help()
 
     elif args.command == 'plan':
-        if args.plan_subcommand == 'list':
-            handle_plan_list(args.session, args.verbose)
-        elif args.plan_subcommand == 'show':
-            handle_plan_show(args.session, args.plan_id, args.verbose)
-        elif args.plan_subcommand == 'discuss':
-            handle_interactive_plan_session(
-                args.session,
-                args.verbose,
-                args.stream_ai_output,
-                args.print_ai_prompts,
-                args.planner_order
-            )
-        elif args.plan_subcommand == 'tree':
-            handle_show_plan_tree(args.session, args.verbose)
-        elif args.plan_subcommand == 'set':
-            handle_focus_plan(args.session, args.plan_id, args.verbose)
-        elif args.plan_subcommand == 'get':
-            handle_plan_get(args.session, args.verbose)
-        elif args.plan_subcommand == 'kill':
-            handle_kill_plan(args.session, args.plan_id, args.verbose)
+        if hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+            if args.plan_subcommand == 'add':
+                handle_plan_add(args.title, args.session, args.verbose)
+            elif args.plan_subcommand == 'list':
+                handle_plan_list(args.session, args.verbose)
+            elif args.plan_subcommand == 'remove':
+                handle_plan_remove(args.title_or_number, args.session, args.verbose)
+            elif args.plan_subcommand == 'show':
+                handle_plan_show(args.title_or_number, args.session, args.verbose)
+            elif args.plan_subcommand == 'add-item':
+                handle_plan_add_item(args.title_or_number, args.item_text, args.session, args.verbose)
+            elif args.plan_subcommand == 'remove-item':
+                handle_plan_remove_item(args.title_or_number, args.item_number, args.session, args.verbose)
+            elif args.plan_subcommand == 'ops':
+                # Handle plan ops subcommands
+                if hasattr(args, 'ops_subcommand') and args.ops_subcommand:
+                    from maestro.plan_ops.commands import handle_plan_ops_validate, handle_plan_ops_preview, handle_plan_ops_apply
+                    if args.ops_subcommand == 'validate':
+                        handle_plan_ops_validate(args.json_file, args.session, args.verbose)
+                    elif args.ops_subcommand == 'preview':
+                        handle_plan_ops_preview(args.json_file, args.session, args.verbose)
+                    elif args.ops_subcommand == 'apply':
+                        handle_plan_ops_apply(args.json_file, args.session, args.verbose)
+            elif args.plan_subcommand == 'discuss':
+                # Handle plan discuss command
+                from .commands.plan import handle_plan_discuss
+                handle_plan_discuss(args.title_or_number, args.session, args.verbose)
+            elif args.plan_subcommand == 'explore':
+                # Handle plan explore command
+                from .commands.plan import handle_plan_explore
+                handle_plan_explore(
+                    args.title_or_number,
+                    args.session,
+                    args.verbose,
+                    dry_run=args.dry_run,
+                    apply=args.apply,
+                    max_iterations=args.max_iterations,
+                    engine=args.engine,
+                    save_session=getattr(args, 'save_session', False),
+                    auto_apply=getattr(args, 'auto_apply', False),
+                    stop_after_apply=getattr(args, 'stop_after_apply', False)
+                )
+        elif hasattr(args, 'plan_title') and args.plan_title:
+            # Default to show if a plan title is provided directly
+            handle_plan_show(args.plan_title, args.session, args.verbose)
         else:
-            # Default to discuss mode if no subcommand specified
-            handle_interactive_plan_session(
-                args.session,
-                args.verbose,
-                args.stream_ai_output,
-                args.print_ai_prompts,
-                args.planner_order
-            )
+            # Show help if no subcommand is provided
+            import sys
+            parser.print_help()
+            sys.exit(1)
 
     elif args.command == 'rules':
         if args.rules_subcommand == 'list':
@@ -178,6 +206,16 @@ def main():
             handle_log_list_plan(args.session, args.verbose)
         else:
             parser.print_help()
+
+    elif args.command == 'ops':
+        if hasattr(args, 'ops_subcommand') and args.ops_subcommand:
+            from maestro.project_ops.commands import handle_project_ops_validate, handle_project_ops_preview, handle_project_ops_apply
+            if args.ops_subcommand == 'validate':
+                handle_project_ops_validate(args.json_file, args.session, args.verbose)
+            elif args.ops_subcommand == 'preview':
+                handle_project_ops_preview(args.json_file, args.session, args.verbose)
+            elif args.ops_subcommand == 'apply':
+                handle_project_ops_apply(args.json_file, args.session, args.verbose)
 
     elif args.command == 'resume':
         handle_resume_session(
@@ -252,6 +290,15 @@ def main():
             handle_wsession_timeline(args)
         elif args.wsession_subcommand == 'stats':
             handle_wsession_stats(args)
+        else:
+            parser.print_help()
+
+    elif args.command == 'understand':
+        if args.understand_subcommand == 'dump':
+            handle_understand_dump(
+                output_path=args.output_path,
+                check=args.check
+            )
         else:
             parser.print_help()
 
