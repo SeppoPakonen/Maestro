@@ -8,17 +8,20 @@ package "Human Interaction" {
   interface "TUI (Planned)" as TUI
 
   User -right-> CLI : "maestro ..."
-  User .right.> TUI : (Future)
+  User -.-> TUI : (Future)
 }
 
 package "Maestro Core" {
-  CLI -down-> "Maestro Orchestrator" as Orchestrator
+  component "Maestro Orchestrator" as Orchestrator
+  CLI --> Orchestrator
 
-  component "todo.md" as Todo
-  component "done.md" as Done
-  component "config.md" as Config
-  component "phases/*.md" as Phases
-  component "repo/state.md" as RepoState
+  package "Project State (docs/)" {
+    artifact "todo.md" as Todo
+    artifact "done.md" as Done
+    artifact "config.md" as Config
+    artifact "phases/*.md" as Phases
+    artifact "repo/state.md" as RepoState
+  }
 
   Orchestrator -down-> Todo : Manages
   Orchestrator -down-> Done : Manages
@@ -26,9 +29,9 @@ package "Maestro Core" {
   Orchestrator -down-> Phases : Reads/Writes
 
   package "AI Interaction" {
-    object "Prompt Builder" as PromptBuilder
-    object "Prompt Contract" as Contract
-    object "AI Engine Manager" as AIManager
+    component "Prompt Builder" as PromptBuilder
+    component "Prompt Contract" as Contract
+    component "AI Engine Manager" as AIManager
 
     Orchestrator -right-> PromptBuilder : Builds Prompts
     PromptBuilder -> Contract : Enforces

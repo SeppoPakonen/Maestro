@@ -1,0 +1,6 @@
+{
+  "type": "plan_ops",
+  "version": 1,
+  "payload": "{\"scope\":\"plan\",\"actions\":[{\"action\":\"plan_create\",\"title\":\"New Test Plan\"}]}",
+  "notes": "Test operations for validation"
+}

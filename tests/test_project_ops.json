@@ -1,0 +1,12 @@
+{
+  "kind": "project_ops",
+  "version": 1,
+  "scope": "project",
+  "actions": [
+    {
+      "action": "track_create",
+      "title": "Test Project Ops Track"
+    }
+  ],
+  "notes": "Test operations for project ops pipeline"
+}

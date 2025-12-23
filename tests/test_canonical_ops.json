@@ -1,0 +1,17 @@
+{
+  "kind": "plan_ops",
+  "version": 1,
+  "scope": "plan",
+  "actions": [
+    {
+      "action": "plan_create",
+      "title": "Canonical Test Plan"
+    },
+    {
+      "action": "plan_item_add",
+      "selector": {"title": "Canonical Test Plan"},
+      "text": "First item in canonical format"
+    }
+  ],
+  "notes": "Test operations for canonical format"
+}
