@@ -12,7 +12,11 @@ from maestro.ai import (
     build_phase_context,
     build_task_context,
     build_track_context,
+    DiscussionRouter,
+    JsonContract,
+    PatchOperationType,
 )
+from maestro.ai.manager import AiEngineManager
 from maestro.data import parse_config_md
 from maestro.discussion import DiscussionSession, create_discussion_session, resume_discussion
 from maestro.work_session import SessionType
@@ -140,6 +144,49 @@ def handle_task_discuss(task_id: str, args) -> int:
     )
     dry_run = getattr(args, "dry_run", False)
     return run_discussion_with_session(discussion_session, dry_run=dry_run)
+
+
+def run_discussion_with_router(engine: str, initial_prompt: str, mode: Optional[str] = None):
+    """Example function demonstrating the use of the new DiscussionRouter."""
+    manager = AiEngineManager()
+    router = DiscussionRouter(manager)
+
+    # Define a simple JSON contract for task operations
+    def validate_task_json(data):
+        """Simple validation for task-related JSON."""
+        if isinstance(data, dict):
+            return "op_type" in data or "task_name" in data
+        elif isinstance(data, list):
+            return all(validate_task_json(item) for item in data)
+        return False
+
+    json_contract = JsonContract(
+        schema_id="task_operations",
+        validation_func=validate_task_json,
+        allowed_operations=[
+            PatchOperationType.ADD_TASK,
+            PatchOperationType.ADD_PHASE,
+            PatchOperationType.MARK_DONE,
+            PatchOperationType.MARK_TODO
+        ],
+        description="Task and phase operations"
+    )
+
+    # Run the discussion with the router
+    results = router.run_discussion(
+        engine=engine,
+        initial_prompt=initial_prompt,
+        mode=mode,
+        json_contract=json_contract
+    )
+
+    # Process the results (in a real implementation, these would be applied)
+    if results:
+        print(f"Generated {len(results)} operations:")
+        for op in results:
+            print(f"  - {op.op_type.value}: {op.data}")
+
+    return results
 
 
 def add_discuss_parser(subparsers):

@@ -24,13 +24,21 @@ def run_interactive_chat(
     if initial_prompt:
         prompt_ref = PromptRef(source=initial_prompt)
         try:
-            cmd = manager.build_command(engine, prompt_ref, opts)
-            result = run_engine_command(cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            if engine == "qwen":
+                # For Qwen, we need to handle transport mode
+                cmd = manager.build_command(engine, prompt_ref, opts)
+                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            else:
+                cmd = manager.build_command(engine, prompt_ref, opts)
+                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
             print(f"Exit code: {result.exit_code}")
             if result.session_id:
                 print(f"Session ID: {result.session_id}")
         except ValueError as e:
             print(f"Error: {e}")
+            return
+        except NotImplementedError as e:
+            print(f"Transport mode error: {e}")
             return
 
     # Main chat loop
@@ -55,13 +63,20 @@ def run_interactive_chat(
         # Process the user input
         prompt_ref = PromptRef(source=user_input)
         try:
-            cmd = manager.build_command(engine, prompt_ref, opts)
-            result = run_engine_command(cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            if engine == "qwen":
+                # For Qwen, we need to handle transport mode
+                cmd = manager.build_command(engine, prompt_ref, opts)
+                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+            else:
+                cmd = manager.build_command(engine, prompt_ref, opts)
+                result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
             print(f"Exit code: {result.exit_code}")
             if result.session_id:
                 print(f"Session ID: {result.session_id}")
         except ValueError as e:
             print(f"Error: {e}")
+        except NotImplementedError as e:
+            print(f"Transport mode error: {e}")
 
 
 def run_one_shot(
@@ -75,14 +90,21 @@ def run_one_shot(
     """
     prompt_ref = PromptRef(source=prompt)
     try:
-        cmd = manager.build_command(engine, prompt_ref, opts)
-        result = run_engine_command(cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+        if engine == "qwen":
+            # For Qwen, we need to handle transport mode
+            cmd = manager.build_command(engine, prompt_ref, opts)
+            result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
+        else:
+            cmd = manager.build_command(engine, prompt_ref, opts)
+            result = run_engine_command(engine, cmd, stream=True, stream_json=opts.stream_json, quiet=opts.quiet)
         print(f"Exit code: {result.exit_code}")
         if result.session_id:
             print(f"Session ID: {result.session_id}")
         return result
     except ValueError as e:
         print(f"Error: {e}")
+    except NotImplementedError as e:
+        print(f"Transport mode error: {e}")
 
 
 def _read_multiline_input() -> str:
