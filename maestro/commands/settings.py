@@ -81,9 +81,9 @@ def list_settings(args):
                 print(f"{section_name}:")
                 print("-" * len(section_name))
 
-                # Special handling for AI settings to show engine matrix
+                # Special handling for AI settings to show engine matrix and per-engine blocks
                 if section_key == 'ai_settings':
-                    # Group and display AI engine settings together
+                    # Group engine enablement settings
                     engine_keys = ['ai_engines_claude', 'ai_engines_codex', 'ai_engines_gemini', 'ai_engines_qwen']
                     engine_settings = {}
 
@@ -92,8 +92,31 @@ def list_settings(args):
                         if key in section_data:
                             engine_settings[key] = section_data[key]
 
-                    # Create a copy of section_data without engine settings for other AI settings
-                    other_ai_settings = {k: v for k, v in section_data.items() if k not in engine_keys}
+                    # Group per-engine settings
+                    claude_settings = {}
+                    codex_settings = {}
+                    gemini_settings = {}
+                    qwen_settings = {}
+
+                    for key, value in section_data.items():
+                        if key.startswith('ai_claude_') and key not in engine_keys:
+                            claude_settings[key] = value
+                        elif key.startswith('ai_codex_') and key not in engine_keys:
+                            codex_settings[key] = value
+                        elif key.startswith('ai_gemini_') and key not in engine_keys:
+                            gemini_settings[key] = value
+                        elif key.startswith('ai_qwen_') and key not in engine_keys:
+                            qwen_settings[key] = value
+
+                    # Create a copy of section_data without engine and per-engine settings
+                    other_ai_settings = {
+                        k: v for k, v in section_data.items()
+                        if k not in engine_keys
+                        and not k.startswith('ai_claude_')
+                        and not k.startswith('ai_codex_')
+                        and not k.startswith('ai_gemini_')
+                        and not k.startswith('ai_qwen_')
+                    }
 
                     # Display AI engine matrix if any engine settings exist
                     if engine_settings:
@@ -101,10 +124,35 @@ def list_settings(args):
                         for engine_key, engine_value in engine_settings.items():
                             print(f"    {engine_key}: {format_value_for_display(engine_key, engine_value)}")
 
-                    # Display other AI settings
+                    # Display other AI settings (stacking mode, permissions, etc.)
                     for key, value in other_ai_settings.items():
                         formatted_value = format_value_for_display(key, value)
                         print(f"  {key}: {formatted_value}")
+
+                    # Display per-engine settings if they exist
+                    if claude_settings:
+                        print("\n  Claude:")
+                        for key, value in claude_settings.items():
+                            formatted_value = format_value_for_display(key, value)
+                            print(f"    {key}: {formatted_value}")
+
+                    if codex_settings:
+                        print("\n  Codex:")
+                        for key, value in codex_settings.items():
+                            formatted_value = format_value_for_display(key, value)
+                            print(f"    {key}: {formatted_value}")
+
+                    if gemini_settings:
+                        print("\n  Gemini:")
+                        for key, value in gemini_settings.items():
+                            formatted_value = format_value_for_display(key, value)
+                            print(f"    {key}: {formatted_value}")
+
+                    if qwen_settings:
+                        print("\n  Qwen:")
+                        for key, value in qwen_settings.items():
+                            formatted_value = format_value_for_display(key, value)
+                            print(f"    {key}: {formatted_value}")
                 else:
                     # Display other sections normally
                     for key, value in section_data.items():

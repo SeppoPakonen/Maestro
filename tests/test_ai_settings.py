@@ -26,6 +26,12 @@ def test_ai_engine_settings_default_values():
     assert settings.ai_qwen_transport == "cmdline"
     assert settings.ai_qwen_tcp_host == "localhost"
     assert settings.ai_qwen_tcp_port == 7777
+    # Test new per-engine settings
+    assert settings.ai_claude_provider == "anthropic"
+    assert settings.ai_claude_model == "claude-3-5-sonnet-20250205"
+    assert settings.ai_codex_model == "codex"
+    assert settings.ai_gemini_model == "gemini-pro"
+    assert settings.ai_qwen_model == "qwen"
 
 
 def test_ai_engine_settings_validation():
@@ -256,6 +262,11 @@ def test_settings_persistence():
         settings.ai_dangerously_skip_permissions = False
         settings.ai_qwen_transport = "stdio"
         settings.ai_qwen_tcp_port = 9999
+        # Test new per-engine settings
+        settings.ai_claude_provider = "openai"
+        settings.ai_codex_model = "codex-new"
+        settings.ai_gemini_model = "gemini-advanced"
+        settings.ai_qwen_model = "qwen-new"
 
         # Save settings
         success = settings.save(config_path)
@@ -273,3 +284,8 @@ def test_settings_persistence():
         assert loaded_settings.ai_dangerously_skip_permissions is False
         assert loaded_settings.ai_qwen_transport == "stdio"
         assert loaded_settings.ai_qwen_tcp_port == 9999
+        # Verify new per-engine settings
+        assert loaded_settings.ai_claude_provider == "openai"
+        assert loaded_settings.ai_codex_model == "codex-new"
+        assert loaded_settings.ai_gemini_model == "gemini-advanced"
+        assert loaded_settings.ai_qwen_model == "qwen-new"

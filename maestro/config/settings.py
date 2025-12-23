@@ -39,6 +39,22 @@ class Settings:
     ai_api_key_file: str = "~/.anthropic_key"
     ai_context_window: int = 8192
     ai_temperature: float = 0.7
+    # Claude-specific settings
+    ai_claude_provider: str = "anthropic"
+    ai_claude_model: str = "claude-3-5-sonnet-20250205"
+    ai_claude_api_key_file: str = "~/.anthropic_key"
+    ai_claude_context_window: int = 8192
+    ai_claude_temperature: float = 0.7
+    ai_claude_default_args: str = ""
+    # Codex-specific settings
+    ai_codex_model: str = "codex"
+    ai_codex_default_args: str = ""
+    # Gemini-specific settings
+    ai_gemini_model: str = "gemini-pro"
+    ai_gemini_default_args: str = ""
+    # Qwen-specific settings
+    ai_qwen_model: str = "qwen"
+    ai_qwen_default_args: str = ""
     # AI Engine Matrix
     ai_engines_claude: str = "both"  # disabled, planner, worker, both
     ai_engines_codex: str = "both"   # disabled, planner, worker, both
@@ -112,6 +128,22 @@ class Settings:
         settings_kwargs['ai_api_key_file'] = config_data.get('ai_api_key_file', '~/.anthropic_key')
         settings_kwargs['ai_context_window'] = config_data.get('ai_context_window', 8192)
         settings_kwargs['ai_temperature'] = config_data.get('ai_temperature', 0.7)
+        # Claude-specific settings
+        settings_kwargs['ai_claude_provider'] = config_data.get('ai_claude_provider', 'anthropic')
+        settings_kwargs['ai_claude_model'] = config_data.get('ai_claude_model', 'claude-3-5-sonnet-20250205')
+        settings_kwargs['ai_claude_api_key_file'] = config_data.get('ai_claude_api_key_file', '~/.anthropic_key')
+        settings_kwargs['ai_claude_context_window'] = config_data.get('ai_claude_context_window', 8192)
+        settings_kwargs['ai_claude_temperature'] = config_data.get('ai_claude_temperature', 0.7)
+        settings_kwargs['ai_claude_default_args'] = config_data.get('ai_claude_default_args', '')
+        # Codex-specific settings
+        settings_kwargs['ai_codex_model'] = config_data.get('ai_codex_model', 'codex')
+        settings_kwargs['ai_codex_default_args'] = config_data.get('ai_codex_default_args', '')
+        # Gemini-specific settings
+        settings_kwargs['ai_gemini_model'] = config_data.get('ai_gemini_model', 'gemini-pro')
+        settings_kwargs['ai_gemini_default_args'] = config_data.get('ai_gemini_default_args', '')
+        # Qwen-specific settings
+        settings_kwargs['ai_qwen_model'] = config_data.get('ai_qwen_model', 'qwen')
+        settings_kwargs['ai_qwen_default_args'] = config_data.get('ai_qwen_default_args', '')
         # AI Engine Matrix
         settings_kwargs['ai_engines_claude'] = config_data.get('ai_engines_claude', 'both')
         settings_kwargs['ai_engines_codex'] = config_data.get('ai_engines_codex', 'both')
@@ -397,7 +429,16 @@ class Settings:
             'ai_settings': [
                 'ai_provider', 'ai_model', 'ai_api_key_file',
                 'ai_context_window', 'ai_temperature',
-                # New AI engine settings
+                # Claude-specific settings
+                'ai_claude_provider', 'ai_claude_model', 'ai_claude_api_key_file',
+                'ai_claude_context_window', 'ai_claude_temperature', 'ai_claude_default_args',
+                # Codex-specific settings
+                'ai_codex_model', 'ai_codex_default_args',
+                # Gemini-specific settings
+                'ai_gemini_model', 'ai_gemini_default_args',
+                # Qwen-specific settings
+                'ai_qwen_model', 'ai_qwen_default_args',
+                # AI engine settings
                 'ai_engines_claude', 'ai_engines_codex', 'ai_engines_gemini', 'ai_engines_qwen',
                 'ai_stacking_mode',
                 'ai_dangerously_skip_permissions',
@@ -527,7 +568,23 @@ class Settings:
                 'ai_api_key_file': self.ai_api_key_file,
                 'ai_context_window': self.ai_context_window,
                 'ai_temperature': self.ai_temperature,
-                # New AI engine settings
+                # Claude-specific settings
+                'ai_claude_provider': self.ai_claude_provider,
+                'ai_claude_model': self.ai_claude_model,
+                'ai_claude_api_key_file': self.ai_claude_api_key_file,
+                'ai_claude_context_window': self.ai_claude_context_window,
+                'ai_claude_temperature': self.ai_claude_temperature,
+                'ai_claude_default_args': self.ai_claude_default_args,
+                # Codex-specific settings
+                'ai_codex_model': self.ai_codex_model,
+                'ai_codex_default_args': self.ai_codex_default_args,
+                # Gemini-specific settings
+                'ai_gemini_model': self.ai_gemini_model,
+                'ai_gemini_default_args': self.ai_gemini_default_args,
+                # Qwen-specific settings
+                'ai_qwen_model': self.ai_qwen_model,
+                'ai_qwen_default_args': self.ai_qwen_default_args,
+                # AI engine settings
                 'ai_engines_claude': self.ai_engines_claude,
                 'ai_engines_codex': self.ai_engines_codex,
                 'ai_engines_gemini': self.ai_engines_gemini,
@@ -591,6 +648,22 @@ def create_default_config() -> Settings:
         ai_api_key_file="~/.anthropic_key",
         ai_context_window=8192,
         ai_temperature=0.7,
+        # Claude-specific settings
+        ai_claude_provider="anthropic",
+        ai_claude_model="claude-3-5-sonnet-20250205",
+        ai_claude_api_key_file="~/.anthropic_key",
+        ai_claude_context_window=8192,
+        ai_claude_temperature=0.7,
+        ai_claude_default_args="",
+        # Codex-specific settings
+        ai_codex_model="codex",
+        ai_codex_default_args="",
+        # Gemini-specific settings
+        ai_gemini_model="gemini-pro",
+        ai_gemini_default_args="",
+        # Qwen-specific settings
+        ai_qwen_model="qwen",
+        ai_qwen_default_args="",
         # AI Engine Matrix
         ai_engines_claude="both",
         ai_engines_codex="both",
