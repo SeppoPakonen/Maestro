@@ -179,8 +179,6 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
             for i, item in enumerate(plan.items, 1):
                 styled_print(f"{i:2d}. {item.text}", Colors.BRIGHT_WHITE, None, 0)
 
-        print("\nStarting AI discussion to edit this plan...")
-
         # Prepare the plan context for the AI
         plan_context = {
             "title": plan.title,
@@ -191,14 +189,56 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
         from ..plan_ops.prompt_contract import get_plan_discuss_prompt
         base_prompt = get_plan_discuss_prompt(plan_context['title'], plan_context['items'])
 
-        # If a custom prompt was provided, append it to the base prompt
-        if prompt:
-            ai_prompt = f"{base_prompt}\n\nUSER REQUEST:\n{prompt}"
-        else:
-            ai_prompt = base_prompt
-
-        # Use the AI manager to get the response
+        # Use the AI manager
         manager = AiEngineManager()
+
+        # If no prompt was provided, enter interactive chat mode
+        if prompt is None:
+            print("\nStarting interactive AI discussion...")
+            print("You can discuss the plan freely with the AI.")
+            print("Note: In interactive mode, changes are not automatically applied.")
+            print("Use one-shot mode (--prompt flag) for automatic plan modification.\n")
+
+            # Import required modules for interactive chat
+            from ..ai.chat import run_interactive_chat
+            from ..ai.types import RunOpts
+            from ..config.settings import get_settings
+
+            # Get settings to determine dangerous permissions flag
+            settings = get_settings()
+
+            # Create run options for interactive mode
+            opts = RunOpts(
+                dangerously_skip_permissions=settings.ai_dangerously_skip_permissions,
+                continue_latest=False,
+                resume_id=None,
+                stream_json=True,
+                quiet=False,
+                model=None,
+                verbose=verbose
+            )
+
+            # Create an interactive-friendly initial prompt
+            items_text = ""
+            for item in plan_context['items']:
+                items_text += f"  {item['number']}. {item['text']}\n"
+
+            interactive_prompt = f"""I'm working on a plan titled "{plan_context['title']}". Here are the current items:
+
+{items_text}
+I'd like to discuss this plan with you. Can you help me review it, suggest improvements, or answer questions about it?"""
+
+            # Run interactive chat with the plan context as initial prompt
+            run_interactive_chat(manager, 'qwen', opts, initial_prompt=interactive_prompt)
+
+            # Exit after interactive session ends
+            return
+
+        # One-shot mode (when prompt is provided)
+        print("\nStarting AI discussion to edit this plan (one-shot mode)...")
+
+        # Append the custom prompt to the base prompt
+        ai_prompt = f"{base_prompt}\n\nUSER REQUEST:\n{prompt}"
 
         # Check if the required method exists
         if not hasattr(manager, "run_once"):

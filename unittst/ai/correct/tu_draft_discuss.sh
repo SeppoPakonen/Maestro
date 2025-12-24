@@ -22,7 +22,7 @@ mkdir tmp
 cd tmp
 
 # Get the absolute path to the maestro.py file
-MAESTRO_PATH=$(cd ../.. && pwd)/maestro.py
+MAESTRO_PATH=$(cd ../../../.. && pwd)/maestro.py
 echo "Using maestro.py at: $MAESTRO_PATH"
 
 # Step 1: Initialize the project
@@ -31,25 +31,25 @@ python "$MAESTRO_PATH" init
 
 # Step 2: Create a new plan for Minesweeper Game
 echo "[3/8] Creating plan for Minesweeper Game..."
-../../../maestro.py plan add "Minesweeper Game"
+python "$MAESTRO_PATH" plan add "Minesweeper Game"
 
 # Step 3: Add initial items to the plan
 echo "[4/8] Adding initial items to the plan..."
-../../../maestro.py plan add-item 1 "Create game board grid"
-../../../maestro.py plan add-item 1 "Implement mine placement logic"
-../../../maestro.py plan add-item 1 "Add click handlers"
+python "$MAESTRO_PATH" plan add-item 1 "Create game board grid"
+python "$MAESTRO_PATH" plan add-item 1 "Implement mine placement logic"
+python "$MAESTRO_PATH" plan add-item 1 "Add click handlers"
 
 # Verify the plan was created correctly
 echo "[5/8] Verifying plan contents..."
-../../../maestro.py plan show 1
+python "$MAESTRO_PATH" plan show 1
 
 # Step 4: Use plan discuss with -p argument to add new items
 echo "[6/8] Using plan discuss to add scoring system..."
-../../../maestro.py $VERBOSE plan discuss 1 -p "Add a new item 'Add scoring system' and sub-items for 'Track time', 'Count moves', and 'Show high scores'"
+python "$MAESTRO_PATH" $VERBOSE plan discuss 1 -p "Add a new item 'Add scoring system' and sub-items for 'Track time', 'Count moves', and 'Show high scores'"
 
 # Show the updated plan
 echo "[6.5/8] Showing updated plan..."
-../../../maestro.py plan show 1
+python "$MAESTRO_PATH" plan show 1
 
 # Step 5: Run plan explore to convert plan into project operations
 # We'll use qwen for this with auto-apply
@@ -58,7 +58,7 @@ echo "This may take 10-20 minutes as the AI processes the plan..."
 
 # Run plan explore with auto-apply and allow multiple iterations to create track, phases, and tasks
 # We need at least 3 iterations: one for track, one for phase, one for tasks
-timeout 1200 ../../../maestro.py $VERBOSE plan explore 1 --apply --auto-apply --max-iterations 5 --engine qwen || {
+timeout 1200 python "$MAESTRO_PATH" $VERBOSE plan explore 1 --apply --auto-apply --max-iterations 5 --engine qwen || {
     echo "Plan explore timed out or failed"
     exit 1
 }
@@ -142,7 +142,7 @@ EOF
 
 # Step 1: Create draft classes using tu draft command
 echo "[2/4] Creating draft classes and functions..."
-../../../maestro.py $VERBOSE tu draft src --class GameBoard --class GameLogic --function calculate_score --lang python --link-phase "1" --link-task "1" -p "Create a basic game board class with methods for initializing the board, getting cell values, and updating the board state"
+python "$MAESTRO_PATH" $VERBOSE tu draft src --class GameBoard --class GameLogic --function calculate_score --lang python --link-phase "1" --link-task "1" -p "Create a basic game board class with methods for initializing the board, getting cell values, and updating the board state"
 
 # Step 2: Verify draft files were created
 echo "[3/4] Verifying draft files were created..."

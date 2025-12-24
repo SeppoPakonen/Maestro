@@ -652,7 +652,7 @@ def handle_tu_draft_command(args):
         for class_name in args.classes:
             print(f"Creating draft class: {class_name}")
             code = generator.generate_class(class_name, args.prompt)
-            file_path = output_dir / f"{class_name}.{get_file_extension(lang)}"
+            file_path = output_dir / f"{class_name}{get_file_extension(lang)}"
             with open(file_path, 'w') as f:
                 f.write(code)
             created_files.append(str(file_path))
@@ -663,7 +663,7 @@ def handle_tu_draft_command(args):
         for func_name in args.functions:
             print(f"Creating draft function: {func_name}")
             code = generator.generate_function(func_name, args.prompt)
-            file_path = output_dir / f"{func_name}_impl.{get_file_extension(lang)}"
+            file_path = output_dir / f"{func_name}_impl{get_file_extension(lang)}"
             with open(file_path, 'w') as f:
                 f.write(code)
             created_files.append(str(file_path))
