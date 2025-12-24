@@ -409,6 +409,9 @@ def _run_subprocess_command(
             if assistant_text and not quiet and not verbose:
                 # In normal mode, print only the assistant text
                 print(assistant_text, end="", flush=True)
+                # Ensure there's a newline at the end so it doesn't glue to next output
+                if not assistant_text.endswith('\n'):
+                    print()
             elif verbose:
                 # In verbose mode, show filtered events
                 filtered_events = filter_qwen_events_for_verbose_mode([json.dumps(event) for event in parsed_events])
@@ -421,6 +424,9 @@ def _run_subprocess_command(
                     if not assistant_already_shown:
                         print(f"[qwen] Extracted assistant text ({len(assistant_text)} chars)")
                         print(assistant_text, end="", flush=True)
+                        # Ensure there's a newline at the end so it doesn't glue to next output
+                        if not assistant_text.endswith('\n'):
+                            print()
         else:
             # For other engines, continue with default behavior
             pass
