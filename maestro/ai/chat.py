@@ -24,11 +24,29 @@ def run_interactive_chat(
     if initial_prompt:
         print(f"Initial prompt: {initial_prompt}")
 
+    # Initialize session ID tracking - use initial opts resume_id or continue_latest if applicable
+    current_session_id = opts.resume_id
+    if not current_session_id and opts.continue_latest:
+        current_session_id = manager.session_manager.get_last_session_id(engine)
+
     # Process initial prompt if provided
     if initial_prompt:
         prompt_ref = PromptRef(source=initial_prompt)
         try:
-            result = manager.run_once(engine, prompt_ref, opts)
+            # Create updated opts with current session ID
+            updated_opts = _create_opts_with_session_id(opts, current_session_id)
+            result = manager.run_once(engine, prompt_ref, updated_opts)
+
+            # Update session ID for next turn
+            if result.session_id:
+                current_session_id = result.session_id
+            elif result.stdout_path:
+                # Try to extract session ID from parsed events if not directly available
+                from .session_manager import extract_session_id
+                session_id_from_events = extract_session_id(engine, result.parsed_events)
+                if session_id_from_events:
+                    current_session_id = session_id_from_events
+
             renderer.finalize(result.exit_code)
         except ValueError as e:
             print(f"Error: {e}")
@@ -64,24 +82,25 @@ def run_interactive_chat(
         # Process the user input
         prompt_ref = PromptRef(source=user_input)
         try:
-            # Update opts to use the session ID from the session manager if available
-            updated_opts = opts
-            if opts.continue_latest and not opts.resume_id:
-                # If continue_latest is set and no specific resume_id, get the last session ID
-                last_session_id = manager.session_manager.get_last_session_id(engine)
-                if last_session_id:
-                    updated_opts = RunOpts(
-                        dangerously_skip_permissions=opts.dangerously_skip_permissions,
-                        continue_latest=False,  # We're now using a specific session ID
-                        resume_id=last_session_id,
-                        stream_json=opts.stream_json,
-                        quiet=opts.quiet,
-                        model=opts.model,
-                        extra_args=opts.extra_args,
-                        verbose=opts.verbose if hasattr(opts, 'verbose') else False
-                    )
+            # Create updated opts with current session ID
+            updated_opts = _create_opts_with_session_id(opts, current_session_id)
 
             result = manager.run_once(engine, prompt_ref, updated_opts)
+
+            # Update session ID for next turn
+            if result.session_id:
+                current_session_id = result.session_id
+            elif result.stdout_path:
+                # Try to extract session ID from parsed events if not directly available
+                from .session_manager import extract_session_id
+                session_id_from_events = extract_session_id(engine, result.parsed_events)
+                if session_id_from_events:
+                    current_session_id = session_id_from_events
+
+            # In verbose mode, show the active session ID
+            if verbose and current_session_id:
+                print(f"Session ID (active): {current_session_id}")
+
             renderer.finalize(result.exit_code)
         except ValueError as e:
             print(f"Error: {e}")
@@ -90,6 +109,37 @@ def run_interactive_chat(
         except KeyboardInterrupt:
             renderer.handle_interrupt()
             break
+
+
+def _create_opts_with_session_id(opts: RunOpts, session_id: Optional[str]) -> RunOpts:
+    """
+    Create a new RunOpts instance with the specified session ID.
+    """
+    if session_id:
+        # Use the provided session ID, ignoring the original continue_latest flag
+        return RunOpts(
+            dangerously_skip_permissions=opts.dangerously_skip_permissions,
+            continue_latest=False,  # We're using a specific session ID now
+            resume_id=session_id,
+            stream_json=opts.stream_json,
+            quiet=opts.quiet,
+            model=opts.model,
+            extra_args=opts.extra_args,
+            verbose=opts.verbose if hasattr(opts, 'verbose') else False
+        )
+    else:
+        # If no session ID, use original opts but ensure continue_latest is False
+        # since we're in an interactive session and want to start fresh if needed
+        return RunOpts(
+            dangerously_skip_permissions=opts.dangerously_skip_permissions,
+            continue_latest=False,  # We're handling sessions manually now
+            resume_id=None,
+            stream_json=opts.stream_json,
+            quiet=opts.quiet,
+            model=opts.model,
+            extra_args=opts.extra_args,
+            verbose=opts.verbose if hasattr(opts, 'verbose') else False
+        )
 
 
 def run_one_shot(

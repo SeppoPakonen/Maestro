@@ -125,11 +125,40 @@ class AiEngineManager:
     def run_once(self, engine: AiEngineName, prompt: PromptRef, opts: RunOpts) -> AiRunResult:
         """Run an engine once with the given prompt and options."""
         from .runner import run_engine_command
+        from ..modules.utils import print_info, Colors
 
         # Build the command
         cmd = self.build_command(engine, prompt, opts)
 
+        # In verbose mode, print engine invocation header
+        if opts.verbose:
+            print_info(f"AI Engine: {engine}", 2)
+            spec = self.get_engine_spec(engine)
+            print_info(f"Binary: {spec.binary}", 2)
+            print_info(f"Arguments: {' '.join(cmd)}", 2)
+            if prompt.is_stdin:
+                print_info("Input: stdin", 2)
+            else:
+                print_info(f"Input: direct argument", 2)
+            if opts.model:
+                print_info(f"Model: {opts.model}", 2)
+            if opts.dangerously_skip_permissions:
+                print_info("Danger mode: enabled", 2)
+
+            # Show resume information
+            if opts.continue_latest and opts.resume_id:
+                print_info(f"Resume: -c {opts.resume_id}", 2)  # Using specific session ID with -c
+            elif opts.continue_latest:
+                print_info("Resume: -c", 2)  # Using latest with -c
+            elif opts.resume_id:
+                print_info(f"Resume: -c {opts.resume_id}", 2)  # Using specific session ID with -c for Qwen
+            else:
+                print_info("Resume: none (starting new session)", 2)
+
+            print_info("Starting engine execution...", 2)
+
         # Run the command with the optional runner
+        start_time = __import__('time').time()
         result = run_engine_command(
             engine=engine,
             argv=cmd,
@@ -137,8 +166,34 @@ class AiEngineManager:
             stream=not opts.quiet,
             stream_json=opts.stream_json,
             quiet=opts.quiet,
+            verbose=opts.verbose,  # Pass verbose flag to runner
             runner=self.runner
         )
+        end_time = __import__('time').time()
+        duration = end_time - start_time
+
+        # In verbose mode, print engine result footer
+        if opts.verbose:
+            print_info(f"Engine execution completed (exit code: {result.exit_code}, duration: {duration:.2f}s)", 2)
+            if result.stdout_path:
+                print_info(f"Output saved to: {result.stdout_path}", 2)
+            if result.stderr_path:
+                print_info(f"Error output saved to: {result.stderr_path}", 2)
+            if result.session_id:
+                print_info(f"Session ID: {result.session_id}", 2)
+
+            # Print stderr if there was an error
+            if result.exit_code != 0 and result.stderr_path:
+                try:
+                    with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                        stderr_content = f.read()
+                        if stderr_content:
+                            print_info(f"Stderr excerpt (first 50 lines):", 2)
+                            lines = stderr_content.split('\n')[:50]
+                            for line in lines:
+                                print_info(f"  {line}", 2)
+                except Exception as e:
+                    print_info(f"Could not read stderr: {str(e)}", 2)
 
         # Extract session ID from the result
         session_id = result.session_id

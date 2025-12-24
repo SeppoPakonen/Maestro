@@ -410,12 +410,17 @@ def _run_subprocess_command(
                 # In normal mode, print only the assistant text
                 print(assistant_text, end="", flush=True)
             elif verbose:
-                # In verbose mode, show filtered events and extracted assistant text
+                # In verbose mode, show filtered events
                 filtered_events = filter_qwen_events_for_verbose_mode([json.dumps(event) for event in parsed_events])
                 for event_line in filtered_events:
                     print(f"[qwen] {event_line}")
+                # Show extracted assistant text only if it's not already shown in the filtered events
                 if assistant_text:
-                    print(f"[qwen] Extracted assistant text: {assistant_text}")
+                    # Check if assistant text is already in the filtered events to avoid duplication
+                    assistant_already_shown = any(assistant_text in event for event in filtered_events)
+                    if not assistant_already_shown:
+                        print(f"[qwen] Extracted assistant text ({len(assistant_text)} chars)")
+                        print(assistant_text, end="", flush=True)
         else:
             # For other engines, continue with default behavior
             pass
