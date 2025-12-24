@@ -1,0 +1,18 @@
+{
+  "kind": "plan_ops",
+  "version": 1,
+  "scope": "plan",
+  "actions": [
+    {
+      "action": "plan_create",
+      "title": "Test Plan for Truth Gate"
+    },
+    {
+      "action": "plan_item_add",
+      "selector": {
+        "title": "Test Plan for Truth Gate"
+      },
+      "text": "Test item added by truth gate fixture"
+    }
+  ]
+}

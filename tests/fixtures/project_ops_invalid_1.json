@@ -1,0 +1,11 @@
+{
+  "kind": "invalid_kind",
+  "version": 1,
+  "scope": "project",
+  "actions": [
+    {
+      "action": "track_create",
+      "title": "Test Track for Truth Gate"
+    }
+  ]
+}

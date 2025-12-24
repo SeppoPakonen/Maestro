@@ -1,0 +1,11 @@
+{
+  "kind": "invalid_kind",
+  "version": 1,
+  "scope": "plan",
+  "actions": [
+    {
+      "action": "plan_create",
+      "title": "Test Plan for Truth Gate"
+    }
+  ]
+}

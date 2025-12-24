@@ -1,0 +1,1 @@
+{"type": "message", "content": "Hello", "session_id": "test-session-def"}

@@ -1,0 +1,16 @@
+{
+  "kind": "project_ops",
+  "version": 1,
+  "scope": "project",
+  "actions": [
+    {
+      "action": "track_create",
+      "title": "Test Track for Truth Gate"
+    },
+    {
+      "action": "phase_create",
+      "track": "Test Track for Truth Gate",
+      "title": "Test Phase for Truth Gate"
+    }
+  ]
+}

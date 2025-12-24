@@ -1,0 +1,2 @@
+{"type": "message", "content": "Hello", "session_id": "test-session-123"}
+{"type": "status", "status": "completed"}
