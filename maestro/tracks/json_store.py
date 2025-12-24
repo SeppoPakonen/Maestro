@@ -396,13 +396,13 @@ class JsonStore:
     # ========== Utility Operations ==========
 
     def list_all_tracks(self) -> List[str]:
-        """List all track IDs in the storage."""
-        return [f.stem for f in self.tracks_dir.glob("TR-*.json")]
+        """List all track IDs in the storage (supports both numbered and slug formats)."""
+        return [f.stem for f in self.tracks_dir.glob("*.json")]
 
     def list_all_phases(self) -> List[str]:
-        """List all phase IDs in the storage."""
-        return [f.stem for f in self.phases_dir.glob("PH-*.json")]
+        """List all phase IDs in the storage (supports both numbered and slug formats)."""
+        return [f.stem for f in self.phases_dir.glob("*.json")]
 
     def list_all_tasks(self) -> List[str]:
-        """List all task IDs in the storage."""
-        return [f.stem for f in self.tasks_dir.glob("TS-*.json")]
+        """List all task IDs in the storage (supports both numbered and slug formats)."""
+        return [f.stem for f in self.tasks_dir.glob("*.json")]

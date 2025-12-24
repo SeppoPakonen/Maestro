@@ -1,0 +1,16 @@
+{
+  "phase_id": "initial-implementation",
+  "name": "Initial Implementation",
+  "status": "proposed",
+  "completion": 0,
+  "description": [],
+  "tasks": [],
+  "track_id": "test-project-ops-track",
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:08:52.186200",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

@@ -1,0 +1,20 @@
+{
+  "track_id": "cli-tpt",
+  "name": "Track/Phase/Task CLI and AI Discussion System",
+  "status": "done",
+  "completion": 0,
+  "description": [],
+  "phases": [
+    "cli1",
+    "cli2",
+    "cli3",
+    "cli4",
+    "cli5"
+  ],
+  "priority": 0,
+  "created_at": null,
+  "updated_at": null,
+  "tags": [],
+  "owner": null,
+  "is_top_priority": false
+}

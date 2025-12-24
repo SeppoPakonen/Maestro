@@ -1,0 +1,16 @@
+{
+  "track_id": "work-session",
+  "name": "Work & Session Framework",
+  "status": "in-progress",
+  "completion": 0,
+  "description": [],
+  "phases": [
+    "ws3"
+  ],
+  "priority": 0,
+  "created_at": null,
+  "updated_at": null,
+  "tags": [],
+  "owner": null,
+  "is_top_priority": false
+}
