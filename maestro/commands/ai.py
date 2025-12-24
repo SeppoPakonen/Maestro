@@ -247,7 +247,8 @@ def handle_ai_qwen(args) -> int:
             resume_id=resume_id,
             stream_json=True,  # Enable stream_json by default for session ID extraction
             quiet=getattr(args, 'quiet', False),
-            model=getattr(args, 'model', None)
+            model=getattr(args, 'model', None),
+            verbose=getattr(args, 'verbose', False)
         )
 
         # Determine if reading from stdin

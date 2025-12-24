@@ -562,3 +562,39 @@ This command generates a Markdown file at `docs/UNDERSTANDING_SNAPSHOT.md` (or a
 Use `maestro understand dump --check` in CI to ensure the snapshot is up-to-date, or `maestro understand dump --output <path>` to specify a custom output location.
 
 The snapshot is derived from actual code/config/docs, not narrative assumptions, making it a reliable source of truth about the project's capabilities and constraints.
+
+---
+
+## CI Truth Gate
+
+Maestro enforces a "docs are truth + rule-assertive contracts" model through a CI truth gate that runs on all pull requests and main branch pushes.
+
+### What the Truth Gate Enforces
+
+The truth gate validates:
+1. **Snapshot freshness**: `UNDERSTANDING_SNAPSHOT.md` is up to date with the current codebase
+2. **Contract validation**: Canonical JSON contracts (`plan_ops` and `project_ops`) validate correctly
+3. **Smoke tests**: Core CLI entrypoints for ops/explore/discuss work at a basic level
+
+### How to Run Locally
+
+```bash
+# Using make (preferred method):
+make truth-gate
+
+# Or run the script directly:
+bash scripts/truth_gate.sh
+
+# For verbose output:
+TRUTH_GATE_VERBOSE=1 make truth-gate
+```
+
+### Typical Failure Modes and Fixes
+
+- **Snapshot drift**: Run `maestro understand dump` to update the snapshot
+- **Contract drift**: Ensure fixtures match the expected schema or update the code accordingly
+- **Bootstrap issues**: The truth gate handles clean checkout initialization automatically
+
+### CI Integration
+
+The truth gate runs automatically in GitHub Actions on pull requests and main branch pushes. It must pass for any code to be merged.

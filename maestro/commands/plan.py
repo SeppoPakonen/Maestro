@@ -852,15 +852,15 @@ def add_plan_parser(subparsers):
     # Set a custom function to handle the case when no subcommand is provided
     plan_parser.set_defaults(func=lambda args: plan_parser.print_help())
 
-    # For the plan command, we'll use required=False for subparsers to allow for the shorthand usage
-    # We'll handle the ambiguity by including the plan_title positional argument and handling it in main
+    # For the plan command, we'll use required=True for subparsers to ensure subcommands are properly recognized
+    # This helps avoid the ambiguity where the first argument gets assigned to a positional parameter
     try:
         # Python 3.7+ supports required parameter
-        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}', required=False)
+        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}', required=True)
     except TypeError:
         # For older Python versions, required parameter is not available
         plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}')
-        # For older versions, the subparsers are not required by default
+        # For older versions, the subparsers are not required by default - we'll handle this differently
 
     # Add subcommand
     add_parser = plan_subparsers.add_parser('add', aliases=['a'], help='Add a new plan')
@@ -912,9 +912,5 @@ def add_plan_parser(subparsers):
     explore_parser.add_argument('--save-session', action='store_true', default=False, help='Force session logging')
     explore_parser.add_argument('--auto-apply', action='store_true', default=False, help='Apply without asking each iteration (dangerous but explicit)')
     explore_parser.add_argument('--stop-after-apply', action='store_true', default=False, help='Apply one iteration then stop')
-
-    # Add a positional argument for plan title to show (for shorthand usage like 'plan <title>')
-    # This creates an ambiguity with subcommands, so we handle this in the main dispatch function
-    plan_parser.add_argument('plan_title', help='Plan title or number to show (shorthand for show command)', nargs='?', metavar='PLAN_TITLE')
 
     return plan_parser
