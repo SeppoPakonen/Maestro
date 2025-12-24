@@ -13,14 +13,16 @@ from pathlib import Path
 
 from .operations import CreateTrack, CreatePhase, CreateTask, MoveTaskToDone, SetContext
 from ..data.markdown_writer import (
-    insert_track_block, 
-    insert_phase_block, 
-    insert_task_block, 
+    insert_track_block,
+    insert_phase_block,
+    insert_task_block,
     update_task_metadata,
     update_phase_metadata,
     update_track_metadata
 )
 from ..data.markdown_parser import parse_todo_md
+from ..tracks.json_store import JsonStore
+from ..tracks.models import Track, Phase, Task
 
 
 @dataclass
@@ -33,7 +35,7 @@ class PreviewResult:
 
 class ProjectOpsExecutor:
     """Executor for project operations with dry-run and apply functionality."""
-    
+
     def __init__(self, todo_path: str = "docs/todo.md"):
         self.todo_path = Path(todo_path)
         # Ensure the docs directory exists
@@ -41,6 +43,10 @@ class ProjectOpsExecutor:
         # Create the file if it doesn't exist
         if not self.todo_path.exists():
             self.todo_path.write_text("# TODO\n\n", encoding='utf-8')
+        # Initialize JSON store for JSON storage with context-aware path
+        # The JSON store should be in the same docs directory as the todo.md
+        json_base_path = self.todo_path.parent / "maestro"
+        self.json_store = JsonStore(str(json_base_path))
 
     def _preview_create_track(self, op: CreateTrack) -> List[str]:
         """Preview a CreateTrack operation."""
@@ -86,13 +92,36 @@ class ProjectOpsExecutor:
         for track in todo_data.get('tracks', []):
             if track.get('title', '').lower() == op.title.lower():
                 raise ValueError(f"Track with title '{op.title}' already exists")
-        
+
         # Generate track block content
         track_id = op.title.lower().replace(' ', '-').replace('_', '-')
         track_block = f"## Track: {op.title}\n\n- *track_id*: *{track_id}*\n- *status*: *proposed*\n- *completion*: 0%\n\n"
-        
-        # Insert the track
+
+        # Insert the track into markdown
         success = insert_track_block(self.todo_path, track_block)
+
+        # Also create JSON representation
+        if success:
+            track = Track(
+                track_id=track_id,
+                name=op.title,
+                status='proposed',
+                completion=0,
+                description=[],
+                phases=[],
+                priority=0,
+                tags=[],
+                owner=None,
+                is_top_priority=False
+            )
+            self.json_store.save_track(track)
+
+            # Update index
+            index = self.json_store.load_index()
+            if track_id not in index.tracks:
+                index.tracks.append(track_id)
+                self.json_store.save_index(index)
+
         return success
 
     def _apply_create_phase(self, op: CreatePhase) -> bool:
@@ -101,34 +130,107 @@ class ProjectOpsExecutor:
         phase_id = op.title.lower().replace(' ', '-').replace('_', '-')
         track_id = op.track.lower().replace(' ', '-').replace('_', '-')
         phase_block = f"### Phase {phase_id}: {op.title}\n\n- *phase_id*: *{phase_id}*\n- *status*: *proposed*\n- *completion*: 0\n\n"
-        
-        # Insert the phase into the track
+
+        # Insert the phase into the track markdown
         success = insert_phase_block(self.todo_path, track_id, phase_block)
+
+        # Also create JSON representation
+        if success:
+            phase = Phase(
+                phase_id=phase_id,
+                name=op.title,
+                status='proposed',
+                completion=0,
+                description=[],
+                tasks=[],
+                track_id=track_id,
+                priority='P2',
+                tags=[],
+                owner=None,
+                dependencies=[],
+                order=None
+            )
+            self.json_store.save_phase(phase)
+
+            # Update track to include this phase
+            track = self.json_store.load_track(track_id, load_phases=True, load_tasks=False)
+            if track:
+                if not track.phases:
+                    track.phases = []
+                if phase_id not in track.phases:
+                    track.phases.append(phase_id)
+                    self.json_store.save_track(track)
+
         return success
 
     def _apply_create_task(self, op: CreateTask) -> bool:
         """Apply a CreateTask operation."""
         # Generate task block content
-        task_id = op.title.lower().replace(' ', '-').replace('_', '-')
+        task_title_slug = op.title.lower().replace(' ', '-').replace('_', '-')
         phase_id = op.phase.lower().replace(' ', '-').replace('_', '-')
-        
-        # For now, we'll add the task as a simple list item under the phase
-        # In a real implementation, we'd properly insert it in the phase section
+
+        # Load phase to get existing tasks and generate proper task_id
+        phase = self.json_store.load_phase(phase_id, load_tasks=True)
+        if not phase:
+            # If phase doesn't exist in JSON, we can't create task properly
+            # Fall back to markdown-only for now
+            task_content = f"- [ ] {op.title}  #task_id: {task_title_slug} #status: todo\n"
+            with self.todo_path.open('a', encoding='utf-8') as f:
+                f.write(f"\n{task_content}")
+            return True
+
+        # Generate proper task_id with phase prefix
+        existing_task_ids = [t if isinstance(t, str) else t.task_id for t in (phase.tasks or [])]
+        base_num = 1
+        while f"{phase_id}.{base_num}" in existing_task_ids:
+            base_num += 1
+        task_id = f"{phase_id}.{base_num}"
+
+        # Create task in markdown
         task_content = f"- [ ] {op.title}  #task_id: {task_id} #status: todo\n"
-        
-        # This is a simplified approach - in a real implementation, we'd use the proper insert_task_block
-        # function once we have the phase_id available in the right format
         with self.todo_path.open('a', encoding='utf-8') as f:
             f.write(f"\n{task_content}")
-        
+
+        # Also create JSON representation
+        task = Task(
+            task_id=task_id,
+            name=op.title,
+            status='planned',
+            priority='P2',
+            estimated_hours=None,
+            description=[],
+            phase_id=phase_id,
+            completed=False,
+            tags=[],
+            owner=None,
+            dependencies=[],
+            subtasks=[]
+        )
+        self.json_store.save_task(task)
+
+        # Update phase to include this task
+        if not phase.tasks:
+            phase.tasks = []
+        if task_id not in phase.tasks:
+            phase.tasks.append(task_id)
+            self.json_store.save_phase(phase)
+
         return True
 
     def _apply_move_task_to_done(self, op: MoveTaskToDone) -> bool:
         """Apply a MoveTaskToDone operation."""
-        # In a real implementation, we'd move the task from todo.md to done.md
-        # For now, we'll just update its status to done in the metadata
+        # Update markdown status
         task_id = op.task.lower().replace(' ', '-').replace('_', '-')
         success = update_task_metadata(self.todo_path, task_id, "status", "done")
+
+        # Also update JSON representation if it exists
+        if success:
+            task = self.json_store.load_task(task_id)
+            if task:
+                task.status = 'done'
+                task.completed = True
+                self.json_store.save_task(task)
+
         return success
 
     def _apply_set_context(self, op: SetContext) -> bool:
