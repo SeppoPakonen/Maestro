@@ -132,7 +132,7 @@ def handle_plan_remove_item(title_or_number: str, item_number: int, session_path
         sys.exit(1)
 
 
-def handle_plan_discuss(title_or_number: str, session_path: Optional[str] = None, verbose: bool = False):
+def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Optional[str] = None, verbose: bool = False):
     """Start an AI discussion to edit a plan, producing a canonical PlanOpsResult JSON."""
     from ..ai.manager import AiEngineManager
     from ..plan_ops.decoder import decode_plan_ops_json, DecodeError
@@ -142,11 +142,35 @@ def handle_plan_discuss(title_or_number: str, session_path: Optional[str] = None
     try:
         # Use session_path if provided, otherwise use default
         store = PlanStore(session_path) if session_path else PlanStore()
-        plan = store.get_plan(title_or_number)
 
-        if plan is None:
-            print_error(f"Plan not found: {title_or_number}", 2)
-            sys.exit(1)
+        # Handle plan selection logic when title_or_number is not provided
+        if title_or_number is None:
+            plans = store.load()
+            if len(plans) == 0:
+                print_error("No plans exist. Use `maestro plan add <title>`.", 2)
+                sys.exit(1)
+            elif len(plans) == 1:
+                # Auto-select the single plan
+                plan = plans[0]
+                print_info(f"Auto-selected plan: {plan.title}", 2)
+            else:
+                # Show numbered list and exit with instruction
+                print_header("AVAILABLE PLANS")
+                for i, plan in enumerate(plans, 1):
+                    item_count = len(plan.items)
+                    status = f" ({item_count} item{'s' if item_count != 1 else ''})"
+                    styled_print(f"{i:2d}. {plan.title}{status}", Colors.BRIGHT_YELLOW, None, 0)
+
+                print_info(f"\nMultiple plans exist. Please specify which plan to discuss:", 2)
+                print_info(f"  maestro plan discuss <number>    (e.g., maestro plan discuss 1)", 2)
+                print_info(f"  maestro plan discuss <title>    (e.g., maestro plan discuss \"My Plan\")", 2)
+                sys.exit(1)
+        else:
+            plan = store.get_plan(title_or_number)
+
+            if plan is None:
+                print_error(f"Plan not found: {title_or_number}", 2)
+                sys.exit(1)
 
         print_header(f"PLAN DISCUSSION: {plan.title}")
         if not plan.items:
@@ -170,6 +194,30 @@ def handle_plan_discuss(title_or_number: str, session_path: Optional[str] = None
         # Use the AI manager to get the response
         manager = AiEngineManager()
 
+        # Check if the required method exists
+        if not hasattr(manager, "run_once"):
+            print_error("AI manager missing required 'run_once' method. Please update the code to use the supported API.", 2)
+            sys.exit(1)
+
+        # Import required classes for the new AI manager API
+        from ..ai.types import PromptRef
+        from ..ai.runner import run_engine_command
+        from ..ai.types import RunOpts
+
+        # Create run options
+        opts = RunOpts(
+            dangerously_skip_permissions=False,
+            continue_latest=False,
+            resume_id=None,
+            stream_json=False,  # We want the full response
+            quiet=not verbose,   # Show output if verbose is True
+            verbose=verbose,     # Enable verbose mode for detailed diagnostics
+            model=None
+        )
+
+        # Initialize last_error variable
+        last_error = None
+
         # Try to get a response from the AI with retry logic
         max_retries = 2
         for attempt in range(max_retries + 1):
@@ -178,15 +226,64 @@ def handle_plan_discuss(title_or_number: str, session_path: Optional[str] = None
                 prompt += f"\n\nPrevious response was invalid. Error: {last_error}. Please return only the valid PlanOpsResult JSON."
 
             try:
-                # Get response from AI
-                response = manager.run_completion(
-                    engine="qwen",  # Using qwen as default, could be configurable
-                    messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"}  # Request JSON format
-                )
+                # Create prompt reference
+                prompt_ref = PromptRef(source=prompt)
 
-                # Extract the JSON from the response
-                ai_response = response.choices[0].message.content.strip()
+                # Run the AI engine and get response
+                result = manager.run_once("qwen", prompt_ref, opts)
+
+                # Check if the engine execution was successful
+                if result.exit_code != 0:
+                    error_msg = f"AI engine failed with exit code {result.exit_code}"
+                    if verbose and result.stderr_path:
+                        try:
+                            with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                stderr_content = f.read()
+                                if stderr_content:
+                                    error_msg += f". Stderr excerpt: {stderr_content[:200]}..."
+                        except:
+                            pass  # Ignore errors reading stderr
+                    print_error(error_msg, 2)
+                    if attempt == max_retries:
+                        sys.exit(1)
+                    continue
+
+                # Read the response from the output file
+                if result.stdout_path:
+                    with open(result.stdout_path, 'r', encoding='utf-8') as f:
+                        ai_response = f.read().strip()
+                else:
+                    print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
+                    if verbose:
+                        print_info(f"Engine exit code: {result.exit_code}", 2)
+                        if result.stderr_path:
+                            try:
+                                with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                    stderr_content = f.read()
+                                    if stderr_content:
+                                        print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                            except:
+                                pass  # Ignore errors reading stderr
+                    if attempt == max_retries:
+                        sys.exit(1)
+                    continue
+
+                # Check if the response is empty before attempting JSON parsing
+                if not ai_response:
+                    print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
+                    if verbose:
+                        print_info(f"Engine exit code: {result.exit_code}", 2)
+                        if result.stderr_path:
+                            try:
+                                with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                    stderr_content = f.read()
+                                    if stderr_content:
+                                        print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                            except:
+                                pass  # Ignore errors reading stderr
+                    if attempt == max_retries:
+                        sys.exit(1)
+                    continue
 
                 if verbose:
                     print_info(f"AI Response: {ai_response}", 2)
@@ -198,15 +295,44 @@ def handle_plan_discuss(title_or_number: str, session_path: Optional[str] = None
                 break
 
             except DecodeError as e:
-                last_error = str(e)
+                # JSON parsing failed - show raw response in verbose mode
+                if verbose:
+                    print_info(f"Raw AI response (first 200 chars): {ai_response[:200] if 'ai_response' in locals() else 'N/A'}", 2)
+                error_msg = f"AI response failed validation: {str(e)}"
+                print_error(error_msg, 2)
+                last_error = f"JSON validation error: {str(e)}"
                 if attempt == max_retries:
                     print_error(f"AI response failed validation after {max_retries} retries: {last_error}", 2)
                     sys.exit(1)
                 continue
-            except Exception as e:
-                last_error = str(e)
+            except json.JSONDecodeError as e:
+                # JSON parsing failed - show raw response in verbose mode
+                if verbose:
+                    print_info(f"Raw AI response (first 200 chars): {ai_response[:200] if 'ai_response' in locals() else 'N/A'}", 2)
+                error_msg = f"AI returned invalid JSON: {str(e)}"
+                print_error(error_msg, 2)
+                last_error = f"JSON parse error: {str(e)}"
                 if attempt == max_retries:
-                    print_error(f"Error processing AI response after {max_retries} retries: {last_error}", 2)
+                    print_error(f"AI response failed JSON parsing after {max_retries} retries: {last_error}", 2)
+                    sys.exit(1)
+                continue
+            except Exception as e:
+                # Other errors during processing
+                error_msg = f"Error processing AI response: {str(e)}"
+                print_error(error_msg, 2)
+                last_error = f"Processing error: {str(e)}"
+                if verbose:
+                    print_info(f"Engine exit code: {result.exit_code if 'result' in locals() else 'N/A'}", 2)
+                    if 'result' in locals() and result.stderr_path:
+                        try:
+                            with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                stderr_content = f.read()
+                                if stderr_content:
+                                    print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                        except:
+                            pass  # Ignore errors reading stderr
+                if attempt == max_retries:
+                    print_error(f"Error processing AI response after {max_retries} retries: {str(e)}", 2)
                     sys.exit(1)
                 continue
 
@@ -383,12 +509,14 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
             # Create a hash of the prompt for session tracking
             prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
 
-            # Try to get a response from the AI with retry logic
-            max_retries = 2
+            # Initialize variables
             response_valid = False
             last_error = None
             ai_response = None
             project_ops_result = None
+
+            # Try to get a response from the AI with retry logic
+            max_retries = 2
 
             for attempt in range(max_retries + 1):
                 if attempt > 0:
@@ -409,6 +537,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                         resume_id=None,
                         stream_json=False,  # We want the full response
                         quiet=not verbose,   # Show output if verbose is True
+                        verbose=verbose,     # Enable verbose mode for detailed diagnostics
                         model=None
                     )
 
@@ -418,12 +547,57 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                     # Run the AI engine and get response
                     result = manager.run_once(engine, prompt_ref, opts)
 
+                    # Check if the engine execution was successful
+                    if result.exit_code != 0:
+                        error_msg = f"AI engine failed with exit code {result.exit_code}"
+                        if verbose and result.stderr_path:
+                            try:
+                                with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                    stderr_content = f.read()
+                                    if stderr_content:
+                                        error_msg += f". Stderr excerpt: {stderr_content[:200]}..."
+                            except:
+                                pass  # Ignore errors reading stderr
+                        print_error(error_msg, 2)
+                        if attempt == max_retries:
+                            break
+                        continue
+
                     # Read the response from the output file
                     if result.stdout_path:
                         with open(result.stdout_path, 'r', encoding='utf-8') as f:
                             ai_response = f.read().strip()
                     else:
-                        print_error("No response from AI engine", 2)
+                        print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
+                        if verbose:
+                            print_info(f"Engine exit code: {result.exit_code}", 2)
+                            if result.stderr_path:
+                                try:
+                                    with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                        stderr_content = f.read()
+                                        if stderr_content:
+                                            print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                                except:
+                                    pass  # Ignore errors reading stderr
+                        if attempt == max_retries:
+                            break
+                        continue
+
+                    # Check if the response is empty before attempting JSON parsing
+                    if not ai_response:
+                        print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
+                        if verbose:
+                            print_info(f"Engine exit code: {result.exit_code}", 2)
+                            if result.stderr_path:
+                                try:
+                                    with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                        stderr_content = f.read()
+                                        if stderr_content:
+                                            print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                                except:
+                                    pass  # Ignore errors reading stderr
+                        if attempt == max_retries:
+                            break
                         continue
 
                     if verbose:
@@ -437,13 +611,42 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                     break
 
                 except DecodeError as e:
-                    last_error = str(e)
+                    # JSON parsing failed - show raw response in verbose mode
+                    if verbose:
+                        print_info(f"Raw AI response (first 200 chars): {ai_response[:200] if 'ai_response' in locals() else 'N/A'}", 2)
+                    error_msg = f"AI response failed validation: {str(e)}"
+                    print_error(error_msg, 2)
+                    last_error = f"JSON validation error: {str(e)}"
                     if attempt == max_retries:
                         print_error(f"AI response failed validation after {max_retries} retries: {last_error}", 2)
                         break
                     continue
+                except json.JSONDecodeError as e:
+                    # JSON parsing failed - show raw response in verbose mode
+                    if verbose:
+                        print_info(f"Raw AI response (first 200 chars): {ai_response[:200] if 'ai_response' in locals() else 'N/A'}", 2)
+                    error_msg = f"AI returned invalid JSON: {str(e)}"
+                    print_error(error_msg, 2)
+                    last_error = f"JSON parse error: {str(e)}"
+                    if attempt == max_retries:
+                        print_error(f"AI response failed JSON parsing after {max_retries} retries: {last_error}", 2)
+                        break
+                    continue
                 except Exception as e:
-                    last_error = str(e)
+                    # Other errors during processing
+                    error_msg = f"Error processing AI response: {str(e)}"
+                    print_error(error_msg, 2)
+                    last_error = f"Processing error: {str(e)}"
+                    if verbose:
+                        print_info(f"Engine exit code: {result.exit_code if 'result' in locals() else 'N/A'}", 2)
+                        if 'result' in locals() and result.stderr_path:
+                            try:
+                                with open(result.stderr_path, 'r', encoding='utf-8') as f:
+                                    stderr_content = f.read()
+                                    if stderr_content:
+                                        print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                            except:
+                                pass  # Ignore errors reading stderr
                     if attempt == max_retries:
                         print_error(f"Error processing AI response after {max_retries} retries: {str(e)}", 2)
                         break
@@ -645,12 +848,19 @@ Return a JSON object with this structure:
 def add_plan_parser(subparsers):
     """Add plan command subparsers."""
     plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
+
+    # Set a custom function to handle the case when no subcommand is provided
+    plan_parser.set_defaults(func=lambda args: plan_parser.print_help())
+
+    # For the plan command, we'll use required=False for subparsers to allow for the shorthand usage
+    # We'll handle the ambiguity by including the plan_title positional argument and handling it in main
     try:
         # Python 3.7+ supports required parameter
-        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri}', required=False)
+        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}', required=False)
     except TypeError:
         # For older Python versions, required parameter is not available
-        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri}')
+        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}')
+        # For older versions, the subparsers are not required by default
 
     # Add subcommand
     add_parser = plan_subparsers.add_parser('add', aliases=['a'], help='Add a new plan')
@@ -688,7 +898,7 @@ def add_plan_parser(subparsers):
 
     # Plan discuss subcommand
     discuss_parser = plan_subparsers.add_parser('discuss', aliases=['d'], help='Discuss and edit a plan with AI')
-    discuss_parser.add_argument('title_or_number', help='Plan title or number from list')
+    discuss_parser.add_argument('title_or_number', help='Plan title or number from list (optional, if omitted and there is exactly one plan it will be auto-selected)', nargs='?')
 
     # Plan explore subcommand
     explore_parser = plan_subparsers.add_parser('explore', aliases=['e'], help='Explore plans and convert to project operations')
@@ -703,8 +913,8 @@ def add_plan_parser(subparsers):
     explore_parser.add_argument('--auto-apply', action='store_true', default=False, help='Apply without asking each iteration (dangerous but explicit)')
     explore_parser.add_argument('--stop-after-apply', action='store_true', default=False, help='Apply one iteration then stop')
 
-    # Add a positional argument for plan title to show (default behavior when no subcommand is provided)
-    # This needs to be added after subparsers to avoid conflicts
-    plan_parser.add_argument('plan_title', help='Plan title or number to show', nargs='?', metavar='PLAN_TITLE')
+    # Add a positional argument for plan title to show (for shorthand usage like 'plan <title>')
+    # This creates an ambiguity with subcommands, so we handle this in the main dispatch function
+    plan_parser.add_argument('plan_title', help='Plan title or number to show (shorthand for show command)', nargs='?', metavar='PLAN_TITLE')
 
     return plan_parser

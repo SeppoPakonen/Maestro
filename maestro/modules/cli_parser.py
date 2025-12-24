@@ -320,10 +320,16 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
     elif args.command and hasattr(args, 'plan_subcommand') and args.plan_subcommand:
         if args.command == 'plan':
             plan_subcommand_alias_map = {
-                'tr': 'tree',
+                'a': 'add',
                 'ls': 'list',
+                'tr': 'tree',
+                'rm': 'remove',
                 'sh': 'show',
+                'ai': 'add-item',
+                'ri': 'remove-item',
+                'o': 'ops',
                 'd': 'discuss',
+                'e': 'explore',
                 'st': 'set',
                 'g': 'get',
                 'k': 'kill',

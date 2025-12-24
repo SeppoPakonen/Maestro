@@ -118,19 +118,59 @@ def main():
             parser.print_help()
 
     elif args.command == 'plan':
-        if hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+        # Check if a custom function was set for this command (e.g., to show help when no subcommand provided)
+        if hasattr(args, 'func') and args.func is not None:
+            # This handles the case when no subcommand is provided - print help
+            args.func(args)
+            import sys
+            sys.exit(0)
+        # Check if a subcommand was explicitly provided
+        elif hasattr(args, 'plan_subcommand') and args.plan_subcommand:
             if args.plan_subcommand == 'add':
-                handle_plan_add(args.title, args.session, args.verbose)
+                # Check if the 'title' argument was provided for add command
+                if hasattr(args, 'title') and args.title:
+                    handle_plan_add(args.title, args.session, args.verbose)
+                else:
+                    # Missing required 'title' argument for add command
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
             elif args.plan_subcommand == 'list':
                 handle_plan_list(args.session, args.verbose)
             elif args.plan_subcommand == 'remove':
-                handle_plan_remove(args.title_or_number, args.session, args.verbose)
+                # Check if the 'title_or_number' argument was provided
+                if hasattr(args, 'title_or_number') and args.title_or_number:
+                    handle_plan_remove(args.title_or_number, args.session, args.verbose)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
             elif args.plan_subcommand == 'show':
-                handle_plan_show(args.title_or_number, args.session, args.verbose)
+                # Check if the 'title_or_number' argument was provided
+                if hasattr(args, 'title_or_number') and args.title_or_number:
+                    handle_plan_show(args.title_or_number, args.session, args.verbose)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
             elif args.plan_subcommand == 'add-item':
-                handle_plan_add_item(args.title_or_number, args.item_text, args.session, args.verbose)
+                # Check if both required arguments were provided
+                if (hasattr(args, 'title_or_number') and args.title_or_number and
+                    hasattr(args, 'item_text') and args.item_text):
+                    handle_plan_add_item(args.title_or_number, args.item_text, args.session, args.verbose)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
             elif args.plan_subcommand == 'remove-item':
-                handle_plan_remove_item(args.title_or_number, args.item_number, args.session, args.verbose)
+                # Check if both required arguments were provided
+                if (hasattr(args, 'title_or_number') and args.title_or_number and
+                    hasattr(args, 'item_number') and args.item_number):
+                    handle_plan_remove_item(args.title_or_number, args.item_number, args.session, args.verbose)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
             elif args.plan_subcommand == 'ops':
                 # Handle plan ops subcommands
                 if hasattr(args, 'ops_subcommand') and args.ops_subcommand:
@@ -160,14 +200,11 @@ def main():
                     auto_apply=getattr(args, 'auto_apply', False),
                     stop_after_apply=getattr(args, 'stop_after_apply', False)
                 )
-        elif hasattr(args, 'plan_title') and args.plan_title:
-            # Default to show if a plan title is provided directly
-            handle_plan_show(args.plan_title, args.session, args.verbose)
         else:
-            # Show help if no subcommand is provided
-            import sys
+            # No subcommand provided - show help
             parser.print_help()
-            sys.exit(1)
+            import sys
+            sys.exit(0)
 
     elif args.command == 'rules':
         if args.rules_subcommand == 'list':
