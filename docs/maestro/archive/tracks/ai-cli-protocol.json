@@ -1,0 +1,25 @@
+{
+  "track_id": "ai-cli-protocol",
+  "name": "AI CLI Live Tool Protocol",
+  "status": "in_progress",
+  "completion": 0,
+  "description": [
+    "Implementation of live tool protocol for AI CLI agents"
+  ],
+  "phases": [
+    "aicli2",
+    "aicli5",
+    "aicli8",
+    "aicli6",
+    "aicli3",
+    "aicli4",
+    "aicli7",
+    "aicli1"
+  ],
+  "priority": 0,
+  "created_at": null,
+  "updated_at": null,
+  "tags": [],
+  "owner": null,
+  "is_top_priority": false
+}

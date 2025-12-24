@@ -3,7 +3,10 @@
     "cli-tpt",
     "build-run",
     "issues-solutions",
-    "work-session"
+    "work-session",
+    "ai-cli-protocol",
+    "cli-editing",
+    "test-meaningfulness"
   ],
-  "archived_at": "2025-12-24T17:49:39.962878"
+  "archived_at": "2025-12-24T21:07:07.523904"
 }

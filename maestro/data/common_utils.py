@@ -153,18 +153,56 @@ def parse_done_safe(done_path: Path = None, verbose: bool = False) -> Optional[d
         json_store = JsonStore()
 
         # Load the archive index
-        archive = json_store.load_archive(load_tracks=True, load_phases=True, load_tasks=True)
+        archive = json_store.load_archive(load_tracks=True, load_phases=False, load_tasks=False)
 
         # Convert archived tracks to dict format
         tracks_dicts = []
         for track in archive.tracks:
-            # Get phases for this track from archive
+            # Handle both Track objects and track IDs
+            if isinstance(track, str):
+                # It's just a track ID, load it from archive
+                archive_track_file = json_store.archive_dir / "tracks" / f"{track}.json"
+                if not archive_track_file.exists():
+                    continue
+                import json
+                track_data = json.loads(archive_track_file.read_text(encoding='utf-8'))
+
+                # Reconstruct Track object
+                from maestro.tracks.models import Track
+                track = Track(
+                    track_id=track_data["track_id"],
+                    name=track_data.get("name", ""),
+                    status=track_data.get("status", "unknown"),
+                    completion=track_data.get("completion", 0),
+                    description=track_data.get("description", []),
+                    phases=track_data.get("phases", []),
+                    priority=track_data.get("priority", 0),
+                    created_at=track_data.get("created_at"),
+                    updated_at=track_data.get("updated_at"),
+                    tags=track_data.get("tags", []),
+                    owner=track_data.get("owner"),
+                    is_top_priority=track_data.get("is_top_priority", False)
+                )
+
+            # Get phase IDs for this track
+            phase_ids = track.phases if isinstance(track.phases, list) else []
+
+            # Load phases for this track
             track_phases = []
             all_tasks = []
 
-            # Note: archived data is loaded nested, so phases are in track.phases
-            # But we need to handle the case where they might not be loaded
-            # For now, return empty lists as archive operations need more work
+            for phase_id in phase_ids:
+                phase = json_store.load_phase(phase_id, load_tasks=False)
+                if phase:
+                    track_phases.append(phase)
+
+                    # Load tasks for this phase
+                    task_ids = json_store.list_all_tasks()
+                    for task_id in task_ids:
+                        task = json_store.load_task(task_id)
+                        if task and task.phase_id == phase_id:
+                            all_tasks.append(task)
+
             track_dict = _track_to_dict(track, track_phases, all_tasks)
             tracks_dicts.append(track_dict)
 
