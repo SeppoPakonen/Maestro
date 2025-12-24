@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -37,7 +38,7 @@ from maestro.data.markdown_writer import (
     update_track_metadata,
     update_track_heading_status,
 )
-from maestro.display.table_renderer import render_track_table
+from maestro.display.table_renderer import render_track_table, render_phase_table, _box_chars, _style_text, _truncate, _pad_to_width, _status_display
 from maestro.data.common_utils import (
     parse_todo_safe,
     get_all_tracks_with_phases_and_tasks,
@@ -275,10 +276,11 @@ def show_track(track_identifier: str, args) -> int:
             "status_color": status_color,
         })
 
-    todo_title = f"Todo phases ({len(todo_rows)})"
-    todo_title = f"🧭 {todo_title}" if unicode_symbols else todo_title
-    for line in _render_table(todo_title, todo_rows, term_width, border_color="yellow"):
-        print(line)
+    # Print todo phases
+    if todo_phases:
+        print(f"\n🧭 Todo phases ({len(todo_phases)}):" if unicode_symbols else f"\nTodo phases ({len(todo_phases)}):")
+        for line in render_phase_table(todo_phases):
+            print(line)
 
     total_done = len(done_phases)
     visible_done = done_phases[-10:] if done_phases else []
@@ -301,8 +303,11 @@ def show_track(track_identifier: str, args) -> int:
             "status": status_label,
             "status_color": status_color,
         })
-    for line in _render_table(done_title, done_rows, term_width, border_color="green"):
-        print(line)
+    # Print done phases
+    if visible_done:
+        print(f"\n✅ {done_title}:" if unicode_symbols else f"\n{done_title}:")
+        for line in render_phase_table(visible_done):
+            print(line)
 
     return 0
 

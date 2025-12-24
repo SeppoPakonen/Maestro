@@ -132,7 +132,7 @@ def handle_plan_remove_item(title_or_number: str, item_number: int, session_path
         sys.exit(1)
 
 
-def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Optional[str] = None, verbose: bool = False):
+def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Optional[str] = None, verbose: bool = False, prompt: Optional[str] = None):
     """Start an AI discussion to edit a plan, producing a canonical PlanOpsResult JSON."""
     from ..ai.manager import AiEngineManager
     from ..plan_ops.decoder import decode_plan_ops_json, DecodeError
@@ -189,7 +189,13 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
 
         # Create the prompt for the AI using the prompt contract
         from ..plan_ops.prompt_contract import get_plan_discuss_prompt
-        prompt = get_plan_discuss_prompt(plan_context['title'], plan_context['items'])
+        base_prompt = get_plan_discuss_prompt(plan_context['title'], plan_context['items'])
+
+        # If a custom prompt was provided, append it to the base prompt
+        if prompt:
+            ai_prompt = f"{base_prompt}\n\nUSER REQUEST:\n{prompt}"
+        else:
+            ai_prompt = base_prompt
 
         # Use the AI manager to get the response
         manager = AiEngineManager()
@@ -206,7 +212,7 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
 
         # Create run options
         opts = RunOpts(
-            dangerously_skip_permissions=False,
+            dangerously_skip_permissions=True,  # Skip permissions for automated execution
             continue_latest=False,
             resume_id=None,
             stream_json=False,  # We want the full response
@@ -223,11 +229,11 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
         for attempt in range(max_retries + 1):
             if attempt > 0:
                 print_info(f"Retrying AI request (attempt {attempt}/{max_retries})...", 2)
-                prompt += f"\n\nPrevious response was invalid. Error: {last_error}. Please return only the valid PlanOpsResult JSON."
+                ai_prompt += f"\n\nPrevious response was invalid. Error: {last_error}. Please return only the valid PlanOpsResult JSON."
 
             try:
                 # Create prompt reference
-                prompt_ref = PromptRef(source=prompt)
+                prompt_ref = PromptRef(source=ai_prompt)
 
                 # Run the AI engine and get response
                 result = manager.run_once("qwen", prompt_ref, opts)
@@ -288,16 +294,35 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
                 if verbose:
                     print_info(f"AI Response: {ai_response}", 2)
 
+                # Strip markdown code block wrapper if present
+                cleaned_response = ai_response.strip()
+                if cleaned_response.startswith('```'):
+                    # Find the first newline after the opening ```
+                    first_newline = cleaned_response.find('\n')
+                    if first_newline != -1:
+                        # Remove the opening ```json or ``` line
+                        cleaned_response = cleaned_response[first_newline + 1:]
+
+                    # Remove the closing ```
+                    if cleaned_response.endswith('```'):
+                        cleaned_response = cleaned_response[:-3].rstrip()
+
+                    if verbose:
+                        print_info(f"Stripped markdown code block wrapper", 2)
+
                 # Try to parse the response as PlanOpsResult JSON
-                plan_ops_result = decode_plan_ops_json(ai_response)
+                plan_ops_result = decode_plan_ops_json(cleaned_response)
 
                 # If we get here, the JSON is valid, break out of retry loop
                 break
 
             except DecodeError as e:
-                # JSON parsing failed - show raw response in verbose mode
-                if verbose:
-                    print_info(f"Raw AI response (first 200 chars): {ai_response[:200] if 'ai_response' in locals() else 'N/A'}", 2)
+                # JSON parsing failed - show raw response
+                if 'ai_response' in locals():
+                    if verbose:
+                        print_info(f"Raw AI response:\n{ai_response}", 2)
+                    else:
+                        print_info(f"Raw AI response (first 200 chars): {ai_response[:200]}", 2)
                 error_msg = f"AI response failed validation: {str(e)}"
                 print_error(error_msg, 2)
                 last_error = f"JSON validation error: {str(e)}"
@@ -306,9 +331,12 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
                     sys.exit(1)
                 continue
             except json.JSONDecodeError as e:
-                # JSON parsing failed - show raw response in verbose mode
-                if verbose:
-                    print_info(f"Raw AI response (first 200 chars): {ai_response[:200] if 'ai_response' in locals() else 'N/A'}", 2)
+                # JSON parsing failed - show raw response
+                if 'ai_response' in locals():
+                    if verbose:
+                        print_info(f"Raw AI response:\n{ai_response}", 2)
+                    else:
+                        print_info(f"Raw AI response (first 200 chars): {ai_response[:200]}", 2)
                 error_msg = f"AI returned invalid JSON: {str(e)}"
                 print_error(error_msg, 2)
                 last_error = f"JSON parse error: {str(e)}"
@@ -351,14 +379,21 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
         else:
             print_info("No changes would be made", 2)
 
-        # Ask for user confirmation
-        response = input("\nApply these changes? [y]es/[n]o: ").lower().strip()
-        if response in ['y', 'yes']:
-            # Apply the operations
+        # Ask for user confirmation (or auto-apply if prompt was provided)
+        if prompt:
+            # Auto-apply when prompt is provided (non-interactive mode)
+            print_info("Auto-applying changes (non-interactive mode)", 2)
             result = executor.apply_ops(ops, dry_run=False)
             print_success(f"Successfully applied {len([op for op in ops if not hasattr(op, '__class__') or op.__class__.__name__ != 'Commentary'])} operations", 2)
         else:
-            print_info("Changes not applied.", 2)
+            # Interactive mode - ask for confirmation
+            response = input("\nApply these changes? [y]es/[n]o: ").lower().strip()
+            if response in ['y', 'yes']:
+                # Apply the operations
+                result = executor.apply_ops(ops, dry_run=False)
+                print_success(f"Successfully applied {len([op for op in ops if not hasattr(op, '__class__') or op.__class__.__name__ != 'Commentary'])} operations", 2)
+            else:
+                print_info("Changes not applied.", 2)
 
     except Exception as e:
         print_error(f"Error during plan discussion: {str(e)}", 2)
@@ -899,6 +934,7 @@ def add_plan_parser(subparsers):
     # Plan discuss subcommand
     discuss_parser = plan_subparsers.add_parser('discuss', aliases=['d'], help='Discuss and edit a plan with AI')
     discuss_parser.add_argument('title_or_number', help='Plan title or number from list (optional, if omitted and there is exactly one plan it will be auto-selected)', nargs='?')
+    discuss_parser.add_argument('-p', '--prompt', help='Prompt text for AI discussion (for non-interactive mode)', default=None)
 
     # Plan explore subcommand
     explore_parser = plan_subparsers.add_parser('explore', aliases=['e'], help='Explore plans and convert to project operations')

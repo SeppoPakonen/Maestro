@@ -118,14 +118,8 @@ def main():
             parser.print_help()
 
     elif args.command == 'plan':
-        # Check if a custom function was set for this command (e.g., to show help when no subcommand provided)
-        if hasattr(args, 'func') and args.func is not None:
-            # This handles the case when no subcommand is provided - print help
-            args.func(args)
-            import sys
-            sys.exit(0)
         # Check if a subcommand was explicitly provided
-        elif hasattr(args, 'plan_subcommand') and args.plan_subcommand:
+        if hasattr(args, 'plan_subcommand') and args.plan_subcommand:
             if args.plan_subcommand == 'add':
                 # Check if the 'title' argument was provided for add command
                 if hasattr(args, 'title') and args.title:
@@ -184,7 +178,7 @@ def main():
             elif args.plan_subcommand == 'discuss':
                 # Handle plan discuss command
                 from .commands.plan import handle_plan_discuss
-                handle_plan_discuss(args.title_or_number, args.session, args.verbose)
+                handle_plan_discuss(args.title_or_number, args.session, args.verbose, prompt=getattr(args, 'prompt', None))
             elif args.plan_subcommand == 'explore':
                 # Handle plan explore command
                 from .commands.plan import handle_plan_explore

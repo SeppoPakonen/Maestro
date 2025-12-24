@@ -33,9 +33,9 @@ def get_spec():
             if opts.stream_json:
                 cmd.extend(["-o", "stream-json"])
 
-            # Add quiet flag if requested
-            if opts.quiet:
-                cmd.append("--quiet")
+            # Note: qwen doesn't support --quiet flag, so we skip it
+            # if opts.quiet:
+            #     cmd.append("--quiet")
 
             # Add model selection if specified
             if opts.model:

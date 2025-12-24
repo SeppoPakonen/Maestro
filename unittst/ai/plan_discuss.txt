@@ -1,0 +1,30 @@
+# Unit Test: Plan Discuss Test
+Objective: Verify plan discuss command with -p prompt argument for automated testing
+
+Setup:
+- Remove ./tmp directory if it exists
+- Create a fresh ./tmp directory in the project root
+- Verify that ./tmp is listed in .gitignore (it should be already)
+- The point is to use "python ../maestro.py" from the ./tmp directory
+
+Steps:
+1. From the ./tmp directory, run `python ../maestro.py init` to initialize the project
+2. Create a new plan for a "Minesweeper Game" using `python ../maestro.py plan add "Minesweeper Game"`
+3. Add initial items to the plan:
+   - "Create game board grid"
+   - "Implement mine placement logic"
+   - "Add click handlers"
+4. Use plan discuss with -p argument to add new items: `python ../maestro.py plan discuss 1 -p "Add a new title 'Add scoring system' and bullet points for 'Track time', 'Count moves', and 'Show high scores'"`
+5. Run `python ../maestro.py plan explore` to convert the plan into project operations
+6. Verify that the explore command created:
+   - At least 1 track
+   - At least 1 phase within that track
+   - At least 1 task within that phase
+7. Check docs/todo.md to ensure the structure was created correctly
+
+Expected Success Criteria:
+- Plan is created successfully
+- Plan discuss with -p argument adds the requested items automatically (no interactive prompts)
+- Plan explore converts the plan into proper project structure
+- docs/todo.md contains at least 1 track with 1 phase and 1 task
+- No errors during the process
