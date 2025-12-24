@@ -77,20 +77,54 @@ def _parse_checkbox(line: str) -> Optional[Tuple[bool, str]]:
 
 
 def _validate_id_format(id_str: str, expected_prefix: str) -> bool:
-    """Validate that an ID follows the expected format."""
-    pattern = rf'^{expected_prefix}-\d{{3,5}}$'
-    return bool(re.match(pattern, id_str))
+    """
+    Validate that an ID follows the expected format.
+
+    Accepts both formats:
+    - Numbered: TR-001, PH-001, TS-0001
+    - Slug: minesweeper-game, game-board-setup, create-game-board-grid
+    """
+    # Numbered format: PREFIX-###
+    numbered_pattern = rf'^{expected_prefix}-\d{{3,5}}$'
+    if re.match(numbered_pattern, id_str):
+        return True
+
+    # Slug format: lowercase letters, numbers, and hyphens
+    slug_pattern = r'^[a-z0-9]+(-[a-z0-9]+)*$'
+    if re.match(slug_pattern, id_str):
+        return True
+
+    return False
 
 
-def _parse_task_from_line(line: str) -> Optional[Tuple[str, str]]:
-    """Parse task ID and name from a line like '**TS-0001: Task Name**'."""
-    # Pattern to match **TS-####: Task Name** format
-    pattern = r'\*\*(TS-\d{4,5}):\s*([^*]+)\*\*'
-    match = re.search(pattern, line)
+def _parse_task_from_line(line: str) -> Optional[Tuple[str, str, Optional[str]]]:
+    """
+    Parse task ID and name from a line.
+
+    Supports two formats:
+    - **TS-0001: Task Name** (numbered format)
+    - Task Name  #task_id: create-game-board  #status: todo (hashtag format)
+
+    Returns:
+        Tuple of (task_id, task_name, status) or None
+    """
+    # Try numbered format first: **TS-####: Task Name**
+    numbered_pattern = r'\*\*(TS-\d{4,5}):\s*([^*]+)\*\*'
+    match = re.search(numbered_pattern, line)
     if match:
         task_id = match.group(1)
         task_name = match.group(2).strip()
-        return task_id, task_name
+        return task_id, task_name, None
+
+    # Try hashtag format: Task Name  #task_id: create-game-board  #status: todo
+    hashtag_pattern = r'([^#]+)\s+#task_id:\s*([a-zA-Z0-9-]+)(?:\s+#status:\s*(\w+))?'
+    match = re.search(hashtag_pattern, line)
+    if match:
+        task_name = match.group(1).strip()
+        task_id = match.group(2).strip()
+        status = match.group(3).strip() if match.group(3) else None
+        return task_id, task_name, status
+
     return None
 
 
@@ -173,11 +207,14 @@ def parse_phase_from_block(lines: List[str], start_idx: int) -> Tuple[Optional[P
     """Parse a phase from a block of lines starting at start_idx."""
     if start_idx >= len(lines):
         return None, start_idx, None
-    
-    # Look for phase heading like "### Phase PH-001: Phase Name"
-    phase_heading_pattern = r'###\s+Phase\s+(PH-\d{3,5}):\s+(.+)$'
+
+    # Look for phase heading in multiple formats:
+    # - "### Phase PH-001: Phase Name" (numbered format)
+    # - "### Phase game-board-setup: Game Board Setup" (slug format)
+    # Pattern captures: phase ID (either PH-### or slug) and phase name
+    phase_heading_pattern = r'###\s+Phase\s+([a-zA-Z0-9-]+):\s+(.+)$'
     current_idx = start_idx
-    
+
     while current_idx < len(lines):
         line = lines[current_idx].strip()
         match = re.match(phase_heading_pattern, line)
@@ -278,9 +315,14 @@ def parse_phase_from_block(lines: List[str], start_idx: int) -> Tuple[Optional[P
                         # Try to parse task ID and name from content
                         task_result = _parse_task_from_line(content)
                         if task_result:
-                            task_id, task_name = task_result
+                            task_id, task_name, task_status = task_result
                             # Create a minimal task to add to the phase
-                            task = Task(task_id=task_id, name=task_name, completed=is_checked)
+                            task = Task(
+                                task_id=task_id,
+                                name=task_name,
+                                completed=is_checked,
+                                status=task_status if task_status else ("done" if is_checked else "todo")
+                            )
                             phase.tasks.append(task)
                         else:
                             # If it doesn't look like a task, add to description
@@ -575,8 +617,13 @@ def parse_phase_md(path: Path) -> Tuple[Optional[Phase], Optional[ParseError]]:
                                 is_checked, content = checkbox_result
                                 task_result = _parse_task_from_line(content)
                                 if task_result:
-                                    task_id, task_name = task_result
-                                    task = Task(task_id=task_id, name=task_name, completed=is_checked)
+                                    task_id, task_name, task_status = task_result
+                                    task = Task(
+                                        task_id=task_id,
+                                        name=task_name,
+                                        completed=is_checked,
+                                        status=task_status if task_status else ("done" if is_checked else "todo")
+                                    )
                                     phase.tasks.append(task)
                             j += 1
                         continue  # Continue with outer loop
