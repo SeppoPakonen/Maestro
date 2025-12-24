@@ -1,0 +1,37 @@
+{
+  "task_id": "cli2.4.1",
+  "name": "Numeric vs ID Access",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- `maestro track 0` \u2192 first track in list",
+    "- `maestro phase 5` \u2192 fifth phase in list",
+    "- `maestro track cli-tpt` \u2192 track by ID",
+    "- `maestro phase cli-tpt-1` \u2192 phase by ID"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.070979",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Support numeric indices from list commands",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support string IDs for direct access",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Auto-detect which type is provided",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

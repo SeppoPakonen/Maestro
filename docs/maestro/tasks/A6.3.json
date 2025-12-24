@@ -1,0 +1,37 @@
+{
+  "task_id": "A6.3",
+  "name": "CLI Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.994892",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "`maestro external list` - List external dependencies",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "`maestro external install` - Install external dependency",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "`maestro external update` - Update external dependencies",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "`maestro external info` - Show dependency info",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

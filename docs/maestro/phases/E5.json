@@ -1,0 +1,20 @@
+{
+  "phase_id": "E5",
+  "name": "Additional Build Systems (Future)",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Duration**: TBD",
+    "**Dependencies**: Phase 1 (Core Builder)",
+    "**Objective**: Support additional build systems as needed."
+  ],
+  "tasks": [],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.136978",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

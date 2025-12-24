@@ -1,0 +1,37 @@
+{
+  "task_id": "A4.4",
+  "name": "Integration with Dependency Resolution",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.988176",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Check host packages before building",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Version compatibility checking",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "USE flag compatibility checking (for Portage)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Prefer host packages when satisfied",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

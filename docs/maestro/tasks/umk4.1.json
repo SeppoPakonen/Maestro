@@ -1,0 +1,37 @@
+{
+  "task_id": "umk4.1",
+  "name": "Autotools Builder Implementation",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.200382",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `autotools.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `configure()` method",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Run `autoreconf` if needed",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support `./configure` arguments",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "phase_id": "TU6",
+  "name": "Code Transformation and Convention Enforcement",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Reference**: `docs/ast.md` Phase 6",
+    "**Duration**: 3-4 weeks",
+    "**Dependencies**: Phases TU3-TU5",
+    "**Objective**: Implement code transformation and U++ convention enforcement."
+  ],
+  "tasks": [
+    "TU6.1",
+    "TU6.2",
+    "TU6.3"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.160955",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

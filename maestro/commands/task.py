@@ -29,7 +29,7 @@ from maestro.data.markdown_writer import (
     update_task_metadata,
     update_task_heading_status,
 )
-from maestro.display.table_renderer import render_task_table
+from maestro.display.table_renderer import render_task_table, _status_display
 from maestro.data.common_utils import (
     parse_todo_safe,
     parse_done_safe,
@@ -129,46 +129,123 @@ def _collect_phase_index(verbose: bool = False) -> Tuple[Dict[str, Dict[str, str
 
 
 def _collect_task_entries(verbose: bool = False) -> List[Dict[str, str]]:
-    phases_dir = Path('docs/phases')
-    if not phases_dir.exists():
+    """Collect all task entries from JSON storage."""
+    from maestro.tracks.json_store import JsonStore
+
+    try:
+        json_store = JsonStore()
+        tasks: List[Dict[str, str]] = []
+
+        # Build a map of track_id -> track info (both active and archived)
+        track_map = {}
+
+        # Load active tracks
+        for track_id in json_store.list_all_tracks():
+            track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+            if track:
+                track_map[track_id] = {
+                    "name": track.name,
+                    "status": track.status
+                }
+
+        # Load archived tracks
+        archive = json_store.load_archive(load_tracks=True, load_phases=False, load_tasks=False)
+        if archive and archive.tracks:
+            for track in archive.tracks:
+                if isinstance(track, str):
+                    # It's just a track ID, load it from archive
+                    archive_track_file = json_store.archive_dir / "tracks" / f"{track}.json"
+                    if archive_track_file.exists():
+                        import json
+                        track_data = json.loads(archive_track_file.read_text(encoding='utf-8'))
+                        track_map[track_data["track_id"]] = {
+                            "name": track_data.get("name", "Unnamed Track"),
+                            "status": track_data.get("status", "unknown")
+                        }
+                else:
+                    # It's already a Track object
+                    track_map[track.track_id] = {
+                        "name": track.name,
+                        "status": track.status
+                    }
+
+        # Scan ALL phases regardless of track association
+        phase_ids = json_store.list_all_phases()
+
+        for phase_id in phase_ids:
+            # Load phase with its tasks
+            phase = json_store.load_phase(phase_id, load_tasks=True)
+            if not phase:
+                continue
+
+            phase_name = phase.name
+            phase_status = phase.status
+
+            # Get track info for this phase
+            track_id = phase.track_id or "N/A"
+            track_info = track_map.get(track_id, {"name": "Unnamed Track", "status": "unknown"})
+            track_name = track_info["name"]
+
+            # Get tasks for this phase
+            task_objects = phase.tasks if isinstance(phase.tasks, list) else []
+
+            for task_obj in task_objects:
+                # Handle both Task objects and task IDs
+                if isinstance(task_obj, str):
+                    # It's a task ID, load it
+                    task = json_store.load_task(task_obj)
+                    if not task:
+                        continue
+                else:
+                    # It's already a Task object
+                    task = task_obj
+
+                # Convert Task object to dict format expected by the rest of the code
+                task_id = task.task_id
+                completed = task.completed
+                task_status = _normalize_task_status(task.status, completed, phase_status)
+
+                # Build task entry matching the old format
+                phase_file_path = Path('docs/phases') / f"{phase_id}.md"
+                tasks.append({
+                    "task_id": task_id,
+                    "name": task.name,
+                    "status": task_status,
+                    "priority": task.priority or 'N/A',
+                    "phase_id": phase_id,
+                    "phase_name": phase_name,
+                    "phase_status": phase_status,
+                    "track_id": track_id,
+                    "track_name": track_name,
+                    "phase_file": str(phase_file_path),  # Keep for backward compatibility
+                    "_task": {
+                        "task_id": task.task_id,
+                        "name": task.name,
+                        "status": task.status,
+                        "priority": task.priority,
+                        "estimated_hours": task.estimated_hours,
+                        "description": task.description,
+                        "completed": task.completed,
+                        "tags": task.tags,
+                        "owner": task.owner,
+                        "dependencies": task.dependencies,
+                        "subtasks": task.subtasks,
+                    },
+                })
+
+        # Add list numbers
+        for idx, task in enumerate(tasks, 1):
+            task["list_number"] = idx
+
+        return tasks
+
+    except Exception as e:
+        if verbose:
+            print(f"Error loading tasks from JSON storage: {e}")
+            import traceback
+            traceback.print_exc()
+        # Fall back to empty list on error
         return []
-
-    phase_index, phase_order = _collect_phase_index(verbose=verbose)
-    tasks: List[Dict[str, str]] = []
-
-    for phase_id in phase_order:
-        phase_file = phases_dir / f"{phase_id}.md"
-        if not phase_file.exists():
-            continue
-        phase = parse_phase_md(str(phase_file))
-        phase_info = phase_index.get(phase_id, {})
-        phase_name = phase.get('name') or phase_info.get('phase_name') or phase_id
-        phase_status = phase_info.get('phase_status')
-        track_id = phase_info.get('track_id') or phase.get('track_id') or "N/A"
-        track_name = phase_info.get('track_name') or phase.get('track') or "Unnamed Track"
-
-        for task in phase.get('tasks', []):
-            task_id = task.get('task_id') or task.get('task_number') or "N/A"
-            completed = bool(task.get('completed', False))
-            task_status = _normalize_task_status(task.get('status'), completed, phase_status)
-            tasks.append({
-                "task_id": task_id,
-                "name": task.get('name', 'Unnamed Task'),
-                "status": task_status,
-                "priority": task.get('priority', 'N/A'),
-                "phase_id": phase_id,
-                "phase_name": phase_name,
-                "phase_status": phase_status,
-                "track_id": track_id,
-                "track_name": track_name,
-                "phase_file": str(phase_file),
-                "_task": task,
-            })
-
-    for idx, task in enumerate(tasks, 1):
-        task["list_number"] = idx
-
-    return tasks
 
 
 def _parse_task_list_filters(tokens: List[str]) -> Tuple[Optional[str], Optional[str], Optional[str], List[str]]:

@@ -1,0 +1,47 @@
+{
+  "task_id": "cli5.4.1",
+  "name": "CRUD Operations",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.120364",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Add new track (interactive form)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add new phase to track",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add new task to phase",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Edit track/phase/task metadata",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Delete/archive track/phase/task",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Mark task as completed",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

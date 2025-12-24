@@ -1,0 +1,32 @@
+{
+  "task_id": "umk7.3",
+  "name": "Method Selection",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk7",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.212928",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Auto-detect: Use package's native build system",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Explicit: `maestro make build --method gcc-debug`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "U++ config: `maestro make build --config \"GUI MT\"`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

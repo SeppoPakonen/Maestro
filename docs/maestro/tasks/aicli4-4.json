@@ -1,0 +1,29 @@
+{
+  "task_id": "aicli4-4",
+  "name": "End-to-End Smoke Test",
+  "status": "planned",
+  "priority": "P1",
+  "estimated_hours": 2,
+  "description": [
+    "Run a smoke test that exercises tool events + input injection in one session."
+  ],
+  "phase_id": "aicli4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.014785",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Record a minimal test script or command sequence",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Capture expected JSON message flow",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

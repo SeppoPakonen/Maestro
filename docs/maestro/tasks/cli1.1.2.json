@@ -1,0 +1,51 @@
+{
+  "task_id": "cli1.1.2",
+  "name": "Structured Element Parsing",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Pattern: `^(\\s*)- \\[([ x])\\]\\s+(.+)$`",
+    "- Return: (indent_level, is_checked, content)",
+    "- Return: (level, text)",
+    "- Pattern: `^##\\s+(?:\ud83d\udd25\\s+)?(?:TOP PRIORITY\\s+)?Track:\\s+(.+)$`",
+    "- Pattern: `^###\\s+Phase\\s+([\\w\\d]+):\\s+(.+?)(?:\\s+[\ud83d\udccb\ud83d\udea7\u2705\ud83d\udca1])?`",
+    "- Return: (phase_id, phase_name)",
+    "- Pattern: `^\\*\\*Task\\s+([\\d.]+):\\s+(.+)\\*\\*`",
+    "- Return: (task_number, task_name)"
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.048849",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `parse_checkbox(line: str) -> Optional[Tuple[int, bool, str]]`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `parse_heading(line: str) -> Optional[Tuple[int, str]]`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `parse_track_heading(line: str) -> Optional[str]`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `parse_phase_heading(line: str) -> Optional[Tuple[str, str]]`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `parse_task_heading(line: str) -> Optional[Tuple[str, str]]`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

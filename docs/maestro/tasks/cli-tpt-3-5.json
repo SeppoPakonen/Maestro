@@ -1,0 +1,18 @@
+{
+  "task_id": "cli-tpt-3-5",
+  "name": "Discussion Commands",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 8,
+  "description": [
+    "Implement the CLI commands for starting discussions."
+  ],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.089140",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

@@ -1,0 +1,32 @@
+{
+  "task_id": "cli3.5.4",
+  "name": "Mode Selection",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.090234",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Add `--mode <editor|terminal>` flag to all discuss commands",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Respect default from `docs/config.md`: `\"discussion_mode\"`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Auto-detect: use editor if $EDITOR set, terminal otherwise",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "task_id": "cli5.4.3",
+  "name": "Discussion Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.121168",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Launch AI discussion from TUI",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Integrate with maestro discuss commands",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Show discussion history for track/phase/task",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Preview suggested actions from AI",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

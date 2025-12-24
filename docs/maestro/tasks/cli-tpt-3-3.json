@@ -1,0 +1,18 @@
+{
+  "task_id": "cli-tpt-3-3",
+  "name": "Terminal Stream Mode",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 12,
+  "description": [
+    "Implement terminal-based discussion mode with real-time interaction."
+  ],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.085931",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

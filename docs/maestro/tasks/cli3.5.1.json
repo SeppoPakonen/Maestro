@@ -1,0 +1,32 @@
+{
+  "task_id": "cli3.5.1",
+  "name": "Track Discussion",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- General track planning (no specific track)",
+    "- Can create new tracks",
+    "- Discussion about specific track",
+    "- Can add phases, edit track details"
+  ],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.089443",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro track discuss`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro track <id> discuss`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "task_id": "A3.7",
+  "name": "Build Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.984893",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Call emerge for ebuild packages",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Integrate with Maestro build system",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle mixed builds (ebuilds + umk + cmake)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "task_id": "cli1.3.3",
+  "name": "Error Recovery Options",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Display error with context",
+    "- Offer: \"1. Edit manually  2. AI auto-fix  3. Abort\"",
+    "- Open $EDITOR at error location"
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.051515",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `prompt_fix_error(error: ParseError) -> bool`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `open_editor_at_line(path: str, line: int)`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Design AI auto-fix interface (implementation in Phase CLI3)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

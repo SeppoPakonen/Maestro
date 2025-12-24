@@ -1,0 +1,47 @@
+{
+  "task_id": "umk8.5",
+  "name": "Java Builds",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk8",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.218011",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `jdk.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Create `jar.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement JDK detection",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement Java compilation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement JAR packaging",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement JNI support",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

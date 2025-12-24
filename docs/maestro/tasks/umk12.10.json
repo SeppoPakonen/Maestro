@@ -1,0 +1,42 @@
+{
+  "task_id": "umk12.10",
+  "name": "Integration Test Suite",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk12",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.190364",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Multi-package build test (U++ with dependencies)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Cross-build-system test (CMake \u2192 Autotools dependency)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Gradle project test (`~/Dev/RainbowGame/trash`)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Error recovery test (--keep-going, --resume)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Build artifact tracking test",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

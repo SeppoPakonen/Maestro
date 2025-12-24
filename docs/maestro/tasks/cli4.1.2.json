@@ -1,0 +1,37 @@
+{
+  "task_id": "cli4.1.2",
+  "name": "Schema Validation",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.101222",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Define `ConfigSchema` dataclass with all fields",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement type validation for each field",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Define default values for all settings",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement schema version for future migrations",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

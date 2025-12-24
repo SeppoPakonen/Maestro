@@ -1,0 +1,33 @@
+{
+  "task_id": "cli1.3.1",
+  "name": "Parse Error Types",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Fields: file_path, line_number, column, message, context",
+    "- `InvalidQuotedValueError`",
+    "- `InvalidHeadingError`",
+    "- `MissingMetadataError`",
+    "- `InconsistentIndentationError`"
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.051000",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Define `ParseError` exception class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Define specific error types:",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

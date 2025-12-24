@@ -1,0 +1,42 @@
+{
+  "task_id": "A3.3",
+  "name": "Portage Python API Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.983609",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `maestro/package_managers/portage.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `PortageManager(PackageManager)` class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Wrap Portage API calls",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle Portage configuration",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Integrate with Maestro's universal base class",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

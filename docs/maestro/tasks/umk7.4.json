@@ -1,0 +1,37 @@
+{
+  "task_id": "umk7.4",
+  "name": "Output Formatting",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk7",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.213228",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Progress indicator for parallel builds",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Error highlighting",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Warning/error count summary",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Build time reporting",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

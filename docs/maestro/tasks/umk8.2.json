@@ -1,0 +1,32 @@
+{
+  "task_id": "umk8.2",
+  "name": "Precompiled Headers (PCH)",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk8",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.217192",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement PCH generation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Auto-detect frequently used headers",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support per-file PCH opt-out",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

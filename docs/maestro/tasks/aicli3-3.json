@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli3-3",
+  "name": "Agent-Side Capability Contract",
+  "status": "done",
+  "priority": "P0",
+  "estimated_hours": 3,
+  "description": [
+    "Document required agent-side hooks and emission points."
+  ],
+  "phase_id": "aicli3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.009553",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Tool event capture points",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Output streaming boundaries",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Input injection entry points",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

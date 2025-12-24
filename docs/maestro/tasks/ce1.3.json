@@ -1,0 +1,19 @@
+{
+  "task_id": "ce1.3",
+  "name": "Track text get/set commands",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Expose raw block output",
+    "- Replace block from stdin or file"
+  ],
+  "phase_id": "ce1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.033125",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

@@ -1,0 +1,37 @@
+{
+  "task_id": "TU7.3",
+  "name": "Python AST Printing Test",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU7",
+  "completed": true,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.165710",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create small test Python program with various constructs",
+      "completed": true,
+      "indent": 2
+    },
+    {
+      "content": "Test classes, functions, decorators, comprehensions",
+      "completed": true,
+      "indent": 2
+    },
+    {
+      "content": "Print AST to verify structure",
+      "completed": true,
+      "indent": 2
+    },
+    {
+      "content": "Validate node types and relationships",
+      "completed": true,
+      "indent": 2
+    }
+  ]
+}

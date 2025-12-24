@@ -1,0 +1,37 @@
+{
+  "task_id": "cli5.2.3",
+  "name": "Real-time Data Refresh",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.118205",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Detect when markdown files change",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Refresh TUI display when docs/*.md files updated",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle parse errors gracefully (show error, don't crash)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Cache parsed data to avoid re-parsing on every render",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

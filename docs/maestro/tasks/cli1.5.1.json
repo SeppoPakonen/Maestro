@@ -1,0 +1,42 @@
+{
+  "task_id": "cli1.5.1",
+  "name": "Unit Tests",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.053524",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Test parse_quoted_value with various types",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Test parse_status_badge with all emoji types",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Test parse_heading with various levels",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Test checkbox parsing with nested indentation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Test metadata block parsing",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

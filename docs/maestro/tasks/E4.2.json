@@ -1,0 +1,50 @@
+{
+  "task_id": "E4.2",
+  "name": "pup Builder",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "1. `download()` - fetch source",
+    "2. `patch()` - apply patches",
+    "3. `prebuild()` - prepare build",
+    "4. `configure()` - run configure",
+    "5. `build()` - compile",
+    "6. `deploy()` - install to staging",
+    "7. `postdeploy()` - post-install steps"
+  ],
+  "phase_id": "E4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.135633",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `pup.py` builder module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement Python class instantiation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Execute build phases in order:",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support environment variables (`env` dict)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support custom srcdir and deploydir",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

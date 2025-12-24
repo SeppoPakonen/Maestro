@@ -1,0 +1,32 @@
+{
+  "task_id": "TU7.4",
+  "name": "Cross-Language AST Comparison",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU7",
+  "completed": true,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.166031",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Compare AST structures across languages",
+      "completed": true,
+      "indent": 2
+    },
+    {
+      "content": "Document common patterns and differences",
+      "completed": true,
+      "indent": 2
+    },
+    {
+      "content": "Identify opportunities for unified transformations",
+      "completed": true,
+      "indent": 2
+    }
+  ]
+}

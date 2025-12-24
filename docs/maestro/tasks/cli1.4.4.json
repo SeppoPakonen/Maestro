@@ -1,0 +1,37 @@
+{
+  "task_id": "cli1.4.4",
+  "name": "CLI Command",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Migrate all data from `.maestro/` to `docs/`",
+    "- Create backup of original JSON files",
+    "- Validate all migrated data",
+    "- Report migration status"
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.053021",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro migrate` command",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--dry-run` flag to preview migration",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--backup-dir` to specify backup location",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

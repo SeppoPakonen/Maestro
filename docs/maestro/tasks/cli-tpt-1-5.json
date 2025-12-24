@@ -1,0 +1,18 @@
+{
+  "task_id": "cli-tpt-1-5",
+  "name": "Round-Trip Testing",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 8,
+  "description": [
+    "Ensure parser and writer are consistent and lossless."
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.053282",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

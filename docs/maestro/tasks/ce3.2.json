@@ -1,0 +1,19 @@
+{
+  "task_id": "ce3.2",
+  "name": "Task edit block workflow",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Edit task block in $EDITOR",
+    "- Replace block in phase file"
+  ],
+  "phase_id": "ce3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.037371",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

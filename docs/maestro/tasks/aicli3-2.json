@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli3-2",
+  "name": "Message Framing and Reliability",
+  "status": "done",
+  "priority": "P0",
+  "estimated_hours": 3,
+  "description": [
+    "Define message framing, backpressure, and error handling for the protocol."
+  ],
+  "phase_id": "aicli3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.009257",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Frame format (newline JSON vs length-prefix)",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Error response schema",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Connection drop/retry behavior",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

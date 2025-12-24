@@ -1,0 +1,37 @@
+{
+  "task_id": "cli2.4.2",
+  "name": "Command Aliases",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.071337",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "`maestro t` \u2192 `maestro track`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "`maestro p` \u2192 `maestro phase`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "`maestro ts` \u2192 `maestro task`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support all subcommands with aliases",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

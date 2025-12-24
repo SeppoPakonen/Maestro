@@ -1,0 +1,18 @@
+{
+  "task_id": "cli-tpt-5-2",
+  "name": "Markdown Data Backend Integration",
+  "status": "planned",
+  "priority": "P1",
+  "estimated_hours": 16,
+  "description": [
+    "Integrate TUI with the new markdown data backend."
+  ],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.117417",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

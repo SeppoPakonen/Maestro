@@ -1,0 +1,27 @@
+{
+  "task_id": "cli1.4.3",
+  "name": "Repo Index Migration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Read `.maestro/repo/index.json`",
+    "- Convert to markdown format (assemblies and packages)",
+    "- Write to `docs/repo/index.md`",
+    "- Validate result"
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.052528",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `migrate_repo_index() -> bool`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

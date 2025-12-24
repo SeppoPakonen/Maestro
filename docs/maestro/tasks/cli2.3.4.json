@@ -1,0 +1,31 @@
+{
+  "task_id": "cli2.3.4",
+  "name": "Task Remove Command",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Prompt for confirmation",
+    "- Remove from docs/phases/<phase-id>.md",
+    "- Update docs/todo.md or docs/done.md if needed"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.069890",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro task remove <id>`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--force` to skip confirmation",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

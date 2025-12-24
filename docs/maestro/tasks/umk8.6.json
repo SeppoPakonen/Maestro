@@ -1,0 +1,42 @@
+{
+  "task_id": "umk8.6",
+  "name": "Export Features",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk8",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.218284",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `export.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Generate Makefile from any package",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Generate CMakeLists.txt from U++ package",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Generate Visual Studio project from U++ package",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Generate Ninja build file",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

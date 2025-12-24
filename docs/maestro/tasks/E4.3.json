@@ -1,0 +1,37 @@
+{
+  "task_id": "E4.3",
+  "name": "pup Infrastructure Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "E4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.135907",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Use existing `support/buildsystem.py` base class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Use existing `support/steps.py` helper functions",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Integration with Maestro's dependency resolution",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Cross-compilation environment setup",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

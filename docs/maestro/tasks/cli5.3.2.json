@@ -1,0 +1,37 @@
+{
+  "task_id": "cli5.3.2",
+  "name": "Completion Progress Bars",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.119524",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Show completion percentage for phases",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Visual progress bar for phases with tasks",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Color coding: red < 30%, yellow 30-70%, green > 70%",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Show overall track completion",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

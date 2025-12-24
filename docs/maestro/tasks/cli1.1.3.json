@@ -1,0 +1,46 @@
+{
+  "task_id": "cli1.1.3",
+  "name": "High-Level Parsers",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Parse consecutive quoted key-value pairs",
+    "- Stop at first non-matching line",
+    "- Extract track metadata, phases, description",
+    "- Return: (track_dict, next_line_index)",
+    "- Extract phase metadata, tasks, description",
+    "- Return: (phase_dict, next_line_index)",
+    "- Extract task metadata, subtasks, description",
+    "- Return: (task_dict, next_line_index)"
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.049134",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `parse_metadata_block(lines: List[str]) -> Dict[str, Any]`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `parse_track(lines: List[str], start_idx: int) -> Tuple[Dict, int]`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `parse_phase(lines: List[str], start_idx: int) -> Tuple[Dict, int]`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `parse_task(lines: List[str], start_idx: int) -> Tuple[Dict, int]`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli8-1",
+  "name": "Cross-Agent Smoke Tests",
+  "status": "planned",
+  "priority": "P1",
+  "estimated_hours": 3,
+  "description": [
+    "Run smoke tests across all integrated agents."
+  ],
+  "phase_id": "aicli8",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.028731",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Verify tool event capture for each agent",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Validate input injection during active tool runs",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Confirm JSON framing and ordering",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

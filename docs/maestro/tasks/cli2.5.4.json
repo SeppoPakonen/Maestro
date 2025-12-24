@@ -1,0 +1,27 @@
+{
+  "task_id": "cli2.5.4",
+  "name": "Global Help Updates",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.072922",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Update `maestro help` to include track/phase/task",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add navigation guide section",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "task_id": "cli5.6.2",
+  "name": "Edge Cases",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.123065",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Empty project (no tracks)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Track with no phases",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Phase with no tasks",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Malformed markdown data",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Missing docs/ directory",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

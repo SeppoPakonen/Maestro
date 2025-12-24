@@ -1,0 +1,27 @@
+{
+  "task_id": "cli4.5.1",
+  "name": "Locate Feature Matrix",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.106934",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Find existing feature matrix documentation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Identify all references to \"roadmap\", \"plan\", \"task\" terminology",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

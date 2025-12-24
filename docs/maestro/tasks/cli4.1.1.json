@@ -1,0 +1,24 @@
+{
+  "task_id": "cli4.1.1",
+  "name": "Configuration Sections",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "```markdown"
+  ],
+  "phase_id": "cli-tpt-4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.100953",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Define `docs/config.md` structure:",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

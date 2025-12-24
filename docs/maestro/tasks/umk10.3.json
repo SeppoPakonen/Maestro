@@ -1,0 +1,52 @@
+{
+  "task_id": "umk10.3",
+  "name": "CLI Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk10",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.173125",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro hub list`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro hub search`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro hub install`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro hub update`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro hub add`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro hub sync`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro hub info`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

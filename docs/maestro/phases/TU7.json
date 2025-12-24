@@ -1,0 +1,26 @@
+{
+  "phase_id": "TU7",
+  "name": "Multi-Language AST Testing",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Reference**: TU Track extension",
+    "**Duration**: 1 day (completed)",
+    "**Dependencies**: Phases TU1-TU6",
+    "**Objective**: Test and validate AST generation and printing capabilities across multiple programming languages (C++, Java, Python)."
+  ],
+  "tasks": [
+    "TU7.1",
+    "TU7.2",
+    "TU7.3",
+    "TU7.4"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.164522",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

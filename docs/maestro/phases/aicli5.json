@@ -1,0 +1,22 @@
+{
+  "phase_id": "aicli5",
+  "name": "Agent Integration Planning",
+  "status": "planned",
+  "completion": 0,
+  "description": [],
+  "tasks": [
+    "aicli5-1",
+    "aicli5-2",
+    "aicli5-3",
+    "aicli5-4",
+    "aicli5-5"
+  ],
+  "track_id": "ai-cli-protocol",
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.017092",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

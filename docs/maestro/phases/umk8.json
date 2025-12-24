@@ -1,0 +1,29 @@
+{
+  "phase_id": "umk8",
+  "name": "Advanced Features",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Reference**: `docs/umk.md` Phase 8",
+    "**Duration**: 6-8 weeks",
+    "**Dependencies**: Phase 7",
+    "**Objective**: Port advanced umk features."
+  ],
+  "tasks": [
+    "umk8.1",
+    "umk8.2",
+    "umk8.3",
+    "umk8.4",
+    "umk8.5",
+    "umk8.6",
+    "umk8.7"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.216292",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

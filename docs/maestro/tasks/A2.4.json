@@ -1,0 +1,32 @@
+{
+  "task_id": "A2.4",
+  "name": "Multi-Configuration Support",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.979225",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Design how to handle umk's multi-config builds",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Design how to extend Portage beyond single-config",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Design configuration selection interface",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

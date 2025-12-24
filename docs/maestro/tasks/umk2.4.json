@@ -1,0 +1,37 @@
+{
+  "task_id": "umk2.4",
+  "name": "MSVC Builder",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.194427",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `msvc.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Port MSVC-specific logic",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement cl.exe invocation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement link.exe invocation",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "task_id": "cli4.2.3",
+  "name": "Defaults and Migration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Generate new project_id (UUID)",
+    "- Set created_at to current timestamp",
+    "- Use default values for all settings",
+    "- Preserve project_id and created_at",
+    "- Map old settings to new schema",
+    "- Add new settings with defaults"
+  ],
+  "phase_id": "cli-tpt-4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.102346",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `create_default_config() -> Settings`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement config migration from `.maestro/config.json`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

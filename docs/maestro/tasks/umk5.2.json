@@ -1,0 +1,32 @@
+{
+  "task_id": "umk5.2",
+  "name": "Project Types",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.203098",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Support `.vcxproj` (MSBuild C++)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support `.csproj` (MSBuild C#)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support `.vcproj` (legacy VCBuild)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

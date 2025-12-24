@@ -1,0 +1,37 @@
+{
+  "task_id": "umk10.1",
+  "name": "Hub Metadata Format",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk10",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.172348",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Define JSON schema for hub registries (see umk.md lines 260-292)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support UppHub compatibility",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Multi-build-system package metadata",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Versioning and compatibility tracking",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

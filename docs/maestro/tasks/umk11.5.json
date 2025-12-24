@@ -1,0 +1,42 @@
+{
+  "task_id": "umk11.5",
+  "name": "TUI Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk11",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.179033",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Show groups in package view (collapsible tree)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Navigate between groups (Tab/Shift+Tab)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Filter/search within group",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Show group statistics (file count, LOC)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Syntax highlighting for group headers",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

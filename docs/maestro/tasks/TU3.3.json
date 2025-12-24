@@ -1,0 +1,42 @@
+{
+  "task_id": "TU3.3",
+  "name": "Symbol Index (SQLite)",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.153914",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `.maestro/tu/analysis/symbols.db`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `SymbolIndex` class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Store symbols in database for fast queries",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Index by name, file, location",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support find-references queries",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

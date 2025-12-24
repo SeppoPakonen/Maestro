@@ -1,0 +1,19 @@
+{
+  "task_id": "aicli2-5",
+  "name": "Input Injection Path",
+  "status": "done",
+  "priority": "P0",
+  "estimated_hours": 3,
+  "description": [
+    "Trace how the client injects user input into active sessions.",
+    "Expected output: message type(s), required fields, and timing constraints."
+  ],
+  "phase_id": "aicli2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.004969",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

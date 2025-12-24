@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli6-1",
+  "name": "Server API Surface",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 3,
+  "description": [
+    "Define the TCP server public API and lifecycle."
+  ],
+  "phase_id": "aicli6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.021072",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Define connection roles (agent vs client)",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Define handshake and session registration payloads",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Define auth or shared-secret requirements (if any)",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

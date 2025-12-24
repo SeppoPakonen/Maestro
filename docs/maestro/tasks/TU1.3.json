@@ -1,0 +1,32 @@
+{
+  "task_id": "TU1.3",
+  "name": "Java/Kotlin Parser Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.147399",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `JavaParser` using tree-sitter or JavaParser library",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `KotlinParser` using tree-sitter or kotlin-compiler",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support for Gradle projects",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

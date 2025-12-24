@@ -1,0 +1,32 @@
+{
+  "task_id": "cli3.5.2",
+  "name": "Phase Discussion",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Discussion about specific phase",
+    "- Can add tasks, edit phase details",
+    "- If current_phase is set, discuss that phase",
+    "- Otherwise, general discussion"
+  ],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.089711",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro phase <id> discuss`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro discuss` (contextual)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

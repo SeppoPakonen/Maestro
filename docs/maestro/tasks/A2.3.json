@@ -1,0 +1,37 @@
+{
+  "task_id": "A2.3",
+  "name": "USE Flag System Design",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.978958",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Support Portage USE flags",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support umk flags (GUI, MT, etc.)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Design flag inheritance",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Design conditional dependencies",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

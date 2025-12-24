@@ -1,0 +1,42 @@
+{
+  "task_id": "umk8.1",
+  "name": "Blitz Build (Unity Build)",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk8",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.216901",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `blitz.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Concatenate multiple .cpp files",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Auto-generate blitz files",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Detect blitz-safe files",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support per-file opt-out",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

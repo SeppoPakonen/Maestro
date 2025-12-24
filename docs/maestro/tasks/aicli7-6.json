@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli7-6",
+  "name": "Gemini-CLI Integration",
+  "status": "planned",
+  "priority": "P1",
+  "estimated_hours": 4,
+  "description": [
+    "Integrate Gemini-CLI with the TCP protocol and tool events."
+  ],
+  "phase_id": "aicli7",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.026642",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Wire tool event hooks to protocol emitter",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Add input injection handler",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Add session registration handshake",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

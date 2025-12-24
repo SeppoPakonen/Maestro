@@ -1,0 +1,32 @@
+{
+  "task_id": "A1.4",
+  "name": "Unified External Dependency Model",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.972251",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Abstract interface for external dependencies",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Common operations: fetch, update, build, install",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Integration with dependency resolution",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

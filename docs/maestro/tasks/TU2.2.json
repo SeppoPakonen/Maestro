@@ -1,0 +1,37 @@
+{
+  "task_id": "TU2.2",
+  "name": "AST Cache Management",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.150438",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `.maestro/tu/cache/ast/` directory structure",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `ASTCache` class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Cache ASTs by file hash",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Reuse cached ASTs for unchanged files",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

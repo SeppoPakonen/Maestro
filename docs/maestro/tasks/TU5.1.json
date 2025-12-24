@@ -1,0 +1,42 @@
+{
+  "task_id": "TU5.1",
+  "name": "Build Configuration Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.158292",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Reuse build configuration for TU generation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Create `TUConfigBuilder` class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Extract compile context from Gradle",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Extract compile context from CMake",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Extract compile context from U++",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

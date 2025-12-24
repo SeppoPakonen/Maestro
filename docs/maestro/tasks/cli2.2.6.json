@@ -1,0 +1,30 @@
+{
+  "task_id": "cli2.2.6",
+  "name": "Phase Task Navigation",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Alias for `maestro task list --phase <id>`",
+    "- Direct navigation to task within phase"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.068195",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro phase <id> task`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro phase <id> task <task-id>`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

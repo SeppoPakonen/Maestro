@@ -1,0 +1,19 @@
+{
+  "task_id": "ce2.1",
+  "name": "Phase add/insert/remove commands",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Insert phases into docs/todo.md",
+    "- Create phase files when needed"
+  ],
+  "phase_id": "ce2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.034525",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

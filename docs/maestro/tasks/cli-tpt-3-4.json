@@ -1,0 +1,18 @@
+{
+  "task_id": "cli-tpt-3-4",
+  "name": "JSON Action Processor",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 16,
+  "description": [
+    "Implement the action processor that executes AI-generated JSON actions."
+  ],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.087495",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

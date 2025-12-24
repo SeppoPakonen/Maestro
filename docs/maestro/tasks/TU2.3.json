@@ -1,0 +1,42 @@
+{
+  "task_id": "TU2.3",
+  "name": "Translation Unit Builder",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.150941",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `TUBuilder` class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Parse all source files in package",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Build symbol table across files",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Resolve cross-file references",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Cache complete TU",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "task_id": "umk7.5",
+  "name": "Repository Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk7",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.213520",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Load packages from `.maestro/repo/index.json`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Resolve dependencies using `repo pkg tree`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Build in dependency order",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

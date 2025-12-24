@@ -1,0 +1,24 @@
+{
+  "task_id": "cli2.5.3",
+  "name": "Task Help",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Show all task subcommands with examples"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.072643",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro task help`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

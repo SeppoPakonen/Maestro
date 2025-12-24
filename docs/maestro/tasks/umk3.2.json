@@ -1,0 +1,37 @@
+{
+  "task_id": "umk3.2",
+  "name": "Configuration Mapping",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.197895",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Map Maestro config \u2192 CMake variables",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support Debug/Release builds",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support compiler selection",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Generate toolchain files for cross-compilation",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

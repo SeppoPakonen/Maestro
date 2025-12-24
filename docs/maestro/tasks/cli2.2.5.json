@@ -1,0 +1,34 @@
+{
+  "task_id": "cli2.2.5",
+  "name": "Phase Edit Command",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Open docs/phases/<phase-id>.md in $EDITOR"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.067914",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro phase <id> edit`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Validate markdown after editing",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Sync changes back to docs/todo.md summary",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

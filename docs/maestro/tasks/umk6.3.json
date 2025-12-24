@@ -1,0 +1,32 @@
+{
+  "task_id": "umk6.3",
+  "name": "Method Inheritance",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.209232",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement inheritance mechanism",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support override of inherited values",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Validate inherited configurations",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

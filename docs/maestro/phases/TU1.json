@@ -1,0 +1,26 @@
+{
+  "phase_id": "TU1",
+  "name": "Core AST Infrastructure",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Reference**: `docs/ast.md` Phase 1",
+    "**Duration**: 3-4 weeks",
+    "**Dependencies**: None",
+    "**Objective**: Build foundation for parsing and representing ASTs across multiple languages."
+  ],
+  "tasks": [
+    "TU1.1",
+    "TU1.2",
+    "TU1.3",
+    "TU1.4"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.146305",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

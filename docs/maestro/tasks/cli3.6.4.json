@@ -1,0 +1,32 @@
+{
+  "task_id": "cli3.6.4",
+  "name": "Configuration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- `\"ai_provider\"`: \"openai\" | \"anthropic\" | \"local\"",
+    "- `\"ai_model\"`: model name",
+    "- `\"ai_api_key\"`: API key (or path to key file)",
+    "- `\"ai_context_window\"`: max tokens for context"
+  ],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.091864",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Add AI config to docs/config.md:",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro settings ai` to configure",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

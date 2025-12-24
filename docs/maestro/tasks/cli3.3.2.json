@@ -1,0 +1,37 @@
+{
+  "task_id": "cli3.3.2",
+  "name": "Multi-line Input",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.086484",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement multi-line input buffer",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Show continuation prompt for multi-line: `...`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle Ctrl+J to add newline without sending",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle pasted text with embedded newlines correctly",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

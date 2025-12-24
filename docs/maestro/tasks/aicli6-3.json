@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli6-3",
+  "name": "Transport & Framing Details",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 3,
+  "description": [
+    "Define framing and backpressure strategy for TCP transport."
+  ],
+  "phase_id": "aicli6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.021633",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Message framing choice and rationale",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Maximum message size and truncation rules",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Backpressure strategy and buffer limits",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "task_id": "TU6.1",
+  "name": "AST Transformation Framework",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.161461",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `ASTTransformer` base class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support pluggable transformations",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Preserve source locations during transformation",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

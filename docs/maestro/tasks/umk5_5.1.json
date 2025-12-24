@@ -1,0 +1,37 @@
+{
+  "task_id": "umk5_5.1",
+  "name": "Maven Builder Implementation",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk5_5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.205407",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `maven.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `build_package()` method",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support Maven lifecycle phases (clean, compile, test, package, install)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support parallel module builds (`-T` flag)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

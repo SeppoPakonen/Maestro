@@ -1,0 +1,37 @@
+{
+  "task_id": "cli2.3.2",
+  "name": "Task Show Command",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Display task details from docs/phases/*.md",
+    "- Show: name, phase, track, priority, estimated hours",
+    "- Show description and subtasks",
+    "- Show completion status"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.069281",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro task <id>` (alias for `maestro task <id> show`)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support both numeric index and task_id string",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--verbose` for full context (including phase details)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

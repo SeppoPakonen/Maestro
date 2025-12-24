@@ -1,0 +1,37 @@
+{
+  "task_id": "umk10.5",
+  "name": "Hub Registry Management",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk10",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.173724",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create official MaestroHub registry",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Import existing UppHub",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support custom/private hubs",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support organization-specific hubs",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

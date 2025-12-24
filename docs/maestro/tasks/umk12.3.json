@@ -1,0 +1,55 @@
+{
+  "task_id": "umk12.3",
+  "name": "Phase 5.75 - Gradle Builder",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- **Gap**: Gradle packages are scanned (100%) but can't be built",
+    "- **Reference**: PHASE7_IMPROVEMENTS.md Blocker 4"
+  ],
+  "phase_id": "umk12",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.186275",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `maestro/builders/gradle.py` module",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `configure()` to detect gradle/gradlew",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `build_package()` with gradle command invocation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support multi-module Gradle projects",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support Kotlin DSL (.gradle.kts) and Groovy (.gradle)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support build flags: `--max-workers`, `-x test`, `--offline`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Integration test with `~/Dev/RainbowGame/trash`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

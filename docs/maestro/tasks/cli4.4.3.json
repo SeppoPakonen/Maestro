@@ -1,0 +1,34 @@
+{
+  "task_id": "cli4.4.3",
+  "name": "Contextual Commands",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- `maestro phase list` \u2192 list phases in current track",
+    "- `maestro task list` \u2192 list tasks in current phase",
+    "- `maestro discuss` \u2192 discuss current phase/track",
+    "```",
+    "[Track: cli-tpt, Phase: cli-tpt-1] maestro task list",
+    "```"
+  ],
+  "phase_id": "cli-tpt-4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.105889",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Update commands to use context when no ID provided:",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Display context in prompt when set:",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

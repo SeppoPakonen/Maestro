@@ -1,0 +1,32 @@
+{
+  "task_id": "TU5.4",
+  "name": "Integration with `maestro build` (AI workflow)",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.159138",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Provide AST context to AI for build fixing",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Include visible symbols in error context",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Include AST structure around error location",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

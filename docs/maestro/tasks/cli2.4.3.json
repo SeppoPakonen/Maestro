@@ -1,0 +1,37 @@
+{
+  "task_id": "cli2.4.3",
+  "name": "Current Context",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- `current_track`, `current_phase`, `current_task`",
+    "- Set current track context",
+    "- `maestro phase list` (no args) \u2192 list phases in current track",
+    "- `maestro task list` (no args) \u2192 list tasks in current phase"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.071607",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement context tracking in docs/config.md",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro track <id> set`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement contextual commands:",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

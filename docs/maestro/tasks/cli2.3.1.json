@@ -1,0 +1,62 @@
+{
+  "task_id": "cli2.3.1",
+  "name": "Task List Command",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Display all tasks from all phases",
+    "- Show task ID, name, phase, status, priority",
+    "- Format:",
+    "```",
+    "Tasks:",
+    "cli-tpt-1-1  [\ud83d\udccb] Task 1.1: Parser Module (CLI1, P0)",
+    "cli-tpt-1-2  [\ud83d\udccb] Task 1.2: Writer Module (CLI1, P0)",
+    "umk-1-1      [\ud83d\udea7] Task 1.1: Module Structure (Phase 1, P0)",
+    "```"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.068981",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro task list`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--phase <id>` to filter by phase",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--track <id>` to filter by track",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--priority <P0|P1|P2>` to filter by priority",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--status <status>` to filter by status",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--all` to include completed tasks",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--json` for machine-readable output",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

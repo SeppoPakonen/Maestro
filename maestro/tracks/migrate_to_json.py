@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import List, Dict
 
 from maestro.tracks.md_store import parse_todo_md, parse_done_md
+from maestro.data.markdown_parser import parse_phase_md as parse_phase_dict
 from maestro.tracks.json_store import JsonStore
-from maestro.tracks.models import TrackIndex, DoneArchive
+from maestro.tracks.models import TrackIndex, DoneArchive, Phase, Task
 
 
 def migrate_markdown_to_json(
@@ -158,6 +159,137 @@ def migrate_markdown_to_json(
                 stats["errors"] += 1
     else:
         print(f"  {done_md_path} not found, skipping")
+
+    print()
+
+    # Parse individual phase files from docs/phases/
+    print("Parsing individual phase files from docs/phases/...")
+    phases_dir = Path("docs/phases")
+    if phases_dir.exists():
+        phase_files = list(phases_dir.glob("*.md"))
+        print(f"  Found {len(phase_files)} phase files")
+
+        phases_by_track: Dict[str, List[Phase]] = {}
+        orphaned_phases: List[Phase] = []
+
+        for phase_file in sorted(phase_files):
+            try:
+                phase_dict = parse_phase_dict(str(phase_file))
+            except Exception as e:
+                print(f"  WARNING: Error parsing {phase_file.name}: {e}")
+                stats["errors"] += 1
+                continue
+
+            if not phase_dict or not phase_dict.get('phase_id'):
+                print(f"  WARNING: Could not parse phase from {phase_file.name}")
+                continue
+
+            # Convert dict to Phase object
+            phase_id = phase_dict.get('phase_id')
+            name = phase_dict.get('name', '')
+            track_id = phase_dict.get('track_id')
+
+            # Convert tasks dicts to Task objects
+            tasks = []
+            for task_dict in phase_dict.get('tasks', []):
+                task = Task(
+                    task_id=task_dict.get('task_id', task_dict.get('task_number', '')),
+                    name=task_dict.get('name', ''),
+                    status=task_dict.get('status', 'planned'),
+                    priority=task_dict.get('priority', 'P2'),
+                    estimated_hours=task_dict.get('estimated_hours'),
+                    description=task_dict.get('description', []),
+                    phase_id=phase_id,
+                    completed=task_dict.get('completed', False),
+                    tags=task_dict.get('tags', []),
+                    owner=task_dict.get('owner'),
+                    dependencies=task_dict.get('dependencies', []),
+                    subtasks=task_dict.get('subtasks', [])
+                )
+                tasks.append(task)
+
+            phase = Phase(
+                phase_id=phase_id,
+                name=name,
+                status=phase_dict.get('status', 'planned'),
+                completion=phase_dict.get('completion', 0),
+                description=phase_dict.get('description', []),
+                tasks=tasks,
+                track_id=track_id,
+                priority=phase_dict.get('priority', 0),
+                tags=phase_dict.get('tags', []),
+                owner=phase_dict.get('owner'),
+                dependencies=phase_dict.get('dependencies', []),
+                order=phase_dict.get('order')
+            )
+
+            print(f"  Parsed phase {phase.phase_id}: {phase.name} ({len(phase.tasks)} tasks)")
+            stats["phases_migrated"] += 1
+            stats["tasks_migrated"] += len(phase.tasks)
+
+            # Group phases by track_id
+            if phase.track_id:
+                phases_by_track.setdefault(phase.track_id, []).append(phase)
+            else:
+                orphaned_phases.append(phase)
+
+            # Save phase and tasks
+            if not dry_run:
+                try:
+                    json_store.save_phase(phase)
+                except Exception as e:
+                    print(f"    ERROR saving phase {phase.phase_id}: {e}")
+                    stats["errors"] += 1
+
+        # Report orphaned phases (phases without track_id)
+        if orphaned_phases:
+            print(f"  WARNING: {len(orphaned_phases)} phases have no track_id:")
+            for phase in orphaned_phases:
+                print(f"    - {phase.phase_id}: {phase.name}")
+
+        # Update tracks to reference their phases
+        if not dry_run and phases_by_track:
+            print(f"  Updating track phase references...")
+            for track_id, phases in phases_by_track.items():
+                # Try to load track from active storage
+                track = json_store.load_track(track_id, load_phases=False)
+                if track:
+                    # Update track's phase list
+                    existing_phase_ids = set()
+                    if track.phases:
+                        # Check if phases are already strings (IDs) or Phase objects
+                        if isinstance(track.phases[0], str):
+                            existing_phase_ids = set(track.phases)
+                        else:
+                            existing_phase_ids = set(p.phase_id for p in track.phases)
+
+                    new_phase_ids = [p.phase_id for p in phases]
+
+                    # Merge phase lists (avoid duplicates)
+                    all_phase_ids = list(existing_phase_ids) + [pid for pid in new_phase_ids if pid not in existing_phase_ids]
+                    track.phases = all_phase_ids
+
+                    json_store.save_track(track)
+                    print(f"    Updated track {track_id} with {len(new_phase_ids)} phases")
+                else:
+                    # Check if it's an archived track
+                    archive_track_file = json_store.archive_dir / "tracks" / f"{track_id}.json"
+                    if archive_track_file.exists():
+                        import json
+                        track_data = json.loads(archive_track_file.read_text(encoding='utf-8'))
+                        existing_phase_ids = set(track_data.get('phases', []))
+                        new_phase_ids = [p.phase_id for p in phases]
+
+                        # Merge phase lists
+                        all_phase_ids = list(existing_phase_ids) + [pid for pid in new_phase_ids if pid not in existing_phase_ids]
+                        track_data['phases'] = all_phase_ids
+
+                        archive_track_file.write_text(json.dumps(track_data, indent=2), encoding='utf-8')
+                        print(f"    Updated archived track {track_id} with {len(new_phase_ids)} phases")
+                    else:
+                        print(f"    WARNING: Track {track_id} not found (referenced by {len(phases)} phases)")
+    else:
+        print(f"  docs/phases/ directory not found, skipping")
 
     print()
     print("=" * 60)

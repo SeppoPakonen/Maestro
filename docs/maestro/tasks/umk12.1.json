@@ -1,0 +1,39 @@
+{
+  "task_id": "umk12.1",
+  "name": "Fix Broken Import Chain",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Reference: PHASE7_IMPROVEMENTS.md Blocker 1"
+  ],
+  "phase_id": "umk12",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.185667",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Fix `ModuleNotFoundError: No module named 'maestro.repo.package'`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Audit all imports in `maestro/builders/` and `maestro/commands/`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Create missing modules or fix incorrect import paths",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "**Blocker**: Entire `maestro` command is currently broken",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

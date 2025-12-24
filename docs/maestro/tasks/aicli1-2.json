@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli1-2",
+  "name": "README Submodule Instructions",
+  "status": "planned",
+  "priority": "P1",
+  "estimated_hours": 1,
+  "description": [
+    "Document submodule cloning and initialization steps in `README.md`."
+  ],
+  "phase_id": "aicli1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.997315",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Add clone instructions with `--recurse-submodules`",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Add post-clone `git submodule update --init --recursive`",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "List submodule paths for discoverability",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

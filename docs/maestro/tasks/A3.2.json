@@ -1,0 +1,46 @@
+{
+  "task_id": "A3.2",
+  "name": "Portage Fork (if needed)",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Package manager interface compatibility",
+    "- Enhanced Python API",
+    "- Multi-config support hooks (if extending USE flags)"
+  ],
+  "phase_id": "A3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.983345",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create Portage fork in separate repository",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add Maestro integration hooks:",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Document all changes from upstream",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Set up sync strategy with upstream",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add as git submodule: `deps/portage/`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

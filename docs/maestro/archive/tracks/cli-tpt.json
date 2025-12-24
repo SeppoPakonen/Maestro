@@ -5,11 +5,16 @@
   "completion": 0,
   "description": [],
   "phases": [
-    "cli1",
-    "cli2",
     "cli3",
+    "cli2",
+    "cli5",
     "cli4",
-    "cli5"
+    "cli1",
+    "cli-tpt-1",
+    "cli-tpt-2",
+    "cli-tpt-3",
+    "cli-tpt-4",
+    "cli-tpt-5"
   ],
   "priority": 0,
   "created_at": null,

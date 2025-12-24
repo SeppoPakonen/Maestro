@@ -1,0 +1,32 @@
+{
+  "task_id": "cli4.3.5",
+  "name": "Settings Reset",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Reset single setting to default",
+    "- Preserve project metadata (project_id, created_at)",
+    "- Reset all settings to defaults",
+    "- Require `--force` confirmation"
+  ],
+  "phase_id": "cli-tpt-4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.104252",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro settings reset <key>`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro settings reset --all`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

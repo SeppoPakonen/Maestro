@@ -1,0 +1,24 @@
+{
+  "phase_id": "TU4",
+  "name": "Auto-Completion Engine",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Reference**: `docs/ast.md` Phase 4",
+    "**Duration**: 2-3 weeks",
+    "**Dependencies**: Phase TU3",
+    "**Objective**: Implement context-aware auto-completion."
+  ],
+  "tasks": [
+    "TU4.1",
+    "TU4.2"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.155538",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

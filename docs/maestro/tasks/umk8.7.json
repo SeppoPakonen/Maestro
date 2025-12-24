@@ -1,0 +1,32 @@
+{
+  "task_id": "umk8.7",
+  "name": "Cross-Compilation",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk8",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.218762",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Toolchain file support",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Sysroot configuration",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Host vs target tool selection",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "task_id": "cli5.6.4",
+  "name": "User Experience Polish",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.123614",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Add helpful tooltips/hints",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Improve keyboard navigation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add vim-style keybindings (hjkl navigation)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add help screen (F1 or ?)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Consistent color scheme",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

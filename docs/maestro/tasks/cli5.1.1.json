@@ -1,0 +1,37 @@
+{
+  "task_id": "cli5.1.1",
+  "name": "Audit Current TUI Code",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.116111",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Scan maestro/tui/ for \"roadmap\", \"plan\" references",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Scan maestro/tui_mc2/ for \"roadmap\", \"plan\" references",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Create list of all files needing changes",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Document current navigation structure",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

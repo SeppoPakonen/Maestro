@@ -1,0 +1,37 @@
+{
+  "task_id": "umk4.2",
+  "name": "Configuration Options",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.200687",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Map Maestro config \u2192 configure flags",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support `--prefix`, `--enable-debug`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support custom `CFLAGS`, `CXXFLAGS`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support cross-compilation (host/build/target)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

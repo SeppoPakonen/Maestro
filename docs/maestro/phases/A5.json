@@ -1,0 +1,26 @@
+{
+  "phase_id": "A5",
+  "name": "Portage Superset Integration",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Duration**: 4-6 weeks",
+    "**Dependencies**: Phases A2-A4",
+    "**Objective**: Create the glue code for the common superset of umk and Portage."
+  ],
+  "tasks": [
+    "A5.1",
+    "A5.2",
+    "A5.3",
+    "A5.4",
+    "A5.5"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.990473",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

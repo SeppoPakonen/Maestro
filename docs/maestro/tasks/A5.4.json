@@ -1,0 +1,32 @@
+{
+  "task_id": "A5.4",
+  "name": "Library Linking Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.991776",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Link umk packages against Portage-installed shared libraries",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Link Portage packages against umk-built static libraries",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle SONAME and library versioning",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

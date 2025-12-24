@@ -1,0 +1,32 @@
+{
+  "task_id": "E3.3",
+  "name": "Go Module Management",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "E3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.132362",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `go mod download`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle replace directives",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support vendor directory",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli6-2",
+  "name": "Session Routing Model",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 3,
+  "description": [
+    "Specify how sessions are tracked and events are routed."
+  ],
+  "phase_id": "aicli6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.021349",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Session identity rules and storage",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Multi-subscriber fan-out semantics",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Input injection routing constraints",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

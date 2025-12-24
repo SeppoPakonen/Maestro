@@ -1,0 +1,42 @@
+{
+  "task_id": "umk1.2",
+  "name": "Build Method Configuration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.168794",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Design TOML/JSON format for build methods (see umk.md lines 657-703)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement method storage in `.maestro/methods/`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Create method parser and validator",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support method inheritance",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement method auto-detection for system compilers",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

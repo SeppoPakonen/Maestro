@@ -1,0 +1,45 @@
+{
+  "task_id": "umk12.6",
+  "name": "Dependency Build Order",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- **Gap**: Phase 7 says \"build in dependency order\" but no algorithm",
+    "- **Reference**: PHASE7_IMPROVEMENTS.md Gap 2"
+  ],
+  "phase_id": "umk12",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.189199",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement topological sort (Kahn's algorithm)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Build dependency graph from package metadata",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Detect and report circular dependencies",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Build packages in correct order",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--parallel` flag to build independent packages in parallel",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

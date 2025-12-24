@@ -1,0 +1,42 @@
+{
+  "task_id": "TU4.2",
+  "name": "LSP Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.156222",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `MaestroLSPServer` class",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle `textDocument/completion` requests",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle `textDocument/definition` (go-to-definition)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle `textDocument/references` (find-references)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support incremental document updates",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

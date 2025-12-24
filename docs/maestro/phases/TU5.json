@@ -1,0 +1,26 @@
+{
+  "phase_id": "TU5",
+  "name": "Integration with Build System and CLI",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Reference**: `docs/ast.md` Phase 5",
+    "**Duration**: 3-4 weeks",
+    "**Dependencies**: Phases TU2-TU4",
+    "**Objective**: Integrate TU/AST with existing Maestro workflows."
+  ],
+  "tasks": [
+    "TU5.1",
+    "TU5.2",
+    "TU5.3",
+    "TU5.4"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.158005",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

@@ -1,0 +1,37 @@
+{
+  "task_id": "A1.1",
+  "name": "Git Submodule Detection",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.971442",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Detect `.gitmodules` file",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Parse submodule configuration",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Extract submodule URLs, paths, branches",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Detect nested submodules",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

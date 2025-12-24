@@ -1,0 +1,32 @@
+{
+  "task_id": "umk11.1",
+  "name": "Group Representation",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk11",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.177749",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create `FileGroup` dataclass in package metadata",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `groups` and `ungrouped_files` fields to `PackageInfo`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support readonly flag on groups",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "task_id": "ce4.3",
+  "name": "CLI-only walkthrough",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Add example flows using python maestro.py",
+    "- Confirm commands without m wrapper"
+  ],
+  "phase_id": "ce4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.039933",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

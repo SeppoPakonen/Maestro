@@ -1,0 +1,32 @@
+{
+  "task_id": "A5.3",
+  "name": "USE Flag Unification",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.991501",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Map umk flags to Portage USE flags",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Map Portage USE flags to umk flags",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle flag conflicts",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

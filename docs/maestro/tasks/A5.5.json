@@ -1,0 +1,32 @@
+{
+  "task_id": "A5.5",
+  "name": "Multi-Configuration Support",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.992049",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Extend Portage to support multiple configurations (if needed)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Build umk packages with multiple USE flag combinations",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Installation and package management for multi-config builds",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

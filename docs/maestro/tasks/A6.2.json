@@ -1,0 +1,42 @@
+{
+  "task_id": "A6.2",
+  "name": "Dependency Resolution Strategy",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.994631",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Check host system packages first",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Check locally built packages",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Check Portage",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Check hub repositories",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Fall back to building from source",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

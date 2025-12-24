@@ -1,0 +1,32 @@
+{
+  "task_id": "umk12.4.5",
+  "name": "U++ Config Resolution",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk12",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.188145",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Parse .upp file (reuse existing parser)",
+      "completed": false,
+      "indent": 4
+    },
+    {
+      "content": "Resolve `uses` dependencies to include paths",
+      "completed": false,
+      "indent": 4
+    },
+    {
+      "content": "Resolve mainconfig flags (GUI, MT, etc.)",
+      "completed": false,
+      "indent": 4
+    }
+  ]
+}

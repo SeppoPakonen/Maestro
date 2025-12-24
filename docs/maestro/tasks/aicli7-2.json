@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli7-2",
+  "name": "Qwen-Code Alignment Changes",
+  "status": "planned",
+  "priority": "P0",
+  "estimated_hours": 4,
+  "description": [
+    "Apply protocol alignment changes to qwen-code if required."
+  ],
+  "phase_id": "aicli7",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.025413",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Update Node CLI emission to match uniform schema",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Update C++ client framing or message fields if needed",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Validate backward compatibility strategy",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

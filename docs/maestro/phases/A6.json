@@ -1,0 +1,25 @@
+{
+  "phase_id": "A6",
+  "name": "External Dependency Workflow",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Duration**: 2-3 weeks",
+    "**Dependencies**: Phase A5",
+    "**Objective**: Complete workflow for external dependencies including submodules, build scripts, and Portage packages."
+  ],
+  "tasks": [
+    "A6.1",
+    "A6.2",
+    "A6.3",
+    "A6.4"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.994014",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

@@ -1,0 +1,27 @@
+{
+  "task_id": "test-meaningfulness-1-2",
+  "name": "Define Fix or Retirement Plan",
+  "status": "planned",
+  "priority": "P1",
+  "estimated_hours": 12,
+  "description": [],
+  "phase_id": "test-meaningfulness-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.144330",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Propose fixes for meaningful failures",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Recommend updates or removals for noisy tests",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

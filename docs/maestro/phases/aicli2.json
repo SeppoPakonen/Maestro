@@ -1,0 +1,24 @@
+{
+  "phase_id": "aicli2",
+  "name": "Qwen-Code Baseline Analysis",
+  "status": "done",
+  "completion": 100,
+  "description": [],
+  "tasks": [
+    "aicli2-1",
+    "aicli2-2",
+    "aicli2-3",
+    "aicli2-4",
+    "aicli2-5",
+    "aicli2-6",
+    "aicli2-7"
+  ],
+  "track_id": "ai-cli-protocol",
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.003324",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

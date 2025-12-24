@@ -1,0 +1,36 @@
+{
+  "task_id": "cli2.1.4",
+  "name": "Track Remove Command",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Prompt for confirmation",
+    "- Move to docs/done.md if has completed work",
+    "- Delete if never started"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.065409",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro track remove <id>`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--force` to skip confirmation",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--archive` to move to done even if not complete",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "task_id": "aicli5-3",
+  "name": "Copilot-CLI Integration Plan",
+  "status": "planned",
+  "priority": "P1",
+  "estimated_hours": 3,
+  "description": [
+    "Identify Copilot-CLI hook points and plan protocol wiring."
+  ],
+  "phase_id": "aicli5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.017945",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Locate tool event emitters and output stream boundaries",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "Map input injection entry point",
+      "completed": false,
+      "indent": 0
+    },
+    {
+      "content": "List required protocol fields vs current payloads",
+      "completed": false,
+      "indent": 0
+    }
+  ]
+}

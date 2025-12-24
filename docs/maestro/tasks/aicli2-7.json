@@ -1,0 +1,19 @@
+{
+  "task_id": "aicli2-7",
+  "name": "Uniform Protocol Gap Review",
+  "status": "done",
+  "priority": "P0",
+  "estimated_hours": 3,
+  "description": [
+    "Compare qwen-code behavior to the desired uniform protocol and list gaps.",
+    "Expected output: a change list with recommended adjustments for qwen-code alignment."
+  ],
+  "phase_id": "aicli2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.005502",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

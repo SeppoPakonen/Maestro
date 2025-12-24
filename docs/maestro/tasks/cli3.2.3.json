@@ -1,0 +1,40 @@
+{
+  "task_id": "cli3.2.3",
+  "name": "AI Response Integration",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Natural language reply",
+    "- Embedded JSON actions (```json...``` blocks)"
+  ],
+  "phase_id": "cli-tpt-3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.085666",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Call AI API with user message and context",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Parse AI response for:",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Append AI reply as # comments for next iteration",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Extract and queue JSON actions",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "task_id": "umk6.1",
+  "name": "Unified Configuration Format",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.208448",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Design TOML format (see umk.md lines 657-703)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support compiler settings",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support flags and options",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support platform settings",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

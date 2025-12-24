@@ -1,0 +1,37 @@
+{
+  "task_id": "cli2.2.3",
+  "name": "Phase Add Command",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Prompt for phase details (duration, dependencies, objective)",
+    "- Generate unique phase_id",
+    "- Add to docs/todo.md under specified track",
+    "- Create docs/phases/<phase-id>.md file"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.067327",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro phase add <track-id> <name>`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add `--template <file>` to use phase template",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Add non-interactive mode with flags",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

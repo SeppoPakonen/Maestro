@@ -1,0 +1,42 @@
+{
+  "task_id": "cli5.3.1",
+  "name": "Emoji Status Indicators",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "cli-tpt-5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.119209",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Display \u2705 for done status",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Display \ud83d\udea7 for in_progress status",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Display \ud83d\udccb for planned status",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Display \ud83d\udca1 for proposed status",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Handle terminals that don't support emoji (fallback to text)",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

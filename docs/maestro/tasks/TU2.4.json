@@ -1,0 +1,37 @@
+{
+  "task_id": "TU2.4",
+  "name": "Dependency Tracking",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "TU2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.151221",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Track file dependencies (includes/imports)",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Track symbol dependencies",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Invalidate cache when dependencies change",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Store in `.maestro/tu/cache/ast/<hash>.meta`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

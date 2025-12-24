@@ -1,0 +1,32 @@
+{
+  "task_id": "umk6.4",
+  "name": "Per-Package Overrides",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "umk6",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.209538",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Store in `.maestro/packages/<package>/method.toml`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support package-specific flags",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Support builder selection per package",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

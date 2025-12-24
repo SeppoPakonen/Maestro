@@ -1,0 +1,19 @@
+{
+  "task_id": "ce2.2",
+  "name": "Phase edit block workflow",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Edit phase block in $EDITOR",
+    "- Replace block in docs/todo.md"
+  ],
+  "phase_id": "ce2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.035009",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

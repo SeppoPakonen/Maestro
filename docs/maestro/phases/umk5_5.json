@@ -1,0 +1,26 @@
+{
+  "phase_id": "umk5_5",
+  "name": "Maven Builder",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "**Reference**: `docs/umk.md` Phase 5.5",
+    "**Duration**: 1-2 weeks",
+    "**Dependencies**: Phase 1",
+    "**Objective**: Build Maven projects detected by `maestro repo resolve`."
+  ],
+  "tasks": [
+    "umk5_5.1",
+    "umk5_5.2",
+    "umk5_5.3",
+    "umk5_5.4"
+  ],
+  "track_id": null,
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.205157",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

@@ -1,0 +1,40 @@
+{
+  "task_id": "cli2.3.6",
+  "name": "Task Status Management",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Mark task as in_progress",
+    "- Update checkbox to `- [ ]` (in progress, not checked)",
+    "- Mark task as completed",
+    "- Update checkbox to `- [x]`",
+    "- Move to docs/done.md if phase is complete",
+    "- Mark task as blocked",
+    "- Add blocker note to task"
+  ],
+  "phase_id": "cli-tpt-2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.070419",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Implement `maestro task <id> start`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro task <id> done`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `maestro task <id> block <reason>`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

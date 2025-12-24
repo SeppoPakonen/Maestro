@@ -1,0 +1,32 @@
+{
+  "task_id": "A5.2",
+  "name": "Cross-Build-System Dependencies",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "A5",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:39.991215",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "umk package depending on Portage package",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Portage package depending on umk package",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Mixed dependency chains",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}

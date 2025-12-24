@@ -1,0 +1,47 @@
+{
+  "task_id": "cli1.2.1",
+  "name": "Basic Writing Infrastructure",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [
+    "- Format: `\"key\": value` (quote strings, bare numbers/booleans)",
+    "- Map status to emoji: done\u2192\u2705, in_progress\u2192\ud83d\udea7, planned\u2192\ud83d\udccb, proposed\u2192\ud83d\udca1",
+    "- Format: `**{completion}%**`",
+    "- Format: `- [x]` or `- [ ]` with proper indentation"
+  ],
+  "phase_id": "cli-tpt-1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2025-12-24T17:49:40.049937",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": [
+    {
+      "content": "Create module structure: `maestro/data/markdown_writer.py`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `format_quoted_value(key: str, value: Any) -> str`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `format_status_badge(status: str) -> str`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `format_completion(completion: int) -> str`",
+      "completed": false,
+      "indent": 2
+    },
+    {
+      "content": "Implement `format_checkbox(checked: bool, content: str, indent: int = 0) -> str`",
+      "completed": false,
+      "indent": 2
+    }
+  ]
+}
