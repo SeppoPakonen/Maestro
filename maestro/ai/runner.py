@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any, List, Generator
 from maestro.config.settings import get_settings
 from .types import AiSubprocessRunner, FakeProcessResult
 from .stream_render import AiStreamEvent, EventType, StreamRenderer
+from .qwen_extractor import extract_qwen_assistant_text, filter_qwen_events_for_verbose_mode
 
 
 class RunResult:
@@ -399,6 +400,25 @@ def _run_subprocess_command(
         session_id = None
         if parsed_events:
             session_id = _extract_session_id_from_events(parsed_events)
+
+        # For Qwen engine, handle assistant text extraction differently
+        if engine == "qwen":
+            # Extract assistant text from parsed events
+            assistant_text = extract_qwen_assistant_text([json.dumps(event) for event in parsed_events])
+
+            if assistant_text and not quiet and not verbose:
+                # In normal mode, print only the assistant text
+                print(assistant_text, end="", flush=True)
+            elif verbose:
+                # In verbose mode, show filtered events and extracted assistant text
+                filtered_events = filter_qwen_events_for_verbose_mode([json.dumps(event) for event in parsed_events])
+                for event_line in filtered_events:
+                    print(f"[qwen] {event_line}")
+                if assistant_text:
+                    print(f"[qwen] Extracted assistant text: {assistant_text}")
+        else:
+            # For other engines, continue with default behavior
+            pass
 
         # Finalize the renderer
         renderer.finalize(exit_code)

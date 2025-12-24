@@ -218,10 +218,16 @@ class DiscussionRouter:
                 print("No valid JSON found in response")
                 return []
 
+            # Check if the response is empty before attempting JSON parsing
+            if not json_content.strip():
+                print("Qwen returned no assistant payload; enable -v to see stream events and stderr.")
+                return []
+
             try:
                 parsed_json = json.loads(json_content)
             except json.JSONDecodeError as e:
                 print(f"Error parsing JSON: {e}")
+                print("Qwen returned no assistant payload; enable -v to see stream events and stderr.")
                 return []
 
             # Validate the JSON against the contract

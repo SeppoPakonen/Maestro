@@ -124,6 +124,18 @@ def run_one_shot(
                 )
 
         result = manager.run_once(engine, prompt_ref, updated_opts)
+
+        # Check if Qwen returned an empty assistant payload
+        if engine == "qwen" and result.stdout_path:
+            # Read the stdout to check if it's empty
+            try:
+                with open(result.stdout_path, 'r', encoding='utf-8') as f:
+                    stdout_content = f.read()
+                    if not stdout_content.strip():
+                        print("Qwen returned no assistant payload; enable -v to see stream events and stderr.")
+            except:
+                pass  # If we can't read the file, continue normally
+
         renderer.finalize(result.exit_code)
         return result
     except ValueError as e:
