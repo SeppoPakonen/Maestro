@@ -450,54 +450,43 @@ def _resolve_text_input(args) -> str:
 
 def add_track(name: str, args) -> int:
     """
-    Add a new track to docs/todo.md.
+    Add a new track to JSON storage.
     """
-    todo_path = _ensure_todo_file(verbose=getattr(args, 'verbose', False))
-    if not todo_path:
-        print("Error: docs/todo.md not found and could not be created.")
-        return 1
+    from maestro.tracks.json_store import JsonStore
+    from maestro.tracks.models import Track
 
+    json_store = JsonStore()
+
+    # Generate track ID
     track_id = getattr(args, 'track_id', None) or _slugify_track_id(name)
     if track_id.isdigit():
         print("Error: Track ID cannot be purely numeric.")
         return 1
 
-    data = _parse_todo_safe(todo_path, verbose=getattr(args, 'verbose', False))
-    if data is None:
-        return 1
-    if any(t.get('track_id') == track_id for t in data.get('tracks', [])):
+    # Check if track already exists
+    if json_store.load_track(track_id, load_phases=False, load_tasks=False):
         print(f"Error: Track ID '{track_id}' already exists.")
         return 1
 
-    desc_lines = getattr(args, 'desc', None) or [
-        "Ensure track/phase/task entries can be created, edited, and reorganized from the CLI.",
-        "Provide both editor and direct text workflows for quick updates."
-    ]
+    # Get description
+    desc_lines = getattr(args, 'desc', None) or []
 
-    escaped_track_id = escape_asterisk_text(track_id)
-    block_lines = [
-        f"## Track: {name}\n",
-        "\n",
-        f"- *track_id*: *{escaped_track_id}*\n",
-        f"- *priority*: {getattr(args, 'priority', 0)}\n",
-        "- *status*: *planned*\n",
-        "- *completion*: 0%\n",
-        "\n",
-    ]
-    for line in desc_lines:
-        if line.strip():
-            block_lines.append(f"{line.strip()}\n")
-    block_lines.append("\n")
-
-    inserted = insert_track_block(
-        todo_path,
-        "".join(block_lines),
-        after_track_id=getattr(args, 'after', None),
-        before_track_id=getattr(args, 'before', None),
+    # Create new track
+    track = Track(
+        track_id=track_id,
+        name=name,
+        status='planned',
+        completion=0,
+        description=desc_lines,
+        phases=[],
+        priority=getattr(args, 'priority', 0),
+        tags=[],
+        owner=None,
+        is_top_priority=False
     )
-    if not inserted:
-        print("Error: Unable to insert track block.")
-        return 1
+
+    # Save track
+    json_store.save_track(track)
 
     print(f"Added track '{track_id}' ({name}).")
     return 0
@@ -505,27 +494,40 @@ def add_track(name: str, args) -> int:
 
 def remove_track(track_identifier: str, args) -> int:
     """
-    Remove a track from docs/todo.md.
+    Remove a track from JSON storage.
     """
+    from maestro.tracks.json_store import JsonStore
+
     verbose = getattr(args, 'verbose', False)
+    json_store = JsonStore()
+
+    # Resolve track identifier
     track_id = resolve_track_identifier(track_identifier, verbose=verbose)
     if not track_id:
         print(f"Error: Track '{track_identifier}' not found.")
         print("Use 'maestro track list' to see available tracks.")
         if verbose:
-            available = _available_track_ids(verbose=verbose)
+            available = json_store.list_all_tracks()
             if available:
                 print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
+    # Load the track to verify it exists
+    track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+    if not track:
+        print(f"Error: Track '{track_id}' not found.")
         return 1
 
-    if not remove_track_block(todo_path, track_id):
-        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
-        return 1
+    # Delete the track file
+    track_file = json_store.tracks_dir / f"{track_id}.json"
+    if track_file.exists():
+        track_file.unlink()
+
+    # Remove from index
+    index = json_store.load_index()
+    if track_id in index.tracks:
+        index.tracks.remove(track_id)
+        json_store.save_index(index)
 
     print(f"Removed track: {track_id}")
     return 0

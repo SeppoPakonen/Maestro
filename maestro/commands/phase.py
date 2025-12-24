@@ -290,12 +290,8 @@ def add_phase(name: str, args):
         args: Command arguments
     """
     from maestro.config.settings import get_settings
-
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        print("Use 'maestro track add' to create a track first or run 'maestro init'.")
-        return 1
+    from maestro.tracks.json_store import JsonStore
+    from maestro.tracks.models import Phase
 
     track_id = getattr(args, 'track_id', None)
     if not track_id:
@@ -306,75 +302,64 @@ def add_phase(name: str, args):
         return 1
 
     verbose = getattr(args, 'verbose', False)
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if data is None:
-        return 1
-    track = next((t for t in data.get('tracks', []) if t.get('track_id') == track_id), None)
+    json_store = JsonStore()
+
+    # Load the track
+    track = json_store.load_track(track_id, load_phases=True, load_tasks=False)
     if not track:
-        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+        print(f"Error: Track '{track_id}' not found.")
         if verbose:
-            available = _available_track_ids(verbose=verbose)
+            available = json_store.list_all_tracks()
             if available:
                 print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
+    # Generate phase ID
     phase_id = getattr(args, 'phase_id', None)
     if not phase_id:
-        phase_id = name.strip().split()[0].lower()
+        phase_id = name.strip().split()[0].lower().replace(' ', '-')
     if phase_id.isdigit():
         print("Error: Phase ID cannot be purely numeric.")
         return 1
 
-    if any(p.get('phase_id') == phase_id for p in track.get('phases', [])):
-        print(f"Error: Phase ID '{phase_id}' already exists in track '{track_id}'.")
+    # Check if phase already exists
+    if json_store.load_phase(phase_id, load_tasks=False):
+        print(f"Error: Phase ID '{phase_id}' already exists.")
         return 1
 
+    # Get description
     desc_lines = getattr(args, 'desc', None) or []
-    escaped_phase_id = escape_asterisk_text(phase_id)
-    block_lines = [
-        f"### Phase {phase_id}: {name}\n",
-        "\n",
-        f"- *phase_id*: *{escaped_phase_id}*\n",
-        "- *status*: *planned*\n",
-        "- *completion*: 0\n",
-        "\n",
-    ]
-    for line in desc_lines:
-        if line.strip():
-            block_lines.append(f"{line.strip()}\n")
-    block_lines.append("\n")
 
-    inserted = insert_phase_block(
-        todo_path,
-        track_id,
-        "".join(block_lines),
-        after_phase_id=getattr(args, 'after', None),
-        before_phase_id=getattr(args, 'before', None),
+    # Create new phase
+    phase = Phase(
+        phase_id=phase_id,
+        name=name,
+        status='planned',
+        completion=0,
+        description=desc_lines,
+        tasks=[],
+        track_id=track_id,
+        priority='P2',
+        tags=[],
+        owner=None,
+        dependencies=[],
+        order=None
     )
-    if not inserted:
-        print("Error: Unable to insert phase block.")
-        return 1
 
-    phases_dir = Path('docs/phases')
-    phases_dir.mkdir(parents=True, exist_ok=True)
-    phase_path = phases_dir / f"{phase_id}.md"
-    if not phase_path.exists():
-        track_name = track.get('name', 'Unknown Track')
-        escaped_track_name = escape_asterisk_text(track_name)
-        escaped_track_id = escape_asterisk_text(track_id)
-        header = [
-            f"# Phase {phase_id}: {name} 📋 **[Planned]**\n",
-            "\n",
-            f"- *phase_id*: *{escaped_phase_id}*\n",
-            f"- *track*: *{escaped_track_name}*\n",
-            f"- *track_id*: *{escaped_track_id}*\n",
-            "- *status*: *planned*\n",
-            "- *completion*: 0\n",
-            "\n",
-            "## Tasks\n",
-            "\n",
-        ]
-        phase_path.write_text("".join(header), encoding='utf-8')
+    # Save phase
+    json_store.save_phase(phase)
+
+    # Add phase to track's phase list
+    if not track.phases:
+        track.phases = []
+
+    # Handle phase IDs vs Phase objects
+    if track.phases and isinstance(track.phases[0], str):
+        track.phases.append(phase_id)
+    else:
+        track.phases.append(phase)
+
+    json_store.save_track(track)
 
     print(f"Added phase '{phase_id}' ({name}) to track '{track_id}'.")
     return 0
@@ -382,26 +367,42 @@ def add_phase(name: str, args):
 
 def remove_phase(phase_id: str, args):
     """
-    Remove a phase from docs/todo.md.
+    Remove a phase from JSON storage.
 
     Args:
         phase_id: Phase ID to remove
         args: Command arguments
     """
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        return 1
+    from maestro.tracks.json_store import JsonStore
 
-    if not remove_phase_block(todo_path, phase_id):
-        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
-        if getattr(args, 'verbose', False):
-            available = _available_phase_ids(verbose=True)
+    json_store = JsonStore()
+    verbose = getattr(args, 'verbose', False)
+
+    # Load the phase to get its track_id
+    phase = json_store.load_phase(phase_id, load_tasks=False)
+    if not phase:
+        print(f"Error: Phase '{phase_id}' not found.")
+        if verbose:
+            available = json_store.list_all_phases()
             if available:
-                print(f"Verbose: Available phases: {', '.join(available)}")
+                print(f"Verbose: Available phases: {', '.join(available[:10])}")
         return 1
 
-    phase_file = Path(f'docs/phases/{phase_id}.md')
+    track_id = phase.track_id
+
+    # Load the track and remove phase reference
+    if track_id:
+        track = json_store.load_track(track_id, load_phases=True, load_tasks=False)
+        if track and track.phases:
+            # Handle both phase IDs and Phase objects
+            if isinstance(track.phases[0], str):
+                track.phases = [p for p in track.phases if p != phase_id]
+            else:
+                track.phases = [p for p in track.phases if p.phase_id != phase_id]
+            json_store.save_track(track)
+
+    # Delete the phase file
+    phase_file = json_store.phases_dir / f"{phase_id}.json"
     if phase_file.exists():
         phase_file.unlink()
 
@@ -467,49 +468,33 @@ def edit_phase(phase_id: str, args):
 
 def set_phase_status(phase_id: str, args) -> int:
     """
-    Update a phase status in docs/todo.md and phase file.
+    Update a phase status in JSON storage.
     """
+    from maestro.tracks.json_store import JsonStore
+
     status_value = normalize_status(getattr(args, 'status', None))
     if not status_value:
         print(f"Error: Unknown status. Allowed: {allowed_statuses()}.")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
+    json_store = JsonStore()
+
+    # Load the phase
+    phase = json_store.load_phase(phase_id, load_tasks=False)
+    if not phase:
+        print(f"Error: Phase '{phase_id}' not found.")
+        verbose = getattr(args, 'verbose', False)
+        if verbose:
+            available = json_store.list_all_phases()
+            if available:
+                print(f"Available phases: {', '.join(available[:10])}")
         return 1
 
-    available = _available_phase_ids(verbose=getattr(args, 'verbose', False))
-    if phase_id not in available:
-        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
-        if available:
-            print(f"Available phases: {', '.join(available)}")
-        return 1
+    # Update phase status
+    phase.status = status_value
 
-    if not update_phase_metadata(todo_path, phase_id, 'status', status_value):
-        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
-        return 1
-
-    update_phase_heading_status(todo_path, phase_id, status_badge(status_value))
-
-    summary = getattr(args, 'summary', None)
-    if summary:
-        update_phase_metadata(todo_path, phase_id, 'status_summary', summary)
-    else:
-        print("Note: consider adding --summary to capture the status change context.")
-
-    changed_at = status_timestamp()
-    update_phase_metadata(todo_path, phase_id, 'status_changed', changed_at)
-
-    phase_path = Path('docs/phases') / f"{phase_id}.md"
-    if phase_path.exists():
-        update_phase_metadata(phase_path, phase_id, 'status', status_value)
-        update_phase_heading_status(phase_path, phase_id, status_badge(status_value))
-        if summary:
-            update_phase_metadata(phase_path, phase_id, 'status_summary', summary)
-        update_phase_metadata(phase_path, phase_id, 'status_changed', changed_at)
-    else:
-        print(f"Warning: phase file not found at {phase_path}.")
+    # Save the phase
+    json_store.save_phase(phase)
 
     print(f"Updated phase '{phase_id}' status to '{status_value}'.")
     return 0

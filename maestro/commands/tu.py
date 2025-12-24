@@ -597,6 +597,121 @@ def add_tu_parser(subparsers):
     print_ast_parser.add_argument('--compile-flags', action='append', help='Compile flags for C/C++ parsing')
     print_ast_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed error messages')
 
+    # tu draft
+    draft_parser = tu_subparsers.add_parser('draft', help='Create draft classes and functions for a translation unit')
+    draft_parser.add_argument('path', help='Path to source files', nargs='?', default='.')
+    draft_parser.add_argument('--class', dest='classes', action='append', help='Draft class name to create')
+    draft_parser.add_argument('--function', dest='functions', action='append', help='Draft function name to create')
+    draft_parser.add_argument('--lang', help='Language: cpp, java, kotlin, python (auto-detect if not specified)')
+    draft_parser.add_argument('--output', '-o', default='.maestro/tu/draft', help='Output directory for draft files (default: .maestro/tu/draft)')
+    draft_parser.add_argument('--link-phase', help='Phase ID to link the draft to')
+    draft_parser.add_argument('--link-task', help='Task ID to link the draft to')
+    draft_parser.add_argument('--prompt', '-p', help='AI prompt to help generate the draft implementation')
+    draft_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed progress')
+
+
+def handle_tu_draft_command(args):
+    """Handle maestro tu draft [PACKAGE] --class Class1 --function Func1"""
+    import os
+    from pathlib import Path
+    from ..tu.code_generator import CodeGenerator  # Assuming we have this module
+
+    print(f"Creating draft translation unit for path: {args.path}")
+
+    # Determine language
+    lang = args.lang
+    if not lang:
+        # Auto-detect from first file in path
+        files = get_files_by_language(args.path, 'cpp') + \
+                get_files_by_language(args.path, 'java') + \
+                get_files_by_language(args.path, 'kotlin') + \
+                get_files_by_language(args.path, 'python')
+        if not files:
+            print("Error: No source files found in specified path")
+            return 1
+        lang = detect_language_from_path(files[0])
+        print(f"Auto-detected language: {lang}")
+
+    # Create the appropriate parser
+    try:
+        parser = get_parser_by_language(lang)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    # Setup output directory
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Initialize code generator
+    generator = CodeGenerator(lang=lang)
+
+    # Create draft classes
+    created_files = []
+    if args.classes:
+        for class_name in args.classes:
+            print(f"Creating draft class: {class_name}")
+            code = generator.generate_class(class_name, args.prompt)
+            file_path = output_dir / f"{class_name}.{get_file_extension(lang)}"
+            with open(file_path, 'w') as f:
+                f.write(code)
+            created_files.append(str(file_path))
+            print(f"  Created: {file_path}")
+
+    # Create draft functions
+    if args.functions:
+        for func_name in args.functions:
+            print(f"Creating draft function: {func_name}")
+            code = generator.generate_function(func_name, args.prompt)
+            file_path = output_dir / f"{func_name}_impl.{get_file_extension(lang)}"
+            with open(file_path, 'w') as f:
+                f.write(code)
+            created_files.append(str(file_path))
+            print(f"  Created: {file_path}")
+
+    # Link to phase/task if specified
+    if args.link_phase or args.link_task:
+        # This would link the created draft files to the specified phase/task
+        # Implementation would involve updating todo tracking files
+        todo_classes_path = Path('docs/todo-classes.md')
+        if todo_classes_path.exists():
+            with open(todo_classes_path, 'a') as f:
+                f.write(f"\n## Draft Classes for Phase/Task\n")
+                if args.link_phase:
+                    f.write(f"- **Linked to Phase**: {args.link_phase}\n")
+                if args.link_task:
+                    f.write(f"- **Linked to Task**: {args.link_task}\n")
+                for file_path in created_files:
+                    f.write(f"- [{Path(file_path).name}]({file_path})\n")
+        else:
+            with open(todo_classes_path, 'w') as f:
+                f.write(f"# Draft Classes and Functions\n\n")
+                if args.link_phase:
+                    f.write(f"- **Linked to Phase**: {args.link_phase}\n")
+                if args.link_task:
+                    f.write(f"- **Linked to Task**: {args.link_task}\n")
+                for file_path in created_files:
+                    f.write(f"- [{Path(file_path).name}]({file_path})\n")
+        print(f"Linked draft files to phase/task in {todo_classes_path}")
+
+    print(f"Successfully created {len(created_files)} draft files")
+    return 0
+
+
+def get_file_extension(lang):
+    """Get file extension for the given language."""
+    lang_ext_map = {
+        'cpp': '.cpp',
+        'c++': '.cpp',
+        'cxx': '.cpp',
+        'cc': '.cpp',
+        'c': '.c',
+        'java': '.java',
+        'kotlin': '.kt',
+        'python': '.py'
+    }
+    return lang_ext_map.get(lang, '.txt')  # default to .txt if language not found
+
 
 def handle_tu_command(args):
     """Main handler for the TU command."""
@@ -616,6 +731,8 @@ def handle_tu_command(args):
         return handle_tu_transform_command(args)
     elif args.tu_subcommand == 'print-ast':
         return handle_tu_print_ast_command(args)
+    elif args.tu_subcommand == 'draft':
+        return handle_tu_draft_command(args)
     elif args.tu_subcommand == 'cache':
         if args.cache_subcommand == 'clear':
             return handle_tu_cache_clear_command(args)
@@ -625,5 +742,5 @@ def handle_tu_command(args):
             print("Usage: maestro tu cache [clear|stats]")
             return 1
     else:
-        print("Usage: maestro tu [build|info|query|complete|references|lsp|transform|print-ast|cache]")
+        print("Usage: maestro tu [build|info|query|complete|references|lsp|transform|print-ast|draft|cache]")
         return 1

@@ -551,6 +551,8 @@ def add_task(name: str, args):
         args: Command arguments
     """
     from maestro.config.settings import get_settings
+    from maestro.tracks.json_store import JsonStore
+    from maestro.tracks.models import Task
 
     verbose = getattr(args, 'verbose', False)
     phase_id = getattr(args, 'phase_id', None)
@@ -561,86 +563,67 @@ def add_task(name: str, args):
         print("Error: Phase ID required. Usage: maestro task add --phase <phase_id> <name>")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        print("Use 'maestro track add' and 'maestro phase add' to create phases first.")
-        return 1
+    json_store = JsonStore()
 
-    data = parse_todo_safe(todo_path, verbose=verbose)
-    if data is None:
-        return 1
-    phase_info = None
-    track_info = None
-    for track in data.get('tracks', []):
-        for phase in track.get('phases', []):
-            if phase.get('phase_id') == phase_id:
-                phase_info = phase
-                track_info = track
-                break
-        if phase_info:
-            break
-    if not phase_info:
-        print(f"Error: Phase '{phase_id}' not found in docs/todo.md.")
+    # Load the phase
+    phase = json_store.load_phase(phase_id, load_tasks=True)
+    if not phase:
+        print(f"Error: Phase '{phase_id}' not found.")
         if verbose:
-            available = _available_phase_ids(verbose=verbose)
+            available = json_store.list_all_phases()
             if available:
                 print(f"Verbose: Available phases: {', '.join(available)}")
         return 1
 
+    # Generate task ID if not provided
     task_id = getattr(args, 'task_id_opt', None)
     if not task_id:
-        task_id = f"{phase_id}.1"
+        # Auto-generate task ID based on existing tasks
+        existing_task_ids = [t.task_id if hasattr(t, 'task_id') else t for t in (phase.tasks or [])]
+        # Find next available number
+        base_num = 1
+        while f"{phase_id}.{base_num}" in existing_task_ids:
+            base_num += 1
+        task_id = f"{phase_id}.{base_num}"
 
-    desc_lines = getattr(args, 'desc', None) or []
-
-    phases_dir = Path('docs/phases')
-    phases_dir.mkdir(parents=True, exist_ok=True)
-    phase_path = phases_dir / f"{phase_id}.md"
-    if not phase_path.exists():
-        track_name = track_info.get('name', 'Unknown Track') if track_info else 'Unknown Track'
-        escaped_track_name = escape_asterisk_text(track_name)
-        escaped_phase_id = escape_asterisk_text(phase_id)
-        escaped_track_id = escape_asterisk_text(track_info.get('track_id', '') if track_info else '')
-        header = [
-            f"# Phase {phase_id}: {phase_info.get('name', phase_id)} 📋 **[Planned]**\n",
-            "\n",
-            f"- *phase_id*: *{escaped_phase_id}*\n",
-            f"- *track*: *{escaped_track_name}*\n",
-            f"- *track_id*: *{escaped_track_id}*\n",
-            "- *status*: *planned*\n",
-            "- *completion*: 0\n",
-            "\n",
-            "## Tasks\n",
-            "\n",
-        ]
-        phase_path.write_text("".join(header), encoding='utf-8')
-
-    escaped_task_id = escape_asterisk_text(task_id)
-    task_block = [
-        f"### Task {task_id}: {name}\n",
-        "\n",
-        f"- *task_id*: *{escaped_task_id}*\n",
-        "- *priority*: *P2*\n",
-        "- *status*: *planned*\n",
-        "\n",
-    ]
-    for line in desc_lines:
-        if line.strip():
-            task_block.append(f"- {line.strip()}\n")
-    task_block.append("\n")
-
-    inserted = insert_task_block(
-        phase_path,
-        "".join(task_block),
-        after_task_id=getattr(args, 'after', None),
-        before_task_id=getattr(args, 'before', None),
-    )
-    if not inserted:
-        print("Error: Unable to insert task block.")
+    # Check if task already exists
+    if json_store.load_task(task_id):
+        print(f"Error: Task '{task_id}' already exists.")
         return 1
 
-    _insert_task_in_todo(todo_path, phase_id, task_id, name, desc_lines, getattr(args, 'after', None), getattr(args, 'before', None))
+    # Get description
+    desc_lines = getattr(args, 'desc', None) or []
+
+    # Create new task
+    task = Task(
+        task_id=task_id,
+        name=name,
+        status='planned',
+        priority='P2',
+        estimated_hours=None,
+        description=desc_lines,
+        phase_id=phase_id,
+        completed=False,
+        tags=[],
+        owner=None,
+        dependencies=[],
+        subtasks=[]
+    )
+
+    # Save task
+    json_store.save_task(task)
+
+    # Add task to phase's task list
+    if not phase.tasks:
+        phase.tasks = []
+
+    # Handle task IDs vs Task objects
+    if phase.tasks and isinstance(phase.tasks[0], str):
+        phase.tasks.append(task_id)
+    else:
+        phase.tasks.append(task)
+
+    json_store.save_phase(phase)
 
     print(f"Added task '{task_id}' ({name}) to phase '{phase_id}'.")
     return 0
@@ -654,21 +637,41 @@ def remove_task(task_id: str, args):
         task_id: Task ID to remove
         args: Command arguments
     """
+    from maestro.tracks.json_store import JsonStore
+
     verbose = getattr(args, 'verbose', False)
-    phase_file = _find_task_file(task_id)
-    if not phase_file:
-        print(f"Error: Task '{task_id}' not found in any phase file.")
+    json_store = JsonStore()
+
+    # Load the task to get its phase_id
+    task = json_store.load_task(task_id)
+    if not task:
+        print(f"Error: Task '{task_id}' not found.")
         if verbose:
             print("Verbose: Use 'maestro task list' to see available task IDs.")
         return 1
 
-    if not remove_task_block(phase_file, task_id):
-        print(f"Error: Task '{task_id}' not found in {phase_file}.")
+    phase_id = task.phase_id
+
+    # Load the phase
+    phase = json_store.load_phase(phase_id, load_tasks=True)
+    if not phase:
+        print(f"Error: Phase '{phase_id}' not found.")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if todo_path.exists():
-        _remove_task_from_todo(todo_path, task_id)
+    # Remove task from phase's task list
+    if phase.tasks:
+        # Handle both task IDs and Task objects
+        if isinstance(phase.tasks[0], str):
+            phase.tasks = [t for t in phase.tasks if t != task_id]
+        else:
+            phase.tasks = [t for t in phase.tasks if t.task_id != task_id]
+
+        json_store.save_phase(phase)
+
+    # Delete the task file
+    task_file = json_store.tasks_dir / f"{task_id}.json"
+    if task_file.exists():
+        task_file.unlink()
 
     print(f"Removed task: {task_id}")
     return 0
@@ -688,39 +691,32 @@ def complete_task(task_id: str, args):
 
 def set_task_status(task_id: str, args) -> int:
     """
-    Update a task status in its phase file and docs/todo.md checkbox.
+    Update a task status in JSON storage.
     """
+    from maestro.tracks.json_store import JsonStore
+
     status_value = normalize_status(getattr(args, 'status', None))
     if not status_value:
         print(f"Error: Unknown status. Allowed: {allowed_statuses()}.")
         return 1
 
     verbose = getattr(args, 'verbose', False)
-    phase_file = _find_task_file(task_id)
-    if not phase_file:
-        print(f"Error: Task '{task_id}' not found in any phase file.")
+    json_store = JsonStore()
+
+    # Load the task
+    task = json_store.load_task(task_id)
+    if not task:
+        print(f"Error: Task '{task_id}' not found.")
         if verbose:
             print("Verbose: Use 'maestro task list' to see available task IDs.")
         return 1
 
-    if not update_task_metadata(phase_file, task_id, 'status', status_value):
-        print(f"Error: Task '{task_id}' not found in {phase_file}.")
-        return 1
+    # Update task status
+    task.status = status_value
+    task.completed = (status_value == 'done')
 
-    update_task_heading_status(phase_file, task_id, status_badge(status_value))
-
-    summary = getattr(args, 'summary', None)
-    if summary:
-        update_task_metadata(phase_file, task_id, 'status_summary', summary)
-    else:
-        print("Note: consider adding --summary to capture the status change context.")
-
-    changed_at = status_timestamp()
-    update_task_metadata(phase_file, task_id, 'status_changed', changed_at)
-
-    todo_path = Path('docs/todo.md')
-    if todo_path.exists():
-        _set_task_checkbox(todo_path, task_id, status_value == 'done')
+    # Save the task
+    json_store.save_task(task)
 
     print(f"Updated task '{task_id}' status to '{status_value}'.")
     return 0

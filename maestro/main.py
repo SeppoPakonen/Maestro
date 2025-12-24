@@ -333,6 +333,10 @@ def main():
         else:
             parser.print_help()
 
+    elif args.command == 'tu':
+        from .commands.tu import handle_tu_command
+        handle_tu_command(args)
+
     else:
         # If no command is provided, show help
         parser.print_help()

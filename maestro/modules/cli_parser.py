@@ -189,6 +189,7 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_init_parser,
         add_plan_parser,
         add_understand_parser,
+        add_tu_parser,
     )
 
     # Register all available command parsers
@@ -205,6 +206,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_work_parser(subparsers)
     add_wsession_parser(subparsers)
     add_understand_parser(subparsers)
+    add_tu_parser(subparsers)
 
     # Also add the original core commands
     add_core_subparsers(subparsers)
