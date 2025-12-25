@@ -1,0 +1,163 @@
+@startuml
+' _shared.puml - Shared PlantUML definitions for Maestro workflow diagrams
+'
+' PURPOSE:
+' This file provides shared styles, colors, stereotypes, and macros used across
+' all workflow scenario diagrams. It enables consistent visualization and supports
+' the strategy of stitching individual scenario flows into a single massive
+' conditional workflow diagram.
+'
+' USAGE:
+' Include this file at the top of any scenario .puml file:
+'   !include _shared.puml
+'
+' MERGE STRATEGY:
+' Individual scenario diagrams are written as callable procedures (e.g., !procedure WF_01())
+' with labeled entry/exit points. The master diagram will:
+' 1. Include all scenario .puml files
+' 2. Call scenario procedures based on conditional branches
+' 3. Connect scenarios via their labeled entry/exit points
+' 4. Use GATE() macros to model decision points between scenarios
+
+' ============================================================================
+' SKINPARAMS - Minimal, readable styling
+' ============================================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+' Swimlane styling
+skinparam swimlane {
+  BorderColor #666666
+  TitleFontSize 12
+  TitleFontStyle bold
+}
+
+' Activity styling
+skinparam activity {
+  BackgroundColor #E3F2FD
+  BorderColor #1976D2
+  FontSize 10
+}
+
+' Note styling
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F57F17
+  FontSize 9
+}
+
+' ============================================================================
+' STEREOTYPES & COLORS
+' ============================================================================
+
+' State types
+!define COLOR_GATE #FFE082
+!define COLOR_HARD_STOP #FFCDD2
+!define COLOR_SUCCESS #C8E6C9
+!define COLOR_ARTIFACT #E1BEE7
+!define COLOR_AI_ACTION #B2DFDB
+!define COLOR_VALIDATION #FFF59D
+
+' ============================================================================
+' COMMON MACROS
+' ============================================================================
+
+' GATE - Decision point with conditional branches
+' Usage: GATE("Human approval required?")
+!procedure GATE($label)
+  :<color:COLOR_GATE><b>GATE:</b> $label</color>|
+!endprocedure
+
+' HARD_STOP - Blocking failure that halts the workflow
+' Usage: HARD_STOP("Invalid JSON from AI")
+!procedure HARD_STOP($reason)
+  :<color:COLOR_HARD_STOP><b>HARD STOP</b>
+  $reason</color>|
+  stop
+!endprocedure
+
+' CREATE_ISSUE - Generate an issue from a source
+' Usage: CREATE_ISSUE("Build errors")
+!procedure CREATE_ISSUE($source)
+  :<color:COLOR_ARTIFACT><b>Create Issue</b>
+  Source: $source
+  → docs/issues/</color>|
+!endprocedure
+
+' CREATE_TASK - Generate a task linked to an issue
+' Usage: CREATE_TASK("ISS-123")
+!procedure CREATE_TASK($issue_id)
+  :<color:COLOR_ARTIFACT><b>Create Task</b>
+  Issue: $issue_id
+  → docs/tasks/</color>|
+!endprocedure
+
+' DEPENDENCY_EDGE - Model task dependency relationship
+' Usage: DEPENDENCY_EDGE("TASK-A", "TASK-B")
+!procedure DEPENDENCY_EDGE($task_a, $task_b)
+  note right
+    Dependency: $task_a → $task_b
+    (stored in task metadata)
+  end note
+!endprocedure
+
+' AI_DISCUSS - AI analysis and discussion round
+' Usage: AI_DISCUSS("Analyze codebase structure")
+!procedure AI_DISCUSS($purpose)
+  :<color:COLOR_AI_ACTION><b>AI Discussion</b>
+  Purpose: $purpose</color>|
+!endprocedure
+
+' VALIDATE_JSON - Check AI output JSON contract
+' Usage: VALIDATE_JSON("Plan structure")
+!procedure VALIDATE_JSON($what)
+  :<color:COLOR_VALIDATION><b>Validate JSON</b>
+  Check: $what</color>|
+!endprocedure
+
+' WRITE_TRUTH - Write to docs/ truth files
+' Usage: WRITE_TRUTH("docs/plan.json")
+!procedure WRITE_TRUTH($filepath)
+  :<color:COLOR_ARTIFACT><b>Write Truth File</b>
+  → $filepath</color>|
+!endprocedure
+
+' SUCCESS_EXIT - Successful exit point from scenario
+' Usage: SUCCESS_EXIT("WF-01")
+!procedure SUCCESS_EXIT($scenario_id)
+  :<color:COLOR_SUCCESS><b>EXIT: $scenario_id</b>
+  Success</color>|
+!endprocedure
+
+' ============================================================================
+' MEGA-DIAGRAM ASSEMBLY NOTES
+' ============================================================================
+
+' When building the master conditional workflow:
+'
+' 1. Each scenario is wrapped in a procedure:
+'    !procedure WF_01()
+'      ... scenario activities ...
+'    !endprocedure
+'
+' 2. Entry/exit points are labeled:
+'    (*) --> [entry] ENTRY_WF_01
+'    ... flow ...
+'    EXIT_WF_01 --> (*)
+'
+' 3. The master diagram calls procedures conditionally:
+'    (*) --> [start] Initial_State
+'    if "Existing repo?" then
+'      --> [yes] WF_01()
+'    else
+'      --> [no] WF_02()
+'    endif
+'
+' 4. Cross-scenario transitions:
+'    EXIT_WF_01 --> ENTRY_WF_05
+'    note: "After bootstrap, move to enhancement workflow"
+
+@enduml

@@ -1,0 +1,492 @@
+@startuml WF-01: Existing Repo Bootstrap (Single Main, Compiled)
+!include _shared.puml
+
+' ============================================================================
+' SCENARIO WF-01: Existing Repo Bootstrap (Single Main, Compiled Language)
+' ============================================================================
+' This diagram models the complete bootstrap workflow when a user adds Maestro
+' to an existing codebase with a single main branch and compiled language.
+'
+' The flow is wrapped as a callable procedure to enable stitching into the
+' master conditional workflow diagram.
+'
+' ENTRY POINT: ENTRY_WF_01
+' EXIT POINTS: EXIT_WF_01_SUCCESS, EXIT_WF_01_PARTIAL
+' ============================================================================
+
+!procedure WF_01()
+
+title WF-01: Existing Repo Bootstrap\n(Single Main, Compiled Language)
+
+' ============================================================================
+' SWIMLANES
+' ============================================================================
+
+|User|
+start
+:ENTRY_WF_01;
+note right
+  **Entry Conditions:**
+  • Existing git repository
+  • Single main branch
+  • Compiled language
+  • Maestro not initialized
+  • Dev environment ready
+end note
+
+' ============================================================================
+' PHASE 0: PRECONDITION CHECKS
+' ============================================================================
+
+|Maestro CLI|
+:Verify git repository;
+note right: `git rev-parse --git-dir`
+
+GATE("Is git repository?")
+if (Git repo?) then (no)
+  HARD_STOP("Not a git repository\nRun `git init` first")
+else (yes)
+endif
+
+GATE("Maestro already initialized?")
+if (Initialized?) then (yes)
+  |User|
+  :Warning: Already initialized;
+  note right: Idempotent behavior
+  stop
+else (no)
+endif
+
+' ============================================================================
+' PHASE 1: MAESTRO INITIALIZATION
+' ============================================================================
+
+|User|
+:Run `maestro init`;
+
+|Maestro CLI|
+:Create directory structure;
+note right
+  docs/
+    tracks/
+    phases/
+    tasks/
+    issues/
+    plan.json
+    todo.md
+    done.md
+end note
+
+WRITE_TRUTH("docs/plan.json")
+WRITE_TRUTH("docs/todo.md")
+WRITE_TRUTH("docs/done.md")
+
+:Detect build system;
+note right
+  • Rust: Cargo.toml
+  • Go: go.mod
+  • C++: CMakeLists.txt
+end note
+
+' ============================================================================
+' PHASE 2: UNDERSTAND CODEBASE + AI DISCUSSION
+' ============================================================================
+
+|User|
+:Run `maestro discuss "Analyze codebase"`;
+
+|AI Engine|
+AI_DISCUSS("Analyze codebase structure and purpose")
+
+:Read codebase files;
+:Analyze architecture, dependencies, modules;
+
+:Generate structured understanding;
+note right
+  JSON output:
+  {
+    "language": "Rust",
+    "build_system": "Cargo",
+    "modules": [...],
+    "architecture": "..."
+  }
+end note
+
+|Maestro CLI|
+VALIDATE_JSON("AI understanding structure")
+
+if (Valid JSON?) then (no)
+  HARD_STOP("AI returned invalid JSON\nRetry with clearer prompt")
+else (yes)
+endif
+
+|User|
+:Review AI's understanding;
+
+GATE("Understanding correct?")
+if (Correct?) then (no)
+  |User|
+  :Provide corrections;
+  |AI Engine|
+  :Re-analyze with corrections;
+  note right: Loop back to AI discussion
+  ' Loop back
+  detach
+else (yes)
+endif
+
+' ============================================================================
+' PHASE 3: RECONSTRUCT PAST WORK
+' ============================================================================
+
+|User|
+:Choose reconstruction strategy;
+
+GATE("Reconstruction strategy?")
+if (Strategy) then (git)
+  |Maestro CLI|
+  :Run `maestro reconstruct --strategy=git`;
+  |Repo/Toolchain|
+  :Parse git log;
+  note right: `git log --oneline --reverse`
+
+  |AI Engine|
+  :Group commits by purpose;
+  note right
+    • Feature additions
+    • Bug fixes
+    • Refactorings
+  end note
+else (snapshot)
+  |Maestro CLI|
+  :Run `maestro reconstruct --strategy=snapshot`;
+  |AI Engine|
+  :Read current codebase;
+  :Infer completed work from code structure;
+  note right
+    • Existing modules
+    • Test coverage
+    • Code comments
+  end note
+endif
+
+|Maestro CLI|
+:Generate docs/done.md;
+note right
+  # DONE
+  ## Phase: Initial Development
+  - [x] Task 1
+  - [x] Task 2
+end note
+
+WRITE_TRUTH("docs/done.md")
+
+|User|
+:Review docs/done.md;
+
+GATE("Reconstruction looks correct?")
+if (Correct?) then (no)
+  |User|
+  :Manually edit docs/done.md;
+  |Maestro CLI|
+  :Validate edits;
+  ' Loop back
+  detach
+else (yes)
+endif
+
+' ============================================================================
+' PHASE 4: BUILD ATTEMPT → ERROR CAPTURE
+' ============================================================================
+
+|User|
+:Run `maestro build --create-issues`;
+
+|Maestro CLI|
+:Detect build command;
+note right
+  • Rust: `cargo build`
+  • Go: `go build`
+  • C++: `cmake --build`
+end note
+
+|Repo/Toolchain|
+:Execute build;
+:Capture build output;
+
+|Maestro CLI|
+:Write docs/build.log;
+
+GATE("Build succeeded?")
+if (Success?) then (yes)
+  :Clean build achieved;
+  note right: No errors to fix
+  ' Jump to Phase 6 (runtime)
+  --> PHASE_6_RUNTIME;
+else (no)
+  :Parse build errors;
+  note right
+    Extract:
+    • File paths
+    • Line numbers
+    • Error codes/messages
+  end note
+
+  |AI Engine|
+  :Group errors by root cause;
+  note right
+    • Same file/module
+    • Related error types
+    • Dependency chains
+  end note
+
+  |Maestro CLI|
+  while (For each error group) is (more groups)
+    CREATE_ISSUE("Build error")
+    :Write docs/issues/ISS-XXX.md;
+  endwhile (done)
+
+  while (For each issue) is (more issues)
+    CREATE_TASK("ISS-XXX")
+    :Write docs/tasks/TASK-XXX.json;
+  endwhile (done)
+
+  :Analyze task dependencies;
+  note right
+    AI-assisted:
+    • Missing import → undefined symbol
+    • Type error → downstream errors
+  end note
+
+  while (For each task) is (more tasks)
+    :Update task with dependencies;
+    note right
+      {
+        "id": "TASK-002",
+        "dependencies": ["TASK-001"]
+      }
+    end note
+    WRITE_TRUTH("docs/tasks/TASK-XXX.json")
+  endwhile (done)
+
+  :Generate ranked docs/todo.md;
+  note right
+    # TODO
+    ## Phase: Build Fixes
+    - [ ] TASK-001 (no deps)
+    - [ ] TASK-002 (deps: TASK-001)
+  end note
+  WRITE_TRUTH("docs/todo.md")
+endif
+
+' ============================================================================
+' PHASE 5: WORK LOOP (FIX → REBUILD → ITERATE)
+' ============================================================================
+
+|User|
+:Run `maestro task next`;
+
+|Maestro CLI|
+:Select next task with no unsatisfied dependencies;
+
+|User|
+:Review task details;
+
+GATE("How to fix task?")
+if (Fix method) then (manual)
+  |User|
+  :Edit files directly;
+else (AI-assisted)
+  |User|
+  :Run `maestro task fix TASK-XXX`;
+
+  |AI Engine|
+  :Read task and issue context;
+  :Propose code changes;
+  note right
+    JSON:
+    {
+      "file": "src/core.rs",
+      "action": "insert",
+      "line": 40,
+      "content": "fn process_data(...) { ... }"
+    }
+  end note
+
+  |Maestro CLI|
+  VALIDATE_JSON("AI proposed changes")
+
+  if (Valid JSON?) then (no)
+    HARD_STOP("AI returned invalid changes")
+  else (yes)
+  endif
+
+  :Validate change details;
+  note right
+    • File exists?
+    • Line valid?
+    • Syntax valid?
+  end note
+
+  if (Validation passes?) then (no)
+    HARD_STOP("Change validation failed\n(file not found, invalid syntax, etc.)")
+  else (yes)
+  endif
+
+  :Apply changes to files;
+endif
+
+|User|
+:Run `maestro build --create-issues`;
+
+|Repo/Toolchain|
+:Execute build;
+
+GATE("Build succeeded?")
+if (Success?) then (no)
+  |Maestro CLI|
+  :Parse new errors;
+  :Create new issues/tasks;
+  :Update docs/todo.md;
+  note right: New tasks added to queue
+  ' Loop back to task next
+  --> [Loop: More tasks to fix] WORK_LOOP_START;
+else (yes)
+  |User|
+  :Run `maestro task complete TASK-XXX`;
+
+  |Maestro CLI|
+  :Move task to docs/done.md;
+  note right
+    **Mandatory Task Lifecycle Rule:**
+    Completed tasks MUST be moved
+    from todo.md to done.md
+  end note
+  WRITE_TRUTH("docs/done.md")
+
+  :Update task status to 'completed';
+  WRITE_TRUTH("docs/tasks/TASK-XXX.json")
+endif
+
+GATE("More tasks in todo.md?")
+if (More tasks?) then (yes)
+  :WORK_LOOP_START;
+  ' Loop back
+  detach
+else (no)
+  :All build errors fixed;
+endif
+
+' ============================================================================
+' PHASE 6: RUNTIME ATTEMPT → LOG SCAN (OPTIONAL)
+' ============================================================================
+
+:PHASE_6_RUNTIME;
+
+|User|
+GATE("Attempt runtime?")
+if (Run app?) then (no)
+  --> EXIT_WF_01_SUCCESS;
+else (yes)
+  :Run `maestro run --create-issues`;
+
+  |Maestro CLI|
+  :Detect run command;
+  note right
+    • Rust: `cargo run`
+    • Go: `./binary`
+    • Java: `java -jar app.jar`
+  end note
+
+  |Repo/Toolchain|
+  :Execute application;
+  :Capture runtime output;
+
+  |Maestro CLI|
+  :Write docs/runtime.log;
+
+  GATE("Runtime errors detected?")
+  if (Errors?) then (yes)
+    :Parse runtime errors;
+    note right
+      • Panics/crashes
+      • Exceptions
+      • Stack traces
+    end note
+
+    |AI Engine|
+    :Analyze error context;
+
+    |Maestro CLI|
+    while (For each runtime error) is (more errors)
+      CREATE_ISSUE("Runtime error")
+      :Write docs/issues/ISS-XXX.md;
+      CREATE_TASK("ISS-XXX")
+      :Write docs/tasks/TASK-XXX.json;
+    endwhile (done)
+
+    :Update docs/todo.md;
+    WRITE_TRUTH("docs/todo.md")
+
+    |User|
+    GATE("Fix runtime errors now?")
+    if (Fix now?) then (yes)
+      ' Loop back to work loop
+      --> [Runtime fix loop] WORK_LOOP_START;
+    else (no)
+      :Exit with partial completion;
+      --> EXIT_WF_01_PARTIAL;
+    endif
+  else (no)
+    :Application runs cleanly;
+  endif
+endif
+
+' ============================================================================
+' EXIT POINTS
+' ============================================================================
+
+:EXIT_WF_01_SUCCESS;
+SUCCESS_EXIT("WF-01")
+note right
+  **Success Criteria Met:**
+  • Maestro initialized
+  • Past work reconstructed
+  • Clean build achieved
+  • Runtime successful (or not attempted)
+
+  **Artifacts Created:**
+  • docs/tracks/*.json
+  • docs/issues/*.md (if any)
+  • docs/tasks/*.json (if any)
+  • docs/todo.md (empty or remaining)
+  • docs/done.md (populated)
+
+  **Follow-On Scenarios:**
+  • WF-05: Feature Request
+  • WF-08: Test Failure
+end note
+stop
+
+:EXIT_WF_01_PARTIAL;
+note right
+  **Partial Completion:**
+  • Maestro initialized
+  • Past work reconstructed
+  • Build errors captured as tasks
+  • Remaining work in docs/todo.md
+
+  User may continue work loop later
+end note
+stop
+
+!endprocedure
+
+' ============================================================================
+' STANDALONE USAGE (when not included in master diagram)
+' ============================================================================
+
+' Uncomment the line below to render this scenario standalone:
+' WF_01()
+
+@enduml
