@@ -1,0 +1,28 @@
+@startuml
+!include _shared.puml
+
+!procedure WF_REPO_CONF()
+  |Operator|
+  :maestro repo conf [package_name] [options];
+
+  |Maestro CLI|
+  :Load repository index;
+  :Identify package build system;
+
+  |Build System Parser|
+  :Parse build configuration;
+  note right: U++: .upp files
+  note right: CMake: CMakeLists.txt
+  note right: Autotools: configure.ac
+  note right: Gradle: build.gradle
+  note right: Maven: pom.xml
+
+  |Maestro CLI|
+  :Extract configuration data;
+  :Format output;
+
+  |Operator|
+  :Receive build configuration;
+!endprocedure
+
+@enduml

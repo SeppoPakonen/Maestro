@@ -1,0 +1,130 @@
+@startuml
+!include _shared.puml
+
+!procedure WF_TU_BUILD()
+  |Operator|
+  :Select package for TU analysis;
+  :maestro tu build [path] [options];
+
+  |Maestro CLI|
+  :Parse language from path;
+  :Select appropriate parser;
+  :TUBuilder.build() for each file;
+
+  |Toolchain (Compiler)|
+  :Parse with AST flags;
+  :Generate AST representation;
+
+  |Maestro CLI|
+  :Cache AST results;
+  :Build symbol index;
+
+  |AST Store/Index|
+  :Store in .maestro/tu/cache/;
+  :Update symbols.db;
+
+  |Maestro CLI|
+  :Report success/failure;
+  |Operator|
+  :TU generation complete;
+!endprocedure
+
+!procedure WF_TU_QUERY()
+  |Operator|
+  :maestro tu query --symbol [name] [options];
+
+  |Maestro CLI|
+  :Load symbol index;
+  :SymbolIndex.query();
+
+  |AST Store/Index|
+  :Search definitions/references;
+
+  |Maestro CLI|
+  :Format results;
+  |Operator|
+  :Display symbol information;
+!endprocedure
+
+!procedure WF_TU_COMPLETE()
+  |Operator|
+  :maestro tu complete --file [path] --line [num] --column [num];
+
+  |Maestro CLI|
+  :Load document AST;
+  :Map position to AST node;
+  :CompletionProvider.get_completions();
+
+  |AST Store/Index|
+  :Find visible symbols;
+
+  |Maestro CLI|
+  :Rank completions;
+  :Return suggestions;
+  |Operator|
+  :Display completions;
+!endprocedure
+
+!procedure WF_TU_REFERENCES()
+  |Operator|
+  :maestro tu references --symbol [name] --file [path] --line [num];
+
+  |Maestro CLI|
+  :Load symbol index;
+  :SymbolIndex.find_references();
+
+  |AST Store/Index|
+  :Find all references to symbol;
+
+  |Maestro CLI|
+  :Format reference list;
+  |Operator|
+  :Display reference locations;
+!endprocedure
+
+!procedure WF_TU_TRANSFORM()
+  |Operator|
+  :maestro tu transform [package] --to [target];
+
+  |Maestro CLI|
+  :Parse package files;
+  :Build dependency graph;
+  :Apply transformers;
+
+  |Filesystem (Source Tree)|
+  :Read source files;
+  :Write transformed files;
+
+  |Maestro CLI|
+  :Update includes/references;
+  :Report transformation status;
+  |Operator|
+  :Transformation complete;
+!endprocedure
+
+!procedure WF_TU_LSP()
+  |Operator|
+  :maestro tu lsp [options];
+
+  |Maestro CLI|
+  :Initialize LSP server;
+  :MaestroLSPServer.start();
+
+  |LSP Client|
+  :Connect to server;
+  :Send requests (completion, definition, etc.);
+
+  |Maestro CLI|
+  :Route to appropriate handler;
+  :Process with TU components;
+
+  |AST Store/Index|
+  :Provide symbol information;
+
+  |Maestro CLI|
+  :Return LSP response;
+  |LSP Client|
+  :Process response;
+!endprocedure
+
+@enduml

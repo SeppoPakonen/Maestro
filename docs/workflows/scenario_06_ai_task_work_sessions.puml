@@ -1,64 +1,66 @@
 @startuml
 !include _shared.puml
 
-!procedure WF_06()
-  :ENTRY_WF_06;
-  participant Operator as Op
-  participant "Maestro Orchestrator (outer)" as MO
-  participant "AI Engine" as AI
-  participant "Maestro Worker (inner)" as MW
-  participant "Work Session Store" as WSS
-  participant "AI Transcript Store" as ATS
+title AI-driven task execution with Work Sessions and multi-session resume
 
-  Op -> MO: maestro work task <id>
-  MO -> WSS: OPEN_WORK_SESSION(task_id)
-  alt Work Session exists?
-      WSS -> MO: return existing session
-  else Create new session
-      WSS -> WSS: create new WorkSession
-      WSS -> MO: return new session
-  end
+participant Operator as Op
+participant "Maestro Orchestrator (outer)" as MO
+participant "AI Engine" as AI
+participant "Maestro Worker (inner)" as MW
+participant "Work Session Store" as WSS
+participant "AI Transcript Store" as ATS
 
-  MO -> AI: start AI engine session
-  AI -> ATS: CAPTURE_STREAM_EVENT(event)
-  AI -> ATS: CAPTURE_STREAM_EVENT(event)
-  AI -> ATS: CAPTURE_STREAM_EVENT(event)
+== Entry: AI Task Work Session ==
+Op -> MO: maestro work task <id>
+MO -> WSS: OPEN_WORK_SESSION(task_id)
+alt Work Session exists?
+    WSS -> MO: return existing session
+else Create new session
+    WSS -> WSS: create new WorkSession
+    WSS -> MO: return new session
+end
 
-  alt AI emits progress update?
-      AI -> MO: progress update
-      MO -> WSS: APPEND_BREADCRUMB(payload)
-  else No progress update
-      note over AI, MO: Breadcrumb update skipped
-  end
+MO -> AI: start AI engine session
+AI -> ATS: CAPTURE_STREAM_EVENT(event)
+AI -> ATS: CAPTURE_STREAM_EVENT(event)
+AI -> ATS: CAPTURE_STREAM_EVENT(event)
 
-  alt AI session continues?
-      loop Multiple AI interactions
-          AI -> ATS: CAPTURE_STREAM_EVENT(event)
-          alt AI emits progress update?
-              AI -> MO: progress update
-              MO -> WSS: APPEND_BREADCRUMB(payload)
-          end
-      end
-  else AI session ends
-      note over AI: AI session ends\n(voluntarily or due to constraints)
-      AI -> MO: session ended
-  end
+alt AI emits progress update?
+    AI -> MO: progress update
+    MO -> WSS: APPEND_BREADCRUMB(payload)
+else No progress update
+    note over AI, MO: Breadcrumb update skipped
+end
 
-  alt Next AI session needed?
-      MO -> AI: resume AI engine session
-      AI -> ATS: CAPTURE_STREAM_EVENT(event)
-      note over AI, ATS: Continue under same Work Session
-  else Task completed
-      AI -> MO: final JSON result
-      VALIDATE_JSON("Final JSON schema")
-      alt Final JSON valid?
-          MO -> WSS: update session status to completed
-          MO -> Op: success
-      else Final JSON invalid?
-          HARD_STOP("Invalid final JSON from AI")
-      end
-  end
-  :EXIT_WF_06;
-!endprocedure
+alt AI session continues?
+    loop Multiple AI interactions
+        AI -> ATS: CAPTURE_STREAM_EVENT(event)
+        alt AI emits progress update?
+            AI -> MO: progress update
+            MO -> WSS: APPEND_BREADCRUMB(payload)
+        end
+    end
+else AI session ends
+    note over AI: AI session ends\n(voluntarily or due to constraints)
+    AI -> MO: session ended
+end
+
+alt Next AI session needed?
+    MO -> AI: resume AI engine session
+    AI -> ATS: CAPTURE_STREAM_EVENT(event)
+    note over AI, ATS: Continue under same Work Session
+else Task completed
+    AI -> MO: final JSON result
+    note over MO: Validate JSON schema
+    alt Final JSON valid?
+        MO -> WSS: update session status to completed
+        MO -> Op: success
+    else Final JSON invalid?
+        note over MO, Op: **HARD STOP**\nInvalid final JSON from AI
+        MO -> WSS: update session status to failed
+        MO -> Op: error - HARD STOP
+    end
+end
+== Exit: Task Work Completed ==
 
 @enduml

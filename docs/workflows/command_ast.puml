@@ -1,0 +1,29 @@
+@startuml
+!include _shared.puml
+
+!procedure WF_AST_OPERATIONS()
+  |Operator|
+  :Use maestro tu commands;
+  note right: AST operations are accessed
+  note right: through maestro tu command
+  note right: since there is no dedicated
+  note right: maestro ast command
+
+  |Maestro CLI|
+  :Parse tu subcommands;
+  :Route to AST components;
+
+  |TU Components|
+  :ASTNode representation;
+  :Language-specific parsers;
+  :Symbol resolution;
+
+  |AST Store/Index|
+  :Persistent symbol storage;
+  :Cross-reference mapping;
+
+  |Operator|
+  :Receive AST-based results;
+!endprocedure
+
+@enduml

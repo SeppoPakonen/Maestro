@@ -33,6 +33,7 @@ Scenarios use the ID format `WF-##`:
 - `WF-04`: (Future) Runtime error workflow
 - `WF-05`: Repo Resolve — packages, conventions, build targets, and derived issues/tasks (Integration Spine)
 - `WF-06`: AI-driven task execution with Work Sessions and multi-session resume
+- `WF-07`: AST/TU workflows — rename, C++→JS transform, autocomplete (Engine Room)
 - etc.
 
 IDs are stable and never change, even if scenarios are deprecated or superseded.
@@ -307,6 +308,9 @@ Each command workflow includes:
 |---------|---------------|---------|---------|
 | `maestro work` | [command_work.md](command_work.md) | [command_work.puml](command_work.puml) | Work execution interface - select and execute work items (tracks, phases, issues, tasks) |
 | `maestro solutions` | [command_solutions.md](command_solutions.md) | [command_solutions.puml](command_solutions.puml) | Solution management - create, list, match, and apply solution rules to issues |
+| `maestro tu` | [command_tu.md](command_tu.md) | [command_tu.puml](command_tu.puml) | Translation Unit analysis - AST generation, indexing, refactoring, transformation, and completion |
+| `maestro ast` | [command_ast.md](command_ast.md) | [command_ast.puml](command_ast.puml) | AST operations (conceptual, implemented via `maestro tu`) |
+| `maestro repo conf` | [command_repo_conf.md](command_repo_conf.md) | [command_repo_conf.puml](command_repo_conf.puml) | Repository build configuration analysis |
 
 ### Relationship to Scenarios
 
