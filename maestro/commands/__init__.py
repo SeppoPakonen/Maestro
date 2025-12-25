@@ -16,6 +16,7 @@ from .init import add_init_parser, handle_init_command
 from .plan import add_plan_parser, handle_plan_add, handle_plan_list, handle_plan_remove, handle_plan_show, handle_plan_add_item, handle_plan_remove_item, handle_plan_discuss
 from .understand import add_understand_parser, handle_understand_dump
 from .tu import add_tu_parser, handle_tu_command
+from .repo import add_repo_parser, handle_repo_command
 
 __all__ = [
     'add_track_parser',
@@ -49,4 +50,6 @@ __all__ = [
     'handle_understand_dump',
     'add_tu_parser',
     'handle_tu_command',
+    'add_repo_parser',
+    'handle_repo_command',
 ]

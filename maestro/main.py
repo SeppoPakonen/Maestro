@@ -34,6 +34,7 @@ def main():
     # Import command handlers from the commands module
     from maestro.commands import (
         handle_init_command,
+        handle_repo_command,
         handle_plan_add,
         handle_plan_list,
         handle_plan_remove,
@@ -73,6 +74,9 @@ def main():
     # Handle different commands based on the parsed arguments
     if args.command == 'init':
         handle_init_command(args)
+
+    elif args.command == 'repo':
+        handle_repo_command(args)
 
     elif args.command == 'track':
         handle_track_command(args)

@@ -190,10 +190,12 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_plan_parser,
         add_understand_parser,
         add_tu_parser,
+        add_repo_parser,
     )
 
     # Register all available command parsers
     add_init_parser(subparsers)
+    add_repo_parser(subparsers)  # Add repo parser right after init
     add_plan_parser(subparsers)  # Add plan parser to position between init and track
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
