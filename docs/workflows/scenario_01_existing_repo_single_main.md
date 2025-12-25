@@ -9,20 +9,20 @@ entry_conditions: |
   - Maestro not yet initialized
   - User has working development environment (compiler, build tools)
 exit_conditions: |
-  - Maestro directory structure created (docs/tracks/, docs/phases/, docs/tasks/, docs/issues/)
-  - docs/plan.json initialized
+  - Maestro directory structure created (docs/maestro/tracks/, docs/maestro/phases/, docs/maestro/tasks/, issue data)
+  - docs/maestro/index.json initialized
   - Past work reconstructed (either git-driven or snapshot-based)
   - Build attempted and analyzed
   - Clean build achieved OR build errors captured as issues/tasks with dependency ranking
   - (Optional) Runtime attempted; errors captured as issues/tasks
 artifacts_created: |
-  - docs/tracks/*.json (initial tracks, e.g., bootstrap, bugfix)
-  - docs/phases/*.json (phases within tracks)
-  - docs/tasks/*.json (tasks with metadata, dependencies)
-  - docs/issues/*.md (issues from build errors, warnings, runtime errors)
-  - docs/plan.json (initial plan scaffold or AI-generated plan)
-  - docs/todo.md (active task list)
-  - docs/done.md (reconstructed past work)
+  - docs/maestro/tracks/*.json (initial tracks, e.g., bootstrap, bugfix)
+  - docs/maestro/phases/*.json (phases within tracks)
+  - docs/maestro/tasks/*.json (tasks with metadata, dependencies)
+  - issue data*.md (issues from build errors, warnings, runtime errors)
+  - docs/maestro/index.json (initial plan scaffold or AI-generated plan)
+  - active tasks in JSON (active task list)
+  - completed tasks in JSON (reconstructed past work)
 failure_semantics: |
   - Hard stop: Not a git repository
   - Hard stop: Invalid JSON from engine (blocks continuation; operator may re-prompt)
@@ -72,7 +72,7 @@ Before entering this scenario, the following must be true:
 - **Compiled language**: The project requires a build step (compile, link, etc.)
   - Interpreted languages may use a simplified variant of this scenario
 - **Development environment ready**: User has necessary compilers, build tools, dependencies installed
-- **Maestro not initialized**: No `docs/tracks/`, `docs/plan.json`, etc. exist yet
+- **Maestro not initialized**: No `docs/maestro/tracks/`, `docs/maestro/index.json`, etc. exist yet
 
 ### Operator Intent
 
@@ -122,7 +122,7 @@ The Operator (human or AI runner) wants to:
 
 **State Change**:
 - Project state: `uninitialized` → `initialized`
-- Truth files created: `docs/plan.json`, `docs/todo.md`, `docs/done.md`
+- Truth files created: `docs/maestro/index.json`, `active tasks in JSON`, `completed tasks in JSON`
 
 ---
 
@@ -182,7 +182,7 @@ The Operator (human or AI runner) wants to:
 
 ### Purpose
 
-Capture completed work from the project's history to establish a baseline in `docs/done.md`.
+Capture completed work from the project's history to establish a baseline in `completed tasks in JSON`.
 
 ### Strategy 1: Git-Driven Reconstruction
 
@@ -195,7 +195,7 @@ Capture completed work from the project's history to establish a baseline in `do
    - Bug fixes
    - Refactorings
    - Dependency updates
-3. Generate `docs/done.md` entries:
+3. Generate `completed tasks in JSON` entries:
    ```markdown
    # DONE
 
@@ -223,7 +223,7 @@ Capture completed work from the project's history to establish a baseline in `do
    - Existing features (function definitions, modules)
    - Code comments with "TODO" vs "DONE" markers
    - Test coverage (tests imply implemented features)
-3. Generates `docs/done.md` entries:
+3. Generates `completed tasks in JSON` entries:
    ```markdown
    # DONE
 
@@ -234,18 +234,18 @@ Capture completed work from the project's history to establish a baseline in `do
    ```
 
 **Failure Modes**:
-- **Recoverable**: AI over-infers or under-infers work (user reviews and edits `docs/done.md`)
+- **Recoverable**: AI over-infers or under-infers work (user reviews and edits `completed tasks in JSON`)
 
 ### Human Review Gate
 
 After reconstruction:
-- Maestro displays `docs/done.md`
-- Prompts: "Review completed work. Edit docs/done.md if needed, then confirm. (continue/edit)"
+- Maestro displays `completed tasks in JSON`
+- Prompts: "Review completed work. Edit completed tasks in JSON if needed, then confirm. (continue/edit)"
   - **Continue**: Proceed to Phase 4
-  - **Edit**: User manually edits `docs/done.md`, then re-runs `maestro reconstruct --confirm`
+  - **Edit**: User manually edits `completed tasks in JSON`, then re-runs `maestro reconstruct --confirm`
 
 **State Change**:
-- `docs/done.md` populated with past work
+- `completed tasks in JSON` populated with past work
 - Baseline established for future task tracking
 
 ---
@@ -297,7 +297,7 @@ After reconstruction:
    - **Error type**: Type errors, missing symbols, syntax errors
    - **Root cause** (AI-assisted): Related errors stemming from a single root issue
 
-3. Create issues in `docs/issues/`:
+3. Create issues in `issue data`:
    ```markdown
    # Issue ISS-001: Undefined symbol `process_data`
 
@@ -325,7 +325,7 @@ After reconstruction:
    ```
 
 **Outputs**:
-- `docs/issues/ISS-001.md`, `ISS-002.md`, etc.
+- `issue dataISS-001.md`, `ISS-002.md`, etc.
 - Issue metadata (JSON or front-matter):
   ```yaml
   id: ISS-001
@@ -357,10 +357,10 @@ After reconstruction:
    }
    ```
 
-2. Write to `docs/tasks/TASK-001.json`
+2. Write to `docs/maestro/tasks/TASK-001.json`
 
 **Outputs**:
-- `docs/tasks/TASK-001.json`, `TASK-002.json`, etc.
+- `docs/maestro/tasks/TASK-001.json`, `TASK-002.json`, etc.
 
 ### Step 4.4: Dependency Ranking
 
@@ -390,7 +390,7 @@ After reconstruction:
    }
    ```
 
-4. Generate `docs/todo.md` with ranked task list:
+4. Generate `active tasks in JSON` with ranked task list:
    ```markdown
    # TODO
 
@@ -402,7 +402,7 @@ After reconstruction:
 
 **Outputs**:
 - Updated task JSON files with `dependencies` field
-- `docs/todo.md` with ranked task order
+- `active tasks in JSON` with ranked task order
 
 **Failure Modes**:
 - **Recoverable**: Circular dependencies detected (AI or user must resolve)
@@ -418,7 +418,7 @@ After reconstruction:
 ### Overview
 
 This phase is an iterative loop:
-1. Pick highest-priority task from `docs/todo.md`
+1. Pick highest-priority task from `active tasks in JSON`
 2. Fix the issue (human or AI-assisted)
 3. Rebuild
 4. If new errors appear, create new issues/tasks
@@ -429,7 +429,7 @@ This phase is an iterative loop:
 **Proposed CLI Contract**: `maestro task next`
 
 **Process**:
-- Read `docs/todo.md`
+- Read `active tasks in JSON`
 - Select the first task with no unsatisfied dependencies
 - Display task details to user
 
@@ -484,14 +484,14 @@ File: src/core.rs:45
 **Process**:
 - Same as **Phase 4.1**
 - If build succeeds: Exit loop, proceed to **Phase 6**
-- If new errors appear: Create new issues/tasks, update `docs/todo.md`, continue loop
+- If new errors appear: Create new issues/tasks, update `active tasks in JSON`, continue loop
 
 ### Step 5.4: Update Task Status
 
 **Command**: `maestro task complete TASK-001`
 
 **Process**:
-1. Move task from `docs/todo.md` to `docs/done.md`:
+1. Move task from `active tasks in JSON` to `completed tasks in JSON`:
    ```markdown
    # DONE
    ...
@@ -501,13 +501,13 @@ File: src/core.rs:45
 2. Update task JSON status: `"status": "completed"`
 
 **Policy Enforcement** (per CLAUDE.md):
-- **Mandatory Task Lifecycle Rule**: At the end of a phase, completed tasks MUST be moved from `docs/todo.md` to `docs/done.md`
+- **Mandatory Task Lifecycle Rule**: At the end of a phase, completed tasks MUST be moved from `active tasks in JSON` to `completed tasks in JSON`
 
 ### Loop Exit Conditions
 
 Exit the loop when:
 - Build succeeds with no errors (clean build)
-- OR User manually exits (partial fix; remaining tasks stay in `docs/todo.md`)
+- OR User manually exits (partial fix; remaining tasks stay in `active tasks in JSON`)
 
 ---
 
@@ -546,7 +546,7 @@ Exit the loop when:
    - Assertion failures
    - Segmentation faults
 
-2. Create issues in `docs/issues/`:
+2. Create issues in `issue data`:
    ```markdown
    # Issue ISS-010: Panic: index out of bounds
 
@@ -566,7 +566,7 @@ Exit the loop when:
 
 3. Create tasks from issues (same process as **Phase 4.3**)
 
-4. Update `docs/todo.md` with new runtime-fix tasks
+4. Update `active tasks in JSON` with new runtime-fix tasks
 
 ### Step 6.3: Runtime Work Loop
 
@@ -580,11 +580,11 @@ Exit the loop when:
 This scenario successfully exits when:
 
 1. **Maestro initialized**: `docs/` structure exists
-2. **Past work reconstructed**: `docs/done.md` populated
+2. **Past work reconstructed**: `completed tasks in JSON` populated
 3. **Build attempted**: At least one build attempt made
 4. **Clean build OR tasks created**:
    - Clean build: Application compiles with no errors
-   - OR: Errors captured as issues/tasks in `docs/todo.md` with dependency ranking
+   - OR: Errors captured as issues/tasks in `active tasks in JSON` with dependency ranking
 5. **(Optional) Runtime attempted**: If applicable, runtime errors captured or app runs cleanly
 
 **Follow-On Scenarios**:
@@ -600,15 +600,15 @@ This scenario successfully exits when:
 |---------|---------|--------|---------|-----------|-------------|
 | `maestro init` | Bootstrap Maestro | Current dir (git repo) | `docs/` structure, `plan.json`, `todo.md`, `done.md` | Not a git repo | Already initialized |
 | `maestro discuss <prompt>` | AI codebase analysis | User prompt, codebase files | AI discussion output, structured JSON | Invalid JSON from AI | AI misunderstands (user corrects) |
-| `maestro reconstruct --strategy=<git\|snapshot>` | Reconstruct past work | Git log OR codebase snapshot | `docs/done.md` populated | None | Ambiguous history (user reviews) |
+| `maestro reconstruct --strategy=<git\|snapshot>` | Reconstruct past work | Git log OR codebase snapshot | `completed tasks in JSON` populated | None | Ambiguous history (user reviews) |
 | `maestro build` | Trigger build, capture output | Build system config | Build log, parsed errors/warnings | None | Build fails (expected; creates issues) |
-| `maestro build --create-issues` | Build + generate issues/tasks | Build errors | `docs/issues/*.md`, `docs/tasks/*.json` | None | No errors to parse |
+| `maestro build --create-issues` | Build + generate issues/tasks | Build errors | `issue data*.md`, `docs/maestro/tasks/*.json` | None | No errors to parse |
 | `maestro task rank-dependencies` | Order tasks by dependencies | Task set with error context | Updated tasks with `dependencies` field, ranked `todo.md` | Unresolvable circular deps | Ambiguous deps (AI guesses) |
-| `maestro task next` | Get next actionable task | `docs/todo.md` | Task ID and details | None | No tasks available |
+| `maestro task next` | Get next actionable task | `active tasks in JSON` | Task ID and details | None | No tasks available |
 | `maestro task fix <task-id>` | AI-assisted fix | Task ID, issue context | Proposed code changes (JSON), applied changes | Invalid JSON from AI, validation fails | Fix doesn't resolve issue (rebuild detects) |
-| `maestro task complete <task-id>` | Mark task done | Task ID | Task moved to `docs/done.md`, status updated | Task not found | None |
+| `maestro task complete <task-id>` | Mark task done | Task ID | Task moved to `completed tasks in JSON`, status updated | Task not found | None |
 | `maestro run` | Execute app, capture logs | Built application | Runtime log | None | Runtime errors (expected; creates issues) |
-| `maestro run --create-issues` | Run + generate issues/tasks | Runtime errors | `docs/issues/*.md`, `docs/tasks/*.json` | None | No errors to parse |
+| `maestro run --create-issues` | Run + generate issues/tasks | Runtime errors | `issue data*.md`, `docs/maestro/tasks/*.json` | None | No errors to parse |
 
 ---
 
@@ -649,7 +649,7 @@ This scenario successfully exits when:
      - `docs/` structure created
      - Errors parsed into issues
      - Tasks created with dependencies
-     - `docs/todo.md` and `docs/done.md` populated correctly
+     - `active tasks in JSON` and `completed tasks in JSON` populated correctly
 
 3. **Warnings Policy**:
    - `test_warnings_threshold_enforced()`: Verify warnings above threshold create issues
@@ -662,7 +662,7 @@ This scenario successfully exits when:
    - Expected output:
      - 3 issues created
      - 3 tasks created with dependency ranking
-     - `docs/todo.md` shows correct order
+     - `active tasks in JSON` shows correct order
 
 2. **Golden Log: Clean Build**:
    - Input: Fixture repo with no errors
@@ -703,13 +703,13 @@ This scenario successfully exits when:
 ### Truth File Boundaries
 
 - **Truth Files** (validated, protected):
-  - `docs/plan.json`
-  - `docs/tracks/*.json`
-  - `docs/phases/*.json`
-  - `docs/tasks/*.json`
-  - `docs/issues/*.md` (structured front-matter required)
-  - `docs/todo.md` (specific format enforced)
-  - `docs/done.md` (specific format enforced)
+  - `docs/maestro/index.json`
+  - `docs/maestro/tracks/*.json`
+  - `docs/maestro/phases/*.json`
+  - `docs/maestro/tasks/*.json`
+  - `issue data*.md` (structured front-matter required)
+  - `active tasks in JSON` (specific format enforced)
+  - `completed tasks in JSON` (specific format enforced)
 
 - **Non-Truth Files**:
   - Build logs: `docs/build.log`, `docs/runtime.log` (informational only)

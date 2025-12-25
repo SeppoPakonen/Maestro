@@ -24,7 +24,7 @@
 ' - |Operator| - human or AI runner invoking commands
 ' - |Maestro CLI| - command execution layer with validation/routing
 ' - |Repo/Toolchain| - external tools (git, compilers, build systems)
-' - |Docs (truth)| - protected truth files (*.json, todo.md, done.md)
+' - |Docs (truth)| - protected truth files in docs/maestro/ (index.json, tracks/*.json, phases/*.json, tasks/*.json)
 '
 ' MERGE STRATEGY:
 ' Individual scenario diagrams are written as callable procedures (e.g., !procedure WF_01())
@@ -98,8 +98,7 @@ skinparam note {
 ' Usage: CREATE_ISSUE("Build errors")
 !procedure CREATE_ISSUE($source)
   :<color:COLOR_ARTIFACT><b>Create Issue</b>
-  Source: $source
-  → docs/issues/</color>|
+  Source: $source</color>|
 !endprocedure
 
 ' CREATE_TASK - Generate a task linked to an issue
@@ -107,7 +106,7 @@ skinparam note {
 !procedure CREATE_TASK($issue_id)
   :<color:COLOR_ARTIFACT><b>Create Task</b>
   Issue: $issue_id
-  → docs/tasks/</color>|
+  → docs/maestro/tasks/</color>|
 !endprocedure
 
 ' DEPENDENCY_EDGE - Model task dependency relationship
@@ -142,8 +141,8 @@ skinparam note {
   Check: $what</color>|
 !endprocedure
 
-' WRITE_TRUTH - Write to docs/ truth files
-' Usage: WRITE_TRUTH("docs/plan.json")
+' WRITE_TRUTH - Write to docs/maestro/ truth files
+' Usage: WRITE_TRUTH("docs/maestro/tracks/track-id.json")
 !procedure WRITE_TRUTH($filepath)
   :<color:COLOR_ARTIFACT><b>Write Truth File</b>
   → $filepath</color>|

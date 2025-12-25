@@ -9,7 +9,7 @@ This index provides quick access to all documented workflow scenarios. Each scen
 | ID | Title | Tags | Entry Conditions | Exit Conditions | Artifacts | Links |
 |----|-------|------|------------------|-----------------|-----------|-------|
 | **WF-01** | Existing Repo Bootstrap (Single Main, Compiled) | `bootstrap`, `retrofit`, `compile`, `issues`, `tasks` | • Existing git repo<br>• Single main branch<br>• Compiled language<br>• No Maestro yet | • Maestro initialized<br>• Past work reconstructed<br>• Clean build OR<br>• Issues/tasks created | • `docs/` structure<br>• Issues from build errors<br>• Tasks with dependencies<br>• Initial plan | [Markdown](scenario_01_existing_repo_single_main.md)<br>[PlantUML](scenario_01_existing_repo_single_main.puml) |
-| **WF-02** | New Project from Empty Directory (Manual Planning) | `bootstrap`, `greenfield`, `manual-planning`, `work-loop`, `track-phase-task` | • Empty or new directory<br>• Clear plan/requirements<br>• Manual planning preferred<br>• No git repo yet<br>• No Maestro yet | • Maestro initialized<br>• Tracks, phases, tasks created<br>• Work loop operational<br>• Initial work complete/in progress | • `.git/` repository<br>• `docs/tracks/*.json`<br>• `docs/phases/*.json`<br>• `docs/tasks/*.json`<br>• Source files from work | [Markdown](scenario_02_new_project_manual_plan.md)<br>[PlantUML](scenario_02_new_project_manual_plan.puml) |
+| **WF-02** | New Project from Empty Directory (Manual Planning) | `bootstrap`, `greenfield`, `manual-planning`, `work-loop`, `track-phase-task` | • Empty or new directory<br>• Clear plan/requirements<br>• Manual planning preferred<br>• No git repo yet<br>• No Maestro yet | • Maestro initialized<br>• Tracks, phases, tasks created<br>• Work loop operational<br>• Initial work complete/in progress | • `.git/` repository<br>• `docs/maestro/tracks/*.json`<br>• `docs/maestro/phases/*.json`<br>• `docs/maestro/tasks/*.json`<br>• Source files from work | [Markdown](scenario_02_new_project_manual_plan.md)<br>[PlantUML](scenario_02_new_project_manual_plan.puml) |
 
 ---
 
@@ -231,5 +231,5 @@ See [README.md#diagram-strategy](README.md#diagram-strategy) for details.
 - [README.md](README.md) - Workflow documentation conventions and strategy
 - [_shared.puml](_shared.puml) - Shared PlantUML macros and styles
 - [../CLAUDE.md](../CLAUDE.md) - Agent instructions and policy requirements
-- [../todo.md](../todo.md) - Current active task list
-- [../done.md](../done.md) - Completed task archive
+- Active tasks tracked in JSON storage
+- Completed tasks tracked in JSON storage

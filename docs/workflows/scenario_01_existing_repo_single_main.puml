@@ -74,19 +74,15 @@ endif
 |Maestro CLI|
 :Create directory structure;
 note right
-  docs/
+  docs/maestro/
+    index.json
     tracks/
     phases/
     tasks/
-    issues/
-    plan.json
-    todo.md
-    done.md
+    archive/
 end note
 
-WRITE_TRUTH("docs/plan.json")
-WRITE_TRUTH("docs/todo.md")
-WRITE_TRUTH("docs/done.md")
+WRITE_TRUTH("docs/maestro/index.json")
 
 :Detect build system;
 note right
@@ -192,23 +188,20 @@ else (snapshot)
 endif
 
 |Maestro CLI|
-:Generate docs/done.md;
+:Mark past work as completed;
 note right
-  # DONE
-  ## Phase: Initial Development
-  - [x] Task 1
-  - [x] Task 2
+  Update task JSON files
+  with status="completed"
+  for reconstructed tasks
 end note
 
-WRITE_TRUTH("docs/done.md")
-
 |Operator|
-:Review docs/done.md;
+:Review completed tasks;
 
 GATE("Reconstruction looks correct?")
 if (Correct?) then (no)
   |Operator|
-  :Manually edit docs/done.md;
+  :Review completed tasks;
   |Maestro CLI|
   :Validate edits;
   ' Loop back
@@ -263,12 +256,12 @@ else (no)
 
   while (For each error group) is (more groups)
     CREATE_ISSUE("Build error")
-    :Write docs/issues/ISS-XXX.md;
+    :Create issue record;
   endwhile (done)
 
   while (For each issue) is (more issues)
     CREATE_TASK("ISS-XXX")
-    :Write docs/tasks/TASK-XXX.json;
+    :Write docs/maestro/tasks/TASK-XXX.json;
   endwhile (done)
 
   :Analyze task dependencies (via engine);
@@ -286,17 +279,17 @@ else (no)
         "dependencies": ["TASK-001"]
       }
     end note
-    WRITE_TRUTH("docs/tasks/TASK-XXX.json")
+    WRITE_TRUTH("docs/maestro/tasks/TASK-XXX.json")
   endwhile (done)
 
-  :Generate ranked docs/todo.md;
+  :Update task priorities in JSON;
   note right
     # TODO
     ## Phase: Build Fixes
     - [ ] TASK-001 (no deps)
     - [ ] TASK-002 (deps: TASK-001)
   end note
-  WRITE_TRUTH("docs/todo.md")
+  WRITE_TRUTH("docs/maestro/tasks/*.json")
 endif
 
 ' ============================================================================
@@ -367,7 +360,7 @@ if (Success?) then (no)
   |Maestro CLI|
   :Parse new errors;
   :Create new issues/tasks;
-  :Update docs/todo.md;
+  :Update task priorities;
   note right: New tasks added to queue
   ' Loop back to task next
   --> [Loop: More tasks to fix] WORK_LOOP_START;
@@ -376,19 +369,19 @@ else (yes)
   :Run `maestro task complete TASK-XXX`;
 
   |Maestro CLI|
-  :Move task to docs/done.md;
+  :Mark task as completed;
   note right
     **Mandatory Task Lifecycle Rule:**
-    Completed tasks MUST be moved
-    from todo.md to done.md
+    Task status MUST be updated to
+    "completed" in its JSON file
   end note
-  WRITE_TRUTH("docs/done.md")
+  WRITE_TRUTH("docs/maestro/tasks/*.json")
 
   :Update task status to 'completed';
-  WRITE_TRUTH("docs/tasks/TASK-XXX.json")
+  WRITE_TRUTH("docs/maestro/tasks/TASK-XXX.json")
 endif
 
-GATE("More tasks in todo.md?")
+GATE("More active tasks?")
 if (More tasks?) then (yes)
   :WORK_LOOP_START;
   ' Loop back
@@ -438,13 +431,13 @@ else (yes)
 
     while (For each runtime error) is (more errors)
       CREATE_ISSUE("Runtime error")
-      :Write docs/issues/ISS-XXX.md;
+      :Create issue record;
       CREATE_TASK("ISS-XXX")
-      :Write docs/tasks/TASK-XXX.json;
+      :Write docs/maestro/tasks/TASK-XXX.json;
     endwhile (done)
 
-    :Update docs/todo.md;
-    WRITE_TRUTH("docs/todo.md")
+    :Update task priorities;
+    WRITE_TRUTH("docs/maestro/tasks/*.json")
 
     |Operator|
     GATE("Fix runtime errors now?")
@@ -474,11 +467,10 @@ note right
   • Runtime successful (or not attempted)
 
   **Artifacts Created:**
-  • docs/tracks/*.json
-  • docs/issues/*.md (if any)
-  • docs/tasks/*.json (if any)
-  • docs/todo.md (empty or remaining)
-  • docs/done.md (populated)
+  • docs/maestro/index.json
+  • docs/maestro/tracks/*.json
+  • docs/maestro/phases/*.json
+  • docs/maestro/tasks/*.json (all with status="completed")
 
   **Follow-On Scenarios:**
   • WF-05: Feature Request
@@ -492,7 +484,7 @@ note right
   • Maestro initialized
   • Past work reconstructed
   • Build errors captured as tasks
-  • Remaining work in docs/todo.md
+  • Remaining tasks with status="active"
 
   User may continue work loop later
 end note

@@ -45,9 +45,9 @@ maestro work [subcommand] [arguments]
 ### State & Invariants
 
 **Data Sources**:
-- `docs/todo.md`: Tracks and phases with status "todo"
-- `docs/issues/*.md`: Open issues (not marked as "Resolved" or "Closed")
-- `docs/phases/*.md`: Tasks within phases (parsed from phase markdown files)
+- `active tasks in JSON`: Tracks and phases with status "todo"
+- `issue data*.md`: Open issues (not marked as "Resolved" or "Closed")
+- `docs/maestro/phases/*.md`: Tasks within phases (parsed from phase markdown files)
 
 **Work Session Creation**:
 - All work commands create a `WorkSession` object
@@ -68,7 +68,7 @@ maestro work [subcommand] [arguments]
 **Purpose**: AI automatically selects the best work item and starts working on it.
 
 **Flow**:
-1. Load available work items from `docs/todo.md` and `docs/issues/`
+1. Load available work items from `active tasks in JSON` and `issue data`
 2. Call `ai_select_work_items(all_items, mode="best")`
    - Uses configured AI engine (e.g., claude_planner)
    - Engine returns JSON with selected item and reasoning
@@ -136,7 +136,7 @@ maestro work [subcommand] [arguments]
 **Purpose**: Work on a specific track (or list tracks if no ID provided).
 
 **Flow (with ID)**:
-1. Load available work items from `docs/todo.md`
+1. Load available work items from `active tasks in JSON`
 2. Find matching track by `track_id`
 3. If not found: Display error "Track with ID '<id>' not found or already completed"
 4. Create WorkSession with type `work_track`, related_entity=`{"track_id": id}`
@@ -144,7 +144,7 @@ maestro work [subcommand] [arguments]
 6. If worker not available: Simple AI interaction with prompt "Work on track '<id>'"
 
 **Flow (no ID - list mode)**:
-1. Load available tracks from `docs/todo.md`
+1. Load available tracks from `active tasks in JSON`
 2. If no tracks: Display "No tracks available!"
 3. Display numbered list of tracks
 4. If only 1 track: Auto-select
@@ -164,7 +164,7 @@ maestro work [subcommand] [arguments]
 **Purpose**: Work on a specific phase (or list phases if no ID provided).
 
 **Flow**: Similar to `maestro work track`, but:
-- Loads phases from `docs/todo.md`
+- Loads phases from `active tasks in JSON`
 - Filters by `phase_id`
 - Displays track association: `"phase_id: name (in track_name track)"`
 - Creates WorkSession with type `work_phase`
@@ -177,7 +177,7 @@ maestro work [subcommand] [arguments]
 **Purpose**: Work on a specific issue (or list issues if no ID provided).
 
 **Flow**: Similar to track/phase, but:
-- Loads issues from `docs/issues/*.md`
+- Loads issues from `issue data*.md`
 - Checks if issue is open (not "Status: Resolved" or "Status: Closed")
 - Creates WorkSession with type `work_issue`
 - Dispatches to `execute_issue_work(issue_id, session)`
@@ -201,7 +201,7 @@ maestro work [subcommand] [arguments]
 10. Display AI response
 
 **Flow (no ID - list mode)**:
-1. Load all tasks from `docs/phases/*.md` (via `_load_task_entries()`)
+1. Load all tasks from `docs/maestro/phases/*.md` (via `_load_task_entries()`)
 2. Filter out tasks marked as done
 3. Display numbered list with phase association
 4. Prompt Operator to select task number
@@ -260,7 +260,7 @@ maestro work [subcommand] [arguments]
 1. Implement **4-phase workflow**:
    - **Phase 1: Analyze Issue**
      - Create sub-session `analyze_issue` (parent: main fix session)
-     - Load issue details from `docs/issues/`
+     - Load issue details from `issue data`
      - Prompt engine: "Analyze issue, what is root cause?"
      - Complete sub-session
    - **Phase 2: Decide on Fix Approach**
@@ -525,7 +525,7 @@ SIMULATION MODE - No actions will be executed
 [SIMULATE] AI Work Plan:
 Would analyze repository health and identify top 3 priority items
 - Check git status and recent commits
-- Scan docs/todo.md for pending phases
+- Scan active tasks in JSON for pending phases
 - Evaluate issue complexity and dependencies
 - Recommend next actionable item
 - Estimate time/effort required

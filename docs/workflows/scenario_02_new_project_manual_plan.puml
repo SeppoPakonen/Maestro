@@ -70,19 +70,15 @@ end note
 |Maestro CLI|
 :Create directory structure;
 note right
-  docs/
+  docs/maestro/
+    index.json
     tracks/
     phases/
     tasks/
-    issues/
-    plan.json
-    todo.md
-    done.md
+    archive/
 end note
 
-WRITE_TRUTH("docs/plan.json")
-WRITE_TRUTH("docs/todo.md")
-WRITE_TRUTH("docs/done.md")
+WRITE_TRUTH("docs/maestro/index.json")
 
 |Operator|
 note right: Maestro initialized
@@ -112,11 +108,11 @@ while (For each track) is (more tracks)
   else (yes)
   endif
 
-  :Create docs/tracks/<id>.json;
-  WRITE_TRUTH("docs/tracks/<id>.json")
+  :Create docs/maestro/tracks/<id>.json;
+  WRITE_TRUTH("docs/maestro/tracks/<id>.json")
 
-  :Update docs/plan.json;
-  WRITE_TRUTH("docs/plan.json")
+  :Update docs/maestro/index.json;
+  WRITE_TRUTH("docs/maestro/index.json")
 endwhile (all tracks created)
 
 |Operator|
@@ -154,11 +150,11 @@ while (For each phase) is (more phases)
   else (yes)
   endif
 
-  :Create docs/phases/<phase_id>.json;
-  WRITE_TRUTH("docs/phases/<phase_id>.json")
+  :Create docs/maestro/phases/<phase_id>.json;
+  WRITE_TRUTH("docs/maestro/phases/<phase_id>.json")
 
-  :Update docs/tracks/<track_id>.json;
-  WRITE_TRUTH("docs/tracks/<track_id>.json")
+  :Update docs/maestro/tracks/<track_id>.json;
+  WRITE_TRUTH("docs/maestro/tracks/<track_id>.json")
 endwhile (all phases created)
 
 |Operator|
@@ -196,22 +192,19 @@ while (For each task) is (more tasks)
   else (yes)
   endif
 
-  :Create docs/tasks/<task_id>.json;
-  WRITE_TRUTH("docs/tasks/<task_id>.json")
+  :Create docs/maestro/tasks/<task_id>.json;
+  WRITE_TRUTH("docs/maestro/tasks/<task_id>.json")
 
-  :Update docs/phases/<phase_id>.json;
-  WRITE_TRUTH("docs/phases/<phase_id>.json")
-
-  :Update docs/todo.md;
-  WRITE_TRUTH("docs/todo.md")
+  :Update docs/maestro/phases/<phase_id>.json;
+  WRITE_TRUTH("docs/maestro/phases/<phase_id>.json")
 endwhile (all tasks created)
 
 |Operator|
 note right
   Manual planning complete:
-  • Tracks defined
-  • Phases defined
-  • Tasks defined in todo.md
+  • Tracks defined in docs/maestro/tracks/
+  • Phases defined in docs/maestro/phases/
+  • Tasks defined in docs/maestro/tasks/
 end note
 
 ' ============================================================================
@@ -249,8 +242,8 @@ else (yes)
     :Run `maestro work task <task_id>`;
 
     |Maestro CLI|
-    :Read task context from docs/tasks/<id>.json;
-    :Read phase context from docs/phases/<phase_id>.json;
+    :Read task context from docs/maestro/tasks/<id>.json;
+    :Read phase context from docs/maestro/phases/<phase_id>.json;
 
     :Invoke engine to execute task;
     note right
@@ -288,19 +281,16 @@ else (yes)
 
     |Maestro CLI|
     :Update task status to 'completed';
-    WRITE_TRUTH("docs/tasks/<task_id>.json")
+    WRITE_TRUTH("docs/maestro/tasks/<task_id>.json")
 
-    :Move task from todo.md to done.md;
     note right
       **Mandatory Task Lifecycle Rule:**
-      Completed tasks MUST be moved
-      from todo.md to done.md
+      Completed tasks MUST have status="completed"
+      in their JSON file
     end note
-    WRITE_TRUTH("docs/todo.md")
-    WRITE_TRUTH("docs/done.md")
 
     |Operator|
-    GATE("More tasks in todo.md?")
+    GATE("More active tasks?")
     if (More tasks?) then (yes)
       --> [Loop: Next task] WORK_LOOP_START;
     else (no)
@@ -325,16 +315,14 @@ note right
   **Success Criteria Met:**
   • Maestro initialized in new repository
   • Tracks, phases, tasks created manually
-  • All tasks completed and in done.md
+  • All tasks completed (status="completed")
   • Work artifacts created
 
   **Artifacts Created:**
   • .git/ repository
-  • docs/tracks/*.json (all tracks)
-  • docs/phases/*.json (all phases)
-  • docs/tasks/*.json (all tasks, status=completed)
-  • docs/todo.md (empty)
-  • docs/done.md (all completed tasks)
+  • docs/maestro/tracks/*.json (all tracks)
+  • docs/maestro/phases/*.json (all phases)
+  • docs/maestro/tasks/*.json (all tasks with status="completed")
   • Source code and project files
 
   **Follow-On Scenarios:**
@@ -348,7 +336,7 @@ note right
   • Maestro initialized
   • Manual planning completed
   • Some tasks completed
-  • Remaining tasks in docs/todo.md
+  • Remaining tasks with status="active" in JSON
 
   Operator may resume work loop later
 end note

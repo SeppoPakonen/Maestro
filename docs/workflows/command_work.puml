@@ -79,8 +79,8 @@ stop
 :Load available work items;
 note right
   Sources:
-  • docs/todo.md (tracks, phases)
-  • docs/issues/*.md (open issues)
+  • active tasks in docs/maestro/ (tracks, phases)
+  • issue data*.md (open issues)
 end note
 
 GATE("Work items available?")

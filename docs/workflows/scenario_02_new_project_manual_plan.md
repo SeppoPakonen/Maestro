@@ -15,12 +15,12 @@ exit_conditions: |
   - Initial work completed or in progress
 artifacts_created: |
   - .git/ (git repository)
-  - docs/tracks/*.json (manually defined tracks)
-  - docs/phases/*.json (manually defined phases)
-  - docs/tasks/*.json (manually defined tasks)
-  - docs/plan.json (manual plan structure)
-  - docs/todo.md (task list)
-  - docs/done.md (completed work)
+  - docs/maestro/tracks/*.json (manually defined tracks)
+  - docs/maestro/phases/*.json (manually defined phases)
+  - docs/maestro/tasks/*.json (manually defined tasks)
+  - docs/maestro/index.json (manual plan structure)
+  - active tasks in JSON (task list)
+  - completed tasks in JSON (completed work)
   - Source files created during work execution
 failure_semantics: |
   - Hard stop: Invalid track/phase/task JSON structure
@@ -166,7 +166,7 @@ maestro track add validation --name "Testing & Validation"
 - `--name`: Human-readable track name
 
 **Outputs**:
-- Creates `docs/tracks/<track_id>.json`:
+- Creates `docs/maestro/tracks/<track_id>.json`:
   ```json
   {
     "track_id": "setup",
@@ -176,7 +176,7 @@ maestro track add validation --name "Testing & Validation"
     "phases": []
   }
   ```
-- Updates `docs/plan.json` to reference the track
+- Updates `docs/maestro/index.json` to reference the track
 
 **Validation**:
 - `track_id` must be unique
@@ -187,7 +187,7 @@ maestro track add validation --name "Testing & Validation"
 - **Hard stop**: Invalid JSON structure
 
 **State Change**:
-- Track list updated in `docs/plan.json`
+- Track list updated in `docs/maestro/index.json`
 
 ---
 
@@ -214,7 +214,7 @@ maestro phase add unit-tests --track validation --name "Write Unit Tests"
 - `--name`: Human-readable phase name
 
 **Outputs**:
-- Creates `docs/phases/<phase_id>.json`:
+- Creates `docs/maestro/phases/<phase_id>.json`:
   ```json
   {
     "phase_id": "setup-env",
@@ -225,7 +225,7 @@ maestro phase add unit-tests --track validation --name "Write Unit Tests"
     "tasks": []
   }
   ```
-- Updates `docs/tracks/<track_id>.json` to reference the phase
+- Updates `docs/maestro/tracks/<track_id>.json` to reference the phase
 
 **Validation**:
 - `phase_id` must be unique
@@ -271,7 +271,7 @@ maestro task add T003 --phase core-logic --name "Implement parse_input function"
 - `--description`: Detailed description of the task
 
 **Outputs**:
-- Creates `docs/tasks/<task_id>.json`:
+- Creates `docs/maestro/tasks/<task_id>.json`:
   ```json
   {
     "task_id": "T001",
@@ -283,8 +283,8 @@ maestro task add T003 --phase core-logic --name "Implement parse_input function"
     "dependencies": []
   }
   ```
-- Updates `docs/phases/<phase_id>.json` to reference the task
-- Updates `docs/todo.md` with new task
+- Updates `docs/maestro/phases/<phase_id>.json` to reference the task
+- Updates `active tasks in JSON` with new task
 
 **Validation**:
 - `task_id` must be unique
@@ -298,7 +298,7 @@ maestro task add T003 --phase core-logic --name "Implement parse_input function"
 
 **State Change**:
 - Task added to phase's task list
-- Task added to `docs/todo.md`
+- Task added to `active tasks in JSON`
 
 **Optional**: Add task dependencies if tasks have ordering requirements:
 ```bash
@@ -312,7 +312,7 @@ maestro task add T004 --phase core-logic --name "Add error handling" \
 
 ### Purpose
 
-Execute tasks systematically using `maestro work task`. The Operator selects tasks from `docs/todo.md` and uses Maestro to work on them.
+Execute tasks systematically using `maestro work task`. The Operator selects tasks from `active tasks in JSON` and uses Maestro to work on them.
 
 ### Step 6.1: Select next task
 
@@ -347,7 +347,7 @@ maestro work task T001
 
 **Inputs**:
 - `task_id`: Task to work on
-- Task context (from `docs/tasks/<task_id>.json` and `docs/phases/<phase_id>.json`)
+- Task context (from `docs/maestro/tasks/<task_id>.json` and `docs/maestro/phases/<phase_id>.json`)
 
 **Engine Invocation** (if using AI mode):
 - Maestro CLI loads task context
@@ -394,8 +394,8 @@ maestro task complete T001
 - `task_id`: Task to mark complete
 
 **Outputs**:
-- Updates `docs/tasks/<task_id>.json`: `status: "todo"` → `status: "completed"`
-- Moves task from `docs/todo.md` to `docs/done.md`
+- Updates `docs/maestro/tasks/<task_id>.json`: `status: "todo"` → `status: "completed"`
+- Moves task from `active tasks in JSON` to `completed tasks in JSON`
 - Updates phase completion percentage
 
 **Validation**:
@@ -421,7 +421,7 @@ The Operator repeats Phase 6 (work loop) for each task:
 1. `maestro task next` - Find next available task
 2. `maestro work task <task_id>` - Execute the task
 3. `maestro task complete <task_id>` - Mark as complete
-4. Repeat until `docs/todo.md` is empty
+4. Repeat until `active tasks in JSON` is empty
 
 ### Decision Gates
 
@@ -442,16 +442,16 @@ The Operator repeats Phase 6 (work loop) for each task:
 **Success Criteria Met**:
 - Maestro initialized in new repository
 - Tracks, phases, tasks created manually
-- All tasks completed and moved to `docs/done.md`
+- All tasks completed and moved to `completed tasks in JSON`
 - Work artifacts created (source files, tests, documentation)
 
 **Artifacts Created**:
 - `.git/` repository
-- `docs/tracks/*.json` (all manually defined tracks)
-- `docs/phases/*.json` (all manually defined phases)
-- `docs/tasks/*.json` (all tasks with status `completed`)
-- `docs/todo.md` (empty)
-- `docs/done.md` (all completed tasks)
+- `docs/maestro/tracks/*.json` (all manually defined tracks)
+- `docs/maestro/phases/*.json` (all manually defined phases)
+- `docs/maestro/tasks/*.json` (all tasks with status `completed`)
+- `active tasks in JSON` (empty)
+- `completed tasks in JSON` (all completed tasks)
 - Source code and project files
 
 **Follow-On Scenarios**:
@@ -462,7 +462,7 @@ The Operator repeats Phase 6 (work loop) for each task:
 **Partial Completion**:
 - Maestro initialized
 - Tracks, phases, tasks created
-- Some tasks completed, others remaining in `docs/todo.md`
+- Some tasks completed, others remaining in `active tasks in JSON`
 
 **Operator may continue later** by resuming work loop at Phase 6.
 
@@ -474,9 +474,9 @@ The Operator repeats Phase 6 (work loop) for each task:
 |---------|---------|--------|---------|-----------|
 | `git init` | Initialize repository | Current directory | `.git/` directory | None |
 | `maestro init` | Bootstrap Maestro | Current directory | `docs/` structure | Already initialized (idempotent) |
-| `maestro track add <id> --name "<name>"` | Create track | Track ID, name | `docs/tracks/<id>.json` | Duplicate track_id |
-| `maestro phase add <id> --track <track> --name "<name>"` | Create phase | Phase ID, track ID, name | `docs/phases/<id>.json` | Duplicate phase_id, invalid track_id |
-| `maestro task add <id> --phase <phase> --name "<name>" --description "<desc>"` | Create task | Task ID, phase ID, name, description | `docs/tasks/<id>.json` | Duplicate task_id, invalid phase_id |
+| `maestro track add <id> --name "<name>"` | Create track | Track ID, name | `docs/maestro/tracks/<id>.json` | Duplicate track_id |
+| `maestro phase add <id> --track <track> --name "<name>"` | Create phase | Phase ID, track ID, name | `docs/maestro/phases/<id>.json` | Duplicate phase_id, invalid track_id |
+| `maestro task add <id> --phase <phase> --name "<name>" --description "<desc>"` | Create task | Task ID, phase ID, name, description | `docs/maestro/tasks/<id>.json` | Duplicate task_id, invalid phase_id |
 | `maestro task next` | Show next available task | None | Task details | No tasks available |
 | `maestro work task <id>` | Execute task | Task ID | Work artifacts | Engine validation fails |
 | `maestro task complete <id>` | Complete task | Task ID | Updated task status, moved to done.md | Task not found, already completed |

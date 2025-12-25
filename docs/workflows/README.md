@@ -60,8 +60,8 @@ exit_conditions: |
   - Success condition 1
   - Success condition 2
 artifacts_created: |
-  - docs/tracks/*.json
-  - docs/issues/*.md
+  - docs/maestro/tracks/*.json
+  - issue data*.md
 failure_semantics: |
   - Hard stop: Invalid JSON from AI
   - Recoverable: Build errors (create issues/tasks)
@@ -165,8 +165,8 @@ Each scenario documents the **contracts** for commands used:
 - **Purpose**: Bootstrap Maestro in an existing repo
 - **Inputs**: Current directory must be a git repo
 - **Outputs**:
-  - Creates `docs/tracks/`, `docs/phases/`, `docs/tasks/`, `docs/issues/`
-  - Creates `docs/plan.json` (empty scaffold)
+  - Creates `docs/maestro/tracks/`, `docs/maestro/phases/`, `docs/maestro/tasks/`, `issue data`
+  - Creates `docs/maestro/index.json` (empty scaffold)
 - **Hard stops**: Not a git repo
 - **Recoverable**: Already initialized (idempotent)
 
@@ -178,13 +178,13 @@ To avoid ambiguous safety claims, scenarios define **precise project state bound
 
 ### Truth Areas (Protected)
 
-- `docs/tracks/*.json` - Track definitions
-- `docs/phases/*.json` - Phase definitions
-- `docs/tasks/*.json` - Task definitions
-- `docs/issues/*.md` - Issue reports
-- `docs/plan.json` - Current plan state
-- `docs/todo.md` - Active task list
-- `docs/done.md` - Completed task archive
+- `docs/maestro/tracks/*.json` - Track definitions
+- `docs/maestro/phases/*.json` - Phase definitions
+- `docs/maestro/tasks/*.json` - Task definitions
+- `issue data*.md` - Issue reports
+- `docs/maestro/index.json` - Current plan state
+- `active tasks in JSON` - Active task list
+- `completed tasks in JSON` - Completed task archive
 
 **Protection mechanism**: Parsers validate structure; malformed writes are rejected (hard stop).
 
