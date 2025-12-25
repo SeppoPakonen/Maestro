@@ -1,0 +1,57 @@
+@startuml
+!include _shared.puml
+
+start
+
+:maestro repo command
+(entry point)/;
+
+if (Subcommand specified?) then (yes)
+  if (Subcommand is 'resolve'?) then (yes)
+    :Scan repository for
+    build files, packages,
+    and assemblies/;
+    
+    :Detect build systems
+    (Makefile, CMake, etc.)/;
+    
+    :Identify packages and
+    Ultimate++ assemblies/;
+    
+    :Generate build plan
+    with dependencies/;
+    
+    :Output scan results
+    to stdout/;
+  elseif (Subcommand is 'list'?) then (packages)
+    :List detected packages
+    in repository/;
+  elseif (Subcommand is 'show'?) then (details)
+    :Show detailed scan
+    results for repository
+    or specific package/;
+  elseif (Subcommand is 'tree'?) then (deps)
+    :Show dependency tree
+    of packages/;
+  elseif (Subcommand is 'asm list'?) then (assemblies)
+    :List detected assemblies
+    in repository/;
+  elseif (Subcommand is 'asm show'?) then (assembly)
+    :Show details for
+    specific assembly/;
+  else (other)
+    :<color:#FFCDD2><b>HARD STOP</b>
+    Unknown subcommand</color>|;
+    stop
+  endif
+else (no)
+  :Show repo command
+  help and usage/;
+endif
+
+:Output results
+to stdout/;
+
+stop
+
+@enduml

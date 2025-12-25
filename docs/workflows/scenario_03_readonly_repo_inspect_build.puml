@@ -1,5 +1,5 @@
 @startuml
-!include docs/workflows/_shared.puml
+!include _shared.puml
 
 |Operator|
 start
@@ -62,14 +62,11 @@ if (build driver detected?) then (yes)
   :Run maestro make build
   with appropriate method/;
   
-  note right
-  Uses detected build system
-  or specified method
-  end note
+  note right: Uses detected build system\nor specified method
 else (no)
   |Maestro CLI|
-  :HARD_STOP(Build driver
-  detection failed)/;
+  :<color:#FFCDD2><b>HARD STOP</b>
+  Build driver detection failed</color>|;
   stop
 endif
 

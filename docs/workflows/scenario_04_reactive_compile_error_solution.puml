@@ -1,5 +1,4 @@
 @startuml
-!include docs/workflows/_shared.puml
 
 title WF-04: Reactive compile error → Solutions match → immediate solution-task
 
@@ -49,9 +48,10 @@ opt Solution task execution
     deactivate MC
 end
 
-note bottom: Linkage maintained: Issue ↔ (SolutionAttemptTask) ↔ (FallbackTask)
+note over Op
+Linkage maintained: Issue ↔ (SolutionAttemptTask) ↔ (FallbackTask)
+end note
 
-||--||
 
 Op -> MC: maestro work
 activate MC
@@ -59,8 +59,5 @@ MC -> DS: Get work items
 DS -> MC: Return solution task (if exists) or fallback task
 MC -> MC: Execute work loop
 deactivate MC
-
-ENTRY_WF_04 -> MC
-MC -> EXIT_WF_04
 
 @enduml
