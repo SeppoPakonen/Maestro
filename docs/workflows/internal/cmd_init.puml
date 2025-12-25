@@ -1,0 +1,33 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'init';
+}
+
+partition "Command Router" {
+    if (Command is 'init'?) then (yes)
+        :Route to init handler;
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Repo / FS" {
+    :Call handle_init_command(args);
+    :Initialize repository structure;
+    :Create docs/ directory;
+    :Create config files;
+}
+
+partition "CLI / Argparse" {
+    EXIT_OK()
+}
+
+stop
+@enduml

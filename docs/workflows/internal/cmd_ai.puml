@@ -1,0 +1,55 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'ai';
+}
+
+partition "Command Router" {
+    if (Command is 'ai'?) then (yes)
+        :Parse AI subcommands;
+        :Load AI configuration;
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Command Router" {
+    if (Subcommand provided?) then (yes)
+        if (Subcommand is 'qwen'?) then (yes)
+            :Route to handle_ai_qwen;
+        elseif (Subcommand is 'gemini'?) then (yes)
+            :Route to handle_ai_gemini;
+        elseif (Subcommand is 'codex'?) then (yes)
+            :Route to handle_ai_codex;
+        elseif (Subcommand is 'claude'?) then (yes)
+            :Route to handle_ai_claude;
+        elseif (Subcommand is 'sync'?) then (yes)
+            :Route to handle_ai_sync;
+        else (other)
+            :Show AI help;
+            EXIT_FAIL()
+        endif
+    else (no)
+        :Show AI help;
+        EXIT_FAIL()
+    endif
+}
+
+partition "AI Engine" {
+    :Validate AI configuration;
+    INVOKE_AI_ENGINE()
+}
+
+partition "CLI / Argparse" {
+    :Output AI responses to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

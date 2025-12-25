@@ -1,0 +1,62 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'track';
+}
+
+partition "Command Router" {
+    if (Command is 'track'?) then (yes)
+        :Parse track subcommands;
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for track operations")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+}
+
+partition "Command Router" {
+    if (Subcommand provided?) then (yes)
+        if (Subcommand is 'list'?) then (yes)
+            :Route to handle_track_command;
+        elseif (Subcommand is 'add'?) then (yes)
+            :Route to handle_track_command;
+        elseif (Subcommand is 'remove'?) then (yes)
+            :Route to handle_track_command;
+        elseif (Subcommand is 'show'?) then (yes)
+            :Route to handle_track_command;
+        else (other)
+            :Show track help;
+            EXIT_FAIL()
+        endif
+    else (no)
+        :Show track help;
+        EXIT_FAIL()
+    endif
+}
+
+partition "Docs Truth Store" {
+    READ_DOCS_TRUTH()
+    :Execute track operation;
+    WRITE_DOCS_TRUTH()
+}
+
+partition "CLI / Argparse" {
+    :Output results to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

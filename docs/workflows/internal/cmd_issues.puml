@@ -1,0 +1,45 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'issues';
+}
+
+partition "Command Router" {
+    if (Command is 'issues'?) then (yes)
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for issues")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+}
+
+partition "Command Router" {
+    :Route to issues handler;
+}
+
+partition "Docs Truth Store" {
+    READ_DOCS_TRUTH()
+    :Execute issue operation;
+    WRITE_DOCS_TRUTH()
+}
+
+partition "CLI / Argparse" {
+    :Output results to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

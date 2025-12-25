@@ -1,0 +1,59 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'ops';
+}
+
+partition "Command Router" {
+    if (Command is 'ops'?) then (yes)
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for ops")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+}
+
+partition "Command Router" {
+    if (Subcommand provided?) then (yes)
+        if (Subcommand is 'validate'?) then (yes)
+            :Route to handle_project_ops_validate;
+        elseif (Subcommand is 'preview'?) then (yes)
+            :Route to handle_project_ops_preview;
+        elseif (Subcommand is 'apply'?) then (yes)
+            :Route to handle_project_ops_apply;
+        else (other)
+            :Show ops help;
+            EXIT_FAIL()
+        endif
+    else (no)
+        :Show ops help;
+        EXIT_FAIL()
+    endif
+}
+
+partition "Repo / FS" {
+    :Read operations JSON file;
+    :Execute ops operation;
+    :Apply changes to project (for apply operation);
+}
+
+partition "CLI / Argparse" {
+    :Output results to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

@@ -1,0 +1,39 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'repo';
+}
+
+partition "Command Router" {
+    if (Command is 'repo'?) then (yes)
+        :Parse repo subcommands;
+        if (Subcommand provided?) then (yes)
+            :Route to appropriate repo handler;
+        else (no)
+            :Show repo help;
+            EXIT_FAIL()
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Repo / FS" {
+    :Execute repository analysis/resolution;
+    :Read repository structure;
+    :Analyze repository state;
+}
+
+partition "CLI / Argparse" {
+    :Output results to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

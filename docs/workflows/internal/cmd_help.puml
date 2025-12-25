@@ -1,0 +1,27 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'help';
+}
+
+partition "Command Router" {
+    if (Command is 'help' or -h flag?) then (yes)
+        :Route to help handler;
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "CLI / Argparse" {
+    :Print help using parser.format_help();
+    EXIT_OK()
+}
+
+stop
+@enduml

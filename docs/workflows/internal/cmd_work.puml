@@ -1,0 +1,74 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'work';
+}
+
+partition "Command Router" {
+    if (Command is 'work'?) then (yes)
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for work")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+}
+
+partition "Command Router" {
+    :Parse work subcommands;
+    if (Subcommand provided?) then (yes)
+        if (Subcommand is 'any'?) then (yes)
+            :Route to handle_work_any;
+        elseif (Subcommand is 'track'?) then (yes)
+            :Route to handle_work_track;
+        elseif (Subcommand is 'phase'?) then (yes)
+            :Route to handle_work_phase;
+        elseif (Subcommand is 'issue'?) then (yes)
+            :Route to handle_work_issue;
+        elseif (Subcommand is 'task'?) then (yes)
+            :Route to handle_work_task;
+        elseif (Subcommand is 'discuss'?) then (yes)
+            :Route to handle_work_discuss;
+        elseif (Subcommand is 'analyze'?) then (yes)
+            :Route to handle_work_analyze;
+        elseif (Subcommand is 'fix'?) then (yes)
+            :Route to handle_work_fix;
+        else (other)
+            :Show work help;
+            EXIT_FAIL()
+        endif
+    else (no)
+        :Route to handle_work_any (default);
+    endif
+}
+
+partition "AI Engine" {
+    :Initialize work session with AI;
+    INVOKE_AI_ENGINE()
+}
+
+partition "Docs Truth Store" {
+    READ_DOCS_TRUTH()
+    :Execute work operation;
+    WRITE_DOCS_TRUTH()
+}
+
+partition "CLI / Argparse" {
+    :Output work progress to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

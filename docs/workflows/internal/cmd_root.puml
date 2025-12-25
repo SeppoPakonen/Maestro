@@ -1,0 +1,63 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'root';
+}
+
+partition "Command Router" {
+    if (Command is 'root'?) then (yes)
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for root")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+}
+
+partition "Command Router" {
+    if (Subcommand provided?) then (yes)
+        if (Subcommand is 'set'?) then (yes)
+            :Route to handle_root_set;
+        elseif (Subcommand is 'get'?) then (yes)
+            :Route to handle_root_get;
+        elseif (Subcommand is 'refine'?) then (yes)
+            :Route to handle_root_refine;
+        elseif (Subcommand is 'discuss'?) then (yes)
+            :Route to handle_root_discuss;
+        elseif (Subcommand is 'show'?) then (yes)
+            :Route to handle_root_show;
+        else (other)
+            :Show root help;
+            EXIT_FAIL()
+        endif
+    else (no)
+        :Show root help;
+        EXIT_FAIL()
+    endif
+}
+
+partition "Docs Truth Store" {
+    READ_DOCS_TRUTH()
+    :Execute root task operation;
+    WRITE_DOCS_TRUTH()
+}
+
+partition "CLI / Argparse" {
+    :Output results to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

@@ -1,0 +1,34 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'tu';
+}
+
+partition "Command Router" {
+    if (Command is 'tu'?) then (yes)
+        :Route to TU handler;
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Repo / FS" {
+    :Analyze project structure;
+    :Read source code files;
+    :Perform translation unit indexing;
+    :Write index to storage;
+}
+
+partition "CLI / Argparse" {
+    :Output analysis progress to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

@@ -1,0 +1,51 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'resume';
+}
+
+partition "Command Router" {
+    if (Command is 'resume'?) then (yes)
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for resume")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+    :Restore session state;
+}
+
+partition "Command Router" {
+    :Route to resume handler;
+}
+
+partition "AI Engine" {
+    :Resume AI work session;
+    INVOKE_AI_ENGINE()
+}
+
+partition "Docs Truth Store" {
+    READ_DOCS_TRUTH()
+    :Continue work from checkpoint;
+    WRITE_DOCS_TRUTH()
+}
+
+partition "CLI / Argparse" {
+    :Output resume progress to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

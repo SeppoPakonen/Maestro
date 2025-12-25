@@ -1,0 +1,43 @@
+' Shared PlantUML macros and styling for Maestro internal workflow diagrams
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 12
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+skinparam rectangle {
+    BackgroundColor #E6F3FF
+    BorderColor #0066CC
+}
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #FF9900
+}
+
+' Common swimlanes
+partition "CLI / Argparse" {
+}
+partition "Command Router" {
+}
+partition "Session Store" {
+}
+partition "Docs Truth Store" {
+}
+partition "Repo / FS" {
+}
+partition "AI Engine" {
+}
+partition "Toolchain" {
+}
+
+' Macros for common workflow elements
+!define ENTRYPOINT() :Parse command from CLI;
+!define PARSE_ARGS() :Parse arguments using argparse;
+!define LOAD_SESSION() :Load session from JSON file;
+!define VALIDATE_SCHEMA() :Validate session/schema against schema;
+!define READ_DOCS_TRUTH() :Read docs truth from repository;
+!define WRITE_DOCS_TRUTH() :Write docs truth to repository;
+!define INVOKE_TOOLCHAIN() :Invoke toolchain (build/test/make);
+!define INVOKE_AI_ENGINE() :Invoke AI engine (qwen/gemini/codex/claude);
+!define HARD_STOP(REASON) :HARD STOP - \nREASON;
+!define EXIT_OK() :Exit with code 0;
+!define EXIT_FAIL() :Exit with code 1;

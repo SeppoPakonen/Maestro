@@ -1,0 +1,58 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'log';
+}
+
+partition "Command Router" {
+    if (Command is 'log'?) then (yes)
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for log")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+}
+
+partition "Command Router" {
+    if (Subcommand provided?) then (yes)
+        if (Subcommand is 'list'?) then (yes)
+            :Route to handle_log_list;
+        elseif (Subcommand is 'list-work'?) then (yes)
+            :Route to handle_log_list_work;
+        elseif (Subcommand is 'list-plan'?) then (yes)
+            :Route to handle_log_list_plan;
+        else (other)
+            :Show log help;
+            EXIT_FAIL()
+        endif
+    else (no)
+        :Show log help;
+        EXIT_FAIL()
+    endif
+}
+
+partition "Repo / FS" {
+    :Execute log operation;
+    :Read log files;
+}
+
+partition "CLI / Argparse" {
+    :Output log information to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml

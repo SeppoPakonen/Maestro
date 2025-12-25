@@ -1,0 +1,64 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+}
+
+partition "Command Router" {
+    :Determine command from args;
+    :Normalize command aliases;
+    
+    if (Command requires session?) then (yes)
+        :Check if --session provided;
+        if (Session file exists?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session file not found")
+        endif
+    else (no)
+        :Continue without session;
+    endif
+    
+    if (Command found?) then (yes)
+        :Route to appropriate handler;
+    else (no)
+        :Show help and exit;
+        EXIT_FAIL()
+    endif
+}
+
+partition "Command Handler" {
+    :Execute command-specific logic;
+    if (Command calls AI engine?) then (yes)
+        :Prepare AI request;
+        INVOKE_AI_ENGINE()
+    endif
+    
+    if (Command modifies state?) then (yes)
+        WRITE_DOCS_TRUTH()
+    else (no)
+        READ_DOCS_TRUTH()
+    endif
+}
+
+partition "CLI / Argparse" {
+    if (Verbose mode?) then (yes)
+        :Output detailed logs;
+    endif
+    
+    if (Quiet mode?) then (no)
+        :Output normal logs;
+    else (yes)
+        :Suppress AI output;
+    endif
+    
+    EXIT_OK()
+}
+
+stop
+@enduml

@@ -1,0 +1,54 @@
+@startuml
+!include /home/sblo/Dev/Maestro/docs/workflows/internal/_shared.puml
+
+start
+:Maestro CLI Invocation;
+
+partition "CLI / Argparse" {
+    ENTRYPOINT()
+    PARSE_ARGS()
+    :Determine command is 'rules';
+}
+
+partition "Command Router" {
+    if (Command is 'rules'?) then (yes)
+        if (Session provided?) then (yes)
+            LOAD_SESSION()
+        else (no)
+            HARD_STOP("Session required for rules")
+        endif
+    else (no)
+        :Continue to other handlers;
+    endif
+}
+
+partition "Session Store" {
+    :Validate session schema;
+}
+
+partition "Command Router" {
+    if (Subcommand provided?) then (yes)
+        if (Subcommand is 'list'?) then (yes)
+            :Route to handle_rules_list;
+        elseif (Subcommand is 'edit'?) then (yes)
+            :Route to handle_rules_file;
+        else (other)
+            :Route to handle_rules_file (default);
+        endif
+    else (no)
+        :Route to handle_rules_file (default);
+    endif
+}
+
+partition "Repo / FS" {
+    :Execute rules operation;
+    :Read/write rules configuration;
+}
+
+partition "CLI / Argparse" {
+    :Output results to stdout;
+    EXIT_OK()
+}
+
+stop
+@enduml
