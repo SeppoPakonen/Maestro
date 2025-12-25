@@ -262,6 +262,15 @@ Command workflows differ from scenarios:
 - **Scenarios** document complete user journeys (e.g., "bootstrap existing repo")
 - **Command workflows** document the internal logic of a single command (e.g., `maestro work`)
 
+### Reactive Patterns
+
+Workflows may include **fast rule-based remediation loops** before deeper analysis. These reactive patterns:
+- Match specific error patterns against known solution rules
+- Apply immediate fixes when patterns match
+- Fall back to normal analysis if solutions fail
+- Reduce time-to-first-correct-fix for repeated patterns
+- Are implemented in scenarios like WF-04 (Reactive compile error solutions)
+
 ### Format
 
 Each command workflow includes:
@@ -287,6 +296,7 @@ Each command workflow includes:
 | Command | Documentation | Diagram | Purpose |
 |---------|---------------|---------|---------|
 | `maestro work` | [command_work.md](command_work.md) | [command_work.puml](command_work.puml) | Work execution interface - select and execute work items (tracks, phases, issues, tasks) |
+| `maestro solutions` | [command_solutions.md](command_solutions.md) | [command_solutions.puml](command_solutions.puml) | Solution management - create, list, match, and apply solution rules to issues |
 
 ### Relationship to Scenarios
 

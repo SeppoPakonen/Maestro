@@ -1,0 +1,66 @@
+@startuml
+!include docs/workflows/_shared.puml
+
+title WF-04: Reactive compile error → Solutions match → immediate solution-task
+
+actor Operator as Op
+participant "Maestro CLI" as MC
+participant "Repo/Toolchain" as RT
+participant "Docs/State" as DS
+
+Op -> MC: maestro make build
+activate MC
+MC -> RT: Execute build command
+RT -> MC: Build fails with compile error
+MC -> DS: CREATE_ISSUE("Build error")
+activate DS
+DS -> MC: Issue created
+deactivate DS
+
+MC -> MC: PARSE_BUILD_ERRORS()
+MC -> MC: MATCH_SOLUTIONS(error_text)
+alt Solution match found
+    MC -> DS: CREATE_SOLUTION_TASK("Try Solution X for Issue Y")
+    activate DS
+    DS -> MC: Solution task created (high priority)
+    deactivate DS
+else No solution match
+    MC -> MC: Continue with normal workflow
+end
+
+MC -> Op: Show results
+deactivate MC
+
+opt Solution task execution
+    Op -> MC: maestro work (solution task)
+    activate MC
+    MC -> MC: APPLY_SOLUTION_STEPS()
+    MC -> RT: Re-run build
+    RT -> MC: Build result
+    alt Build succeeds
+        MC -> MC: Continue normal flow
+    else Build still fails
+        MC -> DS: CREATE_FALLBACK_TASK("Fix as novel problem")
+        activate DS
+        DS -> MC: Fallback task created
+        deactivate DS
+        MC -> MC: Link Issue ↔ SolutionAttemptTask ↔ FallbackTask
+    end
+    deactivate MC
+end
+
+note bottom: Linkage maintained: Issue ↔ (SolutionAttemptTask) ↔ (FallbackTask)
+
+||--||
+
+Op -> MC: maestro work
+activate MC
+MC -> DS: Get work items
+DS -> MC: Return solution task (if exists) or fallback task
+MC -> MC: Execute work loop
+deactivate MC
+
+ENTRY_WF_04 -> MC
+MC -> EXIT_WF_04
+
+@enduml

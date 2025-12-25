@@ -10,6 +10,8 @@ This index provides quick access to all documented workflow scenarios. Each scen
 |----|-------|------|------------------|-----------------|-----------|-------|
 | **WF-01** | Existing Repo Bootstrap (Single Main, Compiled) | `bootstrap`, `retrofit`, `compile`, `issues`, `tasks` | • Existing git repo<br>• Single main branch<br>• Compiled language<br>• No Maestro yet | • Maestro initialized<br>• Past work reconstructed<br>• Clean build OR<br>• Issues/tasks created | • `docs/` structure<br>• Issues from build errors<br>• Tasks with dependencies<br>• Initial plan | [Markdown](scenario_01_existing_repo_single_main.md)<br>[PlantUML](scenario_01_existing_repo_single_main.puml) |
 | **WF-02** | New Project from Empty Directory (Manual Planning) | `bootstrap`, `greenfield`, `manual-planning`, `work-loop`, `track-phase-task` | • Empty or new directory<br>• Clear plan/requirements<br>• Manual planning preferred<br>• No git repo yet<br>• No Maestro yet | • Maestro initialized<br>• Tracks, phases, tasks created<br>• Work loop operational<br>• Initial work complete/in progress | • `.git/` repository<br>• `docs/maestro/tracks/*.json`<br>• `docs/maestro/phases/*.json`<br>• `docs/maestro/tasks/*.json`<br>• Source files from work | [Markdown](scenario_02_new_project_manual_plan.md)<br>[PlantUML](scenario_02_new_project_manual_plan.puml) |
+| **WF-03** | Read-only repo inspection + build | `readonly`, `repo-scan`, `detection`, `build`, `make` | • Existing repository with build files<br>• Required build tools installed<br>• No Maestro initialization required | • Repository scan report produced<br>• Build completed with success/failure status and diagnostics | • None by default (read-only mode)<br>• Optional: scan reports in $HOME/.maestro/repo/ if scanning performed | [Markdown](scenario_03_readonly_repo_inspect_build.md)<br>[PlantUML](scenario_03_readonly_repo_inspect_build.puml) |
+| **WF-04** | Reactive compile error → Solutions match → immediate solution-task | `build`, `compile-error`, `solutions`, `reactive`, `issues`, `tasks`, `dependency`, `work-loop` | • Operator runs `maestro make build`<br>• Build process fails with compiler error<br>• Error text contains patterns that may match existing solution rules | • Issue created for the build error<br>• If solution matches: high-priority task created to try solution<br>• If solution fails: fallback task created for normal investigation | • Issue file in docs/issues/<br>• Task file in docs/tasks/ (if solution matches)<br>• Fallback task file (if solution attempt fails) | [Markdown](scenario_04_reactive_compile_error_solution.md)<br>[PlantUML](scenario_04_reactive_compile_error_solution.puml) |
 
 ---
 
@@ -23,6 +25,8 @@ This index provides quick access to all documented workflow scenarios. Each scen
 Current status:
 - **WF-01**: Published (first release)
 - **WF-02**: Published
+- **WF-03**: Published
+- **WF-04**: Published
 
 ---
 
@@ -35,7 +39,7 @@ The following scenarios are planned but not yet documented:
   - Tags: `bootstrap`, `branches`, `merge-conflicts`
   - Handles multi-branch workflows, stale branches, merge conflicts
 
-- **WF-03**: New Greenfield Repo
+- **WF-04**: New Greenfield Repo
   - Tags: `bootstrap`, `new-project`, `scaffolding`
   - Starting from scratch with Maestro from day one
 
@@ -86,7 +90,7 @@ This table shows which scenarios are triggered by which conditions:
 
 | Trigger Condition | Applicable Scenarios |
 |-------------------|---------------------|
-| No Maestro initialized | WF-01, WF-02, WF-03, WF-06 |
+| No Maestro initialized | WF-01, WF-02, WF-04, WF-06 |
 | Build fails | WF-01, WF-02, WF-06 |
 | Runtime error detected | WF-04 |
 | Tests fail | WF-08 |
@@ -95,6 +99,7 @@ This table shows which scenarios are triggered by which conditions:
 | Dependency alert | WF-10 |
 | Performance regression | WF-11 |
 | Security scan alert | WF-12 |
+| Need repo inspection without state | WF-03 |
 
 ---
 
@@ -125,6 +130,13 @@ Scenarios can chain together in real workflows:
    - Profile and optimize hotspots
 3. **WF-08**: Test Failure Workflow
    - Regression tests catch optimization bug
+
+### Example 4: Read-only Inspection → Full Bootstrap
+1. **WF-03**: Read-only repo inspection + build
+   - Operator inspects repository structure without Maestro state
+   - Build verification performed to understand current state
+2. **WF-01**: Existing Repo Bootstrap
+   - Proceed with full Maestro initialization based on inspection results
 
 ---
 

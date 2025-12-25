@@ -1,0 +1,58 @@
+@startuml
+!include docs/workflows/_shared.puml
+
+title Command: solutions - Solution Management System
+
+actor User as U
+participant "Maestro CLI" as MC
+participant "Solution Store" as SS
+participant "Issue System" as IS
+
+U -> MC: maestro solutions list
+activate MC
+MC -> SS: list_solutions()
+SS -> MC: Return solution list
+MC -> U: Display solutions
+deactivate MC
+
+|||
+
+U -> MC: maestro solutions add [options]
+activate MC
+MC -> MC: Create SolutionDetails from args
+MC -> SS: write_solution(details)
+SS -> SS: Generate ID, save to docs/solutions/
+SS -> MC: Return solution ID
+MC -> U: Confirm creation
+deactivate MC
+
+|||
+
+U -> MC: maestro solutions show <id>
+activate MC
+MC -> SS: load_solution(id)
+SS -> MC: Return SolutionRecord
+MC -> U: Display solution details
+deactivate MC
+
+|||
+
+U -> MC: Issue occurs (e.g., build error)
+activate IS
+IS -> IS: Create IssueRecord
+IS -> MC: Trigger solution matching
+activate MC
+MC -> SS: match_solutions(issue, repo_root)
+activate SS
+SS -> SS: _build_issue_haystack(issue)
+SS -> SS: _score_solution() for each solution
+SS -> MC: Return SolutionMatch list (sorted by score)
+deactivate SS
+MC -> IS: Update issue with matched solution IDs
+IS -> MC: Continue processing
+deactivate MC
+deactivate IS
+
+note right: Matching algorithm:\n- Keywords: +10 each\n- Regex: +15 each\n- Contexts: +8 each\n- Weighted with confidence
+
+@enduml
