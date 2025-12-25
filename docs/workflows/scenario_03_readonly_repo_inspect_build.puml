@@ -1,0 +1,101 @@
+@startuml
+!include docs/workflows/_shared.puml
+
+|Operator|
+start
+:ENTRY_WF_03;
+
+|Maestro CLI|
+:Check for repo command availability;
+
+if (repo command exists?) then (yes)
+  |Operator|
+  :Run maestro repo resolve
+  to detect build files,
+  languages, packages/;
+  
+  |Maestro CLI|
+  :Detect build systems
+  (Makefile, CMakeLists.txt, etc.)/;
+  
+  |Maestro CLI|
+  :Identify packages/assemblies
+  (including U++ .upp files)/;
+  
+  |Maestro CLI|
+  :Generate build plan
+  with dependencies/;
+else (no)
+  |Operator|
+  :Use alternative commands
+  (maestro make config detect)/;
+  
+  |Maestro CLI|
+  :Detect build system
+  from available files/;
+endif
+
+|Operator|
+:Decide whether to build
+using detected plan
+or default build system/;
+
+|Maestro CLI|
+:Check if init required?;
+
+if (init required?) then (yes)
+  |Operator|
+  :Run maestro init
+  for minimal setup/;
+else (no)
+  |Maestro CLI|
+  :Proceed without init
+  (read-only mode)/;
+endif
+
+|Maestro CLI|
+:Check for build driver
+detection (make, cmake, etc.)/;
+
+if (build driver detected?) then (yes)
+  |Maestro CLI|
+  :Run maestro make build
+  with appropriate method/;
+  
+  note right
+  Uses detected build system
+  or specified method
+  end note
+else (no)
+  |Maestro CLI|
+  :HARD_STOP(Build driver
+  detection failed)/;
+  stop
+endif
+
+|Repo/Toolchain|
+:Execute build process
+using detected toolchain/;
+
+|Maestro CLI|
+:Capture build diagnostics
+(errors, warnings, output)/;
+
+if (make/build success?) then (yes)
+  |Operator|
+  :Display success status
+  and diagnostics/;
+else (no)
+  |Operator|
+  :Display failure status
+  and error diagnostics/;
+endif
+
+|Maestro CLI|
+:REPORT_DIAGNOSTICS();
+
+|Operator|
+:EXIT_WF_03;
+stop
+
+@enduml
