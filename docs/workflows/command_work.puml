@@ -1,0 +1,409 @@
+@startuml maestro work Command Workflow
+!include _shared.puml
+
+title maestro work - Command Routing & Execution Flow
+
+' ============================================================================
+' SWIMLANES
+' ============================================================================
+
+|Operator|
+start
+:Run `maestro work [subcommand]`;
+note right
+  Operator may be human or AI runner
+  using identical CLI syntax
+end note
+
+|Maestro CLI|
+:Parse command and subcommand;
+
+' ============================================================================
+' COMMAND ROUTING
+' ============================================================================
+
+GATE("Which subcommand?")
+partition "any (AI auto-select)" {
+  if (Subcommand?) then (any)
+    --> WK_ANY;
+  endif
+}
+
+partition "any pick (top 3)" {
+  if (Subcommand?) then (any pick)
+    --> WK_ANY_PICK;
+  endif
+}
+
+partition "track/phase/issue" {
+  if (Subcommand?) then (track/phase/issue)
+    --> WK_ENTITY;
+  endif
+}
+
+partition "task" {
+  if (Subcommand?) then (task)
+    --> WK_TASK;
+  endif
+}
+
+partition "analyze" {
+  if (Subcommand?) then (analyze)
+    --> WK_ANALYZE;
+  endif
+}
+
+partition "fix" {
+  if (Subcommand?) then (fix)
+    --> WK_FIX;
+  endif
+}
+
+partition "discuss" {
+  if (Subcommand?) then (discuss)
+    :Dispatch to discuss handlers;
+    stop
+  endif
+}
+
+' If no recognized subcommand
+:Display help;
+stop
+
+' ============================================================================
+' FLOW: maestro work any
+' ============================================================================
+
+:WK_ANY;
+|Maestro CLI|
+:Load available work items;
+note right
+  Sources:
+  • docs/todo.md (tracks, phases)
+  • docs/issues/*.md (open issues)
+end note
+
+GATE("Work items available?")
+if (Available?) then (no)
+  :Display "No work items available!";
+  stop
+else (yes)
+endif
+
+:Invoke AI to select best item;
+note right: ai_select_work_items(items, mode="best")
+
+if (AI selection successful?) then (no)
+  :Fall back to simple heuristic;
+  note right: simple_priority_sort(items, mode="best")
+else (yes)
+endif
+
+:Display selected item and reason;
+
+|Operator|
+note right
+  Example:
+  AI selected: Session Infrastructure (phase)
+  Reason: Foundational work needed
+end note
+
+|Maestro CLI|
+:Create WorkSession;
+note right
+  type: work_{item_type}
+  related_entity: {item_id}
+end note
+
+:Dispatch to appropriate worker;
+
+if (Worker available?) then (no)
+  :Simple AI interaction with breadcrumb;
+else (yes)
+  partition "Worker Execution" {
+    if (Item type?) then (track)
+      :execute_track_work();
+    elseif (phase)
+      :execute_phase_work();
+    elseif (issue)
+      :execute_issue_work();
+    endif
+  }
+endif
+
+:Display result;
+stop
+
+' ============================================================================
+' FLOW: maestro work any pick
+' ============================================================================
+
+:WK_ANY_PICK;
+|Maestro CLI|
+:Load available work items;
+
+GATE("Work items available?")
+if (Available?) then (no)
+  :Display "No work items available!";
+  stop
+else (yes)
+endif
+
+:Invoke AI to select top 3;
+note right: ai_select_work_items(items, mode="top_n")
+
+if (AI selection successful?) then (no)
+  :Fall back to heuristic top 3;
+else (yes)
+endif
+
+:Display formatted top 3 list;
+note right
+  1. [PHASE] Session Infrastructure
+     Reason: Foundational work
+     Difficulty: Medium
+  2. [ISSUE] Fix build error
+     Reason: Blocking
+     Difficulty: Low
+  3. [TRACK] Feature X
+     Reason: High impact
+     Difficulty: High
+end note
+
+|Operator|
+:Select option (1, 2, 3, or 'q');
+
+GATE("Selection?")
+if (q - quit) then (yes)
+  :Exit;
+  stop
+else (no)
+  :User selected item;
+endif
+
+|Maestro CLI|
+:Create WorkSession for selected item;
+:Dispatch to worker;
+:Display result;
+stop
+
+' ============================================================================
+' FLOW: maestro work task <id>
+' ============================================================================
+
+:WK_TASK;
+|Maestro CLI|
+GATE("Task ID provided?")
+
+if (ID provided?) then (yes)
+  :Find task context;
+  note right: find_task_context(task_id)
+
+  if (Task found?) then (no)
+    :Display "Task not found";
+    stop
+  else (yes)
+  endif
+
+  :Load phase and task context;
+  :Build task queue;
+  note right: Ordered list of tasks in phase
+
+  :Create WorkSession;
+  note right
+    type: work_task
+    metadata: task_queue, current_task_id
+  end note
+
+  :Write sync state;
+
+  :Build task prompt;
+  note right
+    Includes:
+    • Task name, description
+    • Phase context
+    • Session ID
+  end note
+
+  GATE("Simulate mode?")
+  if (--simulate flag?) then (yes)
+    :Print prompt only;
+    stop
+  else (no)
+  endif
+
+  :Run AI interaction with breadcrumb;
+  ENGINE_INVOKE("Execute task based on prompt")
+
+  :Display AI response;
+  stop
+else (no - list mode)
+  :Load all tasks from phases;
+  :Filter out completed tasks;
+
+  GATE("Tasks available?")
+  if (Available?) then (no)
+    :Display "No tasks available!";
+    stop
+  else (yes)
+  endif
+
+  :Display numbered list;
+
+  |Operator|
+  :Select task number;
+
+  |Maestro CLI|
+  :Execute selected task (same as ID mode);
+  stop
+endif
+
+' ============================================================================
+' FLOW: maestro work analyze <target>
+' ============================================================================
+
+:WK_ANALYZE;
+|Maestro CLI|
+
+GATE("Simulate mode?")
+if (--simulate?) then (yes)
+  :Print simulation plan;
+  note right
+    No session created
+    No breadcrumbs written
+  end note
+  stop
+else (no)
+  :Create analysis session;
+endif
+
+GATE("Target provided?")
+if (Target?) then (yes)
+  :Check if target is file/directory;
+
+  if (File?) then (yes)
+    :Read file content (first 4000 chars);
+    :Prompt engine to analyze file;
+  elseif (Directory?) then (yes)
+    :List directory contents;
+    :Prompt engine to analyze directory;
+  else (work item ID?)
+    :Load work item (track/phase/issue);
+
+    if (Found?) then (yes)
+      :Prompt engine to analyze work item;
+    else (no)
+      :Generic analysis prompt;
+    endif
+  endif
+else (no - repository analysis)
+  :Load available work items;
+  :Count items (tracks, phases, issues);
+  :Check git repository status;
+  :Get recent commits;
+
+  :Prompt engine for comprehensive analysis;
+  note right
+    Analyze:
+    • Repository health
+    • Priority items
+    • Blocking issues
+    • Recommendations
+  end note
+endif
+
+:Run AI interaction with breadcrumb;
+ENGINE_INVOKE("Analyze based on context")
+
+:Display analysis results;
+
+:Complete session;
+stop
+
+' ============================================================================
+' FLOW: maestro work fix <target> [--issue <id>]
+' ============================================================================
+
+:WK_FIX;
+|Maestro CLI|
+
+GATE("Simulate mode?")
+if (--simulate?) then (yes)
+  :Print simulation plan for all phases;
+  stop
+else (no)
+  :Create fix session;
+endif
+
+GATE("Issue ID provided (--issue)?")
+if (Issue?) then (yes)
+  partition "4-Phase Fix Workflow" {
+    :Load issue details;
+
+    ' Phase 1: Analyze
+    :Create analyze_issue sub-session;
+    :Prompt engine: Analyze issue, find root cause;
+    ENGINE_INVOKE("Analyze issue")
+    :Complete analyze sub-session;
+
+    ' Phase 2: Decide
+    :Create decide_fix sub-session;
+    :Prompt engine: Decide best fix approach;
+    ENGINE_INVOKE("Decide fix strategy")
+    :Complete decide sub-session;
+
+    ' Phase 3: Implement
+    :Create fix_issue sub-session;
+    :Prompt engine: Implement the fix;
+    ENGINE_INVOKE("Implement fix")
+    :Complete fix sub-session;
+
+    ' Phase 4: Verify
+    :Create verify_fix sub-session;
+    :Prompt engine: Verify fix, check side effects;
+    ENGINE_INVOKE("Verify fix")
+    :Complete verify sub-session;
+
+    note right
+      All sub-sessions linked via parent_session_id
+    end note
+  }
+
+  :Display all session IDs;
+else (no - direct fix)
+  :Check if target is file/directory;
+
+  if (File?) then (yes)
+    :Read file content;
+    :Prompt engine to fix file;
+  elseif (Directory?) then (yes)
+    :List directory contents;
+    :Prompt engine to address directory issues;
+  else
+    :Generic fix prompt;
+  endif
+
+  :Run AI interaction with breadcrumb;
+  :Display fix results;
+endif
+
+:Complete main fix session;
+stop
+
+' ============================================================================
+' FLOW: Entity Work (Track/Phase/Issue) - Similar Pattern
+' ============================================================================
+
+:WK_ENTITY;
+note right
+  maestro work track|phase|issue <id>
+  Similar flow:
+  1. Load items
+  2. Find by ID (or list if no ID)
+  3. Create session
+  4. Dispatch to worker
+  5. Display result
+end note
+stop
+
+@enduml

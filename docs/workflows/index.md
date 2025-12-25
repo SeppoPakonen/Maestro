@@ -9,6 +9,7 @@ This index provides quick access to all documented workflow scenarios. Each scen
 | ID | Title | Tags | Entry Conditions | Exit Conditions | Artifacts | Links |
 |----|-------|------|------------------|-----------------|-----------|-------|
 | **WF-01** | Existing Repo Bootstrap (Single Main, Compiled) | `bootstrap`, `retrofit`, `compile`, `issues`, `tasks` | • Existing git repo<br>• Single main branch<br>• Compiled language<br>• No Maestro yet | • Maestro initialized<br>• Past work reconstructed<br>• Clean build OR<br>• Issues/tasks created | • `docs/` structure<br>• Issues from build errors<br>• Tasks with dependencies<br>• Initial plan | [Markdown](scenario_01_existing_repo_single_main.md)<br>[PlantUML](scenario_01_existing_repo_single_main.puml) |
+| **WF-02** | New Project from Empty Directory (Manual Planning) | `bootstrap`, `greenfield`, `manual-planning`, `work-loop`, `track-phase-task` | • Empty or new directory<br>• Clear plan/requirements<br>• Manual planning preferred<br>• No git repo yet<br>• No Maestro yet | • Maestro initialized<br>• Tracks, phases, tasks created<br>• Work loop operational<br>• Initial work complete/in progress | • `.git/` repository<br>• `docs/tracks/*.json`<br>• `docs/phases/*.json`<br>• `docs/tasks/*.json`<br>• Source files from work | [Markdown](scenario_02_new_project_manual_plan.md)<br>[PlantUML](scenario_02_new_project_manual_plan.puml) |
 
 ---
 
@@ -21,6 +22,7 @@ This index provides quick access to all documented workflow scenarios. Each scen
 
 Current status:
 - **WF-01**: Published (first release)
+- **WF-02**: Published
 
 ---
 
@@ -143,6 +145,25 @@ See [README.md](README.md) for full metadata schema documentation.
 
 ---
 
+## Command Workflows
+
+In addition to scenario workflows, this directory contains **command-specific workflow documentation** that describes the internal implementation of individual Maestro commands.
+
+### Command Workflow Table
+
+| Command | Documentation | Diagram | Purpose | Status |
+|---------|---------------|---------|---------|--------|
+| `maestro work` | [command_work.md](command_work.md) | [command_work.puml](command_work.puml) | Work execution interface - select and execute work items (tracks, phases, issues, tasks) | Published |
+
+### Difference from Scenarios
+
+- **Scenarios** document complete user journeys (e.g., "bootstrap existing repo")
+- **Command workflows** document the internal logic of a single command
+- Command workflows are referenced BY scenarios as implementation details
+- See [README.md#command-workflows](README.md#command-workflows) for more information
+
+---
+
 ## Usage Notes
 
 ### For Users
@@ -201,6 +222,7 @@ See [README.md#diagram-strategy](README.md#diagram-strategy) for details.
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-12-25 | Initial creation with WF-01 | Claude Sonnet 4.5 |
+| 2025-12-25 | Actor model refactor (Operator model), add WF-02, add command workflows | Claude Sonnet 4.5 |
 
 ---
 

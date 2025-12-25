@@ -11,6 +11,21 @@
 ' Include this file at the top of any scenario .puml file:
 '   !include _shared.puml
 '
+' ACTOR MODEL:
+' Maestro workflows use the "Operator" actor model:
+' - "Operator" represents either a human user OR an AI runner
+' - Both use the SAME CLI command interface
+' - Behavior is identical at the command boundary
+' - AI is NOT a separate workflow participant; it's an execution mode
+' - Commands like "maestro discuss" or "maestro work" may invoke AI internally,
+'   but this is an internal engine decision, not a separate actor
+'
+' Swimlanes typically include:
+' - |Operator| - human or AI runner invoking commands
+' - |Maestro CLI| - command execution layer with validation/routing
+' - |Repo/Toolchain| - external tools (git, compilers, build systems)
+' - |Docs (truth)| - protected truth files (*.json, todo.md, done.md)
+'
 ' MERGE STRATEGY:
 ' Individual scenario diagrams are written as callable procedures (e.g., !procedure WF_01())
 ' with labeled entry/exit points. The master diagram will:
@@ -58,8 +73,8 @@ skinparam note {
 !define COLOR_HARD_STOP #FFCDD2
 !define COLOR_SUCCESS #C8E6C9
 !define COLOR_ARTIFACT #E1BEE7
-!define COLOR_AI_ACTION #B2DFDB
-!define COLOR_VALIDATION #FFF59D
+!define COLOR_AI_ACTION #B2DFDB        ' Engine actions (AI or rule-based)
+!define COLOR_VALIDATION #FFF59D       ' Rule-based validation
 
 ' ============================================================================
 ' COMMON MACROS
@@ -104,15 +119,24 @@ skinparam note {
   end note
 !endprocedure
 
-' AI_DISCUSS - AI analysis and discussion round
-' Usage: AI_DISCUSS("Analyze codebase structure")
-!procedure AI_DISCUSS($purpose)
-  :<color:COLOR_AI_ACTION><b>AI Discussion</b>
+' ENGINE_INVOKE - Engine execution (AI or rule-based)
+' Usage: ENGINE_INVOKE("Analyze codebase structure")
+' Note: This is typically invoked BY the Maestro CLI, not by Operator directly
+!procedure ENGINE_INVOKE($purpose)
+  :<color:COLOR_AI_ACTION><b>Engine Invocation</b>
   Purpose: $purpose</color>|
 !endprocedure
 
-' VALIDATE_JSON - Check AI output JSON contract
+' Legacy macro for compatibility with existing diagrams
+' Usage: AI_DISCUSS("Analyze codebase structure")
+!procedure AI_DISCUSS($purpose)
+  :<color:COLOR_AI_ACTION><b>Engine Execution</b>
+  Purpose: $purpose</color>|
+!endprocedure
+
+' VALIDATE_JSON - Check engine output JSON contract
 ' Usage: VALIDATE_JSON("Plan structure")
+' Note: This validation is rule-based, not AI-driven
 !procedure VALIDATE_JSON($what)
   :<color:COLOR_VALIDATION><b>Validate JSON</b>
   Check: $what</color>|

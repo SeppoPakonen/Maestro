@@ -195,16 +195,31 @@ To avoid ambiguous safety claims, scenarios define **precise project state bound
 - Test outputs
 - Logs (unless being parsed for issue generation)
 
-### AI Interaction Boundaries
+### Actor Model: Operator (Human or AI)
 
-AI engines operate **via Maestro-mediated channels**:
+**Critical Concept**: In Maestro workflows, there is **no separate AI workflow participant**. Instead, we use the **Operator** actor model:
 
-- AI produces **JSON plans/responses** that must pass schema validation
-- Invalid/non-JSON AI replies are a **blocking failure** (hard stop; user may re-prompt explicitly)
-- AI may propose changes, but changes are applied through:
+- **Operator** = human user OR AI runner
+- Both use the **same CLI command interface**
+- Behavior is **identical at the command boundary**
+- AI is **not a separate actor**; it's an execution mode
+
+**What this means for diagrams**:
+- Swimlanes show: `|Operator|`, `|Maestro CLI|`, `|Repo/Toolchain|`, `|Docs (truth)|`
+- NO separate `|AI Engine|` lane
+- Commands like `maestro discuss` or `maestro work` may invoke AI internally, but this is an **implementation detail** of the Maestro CLI, not a separate workflow step
+
+### Engine Interaction Boundaries
+
+Engines (AI or rule-based) operate **via Maestro-mediated channels**:
+
+- Engines produce **JSON plans/responses** that must pass schema validation
+- Invalid/non-JSON engine replies are a **blocking failure** (hard stop; operator may re-prompt explicitly)
+- Engines may propose changes, but changes are applied through:
   - Maestro commands (e.g., `maestro task create`)
   - Validation/assert layers (rule-based, not AI-driven)
-- AI does **not** directly mutate project state; it operates through Maestro's command layer
+- Engines do **not** directly mutate project state; they operate through Maestro's command layer
+- **Validation is rule-based**, not AI-driven (e.g., JSON schema checks, file existence checks)
 
 ---
 
@@ -234,6 +249,52 @@ Tracks/Phases/Tasks document **project structure** (the work breakdown of a spec
 Example:
 - **Scenario WF-01**: "How to bootstrap Maestro in an existing repo" (operational workflow)
 - **Track `bootstrap`**: "Maestro bootstrap work for Project X" (project work breakdown)
+
+---
+
+## Command Workflows
+
+In addition to scenario workflows, this directory contains **command-specific workflow documentation** that describes the internal implementation and decision flow of individual Maestro commands.
+
+### Purpose
+
+Command workflows differ from scenarios:
+- **Scenarios** document complete user journeys (e.g., "bootstrap existing repo")
+- **Command workflows** document the internal logic of a single command (e.g., `maestro work`)
+
+### Format
+
+Each command workflow includes:
+- **Markdown documentation** (`command_<name>.md`):
+  - Purpose and command syntax
+  - Current implementation details (code-based, not aspirational)
+  - Decision points and routing logic
+  - State transitions and invariants
+  - Validation & gating rules
+  - Failure modes & recovery
+  - Extension points
+  - Test mapping
+  - Example sessions
+- **PlantUML diagram** (`command_<name>.puml`):
+  - Command routing (subcommand dispatch)
+  - Decision gates and branching logic
+  - Engine invocation points
+  - Validation steps
+  - Error handling paths
+
+### Current Command Workflows
+
+| Command | Documentation | Diagram | Purpose |
+|---------|---------------|---------|---------|
+| `maestro work` | [command_work.md](command_work.md) | [command_work.puml](command_work.puml) | Work execution interface - select and execute work items (tracks, phases, issues, tasks) |
+
+### Relationship to Scenarios
+
+Command workflows are referenced by scenarios:
+- **Scenario WF-01** uses `maestro init`, `maestro discuss`, `maestro build`, etc.
+- **Scenario WF-02** uses `maestro track add`, `maestro phase add`, `maestro task add`, `maestro work task`
+- Command workflows document the **internal implementation** of these commands
+- Scenarios document the **user-facing journey** that composes multiple commands
 
 ---
 

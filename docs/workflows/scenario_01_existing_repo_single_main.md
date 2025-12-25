@@ -25,7 +25,7 @@ artifacts_created: |
   - docs/done.md (reconstructed past work)
 failure_semantics: |
   - Hard stop: Not a git repository
-  - Hard stop: Invalid JSON from AI (blocks continuation; user may re-prompt)
+  - Hard stop: Invalid JSON from engine (blocks continuation; operator may re-prompt)
   - Hard stop: Malformed truth file write (parser validation fails)
   - Recoverable: Already initialized (idempotent behavior)
   - Recoverable: Build errors (captured as issues/tasks; work loop begins)
@@ -35,16 +35,23 @@ follow_on_scenarios: [WF-05, WF-08, WF-04]
 
 # Scenario WF-01: Existing Repo Bootstrap (Single Main, Compiled Language)
 
+## Actor Model Note
+
+**Important**: In Maestro, there is no separate "AI" workflow participant. The **Operator** (either a human user or an AI runner) interacts with Maestro via the same CLI command interface. Commands like `maestro discuss` or `maestro work task` may internally invoke an AI engine, but this is an execution mode of the Maestro CLI itself, not a separate actor. Therefore:
+- Operator = human OR AI runner
+- Both use identical CLI commands
+- Behavior is the same at the command boundary
+
 ## Overview
 
-This scenario documents the **initial bootstrap process** when a user adds Maestro to an **existing codebase** with:
+This scenario documents the **initial bootstrap process** when an Operator adds Maestro to an **existing codebase** with:
 - A single main branch (or primary development branch)
 - A compiled language requiring build steps
 - No prior Maestro initialization
 
 The workflow covers:
 1. Maestro initialization
-2. AI-driven codebase understanding
+2. Engine-driven codebase understanding (via `maestro discuss`)
 3. Past work reconstruction
 4. Build analysis and error capture
 5. Issue/task generation with dependency ranking
@@ -67,10 +74,10 @@ Before entering this scenario, the following must be true:
 - **Development environment ready**: User has necessary compilers, build tools, dependencies installed
 - **Maestro not initialized**: No `docs/tracks/`, `docs/plan.json`, etc. exist yet
 
-### User Intent
+### Operator Intent
 
-The user wants to:
-- Start using Maestro for task tracking and AI-assisted development
+The Operator (human or AI runner) wants to:
+- Start using Maestro for task tracking and engine-assisted development
 - Understand the current state of the codebase
 - Identify and fix any build or runtime issues
 - Establish a baseline for future work
@@ -119,20 +126,20 @@ The user wants to:
 
 ---
 
-## Phase 2: Understand Codebase + AI Discussion
+## Phase 2: Understand Codebase (Operator-Initiated)
 
 ### Command: `maestro discuss "Analyze codebase structure and purpose"`
 
-**Purpose**: Use AI to understand the codebase's architecture, dependencies, and current state.
+**Purpose**: Use Maestro's configured engine (AI or rule-based) to understand the codebase's architecture, dependencies, and current state.
 
 **Inputs**:
-- Codebase files (AI reads via code exploration)
+- Codebase files (read via code exploration)
 - Git history (optional: for context)
-- User prompt: "Analyze codebase structure and purpose"
+- Operator prompt: "Analyze codebase structure and purpose"
 
 **Outputs**:
-- AI discussion output (streamed to user)
-- **Proposed CLI Contract**: AI returns structured JSON:
+- Discussion output (streamed to Operator)
+- **CLI Contract**: Engine returns structured JSON:
   ```json
   {
     "understanding": {
@@ -150,21 +157,21 @@ The user wants to:
   ```
 
 **Validation**:
-- AI response must be valid JSON
-- If AI returns non-JSON or malformed JSON:
-  - **Hard stop**: Display error: "AI returned invalid JSON. Please retry with a clearer prompt."
-  - User may re-prompt explicitly
+- Engine response must be valid JSON
+- If engine returns non-JSON or malformed JSON:
+  - **Hard stop**: Display error: "Invalid JSON from engine. Please retry with a clearer prompt."
+  - Operator may re-prompt explicitly
 
-**Human Validation Gate**:
-- Maestro displays AI's understanding
-- Prompts user: "Does this understanding look correct? (yes/no/edit)"
+**Operator Validation Gate**:
+- Maestro displays engine's understanding
+- Prompts Operator: "Does this understanding look correct? (yes/no/edit)"
   - **Yes**: Proceed to Phase 3
   - **No**: Return to `maestro discuss` with corrections
-  - **Edit**: User provides clarifications, Maestro re-prompts AI
+  - **Edit**: Operator provides clarifications, Maestro re-prompts engine
 
 **Failure Modes**:
-- **Hard stop**: Invalid JSON from AI
-- **Recoverable**: AI misunderstands codebase (user corrects via discussion)
+- **Hard stop**: Invalid JSON from engine
+- **Recoverable**: Engine misunderstands codebase (operator corrects via discussion)
 
 **State Change**:
 - Project understanding captured (may be stored in `docs/context.json` or similar)

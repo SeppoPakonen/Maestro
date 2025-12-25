@@ -1,0 +1,366 @@
+@startuml WF-02: New Project Manual Planning
+!include _shared.puml
+
+' ============================================================================
+' SCENARIO WF-02: New Project from Empty Directory (Manual Planning)
+' ============================================================================
+' This diagram models the greenfield bootstrap workflow when an Operator creates
+' a new project from scratch with manual track/phase/task planning.
+'
+' The flow is wrapped as a callable procedure to enable stitching into the
+' master conditional workflow diagram.
+'
+' ENTRY POINT: ENTRY_WF_02
+' EXIT POINTS: EXIT_WF_02_SUCCESS, EXIT_WF_02_PARTIAL
+' ============================================================================
+
+!procedure WF_02()
+
+title WF-02: New Project from Empty Directory\n(Manual Track/Phase/Task Planning)
+
+' ============================================================================
+' SWIMLANES
+' ============================================================================
+' NOTE: "Operator" represents either a human user OR an AI runner.
+' Both use the same CLI command interface; behavior is identical at the command boundary.
+' ============================================================================
+
+|Operator|
+start
+:ENTRY_WF_02;
+note right
+  **Entry Conditions:**
+  • Empty or new directory
+  • Clear plan/requirements
+  • No git repository yet
+  • Manual planning preferred
+  • Maestro not initialized
+
+  **Operator Note:**
+  Operator may be human or AI runner;
+  both use identical CLI commands.
+end note
+
+' ============================================================================
+' PHASE 1: DIRECTORY & GIT INITIALIZATION
+' ============================================================================
+
+|Operator|
+:Create project directory (if needed);
+note right: mkdir my-project && cd my-project
+
+:Run `git init`;
+
+|Repo/Toolchain|
+:Initialize git repository;
+
+|Operator|
+note right
+  Repository created:
+  .git/ directory initialized
+end note
+
+' ============================================================================
+' PHASE 2: MAESTRO INITIALIZATION
+' ============================================================================
+
+|Operator|
+:Run `maestro init`;
+
+|Maestro CLI|
+:Create directory structure;
+note right
+  docs/
+    tracks/
+    phases/
+    tasks/
+    issues/
+    plan.json
+    todo.md
+    done.md
+end note
+
+WRITE_TRUTH("docs/plan.json")
+WRITE_TRUTH("docs/todo.md")
+WRITE_TRUTH("docs/done.md")
+
+|Operator|
+note right: Maestro initialized
+
+' ============================================================================
+' PHASE 3: MANUAL TRACK CREATION
+' ============================================================================
+
+|Operator|
+:Define tracks for project;
+note right
+  Example:
+  • "Project Setup" track
+  • "Core Features" track
+  • "Testing" track
+end note
+
+while (For each track) is (more tracks)
+  |Operator|
+  :Run `maestro track add <id> --name "<name>"`;
+
+  |Maestro CLI|
+  :Validate track_id uniqueness;
+
+  if (Unique?) then (no)
+    HARD_STOP("Duplicate track_id")
+  else (yes)
+  endif
+
+  :Create docs/tracks/<id>.json;
+  WRITE_TRUTH("docs/tracks/<id>.json")
+
+  :Update docs/plan.json;
+  WRITE_TRUTH("docs/plan.json")
+endwhile (all tracks created)
+
+|Operator|
+note right: All tracks defined
+
+' ============================================================================
+' PHASE 4: MANUAL PHASE CREATION
+' ============================================================================
+
+|Operator|
+:Define phases within tracks;
+note right
+  Example:
+  • "Environment Setup" in Setup track
+  • "Core Logic" in Features track
+  • "Unit Tests" in Testing track
+end note
+
+while (For each phase) is (more phases)
+  |Operator|
+  :Run `maestro phase add <phase_id> --track <track_id> --name "<name>"`;
+
+  |Maestro CLI|
+  :Validate phase_id uniqueness;
+
+  if (Unique?) then (no)
+    HARD_STOP("Duplicate phase_id")
+  else (yes)
+  endif
+
+  :Validate track_id exists;
+
+  if (Track exists?) then (no)
+    HARD_STOP("Referenced track_id does not exist")
+  else (yes)
+  endif
+
+  :Create docs/phases/<phase_id>.json;
+  WRITE_TRUTH("docs/phases/<phase_id>.json")
+
+  :Update docs/tracks/<track_id>.json;
+  WRITE_TRUTH("docs/tracks/<track_id>.json")
+endwhile (all phases created)
+
+|Operator|
+note right: All phases defined
+
+' ============================================================================
+' PHASE 5: MANUAL TASK CREATION
+' ============================================================================
+
+|Operator|
+:Define tasks within phases;
+note right
+  Example:
+  • "Create project structure" in Setup phase
+  • "Implement parse_input" in Core Logic phase
+  • "Write unit tests" in Unit Tests phase
+end note
+
+while (For each task) is (more tasks)
+  |Operator|
+  :Run `maestro task add <task_id> --phase <phase_id> --name "<name>" --description "<desc>"`;
+
+  |Maestro CLI|
+  :Validate task_id uniqueness;
+
+  if (Unique?) then (no)
+    HARD_STOP("Duplicate task_id")
+  else (yes)
+  endif
+
+  :Validate phase_id exists;
+
+  if (Phase exists?) then (no)
+    HARD_STOP("Referenced phase_id does not exist")
+  else (yes)
+  endif
+
+  :Create docs/tasks/<task_id>.json;
+  WRITE_TRUTH("docs/tasks/<task_id>.json")
+
+  :Update docs/phases/<phase_id>.json;
+  WRITE_TRUTH("docs/phases/<phase_id>.json")
+
+  :Update docs/todo.md;
+  WRITE_TRUTH("docs/todo.md")
+endwhile (all tasks created)
+
+|Operator|
+note right
+  Manual planning complete:
+  • Tracks defined
+  • Phases defined
+  • Tasks defined in todo.md
+end note
+
+' ============================================================================
+' PHASE 6: WORK LOOP (EXECUTE TASKS)
+' ============================================================================
+
+:WORK_LOOP_START;
+
+|Operator|
+:Run `maestro task next`;
+
+|Maestro CLI|
+:Select next task with no unsatisfied dependencies;
+
+GATE("Tasks available?")
+if (Available?) then (no)
+  :No tasks available;
+  --> EXIT_WF_02_SUCCESS;
+else (yes)
+  :Display task details;
+
+  |Operator|
+  :Review task: ID, name, description;
+
+  GATE("How to execute task?")
+  if (Execution method) then (manual)
+    |Operator|
+    :Execute task manually;
+    note right
+      Operator creates files,
+      writes code, etc. directly
+    end note
+  else (use work command)
+    |Operator|
+    :Run `maestro work task <task_id>`;
+
+    |Maestro CLI|
+    :Read task context from docs/tasks/<id>.json;
+    :Read phase context from docs/phases/<phase_id>.json;
+
+    :Invoke engine to execute task;
+    note right
+      Engine may:
+      • Create files/directories
+      • Write code
+      • Run commands
+      • Generate documentation
+    end note
+
+    ENGINE_INVOKE("Execute task based on context")
+
+    :Validate engine output;
+    note right
+      Rule-based validation:
+      • Files created as expected?
+      • No conflicts?
+      • Operations valid?
+    end note
+
+    if (Validation passes?) then (no)
+      HARD_STOP("Engine output validation failed")
+    else (yes)
+    endif
+
+    :Apply changes to repository;
+  endif
+
+  |Operator|
+  :Verify task completion;
+
+  GATE("Task complete?")
+  if (Complete?) then (yes)
+    :Run `maestro task complete <task_id>`;
+
+    |Maestro CLI|
+    :Update task status to 'completed';
+    WRITE_TRUTH("docs/tasks/<task_id>.json")
+
+    :Move task from todo.md to done.md;
+    note right
+      **Mandatory Task Lifecycle Rule:**
+      Completed tasks MUST be moved
+      from todo.md to done.md
+    end note
+    WRITE_TRUTH("docs/todo.md")
+    WRITE_TRUTH("docs/done.md")
+
+    |Operator|
+    GATE("More tasks in todo.md?")
+    if (More tasks?) then (yes)
+      --> [Loop: Next task] WORK_LOOP_START;
+    else (no)
+      :All tasks completed;
+      --> EXIT_WF_02_SUCCESS;
+    endif
+  else (no)
+    |Operator|
+    :Adjust approach or break into subtasks;
+    note right: Loop back to retry task
+    --> [Retry] WORK_LOOP_START;
+  endif
+endif
+
+' ============================================================================
+' EXIT POINTS
+' ============================================================================
+
+:EXIT_WF_02_SUCCESS;
+SUCCESS_EXIT("WF-02")
+note right
+  **Success Criteria Met:**
+  • Maestro initialized in new repository
+  • Tracks, phases, tasks created manually
+  • All tasks completed and in done.md
+  • Work artifacts created
+
+  **Artifacts Created:**
+  • .git/ repository
+  • docs/tracks/*.json (all tracks)
+  • docs/phases/*.json (all phases)
+  • docs/tasks/*.json (all tasks, status=completed)
+  • docs/todo.md (empty)
+  • docs/done.md (all completed tasks)
+  • Source code and project files
+
+  **Follow-On Scenarios:**
+  • WF-05: Feature Request
+end note
+stop
+
+:EXIT_WF_02_PARTIAL;
+note right
+  **Partial Completion:**
+  • Maestro initialized
+  • Manual planning completed
+  • Some tasks completed
+  • Remaining tasks in docs/todo.md
+
+  Operator may resume work loop later
+end note
+stop
+
+!endprocedure
+
+' ============================================================================
+' STANDALONE USAGE (when not included in master diagram)
+' ============================================================================
+
+' Uncomment the line below to render this scenario standalone:
+' WF_02()
+
+@enduml

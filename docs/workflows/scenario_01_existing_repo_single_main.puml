@@ -21,8 +21,11 @@ title WF-01: Existing Repo Bootstrap\n(Single Main, Compiled Language)
 ' ============================================================================
 ' SWIMLANES
 ' ============================================================================
+' NOTE: "Operator" represents either a human user OR an AI runner.
+' Both use the same CLI command interface; behavior is identical at the command boundary.
+' ============================================================================
 
-|User|
+|Operator|
 start
 :ENTRY_WF_01;
 note right
@@ -32,6 +35,10 @@ note right
   • Compiled language
   • Maestro not initialized
   • Dev environment ready
+
+  **Operator Note:**
+  Operator may be human or AI runner;
+  both use identical CLI commands.
 end note
 
 ' ============================================================================
@@ -50,7 +57,7 @@ endif
 
 GATE("Maestro already initialized?")
 if (Initialized?) then (yes)
-  |User|
+  |Operator|
   :Warning: Already initialized;
   note right: Idempotent behavior
   stop
@@ -61,7 +68,7 @@ endif
 ' PHASE 1: MAESTRO INITIALIZATION
 ' ============================================================================
 
-|User|
+|Operator|
 :Run `maestro init`;
 
 |Maestro CLI|
@@ -89,17 +96,26 @@ note right
 end note
 
 ' ============================================================================
-' PHASE 2: UNDERSTAND CODEBASE + AI DISCUSSION
+' PHASE 2: UNDERSTAND CODEBASE (OPERATOR-INITIATED)
 ' ============================================================================
 
-|User|
+|Operator|
 :Run `maestro discuss "Analyze codebase"`;
+note right
+  Operator invokes discuss command.
+  If Operator is AI-mode, the response
+  is generated and validated inline.
+  If human-mode, human reviews output.
+end note
 
-|AI Engine|
-AI_DISCUSS("Analyze codebase structure and purpose")
-
+|Maestro CLI|
+:Execute discuss command;
 :Read codebase files;
 :Analyze architecture, dependencies, modules;
+note right
+  Uses configured engine (AI or rule-based)
+  to generate structured understanding
+end note
 
 :Generate structured understanding;
 note right
@@ -112,24 +128,22 @@ note right
   }
 end note
 
-|Maestro CLI|
-VALIDATE_JSON("AI understanding structure")
+VALIDATE_JSON("Understanding structure")
 
 if (Valid JSON?) then (no)
-  HARD_STOP("AI returned invalid JSON\nRetry with clearer prompt")
+  HARD_STOP("Invalid JSON from engine\nRetry with clearer prompt")
 else (yes)
 endif
 
-|User|
-:Review AI's understanding;
+|Operator|
+:Review understanding output;
 
 GATE("Understanding correct?")
 if (Correct?) then (no)
-  |User|
+  |Operator|
   :Provide corrections;
-  |AI Engine|
-  :Re-analyze with corrections;
-  note right: Loop back to AI discussion
+  :Run `maestro discuss` again with corrections;
+  note right: Loop back to discuss command
   ' Loop back
   detach
 else (yes)
@@ -139,31 +153,38 @@ endif
 ' PHASE 3: RECONSTRUCT PAST WORK
 ' ============================================================================
 
-|User|
+|Operator|
 :Choose reconstruction strategy;
 
 GATE("Reconstruction strategy?")
 if (Strategy) then (git)
-  |Maestro CLI|
+  |Operator|
   :Run `maestro reconstruct --strategy=git`;
+
+  |Maestro CLI|
+  :Execute reconstruct command;
+
   |Repo/Toolchain|
   :Parse git log;
   note right: `git log --oneline --reverse`
 
-  |AI Engine|
-  :Group commits by purpose;
+  |Maestro CLI|
+  :Group commits by purpose (via engine);
   note right
+    Uses AI or heuristic engine:
     • Feature additions
     • Bug fixes
     • Refactorings
   end note
 else (snapshot)
-  |Maestro CLI|
+  |Operator|
   :Run `maestro reconstruct --strategy=snapshot`;
-  |AI Engine|
+
+  |Maestro CLI|
   :Read current codebase;
-  :Infer completed work from code structure;
+  :Infer completed work from code structure (via engine);
   note right
+    Analyzes:
     • Existing modules
     • Test coverage
     • Code comments
@@ -181,12 +202,12 @@ end note
 
 WRITE_TRUTH("docs/done.md")
 
-|User|
+|Operator|
 :Review docs/done.md;
 
 GATE("Reconstruction looks correct?")
 if (Correct?) then (no)
-  |User|
+  |Operator|
   :Manually edit docs/done.md;
   |Maestro CLI|
   :Validate edits;
@@ -199,7 +220,7 @@ endif
 ' PHASE 4: BUILD ATTEMPT → ERROR CAPTURE
 ' ============================================================================
 
-|User|
+|Operator|
 :Run `maestro build --create-issues`;
 
 |Maestro CLI|
@@ -232,15 +253,14 @@ else (no)
     • Error codes/messages
   end note
 
-  |AI Engine|
-  :Group errors by root cause;
+  :Group errors by root cause (via engine);
   note right
+    Uses AI or heuristic engine:
     • Same file/module
     • Related error types
     • Dependency chains
   end note
 
-  |Maestro CLI|
   while (For each error group) is (more groups)
     CREATE_ISSUE("Build error")
     :Write docs/issues/ISS-XXX.md;
@@ -251,9 +271,9 @@ else (no)
     :Write docs/tasks/TASK-XXX.json;
   endwhile (done)
 
-  :Analyze task dependencies;
+  :Analyze task dependencies (via engine);
   note right
-    AI-assisted:
+    Engine-assisted analysis:
     • Missing import → undefined symbol
     • Type error → downstream errors
   end note
@@ -283,28 +303,28 @@ endif
 ' PHASE 5: WORK LOOP (FIX → REBUILD → ITERATE)
 ' ============================================================================
 
-|User|
+|Operator|
 :Run `maestro task next`;
 
 |Maestro CLI|
 :Select next task with no unsatisfied dependencies;
 
-|User|
+|Operator|
 :Review task details;
 
 GATE("How to fix task?")
 if (Fix method) then (manual)
-  |User|
+  |Operator|
   :Edit files directly;
-else (AI-assisted)
-  |User|
-  :Run `maestro task fix TASK-XXX`;
+else (use work command)
+  |Operator|
+  :Run `maestro work task TASK-XXX`;
 
-  |AI Engine|
+  |Maestro CLI|
   :Read task and issue context;
-  :Propose code changes;
+  :Invoke engine to propose code changes;
   note right
-    JSON:
+    Engine generates JSON:
     {
       "file": "src/core.rs",
       "action": "insert",
@@ -313,16 +333,16 @@ else (AI-assisted)
     }
   end note
 
-  |Maestro CLI|
-  VALIDATE_JSON("AI proposed changes")
+  VALIDATE_JSON("Engine proposed changes")
 
   if (Valid JSON?) then (no)
-    HARD_STOP("AI returned invalid changes")
+    HARD_STOP("Invalid changes from engine")
   else (yes)
   endif
 
   :Validate change details;
   note right
+    Rule-based validation:
     • File exists?
     • Line valid?
     • Syntax valid?
@@ -336,7 +356,7 @@ else (AI-assisted)
   :Apply changes to files;
 endif
 
-|User|
+|Operator|
 :Run `maestro build --create-issues`;
 
 |Repo/Toolchain|
@@ -352,7 +372,7 @@ if (Success?) then (no)
   ' Loop back to task next
   --> [Loop: More tasks to fix] WORK_LOOP_START;
 else (yes)
-  |User|
+  |Operator|
   :Run `maestro task complete TASK-XXX`;
 
   |Maestro CLI|
@@ -383,7 +403,7 @@ endif
 
 :PHASE_6_RUNTIME;
 
-|User|
+|Operator|
 GATE("Attempt runtime?")
 if (Run app?) then (no)
   --> EXIT_WF_01_SUCCESS;
@@ -414,10 +434,8 @@ else (yes)
       • Stack traces
     end note
 
-    |AI Engine|
-    :Analyze error context;
+    :Analyze error context (via engine);
 
-    |Maestro CLI|
     while (For each runtime error) is (more errors)
       CREATE_ISSUE("Runtime error")
       :Write docs/issues/ISS-XXX.md;
@@ -428,7 +446,7 @@ else (yes)
     :Update docs/todo.md;
     WRITE_TRUTH("docs/todo.md")
 
-    |User|
+    |Operator|
     GATE("Fix runtime errors now?")
     if (Fix now?) then (yes)
       ' Loop back to work loop
