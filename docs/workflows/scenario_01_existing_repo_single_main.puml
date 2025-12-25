@@ -85,13 +85,7 @@ end note
 WRITE_TRUTH("docs/maestro/index.json")
 
 :CALL_WF_05_REPO_RESOLVE;
-note right: See WF-05 for
-repository resolution
-note right
-  • Rust: Cargo.toml
-  • Go: go.mod
-  • C++: CMakeLists.txt
-end note
+note right: See WF-05 for\nrepository resolution\n\n• Rust: Cargo.toml\n• Go: go.mod\n• C++: CMakeLists.txt
 
 ' ============================================================================
 ' PHASE 2: UNDERSTAND CODEBASE (OPERATOR-INITIATED)
