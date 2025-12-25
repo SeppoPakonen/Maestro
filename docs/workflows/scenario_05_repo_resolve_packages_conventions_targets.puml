@@ -1,0 +1,82 @@
+@startuml
+!include _shared.puml
+
+|Operator|
+start
+:Run maestro repo resolve;
+
+|Maestro CLI|
+note right: ENTRY_WF_05
+:Parse command line arguments;
+if (Path specified?) then (yes)
+  :Use specified path;
+else (no)
+  :Use current directory;
+endif
+
+:Validate repository exists;
+:Check for .maestro/ directory;
+
+|Repo Scanner|
+:Discover packages and assemblies;
+note right: Package/assembly discovery
+fork
+  :Detect U++ packages
+  (.upp files);
+fork again
+  :Detect other build systems
+  (CMake, Make, Gradle, etc.);
+fork again
+  :Identify unknown paths;
+end fork
+
+:Build dependency graph;
+:Apply convention inference;
+
+fork
+  :Convention detection;
+  if (Conventions recognized?) then (yes)
+    :Apply rule set;
+    note right: Rule set selection
+  else (no)
+    :Use default rules;
+  endif
+fork again
+  :Violation detection;
+  if (Violations found?) then (yes)
+    :Create Issues;
+    if (Task creation policy on?) then (yes)
+      :Create Tasks linked to Issues;
+    else (no)
+      :Skip task creation;
+    endif
+  else (no)
+    :No violations;
+  endif
+end fork
+
+|State/Reports|
+:Write scan results to
+.mastro/repo/ directory;
+note right: Outputs:
+- index.json
+- index.summary.txt
+- state.json
+- assemblies.json
+- hierarchy.json
+
+|Maestro CLI|
+:Generate human-readable
+summary or JSON output;
+note right: EXIT_WF_05
+
+|Operator|
+:Receive scan results;
+if (Output format?) then (JSON)
+  :Process structured data;
+else (human-readable)
+  :Review summary;
+endif
+
+stop
+@enduml

@@ -1,0 +1,95 @@
+@startuml
+!include _shared.puml
+
+|Operator|
+start
+:Run maestro repo resolve
+with options;
+
+|Maestro CLI|
+:Parse command arguments
+(--path, --json, --no-write,
+--include-user-config, --verbose);
+
+if (Path specified?) then (yes)
+  :Validate path exists
+  and is directory;
+else (no)
+  :Use current directory;
+endif
+
+if (Find root flag?) then (yes)
+  :Find .maestro/ directory
+  in parent paths;
+else (no)
+  :Use specified/working dir;
+endif
+
+|Repo Scanner|
+note right: ENTRY_COMMAND_REPO_RESOLVE
+:Discover packages and assemblies;
+fork
+  :Scan for U++ packages
+  (.upp files);
+fork again
+  :Detect other build systems
+  (CMake, Make, Gradle, etc.);
+fork again
+  :Identify unknown paths;
+end fork
+
+:Apply convention inference;
+:Build dependency graph;
+
+fork
+  :Convention detection;
+  if (Conventions recognized?) then (yes)
+    :Apply rule set;
+  else (no)
+    :Use default rules;
+  endif
+fork again
+  :Violation detection;
+  if (Violations found?) then (yes)
+    :Create Issues;
+    if (Task creation policy?) then (yes)
+      :Create Tasks linked to Issues;
+    else (no)
+      :Skip task creation;
+    endif
+  else (no)
+    :No violations;
+  endif
+end fork
+
+if (Write artifacts?) then (yes)
+  |State/Reports|
+  :Write scan results to
+  .maestro/repo/ directory;
+  note right: Artifacts created:
+  - index.json
+  - index.summary.txt
+  - state.json
+  - assemblies.json
+else (no)
+  :Skip writing artifacts
+  (--no-write flag);
+endif
+
+|Maestro CLI|
+:Generate output format;
+if (JSON flag?) then (yes)
+  :Output structured JSON;
+else (no)
+  :Output human-readable
+  summary;
+endif
+
+note right: EXIT_COMMAND_REPO_RESOLVE
+
+|Operator|
+:Receive scan results
+and summary;
+
+stop
+@enduml

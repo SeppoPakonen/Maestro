@@ -31,7 +31,7 @@ Scenarios use the ID format `WF-##`:
 - `WF-02`: (Future) Existing repo with feature branches
 - `WF-03`: (Future) New greenfield repo
 - `WF-04`: (Future) Runtime error workflow
-- `WF-05`: (Future) Enhancement request workflow
+- `WF-05`: Repo Resolve — packages, conventions, build targets, and derived issues/tasks (Integration Spine)
 - `WF-06`: (Future) Multi-language monorepo
 - etc.
 

@@ -15,7 +15,9 @@ if (repo command exists?) then (yes)
   languages, packages/;
   
   |Maestro CLI|
-  :Detect build systems
+  :CALL_WF_05_REPO_RESOLVE
+  note right: See WF-05 for
+  repository resolution
   (Makefile, CMakeLists.txt, etc.)/;
   
   |Maestro CLI|
@@ -31,7 +33,7 @@ else (no)
   (maestro make config detect)/;
   
   |Maestro CLI|
-  :Detect build system
+  :CALL_WF_05_REPO_RESOLVE
   from available files/;
 endif
 

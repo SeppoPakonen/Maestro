@@ -12,6 +12,7 @@ This index provides quick access to all documented workflow scenarios. Each scen
 | **WF-02** | New Project from Empty Directory (Manual Planning) | `bootstrap`, `greenfield`, `manual-planning`, `work-loop`, `track-phase-task` | • Empty or new directory<br>• Clear plan/requirements<br>• Manual planning preferred<br>• No git repo yet<br>• No Maestro yet | • Maestro initialized<br>• Tracks, phases, tasks created<br>• Work loop operational<br>• Initial work complete/in progress | • `.git/` repository<br>• `docs/maestro/tracks/*.json`<br>• `docs/maestro/phases/*.json`<br>• `docs/maestro/tasks/*.json`<br>• Source files from work | [Markdown](scenario_02_new_project_manual_plan.md)<br>[PlantUML](scenario_02_new_project_manual_plan.puml) |
 | **WF-03** | Read-only repo inspection + build | `readonly`, `repo-scan`, `detection`, `build`, `make` | • Existing repository with build files<br>• Required build tools installed<br>• No Maestro initialization required | • Repository scan report produced<br>• Build completed with success/failure status and diagnostics | • None by default (read-only mode)<br>• Optional: scan reports in $HOME/.maestro/repo/ if scanning performed | [Markdown](scenario_03_readonly_repo_inspect_build.md)<br>[PlantUML](scenario_03_readonly_repo_inspect_build.puml) |
 | **WF-04** | Reactive compile error → Solutions match → immediate solution-task | `build`, `compile-error`, `solutions`, `reactive`, `issues`, `tasks`, `dependency`, `work-loop` | • Operator runs `maestro make build`<br>• Build process fails with compiler error<br>• Error text contains patterns that may match existing solution rules | • Issue created for the build error<br>• If solution matches: high-priority task created to try solution<br>• If solution fails: fallback task created for normal investigation | • Issue file in docs/issues/<br>• Task file in docs/tasks/ (if solution matches)<br>• Fallback task file (if solution attempt fails) | [Markdown](scenario_04_reactive_compile_error_solution.md)<br>[PlantUML](scenario_04_reactive_compile_error_solution.puml) |
+| **WF-05** | Repo Resolve — packages, conventions, build targets, and derived issues/tasks | `repo`, `resolve`, `detection`, `conventions`, `frameworks`, `build-targets`, `dependencies`, `issues`, `tasks` | • Git repository exists with source code<br>• Maestro installed and accessible<br>• Optional: .maestro/ directory exists<br>• Optional: User config in ~/.config/u++/ide/*.var | • Repository scan results produced in .maestro/repo/<br>• Optional: Issues and Tasks created for convention violations | • .maestro/repo/index.json<br>• .maestro/repo/index.summary.txt<br>• .maestro/repo/state.json<br>• .maestro/repo/assemblies.json<br>• Issue data files for violations<br>• Task files for addressing violations | [Markdown](scenario_05_repo_resolve_packages_conventions_targets.md)<br>[PlantUML](scenario_05_repo_resolve_packages_conventions_targets.puml) |
 
 ---
 
@@ -27,6 +28,7 @@ Current status:
 - **WF-02**: Published
 - **WF-03**: Published
 - **WF-04**: Published
+- **WF-05**: Published
 
 ---
 
@@ -61,10 +63,6 @@ The following scenarios are planned but not yet documented:
   - Test suite fails; analyzing failures, creating targeted fix tasks
 
 ### Enhancement Workflows
-- **WF-05**: Feature Request Workflow
-  - Tags: `enhancement`, `planning`, `ai-discuss`
-  - User requests new feature; AI discusses, creates plan, generates tasks
-
 - **WF-09**: Refactoring Workflow
   - Tags: `refactor`, `tech-debt`, `safety`
   - Planned refactoring with test coverage validation
@@ -94,7 +92,7 @@ This table shows which scenarios are triggered by which conditions:
 | Build fails | WF-01, WF-02, WF-06 |
 | Runtime error detected | WF-04 |
 | Tests fail | WF-08 |
-| New feature requested | WF-05 |
+| Repository analysis needed | WF-05 |
 | Warnings exceed threshold | WF-07 |
 | Dependency alert | WF-10 |
 | Performance regression | WF-11 |
@@ -112,10 +110,9 @@ Scenarios can chain together in real workflows:
    - User runs `maestro init` on existing codebase
    - Build errors found, issues/tasks created
    - Exit: Clean build achieved
-2. **WF-05**: Feature Request Workflow
-   - User requests new feature
-   - AI discusses approach, creates plan
-   - Tasks generated with dependencies
+2. **WF-05**: Repo Resolve (for repository understanding)
+   - Repository structure and conventions analyzed
+   - Dependencies mapped for feature implementation
 
 ### Example 2: Bootstrap → Ongoing Maintenance
 1. **WF-01**: Existing Repo Bootstrap
@@ -137,6 +134,8 @@ Scenarios can chain together in real workflows:
    - Build verification performed to understand current state
 2. **WF-01**: Existing Repo Bootstrap
    - Proceed with full Maestro initialization based on inspection results
+3. **WF-05**: Repo Resolve (for comprehensive repository analysis)
+   - Perform detailed repository analysis for packages, conventions, and build targets
 
 ---
 

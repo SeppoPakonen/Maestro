@@ -259,11 +259,10 @@ After reconstruction:
 **Purpose**: Trigger the project's build process and capture output.
 
 **Process**:
-1. Detect build system:
-   - Rust: `cargo build`
-   - Go: `go build`
-   - CMake: `cmake --build build/`
-   - Maven: `mvn compile`
+1. Run Repo Resolve (WF-05) to detect build system and packages:
+   - Execute `maestro repo resolve` to identify packages and build systems
+   - Use resolved build targets and configurations for build attempt
+   - Leverage dependency graph for proper build order
 2. Run build command with full output capture
 3. Parse build output for:
    - **Errors**: Compilation failures, linking errors

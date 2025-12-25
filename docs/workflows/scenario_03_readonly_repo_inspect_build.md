@@ -42,11 +42,14 @@ The Operator runs repository inspection commands to detect:
 
 ### 2. Resolver Step
 
-If repository scanning is performed, Maestro produces a concrete "build plan" containing:
-- Detected packages and their build configurations
-- Dependency relationships between packages
-- Build system types (make, cmake, maven, gradle, etc.)
-- Assembly information (for Ultimate++ projects)
+The Operator executes `maestro repo resolve` (WF-05) to perform comprehensive repository analysis:
+- Package/assembly discovery (including Ultimate++ `.upp` + assemblies)
+- Language detection
+- Build system detection (Make/CMake/Meson/Cargo/etc.)
+- Convention inference and rule set selection
+- Build target enumeration
+- Dependency graph derivation
+- Violation detection with Issue/Task creation
 
 ### 3. Build Execution
 
