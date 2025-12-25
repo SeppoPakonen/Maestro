@@ -57,7 +57,7 @@ end fork
 
 |State/Reports|
 :Write scan results to
-.mastro/repo/ directory;
+.maestro/repo/ directory;
 note right: Outputs:
 - index.json
 - index.summary.txt
