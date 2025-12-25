@@ -34,6 +34,8 @@ Scenarios use the ID format `WF-##`:
 - `WF-05`: Repo Resolve — packages, conventions, build targets, and derived issues/tasks (Integration Spine)
 - `WF-06`: AI-driven task execution with Work Sessions and multi-session resume
 - `WF-07`: AST/TU workflows — rename, C++→JS transform, autocomplete (Engine Room)
+- `WF-08`: Convert — cross-repo pipeline (New/Plan/Run)
+- `WF-09`: Storage Contract — repo truth vs home hub (read-only rules)
 - etc.
 
 IDs are stable and never change, even if scenarios are deprecated or superseded.

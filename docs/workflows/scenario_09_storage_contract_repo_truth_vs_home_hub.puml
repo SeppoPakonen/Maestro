@@ -1,0 +1,86 @@
+@startuml WF-09_Storage_Contract
+!include _shared.puml
+
+title WF-09: Storage Contract and Path Resolution
+
+' Reusable macros for this workflow
+!define REPO_TRUTH_STORE() "Repo FS\n<size:12>./docs/maestro/**</size>"
+!define HOME_HUB_STORE() "Home Hub\n<size:12>$HOME/.maestro/**/repo</size>"
+!define FORBIDDEN_PATH_GUARD() "Guard: Check for `./.maestro`"
+!define READONLY_WRITE_GUARD() "Guard: Is write to repo allowed?"
+
+' Swimlanes
+|Operator|
+|#LightGreen|Maestro CLI|
+|#LightBlue|FileSystem Logic|
+|#Yellow|REPO_TRUTH_STORE()|
+|#Orange|HOME_HUB_STORE()|
+
+' Entry Point
+start
+:ENTRY_WF_09;
+
+|Operator|
+:User executes a Maestro command;
+
+|Maestro CLI|
+:Command received;
+note right
+  e.g., `maestro repo scan`
+  e.g., `maestro work`
+end note
+
+|FileSystem Logic|
+-> FORBIDDEN_PATH_GUARD();
+if (Path references `./.maestro`?) then (yes)
+    :HARD STOP;
+    note right: Path is forbidden. This is a bug.
+    end
+else (no)
+    :Path is valid;
+endif
+
+-> Gate: "Is repo adopted?";
+if (./docs/maestro/ exists and is valid?) then (yes)
+    :Mode: Stateful;
+    -> READONLY_WRITE_GUARD();
+    if (Read-only mode requested?) then (yes)
+        :Writes to Repo Truth are **forbidden**;
+        |Maestro CLI|
+        :Perform read-only operation;
+        |FileSystem Logic|
+        :Read from REPO_TRUTH_STORE();
+        |Maestro CLI|
+        :Generate output;
+        |FileSystem Logic|
+        :Write output to HOME_HUB_STORE();
+        |HOME_HUB_STORE()|
+        :Store artifact;
+    else (no, stateful write)
+        :Writes to Repo Truth are **allowed**;
+        |Maestro CLI|
+        :Perform stateful operation;
+        |FileSystem Logic|
+        :Read/Write to REPO_TRUTH_STORE();
+        |REPO_TRUTH_STORE()|
+        :Store/update truth;
+        |FileSystem Logic|
+        :Optionally write to HOME_HUB_STORE();
+        |HOME_HUB_STORE()|
+        :Store logs or registry updates;
+    endif
+else (no, not adopted)
+    :Mode: Read-only (by default);
+    |Maestro CLI|
+    :Perform scan or init operation;
+    |FileSystem Logic|
+    :Write output to HOME_HUB_STORE();
+    |HOME_HUB_STORE()|
+    :Store scan artifact;
+endif
+
+|Maestro CLI|
+:Command completes;
+:EXIT_WF_09;
+stop
+@enduml
