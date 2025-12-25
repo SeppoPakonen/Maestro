@@ -1,4 +1,4 @@
-@startuml WF-01: Existing Repo Bootstrap (Single Main, Compiled)
+@startuml scenario_01_existing_repo_single_main
 !include _shared.puml
 
 ' ============================================================================

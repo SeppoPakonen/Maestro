@@ -1,4 +1,4 @@
-@startuml WF-02: New Project Manual Planning
+@startuml scenario_02_new_project_manual_plan
 !include _shared.puml
 
 ' ============================================================================

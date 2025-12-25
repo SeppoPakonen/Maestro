@@ -1,4 +1,4 @@
-@startuml maestro work Command Workflow
+@startuml command_work
 !include _shared.puml
 
 title maestro work - Command Routing & Execution Flow
