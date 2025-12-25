@@ -1521,11 +1521,12 @@ def add_repo_parser(subparsers):
 
     # repo resolve
     repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan repository for packages across build systems')
-    repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: auto-detect via .maestro/)')
+    repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: current directory)')
     repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to .maestro/repo/')
-    repo_resolve_parser.add_argument('--include-user-config', action='store_true', default=True, help='Include user assemblies from ~/.config/u++/ide/*.var (default: true)')
-    repo_resolve_parser.add_argument('--no-user-config', dest='include_user_config', action='store_false', help='Skip reading user assembly config')
+    repo_resolve_parser.add_argument('--find-root', action='store_true', help='Find repository root with .maestro directory instead of scanning current directory')
+    repo_resolve_parser.add_argument('--include-user-config', dest='include_user_config', action='store_true', help='Include user assemblies from ~/.config/u++/ide/*.var')
+    repo_resolve_parser.add_argument('--no-user-config', dest='include_user_config', action='store_false', default=True, help='Skip reading user assembly config (default)')
     repo_resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information')
 
     # repo show
@@ -1646,15 +1647,20 @@ def handle_repo_command(args):
                     print_error(f"Path is not a directory: {scan_path}", 2)
                     sys.exit(1)
             else:
-                # Auto-detect repo root
-                scan_path = find_repo_root()
-                if getattr(args, 'verbose', False):
-                    print_debug(f"Detected repository root: {scan_path}", 2)
+                # Use current directory by default, unless --find-root is specified
+                if getattr(args, 'find_root', False):
+                    scan_path = find_repo_root()
+                    if getattr(args, 'verbose', False):
+                        print_debug(f"Detected repository root: {scan_path}", 2)
+                else:
+                    scan_path = os.getcwd()
+                    if getattr(args, 'verbose', False):
+                        print_debug(f"Scanning current directory: {scan_path}", 2)
 
             # Perform the repo scan
             repo_result = scan_upp_repo_v2(scan_path,
                                           verbose=getattr(args, 'verbose', False),
-                                          include_user_config=getattr(args, 'include_user_config', True))
+                                          include_user_config=getattr(args, 'include_user_config', False))
 
             # Write artifacts unless --no-write is specified
             if not getattr(args, 'no_write', False):

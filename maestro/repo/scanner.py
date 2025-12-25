@@ -124,7 +124,7 @@ def scan_upp_repo_v2(root_dir: str, verbose: bool = False, include_user_config: 
             root_resolved = Path(root).resolve()
 
             if verbose:
-                print(f"[maestro] package: {pkg_name} at {root}")
+                print(f"[maestro] package: {pkg_name} at {root} (from scan root: {root_dir})")
 
             # Collect source and header files for this package
             pkg_files = []
