@@ -1,0 +1,174 @@
+@startuml cmd_phase_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsPhase, "maestro/commands/phase.py") {
+    FUNCTION(AddPhaseParser, "add_phase_parser()")
+    FUNCTION(HandlePhaseCommand, "handle_phase_command()")
+    FUNCTION(ListPhases, "list_phases()")
+    FUNCTION(ShowPhase, "show_phase()")
+    FUNCTION(AddPhase, "add_phase()")
+    FUNCTION(RemovePhase, "remove_phase()")
+    FUNCTION(EditPhase, "edit_phase()")
+    FUNCTION(SetPhaseStatus, "set_phase_status()")
+    FUNCTION(SetPhaseContext, "set_phase_context()")
+    FUNCTION(_ParseTodoSafe, "_parse_todo_safe()")
+    FUNCTION(_LooksLikePhaseId, "_looks_like_phase_id()")
+    FUNCTION(_AvailableTrackIds, "_available_track_ids()")
+    FUNCTION(_AvailablePhaseIds, "_available_phase_ids()")
+}
+
+' Data Storage and Models
+MODULE(DataCommonUtils, "maestro/data/common_utils.py") {
+    FUNCTION(GetAllTracks, "get_all_tracks_with_phases_and_tasks()")
+    FUNCTION(ResolveIdentifierByType, "resolve_identifier_by_type()")
+}
+
+MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
+    FUNCTION(ParseTodoMd, "parse_todo_md()")
+    FUNCTION(ParseDoneMd, "parse_done_md()")
+    FUNCTION(ParsePhaseMd, "parse_phase_md()")
+    FUNCTION(ParseConfigMd, "parse_config_md()")
+}
+
+MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
+    FUNCTION(ExtractPhaseBlock, "extract_phase_block()")
+    FUNCTION(InsertPhaseBlock, "insert_phase_block()")
+    FUNCTION(RemovePhaseBlock, "remove_phase_block()")
+    FUNCTION(ReplacePhaseBlock, "replace_phase_block()")
+    FUNCTION(UpdatePhaseMetadata, "update_phase_metadata()")
+    FUNCTION(UpdatePhaseHeadingStatus, "update_phase_heading_status()")
+}
+
+MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
+    CLASS(JsonStoreClass, "JsonStore")
+    FUNCTION(LoadTrack, "load_track()")
+    FUNCTION(SaveTrack, "save_track()")
+    FUNCTION(LoadPhase, "load_phase()")
+    FUNCTION(SavePhase, "save_phase()")
+    FUNCTION(ListAllTracks, "list_all_tracks()")
+    FUNCTION(ListAllPhases, "list_all_phases()")
+}
+
+MODULE(TracksModels, "maestro/tracks/models.py") {
+    CLASS(PhaseClass, "Phase")
+    CLASS(TrackClass, "Track")
+}
+
+' Display and Utility
+MODULE(DisplayTableRenderer, "maestro/display/table_renderer.py") {
+    FUNCTION(RenderPhaseTable, "render_phase_table()")
+}
+
+MODULE(ConfigSettings, "maestro/config/settings.py") {
+    FUNCTION(GetSettings, "get_settings()")
+}
+
+MODULE(StatusUtils, "maestro/commands/status_utils.py") {
+    FUNCTION(NormalizeStatus, "normalize_status()")
+    FUNCTION(AllowedStatuses, "allowed_statuses()")
+    FUNCTION(StatusBadge, "status_badge()")
+    FUNCTION(StatusTimestamp, "status_timestamp()")
+}
+
+MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
+    FUNCTION(HandlePhaseDiscuss, "handle_phase_discuss()")
+}
+
+' External Dependencies
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(FileSystem, "File System")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATABASE(DocsTodoMd, "docs/todo.md")
+DATABASE(DocsDoneMd, "docs/done.md")
+DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
+DATABASE(MaestroTracksJson, ".maestro/tracks/*.json")
+DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddPhaseParser : "Adds 'phase' command and subparsers"
+
+' Command Dispatch
+HandlePhaseCommand -right-> ListPhases
+HandlePhaseCommand -right-> ShowPhase
+HandlePhaseCommand -right-> AddPhase
+HandlePhaseCommand -right-> RemovePhase
+HandlePhaseCommand -right-> EditPhase
+HandlePhaseCommand -right-> SetPhaseStatus
+HandlePhaseCommand -right-> SetPhaseContext
+HandlePhaseCommand -right-> CommandsDiscuss.HandlePhaseDiscuss
+
+' Phase Identification
+CommandsPhase.HandlePhaseCommand --> CommandsPhase._LooksLikePhaseId : "validates phase ID"
+
+' Listing Phases
+ListPhases --> DataCommonUtils.GetAllTracks
+ListPhases --> GetSettings : "uses current track context"
+ListPhases --> DisplayTableRenderer.RenderPhaseTable
+ListPhases --> DocsTodoMd : "implicitly via get_all_tracks"
+
+' Showing Phases
+ShowPhase --> FileSystem : "checks docs/phases/<id>.md existence"
+ShowPhase --> DataMarkdown.ParsePhaseMd : "parses dedicated phase file"
+ShowPhase --> _ParseTodoSafe : "parses docs/todo.md if no dedicated file"
+
+' Adding Phase
+AddPhase --> GetSettings : "gets current track if not specified"
+AddPhase --> JsonStoreClass : "manages JSON storage"
+AddPhase --> JsonStoreClass.LoadTrack : "ensures parent track exists"
+AddPhase --> JsonStoreClass.LoadPhase : "checks for duplicates"
+AddPhase --> TracksModels.PhaseClass : "creates Phase object"
+AddPhase --> JsonStoreClass.SavePhase : "persists Phase object"
+AddPhase --> JsonStoreClass.SaveTrack : "updates parent Track object"
+
+' Removing Phase
+RemovePhase --> JsonStoreClass : "manages JSON storage"
+RemovePhase --> JsonStoreClass.LoadPhase : "gets phase details"
+RemovePhase --> JsonStoreClass.LoadTrack : "loads parent track"
+RemovePhase --> JsonStoreClass.SaveTrack : "updates parent track"
+RemovePhase --> FileSystem : "unlinks phase's JSON file"
+
+' Editing Phase
+EditPhase --> FileSystem : "checks docs/phases/<id>.md existence"
+EditPhase --> Subprocess : "opens editor for dedicated phase file"
+Editor <--> EditPhase
+EditPhase --> DataMarkdownWriter.ExtractPhaseBlock : "extracts Markdown block (from docs/todo.md)"
+EditPhase --> Subprocess : "opens editor for extracted block"
+EditPhase --> DataMarkdownWriter.ReplacePhaseBlock : "updates Markdown block"
+
+' Setting Phase Status
+SetPhaseStatus --> StatusUtils.NormalizeStatus
+SetPhaseStatus --> JsonStoreClass : "manages JSON storage"
+SetPhaseStatus --> JsonStoreClass.LoadPhase
+SetPhaseStatus --> JsonStoreClass.SavePhase
+
+' Setting Phase Context
+SetPhaseContext --> _ParseTodoSafe : "finds phase in todo.md"
+SetPhaseContext --> DataMarkdown.ParsePhaseMd : "finds phase in dedicated file"
+SetPhaseContext --> GetSettings
+SetPhaseContext --> SettingsJson : "writes settings"
+
+' AI Discussion
+HandlePhaseCommand --> CommandsDiscuss.HandlePhaseDiscuss : "delegates AI discussion"
+
+' Data Model interactions
+PhaseClass <.. TracksJsonStore : "managed by JsonStore"
+DocsTodoMd <--> DataMarkdownWriter : "Markdown interface for todo.md"
+DocsPhasesMd <--> DataMarkdownWriter : "Markdown interface for dedicated files"
+
+' Persistence
+DocsTodoMd <--> FileSystem
+DocsPhasesMd <--> FileSystem
+MaestroTracksJson <--> FileSystem : "(for phase.json, track.json)"
+SettingsJson <--> FileSystem
+
+@enduml

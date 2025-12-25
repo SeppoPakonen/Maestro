@@ -1,0 +1,93 @@
+@startuml cmd_understand_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsUnderstand, "maestro/commands/understand/__init__.py") {
+    FUNCTION(AddUnderstandParser, "add_understand_parser()")
+}
+
+MODULE(UnderstandCommand, "maestro/understand/command.py") {
+    FUNCTION(HandleUnderstandDump, "handle_understand_dump()")
+}
+
+MODULE(UnderstandIntrospector, "maestro/understand/introspector.py") {
+    CLASS(ProjectIntrospectorClass, "ProjectIntrospector")
+    FUNCTION(GatherAll, "gather_all()")
+    FUNCTION(GatherIdentity, "gather_identity()")
+    FUNCTION(GatherAuthorityModel, "gather_authority_model()")
+    FUNCTION(GatherRuleGates, "gather_rule_gates()")
+    FUNCTION(GatherMutationBoundaries, "gather_mutation_boundaries()")
+    FUNCTION(GatherAutomationLongRun, "gather_automation_long_run()")
+    FUNCTION(GatherDirectorySemantics, "gather_directory_semantics()")
+    FUNCTION(GatherContracts, "gather_contracts()")
+    FUNCTION(GatherEvidenceIndex, "gather_evidence_index()")
+}
+
+MODULE(UnderstandRenderer, "maestro/understand/renderer.py") {
+    CLASS(MarkdownRendererClass, "MarkdownRenderer")
+    FUNCTION(Render, "render()")
+    FUNCTION(_RenderIdentity, "_render_identity()")
+    FUNCTION(_RenderAuthorityModel, "_render_authority_model()")
+    FUNCTION(_RenderRuleGates, "_render_rule_gates()")
+    ' ... other _render_* methods
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_success, print_error etc.
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(Pathlib, "pathlib")
+
+' Persistent Stores
+DATABASE(DocsUnderstandingSnapshotMd, "docs/UNDERSTANDING_SNAPSHOT.md")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> CommandsUnderstand.AddUnderstandParser : "Adds 'understand' command"
+CommandsUnderstand.AddUnderstandParser --> UnderstandCommand.HandleUnderstandDump : "registers handler for 'dump'"
+
+' Command Execution Flow
+MainEntry --> UnderstandCommand.HandleUnderstandDump : "dispatches 'understand dump'"
+
+' Introspection and Rendering Process
+UnderstandCommand.HandleUnderstandDump --> UnderstandIntrospector.ProjectIntrospectorClass : "1. Initialize Introspector"
+UnderstandCommand.HandleUnderstandDump --> UnderstandRenderer.MarkdownRendererClass : "2. Initialize Renderer"
+
+MarkdownRendererClass.Render --> ProjectIntrospectorClass.GatherAll : "3. Gather all project data"
+ProjectIntrospectorClass.GatherAll --> ProjectIntrospectorClass.GatherIdentity : "  - gathers identity"
+ProjectIntrospectorClass.GatherAll --> ProjectIntrospectorClass.GatherAuthorityModel : "  - gathers authority model"
+' ... other gather_* methods
+
+MarkdownRendererClass.Render --> UnderstandRenderer._RenderIdentity : "4. Render sections to Markdown"
+MarkdownRendererClass.Render --> UnderstandRenderer._RenderAuthorityModel
+' ... other _render_* methods
+
+' File I/O for Snapshot
+UnderstandCommand.HandleUnderstandDump --> Pathlib : "path management"
+Pathlib --> FileSystem : "interacts with filesystem"
+UnderstandCommand.HandleUnderstandDump --> DocsUnderstandingSnapshotMd : "specifies output file"
+
+' Conditional Check Mode
+VALIDATION_GATE(CheckModeLogic, "args.check == True")
+UnderstandCommand.HandleUnderstandDump --> CheckModeLogic : "5. If check mode"
+CheckModeLogic --> DocsUnderstandingSnapshotMd : "reads existing content"
+CheckModeLogic --> DocsUnderstandingSnapshotMd : "compares new vs existing"
+CheckModeLogic --> HARD_STOP("Mismatched snapshot") : "exit 1 on difference"
+
+' Writing to File
+UnderstandCommand.HandleUnderstandDump --> FileSystem : "creates parent directory"
+UnderstandCommand.HandleUnderstandDump --[#Red,dashed]-> DocsUnderstandingSnapshotMd : "6. Writes new content"
+
+' Console Output
+UnderstandCommand.HandleUnderstandDump --> MaestroUtils : "prints success/error"
+
+@enduml

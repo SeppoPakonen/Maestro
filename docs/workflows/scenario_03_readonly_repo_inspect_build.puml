@@ -4,6 +4,7 @@
 |Operator|
 start
 :ENTRY_WF_03;
+BRANCH_GUARD("operational rule")
 
 |Maestro CLI|
 :Check for repo command availability;
@@ -56,8 +57,8 @@ else (no)
 endif
 
 |Maestro CLI|
-:Check for build driver
-detection (make, cmake, etc.)/;
+:CALL_WF_05_REPO_RESOLVE;
+note right: Build driver detection\nhandled by WF-05 Repo Resolve
 
 if (build driver detected?) then (yes)
   |Maestro CLI|

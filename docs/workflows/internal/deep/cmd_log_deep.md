@@ -1,0 +1,79 @@
+@startuml cmd_log_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
+    FUNCTION(HandleLogList, "handle_log_list()")
+    FUNCTION(HandleLogListWork, "handle_log_list_work()")
+    FUNCTION(HandleLogListPlan, "handle_log_list_plan()")
+    FUNCTION(LoadSession, "load_session()")
+    FUNCTION(GetMaestroDir, "get_maestro_dir()")
+}
+
+' Session Model & Persistence
+MODULE(SessionModel, "maestro/session_model.py") {
+    CLASS(SessionClass, "Session")
+    CLASS(SubtaskClass, "Subtask")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_header, print_info, print_error etc.
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(Pathlib, "pathlib module")
+ACTOR(OS, "os module")
+
+' Persistent Stores
+DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
+    session.json
+    logs/events.log
+    outputs/worker_*.stdout.txt
+    inputs/planner_*.txt
+}
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup (implicit via maestro.main.py and cli_parser)
+
+' Command Dispatch (from maestro.main.py)
+MainEntry -- HandleLogList
+MainEntry -- HandleLogListWork
+MainEntry -- HandleLogListPlan
+
+' Common Session Loading
+CommandsLog --> CommandHandlers.LoadSession : "loads session data"
+CommandHandlers.LoadSession --> DocsSessionsDir : "reads session.json"
+CommandsLog --> GetMaestroDir : "determines session directory"
+
+' Log List Flow (`maestro log list`)
+HandleLogList --> DocsSessionsDir : "reads logs/events.log"
+HandleLogList --> MaestroUtils : "prints log content"
+
+' Log List Work Flow (`maestro log list-work`)
+HandleLogListWork --> DocsSessionsDir : "reads outputs/worker_*.stdout.txt"
+HandleLogListWork --> SessionClass : "iterates session.subtasks"
+HandleLogListWork --> MaestroUtils : "prints log content"
+
+' Log List Plan Flow (`maestro log list-plan`)
+HandleLogListPlan --> DocsSessionsDir : "reads inputs/planner_*.txt"
+HandleLogListPlan --> SessionClass : "uses session context (not directly)"
+HandleLogListPlan --> MaestroUtils : "prints log content"
+
+' Data Model interactions
+SessionClass <.. LoadSession : "loaded into"
+SubtaskClass <.. SessionClass : "accessed for logs"
+
+' File System Interactions
+DocsSessionsDir <--> FileSystem : "reads log files"
+Pathlib <.. CommandHandlers : "for path operations"
+OS <.. CommandHandlers : "for path operations"
+
+@enduml

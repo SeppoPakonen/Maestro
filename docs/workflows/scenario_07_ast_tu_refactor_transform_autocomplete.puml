@@ -1,103 +1,79 @@
 @startuml
 !include _shared.puml
 
-ENTRY_WF_07
+title AST/TU Refactor/Transform/Autocomplete Operations
 
-partition Operator {
-  :Select package for TU analysis;
-}
+start
+BRANCH_GUARD("operational rule")
+:ENTRY_WF_07;
 
-partition "Maestro CLI" {
-  :maestro tu build;
-  :maestro tu query/rename/transform/autocomplete;
-}
+:Select package for TU analysis;
+:maestro tu build;
+:maestro tu query/rename/transform/autocomplete;
 
-partition "Toolchain (Compiler)" {
-  :Parse source files with AST flags;
-  :Generate AST representation;
-}
+:Parse source files with AST flags;
+:Generate AST representation;
 
-partition "AST Store/Index" {
-  :Store AST in cache;
-  :Build symbol index;
-  :Resolve cross-references;
-}
+:Store AST in cache;
+:Build symbol index;
+:Resolve cross-references;
 
-partition "Filesystem (Source Tree)" {
-  :Read source files;
-  :Write transformed files;
-  :Update includes;
-}
-
-REQUIRE_REPO_RESOLVE()
-REQUIRE_REPO_CONF()
-REQUIRE_BUILD_OK()
-
-note right of Operator
+note right
   Prerequisites:
   - Repo Resolve (WF-05)
   - RepoConf config selection
   - Build OK
 end note
 
-Operator -> "Maestro CLI": Select package
-"Maestro CLI" -> "Toolchain (Compiler)": Parse with AST flags
-"Toolchain (Compiler)" -> "Maestro CLI": AST output
-"Maestro CLI" -> "AST Store/Index": Build index
-"AST Store/Index" -> "Maestro CLI": Indexed symbols
+:Build index from AST output;
 
-== TU Generation Loop ==
-loop for each translation unit
-  "Maestro CLI" -> "Toolchain (Compiler)": Parse file
-  "Toolchain (Compiler)" -> "Maestro CLI": AST
-  "Maestro CLI" -> "AST Store/Index": Store AST
-  note right: Hard stop if TU build fails
-end
-
-"Maestro CLI" -> "AST Store/Index": Merge ASTs into index
-MERGE_AST_INDEX()
-
-== Branching to Operations ==
-
-split
-  if (Rename operation?) then (yes)
-    "Maestro CLI" -> "AST Store/Index": Query symbol references
-    "AST Store/Index" -> "Maestro CLI": Reference list
-    "Maestro CLI" -> "Filesystem (Source Tree)": Apply renames
-    "Maestro CLI" -> "AST Store/Index": Verify rename
-    VERIFY_RENAME()
-    if (Verification passes?) then (yes)
-      "Maestro CLI" -> Operator: Success
-    else (no)
-      note right: HARD STOP - verification failed
-      "Maestro CLI" -> Operator: Error - verification failed
-    endif
+note left: TU Generation Loop
+repeat
+  :Parse file with AST flags;
+  :Generate AST;
+  :Store AST in index;
+  if (TU build fails?) then (yes)
+    note right: Hard stop if TU build fails
+    stop
   endif
+repeat while (more translation units?)
 
-  if (Transform operation?) then (yes)
-    "Maestro CLI" -> "AST Store/Index": Analyze dependencies
-    "AST Store/Index" -> "Maestro CLI": Dependency graph
-    note right: Pre-step: Normalize memory model
-    "Maestro CLI" -> "Filesystem (Source Tree)": Transform files
-    "Maestro CLI" -> "Filesystem (Source Tree)": Update includes
-    EMIT_PATCH()
-    "Maestro CLI" -> Operator: Transform complete
+:Merge ASTs into index;
+
+note left: Branching to Operations
+if (Rename operation?) then (yes)
+  :Query symbol references;
+  :Get reference list;
+  :Apply renames to files;
+  :Verify rename;
+  if (Verification passes?) then (yes)
+    :Success;
+  else (no)
+    note right: HARD STOP - verification failed
+    stop
   endif
+elseif (Transform operation?) then (yes)
+  :Analyze dependencies;
+  :Get dependency graph;
+  note right: Pre-step: Normalize memory model
+  :Transform files;
+  :Update includes;
+  :Transform complete;
+elseif (Autocomplete operation?) then (yes)
+  :Request completions;
+  :Map cursor to AST node;
+  :Get scope and symbols;
+  :Completions list;
+endif
 
-  if (Autocomplete operation?) then (yes)
-    Operator -> "Maestro CLI": Request completions
-    "Maestro CLI" -> "AST Store/Index": Map cursor to AST node
-    "AST Store/Index" -> "Maestro CLI": Scope and symbols
-    QUERY_AUTOCOMPLETE()
-    "Maestro CLI" -> Operator: Completions list
-  endif
-end split
+note right
+  All operations have hard stops
+  for TU build failures,
+  symbol ambiguities,
+  and verification failures
+end note
 
-note right: All operations have hard stops
-note right: for TU build failures,
-note right: symbol ambiguities,
-note right: and verification failures
-
-EXIT_WF_07
+:EXIT_WF_07;
+stop
 
 @enduml

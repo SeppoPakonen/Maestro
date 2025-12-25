@@ -1,0 +1,147 @@
+@startuml cmd_ops_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(ProjectOpsCommands, "maestro/project_ops/commands.py") {
+    FUNCTION(AddProjectOpsParser, "add_project_ops_parser()")
+    FUNCTION(HandleProjectOpsValidate, "handle_project_ops_validate()")
+    FUNCTION(HandleProjectOpsPreview, "handle_project_ops_preview()")
+    FUNCTION(HandleProjectOpsApply, "handle_project_ops_apply()")
+}
+
+' Project Operations Data Model & Logic
+MODULE(ProjectOpsDecoder, "maestro/project_ops/decoder.py") {
+    FUNCTION(DecodeProjectOpsJson, "decode_project_ops_json()")
+    EXCEPTION(DecodeError, "DecodeError")
+}
+
+MODULE(ProjectOpsSchemas, "maestro/project_ops/schemas.py") {
+    FUNCTION(ValidateProjectOpsResult, "validate_project_ops_result()")
+}
+
+MODULE(ProjectOpsTranslator, "maestro/project_ops/translator.py") {
+    FUNCTION(ActionsToOps, "actions_to_ops()")
+}
+
+MODULE(ProjectOpsOperations, "maestro/project_ops/operations.py") {
+    CLASS(CreateTrackClass, "CreateTrack")
+    CLASS(CreatePhaseClass, "CreatePhase")
+    CLASS(CreateTaskClass, "CreateTask")
+    CLASS(MoveTaskToDoneClass, "MoveTaskToDone")
+    CLASS(SetContextClass, "SetContext")
+}
+
+MODULE(ProjectOpsExecutor, "maestro/project_ops/executor.py") {
+    CLASS(ProjectOpsExecutorClass, "ProjectOpsExecutor")
+    CLASS(PreviewResultClass, "PreviewResult")
+    FUNCTION(PreviewOps, "preview_ops()")
+    FUNCTION(ApplyOps, "apply_ops()")
+}
+
+' Data Storage and Markdown Writers
+MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
+    FUNCTION(InsertTrackBlock, "insert_track_block()")
+    FUNCTION(InsertPhaseBlock, "insert_phase_block()")
+    FUNCTION(InsertTaskBlock, "insert_task_block()")
+    FUNCTION(UpdateTaskMetadata, "update_task_metadata()")
+    FUNCTION(UpdatePhaseMetadata, "update_phase_metadata()")
+    FUNCTION(UpdateTrackMetadata, "update_track_metadata()")
+}
+
+MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
+    CLASS(JsonStoreClass, "JsonStore")
+    FUNCTION(SaveTrack, "save_track()")
+    FUNCTION(SavePhase, "save_phase()")
+    FUNCTION(SaveTask, "save_task()")
+    FUNCTION(LoadTrack, "load_track()")
+    FUNCTION(LoadPhase, "load_phase()")
+    FUNCTION(LoadTask, "load_task()")
+    FUNCTION(LoadIndex, "load_index()")
+    FUNCTION(SaveIndex, "save_index()")
+}
+
+MODULE(TracksModels, "maestro/tracks/models.py") {
+    CLASS(TrackClass, "Track")
+    CLASS(PhaseClass, "Phase")
+    CLASS(TaskClass, "Task")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_header, print_info, print_success, print_error, styled_print, Colors
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(Pathlib, "pathlib")
+ACTOR(Json, "json module")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> ProjectOpsCommands.AddProjectOpsParser : "Adds 'ops' command and subparsers"
+
+' Command Dispatch (from maestro.main.py)
+HandleProjectOpsValidate <.. MainEntry : "for 'ops validate'"
+HandleProjectOpsPreview <.. MainEntry : "for 'ops preview'"
+HandleProjectOpsApply <.. MainEntry : "for 'ops apply'"
+
+
+' Validation Flow
+ProjectOpsCommands.HandleProjectOpsValidate --> ProjectOpsDecoder.DecodeProjectOpsJson
+ProjectOpsDecoder.DecodeProjectOpsJson --> ProjectOpsSchemas.ValidateProjectOpsResult : "validates JSON schema"
+ProjectOpsCommands.HandleProjectOpsValidate --> MaestroUtils : "prints success/error"
+
+' Preview Flow
+ProjectOpsCommands.HandleProjectOpsPreview --> ProjectOpsDecoder.DecodeProjectOpsJson
+ProjectOpsCommands.HandleProjectOpsPreview --> ProjectOpsTranslator.ActionsToOps
+ProjectOpsCommands.HandleProjectOpsPreview --> ProjectOpsExecutor.ProjectOpsExecutorClass.PreviewOps : "simulates changes"
+ProjectOpsExecutor.ProjectOpsExecutorClass.PreviewOps --> ProjectOpsCommands.ProjectOpsOperations : "uses typed ops"
+ProjectOpsExecutor.ProjectOpsExecutorClass.PreviewOps --> PreviewResultClass : "returns preview"
+ProjectOpsCommands.HandleProjectOpsPreview --> MaestroUtils : "prints changes"
+
+' Apply Flow
+ProjectOpsCommands.HandleProjectOpsApply --> ProjectOpsDecoder.DecodeProjectOpsJson
+ProjectOpsCommands.HandleProjectOpsApply --> ProjectOpsTranslator.ActionsToOps
+ProjectOpsCommands.HandleProjectOpsApply --> ProjectOpsExecutor.ProjectOpsExecutorClass.ApplyOps : "applies changes"
+ProjectOpsExecutor.ProjectOpsExecutorClass.ApplyOps --> ProjectOpsCommands.ProjectOpsOperations : "uses typed ops"
+ProjectOpsExecutor.ProjectOpsExecutorClass.ApplyOps --> PreviewResultClass : "returns applied changes"
+
+' Execution Details (within ProjectOpsExecutor.ApplyOps)
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.JsonStoreClass : "initializes JSON store"
+ProjectOpsExecutorClass.ApplyOps --> DataMarkdownWriter.InsertTrackBlock --[#Red,dashed]-> FileSystem : "creates track in docs/todo.md"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.SaveTrack --[#Red,dashed]-> FileSystem : "saves track JSON"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.SaveIndex --[#Red,dashed]-> FileSystem : "updates track index"
+ProjectOpsExecutorClass.ApplyOps --> DataMarkdownWriter.InsertPhaseBlock --[#Red,dashed]-> FileSystem : "creates phase in docs/todo.md"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.SavePhase --[#Red,dashed]-> FileSystem : "saves phase JSON"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.LoadTrack : "loads track to update phases"
+ProjectOpsExecutorClass.ApplyOps --> DataMarkdownWriter.InsertTaskBlock --[#Red,dashed]-> FileSystem : "creates task in docs/todo.md"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.SaveTask --[#Red,dashed]-> FileSystem : "saves task JSON"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.LoadPhase : "loads phase to update tasks"
+ProjectOpsExecutorClass.ApplyOps --> DataMarkdownWriter.UpdateTaskMetadata --[#Red,dashed]-> FileSystem : "updates task status in docs/todo.md"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.LoadTask : "loads task to update status"
+ProjectOpsExecutorClass.ApplyOps --> TracksJsonStore.SaveTask --[#Red,dashed]-> FileSystem : "saves updated task JSON"
+
+' Data Model Interactions
+ProjectOpsCommands.ProjectOpsOperations <.. ProjectOpsTranslator.ActionsToOps : "creates ops"
+ProjectOpsCommands.ProjectOpsOperations <.. ProjectOpsExecutor.ProjectOpsExecutorClass : "processes ops"
+TrackClass <.. ProjectOpsExecutor.ProjectOpsExecutorClass : "manages Track objects"
+PhaseClass <.. ProjectOpsExecutor.ProjectOpsExecutorClass : "manages Phase objects"
+TaskClass <.. ProjectOpsExecutor.ProjectOpsExecutorClass : "manages Task objects"
+
+' Data Persistence
+FileSystem <--> DocsTodoMd : "reads/writes Markdown files"
+FileSystem <--> MaestroConvertDir : "reads/writes JSON store files for tracks/phases/tasks"
+
+' Error Handling
+DecodeError <.. ProjectOpsDecoder.DecodeProjectOpsJson
+DecodeError <.. ProjectOpsTranslator.ActionsToOps
+ProjectOpsExecutorClass --> ValueError : "on unknown op type or validation fail"
+ProjectOpsExecutorClass --> RuntimeError : "on apply failure"
+
+@enduml

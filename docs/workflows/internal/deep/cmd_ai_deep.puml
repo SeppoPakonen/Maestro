@@ -1,0 +1,170 @@
+@startuml cmd_ai_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsAi, "maestro/commands/ai.py") {
+    FUNCTION(AddAiParser, "add_ai_parser()")
+    FUNCTION(HandleAiSync, "handle_ai_sync()")
+    FUNCTION(HandleAiQwen, "handle_ai_qwen()")
+    FUNCTION(HandleAiGemini, "handle_ai_gemini()")
+    FUNCTION(HandleAiCodex, "handle_ai_codex()")
+    FUNCTION(HandleAiClaude, "handle_ai_claude()")
+    FUNCTION(_ResolveSession, "_resolve_session()")
+    FUNCTION(_FindSessionPath, "_find_session_path()")
+    FUNCTION(_SelectNextTask, "_select_next_task()")
+    FUNCTION(_WriteSyncBreadcrumb, "_write_sync_breadcrumb()")
+    FUNCTION(_WatchAiSync, "_watch_ai_sync()")
+    FUNCTION(_ReadSyncSignature, "_read_sync_signature()")
+    ' Legacy Qwen handlers
+    FUNCTION(_RunQwenStdinChat, "_run_qwen_stdin_chat()")
+    FUNCTION(_RunQwenServer, "_run_qwen_server()")
+    FUNCTION(_RunQwenTui, "_run_qwen_tui()")
+    FUNCTION(_ResolveQwenScript, "_resolve_qwen_script()")
+}
+
+' AI-related Subsystem Modules
+MODULE(AiTaskManager, "maestro/ai/task_sync.py") {
+    FUNCTION(LoadSyncState, "load_sync_state()")
+    FUNCTION(WriteSyncState, "write_sync_state()")
+    FUNCTION(FindTaskContext, "find_task_context()")
+    FUNCTION(BuildTaskQueue, "build_task_queue()")
+    FUNCTION(BuildTaskPrompt, "build_task_prompt()")
+    FUNCTION(TaskIsDone, "task_is_done()")
+}
+
+MODULE(BreadcrumbModule, "maestro/breadcrumb.py") {
+    FUNCTION(CreateBreadcrumb, "create_breadcrumb()")
+    FUNCTION(WriteBreadcrumb, "write_breadcrumb()")
+    FUNCTION(EstimateTokens, "estimate_tokens()")
+}
+
+MODULE(WorkSessionModule, "maestro/work_session.py") {
+    CLASS(WorkSessionClass, "WorkSession")
+    FUNCTION(ListSessions, "list_sessions()")
+    FUNCTION(LoadSession, "load_session()")
+    FUNCTION(SaveSession, "save_session()")
+    ENUM(SessionType, "SessionType")
+    ENUM(SessionStatus, "SessionStatus")
+}
+
+MODULE(AiManagerModule, "maestro/ai/manager.py") {
+    CLASS(AiEngineManagerClass, "AiEngineManager")
+}
+
+MODULE(AiTypesModule, "maestro/ai/types.py") {
+    CLASS(PromptRefClass, "PromptRef")
+    CLASS(RunOptsClass, "RunOpts")
+}
+
+MODULE(AiRunners, "maestro/ai/runners.py") { ' Renamed from AiManager's calls
+    FUNCTION(RunOneShot, "run_one_shot()")
+    FUNCTION(RunInteractiveChat, "run_interactive_chat()")
+}
+
+MODULE(ConfigSettings, "maestro/config/settings.py") {
+    FUNCTION(GetSettings, "get_settings()")
+}
+
+MODULE(MaestroQwenClient, "maestro/qwen/client.py") {
+    CLASS(QwenClientClass, "QwenClient")
+    CLASS(QwenClientConfig, "QwenClientConfig")
+    CLASS(MessageHandlers, "MessageHandlers")
+    ' Qwen messages (Init, Conversation, etc.)
+}
+
+MODULE(MaestroQwenTui, "maestro/qwen/tui.py") {
+    FUNCTION(RunTui, "run_tui()")
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(ExternalAI, "External AI Service")
+ACTOR(StdIO, "Standard Input/Output")
+
+' Persistent Stores
+DATABASE(DocsAiSyncJson, "docs/ai_sync.json")
+DATABASE(DocsSessionsJson, "docs/sessions/<id>/session.json")
+DATABASE(DocsBreadcrumbsJsonL, "docs/sessions/<id>/breadcrumbs.jsonl")
+DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
+DATABASE(QwenScript, "qwen-code.sh")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddAiParser : "Adds 'ai' command and subparsers"
+
+' Command Dispatch
+HandleAiSync <.. MainEntry : "for 'ai sync'"
+HandleAiQwen <.. MainEntry : "for 'ai qwen'"
+HandleAiGemini <.. MainEntry : "for 'ai gemini'"
+HandleAiCodex <.. MainEntry : "for 'ai codex'"
+HandleAiClaude <.. MainEntry : "for 'ai claude'"
+
+' AI Sync Flow
+HandleAiSync --> CommandsAi._ResolveSession
+CommandsAi._ResolveSession --> AiTaskManager.LoadSyncState : "loads sync state"
+CommandsAi._ResolveSession --> WorkSessionModule.ListSessions : "finds active work session"
+CommandsAi._ResolveSession --> WorkSessionModule.LoadSession : "loads WorkSession object"
+HandleAiSync --> AiTaskManager.FindTaskContext : "gets task details"
+HandleAiSync --> AiTaskManager.BuildTaskQueue
+HandleAiSync --> CommandsAi._SelectNextTask : "selects next task"
+HandleAiSync --> AiTaskManager.BuildTaskPrompt : "generates AI prompt"
+HandleAiSync --> WorkSessionModule.SaveSession : "updates WorkSession"
+HandleAiSync --> AiTaskManager.WriteSyncState : "persists sync state"
+HandleAiSync --> CommandsAi._WriteSyncBreadcrumb : "records breadcrumb"
+CommandsAi._WriteSyncBreadcrumb --> BreadcrumbModule.CreateBreadcrumb
+CommandsAi._WriteSyncBreadcrumb --> BreadcrumbModule.WriteBreadcrumb
+CommandsAi._WriteSyncBreadcrumb --> BreadcrumbModule.EstimateTokens
+
+' Watch Mode for AI Sync
+HandleAiSync -[dashed]-> CommandsAi._WatchAiSync : "if --watch"
+_WatchAiSync --> CommandsAi._ReadSyncSignature : "reads file signature"
+_WatchAiSync --> HandleAiSync : "recursively calls handle_ai_sync on change"
+
+' Generic AI Engine Interaction Flow
+HandleAiQwen -- RunOptsClass : "builds run options"
+HandleAiQwen -- PromptRefClass : "builds prompt reference"
+HandleAiQwen -- AiManagerModule.AiEngineManagerClass : "initializes manager"
+HandleAiQwen -- AiRunners.RunOneShot : "for --one-shot or --stdin"
+HandleAiQwen -- AiRunners.RunInteractiveChat : "for interactive mode"
+
+HandleAiGemini --> AiManagerModule.AiEngineManagerClass
+HandleAiGemini --> AiRunners.RunOneShot
+HandleAiGemini --> AiRunners.RunInteractiveChat
+HandleAiCodex --> AiManagerModule.AiEngineManagerClass
+HandleAiCodex --> AiRunners.RunOneShot
+HandleAiCodex --> AiRunners.RunInteractiveChat
+HandleAiClaude --> AiManagerModule.AiEngineManagerClass
+HandleAiClaude --> AiRunners.RunOneShot
+HandleAiClaude --> AiRunners.RunInteractiveChat
+
+' AI Configuration
+HandleAiQwen --> ConfigSettings.GetSettings
+ConfigSettings.GetSettings --> SettingsJson : "reads settings"
+
+' Legacy Qwen Handling
+HandleAiQwen -[dashed]-> CommandsAi._RunQwenStdinChat : "for qwen-old tui"
+HandleAiQwen -[dashed]-> CommandsAi._RunQwenServer : "for qwen-old server"
+HandleAiQwen -[dashed]-> CommandsAi._RunQwenTui : "for qwen-old attach"
+CommandsAi._RunQwenStdinChat --> MaestroQwenClient.QwenClientClass : "interacts directly"
+CommandsAi._RunQwenStdinChat --> StdIO : "reads/writes"
+CommandsAi._RunQwenServer --> Subprocess : "spawns server"
+CommandsAi._RunQwenTui --> MaestroQwenTui.RunTui : "runs TUI client"
+CommandsAi._RunQwenServer --> QwenScript : "uses qwen-code.sh"
+
+' Persistent Stores & Filesystem
+DocsAiSyncJson <--> FileSystem : "sync state"
+DocsSessionsJson <--> FileSystem : "work sessions"
+DocsBreadcrumbsJsonL <--> FileSystem : "breadcrumbs"
+SettingsJson <--> FileSystem : "global settings"
+
+' AI Engine Manager Integration
+AiRunners.RunOneShot --> AiManagerModule.AiEngineManagerClass.run_once : "executes AI command"
+AiRunners.RunInteractiveChat --> AiManagerModule.AiEngineManagerClass.run_once : "executes AI command"
+
+@enduml

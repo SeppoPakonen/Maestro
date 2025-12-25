@@ -1,0 +1,71 @@
+@startuml cmd_rules_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
+    FUNCTION(HandleRulesList, "handle_rules_list()")
+    FUNCTION(HandleRulesFile, "handle_rules_file()")
+    FUNCTION(LoadSession, "load_session()")
+    FUNCTION(SaveSession, "save_session()")
+    FUNCTION(GetMaestroDir, "get_maestro_dir()") ' Used to determine session_dir
+}
+
+' Session Model & Persistence
+MODULE(SessionModel, "maestro/session_model.py") {
+    CLASS(SessionClass, "Session")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_header, print_info, print_error etc.
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(Subprocess, "subprocess module")
+ACTOR(OS, "os module")
+ACTOR(Pathlib, "pathlib module")
+
+' Persistent Stores
+DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
+    session.json
+    rules.txt
+}
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup (implicit via maestro.main.py and cli_parser)
+
+' Command Dispatch (from maestro.main.py)
+MainEntry -- HandleRulesList
+MainEntry -- HandleRulesFile
+
+' HandleRulesList Flow (`maestro rules list`)
+HandleRulesList --> CommandHandlers.LoadSession : "loads session data"
+CommandHandlers.LoadSession --> DocsSessionsDir : "reads session.json"
+HandleRulesList --> FileSystem : "reads rules.txt"
+HandleRulesList --> MaestroUtils : "prints rules content"
+
+' HandleRulesFile Flow (`maestro rules edit`)
+HandleRulesFile --> CommandHandlers.LoadSession : "loads session data"
+HandleRulesFile --> GetMaestroDir : "determines session directory"
+HandleRulesFile --> FileSystem : "checks/creates rules.txt"
+HandleRulesFile --> CommandHandlers.SaveSession : "updates session with rules_path"
+HandleRulesFile --> Subprocess : "invokes external editor"
+Editor <--> HandleRulesFile
+
+' Session Model interactions
+SessionClass <.. LoadSession : "loaded into"
+SessionClass --> SaveSession : "saved from"
+
+' File System Interactions
+DocsSessionsDir <--> FileSystem : "reads/writes session.json and rules.txt"
+Subprocess --> OS : "editor environment variable"
+
+@enduml

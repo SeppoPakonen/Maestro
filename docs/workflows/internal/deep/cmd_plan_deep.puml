@@ -1,0 +1,203 @@
+@startuml cmd_plan_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsPlan, "maestro/commands/plan.py") {
+    FUNCTION(AddPlanParser, "add_plan_parser()")
+    FUNCTION(HandlePlanAdd, "handle_plan_add()")
+    FUNCTION(HandlePlanList, "handle_plan_list()")
+    FUNCTION(HandlePlanRemove, "handle_plan_remove()")
+    FUNCTION(HandlePlanShow, "handle_plan_show()")
+    FUNCTION(HandlePlanAddItem, "handle_plan_add_item()")
+    FUNCTION(HandlePlanRemoveItem, "handle_plan_remove_item()")
+    FUNCTION(HandlePlanDiscuss, "handle_plan_discuss()")
+    FUNCTION(HandlePlanExplore, "handle_plan_explore()")
+    FUNCTION(CreateExplorePrompt, "create_explore_prompt()")
+}
+
+' Plan Data Model & Persistence
+MODULE(PlansModule, "maestro/plans.py") {
+    CLASS(PlanStoreClass, "PlanStore")
+    CLASS(PlanClass, "Plan")
+    CLASS(PlanItemClass, "PlanItem")
+    PlanStoreClass "1" *-- "0..*" PlanClass : "manages"
+    PlanClass "1" *-- "0..*" PlanItemClass : "contains"
+}
+
+' Plan Operations (AI-generated changes to plans)
+MODULE(PlanOpsCommands, "maestro/plan_ops/commands.py") {
+    FUNCTION(AddPlanOpsParser, "add_plan_ops_parser()")
+    FUNCTION(HandlePlanOpsValidate, "handle_plan_ops_validate()")
+    FUNCTION(HandlePlanOpsPreview, "handle_plan_ops_preview()")
+    FUNCTION(HandlePlanOpsApply, "handle_plan_ops_apply()")
+}
+
+MODULE(PlanOpsDecoder, "maestro/plan_ops/decoder.py") {
+    FUNCTION(DecodePlanOpsJson, "decode_plan_ops_json()")
+    EXCEPTION(DecodeError, "DecodeError")
+}
+
+MODULE(PlanOpsSchemas, "maestro/plan_ops/schemas.py") {
+    FUNCTION(ValidatePlanOpsResult, "validate_plan_ops_result()")
+}
+
+MODULE(PlanOpsTranslator, "maestro/plan_ops/translator.py") {
+    FUNCTION(ActionsToOps, "actions_to_ops()")
+}
+
+MODULE(PlanOpsOperations, "maestro/plan_ops/operations.py") {
+    CLASS(SelectorClass, "Selector")
+    CLASS(CreatePlanClass, "CreatePlan")
+    CLASS(DeletePlanClass, "DeletePlan")
+    CLASS(AddPlanItemClass, "AddPlanItem")
+    CLASS(RemovePlanItemClass, "RemovePlanItem")
+    CLASS(CommentaryClass, "Commentary")
+}
+
+MODULE(PlanOpsExecutor, "maestro/plan_ops/executor.py") {
+    CLASS(PlanOpsExecutorClass, "PlanOpsExecutor")
+    CLASS(PreviewResultClass, "PreviewResult")
+    FUNCTION(PreviewOps, "preview_ops()")
+    FUNCTION(ApplyOps, "apply_ops()")
+}
+
+' Plan Explore (Iterative AI Planning)
+MODULE(PlanExploreSession, "maestro/plan_explore/session.py") {
+    CLASS(ExploreSessionClass, "ExploreSession")
+    CLASS(ExploreIterationClass, "ExploreIteration")
+    ENUM(ExploreIterationStatus, "ExploreIterationStatus")
+    FUNCTION(CreateExploreSession, "create_explore_session()")
+    FUNCTION(LoadExploreSession, "load_explore_session()")
+    FUNCTION(SaveExploreSession, "save_explore_session()")
+    FUNCTION(AddIterationToSession, "add_iteration_to_session()")
+    FUNCTION(ResumeExploreSession, "resume_explore_session()")
+    FUNCTION(InterruptExploreSession, "interrupt_explore_session()")
+    FUNCTION(CompleteExploreSession, "complete_explore_session()")
+}
+
+' AI Integration
+MODULE(AiManagerModule, "maestro/ai/manager.py") {
+    CLASS(AiEngineManagerClass, "AiEngineManager")
+}
+
+MODULE(AiChatModule, "maestro/ai/chat.py") {
+    FUNCTION(RunInteractiveChat, "run_interactive_chat()")
+}
+
+MODULE(AiTypesModule, "maestro/ai/types.py") {
+    CLASS(PromptRefClass, "PromptRef")
+    CLASS(RunOptsClass, "RunOpts")
+}
+
+' Project Operations (from Explore)
+MODULE(ProjectOpsDecoder, "maestro/project_ops/decoder.py") {
+    FUNCTION(DecodeProjectOpsJson, "decode_project_ops_json()")
+}
+
+MODULE(ProjectOpsTranslator, "maestro/project_ops/translator.py") {
+    FUNCTION(ActionsToOpsProj, "actions_to_ops()")
+}
+
+MODULE(ProjectOpsExecutor, "maestro/project_ops/executor.py") {
+    CLASS(ProjectOpsExecutorClass, "ProjectOpsExecutor")
+}
+
+' Other Maestro Modules
+MODULE(DataMarkdownParser, "maestro/data/markdown_parser.py") {
+    FUNCTION(ParseTodoMd, "parse_todo_md()")
+}
+
+MODULE(ConfigSettings, "maestro/config/settings.py") {
+    FUNCTION(GetSettings, "get_settings()")
+}
+
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' Console print functions, Colors
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+DATABASE(DocsPlansMd, "docs/plans.md")
+DATABASE(DocsTodoMd, "docs/todo.md")
+DATABASE(ExploreSessionJson, "docs/sessions/explore/<session-id>/explore_session.json")
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddPlanParser : "Adds 'plan' command and subparsers"
+
+' Basic Plan Management
+CommandsPlan.HandlePlanAdd --> PlanStoreClass : "add_plan()"
+CommandsPlan.HandlePlanList --> PlanStoreClass : "load()"
+CommandsPlan.HandlePlanRemove --> PlanStoreClass : "remove_plan()"
+CommandsPlan.HandlePlanShow --> PlanStoreClass : "get_plan()"
+CommandsPlan.HandlePlanAddItem --> PlanStoreClass : "add_item_to_plan()"
+CommandsPlan.HandlePlanRemoveItem --> PlanStoreClass : "remove_item_from_plan()"
+
+PlanStoreClass --> DocsPlansMd : "loads/saves from"
+PlanStoreClass ..> PlanClass : "creates/manages"
+PlanStoreClass ..> PlanItemClass : "creates/manages"
+
+' Plan Ops (AI-generated) Flow
+CommandsPlan.HandlePlanDiscuss --> AiEngineManagerClass : "uses for AI calls"
+CommandsPlan.HandlePlanDiscuss --> DecodePlanOpsJson : "validates AI response"
+CommandsPlan.HandlePlanDiscuss --> ActionsToOps : "translates to ops objects"
+CommandsPlan.HandlePlanDiscuss --> PlanOpsExecutorClass : "previews/applies ops"
+
+PlanOpsCommands.HandlePlanOpsValidate --> DecodePlanOpsJson
+PlanOpsCommands.HandlePlanOpsPreview --> DecodePlanOpsJson
+PlanOpsCommands.HandlePlanOpsPreview --> ActionsToOps
+PlanOpsCommands.HandlePlanOpsPreview --> PlanOpsExecutorClass.PreviewOps
+PlanOpsCommands.HandlePlanOpsApply --> DecodePlanOpsJson
+PlanOpsCommands.HandlePlanOpsApply --> ActionsToOps
+PlanOpsCommands.HandlePlanOpsApply --> PlanOpsExecutorClass.ApplyOps
+
+DecodePlanOpsJson --> ValidatePlanOpsResult : "relies on schema validation"
+ActionsToOps --> PlanOpsOperations : "creates typed ops (CreatePlan, DeletePlan, etc.)"
+PlanOpsExecutorClass --> PlansModule.PlanStoreClass : "interacts with PlanStore"
+PlanOpsExecutorClass --> PlanOpsOperations : "processes typed ops"
+PlanOpsExecutorClass --> PreviewResultClass : "returns preview"
+PlanOpsExecutorClass ..> SelectorClass : "resolves plan"
+
+' Plan Explore Flow
+CommandsPlan.HandlePlanExplore --> PlanExploreSession.CreateExploreSession : "creates session"
+CommandsPlan.HandlePlanExplore --> PlanExploreSession.ResumeExploreSession : "resumes session"
+CommandsPlan.HandlePlanExplore --> AiEngineManagerClass : "uses for AI calls"
+CommandsPlan.HandlePlanExplore --> CreateExplorePrompt : "generates prompt"
+CommandsPlan.HandlePlanExplore --> DecodeProjectOpsJson : "validates AI response"
+CommandsPlan.HandlePlanExplore --> ProjectOpsTranslator.ActionsToOpsProj : "translates to project ops"
+CommandsPlan.HandlePlanExplore --> ProjectOpsExecutorClass : "previews/applies project ops"
+CommandsPlan.HandlePlanExplore --> PlanExploreSession.AddIterationToSession : "adds iteration"
+CommandsPlan.HandlePlanExplore --> PlanExploreSession.SaveExploreSession : "saves session"
+CommandsPlan.HandlePlanExplore --> DataMarkdownParser.ParseTodoMd : "reads project state"
+CommandsPlan.HandlePlanExplore --> ConfigSettings.GetSettings : "accesses settings"
+
+PlanExploreSession.ExploreSessionClass "1" *-- "0..*" PlanExploreSession.ExploreIterationClass : "contains"
+PlanExploreSession.ExploreIterationClass --> ExploreIterationStatus : "has status"
+ExploreSessionJson <--> PlanExploreSession : "persists sessions"
+
+' AI Manager and Chat
+AiEngineManagerClass <.. CommandsPlan.HandlePlanDiscuss
+AiEngineManagerClass <.. CommandsPlan.HandlePlanExplore
+AiChatModule.RunInteractiveChat <.. CommandsPlan.HandlePlanDiscuss : "interactive mode"
+AiTypesModule.PromptRefClass <.. CommandsPlan.HandlePlanDiscuss
+AiTypesModule.RunOptsClass <.. CommandsPlan.HandlePlanDiscuss
+AiTypesModule.PromptRefClass <.. CommandsPlan.HandlePlanExplore
+AiTypesModule.RunOptsClass <.. CommandsPlan.HandlePlanExplore
+
+' Utility/Common
+CommandsPlan --> MaestroUtils : "console output"
+
+' Validation Gates
+VALIDATION_GATE(PlanOpsJsonValidation, "AI response JSON validation")
+HandlePlanDiscuss -down-> PlanOpsJsonValidation : "validates"
+HandlePlanExplore -down-> PlanOpsJsonValidation : "validates ProjectOpsResult"
+PlanOpsJsonValidation --> DecodeError : "raises error on failure"
+PlanOpsExecutorClass --> DecodeError : "raises error on invalid op or state"
+PlanOpsExecutorClass --> PlanStoreClass.load : "implicitly checks for duplicates in CreatePlan"
+
+@enduml

@@ -8,15 +8,15 @@ entry_conditions: |
   - Optional: .maestro/ directory exists (for cached results)
   - Optional: User configuration files in ~/.config/u++/ide/*.var (for Ultimate++ assemblies)
 exit_conditions: |
-  - Repository scan results produced in .maestro/repo/
+  - Repository scan results produced in docs/maestro/repo/
   - Optional: Issues and Tasks created for convention violations
   - Optional: Repository hierarchy saved
 artifacts_created: |
-  - .maestro/repo/index.json: Full structured scan result
-  - .maestro/repo/index.summary.txt: Human-readable summary
-  - .maestro/repo/state.json: Repository state metadata
-  - .maestro/repo/assemblies.json: Assembly information
-  - .maestro/repo/hierarchy.json: Repository hierarchy (if generated)
+  - docs/maestro/repo/index.json: Full structured scan result
+  - docs/maestro/repo/index.summary.txt: Human-readable summary
+  - docs/maestro/repo/state.json: Repository state metadata
+  - docs/maestro/repo/assemblies.json: Assembly information
+  - docs/maestro/repo/hierarchy.json: Repository hierarchy (if generated)
   - Issue data files for convention violations (if any)
   - Task files for addressing violations (if policy allows)
 failure_semantics: |
@@ -31,18 +31,21 @@ links_to: [WF-01, WF-03, WF-04]
 
 ## Overview
 
-This scenario documents the **canonical repository resolution mechanism** in Maestro, which serves as the integration spine for all other workflows. The `maestro repo resolve` command performs comprehensive repository analysis including:
+    This scenario documents the **canonical repository resolution mechanism** in Maestro, which serves as the integration spine for all other workflows. The `maestro repo resolve` command performs comprehensive repository analysis including:
 
-- Package/assembly discovery (including Ultimate++ `.upp` + assemblies)
-- Language detection
-- Build system detection (Make/CMake/Meson/Cargo/etc.)
-- Convention inference and rule set selection
-- Build target enumeration
-- Dependency graph derivation
-- Violation detection with Issue/Task creation
+    - Package/assembly discovery (including Ultimate++ `.upp` + assemblies)
+    - Language detection
+    - Build system detection (Make/CMake/Meson/Cargo/etc.)
+    - Convention inference and rule set selection
+    - Build target enumeration
+    - Dependency graph derivation
+    - Violation detection with Issue/Task creation
 
-This command is the **single source of truth** for repository structure and build system detection across all Maestro workflows.
+    This command is the **single source of truth** for repository structure and build system detection across all Maestro workflows.
 
+    ## Branch Boundaries Note
+
+    **Important**: Maestro operates strictly on the current Git branch. Switching branches during an active `maestro repo resolve` operation is **unsupported** and risks corrupting the internal state or producing inconsistent analysis results. This is an **operational rule**. Users must ensure they are on the desired branch before initiating repository resolution.
 ---
 
 ## Phase 1: Entry & Precondition Validation
@@ -76,7 +79,7 @@ The Operator (human or AI runner) wants to:
 **Inputs**:
 - `--path <path>`: Path to repository to scan (default: current directory)
 - `--json`: Output results in JSON format
-- `--no-write`: Skip writing artifacts to `.maestro/repo/`
+- `--no-write`: Skip writing artifacts to `docs/maestro/repo/`
 - `--include-user-config`: Include user assemblies from `~/.config/u++/ide/*.var`
 - `--verbose`: Show verbose scan information
 
@@ -102,7 +105,7 @@ The Operator (human or AI runner) wants to:
 **Outputs**:
 - **stdout**: Human-readable summary of packages and assemblies found
 - **JSON**: Structured output with detailed package/assembly information when `--json` flag used
-- **Artifacts**: Repository scan results written to `.maestro/repo/` directory
+- **Artifacts**: Repository scan results written to `docs/maestro/repo/` directory
 
 **CLI Contract**:
 ```json
@@ -326,7 +329,7 @@ Rename file to follow camelCase convention: 'src/core/utils.cpp'
 
 ### Artifact Storage
 
-**Location**: `.maestro/repo/` directory
+**Location**: `docs/maestro/repo/` directory
 
 **Files Created**:
 - `index.json`: Complete scan results in structured format
@@ -365,8 +368,8 @@ Rename file to follow camelCase convention: 'src/core/utils.cpp'
 
 | Command | Purpose | Inputs | Outputs | Hard Stops | Recoverable |
 |---------|---------|--------|---------|-----------|-------------|
-| `maestro repo resolve` | Scan repository for packages, assemblies, build systems | `--path`, `--json`, `--no-write`, `--include-user-config`, `--verbose` | JSON/human-readable scan results, artifacts in `.maestro/repo/` | Repository not found, .maestro/ directory missing | Build system detection fails, some packages not recognized |
-| `maestro repo show` | Show repository scan results from `.maestro/repo/` | `--json`, `--path` | Scan results from stored artifacts | Index file not found | None |
+| `maestro repo resolve` | Scan repository for packages, assemblies, build systems | `--path`, `--json`, `--no-write`, `--include-user-config`, `--verbose` | JSON/human-readable scan results, artifacts in `docs/maestro/repo/` | Repository not found, .maestro/ directory missing | Build system detection fails, some packages not recognized |
+| `maestro repo show` | Show repository scan results from `docs/maestro/repo/` | `--json`, `--path` | Scan results from stored artifacts | Index file not found | None |
 | `maestro repo pkg list` | List all packages in repository | `--json`, `--path` | Package list with type info | None | None |
 | `maestro repo pkg info <name>` | Show detailed package information | Package name, `--json`, `--path` | Package details with files and metadata | Package not found | None |
 | `maestro repo hier` | Show repository hierarchy | `--json`, `--path`, `--show-files`, `--rebuild` | Hierarchy tree or JSON | Hierarchy not built, requires resolve first | None |
@@ -468,15 +471,15 @@ Rename file to follow camelCase convention: 'src/core/utils.cpp'
 ### Truth File Boundaries
 
 - **Truth Files** (validated, protected):
-  - `.maestro/repo/index.json`
-  - `.maestro/repo/state.json`
-  - `.maestro/repo/assemblies.json`
+  - `docs/maestro/repo/index.json`
+  - `docs/maestro/repo/state.json`
+  - `docs/maestro/repo/assemblies.json`
   - `issue data*.md` (structured front-matter required)
   - `docs/maestro/tasks/*.json`
 
 - **Non-Truth Files**:
-  - `.maestro/repo/index.summary.txt` (informational only)
-  - `.maestro/repo/hierarchy.json` (derived from index.json)
+  - `docs/maestro/repo/index.summary.txt` (informational only)
+  - `docs/maestro/repo/hierarchy.json` (derived from index.json)
 
 ### Integration Spine Role
 

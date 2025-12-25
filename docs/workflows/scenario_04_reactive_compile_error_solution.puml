@@ -1,4 +1,5 @@
 @startuml
+!include _shared.puml ' Include shared definitions
 
 title WF-04: Reactive compile error → Solutions match → immediate solution-task
 
@@ -7,8 +8,12 @@ participant "Maestro CLI" as MC
 participant "Repo/Toolchain" as RT
 participant "Docs/State" as DS
 
+start
+BRANCH_GUARD("operational rule")
 Op -> MC: maestro make build
 activate MC
+MC -> MC: CALL_WF_05_REPO_RESOLVE()
+note right: Implicitly invoked by\n`maestro make build`
 MC -> RT: Execute build command
 RT -> MC: Build fails with compile error
 MC -> DS: CREATE_ISSUE("Build error")

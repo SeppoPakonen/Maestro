@@ -1,0 +1,101 @@
+@startuml subsystem_session_store
+!include _shared.puml
+
+MODULE(SessionModel, "maestro/session_model.py") {
+    CLASS(SessionClass, "Session") {
+        + id: str
+        + created_at: str
+        + updated_at: str
+        + root_task: str
+        + subtasks: List<Subtask>
+        + status: str
+        + rules_path: Optional<str>
+        + root_task_raw: Optional<str>
+        + root_task_clean: Optional<str>
+        + root_task_summary: Optional<str>
+        + root_task_categories: Optional<List<str>>
+        + root_history: Optional<List<Dict>>
+        + plans: Optional<List<PlanNode>>
+        + active_plan_id: Optional<str>
+        --
+        + to_dict(): Dict
+        + from_dict(data: Dict): Session
+    }
+
+    CLASS(SubtaskClass, "Subtask") {
+        + id: str
+        + title: str
+        + description: str
+        + planner_model: str
+        + worker_model: str
+        + status: str
+        + summary_file: str
+        + categories: Optional<List<str>>
+        + root_excerpt: Optional<str>
+        + plan_id: Optional<str>
+        --
+        + to_dict(): Dict
+        + from_dict(data: Dict): Subtask
+    }
+
+    CLASS(PlanNodeClass, "PlanNode") {
+        + plan_id: str
+        + parent_plan_id: Optional<str>
+        + created_at: str
+        + label: str
+        + status: str
+        + notes: Optional<str>
+        + root_snapshot: str
+        + subtask_ids: List<str>
+        --
+        + to_dict(): Dict
+        + from_dict(data: Dict): PlanNode
+    }
+
+    FUNCTION(LoadSession, "load_session(path)")
+    FUNCTION(SaveSession, "save_session(session, path)")
+
+    RECTANGLE(SessionStatuses, "SESSION_STATUSES") #LightBlue
+    RECTANGLE(SubtaskStatuses, "SUBTASK_STATUSES") #LightBlue
+}
+
+MODULE(StandardLib, "Standard Libraries") {
+    FUNCTION(JsonLoad, "json.load()")
+    FUNCTION(JsonDump, "json.dump()")
+    FUNCTION(Open, "open()")
+}
+
+DATASTORE(SessionJsonFile, "Session JSON File")
+DATASTORE(OperatingSystem, "Operating System (FS)")
+
+' Relationships between classes
+SessionClass "1" *-- "0..*" SubtaskClass : contains
+SessionClass "1" *-- "0..*" PlanNodeClass : manages
+
+' Load Session Flow
+LoadSession --> Open : "Reads file"
+LoadSession --> JsonLoad : "Parses JSON"
+LoadSession --> SessionClass.from_dict : "Deserializes to Session obj"
+SessionClass.from_dict --> SubtaskClass.from_dict : "Deserializes subtasks"
+SessionClass.from_dict --> PlanNodeClass.from_dict : "Deserializes plan nodes"
+
+JsonLoad -[dashed]-> SessionJsonFile : "Reads content"
+Open -[dashed]-> OperatingSystem : "Accesses file system"
+
+' Save Session Flow
+SaveSession --> SessionClass.to_dict : "Serializes Session obj to dict"
+SessionClass.to_dict --> SubtaskClass.to_dict : "Serializes subtasks"
+SessionClass.to_dict --> PlanNodeClass.to_dict : "Serializes plan nodes"
+SaveSession --> JsonDump : "Writes dict as JSON"
+SaveSession --> Open : "Opens file"
+
+JsonDump --[#Red,dashed]-> SessionJsonFile : "Writes content"
+Open --[#Red,dashed]-> OperatingSystem : "Accesses file system"
+
+' Validation gates
+SessionClass.from_dict -[#Blue]-> SessionJsonFile : "Implicit Key/Schema Validation"
+SessionClass.from_dict -[#Blue]-> SessionJsonFile : "Backward Compatibility Logic"
+LoadSession -[#Blue]-> SessionJsonFile : "File existence (FileNotFoundError)"
+LoadSession -[#Blue]-> SessionJsonFile : "JSON format (json.JSONDecodeError)"
+
+@enduml

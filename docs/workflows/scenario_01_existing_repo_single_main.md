@@ -42,6 +42,10 @@ follow_on_scenarios: [WF-05, WF-08, WF-04]
 - Both use identical CLI commands
 - Behavior is the same at the command boundary
 
+## Branch Boundaries Note
+
+**Important**: Maestro operates strictly on the current Git branch. Switching branches during an active `maestro work` session is **unsupported** and risks corrupting the internal state. While future implementations may include branch-awareness checks, this is currently an **operational rule**. Users must ensure they complete or explicitly abandon work on one branch before switching.
+
 ## Overview
 
 This scenario documents the **initial bootstrap process** when an Operator adds Maestro to an **existing codebase** with:
@@ -105,10 +109,9 @@ The Operator (human or AI runner) wants to:
     tasks/
     issues/
     plan.json       (empty scaffold: {"tracks": [], "version": "1.0"})
-    todo.md         (empty: "# TODO\n")
-    done.md         (empty: "# DONE\n")
+    ' Task state managed in Track/Phase/Task data structures under docs/maestro/
   ```
-- Writes `.maestro/config.json` (or similar) with:
+  - Writes docs/maestro/config.json (or similar) with:
   - Initialization timestamp
   - Detected language/build system
   - Default engine preferences
@@ -389,16 +392,18 @@ After reconstruction:
    }
    ```
 
-4. Generate `active tasks in JSON` with ranked task list:
-   ```markdown
-   # TODO
-
-   ## Phase: Build Fixes (Track: bugfix)
-   - [ ] TASK-001: Fix undefined symbol `process_data` (no dependencies)
-   - [ ] TASK-002: Fix call to process_data (depends: TASK-001)
-   - [ ] TASK-003: Fix downstream type error (depends: TASK-002)
-   ```
-
+4. Generate `active tasks in JSON` with ranked task list. Example content:
+       ```json
+       // Example structure of active tasks in JSON
+       {
+         "phase": "Build Fixes (Track: bugfix)",
+         "tasks": [
+           {"id": "TASK-001", "title": "Fix undefined symbol `process_data`", "status": "pending", "dependencies": []},
+           {"id": "TASK-002", "title": "Fix call to process_data", "status": "pending", "dependencies": ["TASK-001"]},
+           {"id": "TASK-003", "title": "Fix downstream type error", "status": "pending", "dependencies": ["TASK-002"]}
+         ]
+       }
+       ```
 **Outputs**:
 - Updated task JSON files with `dependencies` field
 - `active tasks in JSON` with ranked task order
@@ -490,14 +495,18 @@ File: src/core.rs:45
 **Command**: `maestro task complete TASK-001`
 
 **Process**:
-1. Move task from `active tasks in JSON` to `completed tasks in JSON`:
-   ```markdown
-   # DONE
-   ...
-   ## Phase: Build Fixes (Track: bugfix)
-   - [x] TASK-001: Fix undefined symbol `process_data` (completed: 2025-12-25)
-   ```
-2. Update task JSON status: `"status": "completed"`
+1. Move task from `active tasks in JSON` to `completed tasks in JSON` (e.g., via `maestro track mark-task-completed <task-id>`).
+       Example of how `completed tasks in JSON` would be updated:
+       ```json
+       // Example structure of completed tasks in JSON
+       {
+         "phase": "Build Fixes (Track: bugfix)",
+         "tasks": [
+           {"id": "TASK-001", "title": "Fix undefined symbol `process_data`", "status": "completed", "completed_date": "2025-12-25"}
+         ],
+         "...": "..."
+       }
+       ```2. Update task JSON status: `"status": "completed"`
 
 **Policy Enforcement** (per CLAUDE.md):
 - **Mandatory Task Lifecycle Rule**: At the end of a phase, completed tasks MUST be moved from `active tasks in JSON` to `completed tasks in JSON`

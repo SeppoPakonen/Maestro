@@ -1,0 +1,72 @@
+@startuml _shared
+' Shared PlantUML styling and macros for Maestro Deep Internal Docs
+
+' Skin Parameters
+skinparam monochrome true
+skinparam shadowing false
+skinparam package {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    FontColor DarkBlue
+}
+skinparam component {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontColor DarkGreen
+}
+skinparam rectangle {
+    BackgroundColor LightYellow
+    BorderColor DarkYellow
+    FontColor DarkYellow
+}
+skinparam database {
+    BackgroundColor LightGray
+    BorderColor DarkGray
+    FontColor DarkGray
+}
+skinparam cloud {
+    BackgroundColor LightSteelBlue
+    BorderColor DarkBlue
+    FontColor DarkBlue
+}
+skinparam arrow {
+    Color Black
+    Thickness 1
+}
+
+' Node Macros
+!define FUNCTION(name, label) rectangle name as "label" <<Function>>
+!define MODULE(name, label) package name as "label" <<Module>>
+!define DATASTORE(name, label) database name as "label" <<Data Store>>
+!define VALIDATION_GATE(name, label) diamond name as "label" <<Validation Gate>>
+!define HARD_STOP(name, label) circle name as "label" #Red <<Hard Stop>>
+
+' Data Store Specific Nodes
+!define DOCS_TRUTH(name, label) database name as "label" #LightGreen <<Docs Truth>>
+!define SESSION_STORE(name, label) database name as "label" #LightSalmon <<Session Store>>
+!define HOME_REGISTRY(name, label) database name as "label" #LightCyan <<Home Registry>>
+!define CACHE(name, label) database name as "label" #LightYellow <<Cache>>
+
+' Edge Macros (for annotations)
+!unquoted procedure CALL(from_node, to_node, label="") as
+    from_node --> to_node : label
+!endprocedure
+
+!unquoted procedure READ(from_node, to_store, label="") as
+    from_node -[dashed]-> to_store : Read \n <size:8>label</size>
+!endprocedure
+
+!unquoted procedure WRITE(from_node, to_store, label="") as
+    from_node --[#Red,dashed]-> to_store : Write \n <size:8>label</size>
+!endprocedure
+
+!unquoted procedure VALIDATE(from_node, to_gate, label="") as
+    from_node --[#Blue]-> to_gate : Validate \n <size:8>label</size>
+!endprocedure
+
+!unquoted procedure SUBPROCESS(from_node, to_process, label="") as
+    from_node --[#DarkGreen,dotted]-> to_process : Subprocess \n <size:8>label</size>
+!endprocedure
+
+' End shared definitions
+@enduml

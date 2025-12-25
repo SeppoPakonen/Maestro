@@ -1,0 +1,160 @@
+@startuml cmd_discuss_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
+    FUNCTION(AddDiscussParser, "add_discuss_parser()")
+    FUNCTION(HandleDiscussCommand, "handle_discuss_command()")
+    FUNCTION(HandleTrackDiscuss, "handle_track_discuss()")
+    FUNCTION(HandlePhaseDiscuss, "handle_phase_discuss()")
+    FUNCTION(HandleTaskDiscuss, "handle_task_discuss()")
+    FUNCTION(ChooseMode, "choose_mode()")
+    FUNCTION(RunDiscussionWithRouter, "run_discussion_with_router()")
+    FUNCTION(ApplyPatchOperations, "apply_patch_operations()")
+    FUNCTION(FindPhaseFileForTask, "find_phase_file_for_task()")
+    FUNCTION(SaveDiscussionArtifacts, "save_discussion_artifacts()")
+    FUNCTION(UpdateArtifactStatus, "update_artifact_status()")
+}
+
+' AI Integration Modules
+MODULE(AiManager, "maestro/ai/manager.py") {
+    CLASS(AiEngineManagerClass, "AiEngineManager")
+}
+
+MODULE(AiDiscussionRouter, "maestro/ai/discussion_router.py") {
+    CLASS(DiscussionRouterClass, "DiscussionRouter")
+    FUNCTION(RunDiscussion, "run_discussion()")
+}
+
+MODULE(AiContracts, "maestro/ai/contracts.py") {
+    CLASS(JsonContractClass, "JsonContract")
+    CLASS(TrackContract, "TrackContract")
+    CLASS(PhaseContract, "PhaseContract")
+    CLASS(TaskContract, "TaskContract")
+    CLASS(GlobalContract, "GlobalContract")
+    ENUM(ContractTypeEnum, "ContractType")
+}
+
+MODULE(AiActions, "maestro/ai/actions.py") {
+    CLASS(ActionProcessorClass, "ActionProcessor")
+    CLASS(PatchOperationClass, "PatchOperation")
+    ENUM(PatchOperationTypeEnum, "PatchOperationType")
+    FUNCTION(ValidateActions, "validate_actions()")
+    FUNCTION(ExecuteActions, "execute_actions()")
+}
+
+' Data Storage and Markdown Writers
+MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
+    FUNCTION(ParseConfigMd, "parse_config_md()")
+}
+
+MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
+    FUNCTION(InsertTrackBlock, "insert_track_block()")
+    FUNCTION(InsertPhaseBlock, "insert_phase_block()")
+    FUNCTION(InsertTaskBlock, "insert_task_block()")
+    FUNCTION(UpdateTrackMetadata, "update_track_metadata()")
+    FUNCTION(UpdatePhaseMetadata, "update_phase_metadata()")
+    FUNCTION(UpdateTaskMetadata, "update_task_metadata()")
+    ' ... others (replace, remove)
+}
+
+MODULE(DiscussionSessionModule, "maestro/discussion.py") {
+    CLASS(DiscussionSessionClass, "DiscussionSession")
+    FUNCTION(CreateDiscussionSession, "create_discussion_session()")
+    FUNCTION(ResumeDiscussion, "resume_discussion()")
+    FUNCTION(RunEditorMode, "run_editor_mode()")
+    FUNCTION(RunTerminalMode, "run_terminal_mode()")
+}
+
+MODULE(WorkSessionModule, "maestro/work_session.py") {
+    FUNCTION(CreateSession, "create_session()")
+}
+
+MODULE(BreadcrumbModule, "maestro/breadcrumb.py") {
+    FUNCTION(GetBreadcrumbSummary, "get_breadcrumb_summary()")
+}
+
+' External Dependencies
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(FileSystem, "File System")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATABASE(DocsConfigMd, "docs/config.md")
+DATABASE(DocsTodoMd, "docs/todo.md")
+DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
+DATABASE(MaestroAiArtifacts, ".maestro/ai/artifacts/") {
+    *.txt (transcripts), *.json (results)
+}
+DATABASE(WorkSessionsJson, "docs/state/work_sessions.json")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddDiscussParser : "Adds 'discuss' command and args"
+
+' Command Dispatch based on context
+HandleDiscussCommand --up-> CommandsDiscuss.HandleTrackDiscuss : "if --track provided"
+HandleDiscussCommand --up-> CommandsDiscuss.HandlePhaseDiscuss : "if --phase provided"
+HandleDiscussCommand --up-> CommandsDiscuss.HandleTaskDiscuss : "if --task provided"
+HandleDiscussCommand --> CommandsDiscuss.RunDiscussionWithRouter : "general discussion"
+
+' AI Discussion Routing and Execution
+CommandsDiscuss.RunDiscussionWithRouter --> AiManager.AiEngineManagerClass : "initializes AI engine manager"
+CommandsDiscuss.RunDiscussionWithRouter --> AiDiscussionRouter.DiscussionRouterClass : "initializes discussion router"
+CommandsDiscuss.RunDiscussionWithRouter --> AiContracts.JsonContractClass : "selects appropriate contract"
+CommandsDiscuss.RunDiscussionWithRouter --> AiDiscussionRouter.RunDiscussion : "runs AI discussion loop"
+AiDiscussionRouter.RunDiscussion --> AiManager.AiEngineManagerClass.run_once : "interacts with AI"
+AiDiscussionRouter.RunDiscussion --> AiContracts.JsonContractClass : "validates AI response"
+AiDiscussionRouter.RunDiscussion --> AiActions.PatchOperationClass : "produces PatchOperation objects"
+
+CommandsDiscuss.RunDiscussionWithRouter --> CommandsDiscuss.ChooseMode : "determines discussion mode"
+CommandsDiscuss.ChooseMode --> DataMarkdown.ParseConfigMd : "reads config for default mode"
+
+' Artifacts Management
+CommandsDiscuss.RunDiscussionWithRouter --> CommandsDiscuss.SaveDiscussionArtifacts : "saves discussion artifacts"
+SaveDiscussionArtifacts --[#Red,dashed]-> MaestroAiArtifacts : "writes transcript and results"
+CommandsDiscuss.RunDiscussionWithRouter --> CommandsDiscuss.UpdateArtifactStatus : "updates status"
+UpdateArtifactStatus --[#Red,dashed]-> MaestroAiArtifacts : "updates results JSON"
+
+' Patch Application Flow
+CommandsDiscuss.HandleDiscussCommand --> CommandsDiscuss.ApplyPatchOperations : "applies changes after confirmation"
+CommandsDiscuss.HandleTrackDiscuss --> CommandsDiscuss.ApplyPatchOperations
+CommandsDiscuss.HandlePhaseDiscuss --> CommandsDiscuss.ApplyPatchOperations
+CommandsDiscuss.HandleTaskDiscuss --> CommandsDiscuss.ApplyPatchOperations
+
+ApplyPatchOperations --> DataMarkdownWriter.InsertTrackBlock --[#Red,dashed]-> DocsTodoMd : "adds new tracks"
+ApplyPatchOperations --> DataMarkdownWriter.InsertPhaseBlock --[#Red,dashed]-> DocsTodoMd : "adds new phases"
+ApplyPatchOperations --> DataMarkdownWriter.InsertTaskBlock --[#Red,dashed]-> DocsPhasesMd : "adds new tasks"
+ApplyPatchOperations --> DataMarkdownWriter.UpdateTrackMetadata --[#Red,dashed]-> DocsTodoMd : "updates track status"
+ApplyPatchOperations --> DataMarkdownWriter.UpdatePhaseMetadata --[#Red,dashed]-> DocsTodoMd : "updates phase status"
+ApplyPatchOperations --> DataMarkdownWriter.UpdateTaskMetadata --[#Red,dashed]-> DocsPhasesMd : "updates task status"
+ApplyPatchOperations --> CommandsDiscuss.FindPhaseFileForTask : "finds phase file for task ops"
+CommandsDiscuss.FindPhaseFileForTask --> DocsPhasesMd : "searches for task in phase files"
+
+' Discussion Session (Older/Alternative path)
+CommandsDiscuss.RunDiscussionWithSession --> DiscussionSessionModule.DiscussionSessionClass : "manages session"
+DiscussionSessionModule.DiscussionSessionClass --> WorkSessionModule.CreateSession : "creates work session"
+WorkSessionModule.CreateSession --[#Red,dashed]-> WorkSessionsJson : "writes work session data"
+DiscussionSessionModule.DiscussionSessionClass --> BreadcrumbModule.GetBreadcrumbSummary : "gets summary"
+DiscussionSessionModule.DiscussionSessionClass --> AiActions.ActionProcessorClass : "validates/executes actions"
+AiActions.ActionProcessorClass <.. PatchOperationClass : "processes operations"
+
+' Data Flows
+PatchOperationClass <.. PatchOperationTypeEnum : "uses operation types"
+JsonContractClass <.. ContractTypeEnum : "uses contract types"
+ContractTypeEnum <.. CommandsDiscuss.HandleDiscussCommand : "determines context"
+
+' Persistence Details
+DocsConfigMd <--> FileSystem
+DocsTodoMd <--> FileSystem
+DocsPhasesMd <--> FileSystem
+MaestroAiArtifacts <--> FileSystem
+WorkSessionsJson <--> FileSystem
+
+@enduml

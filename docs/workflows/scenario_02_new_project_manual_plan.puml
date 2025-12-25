@@ -28,6 +28,7 @@ title WF-02: New Project from Empty Directory\n(Manual Track/Phase/Task Planning
 |Operator|
 start
 :ENTRY_WF_02;
+BRANCH_GUARD("operational rule")
 note right
   **Entry Conditions:**
   • Empty or new directory

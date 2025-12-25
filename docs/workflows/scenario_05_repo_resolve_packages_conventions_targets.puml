@@ -3,6 +3,7 @@
 
 |Operator|
 start
+BRANCH_GUARD("operational rule")
 :Run maestro repo resolve;
 
 |Maestro CLI|
@@ -57,7 +58,7 @@ end fork
 
 |State/Reports|
 :Write scan results to
-.maestro/repo/ directory;
+docs/maestro/repo/ directory;
 note right: Outputs:
 - index.json
 - index.summary.txt

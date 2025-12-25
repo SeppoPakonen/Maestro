@@ -1,0 +1,63 @@
+@startuml cmd_init_deep
+!include _shared.puml
+
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CliParser, "maestro/modules/cli_parser.py") {
+    FUNCTION(CreateMainParser, "create_main_parser()")
+}
+
+MODULE(CommandsInit, "maestro/commands/init.py") {
+    FUNCTION(AddInitParser, "add_init_parser()")
+    FUNCTION(HandleInitCommand, "handle_init_command()")
+}
+
+MODULE(Pathlib, "pathlib") {
+    CLASS(PathClass, "Path") {
+        + mkdir()
+        + exists()
+    }
+}
+
+MODULE(Builtins, "builtins") {
+    FUNCTION(OpenFile, "open()")
+}
+
+DATASTORE(LocalFilesystem, "Local Filesystem")
+
+' --- Relationships ---
+
+' CLI Entry Point
+MainEntry --> CreateMainParser : "1. Initializes parser"
+CreateMainParser --> AddInitParser : "2. Adds 'init' command to parser"
+
+' Command Execution Flow
+MainEntry --> HandleInitCommand : "3. Dispatches 'init' command"
+
+' Directory Creation
+HandleInitCommand --> PathClass.mkdir : "4. Creates docs/ and subdirectories"
+PathClass.mkdir --[#Red,dashed]-> LocalFilesystem : "Creates directories"
+
+' Settings.md Creation
+HandleInitCommand --> PathClass.exists : "5. Checks if docs/Settings.md exists"
+PathClass.exists -[dashed]-> LocalFilesystem : "Reads file existence"
+VALIDATION_GATE(ForceCheckSettings, "args.force or not exists()")
+HandleInitCommand --> ForceCheckSettings : "6. Conditional overwrite for Settings.md"
+ForceCheckSettings --> OpenFile : "7. Creates docs/Settings.md"
+OpenFile --[#Red,dashed]-> LocalFilesystem : "Writes file"
+
+' RepoRules.md Creation
+HandleInitCommand --> PathClass.exists : "8. Checks if docs/RepoRules.md exists"
+PathClass.exists -[dashed]-> LocalFilesystem : "Reads file existence"
+VALIDATION_GATE(ForceCheckRepoRules, "args.force or not exists()")
+HandleInitCommand --> ForceCheckRepoRepoRules : "9. Conditional overwrite for RepoRules.md"
+ForceCheckRepoRepoRules --> OpenFile : "10. Creates docs/RepoRules.md"
+OpenFile --[#Red,dashed]-> LocalFilesystem : "Writes file"
+
+' Output to User
+HandleInitCommand --> Stdout : "Prints status messages"
+Stdout <.. HandleInitCommand
+
+@enduml

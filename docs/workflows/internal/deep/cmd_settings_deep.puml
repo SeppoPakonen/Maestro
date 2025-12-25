@@ -1,0 +1,151 @@
+@startuml cmd_settings_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsSettings, "maestro/commands/settings.py") {
+    FUNCTION(AddSettingsParser, "add_settings_parser()")
+    FUNCTION(HandleSettingsCommand, "handle_settings_command()")
+    FUNCTION(ListSettings, "list_settings()")
+    FUNCTION(GetSetting, "get_setting()")
+    FUNCTION(SetSetting, "set_setting()")
+    FUNCTION(EditSettings, "edit_settings()")
+    FUNCTION(ResetSettings, "reset_settings()")
+    FUNCTION(SettingsWizard, "settings_wizard()")
+    FUNCTION(FormatValueForDisplay, "format_value_for_display()")
+    FUNCTION(ConvertValueToType, "convert_value_to_type()")
+    ' Profile handlers
+    FUNCTION(ProfileList, "profile_list()")
+    FUNCTION(ProfileSave, "profile_save()")
+    FUNCTION(ProfileLoad, "profile_load()")
+    FUNCTION(ProfileGet, "profile_get()")
+    FUNCTION(ProfileSetDefault, "profile_set_default()")
+}
+
+' Configuration Modules
+MODULE(ConfigSettings, "maestro/config/settings.py") {
+    CLASS(SettingsClass, "Settings")
+    FUNCTION(GetSettings, "get_settings()")
+    FUNCTION(CreateDefaultConfig, "create_default_config()")
+    FUNCTION(SettingsLoad, "load()")
+    FUNCTION(SettingsSave, "save()")
+    FUNCTION(SettingsGet, "get()")
+    FUNCTION(SettingsSet, "set()")
+    FUNCTION(SettingsValidate, "validate()")
+}
+
+MODULE(ConfigProfiles, "maestro/config/settings_profiles.py") {
+    CLASS(SettingsProfileManagerClass, "SettingsProfileManager")
+    FUNCTION(ListProfiles, "list_profiles()")
+    FUNCTION(GetActiveProfile, "get_active_profile()")
+    FUNCTION(GetDefaultProfile, "get_default_profile()")
+    FUNCTION(UpdateProfile, "update_profile()")
+    FUNCTION(CreateProfile, "create_profile()")
+    FUNCTION(SetActiveProfile, "set_active_profile()")
+    FUNCTION(SetDefaultProfile, "set_default_profile()")
+    FUNCTION(LoadProfile, "load_profile()")
+    FUNCTION(HasUnsavedChanges, "has_unsaved_changes()")
+    FUNCTION(GetSettingsHash, "get_settings_hash()")
+    FUNCTION(CreateAuditLog, "create_audit_log()")
+}
+
+' Utility Modules
+MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
+    FUNCTION(ParseConfigMd, "parse_config_md()")
+}
+
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' Console print functions, Colors
+}
+
+' External Dependencies
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(FileSystem, "File System")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATABASE(DocsConfigMd, "docs/config.md")
+DATABASE(ProfilesJson, "~/.maestro/profiles.json")
+DATABASE(ProfileSettingsJson, "~/.maestro/profiles/<id>.json")
+DATABASE(ProfileAuditJsonL, "~/.maestro/profiles/audit.jsonl")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddSettingsParser : "Adds 'settings' command and subparsers"
+
+' Command Dispatch
+HandleSettingsCommand --> ListSettings
+HandleSettingsCommand --> GetSetting
+HandleSettingsCommand --> SetSetting
+HandleSettingsCommand --> EditSettings
+HandleSettingsCommand --> ResetSettings
+HandleSettingsCommand --> SettingsWizard
+HandleSettingsCommand --> ProfileList : "profile subcommands"
+HandleSettingsCommand --> ProfileSave
+HandleSettingsCommand --> ProfileLoad
+HandleSettingsCommand --> ProfileGet
+HandleSettingsCommand --> ProfileSetDefault
+
+' Settings Object Interaction
+ListSettings --> ConfigSettings.GetSettings
+GetSetting --> ConfigSettings.GetSettings
+SetSetting --> ConfigSettings.GetSettings
+SetSetting --> SettingsClass.Set
+SetSetting --> SettingsClass.Validate
+SetSetting --> SettingsClass.Save
+EditSettings --> ConfigSettings.GetSettings
+EditSettings --> ConfigSettings.CreateDefaultConfig : "if config file missing"
+EditSettings --> SettingsClass.Load
+EditSettings --> SettingsClass.Validate
+ResetSettings --> ConfigSettings.GetSettings
+ResetSettings --> ConfigSettings.CreateDefaultConfig
+SettingsWizard --> ConfigSettings.CreateDefaultConfig
+SettingsWizard --> SettingsClass.Save
+
+' Profile Manager Interaction
+SetSetting --> ConfigProfiles.SettingsProfileManagerClass.GetSettingsHash : "detect changes"
+ResetSettings --> ConfigProfiles.SettingsProfileManagerClass.GetSettingsHash
+SettingsWizard --> ConfigProfiles.SettingsProfileManagerClass.GetSettingsHash
+
+ProfileList --> ConfigProfiles.SettingsProfileManagerClass.ListProfiles
+ProfileList --> ConfigProfiles.SettingsProfileManagerClass.GetActiveProfile
+ProfileList --> ConfigProfiles.SettingsProfileManagerClass.GetDefaultProfile
+
+ProfileSave --> ConfigProfiles.SettingsProfileManagerClass.CreateProfile
+ProfileSave --> ConfigProfiles.SettingsProfileManagerClass.UpdateProfile
+ProfileSave --> ConfigProfiles.SettingsProfileManagerClass.SetDefaultProfile
+ProfileSave --> ConfigProfiles.SettingsProfileManagerClass.SetActiveProfile
+
+ProfileLoad --> ConfigProfiles.SettingsProfileManagerClass.LoadProfile
+ProfileLoad --> ConfigProfiles.SettingsProfileManagerClass.HasUnsavedChanges
+ProfileLoad --> ConfigProfiles.SettingsProfileManagerClass.CreateAuditLog
+
+ProfileGet --> ConfigProfiles.SettingsProfileManagerClass.GetActiveProfile
+
+ProfileSetDefault --> ConfigProfiles.SettingsProfileManagerClass.SetDefaultProfile
+
+
+' File System & External Interaction
+
+ConfigSettings.GetSettings -[dashed]-> DocsConfigMd : "reads/loads settings"
+SettingsClass.Save --[#Red,dashed]-> DocsConfigMd : "writes/updates settings"
+SettingsClass.Load -[dashed]-> DocsConfigMd : "loads settings"
+
+EditSettings --> Subprocess : "invokes external editor"
+Editor <--> EditSettings : "modifies docs/config.md"
+
+SettingsProfileManagerClass --> ProfilesJson : "manages profile metadata"
+SettingsProfileManagerClass --> ProfileSettingsJson : "manmanages profile settings content"
+SettingsProfileManagerClass --> ProfileAuditJsonL : "writes audit log"
+
+' Data Conversion and Formatting
+SetSetting --> CommandsSettings.ConvertValueToType
+ListSettings --> CommandsSettings.FormatValueForDisplay
+GetSetting --> CommandsSettings.FormatValueForDisplay
+
+@enduml

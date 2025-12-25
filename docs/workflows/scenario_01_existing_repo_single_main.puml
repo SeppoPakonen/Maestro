@@ -28,6 +28,7 @@ title WF-01: Existing Repo Bootstrap\n(Single Main, Compiled Language)
 |Operator|
 start
 :ENTRY_WF_01;
+BRANCH_GUARD("operational rule")
 note right
   **Entry Conditions:**
   • Existing git repository
@@ -278,16 +279,14 @@ else (no)
     WRITE_TRUTH("docs/maestro/tasks/TASK-XXX.json")
   endwhile (done)
 
-  :Update task priorities in JSON;
-  note right
-    # TODO
-    ## Phase: Build Fixes
-    - [ ] TASK-001 (no deps)
-    - [ ] TASK-002 (deps: TASK-001)
-  end note
-  WRITE_TRUTH("docs/maestro/tasks/*.json")
-endif
-
+    :Update task priorities in JSON;
+        note right
+          Task ordering is managed within
+          the `active tasks in JSON` structure.
+          e.g., `{"tasks": [{"id": "TASK-001", ...}]}`
+        end note
+        WRITE_TRUTH("docs/maestro/tasks/*.json")
+      endif
 ' ============================================================================
 ' PHASE 5: WORK LOOP (FIX → REBUILD → ITERATE)
 ' ============================================================================

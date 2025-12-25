@@ -1,0 +1,117 @@
+@startuml cmd_root_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
+    FUNCTION(HandleRootSet, "handle_root_set()")
+    FUNCTION(HandleRootGet, "handle_root_get()")
+    FUNCTION(HandleRootRefine, "handle_root_refine()")
+    FUNCTION(HandleRootDiscuss, "handle_root_discuss()")
+    FUNCTION(HandleRootShow, "handle_root_show()")
+    FUNCTION(LoadSession, "load_session()")
+    FUNCTION(SaveSession, "save_session()")
+    FUNCTION(GetMaestroDir, "get_maestro_dir()") ' Used to determine session_dir
+    FUNCTION(EditRootTaskInEditor, "edit_root_task_in_editor()") ' Used by new session
+    FUNCTION(BuildPrompt, "build_prompt()") ' Generic prompt builder
+    FUNCTION(SavePromptForTraceability, "save_prompt_for_traceability()")
+    FUNCTION(SaveAiOutput, "save_ai_output()")
+    FUNCTION(GetMultilineInput, "get_multiline_input()")
+    FUNCTION(PrintAiResponse, "print_ai_response()")
+}
+
+' Session Model & Persistence
+MODULE(SessionModel, "maestro/session_model.py") {
+    CLASS(SessionClass, "Session")
+}
+
+' AI Integration
+MODULE(EnginesModule, "maestro/engines.py") {
+    FUNCTION(GetEngine, "get_engine()")
+    CLASS(PlannerError, "PlannerError")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_header, print_info, print_success, print_error, print_warning, print_debug, Colors
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(User, "User (for input)")
+ACTOR(ExternalAI, "External AI Service")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
+    session.json
+    rules.txt
+}
+DATABASE(ConversationsDir, ".maestro/conversations/") {
+    *.txt (transcripts)
+}
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup (implicit via maestro.main.py and cli_parser)
+
+' Command Dispatch (from maestro.main.py)
+MainEntry -- HandleRootSet
+MainEntry -- HandleRootGet
+MainEntry -- HandleRootRefine
+MainEntry -- HandleRootDiscuss
+MainEntry -- HandleRootShow
+
+' Common Session Loading
+CommandHandlers.LoadSession --> DocsSessionsDir : "reads session.json"
+
+' Root Set Flow (`maestro root set`)
+HandleRootSet --> CommandHandlers.LoadSession
+HandleRootSet --> User : "gets text input"
+HandleRootSet --> SessionClass : "updates root_task fields"
+HandleRootSet --> CommandHandlers.SaveSession --[#Red,dashed]-> DocsSessionsDir : "saves updated session"
+
+' Root Get Flow (`maestro root get`)
+HandleRootGet --> CommandHandlers.LoadSession
+HandleRootGet --> User : "prints raw/clean root task"
+
+' Root Show Flow (`maestro root show`)
+HandleRootShow --> CommandHandlers.LoadSession
+HandleRootShow --> User : "prints all root task details"
+
+' Root Refine Flow (`maestro root refine`)
+HandleRootRefine --> CommandHandlers.LoadSession
+HandleRootRefine --> HandleRefineRoot : "delegates to utils.handle_refine_root"
+HandleRefineRoot --> ExternalAI : "invokes AI planner"
+HandleRefineRoot --> CommandHandlers.SaveSession
+
+' Root Discuss Flow (`maestro root discuss`)
+HandleRootDiscuss --> CommandHandlers.LoadSession
+HandleRootDiscuss --> GetMaestroDir : "determines conversation dir"
+HandleRootDiscuss --> ConversationsDir : "creates dir"
+HandleRootDiscuss --> User : "interactive input"
+HandleRootDiscuss --> GetEngine : "selects AI engine"
+HandleRootDiscuss --> ExternalAI : "communicates with AI"
+HandleRootDiscuss --> SessionClass : "updates session with refined root task, history"
+HandleRootDiscuss --> CommandHandlers.SaveSession --[#Red,dashed]-> DocsSessionsDir
+HandleRootDiscuss --> ConversationsDir --[#Red,dashed]-> FileSystem : "saves conversation transcript"
+
+' Helper Interactions
+GetMaestroDir --> FileSystem
+EditRootTaskInEditor --> Subprocess : "editor interaction (if used)"
+GetEngine --> ExternalAI
+
+' Data Model interactions
+SessionClass <.. LoadSession : "loaded into"
+SessionClass --> SaveSession : "saved from"
+SessionClass <.. CommandHandlers.HandleRootShow : "data source"
+
+' Data Persistence
+DocsSessionsDir <--> FileSystem
+ConversationsDir <--> FileSystem
+
+@enduml

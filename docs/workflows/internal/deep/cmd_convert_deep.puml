@@ -1,0 +1,103 @@
+@startuml cmd_convert_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsConvert, "maestro/commands/convert.py") {
+    FUNCTION(AddConvertParser, "add_convert_parser()")
+    FUNCTION(HandleConvertNew, "handle_convert_new()")
+    FUNCTION(HandleConvertPlan, "handle_convert_plan()")
+    FUNCTION(HandleConvertRun, "handle_convert_run()")
+    FUNCTION(HandleConvertStatus, "handle_convert_status()")
+    FUNCTION(HandleConvertShow, "handle_convert_show()")
+    FUNCTION(HandleConvertReset, "handle_convert_reset()")
+    FUNCTION(HandleConvertBatch, "handle_convert_batch()")
+}
+
+' Conversion Subsystem Modules (Actual Logic)
+MODULE(ConvertOrchestrator, "maestro/convert/convert_orchestrator.py") {
+    FUNCTION(CreateNewPipeline, "create_new_pipeline()")
+    FUNCTION(ResetPipeline, "reset_pipeline()")
+}
+
+MODULE(ConvertPlanner, "maestro/convert/planner.py") {
+    FUNCTION(PlanConversion, "plan_conversion()")
+}
+
+MODULE(ConvertExecution, "maestro/convert/execution_engine.py") {
+    FUNCTION(RunConversionPipeline, "run_conversion_pipeline()")
+}
+
+MODULE(UiFacadeConvert, "maestro/ui_facade/convert.py") {
+    FUNCTION(GetPipelineStatus, "get_pipeline_status()")
+    CLASS(PipelineStatus, "PipelineStatus")
+    CLASS(PipelineStage, "PipelineStage")
+}
+
+' Utility Modules
+MODULE(Pathlib, "pathlib")
+MODULE(OS, "os")
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+
+' Persistent Stores (Conceptual, managed by underlying convert modules)
+DATABASE(MaestroConvertDir, ".maestro/convert/") {
+    Pipeline definitions, state, logs
+}
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddConvertParser : "Adds 'convert' command and subparsers"
+
+' Command Dispatch
+HandleConvertNew <.. MainEntry : "for 'convert new'"
+HandleConvertPlan <.. MainEntry : "for 'convert plan'"
+HandleConvertRun <.. MainEntry : "for 'convert run'"
+HandleConvertStatus <.. MainEntry : "for 'convert status'"
+HandleConvertShow <.. MainEntry : "for 'convert show'"
+HandleConvertReset <.. MainEntry : "for 'convert reset'"
+HandleConvertBatch <.. MainEntry : "for 'convert batch'"
+
+' Convert Subcommand Flow
+
+' new
+HandleConvertNew --> ConvertOrchestrator.CreateNewPipeline : "creates pipeline"
+ConvertOrchestrator.CreateNewPipeline --[#Red,dashed]-> MaestroConvertDir : "writes new pipeline config"
+
+' plan
+HandleConvertPlan --> ConvertPlanner.PlanConversion : "plans conversion"
+ConvertPlanner.PlanConversion --> MaestroConvertDir : "reads/writes plan state"
+
+' run
+HandleConvertRun --> ConvertExecution.RunConversionPipeline : "executes pipeline"
+ConvertExecution.RunConversionPipeline --> MaestroConvertDir : "reads/writes execution state"
+ConvertExecution.RunConversionPipeline --> FileSystem : "modifies project files"
+
+' status / show
+HandleConvertStatus --> UiFacadeConvert.GetPipelineStatus : "gets status summary"
+HandleConvertShow --> UiFacadeConvert.GetPipelineStatus : "gets detailed status"
+GetPipelineStatus --> MaestroConvertDir : "reads pipeline state"
+GetPipelineStatus ..> PipelineStatus : "returns structured status"
+GetPipelineStatus ..> PipelineStage : "returns structured stages"
+
+' reset
+HandleConvertReset --> ConvertOrchestrator.ResetPipeline : "resets pipeline state"
+ConvertOrchestrator.ResetPipeline --[#Red,dashed]-> MaestroConvertDir : "clears/resets state"
+
+' batch (placeholder)
+HandleConvertBatch --> FileSystem : "conceptual batch operations"
+
+' Error Handling for Imports
+CommandsConvert -[#Red]-> CommandsConvert : "handles ImportError, prints user-friendly message"
+
+' General Utilities
+CommandsConvert --> Pathlib
+CommandsConvert --> OS
+
+@enduml

@@ -46,6 +46,10 @@ follow_on_scenarios: [WF-05]
 - Both use identical CLI commands
 - Behavior is the same at the command boundary
 
+## Branch Boundaries Note
+
+**Important**: Maestro operates strictly on the current Git branch. Switching branches during an active `maestro work` session is **unsupported** and risks corrupting the internal state. While future implementations may include branch-awareness checks, this is currently an **operational rule**. Users must ensure they complete or explicitly abandon work on one branch before switching.
+
 ## Overview
 
 This scenario documents the **greenfield project bootstrap process** when an Operator starts a **new project from scratch** with:
@@ -129,8 +133,7 @@ cd my-new-project
     tasks/
     issues/
     plan.json       (empty scaffold: {"tracks": [], "version": "1.0"})
-    todo.md         (empty: "# TODO\n")
-    done.md         (empty: "# DONE\n")
+    ' Task state managed in Track/Phase/Task data structures under docs/maestro/
   ```
 
 **Failure Modes**:
@@ -388,7 +391,7 @@ maestro work task T001
 maestro task complete T001
 ```
 
-**Purpose**: Mark task as completed and move it from `todo.md` to `done.md`.
+**Purpose**: Mark task as completed, updating its status within the `docs/maestro/task/` structures.
 
 **Inputs**:
 - `task_id`: Task to mark complete
@@ -408,7 +411,7 @@ maestro task complete T001
 
 **State Change**:
 - Task status: `todo` → `completed`
-- Task moved from todo.md to done.md (Mandatory Task Lifecycle Rule)
+- Task status updated from 'todo' to 'completed' within its respective JSON file (Mandatory Task Lifecycle Rule)
 
 ---
 
@@ -425,7 +428,7 @@ The Operator repeats Phase 6 (work loop) for each task:
 
 ### Decision Gates
 
-**GATE: "More tasks in todo.md?"**
+**GATE: "More tasks in active tasks in JSON?"**
 - **Yes** → Loop back to Phase 6.1
 - **No** → All tasks completed; project work finished
 
@@ -479,7 +482,7 @@ The Operator repeats Phase 6 (work loop) for each task:
 | `maestro task add <id> --phase <phase> --name "<name>" --description "<desc>"` | Create task | Task ID, phase ID, name, description | `docs/maestro/tasks/<id>.json` | Duplicate task_id, invalid phase_id |
 | `maestro task next` | Show next available task | None | Task details | No tasks available |
 | `maestro work task <id>` | Execute task | Task ID | Work artifacts | Engine validation fails |
-| `maestro task complete <id>` | Complete task | Task ID | Updated task status, moved to done.md | Task not found, already completed |
+| maestro task complete <id> | Complete task | Task ID | Updated task status in docs/maestro/tasks/<id>.json | Task not found, already completed |
 
 ---
 
@@ -506,12 +509,12 @@ The Operator repeats Phase 6 (work loop) for each task:
    - `test_task_add_creates_json()`
    - `test_task_add_rejects_invalid_phase_id()`
    - `test_task_add_with_dependencies()`
-   - `test_task_add_updates_todo_md()`
+   - `test_task_add_updates_active_tasks_json()`
 
 5. **Work Loop**:
    - `test_task_next_selects_unblocked_task()`
    - `test_work_task_executes_with_engine()`
-   - `test_task_complete_moves_to_done_md()`
+   - `test_task_complete_updates_task_status()`
    - `test_task_complete_validates_task_exists()`
 
 ### Integration Tests

@@ -1,0 +1,129 @@
+@startuml subsystem_repo_resolve
+!include _shared.puml
+
+' Repo Resolve Orchestrator
+MODULE(ScannerModule, "maestro/repo/scanner.py") {
+    CLASS(RepoScanResultClass, "RepoScanResult")
+    FUNCTION(ScanUppRepoV2, "scan_upp_repo_v2()")
+    FUNCTION(GuessPathKind, "guess_path_kind()")
+    FUNCTION(InferInternalPackages, "infer_internal_packages()")
+}
+
+' Core Data Structures
+MODULE(PackageModule, "maestro/repo/package.py") {
+    CLASS(PackageInfoClass, "PackageInfo") {
+        + name: str
+        + dir: str
+        + build_system: str
+        + dependencies: List<str>
+        + groups: List<FileGroup>
+        + ungrouped_files: List<str>
+    }
+    CLASS(FileGroupClass, "FileGroup") {
+        + name: str
+        + files: List<str>
+        + readonly: bool
+        + auto_generated: bool
+    }
+}
+
+' U++ Specific Parsers
+MODULE(UppParserModule, "maestro/repo/upp_parser.py") {
+    CLASS(UppParserClass, "UppParser")
+    FUNCTION(ParseUppFile, "parse_upp_file()")
+    FUNCTION(ParseUppContent, "parse_upp_content()")
+    UppParserClass ..> FileGroupClass : "creates"
+}
+
+MODULE(UplusplusVarReaderModule, "maestro/repo/uplusplus_var_reader.py") {
+    CLASS(VarFileParserClass, "VarFileParser")
+    CLASS(UppAssemblyReaderClass, "UppAssemblyReader")
+    FUNCTION(ReadUserAssemblies, "read_user_assemblies()")
+}
+
+' Generic Build System Scanners
+MODULE(BuildSystemsModule, "maestro/repo/build_systems.py") {
+    CLASS(BuildSystemPackageClass, "BuildSystemPackage")
+    FUNCTION(DetectBuildSystem, "detect_build_system()")
+    FUNCTION(ScanAllBuildSystems, "scan_all_build_systems()")
+    FUNCTION(ScanCmakePackages, "scan_cmake_packages()")
+    FUNCTION(ScanMsvsPackages, "scan_msvs_packages()")
+    FUNCTION(ScanMavenPackages, "scan_maven_packages()")
+    FUNCTION(ScanGradlePackages, "scan_gradle_packages()")
+    ' ... other scan_*_packages
+    BuildSystemPackageClass ..> PackageInfoClass : "converted to"
+}
+
+' Assembly Detection
+MODULE(AssemblyModule, "maestro/repo/assembly.py") {
+    CLASS(AssemblyInfoClass, "AssemblyInfo")
+    FUNCTION(DetectAssemblies, "detect_assemblies()")
+    FUNCTION(ClassifyAssemblyType, "classify_assembly_type()")
+    ' ... other detect_*_assembly functions
+}
+
+' Convention Inference
+MODULE(GroupingModule, "maestro/repo/grouping.py") {
+    CLASS(AutoGrouperClass, "AutoGrouper")
+    FUNCTION(AutoGroup, "auto_group()")
+    AutoGrouperClass ..> FileGroupClass : "creates"
+}
+
+' External Systems
+ACTOR(FileSystem, "File System")
+DATABASE(UserConfigDir, "~/.config/u++/ide/*.var")
+
+' --- Relationships and Call Flow ---
+
+' Main Scan Orchestration
+ScanUppRepoV2 --> FileSystem : "Walks directory tree"
+ScanUppRepoV2 --> UppParserModule.ParseUppFile : "Parses .upp files"
+ScanUppRepoV2 --> BuildSystemsModule.ScanAllBuildSystems : "Scans other build systems"
+ScanUppRepoV2 --> UplusplusVarReaderModule.ReadUserAssemblies : "Reads user assemblies"
+ScanUppRepoV2 --> AssemblyModule.DetectAssemblies : "Detects assemblies"
+ScanUppRepoV2 --> InferInternalPackages : "Infers internal packages"
+ScanUppRepoV2 --> RepoScanResultClass : "Populates result"
+
+' Package Information Flow
+PackageInfoClass <.. UppParserModule : "populated by"
+PackageInfoClass <.. BuildSystemsModule : "converted from BuildSystemPackage"
+PackageInfoClass <.. ScannerModule : "collected by"
+
+' Build System Detection & Parsing
+ScanAllBuildSystems --> DetectBuildSystem : "First, detects systems"
+DetectBuildSystem --> FileSystem : "Checks for signature files"
+ScanAllBuildSystems --> ScanCmakePackages : "Invokes specific scanners"
+ScanCmakePackages --> FileSystem : "Reads CMakeLists.txt"
+ScanMsvsPackages --> FileSystem : "Reads .sln, .vcxproj, .csproj"
+ScanMavenPackages --> FileSystem : "Reads pom.xml"
+ScanGradlePackages --> FileSystem : "Reads build.gradle, settings.gradle"
+
+' U++ Parsing Details
+UppParserClass -[dashed]-> FileSystem : "Reads .upp files"
+UppParserClass ..> UppParserClass : "uses _parse_* methods"
+UppParserClass --> FileGroupClass : "_process_file_groups creates"
+UppParserClass ..> PackageInfoClass : "results in metadata for"
+
+' User Assembly Reading
+ReadUserAssemblies --> UppAssemblyReaderClass : "initializes reader"
+UppAssemblyReaderClass --> UserConfigDir : "reads .var files from"
+UppAssemblyReaderClass --> VarFileParserClass : "parses .var files"
+
+' Assembly Aggregation
+DetectAssemblies --> PackageInfoClass : "consumes discovered packages"
+DetectAssemblies --> AssemblyInfoClass : "produces AssemblyInfo"
+DetectAssemblies ..> ClassifyAssemblyType : "uses classification logic"
+ClassifyAssemblyType ..> AssemblyModule : "uses detect_*_assembly heuristics"
+
+' Convention Inference / File Grouping
+InferInternalPackages --> GroupingModule.AutoGrouperClass : "uses for unknown paths"
+AutoGroup --> FileGroupClass : "creates inferred groups"
+FileGroupClass <.. PackageInfoClass : "contained within"
+
+' Output Structure
+RepoScanResultClass --> AssemblyInfoClass : "contains detected assemblies"
+RepoScanResultClass --> PackageInfoClass : "contains detected packages"
+RepoScanResultClass --> ScannerModule.UnknownPath : "contains unknown paths"
+RepoScanResultClass --> ScannerModule.InternalPackage : "contains inferred internal packages"
+
+@enduml

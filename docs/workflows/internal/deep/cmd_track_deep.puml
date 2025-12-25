@@ -1,0 +1,171 @@
+@startuml cmd_track_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsTrack, "maestro/commands/track.py") {
+    FUNCTION(AddTrackParsers, "add_track_parsers()")
+    FUNCTION(HandleTrackCommand, "handle_track_command()")
+    FUNCTION(ResolveTrackIdentifier, "resolve_track_identifier()")
+    FUNCTION(ListTracks, "list_tracks()")
+    FUNCTION(ShowTrack, "show_track()")
+    FUNCTION(ShowTrackDetails, "show_track_details()")
+    FUNCTION(AddTrack, "add_track()")
+    FUNCTION(RemoveTrack, "remove_track()")
+    FUNCTION(EditTrack, "edit_track()")
+    FUNCTION(SetTrackStatus, "set_track_status()")
+    FUNCTION(SetTrackContext, "set_track_context()")
+    FUNCTION(_EnsureTodoFile, "_ensure_todo_file()")
+    FUNCTION(_ParseTodoSafe, "_parse_todo_safe()")
+    FUNCTION(_SlugifyTrackId, "_slugify_track_id()")
+}
+
+' Data Storage and Models
+MODULE(DataCommonUtils, "maestro/data/common_utils.py") {
+    FUNCTION(GetAllTracks, "get_all_tracks_with_phases_and_tasks()")
+    FUNCTION(ResolveIdentifierByType, "resolve_identifier_by_type()")
+}
+
+MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
+    FUNCTION(ExtractTrackBlock, "extract_track_block()")
+    FUNCTION(ReplaceTrackBlock, "replace_track_block()")
+    FUNCTION(UpdateTrackMetadata, "update_track_metadata()")
+    FUNCTION(UpdateTrackHeadingStatus, "update_track_heading_status()")
+}
+
+MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
+    CLASS(JsonStoreClass, "JsonStore")
+    FUNCTION(LoadTrack, "load_track()")
+    FUNCTION(SaveTrack, "save_track()")
+    FUNCTION(LoadIndex, "load_index()")
+    FUNCTION(SaveIndex, "save_index()")
+}
+
+MODULE(TracksModels, "maestro/tracks/models.py") {
+    CLASS(TrackClass, "Track")
+}
+
+' Display and Utility
+MODULE(DisplayTableRenderer, "maestro/display/table_renderer.py") {
+    FUNCTION(RenderTrackTable, "render_track_table()")
+    FUNCTION(RenderPhaseTable, "render_phase_table()")
+}
+
+MODULE(ConfigSettings, "maestro/config/settings.py") {
+    FUNCTION(GetSettings, "get_settings()")
+}
+
+MODULE(StatusUtils, "maestro/commands/status_utils.py") {
+    FUNCTION(NormalizeStatus, "normalize_status()")
+    FUNCTION(AllowedStatuses, "allowed_statuses()")
+    FUNCTION(StatusBadge, "status_badge()")
+    FUNCTION(StatusTimestamp, "status_timestamp()")
+}
+
+MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
+    FUNCTION(HandleTrackDiscuss, "handle_track_discuss()")
+}
+
+' External Dependencies
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(FileSystem, "File System")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATABASE(DocsTodoMd, "docs/todo.md")
+DATABASE(DocsDoneMd, "docs/done.md")
+DATABASE(MaestroTracksJson, ".maestro/tracks/*.json")
+DATABASE(MaestroTracksIndexJson, ".maestro/tracks/index.json")
+DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddTrackParsers : "Adds 'track' command and subparsers"
+
+' Command Dispatch
+HandleTrackCommand -right-> ListTracks
+HandleTrackCommand -right-> ShowTrack
+HandleTrackCommand -right-> ShowTrackDetails
+HandleTrackCommand -right-> AddTrack
+HandleTrackCommand -right-> RemoveTrack
+HandleTrackCommand -right-> EditTrack
+HandleTrackCommand -right-> SetTrackStatus
+HandleTrackCommand -right-> SetTrackContext
+HandleTrackCommand -right-> CommandsDiscuss.HandleTrackDiscuss
+
+' Track Identification
+CommandsTrack.ResolveTrackIdentifier --> DataCommonUtils.ResolveIdentifierByType
+
+' Listing Tracks
+ListTracks --> DataCommonUtils.GetAllTracks
+ListTracks --> DisplayTableRenderer.RenderTrackTable
+ListTracks --> DocsTodoMd : "implicitly via get_all_tracks"
+
+' Showing Tracks (Details)
+ShowTrack --> CommandsTrack.ResolveTrackIdentifier
+ShowTrack --> _ParseTodoSafe : "reads from Markdown"
+ShowTrack --> GetSettings : "accesses settings for display"
+ShowTrack --> DisplayTableRenderer : "uses for structured output"
+ShowTrack --> DocsDoneMd : "reads done phases"
+ShowTrackDetails --> CommandsTrack.ResolveTrackIdentifier
+ShowTrackDetails --> _ParseTodoSafe
+ShowTrackDetails --> DocsDoneMd
+
+' Adding Track
+AddTrack --> JsonStoreClass : "manages JSON storage"
+AddTrack --> _SlugifyTrackId : "generates track ID"
+AddTrack --> TrackClass : "creates Track object"
+AddTrack --> JsonStoreClass.SaveTrack : "persists Track object"
+AddTrack --> JsonStoreClass.LoadTrack : "checks for duplicates"
+
+' Removing Track
+RemoveTrack --> JsonStoreClass : "manages JSON storage"
+RemoveTrack --> CommandsTrack.ResolveTrackIdentifier
+RemoveTrack --> JsonStoreClass.LoadTrack
+RemoveTrack --> JsonStoreClass.LoadIndex
+RemoveTrack --> JsonStoreClass.SaveIndex
+RemoveTrack --> FileSystem : "unlinks track's JSON file"
+
+' Editing Track
+EditTrack --> CommandsTrack.ResolveTrackIdentifier
+EditTrack --> DataMarkdownWriter.ExtractTrackBlock : "extracts Markdown block"
+EditTrack --> Subprocess : "opens $EDITOR"
+Editor <--> EditTrack : "modifies content"
+EditTrack --> DataMarkdownWriter.ReplaceTrackBlock : "updates Markdown block"
+EditTrack --[#Red,dashed]-> DocsTodoMd
+
+' Setting Track Status
+SetTrackStatus --> CommandsTrack.ResolveTrackIdentifier
+SetTrackStatus --> StatusUtils.NormalizeStatus
+SetTrackStatus --> DataMarkdownWriter.UpdateTrackMetadata --[#Red,dashed]-> DocsTodoMd
+SetTrackStatus --> DataMarkdownWriter.UpdateTrackHeadingStatus --[#Red,dashed]-> DocsTodoMd
+SetTrackStatus --> StatusUtils.StatusBadge
+SetTrackStatus --> StatusUtils.StatusTimestamp
+
+' Setting Track Context
+SetTrackContext --> CommandsTrack.ResolveTrackIdentifier
+SetTrackContext --> GetSettings
+SetTrackContext --> SettingsJson : "writes settings"
+
+' AI Discussion
+HandleTrackCommand --> CommandsDiscuss.HandleTrackDiscuss : "delegates AI discussion"
+
+' Data Model interactions
+TrackClass <.. TracksJsonStore : "managed by JsonStore"
+DocsTodoMd <--> DataMarkdownWriter : "Markdown interface"
+DocsTodoMd <--> CommandsTrack._ParseTodoSafe : "reads Markdown"
+DocsTodoMd <--> CommandsTrack._EnsureTodoFile : "ensures existence"
+
+' Persistence
+DocsTodoMd <--> FileSystem
+DocsDoneMd <--> FileSystem
+MaestroTracksJson <--> FileSystem
+MaestroTracksIndexJson <--> FileSystem
+SettingsJson <--> FileSystem
+
+@enduml

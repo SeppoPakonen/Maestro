@@ -19,14 +19,17 @@
 
 ## Prerequisites
 
-This scenario requires a working build environment established by prior workflows:
+    This scenario requires a working build environment established by prior workflows:
 
-1. **Repo Resolve (WF-05)** must have produced packages/targets/configs
-2. **RepoConf** must identify sane output targets/executables
-3. **Build** must succeed (compile-to-app) before TU/AST can run
+    1. **Repo Resolve (WF-05)** must have produced packages/targets/configs
+    2. **RepoConf** must identify sane output targets/executables
+    3. **Build** must succeed (compile-to-app) before TU/AST can run
 
-If repo-conf is not yet documented, see `docs/workflows/command_repo_conf.md` for the command details.
+    If repo-conf is not yet documented, see `docs/workflows/command_repo_conf.md` for the command details.
 
+    ## Branch Boundaries Note
+
+    **Important**: Maestro operates strictly on the current Git branch. AST/TU operations are highly sensitive to the exact state of the source code. Switching branches during an active AST/TU generation or manipulation process (e.g., refactoring, transformation) is **unsupported** and risks corrupting the AST index or applying changes inconsistently. This is an **operational rule**. Users must ensure they are on the desired branch before initiating AST/TU workflows.
 ## TU/AST Generation Flow
 
 The `maestro tu build` command generates translation unit ASTs with the following contract:
@@ -36,7 +39,7 @@ The `maestro tu build` command generates translation unit ASTs with the followin
   - Invokes compiler in "emit AST" mode (specifically uses ClangParser for C++ or other language parsers)
   - Captures AST output and caches it
 - Merges per-TU AST into a unified symbol namespace/index
-- Stores index/cache/report in `.maestro/tu/` directory structure
+- Stores index/cache/report in `docs/maestro/tu/` directory structure
 
 **Hard stops**:
 - TU generation failure treated like compile error (block continuation)

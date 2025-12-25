@@ -1,0 +1,95 @@
+@startuml cmd_solutions_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsSolutions, "maestro/commands/solutions.py") {
+    FUNCTION(AddSolutionsParser, "add_solutions_parser()")
+    FUNCTION(HandleSolutionsCommand, "handle_solutions_command()")
+    FUNCTION(_HandleList, "_handle_list()")
+    FUNCTION(_HandleShow, "_handle_show()")
+    FUNCTION(_HandleAdd, "_handle_add()")
+    FUNCTION(_HandleRemove, "_handle_remove()")
+    FUNCTION(_HandleEdit, "_handle_edit()")
+    FUNCTION(_FindSolutionPath, "_find_solution_path()")
+    FUNCTION(_OpenEditor, "_open_editor()")
+    FUNCTION(_FindRepoRoot, "_find_repo_root()")
+}
+
+' Solutions Subsystem Modules
+MODULE(SolutionsStore, "maestro/solutions/solution_store.py") {
+    FUNCTION(ListSolutions, "list_solutions()")
+    FUNCTION(ListExternalSolutions, "list_external_solutions()")
+    FUNCTION(LoadSolution, "load_solution()")
+    FUNCTION(WriteSolution, "write_solution()")
+    FUNCTION(DeleteSolution, "delete_solution()")
+    CLASS(SolutionDetailsClass, "SolutionDetails")
+    CLASS(SolutionRecordClass, "SolutionRecord")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_header, print_error etc.
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATABASE(DocsSolutionsMd, "docs/solutions/<id>.md")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddSolutionsParser : "Adds 'solutions' command and subparsers"
+
+' Command Dispatch
+HandleSolutionsCommand --> _FindRepoRoot : "Locates repo context"
+HandleSolutionsCommand -- _HandleList
+HandleSolutionsCommand -- _HandleShow
+HandleSolutionsCommand -- _HandleAdd
+HandleSolutionsCommand -- _HandleRemove
+HandleSolutionsCommand -- _HandleEdit
+
+' Solution Lifecycle Commands
+
+' List Solutions
+_HandleList --> SolutionsStore.ListSolutions --> DocsSolutionsMd : "reads local solutions"
+_HandleList --> SolutionsStore.ListExternalSolutions : "reads external solutions (conceptual)"
+
+' Show Solution
+_HandleShow --> CommandsSolutions._FindSolutionPath : "locates solution file"
+CommandsSolutions._FindSolutionPath --> DocsSolutionsMd : "checks existence"
+_HandleShow --> SolutionsStore.LoadSolution --> DocsSolutionsMd : "loads and parses solution"
+
+' Add Solution
+_HandleAdd --> SolutionsStore.SolutionDetailsClass : "creates solution object"
+_HandleAdd --> SolutionsStore.WriteSolution --[#Red,dashed]-> DocsSolutionsMd : "writes new solution file"
+_HandleAdd --> CommandsSolutions._OpenEditor : "conditionally opens editor"
+CommandsSolutions._OpenEditor --> Subprocess : "invokes external editor"
+Editor <--> CommandsSolutions._OpenEditor
+
+' Remove Solution
+_HandleRemove --> SolutionsStore.DeleteSolution --[#Red,dashed]-> DocsSolutionsMd : "deletes solution file"
+
+' Edit Solution
+_HandleEdit --> CommandsSolutions._FindSolutionPath
+_HandleEdit --> CommandsSolutions._OpenEditor : "opens solution file in editor"
+CommandsSolutions._OpenEditor --> Subprocess : "invokes external editor"
+Editor <--> CommandsSolutions._OpenEditor
+
+' Helper Function Interactions
+_FindRepoRoot --> FileSystem : "searches for .maestro"
+_FindSolutionPath --> FileSystem : "locates solution file"
+
+' Data Model interactions
+SolutionRecordClass <.. SolutionsStore.LoadSolution : "parsed into"
+SolutionDetailsClass <.. _HandleAdd : "created from args"
+
+@enduml

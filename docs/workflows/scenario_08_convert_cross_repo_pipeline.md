@@ -44,22 +44,25 @@
 
 ## Two-repo Model (Explicit)
 
-### Source vs Target Maestro Instances
+    ### Source vs Target Maestro Instances
 
-The conversion workflow operates on a two-repository model where the conversion process is initiated from a source repository but executed in/for a separate target repository. This separation is critical for several reasons:
+    The conversion workflow operates on a two-repository model where the conversion process is initiated from a source repository but executed in/for a separate target repository. This separation is critical for several reasons:
 
-1. **Prevents Source Repo Contamination:** Conversion output should not be written into the source repository by default, ensuring the original codebase remains pristine.
+    1. **Prevents Source Repo Contamination:** Conversion output should not be written into the source repository by default, ensuring the original codebase remains pristine.
 
-2. **Clear Ownership Model:**
-   - Source repo owns: AST generation, original code, source-based analysis
-   - Target repo owns: new tasks, new code, conversion execution history
+    2. **Clear Ownership Model:**
+       - Source repo owns: AST generation, original code, source-based analysis
+       - Target repo owns: new tasks, new code, conversion execution history
 
-3. **Task/Issue Separation:**
-   - Source repo manages: Conversion pipeline initiation, planning, and monitoring
-   - Target repo manages: Actual work on conversion tasks, code generation, and verification
+    3. **Task/Issue Separation:**
+       - Source repo manages: Conversion pipeline initiation, planning, and monitoring
+       - Target repo manages: Actual work on conversion tasks, code generation, and verification
 
-4. **Pipeline Execution:** The conversion is initiated from the source repo but executed in/for the target repo, with tasks being written to the target repository's Track/Phase/Task structure.
+    4. **Pipeline Execution:** The conversion is initiated from the source repo but executed in/for the target repo, with tasks being written to the target repository's Track/Phase/Task structure.
 
+    ## Branch Boundaries Note (Cross-Repo Context)
+
+    **Important**: Maestro operates strictly on the current Git branch for both source and target repositories during a conversion pipeline. Switching branches on *either* repository during an active `maestro convert` operation (plan or run) is **unsupported** and risks corrupting the conversion state, leading to inconsistent output or loss of progress. This is an **operational rule**. Users must ensure both source and target repositories are on stable branches before initiating cross-repo conversions.
 ## Step-by-step Flow
 
 ### Step 1: Convert New
@@ -107,9 +110,9 @@ After the run, the actual work on tasks happens in the target repo via normal wo
 
 ## Work Sessions & Transcripts
 
-Convert Plan and Convert Run may create Work Sessions/transcripts that are stored:
+Convert Plan and Convert Run may create Work Sessions/transcripts that are stored. These Work Sessions leverage file-based polling for IPC, targeted by a `wsession cookie/run-id`, allowing for multi-process operations.
 
-- **Session Ownership:** Transcripts are typically stored in the source repository's `.maestro/convert` directory
+- **Session Ownership:** Transcripts are typically stored in the source repository's docs/maestro/convert directory
 - **Recording Types:** Both breadcrumbs (high-level progress) and full stream transcripts (detailed interactions) may be recorded
 - **Content:** Includes AI planning discussions, decision-making processes, and execution logs
 
@@ -128,7 +131,7 @@ Convert Plan and Convert Run may create Work Sessions/transcripts that are store
 - Verification and validation results
 
 ### Pipeline Metadata:
-- May live in source repo or `$HOME/.maestro` (documented location is `.maestro/convert/plan/plan.json` in the source repo)
+- May live in source repo or $HOME/.maestro (documented location is docs/maestro/convert/plan/plan.json in the source repo)
 - Contains mapping information between source and target files
 - Includes coverage maps and conversion status
 

@@ -39,93 +39,96 @@ notes_on_scope: |
 
 ## Core Narrative Flow
 
-### 1. Operator Initiates Work on Task
+    ### 1. Operator Initiates Work on Task
 
-The operator triggers work on a specific task using one of the work commands:
-- `maestro work task <task_id>`
-- `maestro work track <track_id>`
-- `maestro work phase <phase_id>`
-- `maestro work issue <issue_id>`
+    The operator triggers work on a specific task using one of the work commands:
+    - `maestro work task <task_id>`
+    - `maestro work track <track_id>`
+    - `maestro work phase <phase_id>`
+    - `maestro work issue <issue_id>`
 
-### 2. Maestro Orchestrator Creates/Reuses Work Session
+    ### 2. Maestro Orchestrator Creates/Reuses Work Session
 
-The outer Maestro orchestrator ensures a Work Session exists for the task:
+    The outer Maestro orchestrator ensures a Work Session exists for the task:
 
-- **Creates new session** if none exists for the task:
-  - Generates unique session ID using UUID
-  - Creates session directory structure: `docs/sessions/<session_id>/`
-  - Creates breadcrumbs subdirectory: `docs/sessions/<session_id>/breadcrumbs/`
-  - Initializes `session.json` with session metadata
-  - Sets initial status to "running"
+    - **Creates new session** if none exists for the task:
+      - Generates unique session ID using UUID
+      - Creates session directory structure: `docs/sessions/<session_id>/`
+      - Creates breadcrumbs subdirectory: `docs/sessions/<session_id>/breadcrumbs/`
+      - Initializes `session.json` with session metadata
+      - Sets initial status to "running"
 
-- **Reuses existing session** if continuing work:
-  - Locates existing session by task ID or session ID
-  - Verifies session status (should be "running" or "paused")
-  - Resumes with same session context
+    - **Reuses existing session** if continuing work:
+      - Locates existing session by task ID or session ID
+      - Verifies session status (should be "running" or "paused")
+      - Resumes with same session context
 
-### 3. AI Engine Session Initiation
+    ### 3. AI Engine Session Initiation
 
-Maestro starts an AI engine session with the following process:
+    Maestro starts an AI engine session with the following process:
 
-- **Context preparation**: Builds task-specific prompt with:
-  - Task details (ID, name, description)
-  - Phase and track context
-  - Current session ID
-  - Workflow instructions for the AI
+    - **Context preparation**: Builds task-specific prompt with:
+      - Task details (ID, name, description)
+      - Phase and track context
+      - Current Work Session ID (serving as the `wsession cookie/run-id`)
+      - Workflow instructions for the AI (including the `wsession cookie/run-id` for multi-process targeting)
 
-- **Resume token behavior**: 
-  - If continuing from previous AI session, uses resume ID from session metadata
-  - If starting new AI session, begins fresh interaction
+    - **Resume token behavior**:
+      - If continuing from previous AI session, uses resume ID from session metadata
+      - If starting new AI session, begins fresh interaction
 
-- **Engine selection**: Based on configuration, selects appropriate AI engine (Claude, Qwen, Gemini, Codex)
+    - **Engine selection**: Based on configuration, selects appropriate AI engine (Claude, Qwen, Gemini, Codex)
 
-### 4. AI Session Execution with Transcript Capture
+    ### 4. AI Session Execution with Transcript Capture
 
-During AI session execution:
+    During AI session execution:
 
-- **Stream-JSON events captured**: AI engine produces stream events that are captured in AI transcript store (`docs/logs/ai/<engine>/`)
-  - Each interaction generates timestamped log files
-  - Events include: init, delta, message, result, error
-  - Full JSON event stream is preserved for debugging
+    - **Stream-JSON events captured**: AI engine produces stream events that are captured in AI transcript store (`docs/logs/ai/<engine>/`)
+      - Each interaction generates timestamped log files
+      - Events include: init, delta, message, result, error
+      - Full JSON event stream is preserved for debugging
 
-- **Breadcrumb updates**: Optionally, AI emits progress updates that are written to the Work Session as "breadcrumbs"
-  - Breadcrumbs are curated, operator-relevant progress notes
-  - Each breadcrumb contains: timestamp, prompt, response, tools called, files modified, token counts, cost
-  - Stored in `docs/sessions/<session_id>/breadcrumbs/<depth_level>/<timestamp>.json`
+    - **Breadcrumb updates**: Optionally, AI emits progress updates that are written to the Work Session as "breadcrumbs"
+      - Breadcrumbs are curated, operator-relevant progress notes
+      - Each breadcrumb contains: timestamp, prompt, response, tools called, files modified, token counts, cost
+      - Stored in `docs/sessions/<session_id>/breadcrumbs/<depth_level>/<timestamp>.json`
 
-### 5. Session Continuation and Multi-Session Resume
+    ### 5. Session Continuation and Multi-Session Resume
 
-AI sessions can span multiple interactions under the same Work Session:
+    AI sessions can span multiple interactions under the same Work Session:
 
-- **Session completion criteria**: AI session ends when:
-  - AI voluntarily stops (e.g., completes current task step)
-  - Time/iteration limits reached
-  - Error occurs requiring session pause
+    - **Session completion criteria**: AI session ends when:
+      - AI voluntarily stops (e.g., completes current task step)
+      - Time/iteration limits reached
+      - Error occurs requiring session pause
 
-- **Continuation mechanism**: Work Session remains active while AI session ends
-  - Next AI session can resume under same Work Session
-  - Uses `maestro ai sync` command to transition between tasks within session
-  - Maintains session continuity and context
+    - **Continuation mechanism**: Work Session remains active while AI session ends
+      - Next AI session can resume under same Work Session
+      - Uses `maestro ai sync` command to transition between tasks within session
+      - Maintains session continuity and context
 
-### 6. Final JSON Contract and Validation
+    ### 6. Final JSON Contract and Validation
 
-Upon AI completion:
+    Upon AI completion:
 
-- **Final JSON result**: AI is expected to produce a structured JSON result
-- **Schema validation**: Maestro validates JSON against expected schema/contract
-- **Success path**: On valid JSON:
-  - Updates task status to "DONE" 
-  - Updates related phase/track status if appropriate
-  - Marks Work Session as "completed"
-  - Preserves all breadcrumbs and transcripts
+    - **Final JSON result**: AI is expected to produce a structured JSON result
+    - **Schema validation**: Maestro validates JSON against expected schema/contract
+    - **Success path**: On valid JSON:
+      - Updates task status to "DONE"
+      - Updates related phase/track status if appropriate
+      - Marks Work Session as "completed"
+      - Preserves all breadcrumbs and transcripts
 
-- **Failure path**: On invalid/non-JSON output:
-  - **HARD STOP** - work halts immediately
-  - Session status marked as "failed"
-  - Error recorded in session metadata
-  - Task remains in TODO state
-  - All breadcrumbs up to failure point preserved
+    - **Failure path**: On invalid/non-JSON output:
+      - **HARD STOP** - work halts immediately
+      - Session status marked as "failed"
+      - Error recorded in session metadata
+      - Task remains in TODO state
+      - All breadcrumbs up to failure point preserved
 
+    ## Branch Boundaries Note
+
+    **Important**: Maestro operates strictly on the current Git branch. Switching branches during an active `maestro work` session is **unsupported** and risks corrupting the work session state and leading to inconsistent results. This is an **operational rule**. Users must ensure they complete or explicitly abandon a work session before switching branches.
 ## AI Transcript vs Work Session Log
 
 ### Transcript: Exhaustive Stream Events
@@ -171,8 +174,7 @@ The system uses a three-party call chain:
 
 ### Communication Mechanism
 - **Subprocess pipes**: Used for AI engine communication
-- **File-based coordination**: `docs/ai_sync.json` for task synchronization
-- **Shared memory**: Used for fast sync state between processes (when available)
+- **File-based coordination**: `docs/ai_sync.json` for task synchronization (keyed by `wsession cookie/run-id`)
 - **Log files**: For persistent transcript storage
 
 ## Command Contracts

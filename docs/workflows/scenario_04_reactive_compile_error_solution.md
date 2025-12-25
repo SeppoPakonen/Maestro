@@ -32,7 +32,7 @@ notes_on_scope:
 ## Narrative Flow
 
 ### Phase 1: Build Failure Detection
-1. Operator runs `maestro make build` (or current equivalent)
+1. Operator runs `maestro make build` (or current equivalent). This command implicitly leverages **Repo Resolve (WF-05)** to detect the appropriate build system and configuration.
 2. Build starts and fails with a compile error
 3. Maestro always creates an Issue (compile diagnostic) to capture the error
 
@@ -56,12 +56,15 @@ notes_on_scope:
 
 ## Clarification of Intent
 
-This workflow exists because:
-- Many C++ compiler errors are non-intuitive and lead AI astray
-- This mechanism is deliberately "reactive" and not "smart"
-- It is meant to reduce time-to-first-correct-fix for repeated patterns
-- It provides a fast rule-based remediation loop before deeper analysis
+    This workflow exists because:
+    - Many C++ compiler errors are non-intuitive and lead AI astray
+    - This mechanism is deliberately "reactive" and not "smart"
+    - It is meant to reduce time-to-first-correct-fix for repeated patterns
+    - It provides a fast rule-based remediation loop before deeper analysis
 
+    ## Branch Boundaries Note
+
+    **Important**: Maestro operates strictly on the current Git branch. Branch switching during an active `maestro make build` process is **unsupported** and risks corrupting state or producing inconsistent build results. This is an **operational rule**. Users must ensure they are on the desired branch before initiating build operations.
 ## Command Contracts
 
 ### `maestro make build`

@@ -1,0 +1,146 @@
+@startuml cmd_repo_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsRepo, "maestro/commands/repo.py") {
+    FUNCTION(AddRepoParser, "add_repo_parser()")
+    FUNCTION(HandleRepoCommand, "handle_repo_command()")
+    FUNCTION(FindRepoRoot, "find_repo_root()")
+    FUNCTION(WriteRepoArtifacts, "write_repo_artifacts()")
+    FUNCTION(LoadRepoIndex, "load_repo_index()")
+    FUNCTION(BuildRepoHierarchy, "build_repo_hierarchy()")
+    FUNCTION(SaveHierarchy, "save_hierarchy()")
+    FUNCTION(LoadHierarchy, "load_hierarchy()")
+    FUNCTION(LoadHierarchyOverrides, "load_hierarchy_overrides()")
+    FUNCTION(MergeHierarchyOverrides, "merge_hierarchy_overrides()")
+    FUNCTION(PrintHierarchyTree, "print_hierarchy_tree()")
+    FUNCTION(HandleRepoPkgList, "handle_repo_pkg_list()")
+    FUNCTION(HandleRepoPkgInfo, "handle_repo_pkg_info()")
+    FUNCTION(HandleRepoPkgFiles, "handle_repo_pkg_files()")
+    FUNCTION(HandleRepoPkgGroups, "handle_repo_pkg_groups()")
+    FUNCTION(HandleRepoPkgSearch, "handle_repo_pkg_search()")
+    FUNCTION(HandleRepoPkgTree, "handle_repo_pkg_tree()")
+    FUNCTION(HandleRepoPkgConf, "handle_repo_pkg_conf()")
+    FUNCTION(HandleRepoRefreshAll, "handle_repo_refresh_all()")
+    FUNCTION(HandleRepoHierEdit, "handle_repo_hier_edit()")
+    FUNCTION(HandleRepoHier, "handle_repo_hier()")
+    FUNCTION(HandleRepoConventionsDetect, "handle_repo_conventions_detect()")
+    FUNCTION(HandleRepoConventionsShow, "handle_repo_conventions_show()")
+    FUNCTION(HandleRepoRulesShow, "handle_repo_rules_show()")
+    FUNCTION(HandleRepoRulesEdit, "handle_repo_rules_edit()")
+    FUNCTION(HandleRepoRulesInject, "handle_repo_rules_inject()")
+}
+
+' Repo Subsystem Modules (defined in subsystem_repo_resolve)
+MODULE(ScannerModule, "maestro/repo/scanner.py") {
+    FUNCTION(ScanUppRepoV2, "scan_upp_repo_v2()")
+}
+
+MODULE(PackageModule, "maestro/repo/package.py") {
+    CLASS(PackageInfoClass, "PackageInfo")
+    CLASS(FileGroupClass, "FileGroup")
+}
+
+MODULE(BuildConfigModule, "maestro/repo/build_config.py") {
+    FUNCTION(GetPackageConfig, "get_package_config()")
+}
+
+MODULE(UppConditionsModule, "maestro/repo/upp_conditions.py") {
+    FUNCTION(MatchWhen, "match_when()")
+}
+
+MODULE(GlobalIndexModule, "maestro/global_index.py") {
+    FUNCTION(UpdateGlobalRepoIndex, "update_global_repo_index()")
+}
+
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' Uses print_header, print_info, print_success, print_error, print_warning, print_debug, Colors
+}
+
+' External Dependencies
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(FileSystem, "File System")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATASTORE(MaestroRepoDir, ".maestro/repo/") {
+    .json files (index.json, assemblies.json, state.json, hierarchy.json, hierarchy_overrides.json)
+    .txt files (index.summary.txt)
+}
+DATASTORE(DocsRepoRulesMd, "docs/RepoRules.md")
+DATASTORE(GlobalIndexFile, "$HOME/.maestro/repos.json")
+
+' --- Relationships ---
+
+MainEntry --> HandleRepoCommand : "CLI command dispatch"
+
+' Subcommand Dispatch within handle_repo_command
+HandleRepoCommand --> FindRepoRoot : "Locates repo context"
+
+' `repo resolve` flow
+HandleRepoCommand -down-> ScanUppRepoV2 : "invokes scanner (for 'resolve', 'refresh all')"
+ScanUppRepoV2 --> RepoScanResultClass : "returns scan result"
+HandleRepoCommand -down-> WriteRepoArtifacts : "persists scan artifacts"
+WriteRepoArtifacts --[#Red,dashed]-> MaestroRepoDir : "writes index.json, summary.txt, assemblies.json, state.json"
+HandleRepoRefreshAll --> UpdateGlobalRepoIndex : "updates global index"
+UpdateGlobalRepoIndex --[#Red,dashed]-> GlobalIndexFile : "writes repo info"
+
+' `repo show`, `repo pkg`, `repo conf` flow
+HandleRepoCommand --> LoadRepoIndex : "loads scan result"
+LoadRepoIndex -[dashed]-> MaestroRepoDir : "reads index.json"
+LoadRepoIndex --> RepoScanResultClass : "returns loaded data"
+HandleRepoCommand ..> HandleRepoPkgList
+HandleRepoCommand ..> HandleRepoPkgInfo
+HandleRepoCommand ..> HandleRepoPkgFiles
+HandleRepoCommand ..> HandleRepoPkgGroups
+HandleRepoCommand ..> HandleRepoPkgSearch
+
+HandleRepoCommand --> HandleRepoPkgTree : "Package dependency tree"
+HandleRepoPkgTree --> UppConditionsModule.MatchWhen : "applies conditional logic"
+
+HandleRepoCommand --> HandleRepoPkgConf : "Package configurations"
+HandleRepoPkgConf --> BuildConfigModule.GetPackageConfig : "gets build config"
+
+' `repo hier` flow
+HandleRepoCommand --> LoadHierarchy : "loads hierarchy"
+HandleRepoCommand --> BuildRepoHierarchy : "builds hierarchy"
+BuildRepoHierarchy --> RepoScanResultClass : "uses scan data"
+BuildRepoHierarchy --> PackageInfoClass : "uses PackageInfo"
+BuildRepoHierarchy --> FileGroupClass : "uses FileGroup"
+HandleRepoCommand --> SaveHierarchy : "saves hierarchy"
+SaveHierarchy --[#Red,dashed]-> MaestroRepoDir : "writes hierarchy.json"
+HandleRepoCommand --> LoadHierarchyOverrides : "loads manual overrides"
+LoadHierarchyOverrides -[dashed]-> MaestroRepoDir : "reads hierarchy_overrides.json"
+HandleRepoCommand --> MergeHierarchyOverrides : "merges overrides"
+HandleRepoCommand --> PrintHierarchyTree : "prints to console"
+
+' `repo hier edit` flow
+HandleRepoCommand --> HandleRepoHierEdit : "edit hierarchy overrides"
+HandleRepoHierEdit --[#Red,dashed]-> MaestroRepoDir : "creates hierarchy_overrides.json template"
+HandleRepoHierEdit --> Subprocess : "invokes external editor"
+Editor <--> HandleRepoHierEdit
+
+' `repo rules`, `repo conventions` flow
+HandleRepoCommand ..> HandleRepoRulesShow
+HandleRepoCommand ..> HandleRepoRulesEdit
+HandleRepoCommand ..> HandleRepoRulesInject
+HandleRepoCommand ..> HandleRepoConventionsShow
+HandleRepoCommand ..> HandleRepoConventionsDetect
+HandleRepoRulesShow -[dashed]-> DocsRepoRulesMd : "reads rules"
+HandleRepoRulesEdit --> Subprocess : "invokes external editor"
+Editor <--> HandleRepoRulesEdit
+HandleRepoRulesEdit --[#Red,dashed]-> DocsRepoRulesMd : "writes rules"
+
+' Utility functions
+CommandsRepo --> MaestroUtils : "uses for console output"
+CommandsRepo --> PackageModule : "uses PackageInfo, FileGroup"
+
+' Persistence Details
+WriteRepoArtifacts --> Subprocess : "uses tempfile, os.replace for atomic writes"
+WriteRepoArtifacts --> FileSystem : "creates directories"
+
+@enduml

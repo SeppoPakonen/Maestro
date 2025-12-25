@@ -1,0 +1,140 @@
+@startuml subsystem_ai_engine_manager
+!include _shared.puml
+
+' AI Engine Manager Module
+MODULE(AiManagerModule, "maestro/ai/manager.py") {
+    CLASS(AiEngineManagerClass, "AiEngineManager") {
+        - settings: Settings
+        - session_manager: AISessionManager
+        - runner: AiSubprocessRunner (optional)
+        --
+        + get_engine_spec(name: AiEngineName): AiEngineSpec
+        + build_command(engine, prompt, opts): List<str>
+        + _build_qwen_command(prompt, opts): List<str>
+        + explain_command(engine, prompt, opts): str
+        + run_once(engine, prompt, opts): AiRunResult
+    }
+}
+
+' AI Types Module
+MODULE(AiTypesModule, "maestro/ai/types.py") {
+    TYPE(AiEngineNameEnum, "AiEngineName")
+    CLASS(EngineCapabilitiesClass, "EngineCapabilities")
+    CLASS(PromptRefClass, "PromptRef")
+    CLASS(RunOptsClass, "RunOpts")
+    PROTOCOL(AiEngineSpecProtocol, "AiEngineSpec")
+    PROTOCOL(AiSubprocessRunnerProtocol, "AiSubprocessRunner")
+    CLASS(FakeProcessResultClass, "FakeProcessResult")
+    CLASS(AiRunResultClass, "AiRunResult")
+}
+
+' AI Runner Module
+MODULE(AiRunnerModule, "maestro/ai/runner.py") {
+    CLASS(RunResultClass, "RunResult")
+    FUNCTION(RunEngineCommand, "run_engine_command()")
+    FUNCTION(_RunSubprocessCommand, "_run_subprocess_command()")
+    FUNCTION(_RunQwenTransport, "_run_qwen_transport()")
+    FUNCTION(_ParseJsonEvents, "_parse_json_events()")
+    FUNCTION(_GetRemainingBuffer, "_get_remaining_buffer()")
+    FUNCTION(_ExtractSessionIdFromEvents, "_extract_session_id_from_events()")
+    FUNCTION(_NormalizeEvent, "_normalize_event()")
+}
+
+' AI Engines Package
+MODULE(AiEnginesPackage, "maestro/ai/engines/") {
+    FUNCTION(GetSpecFactory, "get_spec(engine_name) [__init__.py]")
+    CLASS(QwenEngineSpecClass, "QwenEngineSpec [qwen.py]")
+    ' ... Other engine specs (Gemini, Claude, Codex)
+}
+
+' AI Session Manager Module
+MODULE(AiSessionManagerModule, "maestro/ai/session_manager.py") {
+    CLASS(AISessionManagerClass, "AISessionManager") {
+        - state_file: Path
+        --
+        + load_sessions(): Dict
+        + save_sessions(sessions: Dict)
+        + get_last_session_id(engine): Optional<str>
+        + update_session(engine, session_id, model, danger_mode)
+    }
+    FUNCTION(ExtractSessionIDFn, "extract_session_id()")
+}
+
+' AI Stream Render Module
+MODULE(AiStreamRenderModule, "maestro/ai/stream_render.py") {
+    CLASS(StreamRendererClass, "StreamRenderer")
+    CLASS(AiStreamEventClass, "AiStreamEvent")
+}
+
+' AI Qwen Extractor Module
+MODULE(AiQwenExtractorModule, "maestro/ai/qwen_extractor.py") {
+    FUNCTION(ExtractQwenAssistantText, "extract_qwen_assistant_text()")
+    FUNCTION(FilterQwenEvents, "filter_qwen_events_for_verbose_mode()")
+}
+
+' External AI Engine Binaries
+ACTOR(AiEngineBinary, "External AI Engine Binary")
+CLOUD(InternalQwenClient, "Internal Qwen Client (stdio/tcp)")
+
+' Persistent Stores
+DATASTORE(AiSessionsJson, "docs/state/ai_sessions.json")
+DATASTORE(AiLogsDir, "docs/logs/ai/")
+DATASTORE(Stdout, "stdout")
+DATASTORE(Stderr, "stderr")
+
+' Relationships
+
+' AiEngineManager orchestrates
+AiEngineManagerClass --> GetSpecFactory : "gets engine spec"
+AiEngineManagerClass --> AiSessionManagerClass : "manages sessions"
+AiEngineManagerClass --> AiRunnerModule.RunEngineCommand : "delegates execution"
+AiEngineManagerClass --> PromptRefClass
+AiEngineManagerClass --> RunOptsClass
+
+' Engine Spec Definition
+AiEngineSpecProtocol <|-- QwenEngineSpecClass
+AiEngineSpecProtocol <.. AiEngineManagerClass : "uses spec methods"
+AiEngineSpecProtocol --> EngineCapabilitiesClass : "defines capabilities"
+
+QwenEngineSpecClass ..> RunOptsClass
+QwenEngineSpecClass ..> PromptRefClass
+
+GetSpecFactory --> QwenEngineSpecClass : "returns specific spec instance"
+GetSpecFactory --> AiEngineNameEnum
+
+' AI Runner execution flow
+RunEngineCommand -[hidden]-> AiRunnerModule
+RunEngineCommand -- _RunSubprocessCommand : "standard subprocess"
+RunEngineCommand -- _RunQwenTransport : "Qwen specific client"
+
+_RunSubprocessCommand --> AiEngineBinary : "invokes external binary"
+_RunSubprocessCommand --> Stdout : "reads from"
+_RunSubprocessCommand --> Stderr : "reads from"
+_RunSubprocessCommand --> AiLogsDir : "writes logs"
+_RunSubprocessCommand --> _ParseJsonEvents : "parses streaming output"
+_RunSubprocessCommand --> _GetRemainingBuffer : "manages buffer"
+_RunSubprocessCommand --> _ExtractSessionIdFromEvents : "extracts session ID"
+_RunSubprocessCommand --> _NormalizeEvent : "normalizes events"
+_RunSubprocessCommand --> StreamRendererClass : "renders events"
+_RunSubprocessCommand --> AiQwenExtractorModule : "Qwen specific text extraction"
+
+_RunQwenTransport --> InternalQwenClient : "invokes internal client"
+_RunQwenTransport --> AiLogsDir : "writes logs (mock)"
+
+_ParseJsonEvents --> AiStreamEventClass : "creates stream events"
+_NormalizeEvent --> AiStreamEventClass : "creates normalized events"
+
+_ExtractSessionIdFromEvents --> AiStreamEventClass : "extracts from events"
+
+' Session Management
+AiSessionManagerClass --> AiSessionsJson : "persists state to JSON file"
+AiSessionManagerClass --> AiEngineNameEnum
+AiSessionManagerClass --> ExtractSessionIDFn : "uses shared session ID extraction"
+
+ExtractSessionIDFn --> AiStreamEventClass : "extracts from events"
+
+' Results
+AiRunResultClass <.. AiEngineManagerClass : "returns result"
+RunResultClass <.. RunEngineCommand : "returns intermediate result"
+
+@enduml

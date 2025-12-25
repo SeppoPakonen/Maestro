@@ -1,0 +1,177 @@
+@startuml subsystem_issue_task_graph
+!include _shared.puml
+
+MODULE(IssueModel, "maestro/issues/model.py") {
+    CLASS(IssueRecordClass, "IssueRecord")
+    RECTANGLE(IssueTypes, "ISSUE_TYPES")
+    RECTANGLE(IssueStates, "ISSUE_STATES")
+    RECTANGLE(StateTransitions, "STATE_TRANSITIONS")
+
+    IssueRecordClass --> IssueTypes
+    IssueRecordClass --> IssueStates
+    IssueRecordClass --> StateTransitions
+    FUNCTION(CanTransition, "can_transition()")
+    CanTransition --> StateTransitions
+}
+
+MODULE(IssueStore, "maestro/issues/issue_store.py") {
+    CLASS(IssueDetailsClass, "IssueDetails")
+    FUNCTION(GenerateIssueID, "generate_issue_id()")
+    FUNCTION(WriteIssue, "write_issue()")
+    FUNCTION(LoadIssue, "load_issue()")
+    FUNCTION(ListIssues, "list_issues()")
+    FUNCTION(UpdateIssueState, "update_issue_state()")
+    FUNCTION(RollbackIssueState, "rollback_issue_state()")
+    FUNCTION(UpdateIssuePriority, "update_issue_priority()")
+    FUNCTION(UpdateIssueMetadata, "update_issue_metadata()")
+    FUNCTION(UpdateIssueSection, "update_issue_section()")
+    FUNCTION(_FindIssuePath, "_find_issue_path()")
+    FUNCTION(_UpdateMetadataLine, "_update_metadata_line()")
+    FUNCTION(_AppendHistory, "_append_history()")
+    FUNCTION(_UpsertSection, "_upsert_section()")
+}
+
+MODULE(IssueParsers, "maestro/issues/parsers.py") {
+    CLASS(ParsedIssueClass, "ParsedIssue")
+    FUNCTION(ParseBuildLogs, "parse_build_logs()")
+    FUNCTION(ParseAnalyzerOutput, "parse_analyzer_output()")
+    FUNCTION(_ParseBuildLine, "_parse_build_line()")
+    FUNCTION(_ParseAnalyzerLine, "_parse_analyzer_line()")
+    ParsedIssueClass --> IssueDetailsClass : "converts to"
+}
+
+MODULE(CommandsIssues, "maestro/commands/issues.py") {
+    FUNCTION(HandleIssuesCommand, "handle_issues_command()")
+    FUNCTION(_HandleList, "_handle_list()")
+    FUNCTION(_HandleShow, "_handle_show()")
+    FUNCTION(_HandleState, "_handle_state()")
+    FUNCTION(_HandleRollback, "_handle_rollback()")
+    FUNCTION(_HandleReact, "_handle_react()")
+    FUNCTION(_HandleAnalyze, "_handle_analyze()")
+    FUNCTION(_HandleDecide, "_handle_decide()")
+    FUNCTION(_HandleFix, "_handle_fix()")
+    FUNCTION(_CreateFixSession, "_create_fix_session()")
+    FUNCTION(_ExtractConfidence, "_extract_confidence()")
+    FUNCTION(_FirstSentence, "_first_sentence()")
+    FUNCTION(_FindRepoRoot, "_find_repo_root()")
+}
+
+MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
+    CLASS(JsonStoreClass, "JsonStore")
+    FUNCTION(LoadTask, "load_task()")
+    FUNCTION(SaveTask, "save_task()")
+    FUNCTION(LoadPhase, "load_phase()")
+    FUNCTION(SavePhase, "save_phase()")
+    FUNCTION(ListAllPhases, "list_all_phases()")
+}
+
+MODULE(TracksModels, "maestro/tracks/models.py") {
+    CLASS(TaskModel, "Task") {
+        + task_id: str
+        + name: str
+        + status: str
+        + priority: str
+        + phase_id: str
+        + dependencies: List<str>
+        + subtasks: List<str> / List<Task>
+    }
+    CLASS(PhaseModel, "Phase")
+    CLASS(TrackModel, "Track")
+    TaskModel --> PhaseModel : "belongs to"
+    PhaseModel --> TrackModel : "belongs to"
+}
+
+MODULE(CommandsTask, "maestro/commands/task.py") {
+    FUNCTION(HandleTaskCommand, "handle_task_command()")
+    FUNCTION(ListTasks, "list_tasks()")
+    FUNCTION(AddTask, "add_task()")
+    FUNCTION(RemoveTask, "remove_task()")
+    FUNCTION(ShowTask, "show_task()")
+    FUNCTION(SetTaskStatus, "set_task_status()")
+    FUNCTION(EditTask, "edit_task()")
+    FUNCTION(SetTaskContext, "set_task_context()")
+    FUNCTION(_CollectTaskEntries, "_collect_task_entries()")
+}
+
+MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
+    FUNCTION(ParseTodoMd, "parse_todo_md()")
+    FUNCTION(ParsePhaseMd, "parse_phase_md()")
+    ' ... other Markdown parsers
+}
+
+MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
+    FUNCTION(InsertTaskBlock, "insert_task_block()")
+    FUNCTION(ReplaceTaskBlock, "replace_task_block()")
+    FUNCTION(RemoveTaskBlock, "remove_task_block()")
+    ' ... other Markdown writers
+}
+
+MODULE(AiClient, "maestro/ai/client.py") {
+    CLASS(ExternalCommandClient, "ExternalCommandClient")
+}
+
+DATASTORE(DocsIssuesMd, "docs/issues/<id>.md")
+DATASTORE(DocsSessionsMd, "docs/sessions/<id>.md")
+DATASTORE(DocsTodoMd, "docs/todo.md")
+DATASTORE(DocsPhasesMd, "docs/phases/<id>.md")
+DATASTORE(MaestroJsonStore, ".maestro/tracks/*/.json")
+
+' Issue Flow
+IssueDetailsClass <-- ParsedIssueClass
+WriteIssue(IssueDetailsClass) --> DocsIssuesMd : "Writes new issue"
+LoadIssue(DocsIssuesMd) --> IssueRecordClass : "Loads existing issue"
+ListIssues --> DocsIssuesMd : "Reads all issues"
+UpdateIssueState --> DocsIssuesMd : "Updates issue state"
+UpdateIssueMetadata --> DocsIssuesMd : "Updates metadata"
+UpdateIssueSection --> DocsIssuesMd : "Updates section"
+RollbackIssueState --> DocsIssuesMd : "Rolls back state"
+CommandsIssues.HandleIssuesCommand --> IssueStore : "CRUD operations"
+
+IssueParsers.ParseBuildLogs --> ParsedIssueClass : "Extracts issues from logs"
+IssueParsers.ParseAnalyzerOutput --> ParsedIssueClass : "Extracts issues from analyzer output"
+
+CommandsIssues._HandleAnalyze --> ExternalCommandClient : "AI Analysis"
+CommandsIssues._HandleFix --> _CreateFixSession : "Initiates fix session"
+_CreateFixSession --> DocsSessionsMd : "Creates fix session file"
+_CreateFixSession --> TracksModels.TaskModel : "Generates plan of tasks (conceptual)"
+
+' Task Flow
+CommandsTask.HandleTaskCommand --> AddTask : "Add task"
+CommandsTask.HandleTaskCommand --> ListTasks : "List tasks"
+CommandsTask.HandleTaskCommand --> ShowTask : "Show task"
+CommandsTask.HandleTaskCommand --> RemoveTask : "Remove task"
+CommandsTask.HandleTaskCommand --> SetTaskStatus : "Set task status"
+CommandsTask.HandleTaskCommand --> EditTask : "Edit task"
+CommandsTask.HandleTaskCommand --> SetTaskContext : "Set context"
+
+AddTask --> JsonStoreClass : "Adds Task to JSON store"
+RemoveTask --> JsonStoreClass : "Removes Task from JSON store"
+SetTaskStatus --> JsonStoreClass : "Updates Task status in JSON store"
+_CollectTaskEntries --> JsonStoreClass : "Loads all tasks from JSON store"
+ShowTask --> _CollectTaskEntries : "Gets task data"
+
+TaskModel <-- JsonStoreClass : "Serialized/Deserialized"
+PhaseModel <-- JsonStoreClass : "Serialized/Deserialized"
+TrackModel <-- JsonStoreClass : "Serialized/Deserialized"
+
+' Hybrid Data Management (Tasks/Phases/Tracks also have Markdown representation)
+CommandsTask.EditTask --> DataMarkdownWriter : "Modifies Markdown"
+CommandsTask.EditTask --> DataMarkdown : "Reads Markdown"
+
+MaestroJsonStore <--> JsonStoreClass : "JSON Storage for Tracks/Phases/Tasks"
+DocsTodoMd <--> DataMarkdown : "Markdown representation for Tracks/Phases/Tasks"
+DocsPhasesMd <--> DataMarkdown : "Markdown representation for Phases/Tasks"
+
+' Validation
+UpdateIssueState --> CanTransition : "Issue state validation"
+UpdateIssueState --> IssueStates
+CommandsIssues._HandleState --> IssueStates : "Validates new state"
+SetTaskStatus --> CommandsTask._NormalizeTaskStatus : "Validates task status"
+CommandsIssues._HandleDecide --> IssueStates : "Validates decision input"
+
+' Dependencies & Hierarchy (Logical)
+TaskModel -up-> TaskModel : "Dependencies (List<str> of task_ids)"
+TaskModel -up-> PhaseModel : "Child of Phase"
+PhaseModel -up-> TrackModel : "Child of Track"
+
+@enduml

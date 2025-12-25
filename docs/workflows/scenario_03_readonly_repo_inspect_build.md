@@ -66,6 +66,10 @@ Build diagnostics are printed to stdout and optionally exported as reports (JSON
 - Static analysis findings (if requested)
 - Build performance metrics
 
+## Branch Boundaries Note
+
+**Important**: Maestro operates strictly on the current Git branch. Switching branches during `maestro repo` or build operations is **unsupported** and risks corrupting state or producing inconsistent results. This is an **operational rule**. Users must ensure they are on the desired branch before initiating repository inspection or build processes.
+
 ## Critical Ambiguity Resolution
 
 ### Does this scenario require `maestro init`?

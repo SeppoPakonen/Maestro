@@ -1,0 +1,147 @@
+@startuml cmd_issues_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsIssues, "maestro/commands/issues.py") {
+    FUNCTION(AddIssuesParser, "add_issues_parser()")
+    FUNCTION(HandleIssuesCommand, "handle_issues_command()")
+    FUNCTION(_HandleList, "_handle_list()")
+    FUNCTION(_HandleShow, "_handle_show()")
+    FUNCTION(_HandleState, "_handle_state()")
+    FUNCTION(_HandleRollback, "_handle_rollback()")
+    FUNCTION(_HandleReact, "_handle_react()")
+    FUNCTION(_HandleAnalyze, "_handle_analyze()")
+    FUNCTION(_HandleDecide, "_handle_decide()")
+    FUNCTION(_HandleFix, "_handle_fix()")
+    FUNCTION(_FindRepoRoot, "_find_repo_root()")
+    FUNCTION(_FindIssuePath, "_find_issue_path()")
+    FUNCTION(_ExtractConfidence, "_extract_confidence()")
+    FUNCTION(_FirstSentence, "_first_sentence()")
+    FUNCTION(_CreateFixSession, "_create_fix_session()")
+}
+
+' Issue Subsystem Modules
+MODULE(IssuesStore, "maestro/issues/issue_store.py") {
+    FUNCTION(ListIssues, "list_issues()")
+    FUNCTION(LoadIssue, "load_issue()")
+    FUNCTION(UpdateIssueState, "update_issue_state()")
+    FUNCTION(RollbackIssueState, "rollback_issue_state()")
+    FUNCTION(UpdateIssueMetadata, "update_issue_metadata()")
+    FUNCTION(UpdateIssuePriority, "update_issue_priority()")
+    FUNCTION(UpdateIssueSection, "update_issue_section()")
+    CLASS(IssueDetailsClass, "IssueDetails")
+    FUNCTION(GenerateIssueId, "generate_issue_id()")
+    FUNCTION(WriteIssue, "write_issue()")
+}
+
+MODULE(IssuesModel, "maestro/issues/model.py") {
+    CLASS(IssueRecordClass, "IssueRecord")
+    RECTANGLE(IssueTypes, "ISSUE_TYPES")
+    RECTANGLE(IssueStates, "ISSUE_STATES")
+    RECTANGLE(StateTransitions, "STATE_TRANSITIONS")
+    FUNCTION(CanTransition, "can_transition()")
+}
+
+MODULE(SolutionsStore, "maestro/solutions/solution_store.py") {
+    FUNCTION(MatchSolutions, "match_solutions()")
+    CLASS(SolutionMatchClass, "SolutionMatch")
+}
+
+' AI Integration
+MODULE(AiClient, "maestro/ai/client.py") {
+    CLASS(ExternalCommandClient, "ExternalCommandClient")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_header, print_error etc.
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(ExternalAI, "External AI Service")
+
+' Persistent Stores
+DATABASE(DocsIssuesMd, "docs/issues/<id>.md")
+DATABASE(DocsSolutionsMd, "docs/solutions/<id>.md")
+DATABASE(DocsSessionsMd, "docs/sessions/<id>-fix-<timestamp>.md")
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddIssuesParser : "Adds 'issues' command and subparsers"
+
+' Command Dispatch
+HandleIssuesCommand --> _FindRepoRoot : "Locates repo context"
+HandleIssuesCommand -- _HandleList
+HandleIssuesCommand -- _HandleShow
+HandleIssuesCommand -- _HandleState
+HandleIssuesCommand -- _HandleRollback
+HandleIssuesCommand -- _HandleReact
+HandleIssuesCommand -- _HandleAnalyze
+HandleIssuesCommand -- _HandleDecide
+HandleIssuesCommand -- _HandleFix
+
+' Data Flow for Issue Records
+IssueRecordClass <.. IssuesStore.LoadIssue : "loaded from Markdown"
+IssueRecordClass --> IssuesStore.UpdateIssueState : "validates transitions"
+IssueRecordClass ..> IssuesStore.UpdateIssueMetadata
+IssueRecordClass ..> IssuesStore.UpdateIssuePriority
+IssueRecordClass ..> IssuesStore.UpdateIssueSection
+
+' Issue Lifecycle Commands
+_HandleList --> IssuesStore.ListIssues --> DocsIssuesMd
+_HandleShow --> IssuesStore.LoadIssue --> DocsIssuesMd
+
+' State Management
+_HandleState --> IssuesStore.UpdateIssueState
+IssuesStore.UpdateIssueState --> IssuesModel.CanTransition : "validates state change"
+IssuesStore.UpdateIssueState --> IssuesModel.IssueStates : "checks valid states"
+_HandleRollback --> IssuesStore.RollbackIssueState
+
+' Solution Matching
+_HandleReact --> SolutionsStore.MatchSolutions
+_HandleReact --> IssuesStore.UpdateIssueState
+_HandleReact --> IssuesStore.UpdateIssueMetadata
+_HandleReact --> IssuesStore.UpdateIssueSection
+SolutionsStore.MatchSolutions --> DocsSolutionsMd : "reads solutions"
+
+' AI-driven Analysis and Decision
+_HandleAnalyze --> AiClient.ExternalCommandClient : "sends prompt to AI"
+_HandleAnalyze --> CommandsIssues._ExtractConfidence : "parses AI response"
+_HandleAnalyze --> CommandsIssues._FirstSentence : "summarizes AI response"
+_HandleAnalyze --> IssuesStore.UpdateIssueState : "updates to 'analyzing', 'analyzed'"
+_HandleAnalyze --> IssuesStore.UpdateIssueMetadata
+_HandleAnalyze --> IssuesStore.UpdateIssueSection
+ExternalCommandClient --> ExternalAI : "communicates with AI service"
+
+_HandleDecide --> IssuesStore.UpdateIssueState : "updates to 'decided', 'cancelled'"
+_HandleDecide --> IssuesStore.UpdateIssueMetadata
+_HandleDecide --> IssuesStore.UpdateIssueSection
+_HandleDecide --> IssuesStore.UpdateIssuePriority
+
+' Fix Session Creation
+_HandleFix --> CommandsIssues._CreateFixSession : "generates fix plan"
+_HandleFix --> IssuesStore.UpdateIssueState : "updates to 'fixing', 'fixed'"
+_HandleFix --> IssuesStore.UpdateIssueMetadata
+_HandleFix --> IssuesStore.UpdateIssueSection
+_CreateFixSession --[#Red,dashed]-> DocsSessionsMd : "writes fix session Markdown"
+
+' File System Interactions
+DocsIssuesMd <--> FileSystem : "Read/Write issue data"
+DocsSolutionsMd <--> FileSystem : "Read solution data"
+DocsSessionsMd <--> FileSystem : "Write fix session data"
+
+' Helper function interactions
+_FindRepoRoot --> FileSystem : "searches for .maestro"
+_FindIssuePath --> FileSystem : "locates issue file"
+
+' Validation and Constants
+CommandsIssues --> IssuesModel.IssueTypes : "uses for type checking"
+CommandsIssues --> IssuesModel.IssueStates : "uses for state checking"
+
+@enduml

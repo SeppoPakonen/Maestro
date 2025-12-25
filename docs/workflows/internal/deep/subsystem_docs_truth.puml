@@ -1,0 +1,98 @@
+@startuml subsystem_docs_truth
+!include _shared.puml
+
+MODULE(DataModule, "maestro/data") {
+    MODULE(MarkdownParser, "markdown_parser.py") {
+        FUNCTION(ParseQuotedValue, "parse_quoted_value()")
+        FUNCTION(ParseStatusBadge, "parse_status_badge()")
+        FUNCTION(ParseCheckbox, "parse_checkbox()")
+        FUNCTION(ParseHeading, "parse_heading()")
+        FUNCTION(ParseTrackHeading, "parse_track_heading()")
+        FUNCTION(ParsePhaseHeading, "parse_phase_heading()")
+        FUNCTION(ParseTaskHeading, "parse_task_heading()")
+        FUNCTION(ParseMetadataBlock, "parse_metadata_block()")
+        FUNCTION(ParseTrack, "parse_track()")
+        FUNCTION(ParsePhase, "parse_phase()")
+        FUNCTION(ParseTask, "parse_task()")
+        FUNCTION(ParseTodoMd, "parse_todo_md()")
+        FUNCTION(ParseDoneMd, "parse_done_md()")
+        FUNCTION(ParsePhaseMd, "parse_phase_md()")
+        FUNCTION(ParseConfigMd, "parse_config_md()")
+    }
+
+    MODULE(MarkdownWriter, "markdown_writer.py") {
+        FUNCTION(WriteTrack, "write_track_to_todo_md()") ' Illustrative
+        FUNCTION(UpdateTask, "update_task_in_phase_md()") ' Illustrative
+        FUNCTION(RemovePhase, "remove_phase_from_track_md()") ' Illustrative
+        ' ... many other writing/modifying functions
+    }
+
+    MODULE(CommonUtils, "common_utils.py") {
+        FUNCTION(ParseTodoSafe, "parse_todo_safe()")
+        FUNCTION(ParseDoneSafe, "parse_done_safe()")
+    }
+}
+
+MODULE(Commands, "maestro/commands") {
+    FUNCTION(HandleTrackCmd, "handle_track_command()")
+    FUNCTION(HandlePhaseCmd, "handle_phase_command()")
+    FUNCTION(HandleTaskCmd, "handle_task_command()")
+    FUNCTION(HandleIssuesCmd, "handle_issues_command()")
+    FUNCTION(HandleSolutionsCmd, "handle_solutions_command()")
+    ' ... other command handlers
+}
+
+DATASTORE(DocsTodoMd, "docs/todo.md")
+DATASTORE(DocsDoneMd, "docs/done.md")
+DATASTORE(DocsPhaseMd, "docs/phase_*.md")
+DATASTORE(DocsConfigMd, "docs/config.md")
+DATASTORE(FileSystem, "File System")
+
+' Parsing Pipeline
+HandleTrackCmd --> ParseTodoSafe : "Reads active tracks"
+HandlePhaseCmd --> ParseTodoSafe : "Reads active phases"
+HandleTaskCmd --> ParseTodoSafe : "Reads active tasks"
+HandleIssuesCmd --> ParseTodoSafe : "Reads issues from docs"
+HandleSolutionsCmd --> ParseTodoSafe : "Reads solutions from docs"
+' ... and others
+
+ParseTodoSafe --> ParseTodoMd : "Calls specific file parser"
+ParseDoneSafe --> ParseDoneMd : "Calls specific file parser"
+
+ParseTodoMd --> ParseTrack : "Parses track sections"
+ParseTrack --> ParsePhase : "Parses phase sections"
+ParsePhase --> ParseTask : "Parses task items"
+ParseTask --> ParseCheckbox : "Parses task status"
+ParseTrack --> ParseTrackHeading : "Identifies track heading"
+ParsePhase --> ParsePhaseHeading : "Identifies phase heading"
+ParseTask --> ParseTaskHeading : "Identifies task heading"
+ParseMetadataBlock <.. ParseTrack : "Parses metadata for track"
+ParseMetadataBlock <.. ParsePhase : "Parses metadata for phase"
+ParseMetadataBlock <.. ParseTask : "Parses metadata for task"
+ParseMetadataBlock --> ParseQuotedValue : "Parses key-value pairs"
+
+ParseTodoMd -[dashed]-> DocsTodoMd : "Reads content"
+ParseDoneMd -[dashed]-> DocsDoneMd : "Reads content"
+ParsePhaseMd -[dashed]-> DocsPhaseMd : "Reads content"
+ParseConfigMd -[dashed]-> DocsConfigMd : "Reads content"
+
+' Writing/Updating Pipeline (Illustrative, as it's often read-modify-write)
+MarkdownWriter <.. HandleTrackCmd : "Updates docs/todo.md"
+MarkdownWriter <.. HandlePhaseCmd : "Updates docs/todo.md or docs/phase_*.md"
+MarkdownWriter <.. HandleTaskCmd : "Updates docs/todo.md or docs/phase_*.md"
+
+WriteTrack --> DocsTodoMd : "Writes/updates track data"
+UpdateTask --> DocsPhaseMd : "Updates task data"
+RemovePhase --> DocsTodoMd : "Removes phase data"
+
+' Data Flow and Boundaries
+DocsTodoMd <--> FileSystem : "Active work"
+DocsDoneMd <--> FileSystem : "Completed work archive"
+DocsPhaseMd <--> FileSystem : "Individual phase details"
+DocsConfigMd <--> FileSystem : "Project configuration"
+
+' Implicit Validation/Enforcement
+MarkdownParser -[#Blue]-> DocsTodoMd : "Assumes specific Markdown structure"
+MarkdownWriter -[#Blue]-> DocsDoneMd : "Maintains TODO/DONE separation"
+
+@enduml

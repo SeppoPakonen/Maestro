@@ -1,0 +1,133 @@
+@startuml cmd_session_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
+    FUNCTION(HandleSessionNew, "handle_session_new()")
+    FUNCTION(HandleSessionList, "handle_session_list()")
+    FUNCTION(HandleSessionSet, "handle_session_set()")
+    FUNCTION(HandleSessionGet, "handle_session_get()")
+    FUNCTION(HandleSessionRemove, "handle_session_remove()")
+    FUNCTION(HandleSessionDetails, "handle_session_details()")
+    FUNCTION(GetSessionPathByName, "get_session_path_by_name()")
+    FUNCTION(ListSessions, "list_sessions()")
+    FUNCTION(GetActiveSessionName, "get_active_session_name()")
+    FUNCTION(SetActiveSessionName, "set_active_session_name()")
+    FUNCTION(CreateSession, "create_session()")
+    FUNCTION(RemoveSession, "remove_session()")
+    FUNCTION(GetSessionDetails, "get_session_details()")
+    FUNCTION(EditRootTaskInEditor, "edit_root_task_in_editor()")
+    FUNCTION(GetProjectId, "get_project_id()")
+    FUNCTION(GetUserSessionConfigFile, "get_user_session_config_file()")
+    FUNCTION(ListBuildTargets, "list_build_targets()") ' Used in handle_session_details
+}
+
+' Session Model & Persistence
+MODULE(SessionModel, "maestro/session_model.py") {
+    CLASS(SessionClass, "Session")
+    CLASS(SubtaskClass, "Subtask")
+    CLASS(PlanNodeClass, "PlanNode")
+    FUNCTION(LoadSession, "load_session()")
+    FUNCTION(SaveSession, "save_session()")
+}
+
+' Work Session Commands (Delegated)
+MODULE(CommandsWSession, "maestro/commands/work_session.py") {
+    FUNCTION(HandleWSessionBreadcrumbs, "handle_wsession_breadcrumbs()")
+    FUNCTION(HandleWSessionTimeline, "handle_wsession_timeline()")
+    FUNCTION(HandleWSessionStats, "handle_wsession_stats()")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_header, print_info, print_success, print_error, print_warning, print_debug, Colors
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(User, "User (for input)")
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(Subprocess, "subprocess module")
+ACTOR(Json, "json module")
+
+' Persistent Stores
+DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
+    session.json
+}
+DATABASE(UserConfigJson, "~/.maestro/config.json")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup (implicit via maestro.main.py and cli_parser)
+
+' Command Dispatch (from maestro.main.py)
+MainEntry -- HandleSessionNew
+MainEntry -- HandleSessionList
+MainEntry -- HandleSessionSet
+MainEntry -- HandleSessionGet
+MainEntry -- HandleSessionRemove
+MainEntry -- HandleSessionDetails
+MainEntry -- CommandsWSession.HandleWSessionBreadcrumbs : "delegates"
+MainEntry -- CommandsWSession.HandleWSessionTimeline : "delegates"
+MainEntry -- CommandsWSession.HandleWSessionStats : "delegates"
+
+' Session New Flow
+HandleSessionNew --> GetSessionPathByName
+HandleSessionNew --> EditRootTaskInEditor : "gets root task from editor"
+HandleSessionNew --> CreateSession
+HandleSessionNew --> SetActiveSessionName
+HandleSessionNew --> MaestroUtils : "prints feedback"
+CreateSession --[#Red,dashed]-> DocsSessionsDir : "creates session folder and session.json"
+EditRootTaskInEditor --> Subprocess : "invokes editor"
+Editor <--> EditRootTaskInEditor
+
+' Session List Flow
+HandleSessionList --> ListSessions
+HandleSessionList --> GetActiveSessionName
+HandleSessionList --> GetSessionDetails : "for verbose mode"
+HandleSessionList --> MaestroUtils : "prints formatted list"
+
+' Session Set Flow
+HandleSessionSet --> ListSessions : "to resolve name/number"
+HandleSessionSet --> GetSessionPathByName : "verifies existence"
+HandleSessionSet --> SetActiveSessionName --[#Red,dashed]-> UserConfigJson : "writes active session"
+
+' Session Get Flow
+HandleSessionGet --> GetActiveSessionName
+HandleSessionGet --> GetSessionDetails : "for detailed info"
+HandleSessionGet --> MaestroUtils : "prints active session"
+
+' Session Remove Flow
+HandleSessionRemove --> GetSessionPathByName
+HandleSessionRemove --> GetActiveSessionName : "checks if active"
+HandleSessionRemove --> RemoveSession --[#Red,dashed]-> DocsSessionsDir : "deletes session folder"
+HandleSessionRemove --> UserConfigJson : "clears active session in config"
+
+' Session Details Flow
+HandleSessionDetails --> GetSessionDetails
+HandleSessionDetails --> LoadSession --> DocsSessionsDir : "loads full session object"
+HandleSessionDetails --> ListBuildTargets : "counts build targets"
+HandleSessionDetails --> MaestroUtils : "prints formatted details"
+
+' Utility Function Interactions
+GetSessionPathByName --> DocsSessionsDir
+ListSessions --> DocsSessionsDir
+GetActiveSessionName --> UserConfigJson
+SetActiveSessionName --> UserConfigJson
+RemoveSession --> DocsSessionsDir
+
+' Data Model interactions
+SessionClass <.. LoadSession : "loaded into"
+SessionClass --> SaveSession : "saved from"
+SessionClass <.. GetSessionDetails : "data source"
+
+' Data Persistence
+DocsSessionsDir <--> FileSystem
+UserConfigJson <--> FileSystem
+
+@enduml

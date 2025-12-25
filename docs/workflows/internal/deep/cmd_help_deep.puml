@@ -1,0 +1,50 @@
+@startuml cmd_help_deep
+!include _shared.puml
+
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CLIParser, "maestro/modules/cli_parser.py") {
+    FUNCTION(CreateParser, "create_main_parser()")
+    FUNCTION(StyledArgParser_print_help, "StyledArgumentParser.print_help()")
+    FUNCTION(StyledArgParser_format_help, "StyledArgumentParser.format_help()")
+    FUNCTION(FilterSuppressedHelp, "_filter_suppressed_help()")
+}
+
+MODULE(Utils, "maestro/modules/utils.py") {
+    FUNCTION(StyledPrint, "styled_print()")
+    FUNCTION(PrintSubheader, "print_subheader()")
+    RECTANGLE(ColorsConst, "Colors")
+}
+
+MODULE(Pyfiglet, "pyfiglet (optional)") {
+    FUNCTION(FigletFormat, "figlet_format()")
+}
+
+RECTANGLE(Argparse, "argparse Library") {
+    FUNCTION(ArgParser_parse_args, "ArgumentParser.parse_args()")
+    FUNCTION(ArgParser_format_help, "ArgumentParser.format_help()")
+}
+
+MainEntry --> CreateParser : "1. Initialize parser"
+CreateParser --> ArgParser_parse_args : "2. Returns parser, parse args"
+MainEntry --> ArgParser_parse_args : "3. Parse CLI arguments"
+
+MainEntry -[#Blue]-> StyledArgParser_print_help : "4. If args.command == 'help', print help"
+
+StyledArgParser_print_help --> StyledArgParser_format_help : "5. Format help text"
+StyledArgParser_format_help --> ArgParser_format_help : "5.1. Get raw help from argparse"
+StyledArgParser_format_help --> FilterSuppressedHelp : "5.2. Filter suppressed text"
+
+StyledArgParser_print_help --> StyledPrint : "6. Print banner (MAESTRO ASCII art)"
+StyledArgParser_print_help --> PrintSubheader : "7. Print 'COMMAND OPTIONS' subheader"
+StyledArgParser_print_help --> StyledPrint : "8. Print styled help lines"
+StyledArgParser_print_help --> StyledPrint : "9. Print version footer"
+
+StyledArgParser_print_help -[#DarkGreen,dotted]-> FigletFormat : "Conditional: Generate ASCII art banner"
+
+StyledPrint <- ColorsConst : "Uses Color constants"
+PrintSubheader <- ColorsConst : "Uses Color constants"
+
+@enduml

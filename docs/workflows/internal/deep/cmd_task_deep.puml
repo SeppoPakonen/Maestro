@@ -1,0 +1,179 @@
+@startuml cmd_task_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsTask, "maestro/commands/task.py") {
+    FUNCTION(AddTaskParser, "add_task_parser()")
+    FUNCTION(HandleTaskCommand, "handle_task_command()")
+    FUNCTION(ListTasks, "list_tasks()")
+    FUNCTION(ShowTask, "show_task()")
+    FUNCTION(AddTask, "add_task()")
+    FUNCTION(RemoveTask, "remove_task()")
+    FUNCTION(EditTask, "edit_task()")
+    FUNCTION(SetTaskStatus, "set_task_status()")
+    FUNCTION(SetTaskContext, "set_task_context()")
+    FUNCTION(_CollectTaskEntries, "_collect_task_entries()")
+    FUNCTION(_ResolveTaskIdentifier, "_resolve_task_identifier()")
+    FUNCTION(_ParseTaskListFilters, "_parse_task_list_filters()")
+    FUNCTION(_FindTaskFile, "_find_task_file()")
+    FUNCTION(_NormalizeTaskStatus, "_normalize_task_status()")
+}
+
+' Data Storage and Models
+MODULE(DataCommonUtils, "maestro/data/common_utils.py") {
+    FUNCTION(GetAllTracks, "get_all_tracks_with_phases_and_tasks()")
+    FUNCTION(ResolveIdentifierByType, "resolve_identifier_by_type()")
+}
+
+MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
+    FUNCTION(ParseTodoMd, "parse_todo_md()")
+    FUNCTION(ParseDoneMd, "parse_done_md()")
+    FUNCTION(ParsePhaseMd, "parse_phase_md()")
+    FUNCTION(ParseConfigMd, "parse_config_md()")
+}
+
+MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
+    FUNCTION(ExtractTaskBlock, "extract_task_block()")
+    FUNCTION(ReplaceTaskBlock, "replace_task_block()")
+    FUNCTION(ExtractPhaseBlock, "extract_phase_block()") ' For _insert_task_in_todo
+    FUNCTION(ReplacePhaseBlock, "replace_phase_block()") ' For _insert_task_in_todo
+}
+
+MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
+    CLASS(JsonStoreClass, "JsonStore")
+    FUNCTION(ListAllTracks, "list_all_tracks()")
+    FUNCTION(LoadTrack, "load_track()")
+    FUNCTION(LoadArchive, "load_archive()")
+    FUNCTION(ListAllPhases, "list_all_phases()")
+    FUNCTION(LoadPhase, "load_phase()")
+    FUNCTION(SavePhase, "save_phase()")
+    FUNCTION(LoadTask, "load_task()")
+    FUNCTION(SaveTask, "save_task()")
+}
+
+MODULE(TracksModels, "maestro/tracks/models.py") {
+    CLASS(TaskClass, "Task")
+    CLASS(PhaseClass, "Phase")
+    CLASS(TrackClass, "Track")
+}
+
+' Display and Utility
+MODULE(DisplayTableRenderer, "maestro/display/table_renderer.py") {
+    FUNCTION(RenderTaskTable, "render_task_table()")
+}
+
+MODULE(ConfigSettings, "maestro/config/settings.py") {
+    FUNCTION(GetSettings, "get_settings()")
+}
+
+MODULE(StatusUtils, "maestro/commands/status_utils.py") {
+    FUNCTION(NormalizeStatus, "normalize_status()")
+    FUNCTION(AllowedStatuses, "allowed_statuses()")
+    FUNCTION(StatusBadge, "status_badge()")
+    FUNCTION(StatusTimestamp, "status_timestamp()")
+}
+
+MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
+    FUNCTION(HandleTaskDiscuss, "handle_task_discuss()")
+}
+
+' External Dependencies
+ACTOR(Editor, "User's $EDITOR")
+ACTOR(FileSystem, "File System")
+ACTOR(Subprocess, "subprocess module")
+
+' Persistent Stores
+DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
+DATABASE(MaestroTracksJson, ".maestro/tracks/*.json")
+DATABASE(MaestroTasksJson, ".maestro/tracks/tasks/*.json")
+DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddTaskParser : "Adds 'task' command and subparsers"
+
+' Command Dispatch
+HandleTaskCommand -down-> ListTasks
+HandleTaskCommand -down-> ShowTask
+HandleTaskCommand -down-> AddTask
+HandleTaskCommand -down-> RemoveTask
+HandleTaskCommand -down-> EditTask
+HandleTaskCommand -down-> SetTaskStatus
+HandleTaskCommand -down-> SetTaskContext
+HandleTaskCommand -down-> CommandsDiscuss.HandleTaskDiscuss
+
+' Task Data Collection (Unified)
+_CollectTaskEntries --> JsonStoreClass : "loads tasks from JSON store"
+_CollectTaskEntries --> TracksModels.TrackClass : "uses Track/Phase/Task models"
+_CollectTaskEntries --> TracksModels.PhaseClass
+_CollectTaskEntries --> TracksModels.TaskClass
+
+' Task Identification & Filtering
+CommandsTask._ParseTaskListFilters <.. ListTasks
+CommandsTask._ResolveTaskIdentifier <.. ShowTask
+CommandsTask._ResolveTaskIdentifier <.. EditTask
+CommandsTask._FindTaskFile <.. EditTask
+
+' Listing Tasks
+ListTasks --> _CollectTaskEntries
+ListTasks --> DisplayTableRenderer.RenderTaskTable
+
+' Showing Tasks
+ShowTask --> _ResolveTaskIdentifier
+ShowTask --> GetSettings
+ShowTask --> DisplayTableRenderer : "uses _status_display"
+
+' Adding Task
+AddTask --> GetSettings : "gets current phase if not specified"
+AddTask --> JsonStoreClass : "manages JSON storage"
+AddTask --> JsonStoreClass.LoadPhase : "ensures parent phase exists"
+AddTask --> JsonStoreClass.LoadTask : "checks for duplicates"
+AddTask --> TracksModels.TaskClass : "creates Task object"
+AddTask --> JsonStoreClass.SaveTask : "persists Task object"
+AddTask --> JsonStoreClass.SavePhase : "updates parent Phase object"
+
+' Removing Task
+RemoveTask --> JsonStoreClass : "manages JSON storage"
+RemoveTask --> JsonStoreClass.LoadTask : "gets task details"
+RemoveTask --> JsonStoreClass.LoadPhase : "loads parent phase"
+RemoveTask --> JsonStoreClass.SavePhase : "updates parent phase"
+RemoveTask --> FileSystem : "unlinks task's JSON file"
+
+' Editing Task (Markdown)
+EditTask --> _FindTaskFile
+EditTask --> DataMarkdownWriter.ExtractTaskBlock : "extracts Markdown block"
+EditTask --> Subprocess : "opens $EDITOR"
+Editor <--> EditTask
+EditTask --> DataMarkdownWriter.ReplaceTaskBlock : "updates Markdown block"
+EditTask --[#Red,dashed]-> DocsPhasesMd
+
+' Setting Task Status
+SetTaskStatus --> StatusUtils.NormalizeStatus
+SetTaskStatus --> JsonStoreClass : "manages JSON storage"
+SetTaskStatus --> JsonStoreClass.LoadTask
+SetTaskStatus --> JsonStoreClass.SaveTask
+
+' Setting Task Context
+SetTaskContext --> GetSettings
+SetTaskContext --> SettingsJson : "writes settings"
+
+' AI Discussion
+HandleTaskCommand --> CommandsDiscuss.HandleTaskDiscuss : "delegates AI discussion"
+
+' Data Model interactions
+TaskClass <.. TracksJsonStore : "managed by JsonStore"
+DocsPhasesMd <--> DataMarkdownWriter : "Markdown interface for phase files"
+
+' Persistence
+DocsPhasesMd <--> FileSystem
+MaestroTasksJson <--> FileSystem
+MaestroTracksJson <--> FileSystem : "(for phase.json)"
+SettingsJson <--> FileSystem
+
+@enduml

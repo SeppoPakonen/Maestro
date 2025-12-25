@@ -143,9 +143,46 @@ skinparam note {
 
 ' WRITE_TRUTH - Write to docs/maestro/ truth files
 ' Usage: WRITE_TRUTH("docs/maestro/tracks/track-id.json")
+' WRITE_TRUTH - Write to docs/maestro/ truth files
+' Usage: WRITE_TRUTH("docs/maestro/tracks/track-id.json")
 !procedure WRITE_TRUTH($filepath)
   :<color:COLOR_ARTIFACT><b>Write Truth File</b>
   → $filepath</color>|
+!endprocedure
+
+' REPO_TRUTH_STORE - Reference to repo-local project truth storage
+' Usage: REPO_TRUTH_STORE()
+!procedure REPO_TRUTH_STORE()
+  note "<color:COLOR_ARTIFACT>Repo Truth: `./docs/maestro/`</color>" as RepoTruthStore
+!endprocedure
+
+' HOME_HUB_STORE - Reference to global read-only hub/index
+' Usage: HOME_HUB_STORE()
+!procedure HOME_HUB_STORE()
+  note "<color:COLOR_ARTIFACT>Home Hub: `$HOME/.maestro/**/repo`</color>" as HomeHubStore
+!endprocedure
+
+' CALL_REPO_RESOLVE - Explicitly calls Workflow 05 for Repo Resolve
+' Usage: CALL_REPO_RESOLVE()
+!procedure CALL_REPO_RESOLVE()
+  :<color:COLOR_AI_ACTION><b>Run Repo Resolve (WF-05)</b></color>|
+!endprocedure
+
+' BRANCH_GUARD - Note for branch safety
+' Usage: BRANCH_GUARD("operational rule") or BRANCH_GUARD("implemented in code")
+!procedure BRANCH_GUARD($type)
+  note "<color:COLOR_VALIDATION><b>Branch Boundaries:</b>
+  Maestro operates on current branch only.
+  Branch switching during `maestro work` is unsupported and risks corruption.
+  (<i>$type</i>)</color>" as BranchGuard
+!endprocedure
+
+' WSESSION_COOKIE_GATE - Representation of wsession IPC
+' Usage: WSESSION_COOKIE_GATE()
+!procedure WSESSION_COOKIE_GATE()
+  note "<color:COLOR_AI_ACTION><b>wsession IPC:</b>
+  File-based polling via 'wsession cookie/run-id'
+  Multi-process allowed; cookie targets work-run</color>" as WSessionIPC
 !endprocedure
 
 ' SUCCESS_EXIT - Successful exit point from scenario

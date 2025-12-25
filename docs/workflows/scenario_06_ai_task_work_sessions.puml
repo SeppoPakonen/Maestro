@@ -5,9 +5,17 @@ title AI-driven task execution with Work Sessions and multi-session resume
 
 participant Operator as Op
 participant "Maestro Orchestrator (outer)" as MO
+
+start
+BRANCH_GUARD("operational rule")
 participant "AI Engine" as AI
 participant "Maestro Worker (inner)" as MW
 participant "Work Session Store" as WSS
+note right of WSS
+  File-based polling IPC
+  keyed by `wsession cookie/run-id`
+  Multi-process allowed
+end note
 participant "AI Transcript Store" as ATS
 
 == Entry: AI Task Work Session ==

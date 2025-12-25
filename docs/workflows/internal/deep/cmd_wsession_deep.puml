@@ -1,0 +1,134 @@
+@startuml cmd_wsession_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsWSession, "maestro/commands/work_session.py") {
+    FUNCTION(AddWSessionParser, "add_wsession_parser()")
+    FUNCTION(HandleWSessionList, "handle_wsession_list()")
+    FUNCTION(HandleWSessionShow, "handle_wsession_show()")
+    FUNCTION(HandleWSessionTree, "handle_wsession_tree()")
+    FUNCTION(HandleWSessionBreadcrumbs, "handle_wsession_breadcrumbs()")
+    FUNCTION(HandleWSessionTimeline, "handle_wsession_timeline()")
+    FUNCTION(HandleWSessionStats, "handle_wsession_stats()")
+    FUNCTION(_ResolveSessionId, "_resolve_session_id()")
+    FUNCTION(ExportSessionJson, "export_session_json()")
+    FUNCTION(ExportSessionMarkdown, "export_session_markdown()")
+    FUNCTION(_FilterHierarchyByStatus, "_filter_hierarchy_by_status()")
+    FUNCTION(_PrintBreadcrumbCounts, "_print_breadcrumb_counts()")
+}
+
+' Work Session Subsystem
+MODULE(WorkSessionModule, "maestro/work_session.py") {
+    CLASS(WorkSessionClass, "WorkSession")
+    FUNCTION(ListSessions, "list_sessions()")
+    FUNCTION(LoadSession, "load_session()")
+    FUNCTION(GetSessionHierarchy, "get_session_hierarchy()")
+    FUNCTION(CreateSession, "create_session()")
+}
+
+MODULE(BreadcrumbModule, "maestro/breadcrumb.py") {
+    CLASS(BreadcrumbClass, "Breadcrumb")
+    FUNCTION(ListBreadcrumbs, "list_breadcrumbs()")
+    FUNCTION(GetBreadcrumbSummary, "get_breadcrumb_summary()")
+    FUNCTION(ReconstructSessionTimeline, "reconstruct_session_timeline()")
+}
+
+MODULE(VisualizationModule, "maestro/visualization") {
+    CLASS(SessionTreeRendererClass, "tree.SessionTreeRenderer")
+    CLASS(SessionTableFormatterClass, "table.SessionTableFormatter")
+    CLASS(SessionDetailFormatterClass, "detail.SessionDetailFormatter")
+}
+
+MODULE(StatsModule, "maestro/stats/session_stats.py") {
+    CLASS(SessionStatsClass, "SessionStats")
+    FUNCTION(CalculateSessionStats, "calculate_session_stats()")
+    FUNCTION(CalculateTreeStats, "calculate_tree_stats()")
+}
+
+' Utility Modules
+MODULE(Pathlib, "pathlib")
+MODULE(Json, "json")
+MODULE(Logging, "logging")
+MODULE(Sys, "sys")
+MODULE(DateTime, "datetime")
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+
+' Persistent Stores
+DATABASE(DocsSessionsDir, "docs/sessions/") {
+    <session-id>/session.json
+    <session-id>/breadcrumbs.jsonl
+}
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddWSessionParser : "Adds 'wsession' command and subparsers"
+
+' Command Dispatch
+MainEntry --> CommandsWSession : "Delegates to handle_wsession_*"
+
+' List Sessions (`wsession list`)
+HandleWSessionList --> WorkSessionModule.ListSessions : "retrieves sessions based on filters"
+WorkSessionModule.ListSessions --> DocsSessionsDir : "reads session.json files"
+HandleWSessionList --> VisualizationModule.SessionTableFormatterClass.format_table : "renders sessions in table"
+
+' Show Session Details (`wsession show`)
+HandleWSessionShow --> CommandsWSession._ResolveSessionId : "resolves session ID"
+HandleWSessionShow --> WorkSessionModule.LoadSession : "loads specific session data"
+HandleWSessionShow --> VisualizationModule.SessionDetailFormatterClass.format_details : "renders detailed view"
+HandleWSessionShow --> CommandsWSession.ExportSessionJson --[#Red,dashed]-> FileSystem : "exports to JSON"
+CommandsWSession.ExportSessionJson --> BreadcrumbModule.ListBreadcrumbs : "includes breadcrumbs"
+CommandsWSession.ExportSessionJson --> StatsModule.CalculateSessionStats : "includes stats"
+CommandsWSession.ExportSessionJson --> WorkSessionModule.ListSessions : "includes child sessions"
+HandleWSessionShow --> CommandsWSession.ExportSessionMarkdown --[#Red,dashed]-> FileSystem : "exports to Markdown"
+CommandsWSession.ExportSessionMarkdown --> BreadcrumbModule.ListBreadcrumbs
+CommandsWSession.ExportSessionMarkdown --> StatsModule.CalculateSessionStats
+
+' Session Tree (`wsession tree`)
+HandleWSessionTree --> WorkSessionModule.GetSessionHierarchy : "builds session hierarchy"
+WorkSessionModule.GetSessionHierarchy --> DocsSessionsDir : "reads session data"
+HandleWSessionTree --> CommandsWSession._FilterHierarchyByStatus : "applies status filter"
+HandleWSessionTree --> VisualizationModule.SessionTreeRendererClass.render : "renders tree"
+HandleWSessionTree --> CommandsWSession._PrintBreadcrumbCounts : "displays breadcrumb counts"
+
+' Breadcrumbs (`wsession breadcrumbs`)
+HandleWSessionBreadcrumbs --> CommandsWSession._ResolveSessionId
+HandleWSessionBreadcrumbs --> BreadcrumbModule.GetBreadcrumbSummary : "gets summary"
+HandleWSessionBreadcrumbs --> BreadcrumbModule.ListBreadcrumbs : "lists detailed breadcrumbs"
+BreadcrumbModule.ListBreadcrumbs --> DocsSessionsDir : "reads breadcrumbs.jsonl files"
+
+' Timeline (`wsession timeline`)
+HandleWSessionTimeline --> CommandsWSession._ResolveSessionId
+HandleWSessionTimeline --> BreadcrumbModule.ReconstructSessionTimeline : "reconstructs timeline events"
+BreadcrumbModule.ReconstructSessionTimeline --> DocsSessionsDir : "reads breadcrumbs.jsonl files"
+
+' Statistics (`wsession stats`)
+HandleWSessionStats --> CommandsWSession._ResolveSessionId
+HandleWSessionStats --> WorkSessionModule.LoadSession
+HandleWSessionStats --> StatsModule.CalculateSessionStats : "calculates stats for single session"
+HandleWSessionStats --> StatsModule.CalculateTreeStats : "calculates stats for session tree"
+HandleWSessionStats --> VisualizationModule.SessionDetailFormatterClass.format_statistics : "renders stats"
+HandleWSessionStats --> WorkSessionModule.ListSessions : "for aggregate stats"
+
+' Helper Interactions
+CommandsWSession._ResolveSessionId --> WorkSessionModule.ListSessions : "to find 'latest'"
+CommandsWSession --> Pathlib
+CommandsWSession --> Json
+CommandsWSession --> Logging
+CommandsWSession --> Sys
+CommandsWSession --> DateTime
+
+' Data Model interactions
+WorkSessionClass <.. WorkSessionModule.ListSessions
+WorkSessionClass <.. WorkSessionModule.LoadSession
+BreadcrumbClass <.. BreadcrumbModule.ListBreadcrumbs
+SessionStatsClass <.. StatsModule.CalculateSessionStats
+
+@enduml

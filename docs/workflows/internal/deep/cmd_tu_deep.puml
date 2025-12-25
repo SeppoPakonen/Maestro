@@ -1,0 +1,172 @@
+@startuml cmd_tu_deep
+!include _shared.puml
+
+' Core Command Modules
+MODULE(MaestroMain, "maestro/main.py") {
+    FUNCTION(MainEntry, "main()")
+}
+
+MODULE(CommandsTU, "maestro/commands/tu.py") {
+    FUNCTION(AddTuParser, "add_tu_parser()")
+    FUNCTION(HandleTuCommand, "handle_tu_command()")
+    FUNCTION(GetParserByLanguage, "get_parser_by_language()")
+    FUNCTION(DetectLanguageFromPath, "detect_language_from_path()")
+    FUNCTION(GetFilesByLanguage, "get_files_by_language()")
+    FUNCTION(HandleTuBuildCommand, "handle_tu_build_command()")
+    FUNCTION(HandleTuInfoCommand, "handle_tu_info_command()")
+    FUNCTION(HandleTuQueryCommand, "handle_tu_query_command()")
+    FUNCTION(HandleTuCompleteCommand, "handle_tu_complete_command()")
+    FUNCTION(HandleTuReferencesCommand, "handle_tu_references_command()")
+    FUNCTION(HandleTuLspCommand, "handle_tu_lsp_command()")
+    FUNCTION(HandleTuCacheClearCommand, "handle_tu_cache_clear_command()")
+    FUNCTION(HandleTuCacheStatsCommand, "handle_tu_cache_stats_command()")
+    FUNCTION(HandleTuTransformCommand, "handle_tu_transform_command()")
+    FUNCTION(HandleTuPrintAstCommand, "handle_tu_print_ast_command()")
+    FUNCTION(HandleTuDraftCommand, "handle_tu_draft_command()")
+}
+
+' TU Core Modules
+MODULE(TuParsers, "maestro/tu/parsers.py") { ' Conceptual grouping
+    CLASS(ClangParserClass, "ClangParser")
+    CLASS(JavaParserClass, "JavaParser")
+    CLASS(KotlinParserClass, "KotlinParser")
+    CLASS(PythonParserClass, "PythonParser")
+    PROTOCOL(TranslationUnitParser, "TranslationUnitParser")
+}
+
+MODULE(TuBuilder, "maestro/tu/tu_builder.py") {
+    CLASS(TUBuilderClass, "TUBuilder")
+    FUNCTION(Build, "build()")
+    FUNCTION(BuildWithSymbols, "build_with_symbols()")
+}
+
+MODULE(TuIndexing, "maestro/tu/indexing.py") { ' Conceptual grouping
+    CLASS(SymbolIndexClass, "SymbolIndex")
+    CLASS(CompletionProviderClass, "CompletionProvider")
+    FUNCTION(Query, "query()")
+    FUNCTION(FindReferences, "find_references()")
+    FUNCTION(GetCompletions, "get_completions()")
+}
+
+MODULE(TuLsp, "maestro/tu/lsp_server.py") {
+    CLASS(MaestroLSPServerClass, "MaestroLSPServer")
+    FUNCTION(StartTcp, "start_tcp()")
+    FUNCTION(StartIo, "start_io()")
+}
+
+MODULE(TuTransformers, "maestro/tu/transformers.py") {
+    CLASS(UppConventionTransformerClass, "UppConventionTransformer")
+    FUNCTION(TransformDocument, "transform_document()")
+    FUNCTION(GeneratePrimaryHeader, "generate_primary_header()")
+    FUNCTION(UpdateCppIncludes, "update_cpp_includes()")
+}
+
+MODULE(TuAst, "maestro/tu/ast.py") { ' Conceptual grouping
+    CLASS(ASTDocument, "ASTDocument")
+    CLASS(ASTNode, "ASTNode")
+    CLASS(ASTPrinterClass, "ASTPrinter")
+    FUNCTION(PrintDocument, "print_document()")
+}
+
+MODULE(TuCodeGen, "maestro/tu/code_generator.py") {
+    CLASS(CodeGeneratorClass, "CodeGenerator")
+    FUNCTION(GenerateClass, "generate_class()")
+    FUNCTION(GenerateFunction, "generate_function()")
+}
+
+' Utility Modules
+MODULE(MaestroUtils, "maestro/modules/utils.py") {
+    ' print_success, print_error etc.
+}
+
+' External Dependencies
+ACTOR(FileSystem, "File System")
+ACTOR(Shutil, "shutil module")
+ACTOR(Subprocess, "subprocess module")
+ACTOR(Json, "json module")
+
+' Persistent Stores
+DATABASE(SourceFiles, "Source Code Files (*.cpp, *.java, *.py etc.)")
+DATABASE(TuCacheDir, ".maestro/tu/cache/") {
+    *.ast (serialized ASTs)
+}
+DATABASE(SymbolIndexDb, ".maestro/tu/analysis/symbols.db")
+DATABASE(TuDraftDir, ".maestro/tu/draft/") {
+    Generated draft files
+}
+DATABASE(DocsTodoClassesMd, "docs/todo-classes.md")
+
+
+' --- Relationships and Call Flow ---
+
+' CLI Command Setup
+MainEntry --> AddTuParser : "Adds 'tu' command and subparsers"
+
+' Command Dispatch
+HandleTuCommand --> HandleTuBuildCommand
+HandleTuCommand --> HandleTuInfoCommand
+HandleTuCommand --> HandleTuQueryCommand
+HandleTuCommand --> HandleTuCompleteCommand
+HandleTuCommand --> HandleTuReferencesCommand
+HandleTuCommand --> HandleTuLspCommand
+HandleTuCommand --> HandleTuCacheClearCommand
+HandleTuCommand --> HandleTuCacheStatsCommand
+HandleTuCommand --> HandleTuTransformCommand
+HandleTuCommand --> HandleTuPrintAstCommand
+HandleTuCommand --> HandleTuDraftCommand
+
+' Core TU Operations Flow
+HandleTuBuildCommand --> GetFilesByLanguage
+HandleTuBuildCommand --> DetectLanguageFromPath
+HandleTuBuildCommand --> GetParserByLanguage
+HandleTuBuildCommand --> TUBuilderClass.Build
+TUBuilderClass.Build --> TuCacheDir : "writes cached TUs"
+
+HandleTuQueryCommand --> SymbolIndexClass.Query --> SymbolIndexDb
+HandleTuCompleteCommand --> CompletionProviderClass.GetCompletions
+HandleTuReferencesCommand --> SymbolIndexClass.FindReferences --> SymbolIndexDb
+
+HandleTuLspCommand --> MaestroLSPServerClass : "starts LSP server"
+MaestroLSPServerClass --> StdIO : "TCP or STDIO communication"
+
+HandleTuCacheClearCommand --> Shutil : "removes cache directory"
+HandleTuCacheClearCommand --> TuCacheDir
+
+HandleTuCacheStatsCommand --> TuCacheDir : "reads cache files"
+
+HandleTuTransformCommand --> GetFilesByLanguage
+HandleTuTransformCommand --> DetectLanguageFromPath
+HandleTuTransformCommand --> GetParserByLanguage
+HandleTuTransformCommand --> TUBuilderClass
+HandleTuTransformCommand --> UppConventionTransformerClass.TransformDocument
+UppConventionTransformerClass --> SourceFiles : "modifies source code"
+
+HandleTuPrintAstCommand --> GetParserByLanguage
+HandleTuPrintAstCommand --> ASTPrinterClass.PrintDocument
+ASTPrinterClass.PrintDocument --> StdIO / FileSystem : "writes AST"
+
+HandleTuDraftCommand --> GetFilesByLanguage
+HandleTuDraftCommand --> DetectLanguageFromPath
+HandleTuDraftCommand --> GetParserByLanguage
+HandleTuDraftCommand --> TuCodeGen.CodeGeneratorClass
+TuCodeGen.CodeGeneratorClass --> TuDraftDir : "writes generated code"
+TuCodeGen.CodeGeneratorClass --> DocsTodoClassesMd : "links drafts to tasks/phases"
+
+' Language Adapters
+GetParserByLanguage --> TuParsers.ClangParserClass
+GetParserByLanguage --> TuParsers.JavaParserClass
+GetParserByLanguage --> TuParsers.KotlinParserClass
+GetParserByLanguage --> TuParsers.PythonParserClass
+TranslationUnitParser <|-- TuParsers.ClangParserClass
+TranslationUnitParser <|-- TuParsers.JavaParserClass
+TranslationUnitParser <|-- TuParsers.KotlinParserClass
+TranslationUnitParser <|-- TuParsers.PythonParserClass
+
+' Data Flow and Persistence
+SourceFiles <--> FileSystem : "reads/writes source code"
+TuCacheDir <--> FileSystem : "reads/writes TU cache"
+SymbolIndexDb <--> FileSystem : "reads/writes symbol index"
+TuDraftDir <--> FileSystem : "writes generated code"
+DocsTodoClassesMd <--> FileSystem : "writes draft links"
+
+@enduml
