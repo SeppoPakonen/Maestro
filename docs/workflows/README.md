@@ -32,7 +32,7 @@ Scenarios use the ID format `WF-##`:
 - `WF-03`: (Future) New greenfield repo
 - `WF-04`: (Future) Runtime error workflow
 - `WF-05`: Repo Resolve — packages, conventions, build targets, and derived issues/tasks (Integration Spine)
-- `WF-06`: (Future) Multi-language monorepo
+- `WF-06`: AI-driven task execution with Work Sessions and multi-session resume
 - etc.
 
 IDs are stable and never change, even if scenarios are deprecated or superseded.
@@ -270,6 +270,16 @@ Workflows may include **fast rule-based remediation loops** before deeper analys
 - Fall back to normal analysis if solutions fail
 - Reduce time-to-first-correct-fix for repeated patterns
 - Are implemented in scenarios like WF-04 (Reactive compile error solutions)
+
+### Sessioned Workflows
+
+Some workflows involve **persistent session management** where work spans multiple AI sessions but remains part of a single logical work session. These workflows:
+
+- Maintain persistent context across AI session boundaries
+- Track progress through breadcrumb updates
+- Support resumption from interruption points
+- Preserve audit trails for accountability
+- Are implemented in scenarios like WF-06 (AI-driven task execution with Work Sessions and multi-session resume)
 
 ### Format
 
