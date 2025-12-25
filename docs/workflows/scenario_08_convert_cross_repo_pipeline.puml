@@ -1,0 +1,62 @@
+@startuml
+!include _shared.puml
+
+title Cross-Repo Convert Pipeline (New/Plan/Run)
+
+' Swimlanes for the two repos and other components
+participant "Operator" as Op
+participant "Maestro (Source Repo)" as MS
+participant "AI Engine" as AI
+participant "AST/TU Toolchain" as AST
+participant "Filesystem" as FS
+participant "Maestro (Target Repo)" as MT
+
+Op -> MS: maestro convert new [pipeline_name]
+MS -> MS: CREATE_CONVERT_PIPELINE()
+MS -> FS: Create pipeline metadata in .maestro/convert/
+Op -> MS: maestro convert plan <pipeline_id>
+MS -> AI: Initiate planning session
+AI -> MS: Generate conversion plan
+MS -> MS: PLAN_CONVERT_PIPELINE()
+MS -> MS: VALIDATE_PLAN_JSON()
+note right: Hard stop if plan is invalid
+MS -> FS: Save plan.json
+
+' Prerequisite checks
+MS -> MS: ENSURE_AST_AVAILABLE()
+MS -> AST: Generate AST from source
+AST -> MS: Return AST
+note right: Hard stop if AST unavailable
+
+' Export AST
+MS -> MS: EXPORT_AST()
+MS -> FS: Export AST to .maestro/convert/
+
+' Target repo initialization
+MS -> MT: INIT_TARGET_REPO()
+MT -> FS: Create target repo structure
+note right: Hard stop if target repo creation fails
+
+' Emit tasks to target repo
+MS -> MS: EMIT_TARGET_TASKS()
+MS -> MT: Write conversion tasks to target repo
+MT -> FS: Save tasks as Track/Phase/Task in target repo
+
+' Execute the conversion
+Op -> MS: maestro convert run <pipeline_id>
+MS -> MS: Validate plan and prerequisites
+MS -> MT: Execute conversion tasks in target repo
+MT -> MT: Process scaffold tasks
+MT -> MT: Process file conversion tasks
+MT -> MT: Process final sweep tasks
+note right: Tasks executed in target repo via normal workflows
+
+' Semantic integrity checks
+MT -> MT: Run semantic integrity checks
+MT -> MT: Check for semantic equivalence
+note right: May require human review or block pipeline
+
+' Return status
+MT -> Op: Return execution status
+
+@end

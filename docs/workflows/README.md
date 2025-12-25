@@ -282,6 +282,16 @@ Some workflows involve **persistent session management** where work spans multip
 - Preserve audit trails for accountability
 - Are implemented in scenarios like WF-06 (AI-driven task execution with Work Sessions and multi-session resume)
 
+### Cross-Repo Workflows
+
+Some workflows involve **operations across two separate repositories** where planning and execution occur in different repositories. These workflows:
+
+- Maintain clear separation between source and target repositories
+- Ensure source repository remains pristine during conversion
+- Track conversion state and artifacts in both repositories
+- Implement safety boundaries to prevent unintended cross-repo modifications
+- Are implemented in scenarios like WF-08 (Convert — cross-repo pipeline)
+
 ### Format
 
 Each command workflow includes:
@@ -311,6 +321,7 @@ Each command workflow includes:
 | `maestro tu` | [command_tu.md](command_tu.md) | [command_tu.puml](command_tu.puml) | Translation Unit analysis - AST generation, indexing, refactoring, transformation, and completion |
 | `maestro ast` | [command_ast.md](command_ast.md) | [command_ast.puml](command_ast.puml) | AST operations (conceptual, implemented via `maestro tu`) |
 | `maestro repo conf` | [command_repo_conf.md](command_repo_conf.md) | [command_repo_conf.puml](command_repo_conf.puml) | Repository build configuration analysis |
+| `maestro convert` | [command_convert.md](command_convert.md) | [command_convert.puml](command_convert.puml) | Conversion pipeline — transform code between languages/frameworks with cross-repo support |
 
 ### Relationship to Scenarios
 

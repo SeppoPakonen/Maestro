@@ -1,0 +1,41 @@
+@startuml
+title Convert Command Structure
+
+rectangle "maestro convert" as convert {
+}
+rectangle "new [pipeline_name]" as new
+rectangle "plan <pipeline_id>" as plan
+rectangle "run <pipeline_id>" as run
+rectangle "status <pipeline_id>" as status
+rectangle "show <pipeline_id>" as show
+rectangle "reset <pipeline_id>" as reset
+rectangle "batch [subcommand]" as batch
+
+rectangle "batch run" as batch_run
+rectangle "batch status" as batch_status
+rectangle "batch show" as batch_show
+rectangle "batch report" as batch_report
+
+convert -- new
+new -- plan
+plan -- run
+run -- status
+status -- show
+show -- reset
+reset -- batch
+
+batch -- batch_run
+batch -- batch_status
+batch -- batch_show
+batch -- batch_report
+
+note right of convert: CLI routing through\nmaestro/commands/convert.py
+note right of new: Creates new pipeline\nin .maestro/convert/
+note right of plan: Generates plan with\nAI-assisted planning
+note right of run: Executes conversion tasks\nwith semantic checks
+note right of status: Shows pipeline status\nfrom UI facade
+note right of show: Shows detailed pipeline\ninformation
+note right of reset: Resets pipeline state\nin orchestrator
+note right of batch: Handles multiple pipelines\nin batch operations
+
+@enduml
