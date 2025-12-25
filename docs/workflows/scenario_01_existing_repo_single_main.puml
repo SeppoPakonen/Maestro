@@ -505,6 +505,6 @@ stop
 ' ============================================================================
 
 ' Uncomment the line below to render this scenario standalone:
-' WF_01()
+WF_01()
 
 @enduml

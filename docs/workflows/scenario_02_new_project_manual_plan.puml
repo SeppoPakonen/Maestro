@@ -361,6 +361,6 @@ stop
 ' ============================================================================
 
 ' Uncomment the line below to render this scenario standalone:
-' WF_02()
+WF_02()
 
 @enduml
