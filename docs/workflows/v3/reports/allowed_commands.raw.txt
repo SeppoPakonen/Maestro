@@ -1,0 +1,308 @@
+maestro init
+maestro repo resolve --level lite
+maestro repo conf --show
+maestro build
+maestro solutions match --from-build-log
+maestro issues add --from-solution solution-12345
+maestro task add --issue issue-001 --action apply-solution
+maestro work task task-001
+maestro build
+maestro init --greenfield
+maestro workflow init user-auth-service
+maestro workflow node add manager-intent "User can log in securely"
+maestro workflow node add user-action "Submit login form"
+maestro workflow render --format puml
+maestro workflow accept user-auth-service
+maestro build
+maestro track add "Sprint 1" --start 2025-01-01
+maestro phase add track-001 "P1: Core Auth"
+maestro task add phase-001 "Implement login endpoint"
+maestro work task task-001
+maestro repo resolve --readonly
+maestro repo show packages
+maestro repo show entry-points
+maestro init
+maestro repo resolve --level deep
+maestro repo show packages
+maestro repo conventions check
+maestro issues list --type convention
+maestro issues accept issue-001
+maestro discuss
+maestro ai qwen
+maestro ai qwen --prompt "Explain how to use argparse"
+maestro ai qwen --resume session-001
+maestro ai qwen --verbose
+maestro ai gemini
+maestro ai claude
+maestro discuss → managed mode → JSON contract enforced"
+maestro ai qwen → handsoff mode → accepts any response"
+maestro ai codex
+maestro work task task-001
+maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status \"Your progress message\""
+maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Analyzing codebase..."
+maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Implementing password hashing..."
+maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Writing unit tests..."
+maestro wsession show ws-20250126-abc123
+maestro work --resume ws-20250126-abc123
+maestro wsession breadcrumb ws-20250126-abc123 --cookie wrong-cookie --status "Hacked"
+maestro wsession breadcrumb ws-20250126-abc123 --status "Progress..."
+maestro wsession breadcrumb <session> --cookie <cookie> --status <msg>"
+maestro wsession breadcrumb'"
+maestro wsession show'"
+maestro discuss
+maestro discuss --resume session-20250126-001
+maestro discuss --engine gemini
+maestro session log session-20250126-001
+maestro init
+maestro runbook add --title "Hello CLI Tool" --scope product --tag greenfield
+maestro runbook step-add hello-cli-tool --actor manager --action "Define product goal: simple greeting CLI" --expected "Goal documented"
+maestro runbook step-add hello-cli-tool --actor user --action "Run: hello --name Alice" --expected "Prints: Hello, Alice!"
+maestro runbook step-add hello-cli-tool --actor user --action "Run: hello (no args)" --expected "Prints: Hello, World!"
+maestro runbook step-add hello-cli-tool --actor system --action "Parse CLI args using argparse" --expected "Arguments extracted"
+maestro runbook step-add hello-cli-tool --actor ai --action "Implement hello.py with argparse" --expected "Code written and tested"
+maestro runbook export hello-cli-tool --format md
+maestro workflow init hello-cli-workflow --from-runbook hello-cli-tool
+maestro workflow node add hello-cli-workflow --layer manager_intent --label "Product goal: greeting CLI"
+maestro workflow node add hello-cli-workflow --layer user_intent --label "User runs hello --name X"
+maestro workflow node add hello-cli-workflow --layer interface --label "CLI: argparse parser"
+maestro workflow node add hello-cli-workflow --layer code --label "hello.py main()"
+maestro workflow edge add hello-cli-workflow --from manager_intent_001 --to user_intent_001
+maestro workflow edge add hello-cli-workflow --from user_intent_001 --to interface_001
+maestro workflow edge add hello-cli-workflow --from interface_001 --to code_001
+maestro workflow validate hello-cli-workflow
+maestro workflow render hello-cli-workflow --format puml
+maestro track add "Sprint 1: Hello CLI" --start 2025-01-01
+maestro phase add track-001 "P1: Implement Core"
+maestro task add phase-001 "Implement hello.py with argparse"
+maestro work task task-001
+maestro wsession breadcrumb task-001 --cookie '<cookie>' --status "Implementing argparse parser"
+python hello.py --name Alice
+python hello.py
+maestro task complete task-001
+maestro init
+maestro runbook add --title "C++ Hello Program" --scope product --tag greenfield --tag cpp
+maestro runbook step-add c-hello-program --actor manager --action "Define goal: minimal C++ program that prints greeting" --expected "Goal documented"
+maestro runbook step-add c-hello-program --actor user --action "Run: make" --expected "Compiles successfully, creates ./hello binary"
+maestro runbook step-add c-hello-program --actor user --action "Run: ./hello" --expected "Prints: Hello from C++!"
+maestro runbook step-add c-hello-program --actor system --action "Detect Makefile, invoke g++ with -std=c++17" --expected "Compilation successful"
+maestro runbook step-add c-hello-program --actor ai --action "Write main.cpp with iostream, string" --expected "Code compiles cleanly"
+maestro runbook export c-hello-program --format md
+maestro workflow init hello-cpp-workflow --from-runbook c-hello-program
+maestro workflow node add hello-cpp-workflow --layer manager_intent --label "Goal: minimal C++ greeting"
+maestro workflow node add hello-cpp-workflow --layer user_intent --label "User runs make; then ./hello"
+maestro workflow node add hello-cpp-workflow --layer interface --label "Build: Makefile + g++"
+maestro workflow node add hello-cpp-workflow --layer code --label "main.cpp: iostream + cout"
+maestro workflow validate hello-cpp-workflow
+maestro track add "Sprint 1: C++ Hello" --start 2025-01-01
+maestro phase add track-001 "P1: Implement and Build"
+maestro task add phase-001 "Write main.cpp and Makefile"
+maestro repo resolve --level lite
+maestro work task task-001
+maestro build
+maestro solutions match --from-build-log
+maestro issues add --type build --desc "Missing include: <string>"
+maestro build
+./hello
+maestro task complete task-001
+maestro init
+maestro runbook add --title "GUI Menu: File" --scope ui --tag menu
+maestro runbook step-add gui-menu-file --actor manager --action "Define File menu structure" --expected "Menu items documented"
+maestro runbook step-add gui-menu-file --actor user --action "Click File → New (or Ctrl+N)" --expected "New document created"
+maestro runbook step-add gui-menu-file --actor user --action "Click File → Open (or Ctrl+O)" --expected "File picker dialog opens"
+maestro runbook step-add gui-menu-file --actor user --action "Click File → Save (or Ctrl+S)" --expected "Document saved to disk"
+maestro runbook step-add gui-menu-file --actor user --action "Click File → Export → Export as PDF" --expected "PDF export dialog opens"
+maestro runbook add --title "GUI Menu: Edit" --scope ui --tag menu
+maestro runbook step-add gui-menu-edit --actor user --action "Click Edit → Undo (or Ctrl+Z)" --expected "Last action undone"
+maestro runbook step-add gui-menu-edit --actor user --action "Click Edit → Copy (or Ctrl+C)" --expected "Selection copied to clipboard"
+maestro runbook add --title "GUI Menu: Help" --scope ui --tag menu
+maestro runbook step-add gui-menu-help --actor user --action "Click Help → About" --expected "About dialog displays app version"
+maestro runbook step-add gui-menu-help --actor user --action "Click Help → Check for Updates" --expected "Update check runs, reports status"
+maestro workflow init file-menu-workflow --from-runbook gui-menu-file
+maestro workflow node add file-menu-workflow --layer manager_intent --label "Manager defines File menu structure"
+maestro workflow node add file-menu-workflow --layer user_intent --label "User wants to create/open/save/export files"
+maestro workflow node add file-menu-workflow --layer interface --label "Menu: File → New/Open/Save/Export"
+maestro workflow init edit-menu-workflow --from-runbook gui-menu-edit
+maestro workflow node add edit-menu-workflow --layer interface --label "Menu: Edit → Undo/Redo/Cut/Copy/Paste"
+maestro workflow validate file-menu-workflow
+maestro workflow validate edit-menu-workflow
+maestro workflow render file-menu-workflow --format puml
+maestro track add "Sprint 2: Implement File Menu" --start 2025-02-01
+maestro phase add track-001 "P1: File Menu Actions"
+maestro task add phase-001 "Implement File → New action"
+maestro task add phase-001 "Implement File → Open action"
+maestro task add phase-001 "Implement File → Export submenu"
+maestro init
+maestro runbook add --title "Text Adventure Game Loop" --scope product --tag game --tag greenfield
+maestro runbook step-add text-adventure-game-loop --actor manager --action "Define goal: minimal playable text adventure" --expected "Goal documented"
+maestro runbook step-add text-adventure-game-loop --actor user --action "Run: python adventure.py" --expected "Game starts, shows starting room description"
+maestro runbook step-add text-adventure-game-loop --actor user --action "Type: look" --expected "Displays room description and available exits"
+maestro runbook step-add text-adventure-game-loop --actor user --action "Type: go north" --expected "Player moves to forest, new room description shown"
+maestro runbook step-add text-adventure-game-loop --actor user --action "Type: take key" --expected "Key added to inventory"
+maestro runbook step-add text-adventure-game-loop --actor user --action "Type: inventory" --expected "Shows: 'You are carrying: key'"
+maestro runbook step-add text-adventure-game-loop --actor system --action "Parse user command (look/go/take), update world state" --expected "Command processed, state updated"
+maestro runbook step-add text-adventure-game-loop --actor ai --action "Implement adventure.py with rooms dict and command parser" --expected "Game loop functional"
+maestro runbook export text-adventure-game-loop --format md
+maestro workflow init game-loop-workflow --from-runbook text-adventure-game-loop
+maestro workflow node add game-loop-workflow --layer manager_intent --label "Goal: minimal playable adventure"
+maestro workflow node add game-loop-workflow --layer user_intent --label "Player explores rooms, takes items"
+maestro workflow node add game-loop-workflow --layer interface --label "Game loop: parse commands, update world state"
+maestro workflow node add game-loop-workflow --layer code --label "adventure.py: rooms dict + command parser"
+maestro workflow validate game-loop-workflow
+maestro track add "Sprint 1: Text Adventure MVP" --start 2025-01-01
+maestro phase add track-001 "P1: Implement Game Loop"
+maestro task add phase-001 "Implement adventure.py with rooms and commands"
+maestro work task task-001
+python adventure.py
+maestro task complete task-001
+maestro init
+maestro repo resolve --level lite
+maestro repo conf select-default-target <target-id>' to choose default."
+maestro repo conf show
+maestro repo conf select-default-target <target-id>"
+maestro repo conf select-default-target target-cmake-myapp
+maestro build
+maestro repo resolve --level deep
+maestro issues list"
+maestro build
+maestro repo conf select-default-target <target-id>"
+maestro repo conf select-default-target target-cmake-myapp"
+maestro init
+maestro repo resolve --level lite
+maestro build
+maestro tu build --target target-cmake-mathapp
+maestro tu query symbol --name calculateSum
+maestro tu refactor rename --symbol symbol-001 --to computeSum
+maestro build' to verify changes compile."
+maestro build
+maestro tu autocomplete --file src/main.cpp --line 6 --col 20
+maestro tu refactor rename --symbol symbol-001 --to std
+maestro convert new cpp-to-python
+maestro convert plan cpp-to-python"
+maestro convert run cpp-to-python --out <target-path>"
+maestro convert plan cpp-to-python
+maestro convert run cpp-to-python --out ../my-python-project' to execute."
+maestro convert run cpp-to-python --out ../my-python-project
+cd ../my-python-project
+maestro init
+cat src/math.py
+maestro work task task-002
+cd ../my-cpp-project
+maestro convert run cpp-to-python --out ../my-python-project
+maestro convert plan cpp-to-python --revise"
+maestro init
+maestro repo resolve --level lite
+maestro repo resolve --level deep' for full analysis."
+maestro repo resolve --level deep
+maestro issues list"
+maestro issues list
+maestro rules list
+maestro rules check
+mkdir include
+mv src/utils.h include/
+maestro rules check
+maestro issues ignore issue-001 --reason "Legacy code - header will remain in src/ for backwards compatibility"
+maestro task add --from-issue issue-001
+maestro task show task-001"
+maestro work task task-001"
+grep -r "TODO_CMD:" docs/workflows/v2/runbooks/examples/proposed/
+maestro repo resolve --level deep\` |"
+maestro build\` |"
+maestro tu build --target target-cmake-mathapp\` |"
+maestro tu query symbol --name calculateSum\` |"
+maestro convert new cpp-to-python\` |"
+maestro repo resolve --level deep\` |"
+maestro issues list\` |"
+maestro rules list\` |"
+maestro --help
+maestro [OPTIONS] COMMAND [ARGS]..."
+maestro COMMAND --help\" for more information."
+maestro repo --help
+maestro repo [OPTIONS] COMMAND [ARGS]..."
+maestro repo resolve --help
+maestro repo resolve [OPTIONS]"
+maestro repo resolve --level deep EXISTS"
+maestro tu --help
+maestro tu subcommand does not exist"
+maestro build --help
+maestro build does not exist"
+maestro convert --help
+maestro convert does not exist"
+maestro issues --help
+maestro issues does not exist"
+maestro rules --help
+maestro rules does not exist"
+maestro repo resolve --level deep | ✅ EXISTS | Remove TODO_CMD marker |"
+maestro build | ❌ MISSING | Create ledger entry |"
+maestro tu build --target ... | ❌ MISSING | Create ledger entry (TU tree) |"
+maestro tu query symbol --name ... | ❌ MISSING | Covered by TU ledger |"
+maestro tu refactor rename --symbol ... | ❌ MISSING | Covered by TU ledger |"
+maestro convert new <name> | ❌ MISSING | Create ledger entry (convert) |"
+maestro issues list | ❌ MISSING | Create ledger entry (issues) |"
+maestro rules list | ❌ MISSING | Create ledger entry (rules) |"
+maestro repo resolve --level deep\` | Run deep resolve | Detects violations |"
+maestro repo resolve --level deep\` | Run deep resolve | Detects violations |"
+maestro repo resolve --help
+maestro repo resolve [OPTIONS]"
+maestro --help and subcommand help"
+maestro repo resolve --level deep)"
+cd ~/Dev/ai-upp
+maestro init --read-only
+maestro init
+maestro repo resolve --level lite
+cd ~/Dev/custom-app
+maestro init
+maestro repo resolve --level lite
+maestro repo hub find package Core
+maestro make --with-hub-deps
+maestro tu build --target target-upp-app --resolve-from-hub
+cd ~/Dev/custom-app
+maestro repo resolve --level lite
+maestro issues list"
+maestro init --read-only' in the repository containing package Core\""
+cd ~/Dev/ai-upp
+maestro init --read-only
+cd ~/Dev/custom-app
+maestro repo resolve --level lite
+maestro init --read-only'"
+maestro settings set ai_stacking_mode managed
+maestro work task task-001
+maestro work spawn --from-task task-001 --title "Investigate component Y"
+maestro wsession breadcrumb add --cookie wsession-subtask-def456 --message "Found 3 main functions in component Y: validate, sanitize, transform"
+maestro work resume wsession-parent-abc123
+maestro wsession breadcrumb add --cookie wsession-subtask-def456 --message "Implemented feature X"
+maestro wsession breadcrumb add --cookie wsession-parent-abc123 --message "Implemented feature X using component Y"
+maestro work resume wsession-parent-abc123
+git status
+git log -1 --oneline
+maestro work task task-001
+git status
+git switch main
+maestro work close wsession-logging-xyz123"
+maestro work close wsession-logging-xyz123
+maestro work resume wsession-logging-xyz123"
+git switch main
+maestro ops commit suggest --task task-001
+maestro ops commit suggest --task task-001 --copy"
+maestro ops commit create --task task-001"
+maestro ops commit create --task task-001
+maestro work close wsession-logging-xyz123
+git switch main
+maestro work close wsession-logging-xyz123"
+maestro discuss
+TODO_CMD: maestro repo discuss
+TODO_CMD: maestro task discuss TASK-042
+TODO_CMD: maestro track discuss TRK-ALPHA
+TODO_CMD: maestro rules apply --track TRK-ALPHA
+TODO_CMD: maestro phase discuss PH-CORE
+TODO_CMD: maestro issues add "Missing API spec" --phase PH-CORE
+TODO_CMD: maestro task discuss TASK-123
+TODO_CMD: maestro issues add "Tests failed" --task TASK-123
+TODO_CMD: maestro repo discuss
+TODO_CMD: maestro issues add "Build failed" --label build
+TODO_CMD: maestro issues discuss
+TODO_CMD: maestro issues ignore ISS-3 --reason "duplicate of ISS-7"
+TODO_CMD: maestro runbook discuss
+TODO_CMD: maestro workflow export --format puml onboard_service
+TODO_CMD: maestro workflow render --format svg onboard_service
+TODO_CMD: maestro solutions discuss
+TODO_CMD: maestro issues link-solution ISS-9 SOL-9

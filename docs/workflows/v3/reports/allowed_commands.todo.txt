@@ -1,0 +1,41 @@
+acceptance command uncertain
+Command name uncertain, may be 'maestro make' or 'maestro compile'
+confirm if 'build' vs 'make'
+confirm --readonly flag
+confirm work task syntax
+convention validation command
+" docs/workflows/v2/runbooks/examples/proposed/
+exact command uncertain
+exact syntax uncertain
+filter flag uncertain
+Link between solution ID and issue creation unclear
+maestro build\` |"
+maestro convert new cpp-to-python\` |"
+maestro issues add "Build failed" --label build
+maestro issues add "Missing API spec" --phase PH-CORE
+maestro issues add "Tests failed" --task TASK-123
+maestro issues discuss
+maestro issues ignore ISS-3 --reason "duplicate of ISS-7"
+maestro issues link-solution ISS-9 SOL-9
+maestro issues list\` |"
+maestro phase discuss PH-CORE
+maestro repo discuss
+maestro repo resolve --level deep\` |"
+maestro repo resolve --level deep\` | Run deep resolve | Detects violations |"
+maestro rules apply --track TRK-ALPHA
+maestro rules list\` |"
+maestro runbook discuss
+maestro solutions discuss
+maestro task discuss TASK-042
+maestro task discuss TASK-123
+maestro track discuss TRK-ALPHA
+maestro tu build --target target-cmake-mathapp\` |"
+maestro tu query symbol --name calculateSum\` |"
+maestro workflow export --format puml onboard_service
+maestro workflow render --format svg onboard_service
+may be 'entrypoints' or 'targets'
+May be 'repo config show' or 'repo show-config'
+May need build log file path, or auto-detects last build
+spec-level command
+syntax uncertain
+Task-issue-solution linkage not finalized
