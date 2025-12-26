@@ -288,6 +288,8 @@ Some workflows involve **persistent session management** where work spans multip
 - Preserve audit trails for accountability
 - Are implemented in scenarios like WF-06 (AI-driven task execution with Work Sessions and multi-session resume)
 
+Crucially, the communication within these sessioned workflows, particularly for transmitting breadcrumb updates from potentially multiple `maestro wsession` processes to a `maestro work` orchestrator, is managed by a **cookie-based, file-backed IPC protocol**, detailed in [WF-15: Work ↔ wsession cookie protocol](scenario_15_work_wsession_cookie_protocol.md). This ensures multi-process safety and reliable communication. Further, the capabilities of `maestro wsession` are formalized into "log-only" and "mutation API" modes, with the latter being opt-in, as detailed in [WF-16: wsession modes — log-only vs mutation API (opt-in)](scenario_16_wsession_mutation_modes.md).
+
 ### Cross-Repo Workflows
 
 Some workflows involve **operations across two separate repositories** where planning and execution occur in different repositories. These workflows:

@@ -22,8 +22,8 @@ This index provides quick access to all documented workflow scenarios. Each scen
 | **WF-12** | RepoConf gate — required targets/configs for build, TU, and convert | `repo-conf`, `gate`, `build`, `tu`, `ast`, `convert`, `validation`, `targets`, `configs` | • Repository exists with source code<br>• Maestro initialized in repository<br>• Repo model exists (from resolve or manual authoring per WF-11)<br>• No valid RepoConf exists OR existing RepoConf is invalid/outdated | • Valid RepoConf exists and is validated<br>• Default target/config selected and locked<br>• Build, TU, and convert operations can proceed | • `./docs/maestro/repo/conf.json` (or per-package configs)<br>• Validation reports/logs<br>• Default target selection metadata | [Markdown](scenario_12_repo_conf_gate_for_build_tu_convert.md)<br>[PlantUML](scenario_12_repo_conf_gate_for_build_tu_convert.puml) |
 | **WF-13** | Read-only → Adopt bridge (home hub to repo truth) | `readonly`, `adopt`, `init`, `home-hub`, `repo-truth`, `import`, `resolve`, `repo-conf` | • Operator is in an existing repository with no Maestro adoption yet<br>• Repository contains buildable code<br>• Maestro is installed and accessible<br>• Read-only mode is supported | • If adopt decision is "No": Nothing repo-local is written, only hub outputs created<br>• If adopt decision is "Yes": `./docs/maestro/**` structure created and populated<br>• RepoConf exists (WF-12) and build can proceed | • `$HOME/.maestro/repo/` outputs during read-only inspection (if performed)<br>• Optionally: `./docs/maestro/tracks/`, `./docs/maestro/phases/`, `./docs/maestro/tasks/`, `./docs/maestro/repo/` | [Markdown](scenario_13_readonly_to_adopt_bridge.md)<br>[PlantUML](scenario_13_readonly_to_adopt_bridge.puml) |
 | **WF-14** | Branch safety guardrails — branch-bound state, no branch switching during work | `git`, `branch`, `safety`, `guardrails`, `work`, `sessions`, `corruption-prevention` | • A `maestro work` or stateful session is initiated in a Git repository. | • The work session completes successfully, or is hard-stopped due to a branch mismatch. | • Git identity snapshot stored with work session metadata. | [Markdown](scenario_14_branch_safety_guardrails.md)<br>[PlantUML](scenario_14_branch_safety_guardrails.puml) |
-
-
+| **WF-15** | Work ↔ wsession cookie protocol (file-based polling, multi-process safe) | `work`, `wsession`, `cookie`, `ipc`, `polling`, `breadcrumbs`, `multi-process` | • A `maestro work` orchestrator run has been initiated for a specific task or workflow.<br>• The AI engine or operator needs to provide updates (e.g., breadcrumbs) to this active `maestro work` run.<br>• The `maestro work` command has started an underlying Python process (or subprocess) to manage the work session. | • The `maestro work` run successfully processes all received updates and completes its task.<br>• The `maestro work` run is explicitly terminated or encounters a critical error.<br>• All `wsession` commands targeting the work-run have completed their write operations. | • `docs/sessions/<session_id>/session.json`<br>• `docs/sessions/<session_id>/breadcrumbs/<depth_level>/<timestamp>.json` | [Markdown](scenario_15_work_wsession_cookie_protocol.md)<br>[PlantUML](scenario_15_work_wsession_cookie_protocol.puml) |
+| **WF-16** | wsession modes — log-only vs mutation API (opt-in) | `wsession`, `mutation`, `breadcrumbs`, `audit`, `policy`, `work`, `ipc` | • A Maestro work-run is active, and the `wsession` utility is invoked, either directly by a user or programmatically by an AI agent. | • The `wsession` operation completes, either by successfully logging an event or mutating state (if permitted), or by failing due to policy violation or error. | • If log-only: new entries appended to the active Work Session log.<br>• If mutation: new entries appended to the active Work Session log, and modifications to `docs/maestro/**`. | [Markdown](scenario_16_wsession_mutation_modes.md)<br>[PlantUML](scenario_16_wsession_mutation_modes.puml) |
 ---
 
 ## Scenario Status Legend
@@ -40,10 +40,14 @@ Current status:
 - **WF-04**: Published
 - **WF-05**: Published
 - **WF-14**: Published
+- **WF-15**: Published
+- **WF-16**: Draft
+
 
 ---
 
 ## Planned Scenarios (Roadmap)
+
 
 The following scenarios are planned but not yet documented:
 
@@ -176,6 +180,8 @@ In addition to scenario workflows, this directory contains **command-specific wo
 | Command | Documentation | Diagram | Purpose | Status |
 |---------|---------------|---------|---------|--------|
 | `maestro work` | [command_work.md](command_work.md) | [command_work.puml](command_work.puml) | Work execution interface - select and execute work items (tracks, phases, issues, tasks) | Published |
+| `maestro wsession` | [command_wsession_protocol.md](command_wsession_protocol.md) | N/A | Work session management and breadcrumb communication protocol | Published |
+| `maestro wsession` | [command_wsession_mutation.md](command_wsession_mutation.md) | N/A | Analysis of existing `wsession` implementation and proposed mutation modes | Draft |
 
 ### Difference from Scenarios
 

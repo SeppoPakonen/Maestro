@@ -1,0 +1,84 @@
+@startuml scenario_15_work_wsession_cookie_protocol
+
+!include _shared.puml
+
+' Define custom macros if needed
+!define CREATE_WORK_RUN(cookie_id)       "CREATE_WORK_RUN(" + cookie_id + ")"
+!define WRITE_INBOX_MESSAGE(cookie_id)  "WRITE_INBOX_MESSAGE(" + cookie_id + ")"
+!define POLL_INBOX(cookie_id)           "POLL_INBOX(" + cookie_id + ")"
+!define VALIDATE_MESSAGE()              "VALIDATE_MESSAGE()"
+!define APPEND_BREADCRUMB()             "APPEND_BREADCRUMB()"
+!define HARD_STOP(reason)               "HARD_STOP(" + reason + ")"
+
+title WF-15: Work <-> wsession Cookie Protocol
+
+skinparam ArrowColor Blue
+skinparam ActorBorderColor Blue
+skinparam ParticipantBorderColor Blue
+skinparam ActivityBorderColor Blue
+skinparam ActivityBackgroundColor #A9DCDF
+skinparam ActorFontColor Blue
+skinparam ParticipantFontColor Blue
+skinparam ActivityFontColor Blue
+skinparam ArrowFontColor Blue
+
+actor Operator
+participant "Maestro work (Orchestrator)" as Orchestrator
+participant "AI Engine" as AI
+participant "maestro wsession (Sender)" as WSession
+database "Home Hub / IPC Store\n(docs/sessions/)" as IPCStore
+database "Work Session Store\n(Orchestrator Internal State)" as WSStore
+
+Operator -> Orchestrator: ENTRY_WF_15: Start `maestro work`
+Orchestrator -> Orchestrator: Generate unique `session_id` (cookie)
+Orchestrator -> IPCStore: CREATE_WORK_RUN(session_id)\n(Create docs/sessions/session_id/ & session.json)
+Orchestrator --> Operator: Display `session_id` to user
+Operator -> AI: Inject `session_id` into prompt
+note right of AI: AI receives instructions including `--cookie <session_id>` for `wsession` commands
+
+group Main Work-Run Loop (Polling)
+  Orchestrator -> IPCStore: POLL_INBOX(session_id)\n(Check docs/sessions/session_id/breadcrumbs/)
+  activate Orchestrator
+  alt New breadcrumbs found
+    Orchestrator -> Orchestrator: Load & sort new breadcrumb files by timestamp
+    Orchestrator -> Orchestrator: VALIDATE_MESSAGE()\n(Check schema, uniqueness)
+    alt Message is valid & new
+      Orchestrator -> WSStore: APPEND_BREADCRUMB()\n(Add to Work Session Log/State)
+      Orchestrator -> Orchestrator: Mark breadcrumb as processed
+      Orchestrator -> Orchestrator: Update session.json (e.g., modified timestamp)
+    else Invalid or already processed
+      Orchestrator -> Orchestrator: Log warning/error, ignore
+    end
+  else No new breadcrumbs
+    Orchestrator -> Orchestrator: Wait for next poll interval
+  end
+  deactivate Orchestrator
+end
+
+Operator -> WSession: Execute `maestro wsession ... --cookie <session_id>`
+note right of WSession: Or AI autonomously calls `maestro wsession ...`
+WSession -> IPCStore: WRITE_INBOX_MESSAGE(session_id)\n(Create docs/sessions/session_id/breadcrumbs/depth/timestamp.json)
+note left of IPCStore: Atomic write ensures data integrity
+
+group Multi-Run Branch
+  Orchestrator as Orchestrator2
+  AI as AI2
+  WSession as WSession2
+  database "Home Hub / IPC Store (docs/sessions/)" as IPCStore2
+  database "Work Session Store (Orchestrator Internal State)" as WSStore2
+
+  Orchestrator2 -> Orchestrator2: Generate unique `session_id_2`
+  Orchestrator2 -> IPCStore2: CREATE_WORK_RUN(session_id_2)
+  Operator -> AI2: Inject `session_id_2` into prompt
+  AI2 -> WSession2: Execute `maestro wsession ... --cookie <session_id_2>`
+  WSession2 -> IPCStore2: WRITE_INBOX_MESSAGE(session_id_2)
+
+  Orchestrator2 -> IPCStore2: POLL_INBOX(session_id_2)
+  Orchestrator2 -> WSStore2: APPEND_BREADCRUMB()
+note right of WSStore2: `session_id`s ensure isolation between `Orchestrator` and `Orchestrator2`
+end
+
+Orchestrator -> Orchestrator: Continue work based on session state and breadcrumbs
+Orchestrator -> Orchestrator: EXIT_WF_15: Work session completes
+
+@enduml
