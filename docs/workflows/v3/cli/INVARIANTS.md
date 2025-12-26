@@ -2,6 +2,11 @@
 
 These are the rules the system must enforce. If any invariant fails, the CLI must refuse to proceed and explain the next step.
 
+See also:
+- `docs/workflows/v3/cli/GATES.md`
+- `docs/workflows/v3/cli/SIGNATURES.md`
+- `docs/workflows/v3/cli/CLI_GAPS.md`
+
 ## Data stores
 
 - Repo truth lives under `./docs/maestro/**` (JSON only).

@@ -2,6 +2,10 @@
 
 Gate names are stable identifiers used across runbooks and CLI validation. If a new gate is needed, add it here first.
 
+See also:
+- `docs/workflows/v3/cli/INVARIANTS.md`
+- `docs/workflows/v3/cli/SIGNATURES.md`
+
 | Gate | Meaning |
 | --- | --- |
 | `GATE_TOOLCHAIN_SELECTED` | A toolchain profile is selected for the current scope (session/project/host). |

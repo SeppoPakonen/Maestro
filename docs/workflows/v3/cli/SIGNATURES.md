@@ -2,6 +2,10 @@
 
 This sheet locks the canonical command shapes used in v3 docs and runbooks.
 
+See also:
+- `docs/workflows/v3/cli/INVARIANTS.md`
+- `docs/workflows/v3/cli/GATES.md`
+
 ## Help behavior
 
 - Bare keyword prints extended help and exits 0.
