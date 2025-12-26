@@ -2,6 +2,9 @@
 
 This taxonomy is derived from v2 runbook scripts. It reflects what the
 examples actually call (and what they imply via TODO_CMD).
+Command counts and example frequency are tracked in
+`docs/workflows/v3/reports/command_frequency.csv` and
+`docs/workflows/v3/reports/allowed_commands.normalized.txt`.
 
 ## Bootstrap (init/runbook/workflow)
 
