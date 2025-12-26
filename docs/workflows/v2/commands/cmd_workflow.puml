@@ -1,0 +1,31 @@
+@startuml
+start
+:User invokes `maestro workflow ...`;
+
+partition "CLI / Argparse" {
+  :Parse args and subcommand;
+  :Dispatch to workflow handler;
+}
+
+partition "Workflow Graph Store" {
+  :Read ./docs/maestro/workflows/<name>.json;
+  :Apply graph edits / validation;
+  :Write ./docs/maestro/workflows/<name>.json;
+}
+
+partition "Export / Render" {
+  if (Export requested?) then (yes)
+    :Export PlantUML to ./docs/maestro/workflows/<name>.puml;
+  endif
+  if (Render requested?) then (yes)
+    :Call /usr/bin/plantuml -tsvg;
+    :Write ./docs/maestro/workflows/<name>.svg;
+  endif
+}
+
+partition "CLI / Argparse" {
+  :Emit result to stdout;
+}
+
+stop
+@enduml

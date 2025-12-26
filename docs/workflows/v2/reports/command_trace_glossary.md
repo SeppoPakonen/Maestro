@@ -45,6 +45,11 @@ This serves as the bridge to link AI JSON outputs to internal command flows and 
 | `repo.conf.select_default_target` | `maestro repo conf` | `maestro/commands/repo.py:handle_repo_conf` | `REPO_TRUTH_DOCS_MAESTRO` | `REPOCONF_GATE` |
 | `build.run` | `maestro make build` | `maestro/commands/make.py:MakeCommand.build` | `REPO_TRUTH_DOCS_MAESTRO` | `READONLY_GUARD` |
 | `tu.build_ast` | `maestro tu build` | `maestro/commands/tu.py:handle_tu_build_command` | `HOME_HUB_REPO` | `READONLY_GUARD` |
+| `workflow.graph.create` | `maestro workflow init` | `UNKNOWN` | `REPO_TRUTH_DOCS_MAESTRO` | `REPO_TRUTH_IS_DOCS_MAESTRO` |
+| `workflow.node.add` | `maestro workflow node add` | `UNKNOWN` | `REPO_TRUTH_DOCS_MAESTRO` | `REPO_TRUTH_FORMAT_IS_JSON` |
+| `workflow.edge.add` | `maestro workflow edge add` | `UNKNOWN` | `REPO_TRUTH_DOCS_MAESTRO` | `REPO_TRUTH_FORMAT_IS_JSON` |
+| `workflow.export.puml` | `maestro workflow export --format puml` | `UNKNOWN` | `REPO_TRUTH_DOCS_MAESTRO` | `REPO_TRUTH_IS_DOCS_MAESTRO` |
+| `workflow.render.svg` | `maestro workflow render --format svg` | `UNKNOWN` | `REPO_TRUTH_DOCS_MAESTRO` | `REPO_TRUTH_IS_DOCS_MAESTRO` |
 
 ## Detailed Entries
 
@@ -488,3 +493,105 @@ This serves as the bridge to link AI JSON outputs to internal command flows and 
 **Evidence**: 
 - `maestro/commands/tu.py` - contains AST building functions
 - `docs/workflows/v1/internal/cmd_tu.md` - documents tu command workflow
+
+### workflow.graph.create
+
+**Action key**: workflow.graph.create
+
+**Intent**: Create a new workflow graph in repo truth
+
+**CLI mapping**: `maestro workflow init <name>`
+
+**Internal mapping**: `UNKNOWN`
+
+**Reads/Writes**:
+- Writes: `REPO_TRUTH_DOCS_MAESTRO` (docs/maestro/workflows/<name>.json)
+
+**Gates**: `REPO_TRUTH_IS_DOCS_MAESTRO`, `REPO_TRUTH_FORMAT_IS_JSON`
+
+**Failure semantics**: If the graph name is invalid or already exists, the create fails without writing
+
+**Evidence**:
+- `docs/workflows/v2/commands/cmd_workflow.md`
+
+### workflow.node.add
+
+**Action key**: workflow.node.add
+
+**Intent**: Add a node to a workflow graph
+
+**CLI mapping**: `maestro workflow node add`
+
+**Internal mapping**: `UNKNOWN`
+
+**Reads/Writes**:
+- Writes: `REPO_TRUTH_DOCS_MAESTRO` (docs/maestro/workflows/<name>.json)
+
+**Gates**: `REPO_TRUTH_IS_DOCS_MAESTRO`, `REPO_TRUTH_FORMAT_IS_JSON`
+
+**Failure semantics**: If node IDs collide or layer is invalid, the mutation is rejected
+
+**Evidence**:
+- `docs/workflows/v2/commands/cmd_workflow.md`
+
+### workflow.edge.add
+
+**Action key**: workflow.edge.add
+
+**Intent**: Add an edge between nodes in a workflow graph
+
+**CLI mapping**: `maestro workflow edge add`
+
+**Internal mapping**: `UNKNOWN`
+
+**Reads/Writes**:
+- Writes: `REPO_TRUTH_DOCS_MAESTRO` (docs/maestro/workflows/<name>.json)
+
+**Gates**: `REPO_TRUTH_IS_DOCS_MAESTRO`, `REPO_TRUTH_FORMAT_IS_JSON`
+
+**Failure semantics**: If nodes are missing or an edge is invalid, the mutation is rejected
+
+**Evidence**:
+- `docs/workflows/v2/commands/cmd_workflow.md`
+
+### workflow.export.puml
+
+**Action key**: workflow.export.puml
+
+**Intent**: Export a workflow graph to PlantUML
+
+**CLI mapping**: `maestro workflow export --format puml`
+
+**Internal mapping**: `UNKNOWN`
+
+**Reads/Writes**:
+- Reads: `REPO_TRUTH_DOCS_MAESTRO` (workflow graph)
+- Writes: `REPO_TRUTH_DOCS_MAESTRO` (PlantUML export)
+
+**Gates**: `REPO_TRUTH_IS_DOCS_MAESTRO`, `REPO_TRUTH_FORMAT_IS_JSON`
+
+**Failure semantics**: If export fails, repo truth JSON remains unchanged
+
+**Evidence**:
+- `docs/workflows/v2/commands/cmd_workflow.md`
+
+### workflow.render.svg
+
+**Action key**: workflow.render.svg
+
+**Intent**: Render a PlantUML export to SVG
+
+**CLI mapping**: `maestro workflow render --format svg`
+
+**Internal mapping**: `UNKNOWN`
+
+**Reads/Writes**:
+- Reads: `REPO_TRUTH_DOCS_MAESTRO` (PlantUML export)
+- Writes: `REPO_TRUTH_DOCS_MAESTRO` (SVG render)
+
+**Gates**: `REPO_TRUTH_IS_DOCS_MAESTRO`
+
+**Failure semantics**: If PlantUML fails, render artifacts are not updated
+
+**Evidence**:
+- `docs/workflows/v2/commands/cmd_workflow.md`

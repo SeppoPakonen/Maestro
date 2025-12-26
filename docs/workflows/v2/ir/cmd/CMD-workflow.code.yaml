@@ -1,0 +1,34 @@
+id: "CMD-workflow"
+layer: "code"
+title: "workflow command internal flow (spec placeholder)"
+status: "partial"
+confidence: "low"
+storage_backend: "json"
+
+calls:
+  - "UNKNOWN"
+
+stores:
+  - "docs/maestro/workflows/<name>.json"
+
+nodes:
+  - id: "main_entry"
+    type: "function"
+    module: "maestro/main.py"
+    function: "main"
+  - id: "workflow_command_handler"
+    type: "function"
+    module: "UNKNOWN"
+    function: "handle_workflow_*"
+  - id: "workflow_store"
+    type: "datastore"
+    path: "docs/maestro/workflows/<name>.json"
+
+edges:
+  - from: "main_entry"
+    to: "workflow_command_handler"
+  - from: "workflow_command_handler"
+    to: "workflow_store"
+
+evidence:
+  - "docs/workflows/v2/commands/cmd_workflow.md"

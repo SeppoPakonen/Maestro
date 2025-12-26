@@ -17,6 +17,7 @@ wf_to_commands:
   - CMD-work
   WF-02:
   - CMD-init
+  - CMD-workflow # optional workflow-first pre-step
   - CMD-phase
   - CMD-task
   - CMD-track

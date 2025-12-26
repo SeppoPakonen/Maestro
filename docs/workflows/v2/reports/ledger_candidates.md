@@ -233,6 +233,8 @@ Hints explicitly flagged during extraction:
 **File:** `/home/sblo/Dev/Maestro/docs/workflows/v2/ir/cmd/CMD-wsession.code.yaml`
 
 - Observed JSON persistence in cmd_wsession deep flow with session.json and breadcrumbs.jsonl; aligns with v2 repo truth using JSON. Confirmed REPO_TRUTH_FORMAT_IS_JSON invariant.
+- Add workflow command + data store: ./docs/maestro/workflows/*.json
+- AI JSON action keys for workflow graph editing (workflow.node.add, workflow.edge.add, workflow.export.puml, workflow.render.svg)
 
 ---
 
