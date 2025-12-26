@@ -14,12 +14,18 @@ try:
         list_sessions,
         load_session,
         get_session_hierarchy,
-        create_session
+        create_session,
+        complete_session,
+        save_session,
+        get_session_cookie,
+        is_session_closed,
     )
     from ..breadcrumb import (
         list_breadcrumbs,
         get_breadcrumb_summary,
-        reconstruct_session_timeline
+        reconstruct_session_timeline,
+        create_breadcrumb,
+        write_breadcrumb,
     )
     from ..visualization.tree import SessionTreeRenderer
     from ..visualization.table import SessionTableFormatter
@@ -33,12 +39,18 @@ except ImportError:
         list_sessions,
         load_session,
         get_session_hierarchy,
-        create_session
+        create_session,
+        complete_session,
+        save_session,
+        get_session_cookie,
+        is_session_closed,
     )
     from breadcrumb import (
         list_breadcrumbs,
         get_breadcrumb_summary,
-        reconstruct_session_timeline
+        reconstruct_session_timeline,
+        create_breadcrumb,
+        write_breadcrumb,
     )
     from visualization.tree import SessionTreeRenderer
     from visualization.table import SessionTableFormatter
@@ -80,6 +92,18 @@ def add_wsession_parser(subparsers):
     breadcrumbs_parser.add_argument("--depth", type=int, help="Depth level to include")
     breadcrumbs_parser.add_argument("--limit", type=int, help="Limit number of breadcrumbs displayed")
 
+    breadcrumb_parser = wsession_subparsers.add_parser("breadcrumb", help="Add a breadcrumb to a session")
+    breadcrumb_subparsers = breadcrumb_parser.add_subparsers(dest="breadcrumb_subcommand", help="Breadcrumb subcommands")
+    breadcrumb_add = breadcrumb_subparsers.add_parser("add", help="Add a breadcrumb to a session")
+    breadcrumb_add.add_argument("--cookie", required=True, help="Session cookie (required)")
+    breadcrumb_add.add_argument("--prompt", default="", help="Prompt text for breadcrumb")
+    breadcrumb_add.add_argument("--response", default="", help="Response text for breadcrumb")
+    breadcrumb_add.add_argument("--model", default="manual", help="Model name for breadcrumb")
+    breadcrumb_add.add_argument("--depth", type=int, default=0, help="Depth level for breadcrumb")
+
+    close_parser = wsession_subparsers.add_parser("close", help="Close a work session")
+    close_parser.add_argument("session_id", help="Session ID (or prefix)")
+
     timeline_parser = wsession_subparsers.add_parser("timeline", help="Show timeline for a session")
     timeline_parser.add_argument("session_id", help="Session ID (or prefix)")
 
@@ -106,6 +130,42 @@ def _resolve_session_id(session_id: str) -> Optional[str]:
 
     sessions.sort(key=lambda s: _parse_time(s.modified), reverse=True)
     return sessions[0].session_id
+
+
+def _load_session_by_id(session_id: str) -> Optional[tuple[WorkSession, Path]]:
+    base_path = Path("docs") / "sessions"
+    if not base_path.exists():
+        return None
+
+    for session_dir in base_path.iterdir():
+        if session_dir.is_dir() and session_id.startswith(session_dir.name):
+            session_file = session_dir / "session.json"
+            if session_file.exists():
+                return load_session(session_file), session_file
+        if session_dir.is_dir():
+            for nested_dir in session_dir.iterdir():
+                if nested_dir.is_dir() and session_id.startswith(nested_dir.name):
+                    session_file = nested_dir / "session.json"
+                    if session_file.exists():
+                        return load_session(session_file), session_file
+    return None
+
+
+def _load_session_by_cookie(cookie: str) -> Optional[tuple[WorkSession, Path]]:
+    base_path = Path("docs") / "sessions"
+    if not base_path.exists():
+        return None
+
+    for session_dir in base_path.iterdir():
+        if not session_dir.is_dir():
+            continue
+        for session_file in [session_dir / "session.json"] + list(session_dir.glob("*/session.json")):
+            if not session_file.exists():
+                continue
+            session = load_session(session_file)
+            if get_session_cookie(session) == cookie:
+                return session, session_file
+    return None
 
 def handle_wsession_list(args) -> None:
     """Handle the 'wsession list' command."""
@@ -211,6 +271,64 @@ def handle_wsession_show(args) -> None:
     except Exception as e:
         logging.error(f"Error showing work session {args.session_id}: {e}")
         print(f"Error showing work session: {e}")
+
+
+def handle_wsession_breadcrumb_add(args) -> None:
+    """Handle the 'wsession breadcrumb add' command."""
+    if not getattr(args, "cookie", None):
+        print("Error: --cookie is required to add a breadcrumb.")
+        return
+
+    result = _load_session_by_cookie(args.cookie)
+    if not result:
+        print("Error: No session found for the provided cookie.")
+        return
+
+    session, _session_file = result
+    if is_session_closed(session):
+        print("Error: Session is closed; open or resume it before adding breadcrumbs.")
+        return
+
+    prompt = getattr(args, "prompt", "")
+    response = getattr(args, "response", "")
+    model_used = getattr(args, "model", "manual")
+    depth_level = getattr(args, "depth", 0)
+
+    breadcrumb = create_breadcrumb(
+        prompt=prompt,
+        response=response,
+        tools_called=[],
+        files_modified=[],
+        parent_session_id=session.session_id,
+        depth_level=depth_level,
+        model_used=model_used,
+        token_count={"input": len(prompt), "output": len(response)},
+        cost=None
+    )
+    write_breadcrumb(breadcrumb, session.session_id)
+    print(f"Breadcrumb added to session {session.session_id}.")
+
+
+def handle_wsession_close(args) -> None:
+    """Handle the 'wsession close' command."""
+    session_id = _resolve_session_id(args.session_id)
+    if not session_id:
+        print("No work sessions found.")
+        return
+
+    result = _load_session_by_id(session_id)
+    if not result:
+        print(f"Session '{session_id}' not found.")
+        return
+
+    session, session_file = result
+    if is_session_closed(session):
+        print(f"Session '{session.session_id}' is already closed.")
+        return
+
+    session = complete_session(session)
+    save_session(session, session_file)
+    print(f"Closed session {session.session_id}.")
 
 
 def _display_session_details(session: WorkSession) -> None:

@@ -14,6 +14,12 @@ from ..tu import (
     ASTSerializer, SymbolIndex, CompletionProvider, ASTPrinter
 )
 from ..tu.lsp_server import MaestroLSPServer
+from maestro.repo.storage import (
+    find_repo_root as find_repo_root_v3,
+    require_repo_model,
+    ensure_repoconf_target,
+)
+from maestro.git_guard import check_branch_guard
 
 
 def get_parser_by_language(lang: str):
@@ -74,6 +80,18 @@ def get_files_by_language(path: str, lang: str) -> List[str]:
 def handle_tu_build_command(args):
     """Handle maestro tu build [PACKAGE]"""
     print(f"Building translation unit for path: {args.path}")
+
+    repo_root = find_repo_root_v3()
+    require_repo_model(repo_root)
+    repoconf = ensure_repoconf_target(repo_root)
+    branch_guard_error = check_branch_guard(repo_root)
+    if branch_guard_error:
+        print(f"Error: {branch_guard_error}")
+        return 1
+    if not repoconf.get("toolchain"):
+        print("Error: Toolchain not selected for TU build.")
+        print("Run 'maestro select toolchain set <profile>' first.")
+        return 1
 
     # Determine language
     lang = args.lang
@@ -138,7 +156,7 @@ def handle_tu_info_command(args):
     print(f"Showing translation unit info for path: {args.path}")
     
     # This is a placeholder implementation - would typically show cache stats, etc.
-    cache_path = Path(args.path) if args.path else Path('.maestro/tu/cache')
+    cache_path = Path(args.path) if args.path else Path('docs/maestro/tu/cache')
     if cache_path.exists():
         print(f"Cache directory: {cache_path}")
         print(f"Cache size: {len(list(cache_path.rglob('*.ast')))} cached units")
@@ -151,7 +169,7 @@ def handle_tu_query_command(args):
     print(f"Querying symbols (name: {args.symbol}, file: {args.file}, kind: {args.kind})")
 
     # Look for symbol index (if exists)
-    index_path = '.maestro/tu/analysis/symbols.db'
+    index_path = 'docs/maestro/tu/analysis/symbols.db'
     if not os.path.exists(index_path):
         print(f"Symbol index not found: {index_path}")
         return 1
@@ -224,7 +242,7 @@ def handle_tu_references_command(args):
     print(f"Finding references to symbol {args.symbol} (defined in {args.file}:{args.line})")
 
     # Look for symbol index (if exists)
-    index_path = '.maestro/tu/analysis/symbols.db'
+    index_path = 'docs/maestro/tu/analysis/symbols.db'
     if not os.path.exists(index_path):
         print(f"Symbol index not found: {index_path}")
         return 1
@@ -394,7 +412,7 @@ def handle_tu_transform_command(args):
         #     files=files,
         #     compile_flags=args.compile_flags or [],
         #     build_index=True,
-        #     index_db_path='.maestro/tu/analysis/symbols.db'
+        #     index_db_path='docs/maestro/tu/analysis/symbols.db'
         # )
         # print(f"Successfully built final translation units with symbols for {len(final_results)} files")
 
@@ -428,7 +446,7 @@ def handle_tu_lsp_command(args):
 
 def handle_tu_cache_clear_command(args):
     """Handle maestro tu cache clear [PACKAGE]"""
-    cache_dir = Path('.maestro/tu/cache')
+    cache_dir = Path('docs/maestro/tu/cache')
 
     if cache_dir.exists():
         import shutil
@@ -444,7 +462,7 @@ def handle_tu_cache_clear_command(args):
 
 def handle_tu_cache_stats_command(args):
     """Handle maestro tu cache stats"""
-    cache_dir = Path('.maestro/tu/cache')
+    cache_dir = Path('docs/maestro/tu/cache')
 
     if not cache_dir.exists():
         print(f"Cache directory does not exist: {cache_dir}")
@@ -530,14 +548,14 @@ def add_tu_parser(subparsers):
     build_parser.add_argument('path', help='Path to source files', nargs='?', default='.')
     build_parser.add_argument('--force', action='store_true', help='Force rebuild (ignore cache)')
     build_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed progress')
-    build_parser.add_argument('--output', '-o', default='.maestro/tu/cache', help='Output directory for TU (default: .maestro/tu/cache)')
+    build_parser.add_argument('--output', '-o', default='docs/maestro/tu/cache', help='Output directory for TU (default: docs/maestro/tu/cache)')
     build_parser.add_argument('--threads', type=int, default=None, help='Parallel parsing threads (default: CPU count)')
     build_parser.add_argument('--lang', help='Language: cpp, java, kotlin (auto-detect if not specified)')
     build_parser.add_argument('--compile-flags', action='append', help='Compile flags for C/C++ parsing')
 
     # tu info
     info_parser = tu_subparsers.add_parser('info', help='Show translation unit information')
-    info_parser.add_argument('path', help='Path to TU cache directory', nargs='?', default='.maestro/tu/cache')
+    info_parser.add_argument('path', help='Path to TU cache directory', nargs='?', default='docs/maestro/tu/cache')
 
     # tu query
     query_parser = tu_subparsers.add_parser('query', help='Query symbols in translation unit')
@@ -581,7 +599,7 @@ def add_tu_parser(subparsers):
     transform_parser = tu_subparsers.add_parser('transform', help='Transform code to follow conventions (e.g., U++)')
     transform_parser.add_argument('package', help='Package path to transform')
     transform_parser.add_argument('--to', required=True, help='Target convention (e.g., upp)')
-    transform_parser.add_argument('--output', '-o', default='.maestro/tu/transform', help='Output directory for transformation results')
+    transform_parser.add_argument('--output', '-o', default='docs/maestro/tu/transform', help='Output directory for transformation results')
     transform_parser.add_argument('--lang', help='Language: cpp, java, kotlin (auto-detect if not specified)')
     transform_parser.add_argument('--compile-flags', action='append', help='Compile flags for C/C++ parsing')
 
@@ -603,7 +621,7 @@ def add_tu_parser(subparsers):
     draft_parser.add_argument('--class', dest='classes', action='append', help='Draft class name to create')
     draft_parser.add_argument('--function', dest='functions', action='append', help='Draft function name to create')
     draft_parser.add_argument('--lang', help='Language: cpp, java, kotlin, python (auto-detect if not specified)')
-    draft_parser.add_argument('--output', '-o', default='.maestro/tu/draft', help='Output directory for draft files (default: .maestro/tu/draft)')
+    draft_parser.add_argument('--output', '-o', default='docs/maestro/tu/draft', help='Output directory for draft files (default: docs/maestro/tu/draft)')
     draft_parser.add_argument('--link-phase', help='Phase ID to link the draft to')
     draft_parser.add_argument('--link-task', help='Task ID to link the draft to')
     draft_parser.add_argument('--prompt', '-p', help='AI prompt to help generate the draft implementation')

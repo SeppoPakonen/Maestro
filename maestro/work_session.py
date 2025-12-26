@@ -108,6 +108,15 @@ def create_session(
         metadata=metadata or {}
     )
 
+    session.metadata.setdefault("cookie", session_id)
+    try:
+        from maestro.git_guard import get_current_branch, get_git_root
+
+        session.metadata.setdefault("git_branch", get_current_branch())
+        session.metadata.setdefault("git_root", get_git_root())
+    except Exception:
+        pass
+
     # Save initial session.json
     session_path = session_dir / "session.json"
     save_session(session, session_path)
@@ -336,6 +345,9 @@ def resume_session(session: WorkSession) -> WorkSession:
     Returns:
         Updated WorkSession object with new context for continuation
     """
+    if session.status == SessionStatus.COMPLETED.value:
+        raise ValueError("Session is closed and cannot be resumed.")
+
     session.status = SessionStatus.RUNNING.value
     session.modified = datetime.now().isoformat()
     
@@ -374,6 +386,20 @@ def pause_session_for_user_input(session: WorkSession, question: str) -> None:
     - Continue with user's answer in new context
     """
     raise NotImplementedError("Session pausing not yet implemented")
+
+
+def get_session_cookie(session: WorkSession) -> str:
+    """Return the session cookie for breadcrumb operations."""
+    return session.metadata.get("cookie", session.session_id)
+
+
+def is_session_closed(session: WorkSession) -> bool:
+    """Return True if a session is closed (completed/interrupted/failed)."""
+    return session.status in {
+        SessionStatus.COMPLETED.value,
+        SessionStatus.INTERRUPTED.value,
+        SessionStatus.FAILED.value,
+    }
 
 
 def load_breadcrumb_settings(settings_path: str = "docs/Settings.md") -> Dict[str, Any]:

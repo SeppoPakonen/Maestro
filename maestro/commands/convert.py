@@ -6,6 +6,12 @@ import argparse
 from typing import Optional
 import os
 from pathlib import Path
+from maestro.repo.storage import (
+    find_repo_root as find_repo_root_v3,
+    ensure_repoconf_target,
+    require_repo_model,
+)
+from maestro.git_guard import check_branch_guard
 
 
 def handle_convert_new(args):
@@ -57,6 +63,14 @@ def handle_convert_plan(args):
 def handle_convert_run(args):
     """Handle maestro convert run [PIPELINE_ID]"""
     try:
+        repo_root = find_repo_root_v3()
+        require_repo_model(repo_root)
+        ensure_repoconf_target(repo_root)
+        branch_guard_error = check_branch_guard(repo_root)
+        if branch_guard_error:
+            print(f"Error: {branch_guard_error}")
+            return 1
+
         from maestro.convert.execution_engine import run_conversion_pipeline
 
         pipeline_id = args.pipeline_id

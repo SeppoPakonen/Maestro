@@ -113,11 +113,9 @@ def test_save_discussion_artifacts():
     assert session_id.startswith('discuss_task_')
     
     # Check that files were created
-    artifacts_dir = Path('.maestro/ai/artifacts')
-    transcript_file = artifacts_dir / f'{session_id}_transcript.txt'
+    artifacts_dir = Path('docs/maestro/ai/artifacts')
     results_file = artifacts_dir / f'{session_id}_results.json'
     
-    assert transcript_file.exists()
     assert results_file.exists()
     
     # Check content of results file
@@ -132,9 +130,9 @@ def test_save_discussion_artifacts():
     assert data['status'] == 'pending'
     assert len(data['patch_operations']) == 1
     assert data['patch_operations'][0]['op_type'] == 'add_task'
+    assert 'transcript' in data
     
     # Clean up
-    transcript_file.unlink()
     results_file.unlink()
     if artifacts_dir.exists() and not any(artifacts_dir.iterdir()):
         artifacts_dir.rmdir()
@@ -145,7 +143,7 @@ def test_update_artifact_status():
     from datetime import datetime
     
     # Create a mock results file
-    artifacts_dir = Path('.maestro/ai/artifacts')
+    artifacts_dir = Path('docs/maestro/ai/artifacts')
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     
     session_id = 'test_session_123456'
@@ -188,7 +186,7 @@ def test_handle_track_discuss_with_operations(mock_router):
             data={'task_name': 'Test task', 'phase_id': 'test-phase', 'task_id': 'test.1'}
         )
     ]
-    mock_router.return_value = mock_ops
+    mock_router.return_value = (mock_ops, None)
     
     # Mock args
     args = Mock()
@@ -218,7 +216,7 @@ def test_handle_phase_discuss_with_operations(mock_router):
             data={'task_name': 'Test task', 'phase_id': 'test-phase', 'task_id': 'test.1'}
         )
     ]
-    mock_router.return_value = mock_ops
+    mock_router.return_value = (mock_ops, None)
     
     # Mock args
     args = Mock()
@@ -248,7 +246,7 @@ def test_handle_task_discuss_with_operations(mock_router):
             data={'task_id': 'test.1', 'fields': {'status': 'done'}}
         )
     ]
-    mock_router.return_value = mock_ops
+    mock_router.return_value = (mock_ops, None)
     
     # Mock args
     args = Mock()
@@ -278,7 +276,7 @@ def test_handle_discuss_command_with_track_context(mock_router):
             data={'phase_name': 'Test phase', 'track_id': 'test-track', 'phase_id': 'test-phase'}
         )
     ]
-    mock_router.return_value = mock_ops
+    mock_router.return_value = (mock_ops, None)
     
     # Mock args with track context
     args = Mock()
@@ -301,6 +299,29 @@ def test_handle_discuss_command_with_track_context(mock_router):
     # The first argument should be the initial prompt
     assert mock_router.call_args[1]['contract_type'] == ContractType.TRACK
     assert result == 0
+
+
+@patch('maestro.commands.discuss.run_discussion_with_router')
+def test_handle_discuss_command_invalid_json(mock_router, tmp_path, monkeypatch):
+    """Ensure invalid JSON stops apply and returns non-zero."""
+    mock_router.return_value = ([], "Invalid JSON payload")
+
+    args = Mock()
+    args.track_id = None
+    args.phase_id = None
+    args.task_id = None
+    args.prompt = 'Test prompt'
+    args.engine = 'test-engine'
+    args.model = 'test-model'
+    args.dry_run = True
+
+    monkeypatch.chdir(tmp_path)
+
+    with patch('maestro.commands.discuss.choose_mode') as mock_choose:
+        mock_choose.return_value = Mock(value='terminal')
+        result = handle_discuss_command(args)
+
+    assert result == 1
 
 
 def test_apply_patch_operations_add_task():

@@ -35,11 +35,13 @@ class SessionDetailFormatter:
 
         # Basic Information
         lines.append("Basic Information:")
+        cookie = session.metadata.get("cookie", session.session_id)
         lines.extend([
             f"  Type:           {session.session_type}",
             f"  Status:         {session.status}",
             f"  Created:        {session.created}",
             f"  Modified:       {session.modified}",
+            f"  Cookie:         {cookie}",
         ])
 
         # Calculate duration

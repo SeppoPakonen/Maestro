@@ -47,6 +47,7 @@ class DiscussionRouter:
     def __init__(self, manager: AiEngineManager):
         self.manager = manager
         self.settings = get_settings()
+        self.last_json_error: Optional[str] = None
 
     def run_discussion(
         self,
@@ -71,6 +72,9 @@ class DiscussionRouter:
         Returns:
             List of patch operations if JSON contract is provided
         """
+        # Reset JSON error state for this run
+        self.last_json_error = None
+
         # Determine mode from parameter or settings
         discussion_mode = mode or self.settings.discussion_mode or "terminal"
 
@@ -215,34 +219,40 @@ class DiscussionRouter:
             json_content = self._extract_json_from_response(response_text)
 
             if not json_content:
-                print("No valid JSON found in response")
+                self.last_json_error = "No valid JSON found in response."
+                print(self.last_json_error)
                 return []
 
             # Check if the response is empty before attempting JSON parsing
             if not json_content.strip():
+                self.last_json_error = "Empty JSON payload returned by engine."
                 print("Qwen returned no assistant payload; enable -v to see stream events and stderr.")
                 return []
 
             try:
                 parsed_json = json.loads(json_content)
             except json.JSONDecodeError as e:
-                print(f"Error parsing JSON: {e}")
+                self.last_json_error = f"Error parsing JSON: {e}"
+                print(self.last_json_error)
                 print("Qwen returned no assistant payload; enable -v to see stream events and stderr.")
                 return []
 
             # Validate the JSON against the contract
             if not json_contract.validation_func(parsed_json):
-                print("JSON does not match the required schema")
+                self.last_json_error = "JSON does not match the required schema."
+                print(self.last_json_error)
                 return []
 
             # Convert the JSON to patch operations based on allowed operations
             return self._convert_to_patch_operations(parsed_json, json_contract.allowed_operations)
 
         except ValueError as e:
-            print(f"Error processing JSON contract: {e}")
+            self.last_json_error = f"Error processing JSON contract: {e}"
+            print(self.last_json_error)
             return []
         except NotImplementedError as e:
-            print(f"Transport mode error: {e}")
+            self.last_json_error = f"Transport mode error: {e}"
+            print(self.last_json_error)
             return []
 
     def _extract_json_from_response(self, response: str) -> Optional[str]:
@@ -377,13 +387,13 @@ class DiscussionRouter:
     def save_transcript(self, topic: str, content: str) -> Path:
         """Save discussion transcript to artifacts."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        transcript_dir = Path(".maestro/ai/transcripts") / topic
+        transcript_dir = Path("docs/maestro/ai/transcripts") / topic
         transcript_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{timestamp}_transcript.txt"
+        filename = f"{timestamp}_transcript.json"
         filepath = transcript_dir / filename
 
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(content)
+            json.dump({"timestamp": timestamp, "content": content}, f, indent=2)
 
         return filepath

@@ -227,32 +227,24 @@ def save_discussion_artifacts(
     model_name: str,
     contract_type: ContractType
 ) -> str:
-    """Save discussion artifacts including transcript and JSON results."""
+    """Save discussion artifacts to repo truth (JSON only)."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    artifacts_dir = Path(".maestro/ai/artifacts")
+    artifacts_dir = Path("docs/maestro/ai/artifacts")
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     # Create a unique session ID
     session_id = f"discuss_{contract_type.value}_{timestamp}"
 
-    # Save the transcript
-    transcript_content = f"""Discussion Transcript
-=================
+    transcript_content = {
+        "timestamp": datetime.now().isoformat(),
+        "engine": engine_name,
+        "model": model_name,
+        "contract_type": contract_type.value,
+        "initial_prompt": initial_prompt,
+        "patch_operations": [{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations],
+    }
 
-Timestamp: {datetime.now().isoformat()}
-Engine: {engine_name}
-Model: {model_name}
-Contract Type: {contract_type.value}
-Initial Prompt: {initial_prompt}
-
-Patch Operations:
-{json.dumps([{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations], indent=2)}
-"""
-
-    transcript_path = artifacts_dir / f"{session_id}_transcript.txt"
-    transcript_path.write_text(transcript_content, encoding='utf-8')
-
-    # Save the JSON results separately
+    # Save the JSON results
     json_results = {
         'session_id': session_id,
         'timestamp': datetime.now().isoformat(),
@@ -261,6 +253,7 @@ Patch Operations:
         'contract_type': contract_type.value,
         'initial_prompt': initial_prompt,
         'patch_operations': [{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations],
+        'transcript': transcript_content,
         'status': 'pending'  # Will be updated after applying
     }
 
@@ -270,9 +263,9 @@ Patch Operations:
     return session_id
 
 
-def update_artifact_status(session_id: str, status: str, applied_operations: list = None):
+def update_artifact_status(session_id: str, status: str, applied_operations: list = None, error_message: str = None):
     """Update the status of a discussion artifact after applying changes."""
-    artifacts_dir = Path(".maestro/ai/artifacts")
+    artifacts_dir = Path("docs/maestro/ai/artifacts")
     json_path = artifacts_dir / f"{session_id}_results.json"
 
     if json_path.exists():
@@ -283,6 +276,8 @@ def update_artifact_status(session_id: str, status: str, applied_operations: lis
         if applied_operations is not None:
             data['applied_operations'] = applied_operations
             data['applied_at'] = datetime.now().isoformat()
+        if error_message:
+            data['error_message'] = error_message
 
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
@@ -306,7 +301,7 @@ def handle_discuss_command(args) -> int:
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations = run_discussion_with_router(
+    patch_operations, json_error = run_discussion_with_router(
         initial_prompt=initial_prompt,
         contract_type=contract_type,
         engine=engine,
@@ -323,6 +318,12 @@ def handle_discuss_command(args) -> int:
     )
 
     print(f"Discussion session ID: {session_id}")
+
+    if json_error:
+        print(f"Error: {json_error}")
+        print("Invalid JSON returned; no operations were applied. Retry or resume the discussion.")
+        update_artifact_status(session_id, 'invalid_json', error_message=json_error)
+        return 1
 
     # Apply patches if any were generated
     if patch_operations:
@@ -395,7 +396,7 @@ def handle_track_discuss(track_id: Optional[str], args) -> int:
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations = run_discussion_with_router(
+    patch_operations, json_error = run_discussion_with_router(
         initial_prompt=initial_prompt,
         contract_type=ContractType.TRACK,
         engine=engine,
@@ -412,6 +413,12 @@ def handle_track_discuss(track_id: Optional[str], args) -> int:
     )
 
     print(f"Discussion session ID for track {track_id}: {session_id}")
+
+    if json_error:
+        print(f"Error: {json_error}")
+        print("Invalid JSON returned; no operations were applied. Retry or resume the discussion.")
+        update_artifact_status(session_id, 'invalid_json', error_message=json_error)
+        return 1
 
     # Apply patches if any were generated
     if patch_operations:
@@ -484,7 +491,7 @@ def handle_phase_discuss(phase_id: str, args) -> int:
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations = run_discussion_with_router(
+    patch_operations, json_error = run_discussion_with_router(
         initial_prompt=initial_prompt,
         contract_type=ContractType.PHASE,
         engine=engine,
@@ -501,6 +508,12 @@ def handle_phase_discuss(phase_id: str, args) -> int:
     )
 
     print(f"Discussion session ID for phase {phase_id}: {session_id}")
+
+    if json_error:
+        print(f"Error: {json_error}")
+        print("Invalid JSON returned; no operations were applied. Retry or resume the discussion.")
+        update_artifact_status(session_id, 'invalid_json', error_message=json_error)
+        return 1
 
     # Apply patches if any were generated
     if patch_operations:
@@ -573,7 +586,7 @@ def handle_task_discuss(task_id: str, args) -> int:
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations = run_discussion_with_router(
+    patch_operations, json_error = run_discussion_with_router(
         initial_prompt=initial_prompt,
         contract_type=ContractType.TASK,
         engine=engine,
@@ -590,6 +603,12 @@ def handle_task_discuss(task_id: str, args) -> int:
     )
 
     print(f"Discussion session ID for task {task_id}: {session_id}")
+
+    if json_error:
+        print(f"Error: {json_error}")
+        print("Invalid JSON returned; no operations were applied. Retry or resume the discussion.")
+        update_artifact_status(session_id, 'invalid_json', error_message=json_error)
+        return 1
 
     # Apply patches if any were generated
     if patch_operations:
@@ -660,7 +679,7 @@ def run_discussion_with_router(
     contract_type: ContractType,
     engine: str = "qwen",
     mode: Optional[str] = None
-) -> list[PatchOperation]:
+) -> tuple[list[PatchOperation], Optional[str]]:
     """Run discussion using the new DiscussionRouter with appropriate contract."""
     manager = AiEngineManager()
     router = DiscussionRouter(manager)
@@ -682,8 +701,7 @@ def run_discussion_with_router(
         mode=mode,
         json_contract=json_contract
     )
-
-    return results
+    return results, router.last_json_error
 
 
 def add_discuss_parser(subparsers):
