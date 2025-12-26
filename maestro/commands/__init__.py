@@ -17,6 +17,7 @@ from .plan import add_plan_parser, handle_plan_add, handle_plan_list, handle_pla
 from .understand import add_understand_parser, handle_understand_dump
 from .tu import add_tu_parser, handle_tu_command
 from .repo import add_repo_parser, handle_repo_command
+from .runbook import add_runbook_parser, handle_runbook_command
 from .workflow import add_workflow_parser, handle_workflow_command
 from .convert import add_convert_parser
 
@@ -54,6 +55,8 @@ __all__ = [
     'handle_tu_command',
     'add_repo_parser',
     'handle_repo_command',
+    'add_runbook_parser',
+    'handle_runbook_command',
     'add_workflow_parser',
     'handle_workflow_command',
     'add_convert_parser',

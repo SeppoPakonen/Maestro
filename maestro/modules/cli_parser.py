@@ -191,13 +191,15 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_understand_parser,
         add_tu_parser,
         add_repo_parser,
+        add_runbook_parser,
         add_workflow_parser,
     )
     from ..commands.convert import add_convert_parser
 
     # Register all available command parsers
     add_init_parser(subparsers)
-    add_workflow_parser(subparsers)  # Add workflow parser between init and repo
+    add_runbook_parser(subparsers)  # Add runbook parser between init and workflow
+    add_workflow_parser(subparsers)  # Add workflow parser between runbook and repo
     add_repo_parser(subparsers)  # Add repo parser after workflow
     add_plan_parser(subparsers)  # Add plan parser to position between repo and track
     add_track_parser(subparsers)
@@ -303,7 +305,9 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
         'c': 'convert',
         'b': 'build',
         'wk': 'work',
-        'ws': 'wsession'
+        'ws': 'wsession',
+        'runba': 'runbook',
+        'rb': 'runbook'
     }
     # Map alias to main command name if present
     args.command = command_alias_map.get(args.command, args.command)
