@@ -21,6 +21,7 @@ This is the proposed v3 command tree. Verbs are short; keyword namespaces carry 
 - `maestro ops {list|run|doctor|commit}`
 - `maestro tu {build|query|refactor}`
 - `maestro convert {list|show|add|edit|rm|run}`
+- `maestro select {toolchain}`
 
 ## Selected subtrees
 
@@ -35,6 +36,7 @@ This is the proposed v3 command tree. Verbs are short; keyword namespaces carry 
 - `maestro issues link {task|solution}`
 - `maestro wsession breadcrumb {add|list}`
 - `maestro ops commit {suggest|create}`
+- `maestro select toolchain {list|show|set|unset|detect|export}`
 
 ## Legacy/problem commands
 

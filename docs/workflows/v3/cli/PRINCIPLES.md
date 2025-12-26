@@ -30,6 +30,10 @@ If a command is getting too specific, do not extend the verb. Keep verbs short a
 - Canonical name in v3: `make` (build pipeline entrypoint).
 - Keep `build` as a compatibility alias (soft deprecation) when needed.
 
+## Selection command rule
+
+- Selection commands are hard switches; they must support `show`, `list`, `set`, `unset` uniformly.
+
 ## Repo truth and stores
 
 - Repo truth is always under `./docs/maestro/**`.

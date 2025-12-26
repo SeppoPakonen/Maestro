@@ -71,3 +71,31 @@ Entries derived from the v2 runbook audit. Status is `proposed` until implemente
   Status: proposed
   Acceptance criteria: `issues update`, `issues close`, `issues link-task` are supported; list reflects state.
   Notes: Keep `issues add` as create alias.
+
+- ID: LED-0011
+  Title: Toolchain profile store in hub
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-29_select_toolchain_profiles.md`.
+  Status: proposed
+  Acceptance criteria: profiles can be created, listed, and retrieved from `$HOME/.maestro/select/toolchain/profiles/*.json`.
+  Notes: Default selection stored in `$HOME/.maestro/select/toolchain/default.json`.
+
+- ID: LED-0012
+  Title: Select toolchain CLI (list/show/set/unset/export)
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-29_select_toolchain_profiles.md`.
+  Status: proposed
+  Acceptance criteria: `maestro select toolchain list|show|set|unset|export` works with `--scope session|project|host`.
+  Notes: Keep `maestro select tc` as alias.
+
+- ID: LED-0013
+  Title: Repoconf references toolchain profile with precedence rules
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-29_select_toolchain_profiles.md`.
+  Status: proposed
+  Acceptance criteria: repoconf stores toolchain name; selection precedence is session > project > host.
+  Notes: Store reference in `./docs/maestro/repoconf.json` or `./docs/maestro/select.json`.
+
+- ID: LED-0014
+  Title: Make/TU consumes selected toolchain environment
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-29_select_toolchain_profiles.md`.
+  Status: proposed
+  Acceptance criteria: `maestro make` and `maestro tu` use exported env vars (include/lib paths, sysroot) from selected toolchain.
+  Notes: Ensure build alias behavior remains consistent.
