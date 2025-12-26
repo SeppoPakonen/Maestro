@@ -15,6 +15,8 @@ This serves as the bridge to link AI JSON outputs to internal command flows and 
 
 **Reference**: WF-09 storage contract (repo truth is JSON under `./docs/maestro/**`)
 
+**Discuss OPS contract**: `docs/workflows/v2/reports/discuss_ops_contract.md` defines the JSON envelope and the rule that OPS must map to action keys in this glossary.
+
 ## Store IDs
 
 * `REPO_TRUTH_DOCS_MAESTRO` → `./docs/maestro/**`
