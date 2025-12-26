@@ -1,0 +1,60 @@
+@startuml
+
+title WF-16: wsession Modes - Log-only vs Mutation API
+
+participant "AI Engine" as AI
+participant "maestro wsession" as WS
+participant "Maestro Work (Orchestrator)" as Orchestrator
+database "IPC Store (WF-15 Cookies)" as IPC
+database "Repo Truth Store\n(./docs/maestro)" as RepoTruth
+database "Work Session Store" as WSStore
+
+Orchestrator -> WS: wsession command invocation (IPC Cookie WF-15)
+
+WS -> IPC: Validate IPC Cookie (WF-15)
+alt Valid Cookie
+    IPC -> WS: Cookie valid
+    WS -> Orchestrator: Confirm valid cookie
+    Orchestrator -> WS: Send wsession command/event (breadcrumb OR mutation)
+
+    WS -> WS: Check if Mutation Mode Enabled
+    alt Mutation Mode Enabled
+        WS -> WS: Check Branch Guardrails OK (WF-14)
+        alt Branch OK
+            WS -> WS: Validate operation schema and inputs
+            alt Operation Valid
+                WS -> WS: Check Referential Integrity
+                alt Integrity OK
+                    WS -> RepoTruth: Apply mutation to Repo Truth Store
+                    RepoTruth -> WS: Mutation Applied
+                    WS -> WSStore: Append audit event to Work Session Store
+                    WSStore -> WS: Audit Recorded
+                    WS -> Orchestrator: Operation Success (Mutation)
+                else Integrity Failed
+                    WS -> WSStore: Append audit event to Work Session Store
+                    WSStore -> WS: Audit Recorded
+                    WS -> Orchestrator: Reject operation (Referential Integrity Failed)
+                end
+            else Invalid Operation Schema
+                WS -> WSStore: Append audit event to Work Session Store
+                WSStore -> WS: Audit Recorded
+                WS -> Orchestrator: Reject operation (Invalid Operation Schema)
+            end
+        else Branch Mismatch
+            WS -> Orchestrator: Hard stop (Branch Mismatch)
+        end
+    else Mutation Mode Disabled
+        alt Is Log-only event
+            WS -> WSStore: Append Log Event
+            WSStore -> WS: Log Recorded
+            WS -> Orchestrator: Operation Success (Log-only)
+        else Attempted Mutation
+            WS -> Orchestrator: Reject operation (Mutation Mode Disabled)
+        end
+    end
+else Invalid Cookie
+    IPC -> WS: Cookie invalid
+    WS -> Orchestrator: Reject operation (Unknown Cookie)
+end
+
+@enduml
