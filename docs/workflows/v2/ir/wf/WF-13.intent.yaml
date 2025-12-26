@@ -1,0 +1,194 @@
+```yaml
+wf_id: WF-13
+layer: intent
+title: Read-only → Adopt bridge (home hub to repo truth)
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow formalizes the bridge from read-only inspection (WF-03 style) to stateful adoption (WF-01 style). 
+  It defines the explicit "Adopt" decision point and the process of creating repo-local truth from home hub data.
+
+nodes:
+  - id: start
+    type: start
+    label: User runs Maestro command in non-adopted repo
+
+  - id: gate_readonly_guard
+    type: gate
+    label: Read-only guard
+    description: Prevents write operations to repo truth in read-only mode
+
+  - id: scan_repo
+    type: action
+    label: Scan repository structure
+
+  - id: optional_build
+    type: action
+    label: Optional build attempt (diagnostics only)
+
+  - id: write_home_hub
+    type: action
+    label: Write outputs to home hub ($HOME/.maestro/repo/)
+
+  - id: decision_adopt
+    type: decision
+    label: Adopt this repository?
+
+  - id: adopt_init
+    type: action
+    label: Run maestro init to create repo truth
+
+  - id: create_repo_truth_structure
+    type: action
+    label: Create ./docs/maestro/** structure
+
+  - id: decision_import_strategy
+    type: decision
+    label: Decide import strategy
+
+  - id: strategy_a_rerun
+    type: action
+    label: Re-run resolve into repo truth
+
+  - id: strategy_b_import
+    type: action
+    label: Import from hub (planned feature)
+
+  - id: ensure_repo_conf
+    type: action
+    label: Ensure RepoConf exists (WF-12)
+
+  - id: repo_conf_exists
+    type: gate
+    label: RepoConf gate
+
+  - id: build_proceeds
+    type: end
+    label: Build can proceed
+
+  - id: no_adopt
+    type: end
+    label: Stop - no repo-local writes performed
+
+gates:
+  - id: gate_readonly_guard
+    type: validation_gate
+    condition: Commands run in read-only mode
+    error_message: "Write operation attempted in read-only mode"
+    recovery: "Switch to read-only commands or adopt repository first"
+
+  - id: repo_conf_exists
+    type: repo_conf_gate
+    condition: repo_conf.json exists and is valid
+    error_message: "RepoConf missing after adoption"
+    recovery: "Generate candidates from resolve results or author manually (WF-11)"
+
+stores:
+  - id: home_hub
+    type: home_hub
+    path: $HOME/.maestro/repo/
+    format: json
+    description: Home-level registry for read-only scan outputs
+
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: Repository-local truth created after adoption
+
+edges:
+  - from: start
+    to: gate_readonly_guard
+    type: control
+
+  - from: gate_readonly_guard
+    to: scan_repo
+    type: control
+
+  - from: scan_repo
+    to: optional_build
+    type: control
+
+  - from: optional_build
+    to: write_home_hub
+    type: control
+
+  - from: write_home_hub
+    to: decision_adopt
+    type: control
+
+  - from: decision_adopt
+    to: adopt_init
+    label: Yes
+    type: control
+
+  - from: decision_adopt
+    to: no_adopt
+    label: No
+    type: control
+
+  - from: adopt_init
+    to: create_repo_truth_structure
+    type: control
+
+  - from: create_repo_truth_structure
+    to: decision_import_strategy
+    type: control
+
+  - from: decision_import_strategy
+    to: strategy_a_rerun
+    label: Re-run resolve
+    type: control
+
+  - from: decision_import_strategy
+    to: strategy_b_import
+    label: Import from hub
+    type: control
+
+  - from: strategy_a_rerun
+    to: ensure_repo_conf
+    type: control
+
+  - from: strategy_b_import
+    to: ensure_repo_conf
+    type: control
+
+  - from: ensure_repo_conf
+    to: repo_conf_exists
+    type: control
+
+  - from: repo_conf_exists
+    to: build_proceeds
+    type: control
+
+invariants:
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/**
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+  - id: HOME_HUB_ALLOWED_IN_READONLY
+    description: Home registry can be used in readonly repos
+    enforcement: gate
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_13_readonly_to_adopt_bridge.md
+    description: Original v1 readonly to adopt bridge workflow
+  - type: v1_diagram
+    path: v1/scenario_13_readonly_to_adopt_bridge.puml
+    description: PlantUML diagram for readonly to adopt bridge
+
+commands:
+  - maestro repo resolve
+  - maestro init
+  - maestro make build
+  - maestro repo conf
+
+ledger_hints: []
+```

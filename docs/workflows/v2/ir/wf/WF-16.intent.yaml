@@ -1,0 +1,257 @@
+```yaml
+wf_id: WF-16
+layer: intent
+title: wsession modes — log-only vs mutation API (opt-in)
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow formalizes the operational modes for `maestro wsession`, distinguishing between a default log-only behavior and an opt-in mutation mode. This distinction is crucial for managing the integrity of project state while enabling AI agents to interact dynamically during long-running work.
+
+nodes:
+  - id: start
+    type: start
+    label: User runs maestro wsession command
+
+  - id: validate_cookie
+    type: gate
+    label: Validate wsession cookie (WF-15)
+    description: Check if the wsession cookie is valid and contains necessary capability tokens
+
+  - id: check_mutation_mode
+    type: decision
+    label: Is mutation mode enabled?
+
+  - id: branch_guard_check
+    type: gate
+    label: Branch guard check (WF-14)
+    description: Verify the current Git branch matches the work session branch
+
+  - id: validate_operation_schema
+    type: gate
+    label: Validate operation schema
+    description: Check if the mutation operation conforms to expected schema
+
+  - id: check_referential_integrity
+    type: gate
+    label: Check referential integrity
+    description: Verify that all referenced entities exist
+
+  - id: apply_mutation
+    type: action
+    label: Apply mutation to Repo Truth Store
+    description: Perform the requested state-changing operation on repository truth
+
+  - id: log_only_action
+    type: action
+    label: Append log event to Work Session
+    description: Record breadcrumb or other informational message
+
+  - id: record_audit_event
+    type: action
+    label: Append audit event to Work Session Store
+    description: Record the mutation operation for audit trail
+
+  - id: reject_unknown_cookie
+    type: hard_stop
+    label: Reject - Unknown Cookie
+    color: "#Red"
+
+  - id: reject_mutation_disabled
+    type: hard_stop
+    label: Reject - Mutation Mode Disabled
+    color: "#Red"
+
+  - id: reject_invalid_schema
+    type: hard_stop
+    label: Reject - Invalid Operation Schema
+    color: "#Red"
+
+  - id: reject_referential_integrity
+    type: hard_stop
+    label: Reject - Referential Integrity Failed
+    color: "#Red"
+
+  - id: reject_branch_mismatch
+    type: hard_stop
+    label: Hard stop - Branch Mismatch
+    color: "#Red"
+
+  - id: operation_success
+    type: end
+    label: Operation Success
+
+  - id: operation_failure
+    type: end
+    label: Operation Rejected/Failure
+
+edges:
+  - from: start
+    to: validate_cookie
+    type: control
+
+  - from: validate_cookie
+    to: check_mutation_mode
+    label: Valid cookie
+    type: control
+    condition: wsession cookie is valid
+
+  - from: validate_cookie
+    to: reject_unknown_cookie
+    label: Invalid cookie
+    type: control
+    condition: wsession cookie is invalid
+
+  - from: check_mutation_mode
+    to: branch_guard_check
+    label: Mutation mode enabled
+    type: control
+    condition: wsession mutation mode is enabled
+
+  - from: check_mutation_mode
+    to: log_only_action
+    label: Mutation mode disabled
+    type: control
+    condition: wsession mutation mode is disabled
+
+  - from: branch_guard_check
+    to: validate_operation_schema
+    label: Branch OK
+    type: control
+    condition: Current branch matches work session branch
+
+  - from: branch_guard_check
+    to: reject_branch_mismatch
+    label: Branch mismatch
+    type: control
+    condition: Current branch differs from work session branch
+
+  - from: validate_operation_schema
+    to: check_referential_integrity
+    label: Valid schema
+    type: control
+    condition: Operation schema is valid
+
+  - from: validate_operation_schema
+    to: reject_invalid_schema
+    label: Invalid schema
+    type: control
+    condition: Operation schema is invalid
+
+  - from: check_referential_integrity
+    to: apply_mutation
+    label: Integrity OK
+    type: control
+    condition: Referenced entities exist
+
+  - from: check_referential_integrity
+    to: reject_referential_integrity
+    label: Integrity failed
+    type: control
+    condition: Referenced entities do not exist
+
+  - from: apply_mutation
+    to: record_audit_event
+    type: control
+
+  - from: record_audit_event
+    to: operation_success
+    type: control
+
+  - from: log_only_action
+    to: operation_success
+    type: control
+
+  - from: reject_unknown_cookie
+    to: operation_failure
+    type: control
+
+  - from: reject_mutation_disabled
+    to: operation_failure
+    type: control
+
+  - from: reject_invalid_schema
+    to: operation_failure
+    type: control
+
+  - from: reject_referential_integrity
+    to: operation_failure
+    type: control
+
+  - from: reject_branch_mismatch
+    to: operation_failure
+    type: control
+
+gates:
+  - id: validate_cookie
+    type: validation_gate
+    condition: wsession cookie is valid and contains capability token for mutation
+    error_message: "Unknown or invalid wsession cookie"
+    recovery: "Start a new work session with maestro work-run"
+
+  - id: branch_guard_check
+    type: branch_guard
+    condition: Current Git branch matches the branch at work session start
+    error_message: "Branch mismatch detected - work session was started on a different branch"
+    recovery: "Switch back to the original branch or start a new work session"
+
+  - id: validate_operation_schema
+    type: validation_gate
+    condition: Mutation operation conforms to expected schema
+    error_message: "Invalid operation schema"
+    recovery: "Correct the operation parameters and retry"
+
+  - id: check_referential_integrity
+    type: validation_gate
+    condition: All referenced entities exist in repository truth
+    error_message: "Referential integrity failure - referenced entity does not exist"
+    recovery: "Verify entity IDs and retry"
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: Repository truth storage for tasks, issues, phases, and tracks
+
+  - id: wsession_cookie
+    type: datastore
+    path: ~/.maestro/wsession_cookie
+    format: json
+    description: Work session cookie containing capability tokens and session metadata (per WF-15)
+
+  - id: work_session_store
+    type: session_store
+    path: ./docs/maestro/work_sessions/
+    format: json
+    description: Storage for work session logs and audit trails
+
+invariants:
+  - id: WSESSION_MUTATION_MODE_OPTIN
+    description: Mutations require explicit opt-in through config, CLI flag, and cookie capability
+    enforcement: gate
+
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during work session (enforced by WF-14)
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_16_wsession_mutation_modes.md
+    description: Original v1 workflow documentation for wsession mutation modes
+  - type: v1_diagram
+    path: v1/scenario_16_wsession_mutation_modes.puml
+    description: PlantUML diagram for wsession modes workflow
+
+commands:
+  - maestro wsession
+  - maestro work-run
+  - maestro wsession mutate
+
+ledger_hints: []
+```

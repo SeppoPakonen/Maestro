@@ -1,0 +1,158 @@
+```yaml
+wf_id: WF-15
+layer: intent
+title: Work ↔ wsession Cookie Protocol (File-based Polling, Multi-process Safe)
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow defines the communication mechanism between a `maestro work` orchestrator run and various `maestro wsession` commands (invoked by an AI engine or operator). The communication is achieved through a file-based polling system, leveraging a unique "cookie" (session ID) to target specific work runs, ensuring multi-process safety.
+
+nodes:
+  - id: start
+    type: start
+    label: User initiates maestro work command
+  - id: generate_session_id
+    type: action
+    label: Generate unique session ID (cookie)
+  - id: create_work_run
+    type: action
+    label: Create work session directory and session.json
+  - id: display_session_id
+    type: action
+    label: Display session ID to user
+  - id: inject_session_id
+    type: action
+    label: Inject session ID into AI prompt
+  - id: ai_engine_processing
+    type: action
+    label: AI engine processes prompt
+  - id: wsession_command
+    type: command
+    label: maestro wsession command with cookie
+  - id: write_breadcrumb
+    type: action
+    label: Write breadcrumb to session inbox
+  - id: poll_inbox
+    type: action
+    label: Poll for new breadcrumbs
+  - id: validate_message
+    type: gate
+    label: Validate breadcrumb message
+  - id: process_breadcrumb
+    type: action
+    label: Process valid breadcrumb
+  - id: ignore_breadcrumb
+    type: action
+    label: Log error and ignore invalid breadcrumb
+  - id: update_session
+    type: action
+    label: Update session.json with new state
+  - id: continue_work
+    type: action
+    label: Continue work based on session state
+  - id: end_success
+    type: end
+    label: Work session completes successfully
+  - id: end_error
+    type: end
+    label: Work session terminates with error
+
+edges:
+  - from: start
+    to: generate_session_id
+    type: control
+  - from: generate_session_id
+    to: create_work_run
+    type: control
+  - from: create_work_run
+    to: display_session_id
+    type: control
+  - from: display_session_id
+    to: inject_session_id
+    type: control
+  - from: inject_session_id
+    to: ai_engine_processing
+    type: control
+  - from: ai_engine_processing
+    to: wsession_command
+    type: control
+  - from: wsession_command
+    to: write_breadcrumb
+    type: control
+  - from: write_breadcrumb
+    to: poll_inbox
+    type: control
+  - from: poll_inbox
+    to: validate_message
+    type: control
+  - from: validate_message
+    to: process_breadcrumb
+    condition: "Breadcrumb is valid and new"
+    type: control
+  - from: validate_message
+    to: ignore_breadcrumb
+    condition: "Breadcrumb is invalid or already processed"
+    type: control
+  - from: process_breadcrumb
+    to: update_session
+    type: control
+  - from: update_session
+    to: continue_work
+    type: control
+  - from: ignore_breadcrumb
+    to: continue_work
+    type: control
+  - from: continue_work
+    to: end_success
+    type: control
+  - from: start
+    to: end_error
+    condition: "Session creation fails"
+    type: control
+
+gates:
+  - id: validate_message
+    type: validation_gate
+    condition: "Breadcrumb schema is valid and not already processed"
+    error_message: "Invalid breadcrumb schema or already processed"
+    recovery: "Log error and continue with next breadcrumb"
+
+stores:
+  - id: session_store
+    type: session_store
+    path: "docs/sessions/<session_id>/session.json"
+    format: json
+    description: "Stores the work session metadata"
+  - id: breadcrumb_store
+    type: datastore
+    path: "docs/sessions/<session_id>/breadcrumbs/"
+    format: json
+    description: "Stores the breadcrumb messages for the session"
+
+invariants:
+  - id: WSESSION_COOKIE_REQUIRED
+    description: "Work sessions require a unique cookie (session ID) for identification"
+    enforcement: "gate"
+  - id: WSESSION_IPC_FILE_BASED
+    description: "Work session IPC uses file-based protocol"
+    enforcement: "hard_stop"
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: "Persistent data is JSON, not Markdown"
+    enforcement: "test"
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_15_work_wsession_cookie_protocol.md
+    description: "Original v1 workflow documentation"
+  - type: v1_diagram
+    path: v1/scenario_15_work_wsession_cookie_protocol.puml
+    description: "PlantUML diagram for the workflow"
+
+commands:
+  - "maestro work"
+  - "maestro wsession"
+
+ledger_hints: []
+```

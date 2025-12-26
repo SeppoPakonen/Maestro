@@ -1,0 +1,248 @@
+```yaml
+wf_id: WF-10
+layer: intent
+title: Repo Resolve levels — Lite vs Deep, convention acceptance, and violation policy
+status: partial
+confidence: medium
+storage_backend: json
+
+description: |
+  This workflow defines the different levels of repository resolution, the process for accepting inferred conventions, 
+  and the policy for handling violations. It serves as the canonical reference for how Maestro understands and 
+  governs repository structure.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator requests repo resolve
+    description: Entry point when operator runs maestro repo resolve command
+
+  - id: decision_resolve_level
+    type: decision
+    label: Select resolve level (lite/deep)
+    description: Determine if this is a lite or deep resolve operation
+
+  - id: resolve_lite
+    type: action
+    label: Resolve Lite - Build-Enabling Scan
+    description: Fast, shallow scan to gather minimum information for build configuration
+
+  - id: resolve_deep
+    type: action
+    label: Resolve Deep - Governance and Enforcement
+    description: Comprehensive analysis to infer conventions and detect violations
+
+  - id: detect_build_drivers
+    type: action
+    label: Detect build drivers and targets
+    description: Identify build systems and targets for Lite mode
+
+  - id: hard_stop_no_driver
+    type: hard_stop
+    label: Hard Stop if no build driver detected
+    color: "#Red"
+    description: Fail if no build driver found and no manual repo_conf exists
+
+  - id: infer_conventions
+    type: action
+    label: Infer conventions and frameworks
+    description: Detect project conventions and framework fingerprints in Deep mode
+
+  - id: apply_rule_packs
+    type: action
+    label: Apply rule packs and detect violations
+    description: Apply convention libraries and identify structural violations
+
+  - id: create_issues
+    type: action
+    label: Create issues for violations
+    description: Generate issues for all detected violations
+
+  - id: propose_conventions
+    type: gate
+    label: Propose convention rule packs
+    description: Present candidate rule packs for operator acceptance
+
+  - id: accept_conventions
+    type: action
+    label: Accept convention pack
+    description: Operator explicitly accepts a rule pack to lock it in
+
+  - id: convention_acceptance_gate
+    type: gate
+    label: Convention acceptance gate
+    description: Enforce that conventions must be accepted before enforcement
+
+  - id: store_resolved_model
+    type: action
+    label: Store resolved model in Repo Truth
+    description: Save resolved model to repository truth store
+
+  - id: store_violations
+    type: action
+    label: Store violations and conventions
+    description: Save detected violations and conventions to truth store
+
+  - id: policy_enforcement_gate
+    type: gate
+    label: Policy enforcement gate
+    description: Check if confirmed violations are waived before allowing operations
+
+  - id: create_waiver
+    type: action
+    label: Create violation waiver
+    description: Operator can waive specific violations with justification
+
+  - id: end_success
+    type: end
+    label: Resolve completed successfully
+    description: Exit point when resolve operation completes
+
+  - id: end_failure
+    type: end
+    label: Resolve failed
+    description: Exit point when resolve operation fails
+
+edges:
+  - from: start
+    to: decision_resolve_level
+    type: control
+
+  - from: decision_resolve_level
+    to: resolve_lite
+    condition: level == lite
+    type: control
+
+  - from: decision_resolve_level
+    to: resolve_deep
+    condition: level == deep
+    type: control
+
+  - from: resolve_lite
+    to: detect_build_drivers
+    type: control
+
+  - from: detect_build_drivers
+    to: hard_stop_no_driver
+    type: control
+
+  - from: hard_stop_no_driver
+    to: end_failure
+    condition: no build driver found
+    type: control
+
+  - from: hard_stop_no_driver
+    to: store_resolved_model
+    condition: build driver found
+    type: control
+
+  - from: resolve_deep
+    to: infer_conventions
+    type: control
+
+  - from: infer_conventions
+    to: apply_rule_packs
+    type: control
+
+  - from: apply_rule_packs
+    to: create_issues
+    type: control
+
+  - from: create_issues
+    to: propose_conventions
+    type: control
+
+  - from: propose_conventions
+    to: accept_conventions
+    label: Operator accepts rule pack
+    type: control
+
+  - from: accept_conventions
+    to: convention_acceptance_gate
+    type: control
+
+  - from: convention_acceptance_gate
+    to: store_resolved_model
+    label: Convention accepted
+    type: control
+
+  - from: store_resolved_model
+    to: store_violations
+    type: control
+
+  - from: store_violations
+    to: policy_enforcement_gate
+    type: control
+
+  - from: policy_enforcement_gate
+    to: end_success
+    label: No blocking violations
+    type: control
+
+  - from: policy_enforcement_gate
+    to: create_waiver
+    label: Violation needs waiver
+    type: control
+
+  - from: create_waiver
+    to: policy_enforcement_gate
+    type: control
+
+gates:
+  - id: convention_acceptance_gate
+    type: convention_acceptance_gate
+    condition: Convention pack must be explicitly accepted by operator
+    error_message: "Convention pack not accepted. Cannot enforce violations."
+    recovery: "Run 'maestro repo conventions accept <pack>' to accept the proposed convention pack"
+
+  - id: policy_enforcement_gate
+    type: validation_gate
+    condition: Confirmed violations are not waived
+    error_message: "Blocking violation detected that is not waived"
+    recovery: "Waive the violation with 'maestro issues waive <id>' or fix the violation"
+
+  - id: hard_stop_no_driver
+    type: hard_stop
+    condition: No build driver detected and no manual repo_conf exists
+    error_message: "No build driver detected and no manual repo_conf exists"
+    recovery: "Create a manual repo_conf.json or ensure build driver is present"
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: Repository truth store for resolved model, conventions, and waivers
+
+  - id: issue_tracker
+    type: datastore
+    path: ./docs/maestro/issues.json
+    format: json
+    description: Issue tracking system for violations
+
+invariants:
+  - id: CONVENTION_ACCEPTANCE_GATE
+    description: User must accept detected conventions before enforcement
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_10_repo_resolve_levels_lite_deep.md
+    description: Original v1 workflow documentation
+  - type: v1_diagram
+    path: v1/scenario_10_repo_resolve_levels_lite_deep.puml
+    description: PlantUML diagram for WF-10
+
+commands:
+  - maestro repo resolve --level lite
+  - maestro repo resolve --level deep
+  - maestro repo conventions accept <pack>
+  - maestro issues waive <id>
+
+ledger_hints:
+  - "WF-10 mentions 'Proposed: maestro repo conventions accept <pack>' commands; implementation may not exist yet"
+```

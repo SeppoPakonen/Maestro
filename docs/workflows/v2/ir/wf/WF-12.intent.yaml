@@ -1,0 +1,383 @@
+wf_id: WF-12
+layer: intent
+title: RepoConf gate — required targets/configs for build, TU, and convert
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow defines the RepoConf gate which is mandatory for build, TU (translation unit/AST generation),
+  and convert operations. It ensures that valid build configuration exists before proceeding with operations
+  that require complete build information such as compiler flags, include paths, and target definitions.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator starts workflow
+    description: User initiates an operation that requires RepoConf (build, TU, or convert)
+
+  - id: decide_creation_path
+    type: decision
+    label: Decide creation path
+    description: Determine if RepoConf will be created via resolve or manual authoring
+
+  - id: create_via_resolve
+    type: action
+    label: Create via resolve
+    description: Generate RepoConf from repo resolve candidates
+
+  - id: create_via_manual
+    type: action
+    label: Create via manual authoring
+    description: Manually create RepoConf using commands
+
+  - id: scan_repository
+    type: action
+    label: Scan repository
+    description: Detect packages and build systems in repository
+
+  - id: generate_candidates
+    type: action
+    label: Generate config candidates
+    description: Generate configuration candidates from build files
+
+  - id: create_repo_conf
+    type: action
+    label: Create RepoConf from candidates
+    description: Create RepoConf from the generated candidates
+
+  - id: manual_commands
+    type: action
+    label: Use manual commands
+    description: Use commands like maestro repo conf target add
+
+  - id: store_repo_conf
+    type: datastore
+    label: Store RepoConf in conf.json
+    description: Persist RepoConf to repository truth store
+
+  - id: validate_configuration
+    type: validation
+    label: Validate configuration
+    description: Validate the configuration data
+
+  - id: validate_schema
+    type: validation
+    label: Validate schema
+    description: Validate the RepoConf schema
+
+  - id: validate_paths
+    type: validation
+    label: Validate referenced paths exist
+    description: Ensure all paths in the configuration exist
+
+  - id: validate_toolchain
+    type: validation
+    label: Validate toolchain executables
+    description: Ensure required toolchain executables exist
+
+  - id: validate_compiler
+    type: validation
+    label: Validate reproducible compiler commands
+    description: Ensure compiler commands are reproducible and deterministic
+
+  - id: automatic_selection
+    type: decision
+    label: Automatic selection?
+    description: Determine if default target should be selected automatically
+
+  - id: select_heuristic
+    type: action
+    label: Select based on heuristics
+    description: Select default target based on heuristics (single executable, etc.)
+
+  - id: manual_selection
+    type: action
+    label: Manual selection
+    description: Manually select default target using command
+
+  - id: store_selection
+    type: datastore
+    label: Store selection in conf.json
+    description: Store the selected default target in the configuration
+
+  - id: repo_conf_exists
+    type: decision
+    label: RepoConf exists?
+    description: Check if a RepoConf file already exists
+
+  - id: repo_conf_valid
+    type: decision
+    label: RepoConf is valid?
+    description: Validate the existing RepoConf schema and content
+
+  - id: repo_conf_consistent
+    type: decision
+    label: RepoConf consistent with repo model?
+    description: Check if RepoConf is consistent with the repository model
+
+  - id: gate_repo_conf_missing
+    type: hard_stop
+    label: HARD_STOP (No RepoConf found)
+    color: "#Red"
+    description: Stop operation if no RepoConf exists
+
+  - id: gate_repo_conf_invalid
+    type: hard_stop
+    label: HARD_STOP (Invalid RepoConf)
+    color: "#Red"
+    description: Stop operation if RepoConf is invalid
+
+  - id: gate_repo_conf_inconsistent
+    type: hard_stop
+    label: HARD_STOP (Inconsistent RepoConf)
+    color: "#Red"
+    description: Stop operation if RepoConf is inconsistent with repo model
+
+  - id: validation_passes
+    type: decision
+    label: Validation passes?
+    description: Check if all validations have passed
+
+  - id: build_operation
+    type: action
+    label: Build operation
+    description: Execute build operation
+
+  - id: tu_operation
+    type: action
+    label: TU/AST generation
+    description: Execute translation unit/AST generation
+
+  - id: convert_operation
+    type: action
+    label: Convert run operation
+    description: Execute convert run operation
+
+  - id: operation_success
+    type: end
+    label: All operations successful
+    description: All operations completed successfully
+
+  - id: operation_failure
+    type: end
+    label: Operation failed
+    description: Operation stopped due to validation failure
+
+edges:
+  - from: start
+    to: decide_creation_path
+    type: control
+
+  - from: decide_creation_path
+    to: create_via_resolve
+    label: Via Resolve
+    type: control
+
+  - from: decide_creation_path
+    to: create_via_manual
+    label: Manual authoring
+    type: control
+
+  - from: create_via_resolve
+    to: scan_repository
+    type: control
+
+  - from: scan_repository
+    to: generate_candidates
+    type: control
+
+  - from: generate_candidates
+    to: create_repo_conf
+    type: control
+
+  - from: create_via_manual
+    to: manual_commands
+    type: control
+
+  - from: manual_commands
+    to: create_repo_conf
+    type: control
+
+  - from: create_repo_conf
+    to: store_repo_conf
+    type: control
+
+  - from: store_repo_conf
+    to: validate_configuration
+    type: control
+
+  - from: validate_configuration
+    to: validate_schema
+    type: control
+
+  - from: validate_configuration
+    to: validate_paths
+    type: control
+
+  - from: validate_configuration
+    to: validate_toolchain
+    type: control
+
+  - from: validate_configuration
+    to: validate_compiler
+    type: control
+
+  - from: validate_schema
+    to: automatic_selection
+    type: control
+
+  - from: validate_paths
+    to: automatic_selection
+    type: control
+
+  - from: validate_toolchain
+    to: automatic_selection
+    type: control
+
+  - from: validate_compiler
+    to: automatic_selection
+    type: control
+
+  - from: automatic_selection
+    to: select_heuristic
+    label: yes
+    type: control
+
+  - from: automatic_selection
+    to: manual_selection
+    label: no
+    type: control
+
+  - from: select_heuristic
+    to: store_selection
+    type: control
+
+  - from: manual_selection
+    to: store_selection
+    type: control
+
+  - from: store_selection
+    to: repo_conf_exists
+    type: control
+
+  - from: repo_conf_exists
+    to: gate_repo_conf_missing
+    label: no
+    type: control
+
+  - from: repo_conf_exists
+    to: repo_conf_valid
+    label: yes
+    type: control
+
+  - from: gate_repo_conf_missing
+    to: operation_failure
+    type: control
+
+  - from: repo_conf_valid
+    to: gate_repo_conf_invalid
+    label: no
+    type: control
+
+  - from: repo_conf_valid
+    to: repo_conf_consistent
+    label: yes
+    type: control
+
+  - from: gate_repo_conf_invalid
+    to: operation_failure
+    type: control
+
+  - from: repo_conf_consistent
+    to: gate_repo_conf_inconsistent
+    label: no
+    type: control
+
+  - from: repo_conf_consistent
+    to: validation_passes
+    label: yes
+    type: control
+
+  - from: gate_repo_conf_inconsistent
+    to: operation_failure
+    type: control
+
+  - from: validation_passes
+    to: build_operation
+    label: yes
+    type: control
+
+  - from: validation_passes
+    to: operation_failure
+    label: no
+    type: control
+
+  - from: build_operation
+    to: tu_operation
+    type: control
+
+  - from: tu_operation
+    to: convert_operation
+    type: control
+
+  - from: convert_operation
+    to: operation_success
+    type: control
+
+gates:
+  - id: gate_repo_conf_missing
+    type: hard_stop
+    condition: RepoConf does not exist
+    error_message: "No build configuration found. Run 'maestro repo resolve' or create manual configuration."
+    recovery: "Run maestro repo resolve or follow manual authoring procedures (WF-11)"
+
+  - id: gate_repo_conf_invalid
+    type: hard_stop
+    condition: RepoConf schema is invalid
+    error_message: "Invalid RepoConf schema. Required fields missing or invalid paths/configurations."
+    recovery: "Fix RepoConf schema or regenerate using maestro repo resolve"
+
+  - id: gate_repo_conf_inconsistent
+    type: hard_stop
+    condition: RepoConf is inconsistent with repo model
+    error_message: "Inconsistent RepoConf vs repo model. Target points to missing package or paths don't exist."
+    recovery: "Update RepoConf to match current repo model or regenerate using maestro repo resolve"
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/repo/conf.json
+    format: json
+    description: Repository truth store for RepoConf
+
+invariants:
+  - id: REPOCONF_REQUIRED_FOR_BUILD_TU_CONVERT
+    description: RepoConf is required for build, TU, and convert operations
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+  - id: REPO_RESOLVE_IS_DETECTION_SPINE
+    description: Repo resolve is the detection backbone
+    enforcement: gate
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_12_repo_conf_gate_for_build_tu_convert.md
+    description: Original v1 documentation for RepoConf gate workflow
+  - type: v1_diagram
+    path: v1/scenario_12_repo_conf_gate_for_build_tu_convert.puml
+    description: PlantUML diagram for RepoConf gate workflow
+
+commands:
+  - maestro repo conf [PACKAGE]
+  - maestro repo conf target add <name> --type <exe|lib>
+  - maestro repo conf set-default-target <name>
+  - maestro build [TARGET]
+  - maestro tu [PACKAGE]
+  - maestro convert run
+
+ledger_hints: []

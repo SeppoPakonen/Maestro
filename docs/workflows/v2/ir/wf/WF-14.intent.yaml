@@ -1,0 +1,203 @@
+```yaml
+wf_id: WF-14
+layer: intent
+title: Branch safety guardrails — branch-bound state, no branch switching during work
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow documents the operational guardrails for Git branch management to ensure state integrity during Maestro operations. 
+  Maestro's state is strictly bound to the Git branch it was initiated on, and switching branches during active work is an unsupported 
+  operation that will trigger a hard stop.
+
+nodes:
+  - id: start
+    type: start
+    label: User initiates work session
+
+  - id: check_git_repo
+    type: validation
+    label: Check if inside Git repository
+
+  - id: not_git_repo_error
+    type: hard_stop
+    label: Error - Not a Git repository
+    color: "#Red"
+
+  - id: read_git_identity
+    type: action
+    label: Read HEAD commit hash and branch name from Git repo
+
+  - id: store_identity_snapshot
+    type: action
+    label: Store (hash, branch) as identity snapshot in SessionStore
+
+  - id: update_docs_store
+    type: action
+    label: Update Docs Truth Store (./docs/maestro) with work session data
+
+  - id: work_session_started
+    type: action
+    label: Work session started
+
+  - id: operator_branch_switch
+    type: action
+    label: Operator switches branch (git checkout other-branch)
+
+  - id: resume_work_session
+    type: action
+    label: User resumes work session (maestro work --resume <id>)
+
+  - id: retrieve_identity_snapshot
+    type: action
+    label: Retrieve identity snapshot from SessionStore
+
+  - id: read_current_git_identity
+    type: action
+    label: Read current HEAD commit hash and branch name from Git repo
+
+  - id: branch_mismatch_check
+    type: decision
+    label: Check for branch mismatch
+
+  - id: hard_stop_mismatch
+    type: hard_stop
+    label: Hard stop due to branch mismatch
+    color: "#Red"
+
+  - id: continue_work
+    type: action
+    label: Continue work session
+
+  - id: end_success
+    type: end
+    label: Work session completed successfully
+
+  - id: end_error
+    type: end
+    label: Work session ended due to branch mismatch
+
+edges:
+  - from: start
+    to: check_git_repo
+    type: control
+
+  - from: check_git_repo
+    to: not_git_repo_error
+    label: Not a Git repo
+    type: control
+
+  - from: check_git_repo
+    to: read_git_identity
+    label: Is a Git repo
+    type: control
+
+  - from: read_git_identity
+    to: store_identity_snapshot
+    type: control
+
+  - from: store_identity_snapshot
+    to: update_docs_store
+    type: control
+
+  - from: update_docs_store
+    to: work_session_started
+    type: control
+
+  - from: work_session_started
+    to: operator_branch_switch
+    type: control
+
+  - from: operator_branch_switch
+    to: resume_work_session
+    type: control
+
+  - from: resume_work_session
+    to: retrieve_identity_snapshot
+    type: control
+
+  - from: retrieve_identity_snapshot
+    to: read_current_git_identity
+    type: control
+
+  - from: read_current_git_identity
+    to: branch_mismatch_check
+    type: control
+
+  - from: branch_mismatch_check
+    to: hard_stop_mismatch
+    label: Branch mismatch detected
+    type: control
+
+  - from: branch_mismatch_check
+    to: continue_work
+    label: Branch identity matches
+    type: control
+
+  - from: hard_stop_mismatch
+    to: end_error
+    type: control
+
+  - from: continue_work
+    to: end_success
+    type: control
+
+  - from: not_git_repo_error
+    to: end_error
+    type: control
+
+gates:
+  - id: git_repo_gate
+    type: validation_gate
+    condition: Inside a Git repository
+    error_message: "Not a Git repository"
+    recovery: "Initialize a Git repository with git init"
+
+  - id: branch_identity_gate
+    type: validation_gate
+    condition: Current branch identity matches stored identity
+    error_message: "Branch identity mismatch. Expected: (stored_hash, stored_branch), Found: (current_hash, current_branch)"
+    recovery: "Return to the original branch where the work session was started"
+
+stores:
+  - id: session_store
+    type: session_store
+    path: ./docs/maestro/session_store.json
+    format: json
+    description: Stores work session metadata including branch identity snapshot
+
+  - id: docs_truth_store
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: Repository-local truth for work session data
+
+invariants:
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during a work session
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/**
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_14_branch_safety_guardrails.md
+    description: Original v1 branch safety guardrails documentation
+
+  - type: v1_diagram
+    path: v1/scenario_14_branch_safety_guardrails.puml
+    description: Original v1 branch safety guardrails diagram
+
+commands:
+  - maestro work
+  - git checkout
+
+ledger_hints: []
+```

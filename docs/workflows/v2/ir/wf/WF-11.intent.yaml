@@ -1,0 +1,254 @@
+wf_id: WF-11
+layer: intent
+title: Manual repo model + manual RepoConf (resolve optional)
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow documents the "two-way" design principle for repository modeling in Maestro:
+  everything that `repo resolve` can *discover*, the user or an AI agent must also be able to
+  *author manually* via `maestro repo ...` commands.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator starts manual repo configuration
+
+  - id: optional_init
+    type: action
+    label: (Optional) Initialize Maestro repo structure
+
+  - id: manual_authoring_loop
+    type: decision
+    label: Choose authoring approach
+
+  - id: manual_from_scratch
+    type: action
+    label: Manually author repo model and conf from scratch
+
+  - id: augment_resolved
+    type: action
+    label: Augment or override resolved state
+
+  - id: repo_resolve
+    type: action
+    label: Run repo resolve to discover state
+
+  - id: manual_override
+    type: action
+    label: Manually override specific values
+
+  - id: store_repo_model
+    type: datastore
+    label: Store repo model in model.json
+    path: ./docs/maestro/repo/model.json
+
+  - id: store_repo_conf
+    type: datastore
+    label: Store repo conf in conf.json
+    path: ./docs/maestro/repo/conf.json
+
+  - id: run_build_or_tu
+    type: action
+    label: Run maestro build or tu
+
+  - id: validation_gate
+    type: gate
+    label: Validate repo model and conf
+
+  - id: validate_model
+    type: validation
+    label: Validate repo model schema
+
+  - id: validate_conf
+    type: validation
+    label: Validate repo conf schema
+
+  - id: validation_failure
+    type: hard_stop
+    label: Validation failed
+    color: "#Red"
+
+  - id: execution_gate
+    type: gate
+    label: Execute build/TU using manual conf
+
+  - id: execute_build
+    type: action
+    label: Execute build/TU process
+
+  - id: display_results
+    type: action
+    label: Display build/TU results
+
+  - id: end_success
+    type: end
+    label: Workflow completed successfully
+
+edges:
+  - from: start
+    to: optional_init
+    type: control
+
+  - from: optional_init
+    to: manual_authoring_loop
+    type: control
+
+  - from: manual_authoring_loop
+    to: manual_from_scratch
+    label: "Manual from scratch"
+    type: control
+
+  - from: manual_authoring_loop
+    to: augment_resolved
+    label: "Augment or override resolved state"
+    type: control
+
+  - from: augment_resolved
+    to: repo_resolve
+    type: control
+
+  - from: repo_resolve
+    to: manual_override
+    type: control
+
+  - from: manual_from_scratch
+    to: store_repo_model
+    type: data
+
+  - from: manual_from_scratch
+    to: store_repo_conf
+    type: data
+
+  - from: manual_override
+    to: store_repo_model
+    type: data
+
+  - from: manual_override
+    to: store_repo_conf
+    type: data
+
+  - from: store_repo_model
+    to: run_build_or_tu
+    type: control
+
+  - from: store_repo_conf
+    to: run_build_or_tu
+    type: control
+
+  - from: run_build_or_tu
+    to: validation_gate
+    type: control
+
+  - from: validation_gate
+    to: validate_model
+    type: control
+
+  - from: validation_gate
+    to: validate_conf
+    type: control
+
+  - from: validate_model
+    to: validation_failure
+    label: "Validation failed"
+    condition: "model.json is invalid"
+    type: control
+
+  - from: validate_conf
+    to: validation_failure
+    label: "Validation failed"
+    condition: "conf.json is invalid"
+    type: control
+
+  - from: validate_model
+    to: execute_build
+    label: "Valid"
+    condition: "model.json is valid"
+    type: control
+
+  - from: validate_conf
+    to: execute_build
+    label: "Valid"
+    condition: "conf.json is valid"
+    type: control
+
+  - from: validation_failure
+    to: manual_authoring_loop
+    label: "Return to authoring"
+    type: control
+
+  - from: execute_build
+    to: execution_gate
+    type: control
+
+  - from: execution_gate
+    to: display_results
+    type: control
+
+  - from: display_results
+    to: end_success
+    type: control
+
+gates:
+  - id: validation_gate
+    type: validation_gate
+    condition: "model.json and conf.json are valid"
+    error_message: "Invalid repo model or configuration"
+    recovery: "Correct the model.json or conf.json files"
+
+  - id: execution_gate
+    type: validation_gate
+    condition: "Build/TU executed successfully"
+    error_message: "Build/TU failed"
+    recovery: "Check build logs and configuration"
+
+stores:
+  - id: repo_model_store
+    type: repo_truth
+    path: ./docs/maestro/repo/model.json
+    format: json
+    description: Repository model defining packages and their properties
+
+  - id: repo_conf_store
+    type: repo_truth
+    path: ./docs/maestro/repo/conf.json
+    format: json
+    description: Repository configuration defining build targets and defaults
+
+invariants:
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is stored under ./docs/maestro/
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is stored in JSON format
+    enforcement: test
+
+  - id: REPOCONF_REQUIRED_FOR_BUILD_TU_CONVERT
+    description: repo_conf.json is required for build, tu, and convert operations
+    enforcement: gate
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_11_manual_repo_model_and_conf.md
+    description: Original v1 documentation for manual repo model and conf workflow
+
+  - type: v1_diagram
+    path: v1/scenario_11_manual_repo_model_and_conf.puml
+    description: PlantUML diagram for manual repo model and conf workflow
+
+commands:
+  - maestro init
+  - maestro repo package add
+  - maestro repo package set-language
+  - maestro repo package set-driver
+  - maestro repo conf target add
+  - maestro repo conf set-default-target
+  - maestro repo resolve
+  - maestro build
+  - maestro tu
+
+ledger_hints: []
+
+The YAML IR for WF-11 has been successfully extracted from the v1 documentation. The output follows the Maestro Workflow IR Schema with the appropriate fields for the intent layer, including nodes, edges, gates, stores, invariants, evidence, and commands as described in the original documentation.
