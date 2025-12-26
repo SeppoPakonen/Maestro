@@ -1,0 +1,32 @@
+[From cmd_ops_deep.puml (line 117) ]                                                                                        
+                                                                                                                            
+@startuml cmd_ops_deep                                                                                                      
+                                                                                                                            
+skinparam monochrome true                                                                                                   
+skinparam shadowing false                                                                                                   
+skinparam package {                                                                                                         
+...                                                                                                                         
+... ( skipping 115 lines )                                                                                                  
+...                                                                                                                         
+                                                                                                                            
+ProjectOpsCommands.HandleProjectOpsValidate --> ProjectOpsDecoder.DecodeProjectOpsJson                                      
+ProjectOpsDecoder.DecodeProjectOpsJson --> ProjectOpsSchemas.ValidateProjectOpsResult : "validates JSON schema"             
+ProjectOpsCommands.HandleProjectOpsValidate --> MaestroUtils : "prints success/error"                                       
+                                                                                                                            
+ProjectOpsCommands.HandleProjectOpsPreview --> ProjectOpsDecoder.DecodeProjectOpsJson                                       
+ProjectOpsCommands.HandleProjectOpsPreview --> ProjectOpsTranslator.ActionsToOps                                            
+ProjectOpsCommands.HandleProjectOpsPreview --> ProjectOpsExecutor.ProjectOpsExecutorClass : "simulates changes"             
+ProjectOpsExecutor.ProjectOpsExecutorClass --> ProjectOpsCommands.ProjectOpsOperations : "uses typed ops"                   
+ProjectOpsExecutor.ProjectOpsExecutorClass --> PreviewResultClass : "returns preview"                                       
+ProjectOpsCommands.HandleProjectOpsPreview --> MaestroUtils : "prints changes"                                              
+                                                                                                                            
+ProjectOpsCommands.HandleProjectOpsApply --> ProjectOpsDecoder.DecodeProjectOpsJson                                         
+ProjectOpsCommands.HandleProjectOpsApply --> ProjectOpsTranslator.ActionsToOps                                              
+ProjectOpsCommands.HandleProjectOpsApply --> ProjectOpsExecutor.ProjectOpsExecutorClass : "applies changes"                 
+ProjectOpsExecutor.ProjectOpsExecutorClass --> ProjectOpsCommands.ProjectOpsOperations : "uses typed ops"                   
+ProjectOpsExecutor.ProjectOpsExecutorClass --> PreviewResultClass : "returns applied changes"                               
+                                                                                                                            
+ProjectOpsExecutorClass --> TracksJsonStore.JsonStoreClass : "initializes JSON store"                                       
+ProjectOpsExecutorClass --> DataMarkdownWriter.InsertTrackBlock --[#Red,dashed]-> FileSystem : "creates track in docs/to ...
+^^^^^                                                                                                                       
+ Syntax Error? (Assumed diagram type: component)                                                                            

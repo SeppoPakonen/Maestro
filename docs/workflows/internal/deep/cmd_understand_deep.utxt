@@ -1,0 +1,32 @@
+[From cmd_understand_deep.puml (line 84) ]                                                                          
+                                                                                                                    
+@startuml cmd_understand_deep                                                                                       
+!include _shared.puml                                                                                               
+' Shared PlantUML styling and macros for Maestro Deep Internal Docs                                                 
+                                                                                                                    
+' Skin Parameters                                                                                                   
+...                                                                                                                 
+... ( skipping 132 lines )                                                                                          
+...                                                                                                                 
+MarkdownRendererClass.Render --> ProjectIntrospectorClass.GatherAll : "3. Gather all project data"                  
+ProjectIntrospectorClass.GatherAll --> ProjectIntrospectorClass.GatherIdentity : "  - gathers identity"             
+ProjectIntrospectorClass.GatherAll --> ProjectIntrospectorClass.GatherAuthorityModel : "  - gathers authority model"
+' ... other gather_* methods                                                                                        
+                                                                                                                    
+MarkdownRendererClass.Render --> UnderstandRenderer._RenderIdentity : "4. Render sections to Markdown"              
+MarkdownRendererClass.Render --> UnderstandRenderer._RenderAuthorityModel                                           
+' ... other _render_* methods                                                                                       
+                                                                                                                    
+' File I/O for Snapshot                                                                                             
+UnderstandCommand.HandleUnderstandDump --> Pathlib : "path management"                                              
+Pathlib --> FileSystem : "interacts with filesystem"                                                                
+UnderstandCommand.HandleUnderstandDump --> DocsUnderstandingSnapshotMd : "specifies output file"                    
+                                                                                                                    
+' Conditional Check Mode                                                                                            
+VALIDATION_GATE(CheckModeLogic, "args.check == True")                                                               
+UnderstandCommand.HandleUnderstandDump --> CheckModeLogic : "5. If check mode"                                      
+CheckModeLogic --> DocsUnderstandingSnapshotMd : "reads existing content"                                           
+CheckModeLogic --> DocsUnderstandingSnapshotMd : "compares new vs existing"                                         
+CheckModeLogic --> HARD_STOP("Mismatched snapshot") : "exit 1 on difference"                                        
+^^^^^                                                                                                               
+ Function not found HARD_STOP                                                                                       

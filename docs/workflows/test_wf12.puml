@@ -1,0 +1,19 @@
+@startuml
+!include _shared.puml
+
+|Operator|
+  :ENTRY_WF_12 - Start RepoConf Gate;
+  :Decide creation path - Via Resolve or Manual authoring;
+
+|Maestro CLI|
+  if (Creation path?) then (Via Resolve)
+    |Repo Resolve|
+    :Scan repository;
+  else (Manual authoring)
+    |Operator|
+    :Use manual commands;
+  endif
+
+  :EXIT_WF_12 - Exit RepoConf Gate;
+  stop
+@enduml

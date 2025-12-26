@@ -1,0 +1,32 @@
+[From cmd_tu_deep.puml (line 33) ]                                                       
+                                                                                         
+@startuml cmd_tu_deep                                                                    
+                                                                                         
+skinparam monochrome true                                                                
+skinparam shadowing false                                                                
+skinparam package {                                                                      
+...                                                                                      
+... ( skipping 45 lines )                                                                
+...                                                                                      
+    rectangle GetFilesByLanguage as "get_files_by_language()" <<Function>>               
+    rectangle HandleTuBuildCommand as "handle_tu_build_command()" <<Function>>           
+    rectangle HandleTuInfoCommand as "handle_tu_info_command()" <<Function>>             
+    rectangle HandleTuQueryCommand as "handle_tu_query_command()" <<Function>>           
+    rectangle HandleTuCompleteCommand as "handle_tu_complete_command()" <<Function>>     
+    rectangle HandleTuReferencesCommand as "handle_tu_references_command()" <<Function>> 
+    rectangle HandleTuLspCommand as "handle_tu_lsp_command()" <<Function>>               
+    rectangle HandleTuCacheClearCommand as "handle_tu_cache_clear_command()" <<Function>>
+    rectangle HandleTuCacheStatsCommand as "handle_tu_cache_stats_command()" <<Function>>
+    rectangle HandleTuTransformCommand as "handle_tu_transform_command()" <<Function>>   
+    rectangle HandleTuPrintAstCommand as "handle_tu_print_ast_command()" <<Function>>    
+    rectangle HandleTuDraftCommand as "handle_tu_draft_command()" <<Function>>           
+}                                                                                        
+                                                                                         
+package TuParsers as "maestro/tu/parsers.py" <<Module>> { ' Conceptual grouping          
+    rectangle ClangParserClass as "ClangParser" <<Class>>                                
+    rectangle JavaParserClass as "JavaParser" <<Class>>                                  
+    rectangle KotlinParserClass as "KotlinParser" <<Class>>                              
+    rectangle PythonParserClass as "PythonParser" <<Class>>                              
+    PROTOCOL(TranslationUnitParser, "TranslationUnitParser")                             
+^^^^^                                                                                    
+ Syntax Error? (Assumed diagram type: activity)                                          

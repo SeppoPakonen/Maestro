@@ -1,0 +1,32 @@
+[From cmd_discuss_deep.puml (line 86) ]                                        
+                                                                               
+@startuml cmd_discuss_deep                                                     
+                                                                               
+skinparam monochrome true                                                      
+skinparam shadowing false                                                      
+skinparam package {                                                            
+...                                                                            
+... ( skipping 94 lines )                                                      
+...                                                                            
+package DiscussionSessionModule as "maestro/discussion.py" <<Module>>          
+rectangle DiscussionSessionClass as "DiscussionSession" <<Class>>              
+rectangle CreateDiscussionSession as "create_discussion_session()" <<Function>>
+rectangle ResumeDiscussion as "resume_discussion()" <<Function>>               
+rectangle RunEditorMode as "run_editor_mode()" <<Function>>                    
+rectangle RunTerminalMode as "run_terminal_mode()" <<Function>>                
+                                                                               
+package WorkSessionModule as "maestro/work_session.py" <<Module>> {            
+    rectangle CreateSession as "create_session()" <<Function>>                 
+}                                                                              
+                                                                               
+package BreadcrumbModule as "maestro/breadcrumb.py" <<Module>> {               
+    rectangle GetBreadcrumbSummary as "get_breadcrumb_summary()" <<Function>>  
+}                                                                              
+                                                                               
+cloud Editor as "User's $EDITOR" <<Actor>>                                     
+cloud FileSystem as "File System" <<Actor>>                                    
+cloud Subprocess as "subprocess module" <<Actor>>                              
+                                                                               
+DATABASE(DocsConfigMd, "docs/config.md")                                       
+^^^^^                                                                          
+ Syntax Error? (Assumed diagram type: component)                               

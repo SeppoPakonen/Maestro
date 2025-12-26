@@ -1,0 +1,32 @@
+[From cmd_solutions_deep.puml (line 43) ]                                      
+                                                                               
+@startuml cmd_solutions_deep                                                   
+                                                                               
+skinparam monochrome true                                                      
+skinparam shadowing false                                                      
+skinparam package {                                                            
+...                                                                            
+... ( skipping 51 lines )                                                      
+...                                                                            
+}                                                                              
+                                                                               
+package SolutionsStore as "maestro/solutions/solution_store.py" <<Module>> {   
+    rectangle ListSolutions as "list_solutions()" <<Function>>                 
+    rectangle ListExternalSolutions as "list_external_solutions()" <<Function>>
+    rectangle LoadSolution as "load_solution()" <<Function>>                   
+    rectangle WriteSolution as "write_solution()" <<Function>>                 
+    rectangle DeleteSolution as "delete_solution()" <<Function>>               
+    rectangle SolutionDetailsClass as "SolutionDetails" <<Class>>              
+    rectangle SolutionRecordClass as "SolutionRecord" <<Class>>                
+}                                                                              
+                                                                               
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {                
+}                                                                              
+                                                                               
+cloud FileSystem as "File System" <<Actor>>                                    
+cloud Editor as "User's $EDITOR" <<Actor>>                                     
+cloud Subprocess as "subprocess module" <<Actor>>                              
+                                                                               
+DATABASE(DocsSolutionsMd, "docs/solutions/<id>.md")                            
+^^^^^                                                                          
+ Syntax Error? (Assumed diagram type: component)                               

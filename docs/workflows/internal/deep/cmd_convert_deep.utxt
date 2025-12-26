@@ -1,0 +1,32 @@
+[From cmd_convert_deep.puml (line 45) ]                                        
+                                                                               
+@startuml cmd_convert_deep                                                     
+                                                                               
+skinparam monochrome true                                                      
+skinparam shadowing false                                                      
+skinparam package {                                                            
+...                                                                            
+... ( skipping 55 lines )                                                      
+...                                                                            
+}                                                                              
+                                                                               
+package ConvertPlanner as "maestro/convert/planner.py" <<Module>> {            
+    rectangle PlanConversion as "plan_conversion()" <<Function>>               
+}                                                                              
+                                                                               
+package ConvertExecution as "maestro/convert/execution_engine.py" <<Module>> { 
+    rectangle RunConversionPipeline as "run_conversion_pipeline()" <<Function>>
+}                                                                              
+                                                                               
+package UiFacadeConvert as "maestro/ui_facade/convert.py" <<Module>> {         
+    rectangle GetPipelineStatus as "get_pipeline_status()" <<Function>>        
+    rectangle PipelineStatus as "PipelineStatus" <<Class>>                     
+    rectangle PipelineStage as "PipelineStage" <<Class>>                       
+}                                                                              
+                                                                               
+package Pathlib as "pathlib" <<Module>>                                        
+package OS as "os" <<Module>>                                                  
+                                                                               
+CLOUD(FileSystem, "File System")                                               
+^^^^^                                                                          
+ Syntax Error? (Assumed diagram type: component)                               

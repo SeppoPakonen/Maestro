@@ -1,0 +1,32 @@
+[From cmd_ai_deep.puml (line 61) ]                                                        
+                                                                                          
+@startuml cmd_ai_deep                                                                     
+                                                                                          
+skinparam monochrome true                                                                 
+skinparam shadowing false                                                                 
+skinparam package {                                                                       
+...                                                                                       
+... ( skipping 72 lines )                                                                 
+...                                                                                       
+    rectangle EstimateTokens as "estimate_tokens()" <<Function>>                          
+}                                                                                         
+                                                                                          
+package WorkSessionModule as "maestro/work_session.py" <<Module>> {                       
+    rectangle WorkSessionClass as "WorkSession" <<Class>>                                 
+    rectangle ListSessions as "list_sessions()" <<Function>>                              
+    rectangle LoadSession as "load_session()" <<Function>>                                
+    rectangle SaveSession as "save_session()" <<Function>>                                
+    rectangle SessionType as "SessionType" <<Enum>>                                       
+    rectangle SessionStatus as "SessionStatus" <<Enum>>                                   
+}                                                                                         
+                                                                                          
+package AiManagerModule as "maestro/ai/manager.py" <<Module>> {                           
+    rectangle AiEngineManagerClass as "AiEngineManager" <<Class>>                         
+}                                                                                         
+                                                                                          
+component PromptRefClass as "PromptRef" <<Component>>                                     
+component RunOptsClass as "RunOpts" <<Component>>                                         
+                                                                                          
+package AiRunners as "maestro/ai/runners.py" <<Module>> { ' Renamed from AiManager's calls
+^^^^^                                                                                     
+ Syntax Error? (Assumed diagram type: component)                                          

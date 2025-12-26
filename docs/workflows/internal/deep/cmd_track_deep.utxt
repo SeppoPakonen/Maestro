@@ -1,0 +1,32 @@
+[From cmd_track_deep.puml (line 77) ]                                    
+                                                                         
+@startuml cmd_track_deep                                                 
+                                                                         
+skinparam monochrome true                                                
+skinparam shadowing false                                                
+skinparam package {                                                      
+...                                                                      
+... ( skipping 86 lines )                                                
+...                                                                      
+package ConfigSettings as "maestro/config/settings.py" <<Module>> {      
+    rectangle GetSettings as "get_settings()" <<Function>>               
+}                                                                        
+                                                                         
+package StatusUtils as "maestro/commands/status_utils.py" <<Module>> {   
+    rectangle NormalizeStatus as "normalize_status()" <<Function>>       
+    rectangle AllowedStatuses as "allowed_statuses()" <<Function>>       
+    rectangle StatusBadge as "status_badge()" <<Function>>               
+    rectangle StatusTimestamp as "status_timestamp()" <<Function>>       
+}                                                                        
+                                                                         
+package CommandsDiscuss as "maestro/commands/discuss.py" <<Module>> {    
+    rectangle HandleTrackDiscuss as "handle_track_discuss()" <<Function>>
+}                                                                        
+                                                                         
+cloud Editor as "User's $EDITOR" <<Actor>>                               
+cloud FileSystem as "File System" <<Actor>>                              
+cloud Subprocess as "subprocess module" <<Actor>>                        
+                                                                         
+DATABASE(DocsTodoMd, "docs/todo.md")                                     
+^^^^^                                                                    
+ Syntax Error? (Assumed diagram type: component)                         

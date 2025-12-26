@@ -1,0 +1,32 @@
+[From cmd_issues_deep.puml (line 69) ]                                      
+                                                                            
+@startuml cmd_issues_deep                                                   
+                                                                            
+skinparam monochrome true                                                   
+skinparam shadowing false                                                   
+skinparam package {                                                         
+...                                                                         
+... ( skipping 76 lines )                                                   
+...                                                                         
+    rectangle StateTransitions as "STATE_TRANSITIONS" <<Enum>>              
+    rectangle CanTransition as "can_transition()" <<Function>>              
+}                                                                           
+                                                                            
+package SolutionsStore as "maestro/solutions/solution_store.py" <<Module>> {
+    rectangle MatchSolutions as "match_solutions()" <<Function>>            
+    rectangle SolutionMatchClass as "SolutionMatch" <<Class>>               
+}                                                                           
+                                                                            
+package AiClient as "maestro/ai/client.py" <<Module>> {                     
+    rectangle ExternalCommandClient as "ExternalCommandClient" <<Class>>    
+}                                                                           
+                                                                            
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {             
+}                                                                           
+                                                                            
+cloud FileSystem as "File System" <<Actor>>                                 
+cloud ExternalAI as "External AI Service" <<Actor>>                         
+                                                                            
+DATABASE(DocsIssuesMd, "docs/issues/<id>.md")                               
+^^^^^                                                                       
+ Syntax Error? (Assumed diagram type: component)                            

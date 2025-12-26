@@ -1,0 +1,32 @@
+[From cmd_work_deep.puml (line 57) ]                                
+                                                                    
+@startuml cmd_work_deep                                             
+                                                                    
+skinparam monochrome true                                           
+skinparam shadowing false                                           
+skinparam package {                                                 
+...                                                                 
+... ( skipping 67 lines )                                           
+...                                                                 
+}                                                                   
+                                                                    
+package BreadcrumbModule as "maestro/breadcrumb.py" <<Module>> {    
+    rectangle CreateBreadcrumb as "create_breadcrumb()" <<Function>>
+    rectangle WriteBreadcrumb as "write_breadcrumb()" <<Function>>  
+    rectangle EstimateTokens as "estimate_tokens()" <<Function>>    
+    rectangle CalculateCost as "calculate_cost()" <<Function>>      
+}                                                                   
+                                                                    
+package AiTaskSync as "maestro/ai/task_sync.py" <<Module>> {        
+    rectangle BuildTaskPrompt as "build_task_prompt()" <<Function>> 
+    rectangle BuildTaskQueue as "build_task_queue()" <<Function>>   
+    rectangle FindTaskContext as "find_task_context()" <<Function>> 
+    rectangle TaskIsDone as "task_is_done()" <<Function>>           
+    rectangle WriteSyncState as "write_sync_state()" <<Function>>   
+}                                                                   
+                                                                    
+package EnginesModule as "maestro/engines.py" <<Module>> {          
+    rectangle GetEngine as "get_engine()" <<Function>>              
+    EXCEPTION(EngineError, "EngineError")                           
+^^^^^                                                               
+ Syntax Error? (Assumed diagram type: component)                    

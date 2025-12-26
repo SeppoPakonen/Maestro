@@ -1,0 +1,32 @@
+[From cmd_log_deep.puml (line 32) ]                                     
+                                                                        
+@startuml cmd_log_deep                                                  
+                                                                        
+skinparam monochrome true                                               
+skinparam shadowing false                                               
+skinparam package {                                                     
+...                                                                     
+... ( skipping 41 lines )                                               
+...                                                                     
+    rectangle HandleLogList as "handle_log_list()" <<Function>>         
+    rectangle HandleLogListWork as "handle_log_list_work()" <<Function>>
+    rectangle HandleLogListPlan as "handle_log_list_plan()" <<Function>>
+    rectangle LoadSession as "load_session()" <<Function>>              
+    rectangle GetMaestroDir as "get_maestro_dir()" <<Function>>         
+}                                                                       
+                                                                        
+package SessionModel as "maestro/session_model.py" <<Module>> {         
+    rectangle SessionClass as "Session" <<Class>>                       
+    rectangle SubtaskClass as "Subtask" <<Class>>                       
+}                                                                       
+                                                                        
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {         
+}                                                                       
+                                                                        
+cloud FileSystem as "File System" <<Actor>>                             
+cloud Pathlib as "pathlib module" <<Actor>>                             
+cloud OS as "os module" <<Actor>>                                       
+                                                                        
+DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {                    
+^^^^^                                                                   
+ Syntax Error? (Assumed diagram type: component)                        

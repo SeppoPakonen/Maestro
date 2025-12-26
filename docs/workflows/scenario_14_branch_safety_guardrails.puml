@@ -1,0 +1,80 @@
+@startuml activity
+
+!include _shared.puml
+
+title WF-14: Branch Safety Guardrails
+
+start
+
+partition "Work Initiation" #LightBlue {
+  partition Operator {
+    :maestro work;
+  }
+  partition "Maestro CLI" as CLI {
+    :Check if inside a Git repo;
+    if (Not a Git repo) then (Error)
+      partition Operator {
+        :Error: Not a Git repository.;
+      }
+      stop
+    else (Is a Git repo)
+      partition "Maestro CLI" as CLI_INNER {
+        :Read HEAD commit hash and branch name from GitRepo;
+      }
+      partition "Git Repo" as GitRepo_INNER {
+        :Return (hash, branch);
+      }
+      partition "Maestro CLI" as CLI_INNER_2 {
+        :Store (hash, branch) as identity snapshot in SessionStore;
+      }
+      partition "Docs Truth Store (./docs/maestro)" as DocsStore_INNER {
+        :CLI updates DocsStore with work session data;
+      }
+      partition Operator {
+        :Work session started...;
+      }
+    endif
+  }
+}
+
+partition "Mid-Session Branch Switch (Operator Error)" #LightCoral {
+  partition Operator {
+    :git checkout other-branch;
+  }
+}
+
+partition "Work Resumption" #LightGreen {
+  partition Operator {
+    :maestro work --resume <id>;
+  }
+  partition "Maestro CLI" as CLI_RESUME {
+    :Retrieve identity snapshot from SessionStore;
+  }
+  partition "Work Session Store" as SessionStore_RESUME {
+    :Return (stored_hash, stored_branch);
+  }
+  partition "Maestro CLI" as CLI_RESUME_2 {
+    :Read current HEAD commit hash and branch name from GitRepo;
+  }
+  partition "Git Repo" as GitRepo_RESUME {
+    :Return (current_hash, current_branch);
+  }
+  if (Branch Mismatch) then (Hard Stop)
+    partition "Maestro CLI" as CLI_HARDS_STOP {
+      :<color:COLOR_HARD_STOP><b>HARD STOP</b>
+      Branch identity mismatch.\nExpected: (stored_hash, stored_branch)\nFound: (current_hash, current_branch)</color>;
+    }
+    stop
+  else (Branch OK)
+    partition "Docs Truth Store (./docs/maestro)" as DocsStore_RESUME {
+      :Continue Read/Write state;
+    }
+    partition Operator {
+      :Resuming work...;
+    }
+  endif
+}
+
+stop
+
+@enduml

@@ -1,0 +1,32 @@
+[From cmd_root_deep.puml (line 43) ]                                                    
+                                                                                        
+@startuml cmd_root_deep                                                                 
+                                                                                        
+skinparam monochrome true                                                               
+skinparam shadowing false                                                               
+skinparam package {                                                                     
+...                                                                                     
+... ( skipping 51 lines )                                                               
+...                                                                                     
+    rectangle BuildPrompt as "build_prompt()" <<Function>> ' Generic prompt builder     
+    rectangle SavePromptForTraceability as "save_prompt_for_traceability()" <<Function>>
+    rectangle SaveAiOutput as "save_ai_output()" <<Function>>                           
+    rectangle GetMultilineInput as "get_multiline_input()" <<Function>>                 
+    rectangle PrintAiResponse as "print_ai_response()" <<Function>>                     
+}                                                                                       
+                                                                                        
+package SessionModel as "maestro/session_model.py" <<Module>> {                         
+    rectangle SessionClass as "Session" <<Class>>                                       
+}                                                                                       
+                                                                                        
+package EnginesModule as "maestro/engines.py" <<Module>> {                              
+    rectangle GetEngine as "get_engine()" <<Function>>                                  
+    rectangle PlannerError as "PlannerError" <<Class>>                                  
+}                                                                                       
+                                                                                        
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {                         
+}                                                                                       
+                                                                                        
+cloud FileSystem as "File System" <<Actor>>                                             
+^^^^^                                                                                   
+ Syntax Error? (Assumed diagram type: activity)                                         

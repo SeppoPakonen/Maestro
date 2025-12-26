@@ -1,0 +1,32 @@
+[From cmd_wsession_deep.puml (line 62) ]                                              
+                                                                                      
+@startuml cmd_wsession_deep                                                           
+                                                                                      
+skinparam monochrome true                                                             
+skinparam shadowing false                                                             
+skinparam package {                                                                   
+...                                                                                   
+... ( skipping 71 lines )                                                             
+...                                                                                   
+    rectangle SessionTreeRendererClass as "tree.SessionTreeRenderer" <<Class>>        
+    rectangle SessionTableFormatterClass as "table.SessionTableFormatter" <<Class>>   
+    rectangle SessionDetailFormatterClass as "detail.SessionDetailFormatter" <<Class>>
+}                                                                                     
+                                                                                      
+package StatsModule as "maestro/stats/session_stats.py" <<Module>> {                  
+    rectangle SessionStatsClass as "SessionStats" <<Class>>                           
+    rectangle CalculateSessionStats as "calculate_session_stats()" <<Function>>       
+    rectangle CalculateTreeStats as "calculate_tree_stats()" <<Function>>             
+}                                                                                     
+                                                                                      
+package Pathlib as "pathlib" <<Module>>                                               
+package Json as "json" <<Module>>                                                     
+package Logging as "logging" <<Module>>                                               
+package Sys as "sys" <<Module>>                                                       
+package DateTime as "datetime" <<Module>>                                             
+                                                                                      
+cloud FileSystem as "File System" <<Actor>>                                           
+                                                                                      
+DATABASE(DocsSessionsDir, "docs/sessions/") {                                         
+^^^^^                                                                                 
+ Syntax Error? (Assumed diagram type: component)                                      

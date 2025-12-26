@@ -1,0 +1,32 @@
+[From cmd_settings_deep.puml (line 69) ]                               
+                                                                       
+@startuml cmd_settings_deep                                            
+                                                                       
+skinparam monochrome true                                              
+skinparam shadowing false                                              
+skinparam package {                                                    
+...                                                                    
+... ( skipping 76 lines )                                              
+...                                                                    
+    rectangle SetActiveProfile as "set_active_profile()" <<Function>>  
+    rectangle SetDefaultProfile as "set_default_profile()" <<Function>>
+    rectangle LoadProfile as "load_profile()" <<Function>>             
+    rectangle HasUnsavedChanges as "has_unsaved_changes()" <<Function>>
+    rectangle GetSettingsHash as "get_settings_hash()" <<Function>>    
+    rectangle CreateAuditLog as "create_audit_log()" <<Function>>      
+}                                                                      
+                                                                       
+package DataMarkdown as "maestro/data/markdown_parser.py" <<Module>> { 
+    rectangle ParseConfigMd as "parse_config_md()" <<Function>>        
+}                                                                      
+                                                                       
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {        
+}                                                                      
+                                                                       
+cloud Editor as "User's $EDITOR" <<Actor>>                             
+cloud FileSystem as "File System" <<Actor>>                            
+cloud Subprocess as "subprocess module" <<Actor>>                      
+                                                                       
+DATABASE(DocsConfigMd, "docs/config.md")                               
+^^^^^                                                                  
+ Syntax Error? (Assumed diagram type: component)                       

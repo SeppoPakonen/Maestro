@@ -1,0 +1,32 @@
+[From cmd_rules_deep.puml (line 28) ]                                                          
+                                                                                               
+@startuml cmd_rules_deep                                                                       
+                                                                                               
+skinparam monochrome true                                                                      
+skinparam shadowing false                                                                      
+skinparam package {                                                                            
+...                                                                                            
+... ( skipping 37 lines )                                                                      
+...                                                                                            
+package MaestroMain as "maestro/main.py" <<Module>> {                                          
+    rectangle MainEntry as "main()" <<Function>>                                               
+}                                                                                              
+                                                                                               
+package CommandHandlers as "maestro/modules/command_handlers.py" <<Module>> {                  
+    rectangle HandleRulesList as "handle_rules_list()" <<Function>>                            
+    rectangle HandleRulesFile as "handle_rules_file()" <<Function>>                            
+    rectangle LoadSession as "load_session()" <<Function>>                                     
+    rectangle SaveSession as "save_session()" <<Function>>                                     
+    rectangle GetMaestroDir as "get_maestro_dir()" <<Function>> ' Used to determine session_dir
+}                                                                                              
+                                                                                               
+package SessionModel as "maestro/session_model.py" <<Module>> {                                
+    rectangle SessionClass as "Session" <<Class>>                                              
+}                                                                                              
+                                                                                               
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {                                
+}                                                                                              
+                                                                                               
+cloud FileSystem as "File System" <<Actor>>                                                    
+^^^^^                                                                                          
+ Syntax Error? (Assumed diagram type: activity)                                                

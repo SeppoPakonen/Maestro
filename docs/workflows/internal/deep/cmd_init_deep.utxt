@@ -1,0 +1,32 @@
+[From cmd_init_deep.puml (line 18) ]                                   
+                                                                       
+@startuml cmd_init_deep                                                
+                                                                       
+skinparam monochrome true                                              
+skinparam shadowing false                                              
+skinparam package {                                                    
+...                                                                    
+... ( skipping 32 lines )                                              
+...                                                                    
+                                                                       
+                                                                       
+                                                                       
+                                                                       
+                                                                       
+package MaestroMain as "maestro/main.py" <<Module>> {                  
+    rectangle MainEntry as "main()" <<Function>>                       
+}                                                                      
+                                                                       
+package CliParser as "maestro/modules/cli_parser.py" <<Module>> {      
+    rectangle CreateMainParser as "create_main_parser()" <<Function>>  
+}                                                                      
+                                                                       
+package CommandsInit as "maestro/commands/init.py" <<Module>> {        
+    rectangle AddInitParser as "add_init_parser()" <<Function>>        
+    rectangle HandleInitCommand as "handle_init_command()" <<Function>>
+}                                                                      
+                                                                       
+package "pathlib" as Pathlib {                                         
+    class PathClass as "Path" {                                        
+^^^^^                                                                  
+ Syntax Error? (Assumed diagram type: component)                       

@@ -1,0 +1,90 @@
+@startuml WF-10_Repo_Resolve_Levels
+!theme materia
+
+title WF-10: Repo Resolve Levels, Convention Acceptance, and Violation Policy
+
+' Macros for repeated actions
+!unquoted procedure RESOLVE_LITE()
+    Repo Scanner -> "Repo Truth Store": Stores minimal resolved model (targets, drivers)
+!endprocedure
+
+!unquoted procedure RESOLVE_DEEP()
+    Repo Scanner -> Repo Scanner: Infer conventions & frameworks
+    Repo Scanner -> Repo Scanner: Apply rule packs & detect violations
+    Repo Scanner -> "Repo Truth Store": Store rich model, conventions, violations
+!endprocedure
+
+!unquoted procedure PROPOSE_CONVENTIONS()
+    "Maestro CLI" -> Operator: Propose convention rule packs for acceptance
+!endprocedure
+
+!unquoted procedure ACCEPT_CONVENTIONS()
+    "Maestro CLI" -> "Repo Truth Store": Store accepted convention pack\n(Violations become "confirmed")
+!endprocedure
+
+!unquoted procedure CREATE_VIOLATION_ISSUE()
+    "Repo Scanner" -> "Issue Tracker": Create issue for each violation
+!endprocedure
+
+!unquoted procedure APPLY_WAIVER()
+    "Maestro CLI" -> "Repo Truth Store": Store waiver for Issue ID
+!endprocedure
+
+!unquoted procedure ENFORCEMENT_GATE()
+    "Maestro CLI" -> "Repo Truth Store": Check if violation is confirmed & not waived
+!endprocedure
+
+
+actor Operator
+participant "Maestro CLI" as CLI
+participant "Repo Scanner" as Scanner
+participant "Repo Truth Store\n(./docs/maestro)" as TruthStore
+participant "Issue Tracker" as Issues
+
+autonumber
+
+== ENTRY_WF_10 ==
+
+Operator -> CLI: `maestro repo resolve --level <level>`
+CLI -> Scanner: Initiate resolve
+
+alt level == lite
+    note right of Scanner
+        **Resolve Lite:**
+        Fast, build-enabling scan.
+    end note
+    Scanner -> Scanner: RESOLVE_LITE()
+    Scanner -> CLI: Return minimal model
+else level == deep
+    note right of Scanner
+        **Resolve Deep:**
+        Full governance scan.
+    end note
+    Scanner -> Scanner: RESOLVE_DEEP()
+    Scanner -> Issues: CREATE_VIOLATION_ISSUE()
+    Scanner -> CLI: Return rich model + proposed conventions
+
+    group Convention Acceptance Gate [Policy/Planned]
+        CLI -> Operator: PROPOSE_CONVENTIONS()
+        Operator -> CLI: `maestro repo conventions accept <pack>`
+        CLI -> TruthStore: ACCEPT_CONVENTIONS()
+    end group
+end
+
+group Optional: Violation Waiver
+    Operator -> CLI: `maestro issues waive <id> --reason "..."`
+    CLI -> TruthStore: APPLY_WAIVER()
+end group
+
+group Policy Enforcement Example (e.g., pre-build check)
+    CLI -> CLI: ENFORCEMENT_GATE()
+    alt Violation is "confirmed" AND NOT waived
+        CLI -> Operator: **BLOCK** build due to policy violation
+    else Violation is "candidate" OR waived
+        CLI -> Operator: Proceed (with warning)
+    end
+end group
+
+== EXIT_WF_10 ==
+
+@enduml

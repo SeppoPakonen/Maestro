@@ -1,0 +1,32 @@
+[From cmd_resume_deep.puml (line 52) ]                                           
+                                                                                 
+@startuml cmd_resume_deep                                                        
+                                                                                 
+skinparam monochrome true                                                        
+skinparam shadowing false                                                        
+skinparam package {                                                              
+...                                                                              
+... ( skipping 60 lines )                                                        
+...                                                                              
+                                                                                 
+package EnginesModule as "maestro/engines.py" <<Module>> {                       
+    rectangle GetEngine as "get_engine()" <<Function>>                           
+    rectangle EngineError as "EngineError" <<Class>>                             
+}                                                                                
+                                                                                 
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {                  
+}                                                                                
+                                                                                 
+package UtilsModule as "maestro/modules/utils.py" <<Module>> {                   
+    rectangle BuildPrompt as "build_prompt()" <<Function>>                       
+    rectangle SaveAiOutput as "save_ai_output()" <<Function>>                    
+}                                                                                
+                                                                                 
+cloud FileSystem as "File System" <<Actor>>                                      
+cloud ExternalAI as "External AI Service" <<Actor>>                              
+                                                                                 
+rectangle HandleInterrupt as "Handle Interrupt (SIGINT)" <<Class>>               
+rectangle HandleEngineError as "Handle Engine Error" <<Class>>                   
+cloud Subprocess as "subprocess module" <<Actor>> ' Implied by Engine interaction
+^^^^^                                                                            
+ Syntax Error? (Assumed diagram type: component)                                 

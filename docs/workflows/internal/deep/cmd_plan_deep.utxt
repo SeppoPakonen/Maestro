@@ -1,0 +1,32 @@
+[From cmd_plan_deep.puml (line 120) ]                                       
+                                                                            
+@startuml cmd_plan_deep                                                     
+                                                                            
+skinparam monochrome true                                                   
+skinparam shadowing false                                                   
+skinparam package {                                                         
+...                                                                         
+... ( skipping 125 lines )                                                  
+...                                                                         
+    rectangle ActionsToOpsProj as "actions_to_ops()" <<Function>>           
+}                                                                           
+                                                                            
+package ProjectOpsExecutor as "maestro/project_ops/executor.py" <<Module>> {
+    rectangle ProjectOpsExecutorClass as "ProjectOpsExecutor" <<Class>>     
+}                                                                           
+                                                                            
+package DataMarkdownParser as "maestro/data/markdown_parser.py" <<Module>> {
+    rectangle ParseTodoMd as "parse_todo_md()" <<Function>>                 
+}                                                                           
+                                                                            
+package ConfigSettings as "maestro/config/settings.py" <<Module>> {         
+    rectangle GetSettings as "get_settings()" <<Function>>                  
+}                                                                           
+                                                                            
+package MaestroUtils as "maestro/modules/utils.py" <<Module>> {             
+}                                                                           
+                                                                            
+cloud FileSystem as "File System" <<Actor>>                                 
+DATABASE(DocsPlansMd, "docs/plans.md")                                      
+^^^^^                                                                       
+ Syntax Error? (Assumed diagram type: component)                            

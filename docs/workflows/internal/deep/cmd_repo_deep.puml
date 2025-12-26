@@ -67,10 +67,7 @@ ACTOR(FileSystem, "File System")
 ACTOR(Subprocess, "subprocess module")
 
 ' Persistent Stores
-DATASTORE(MaestroRepoDir, ".maestro/repo/") {
-    .json files (index.json, assemblies.json, state.json, hierarchy.json, hierarchy_overrides.json)
-    .txt files (index.summary.txt)
-}
+DATASTORE(MaestroRepoDir, ".maestro/repo/")
 DATASTORE(DocsRepoRulesMd, "docs/RepoRules.md")
 DATASTORE(GlobalIndexFile, "$HOME/.maestro/repos.json")
 
