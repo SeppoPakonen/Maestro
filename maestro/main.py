@@ -49,6 +49,7 @@ def main():
         handle_issues_command,
         handle_solutions_command,
         handle_understand_dump,
+        handle_workflow_command,
     )
     from maestro.commands.convert import (
         handle_convert_new,
@@ -83,6 +84,9 @@ def main():
     # Handle different commands based on the parsed arguments
     if args.command == 'init':
         handle_init_command(args)
+
+    elif args.command == 'workflow':
+        handle_workflow_command(args)
 
     elif args.command == 'repo':
         handle_repo_command(args)

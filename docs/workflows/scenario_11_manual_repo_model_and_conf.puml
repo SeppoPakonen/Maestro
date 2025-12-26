@@ -1,0 +1,91 @@
+@startuml
+!include _shared.puml
+
+title WF-11: Manual Repo Model + RepoConf (Resolve Optional)
+
+autonumber
+
+participant Operator as Op
+participant "Maestro CLI" as CLI
+participant "Repo Truth Store\n(./docs/maestro)" as Store
+participant "Repo/Toolchain" as Repo
+
+Op -> CLI: (Optional) `maestro init`
+CLI -> Store: Create `./docs/maestro/**` directory structure
+
+group Manual Authoring Loop
+
+    alt Manual from Scratch
+        Op -> CLI: `maestro repo package add ...`
+        CLI -> Store: Store Repo Model
+        note over Store
+            **Write Repo Model**
+            writes to model.json
+        end note
+        Store --> CLI: Success
+
+        Op -> CLI: `maestro repo conf target add ...`
+        CLI -> Store: Store Repo Conf
+        note over Store
+            **Write Repo Conf**
+            writes to conf.json
+        end note
+        Store --> CLI: Success
+
+    else Augment or Override Resolved State
+        Op -> CLI: `maestro repo resolve`
+        CLI -> Repo: Scans project
+        Repo --> CLI: Discovered state
+        CLI -> Store: Writes resolved state
+
+        Op -> CLI: `maestro repo package set-driver ...`
+        CLI -> Store: Merge / Override state
+        note over Store
+            **Merge/Override**
+            Manual value wins
+        end note
+        Store --> CLI: Success
+    end
+
+end
+
+Op -> CLI: `maestro build` or `maestro tu`
+
+group Validation Gate
+    CLI -> Store: Read `model.json`, `conf.json`
+    Store --> CLI: Return repo model and conf
+
+    CLI -> CLI: Validate Model
+    note over CLI
+        **Validate Repo Model**
+    end note
+    alt on validation failure
+        CLI -> Op: Report Error
+        rnote over Op
+            <font color=red><b>HARD STOP</b></font>
+            Missing required fields
+        end rnote
+        Op -> CLI: (goes back to authoring)
+    end
+
+    CLI -> CLI: Validate Conf
+    note over CLI
+        **Validate Repo Conf**
+    end note
+    alt on validation failure
+        CLI -> Op: Report Error
+        rnote over Op
+            <font color=red><b>HARD STOP</b></font>
+            Invalid target definition
+        end rnote
+        Op -> CLI: (goes back to authoring)
+    end
+end
+
+group Execution Gate
+    CLI -> Repo: Execute build/TU using manual conf
+    Repo --> CLI: Build output / TU results
+    CLI -> Op: Display results
+end
+
+@enduml

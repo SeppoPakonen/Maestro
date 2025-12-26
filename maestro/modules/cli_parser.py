@@ -191,13 +191,15 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_understand_parser,
         add_tu_parser,
         add_repo_parser,
+        add_workflow_parser,
     )
     from ..commands.convert import add_convert_parser
 
     # Register all available command parsers
     add_init_parser(subparsers)
-    add_repo_parser(subparsers)  # Add repo parser right after init
-    add_plan_parser(subparsers)  # Add plan parser to position between init and track
+    add_workflow_parser(subparsers)  # Add workflow parser between init and repo
+    add_repo_parser(subparsers)  # Add repo parser after workflow
+    add_plan_parser(subparsers)  # Add plan parser to position between repo and track
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
     add_task_parser(subparsers)

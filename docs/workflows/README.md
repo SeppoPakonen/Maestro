@@ -38,6 +38,10 @@ Scenarios use the ID format `WF-##`:
 - `WF-09`: Storage Contract — repo truth vs home hub (read-only rules)
 - etc.
 
+**Note on Resolve Depth**: Repo Resolve has multiple levels (Lite vs. Deep) defined in **WF-10**. Other workflows must reference WF-10 for its definitions rather than re-defining resolve depth.
+
+**Note on Resolve Optionality**: Repo Resolve is optional when a repo model and conf are authored manually (**WF-11**).
+
 IDs are stable and never change, even if scenarios are deprecated or superseded.
 
 ### File Naming
