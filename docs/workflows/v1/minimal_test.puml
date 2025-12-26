@@ -1,0 +1,8 @@
+@startuml
+title Test
+
+actor Operator
+participant "Maestro work" as Orchestrator
+
+Operator -> Orchestrator: Test message
+@enduml

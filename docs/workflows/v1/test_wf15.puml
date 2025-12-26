@@ -1,0 +1,16 @@
+@startuml test_wf15
+
+!include _shared.puml
+
+title WF-15: Work <-> wsession Cookie Protocol
+
+actor Operator
+participant "Maestro work (Orchestrator)" as Orchestrator
+database "Home Hub / IPC Store\n(docs/sessions/)" as IPCStore
+
+-> Orchestrator: ENTRY_WF_15: Start `maestro work`
+Orchestrator -> IPCStore: CREATE_WORK_RUN(session_id)
+Orchestrator --> Operator: Display `session_id` to user
+Operator -> Orchestrator: Execute `maestro wsession ... --cookie <session_id>`
+
+@enduml

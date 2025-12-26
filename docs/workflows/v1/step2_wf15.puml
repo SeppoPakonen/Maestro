@@ -1,0 +1,19 @@
+@startuml scenario_15_work_wsession_cookie_protocol
+
+title WF-15: Work <-> wsession Cookie Protocol
+
+actor Operator
+participant "Maestro work (Orchestrator)" as Orchestrator
+participant "AI Engine" as AI
+participant "maestro wsession (Sender)" as WSession
+database "Home Hub / IPC Store\n(docs/sessions/)" as IPCStore
+database "Work Session Store\n(Orchestrator Internal State)" as WSStore
+
+Operator -> Orchestrator: ENTRY_WF_15: Start `maestro work`
+Orchestrator -> Orchestrator: Generate unique `session_id` (cookie)
+Orchestrator -> IPCStore: CREATE_WORK_RUN(session_id)\n(Create docs/sessions/session_id/ & session.json)
+Orchestrator --> Operator: Display `session_id` to user
+Operator -> AI: Inject `session_id` into prompt
+note right of AI: AI receives instructions including `--cookie <session_id>` for `wsession` commands
+
+@enduml

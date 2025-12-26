@@ -1,4 +1,6 @@
 @startuml
-(*) --> "Test"
-"Test" --> (*)
+actor Operator
+participant "Maestro work" as Work
+
+Operator -> Work: Start work
 @enduml
