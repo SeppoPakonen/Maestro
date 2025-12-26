@@ -307,6 +307,15 @@ Some workflows serve as bridges between different operational modes or states. T
 - Implement explicit decision points for adoption or migration
 - Are implemented in scenarios like WF-13 (Read-only → Adopt bridge)
 
+### Safety Guardrails
+
+Workflows that define critical safety mechanisms to prevent state corruption or unintended operations. These guardrails:
+
+- Enforce operational constraints on user actions (e.g., branch switching)
+- Implement hard stops when critical integrity checks fail
+- Provide clear recovery pathways for operators
+- Are implemented in scenarios like WF-14 (Branch safety guardrails — branch-bound state, no branch switching during work)
+
 ### Mandatory Gate Requirements
 
 Maestro implements mandatory gates to ensure workflow integrity:

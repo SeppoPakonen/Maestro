@@ -82,3 +82,30 @@ The command provides both human-readable and JSON output formats:
 - **Prerequisite**: `maestro repo resolve` must be run first to discover packages
 - **Used by**: `maestro tu` commands to get necessary build flags for AST generation
 - **Part of**: Repository analysis workflow (WF-05) that feeds into AST/TU workflows (WF-07)
+
+## Proposed Manual Authoring Commands (for WF-11)
+
+While the `maestro repo conf` command currently only displays configuration, there are proposed manual authoring commands that would allow creating and modifying RepoConf manually:
+
+### Proposed Commands:
+- `maestro repo conf target add <target_name> --type <exe|lib> --package <pkg_name> --sources <files...>`
+  - Defines a new build target
+  - Handler: `maestro.commands.repo_conf.add_target`
+  
+- `maestro repo conf target set-compiler-flags <target_name> <flags...>`
+  - Sets compiler flags for a specific target
+  - Handler: `maestro.commands.repo_conf.set_compiler_flags`
+  
+- `maestro repo conf set-default-target <target_name>`
+  - Selects the default target to be used by `maestro build` or `maestro tu`
+  - Handler: `maestro.commands.repo_conf.set_default_target`
+
+### Storage Location
+- Manual configurations are stored in: `./docs/maestro/repo/conf.json`
+- Follows WF-09 storage contract (repo truth in `./docs/maestro/**`)
+
+### Current Implementation Status
+- The display functionality (`maestro repo conf`) is fully implemented
+- Manual authoring commands are currently proposed but not yet implemented
+- Storage in `./docs/maestro/repo/conf.json` is planned but not yet active
+- The implementation currently focuses on extracting configuration from existing build files

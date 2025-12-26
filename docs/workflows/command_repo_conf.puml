@@ -1,28 +1,52 @@
 @startuml
 !include _shared.puml
 
-!procedure WF_REPO_CONF()
-  |Operator|
-  :maestro repo conf [package_name] [options];
+|Operator|
+  :ENTRY_WF_REPO_CONF - Start Repo Conf Command;
+  if (Command type?) then (Display config)
+    :maestro repo conf [package_name] [options];
 
-  |Maestro CLI|
-  :Load repository index;
-  :Identify package build system;
+    |Maestro CLI|
+    :Load repository index;
+    :Identify package build system;
 
-  |Build System Parser|
-  :Parse build configuration;
-  note right: U++: .upp files
-  note right: CMake: CMakeLists.txt
-  note right: Autotools: configure.ac
-  note right: Gradle: build.gradle
-  note right: Maven: pom.xml
+    |Build System Parser|
+    :Parse build configuration;
+    note right: U++: .upp files
+    note right: CMake: CMakeLists.txt
+    note right: Autotools: configure.ac
+    note right: Gradle: build.gradle
+    note right: Maven: pom.xml
 
-  |Maestro CLI|
-  :Extract configuration data;
-  :Format output;
+    |Maestro CLI|
+    :Extract configuration data;
+    :Format output;
 
-  |Operator|
-  :Receive build configuration;
-!endprocedure
+    |Operator|
+    :Receive build configuration;
+  else (Manual authoring)
+    if (Subcommand?) then (target add)
+      :maestro repo conf target add <name> [options];
 
+      |Maestro CLI|
+      :Validate target parameters;
+      :Create target configuration;
+
+      |Repo Truth Store|
+      :Store in ./docs/maestro/repo/conf.json;
+
+      |Operator|
+      :Receive confirmation;
+    else (set-default-target)
+      |Maestro CLI|
+      :Set default target in conf.json;
+      |Operator|
+      :Receive confirmation;
+    endif
+  endif
+
+  note right: Manual authoring commands\nare proposed but not yet implemented
+
+  :EXIT_WF_REPO_CONF - Exit Repo Conf Command;
+  stop
 @enduml

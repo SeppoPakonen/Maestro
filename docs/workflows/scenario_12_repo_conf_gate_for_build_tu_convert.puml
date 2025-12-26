@@ -1,0 +1,86 @@
+@startuml
+!include _shared.puml
+
+|Operator|
+  :ENTRY_WF_12 - Start RepoConf Gate;
+  :Decide creation path - Via Resolve or Manual authoring;
+
+|Maestro CLI|
+  if (Creation path?) then (Via Resolve)
+    |Repo Resolve|
+    :Scan repository;
+    :Detect packages & build systems;
+    :Generate config candidates;
+    |Maestro CLI|
+    :Create RepoConf from candidates;
+  else (Manual authoring)
+    |Operator|
+    :Use manual commands:
+    - maestro repo conf target add
+    - maestro repo conf set-default-target;
+    |Maestro CLI|
+    :Create RepoConf manually;
+  endif
+
+|Repo Truth Store (./docs/maestro)|
+  :Store RepoConf in conf.json;
+  :Validate configuration;
+
+|Maestro CLI|
+  :Validate schema;
+  :Validate referenced paths exist;
+  :Validate toolchain executables;
+  :Validate reproducible compiler commands;
+
+  if (Automatic selection?) then (yes)
+    :Select based on heuristics - Single executable/library or Multiple targets;
+  else (no)
+    :Manual selection via maestro repo conf set-default-target;
+  endif
+  :Store selection in conf.json;
+
+  note right: Default target selected\nand persisted
+
+  if (RepoConf exists?) then (no)
+    :HARD_STOP("No RepoConf found");
+    note right: Missing RepoConf
+    :Show next steps:\n- Run maestro repo resolve\n- Or manual authoring (WF-11);
+    stop
+  else (yes)
+    if (RepoConf is valid?) then (no)
+      :HARD_STOP("Invalid RepoConf");
+      note right: Schema validation failed
+      :Show validation errors;
+      stop
+    else (yes)
+      if (RepoConf consistent with repo model?) then (no)
+        :HARD_STOP("Inconsistent RepoConf");
+        note right: Inconsistency with repo model
+        :Show inconsistency report;
+        stop
+      else (yes)
+        :RepoConf is valid and consistent;
+        :Proceed to downstream operations;
+      endif
+    endif
+  endif
+
+if (Validation passes?) then (yes)
+  |Toolchain (Build/TU)|
+  :Build operation;
+  :TU/AST generation;
+  |Convert (Source side)|
+  :Convert run operation;
+  |Maestro CLI|
+  note right: All operations successful
+  :EXIT_WF_12 - Exit RepoConf Gate;
+  stop
+else (no)
+  |Maestro CLI|
+  :Stop operation with error;
+  :Show clear error message;
+  :Suggest next steps;
+  stop
+endif
+
+@enduml

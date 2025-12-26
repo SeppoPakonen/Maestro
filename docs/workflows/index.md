@@ -21,6 +21,7 @@ This index provides quick access to all documented workflow scenarios. Each scen
 | **WF-11** | Manual repo model + manual RepoConf (resolve optional) | `repo`, `manual`, `repo-model`, `repo-conf`, `override`, `build`, `tu` | • A repository exists, but `repo resolve` may be incomplete or undesirable. | • A valid, hand-authored repository model and configuration exist, sufficient for `build` and `tu` to run. | • `./docs/maestro/repo/model.json`<br>• `./docs/maestro/repo/conf.json` | [Markdown](scenario_11_manual_repo_model_and_conf.md)<br>[PlantUML](scenario_11_manual_repo_model_and_conf.puml) |
 | **WF-12** | RepoConf gate — required targets/configs for build, TU, and convert | `repo-conf`, `gate`, `build`, `tu`, `ast`, `convert`, `validation`, `targets`, `configs` | • Repository exists with source code<br>• Maestro initialized in repository<br>• Repo model exists (from resolve or manual authoring per WF-11)<br>• No valid RepoConf exists OR existing RepoConf is invalid/outdated | • Valid RepoConf exists and is validated<br>• Default target/config selected and locked<br>• Build, TU, and convert operations can proceed | • `./docs/maestro/repo/conf.json` (or per-package configs)<br>• Validation reports/logs<br>• Default target selection metadata | [Markdown](scenario_12_repo_conf_gate_for_build_tu_convert.md)<br>[PlantUML](scenario_12_repo_conf_gate_for_build_tu_convert.puml) |
 | **WF-13** | Read-only → Adopt bridge (home hub to repo truth) | `readonly`, `adopt`, `init`, `home-hub`, `repo-truth`, `import`, `resolve`, `repo-conf` | • Operator is in an existing repository with no Maestro adoption yet<br>• Repository contains buildable code<br>• Maestro is installed and accessible<br>• Read-only mode is supported | • If adopt decision is "No": Nothing repo-local is written, only hub outputs created<br>• If adopt decision is "Yes": `./docs/maestro/**` structure created and populated<br>• RepoConf exists (WF-12) and build can proceed | • `$HOME/.maestro/repo/` outputs during read-only inspection (if performed)<br>• Optionally: `./docs/maestro/tracks/`, `./docs/maestro/phases/`, `./docs/maestro/tasks/`, `./docs/maestro/repo/` | [Markdown](scenario_13_readonly_to_adopt_bridge.md)<br>[PlantUML](scenario_13_readonly_to_adopt_bridge.puml) |
+| **WF-14** | Branch safety guardrails — branch-bound state, no branch switching during work | `git`, `branch`, `safety`, `guardrails`, `work`, `sessions`, `corruption-prevention` | • A `maestro work` or stateful session is initiated in a Git repository. | • The work session completes successfully, or is hard-stopped due to a branch mismatch. | • Git identity snapshot stored with work session metadata. | [Markdown](scenario_14_branch_safety_guardrails.md)<br>[PlantUML](scenario_14_branch_safety_guardrails.puml) |
 
 
 ---
@@ -38,6 +39,7 @@ Current status:
 - **WF-03**: Published
 - **WF-04**: Published
 - **WF-05**: Published
+- **WF-14**: Published
 
 ---
 

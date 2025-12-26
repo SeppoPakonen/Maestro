@@ -1,223 +1,24 @@
-@startuml
 ' _shared.puml - Shared PlantUML definitions for Maestro workflow diagrams
-'
-' PURPOSE:
-' This file provides shared styles, colors, stereotypes, and macros used across
-' all workflow scenario diagrams. It enables consistent visualization and supports
-' the strategy of stitching individual scenario flows into a single massive
-' conditional workflow diagram.
-'
-' USAGE:
-' Include this file at the top of any scenario .puml file:
-'   !include _shared.puml
-'
-' ACTOR MODEL:
-' Maestro workflows use the "Operator" actor model:
-' - "Operator" represents either a human user OR an AI runner
-' - Both use the SAME CLI command interface
-' - Behavior is identical at the command boundary
-' - AI is NOT a separate workflow participant; it's an execution mode
-' - Commands like "maestro discuss" or "maestro work" may invoke AI internally,
-'   but this is an internal engine decision, not a separate actor
-'
-' Swimlanes typically include:
-' - |Operator| - human or AI runner invoking commands
-' - |Maestro CLI| - command execution layer with validation/routing
-' - |Repo/Toolchain| - external tools (git, compilers, build systems)
-' - |Docs (truth)| - protected truth files in docs/maestro/ (index.json, tracks/*.json, phases/*.json, tasks/*.json)
-'
-' MERGE STRATEGY:
-' Individual scenario diagrams are written as callable procedures (e.g., !procedure WF_01())
-' with labeled entry/exit points. The master diagram will:
-' 1. Include all scenario .puml files
-' 2. Call scenario procedures based on conditional branches
-' 3. Connect scenarios via their labeled entry/exit points
-' 4. Use GATE() macros to model decision points between scenarios
-
-' ============================================================================
-' SKINPARAMS - Minimal, readable styling
-' ============================================================================
 
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 skinparam defaultFontName Arial
 skinparam defaultFontSize 11
 
-' Swimlane styling
 skinparam swimlane {
   BorderColor #666666
   TitleFontSize 12
   TitleFontStyle bold
 }
 
-' Activity styling
 skinparam activity {
   BackgroundColor #E3F2FD
   BorderColor #1976D2
   FontSize 10
 }
 
-' Note styling
 skinparam note {
   BackgroundColor #FFF9C4
   BorderColor #F57F17
   FontSize 9
 }
-
-' ============================================================================
-' STEREOTYPES & COLORS
-' ============================================================================
-
-' State types
-!define COLOR_GATE #FFE082
-!define COLOR_HARD_STOP #FFCDD2
-!define COLOR_SUCCESS #C8E6C9
-!define COLOR_ARTIFACT #E1BEE7
-!define COLOR_AI_ACTION #B2DFDB        ' Engine actions (AI or rule-based)
-!define COLOR_VALIDATION #FFF59D       ' Rule-based validation
-
-' ============================================================================
-' COMMON MACROS
-' ============================================================================
-
-' GATE - Decision point with conditional branches
-' Usage: GATE("Human approval required?")
-!procedure GATE($label)
-  :<color:COLOR_GATE><b>GATE:</b> $label</color>|
-!endprocedure
-
-' HARD_STOP - Blocking failure that halts the workflow
-' Usage: HARD_STOP("Invalid JSON from AI")
-!procedure HARD_STOP($reason)
-  :<color:COLOR_HARD_STOP><b>HARD STOP</b>
-  $reason</color>|
-  stop
-!endprocedure
-
-' CREATE_ISSUE - Generate an issue from a source
-' Usage: CREATE_ISSUE("Build errors")
-!procedure CREATE_ISSUE($source)
-  :<color:COLOR_ARTIFACT><b>Create Issue</b>
-  Source: $source</color>|
-!endprocedure
-
-' CREATE_TASK - Generate a task linked to an issue
-' Usage: CREATE_TASK("ISS-123")
-!procedure CREATE_TASK($issue_id)
-  :<color:COLOR_ARTIFACT><b>Create Task</b>
-  Issue: $issue_id
-  → docs/maestro/tasks/</color>|
-!endprocedure
-
-' DEPENDENCY_EDGE - Model task dependency relationship
-' Usage: DEPENDENCY_EDGE("TASK-A", "TASK-B")
-!procedure DEPENDENCY_EDGE($task_a, $task_b)
-  note right
-    Dependency: $task_a → $task_b
-    (stored in task metadata)
-  end note
-!endprocedure
-
-' ENGINE_INVOKE - Engine execution (AI or rule-based)
-' Usage: ENGINE_INVOKE("Analyze codebase structure")
-' Note: This is typically invoked BY the Maestro CLI, not by Operator directly
-!procedure ENGINE_INVOKE($purpose)
-  :<color:COLOR_AI_ACTION><b>Engine Invocation</b>
-  Purpose: $purpose</color>|
-!endprocedure
-
-' Legacy macro for compatibility with existing diagrams
-' Usage: AI_DISCUSS("Analyze codebase structure")
-!procedure AI_DISCUSS($purpose)
-  :<color:COLOR_AI_ACTION><b>Engine Execution</b>
-  Purpose: $purpose</color>|
-!endprocedure
-
-' VALIDATE_JSON - Check engine output JSON contract
-' Usage: VALIDATE_JSON("Plan structure")
-' Note: This validation is rule-based, not AI-driven
-!procedure VALIDATE_JSON($what)
-  :<color:COLOR_VALIDATION><b>Validate JSON</b>
-  Check: $what</color>|
-!endprocedure
-
-' WRITE_TRUTH - Write to docs/maestro/ truth files
-' Usage: WRITE_TRUTH("docs/maestro/tracks/track-id.json")
-' WRITE_TRUTH - Write to docs/maestro/ truth files
-' Usage: WRITE_TRUTH("docs/maestro/tracks/track-id.json")
-!procedure WRITE_TRUTH($filepath)
-  :<color:COLOR_ARTIFACT><b>Write Truth File</b>
-  → $filepath</color>|
-!endprocedure
-
-' REPO_TRUTH_STORE - Reference to repo-local project truth storage
-' Usage: REPO_TRUTH_STORE()
-!procedure REPO_TRUTH_STORE()
-  note "<color:COLOR_ARTIFACT>Repo Truth: `./docs/maestro/`</color>" as RepoTruthStore
-!endprocedure
-
-' HOME_HUB_STORE - Reference to global read-only hub/index
-' Usage: HOME_HUB_STORE()
-!procedure HOME_HUB_STORE()
-  note "<color:COLOR_ARTIFACT>Home Hub: `$HOME/.maestro/**/repo`</color>" as HomeHubStore
-!endprocedure
-
-' CALL_REPO_RESOLVE - Explicitly calls Workflow 05 for Repo Resolve
-' Usage: CALL_REPO_RESOLVE()
-!procedure CALL_REPO_RESOLVE()
-  :<color:COLOR_AI_ACTION><b>Run Repo Resolve (WF-05)</b></color>|
-!endprocedure
-
-' BRANCH_GUARD - Note for branch safety
-' Usage: BRANCH_GUARD("operational rule") or BRANCH_GUARD("implemented in code")
-!procedure BRANCH_GUARD($type)
-  note "<color:COLOR_VALIDATION><b>Branch Boundaries:</b>
-  Maestro operates on current branch only.
-  Branch switching during `maestro work` is unsupported and risks corruption.
-  (<i>$type</i>)</color>" as BranchGuard
-!endprocedure
-
-' WSESSION_COOKIE_GATE - Representation of wsession IPC
-' Usage: WSESSION_COOKIE_GATE()
-!procedure WSESSION_COOKIE_GATE()
-  note "<color:COLOR_AI_ACTION><b>wsession IPC:</b>
-  File-based polling via 'wsession cookie/run-id'
-  Multi-process allowed; cookie targets work-run</color>" as WSessionIPC
-!endprocedure
-
-' SUCCESS_EXIT - Successful exit point from scenario
-' Usage: SUCCESS_EXIT("WF-01")
-!procedure SUCCESS_EXIT($scenario_id)
-  :<color:COLOR_SUCCESS><b>EXIT: $scenario_id</b>
-  Success</color>|
-!endprocedure
-
-' ============================================================================
-' MEGA-DIAGRAM ASSEMBLY NOTES
-' ============================================================================
-
-' When building the master conditional workflow:
-'
-' 1. Each scenario is wrapped in a procedure:
-'    !procedure WF_01()
-'      ... scenario activities ...
-'    !endprocedure
-'
-' 2. Entry/exit points are labeled:
-'    (*) --> [entry] ENTRY_WF_01
-'    ... flow ...
-'    EXIT_WF_01 --> (*)
-'
-' 3. The master diagram calls procedures conditionally:
-'    (*) --> [start] Initial_State
-'    if "Existing repo?" then
-'      --> [yes] WF_01()
-'    else
-'      --> [no] WF_02()
-'    endif
-'
-' 4. Cross-scenario transitions:
-'    EXIT_WF_01 --> ENTRY_WF_05
-'    note: "After bootstrap, move to enhancement workflow"
-
-@enduml
