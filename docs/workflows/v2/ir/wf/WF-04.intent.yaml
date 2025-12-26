@@ -1,0 +1,241 @@
+wf_id: WF-04
+layer: intent
+title: Reactive compile error → Solutions match → immediate solution-task
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow handles reactive compile errors by creating issues and matching against solution rules.
+  When a build fails with a compiler error, Maestro creates an issue and attempts to match the error
+  against existing solution rules. If a match is found, a high-priority task is created to try the solution.
+  If the solution fails, a fallback task is created for normal investigation.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator runs maestro make build
+    description: User initiates build process which may fail with compile error
+
+  - id: gate_branch_guard
+    type: gate
+    label: Branch Guard
+    description: Ensures no branch switching during active build process
+    color: "#LightBlue"
+
+  - id: call_repo_resolve
+    type: action
+    label: Call WF-05 Repo Resolve
+    description: Implicitly invoked by maestro make build to detect build system
+
+  - id: execute_build
+    type: action
+    label: Execute build command
+    description: Build process runs and may fail with compile error
+
+  - id: build_fails
+    type: decision
+    label: Build fails with compile error?
+    description: Check if build process failed with compiler error
+
+  - id: create_issue
+    type: action
+    label: Create Issue for build error
+    description: Maestro creates an issue to capture the compile error
+
+  - id: parse_build_errors
+    type: action
+    label: Parse build errors
+    description: Normalize and extract error text for solution matching
+
+  - id: match_solutions
+    type: decision
+    label: Solution match found?
+    description: Check if error text matches existing solution rules
+
+  - id: create_solution_task
+    type: action
+    label: Create solution attempt task
+    description: Create high-priority task to try matched solution
+
+  - id: continue_normal_workflow
+    type: action
+    label: Continue normal workflow
+    description: No solution match, proceed with standard issue workflow
+
+  - id: show_results
+    type: end
+    label: Show results to operator
+    description: Display build results and created tasks to user
+
+  - id: execute_solution_task
+    type: action
+    label: Execute solution task
+    description: User runs the solution task to apply prescribed steps
+
+  - id: apply_solution_steps
+    type: action
+    label: Apply solution steps
+    description: Execute the solution's prescribed steps
+
+  - id: rerun_build
+    type: action
+    label: Re-run build
+    description: Attempt build again after applying solution
+
+  - id: build_succeeds
+    type: decision
+    label: Build succeeds?
+    description: Check if build now passes after solution application
+
+  - id: continue_normal_flow
+    type: action
+    label: Continue normal flow
+    description: Build succeeded, continue with normal process
+
+  - id: create_fallback_task
+    type: action
+    label: Create fallback task
+    description: Solution failed, create task for novel problem fixing
+
+  - id: link_tasks
+    type: action
+    label: Link Issue ↔ SolutionAttemptTask ↔ FallbackTask
+    description: Maintain linkage between related tasks and issues
+
+  - id: execute_work_loop
+    type: action
+    label: Execute work loop
+    description: Process tasks in work queue
+
+edges:
+  - from: start
+    to: gate_branch_guard
+    type: control
+
+  - from: gate_branch_guard
+    to: call_repo_resolve
+    type: control
+    label: Branch is stable
+
+  - from: call_repo_resolve
+    to: execute_build
+    type: control
+
+  - from: execute_build
+    to: build_fails
+    type: control
+
+  - from: build_fails
+    to: create_issue
+    label: Yes, build fails
+    type: control
+
+  - from: create_issue
+    to: parse_build_errors
+    type: control
+
+  - from: parse_build_errors
+    to: match_solutions
+    type: control
+
+  - from: match_solutions
+    to: create_solution_task
+    label: Solution match found
+    type: control
+
+  - from: match_solutions
+    to: continue_normal_workflow
+    label: No solution match
+    type: control
+
+  - from: create_solution_task
+    to: show_results
+    type: control
+
+  - from: continue_normal_workflow
+    to: show_results
+    type: control
+
+  - from: show_results
+    to: execute_solution_task
+    type: control
+    condition: User executes solution task
+
+  - from: execute_solution_task
+    to: apply_solution_steps
+    type: control
+
+  - from: apply_solution_steps
+    to: rerun_build
+    type: control
+
+  - from: rerun_build
+    to: build_succeeds
+    type: control
+
+  - from: build_succeeds
+    to: continue_normal_flow
+    label: Yes, build succeeds
+    type: control
+
+  - from: build_succeeds
+    to: create_fallback_task
+    label: No, build still fails
+    type: control
+
+  - from: create_fallback_task
+    to: link_tasks
+    type: control
+
+  - from: link_tasks
+    to: execute_work_loop
+    type: control
+
+  - from: continue_normal_flow
+    to: execute_work_loop
+    type: control
+
+gates:
+  - id: gate_branch_guard
+    type: branch_guard
+    condition: No branch switching during active build process
+    error_message: "Branch switching during active build is unsupported and risks corrupting state"
+    recovery: "Ensure you are on the desired branch before initiating build operations"
+
+stores:
+  - id: issues_store
+    type: repo_truth
+    path: ./docs/issues/
+    format: json
+    description: Storage for build error issues
+
+  - id: tasks_store
+    type: repo_truth
+    path: ./docs/tasks/
+    format: json
+    description: Storage for solution attempt and fallback tasks
+
+commands:
+  - maestro make build
+  - maestro solutions
+  - maestro work issue
+  - maestro work
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_04_reactive_compile_error_solution.md
+    description: Original v1 scenario documentation
+  - type: v1_diagram
+    path: v1/scenario_04_reactive_compile_error_solution.puml
+    description: Original v1 PlantUML diagram
+
+invariants:
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during build process
+    enforcement: gate
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is stored in ./docs/maestro/
+    enforcement: documentation
+
+ledger_hints: []

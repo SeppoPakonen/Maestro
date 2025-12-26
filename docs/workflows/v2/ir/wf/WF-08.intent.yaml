@@ -1,0 +1,336 @@
+wf_id: WF-08
+layer: intent
+title: Convert — cross-repo pipeline (New/Plan/Run)
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow defines the cross-repository conversion pipeline in Maestro.
+  It separates the source repository (where AST is generated) from the target repository (where converted code is written).
+  The workflow includes three main phases: new (pipeline creation), plan (AI-assisted planning), and run (execution).
+
+nodes:
+  - id: start
+    type: start
+    label: Operator initiates conversion pipeline
+
+  - id: branch_guard
+    type: hard_stop
+    label: Hard stop if branch switching during conversion
+    color: "#Red"
+
+  - id: convert_new
+    type: action
+    label: Create conversion pipeline instance
+    description: Operator runs 'maestro convert new [pipeline_name]'
+
+  - id: create_pipeline_metadata
+    type: action
+    label: Create pipeline metadata
+    description: Create pipeline metadata in docs/maestro/convert/
+
+  - id: convert_plan
+    type: action
+    label: Plan conversion with AI assistance
+    description: Operator runs 'maestro convert plan <pipeline_id>'
+
+  - id: initiate_planning_session
+    type: action
+    label: Initiate AI planning session
+    description: Initiate planning session with AI Engine
+
+  - id: generate_conversion_plan
+    type: action
+    label: Generate conversion plan
+    description: Generate machine-validated final JSON plan
+
+  - id: validate_plan_json
+    type: gate
+    label: Validate plan JSON
+    description: Hard stop if plan is invalid
+
+  - id: save_plan_json
+    type: action
+    label: Save plan JSON
+    description: Save plan.json to filesystem
+
+  - id: call_wf05_repo_resolve
+    type: action
+    label: Call WF-05 Repo Resolve
+    description: Ensure source repo is resolved
+
+  - id: ensure_ast_available
+    type: gate
+    label: Ensure AST is available
+    description: Hard stop if AST unavailable
+
+  - id: generate_ast
+    type: action
+    label: Generate AST from source
+    description: Generate AST from source repository
+
+  - id: export_ast
+    type: action
+    label: Export AST
+    description: Export AST to docs/maestro/convert/
+
+  - id: init_target_repo
+    type: action
+    label: Initialize target repository
+    description: Initialize target repo structure
+
+  - id: create_target_structure
+    type: action
+    label: Create target repo structure
+    description: Create target repo structure in filesystem
+
+  - id: emit_target_tasks
+    type: action
+    label: Emit tasks to target repository
+    description: Write conversion tasks to target repo as Track/Phase/Task
+
+  - id: convert_run
+    type: action
+    label: Run conversion pipeline
+    description: Operator runs 'maestro convert run <pipeline_id>'
+
+  - id: validate_prerequisites
+    type: gate
+    label: Validate plan and prerequisites
+    description: Validate plan and ensure all prerequisites are met
+
+  - id: execute_conversion_tasks
+    type: action
+    label: Execute conversion tasks in target repo
+    description: Execute conversion tasks in target repository
+
+  - id: process_scaffold_tasks
+    type: action
+    label: Process scaffold tasks
+    description: Process scaffold tasks in target repo
+
+  - id: process_file_conversion_tasks
+    type: action
+    label: Process file conversion tasks
+    description: Process file conversion tasks in target repo
+
+  - id: process_final_sweep_tasks
+    type: action
+    label: Process final sweep tasks
+    description: Process final sweep tasks in target repo
+
+  - id: run_semantic_integrity_checks
+    type: action
+    label: Run semantic integrity checks
+    description: Run semantic integrity checks in target repo
+
+  - id: check_semantic_equivalence
+    type: gate
+    label: Check for semantic equivalence
+    description: May require human review or block pipeline
+
+  - id: return_execution_status
+    type: end
+    label: Return execution status to operator
+
+edges:
+  - from: start
+    to: branch_guard
+    type: control
+
+  - from: branch_guard
+    to: convert_new
+    label: Branch switching not detected
+    type: control
+
+  - from: convert_new
+    to: create_pipeline_metadata
+    type: control
+
+  - from: create_pipeline_metadata
+    to: convert_plan
+    type: control
+
+  - from: convert_plan
+    to: initiate_planning_session
+    type: control
+
+  - from: initiate_planning_session
+    to: generate_conversion_plan
+    type: control
+
+  - from: generate_conversion_plan
+    to: validate_plan_json
+    type: control
+
+  - from: validate_plan_json
+    to: save_plan_json
+    label: Plan is valid
+    type: control
+
+  - from: validate_plan_json
+    to: end
+    label: Plan is invalid - Hard stop
+    type: control
+
+  - from: save_plan_json
+    to: call_wf05_repo_resolve
+    type: control
+
+  - from: call_wf05_repo_resolve
+    to: ensure_ast_available
+    type: control
+
+  - from: ensure_ast_available
+    to: generate_ast
+    label: AST is available
+    type: control
+
+  - from: ensure_ast_available
+    to: end
+    label: AST unavailable - Hard stop
+    type: control
+
+  - from: generate_ast
+    to: export_ast
+    type: control
+
+  - from: export_ast
+    to: init_target_repo
+    type: control
+
+  - from: init_target_repo
+    to: create_target_structure
+    type: control
+
+  - from: create_target_structure
+    to: emit_target_tasks
+    type: control
+
+  - from: emit_target_tasks
+    to: convert_run
+    type: control
+
+  - from: convert_run
+    to: validate_prerequisites
+    type: control
+
+  - from: validate_prerequisites
+    to: execute_conversion_tasks
+    label: Prerequisites met
+    type: control
+
+  - from: execute_conversion_tasks
+    to: process_scaffold_tasks
+    type: control
+
+  - from: process_scaffold_tasks
+    to: process_file_conversion_tasks
+    type: control
+
+  - from: process_file_conversion_tasks
+    to: process_final_sweep_tasks
+    type: control
+
+  - from: process_final_sweep_tasks
+    to: run_semantic_integrity_checks
+    type: control
+
+  - from: run_semantic_integrity_checks
+    to: check_semantic_equivalence
+    type: control
+
+  - from: check_semantic_equivalence
+    to: return_execution_status
+    label: Semantic equivalence verified
+    type: control
+
+  - from: check_semantic_equivalence
+    to: end
+    label: Semantic issues - May require human review
+    type: control
+
+gates:
+  - id: branch_guard
+    type: hard_stop
+    condition: Branch switching detected during conversion
+    error_message: "FORBIDDEN: Switching branches during maestro convert operation is unsupported and risks corrupting conversion state"
+    recovery: "Ensure both source and target repos are on stable branches before initiating conversion"
+
+  - id: validate_plan_json
+    type: hard_stop
+    condition: Conversion plan JSON is invalid
+    error_message: "Invalid plan JSON - conversion pipeline cannot proceed"
+    recovery: "Revise the conversion plan and try again"
+
+  - id: ensure_ast_available
+    type: hard_stop
+    condition: AST is not available in source repository
+    error_message: "AST unavailable - conversion pipeline cannot proceed"
+    recovery: "Run maestro repo resolve and ensure AST generation prerequisites are met"
+
+  - id: check_semantic_equivalence
+    type: validation_gate
+    condition: Converted code maintains semantic equivalence
+    error_message: "Semantic integrity violation detected"
+    recovery: "Review and adjust conversion tasks or accept semantic differences"
+
+stores:
+  - id: pipeline_metadata
+    type: repo_truth
+    path: ./docs/maestro/convert/
+    format: json
+    description: Pipeline metadata including plan.json and conversion state
+
+  - id: target_repo_tasks
+    type: repo_truth
+    path: ./Track/Phase/Task/
+    format: json
+    description: Conversion tasks written to target repository
+
+  - id: ast_export
+    type: repo_truth
+    path: ./docs/maestro/convert/
+    format: json
+    description: Exported AST representation for conversion use
+
+invariants:
+  - id: FORBID_REPO_DOT_MAESTRO
+    description: ./.maestro must not exist
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/**
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+  - id: REPOCONF_REQUIRED_FOR_BUILD_TU_CONVERT
+    description: repo_conf.json required for conversion
+    enforcement: gate
+
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during conversion operations
+    enforcement: hard_stop
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_08_convert_cross_repo_pipeline.md
+    description: Original v1 scenario documentation
+  - type: v1_diagram
+    path: v1/scenario_08_convert_cross_repo_pipeline.puml
+    description: Original v1 PlantUML diagram
+
+commands:
+  - maestro convert new
+  - maestro convert plan
+  - maestro convert run
+  - maestro convert status
+  - maestro convert show
+  - maestro convert reset
+  - maestro repo resolve
+
+ledger_hints: []

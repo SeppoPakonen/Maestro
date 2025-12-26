@@ -1,0 +1,224 @@
+wf_id: WF-06
+layer: intent
+title: AI-driven task execution with Work Sessions and multi-session resume
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow handles AI-driven task execution with persistent work sessions.
+  It manages the lifecycle of work sessions, AI interactions, and breadcrumb tracking.
+  The workflow enforces a final JSON contract and implements hard stops on invalid output.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator initiates work on task
+
+  - id: create_or_reuse_session
+    type: decision
+    label: Check if Work Session exists for task
+
+  - id: new_session
+    type: action
+    label: Create new Work Session
+    description: Generate unique session ID, create directory structure, initialize session.json
+
+  - id: existing_session
+    type: action
+    label: Reuse existing Work Session
+    description: Locate and validate existing session
+
+  - id: start_ai_session
+    type: action
+    label: Start AI engine session
+    description: Prepare context and initiate AI interaction
+
+  - id: capture_stream_events
+    type: action
+    label: Capture AI stream events to transcript store
+    description: Preserve full JSON event stream for debugging
+
+  - id: emit_progress_update
+    type: decision
+    label: Does AI emit progress update?
+
+  - id: append_breadcrumb
+    type: action
+    label: Append progress update as breadcrumb
+    description: Store curated operator-relevant progress notes
+
+  - id: continue_ai_session
+    type: decision
+    label: Continue AI session?
+
+  - id: resume_ai_session
+    type: action
+    label: Resume AI engine session under same Work Session
+
+  - id: receive_final_json
+    type: action
+    label: Receive final JSON result from AI
+
+  - id: validate_json
+    type: validation
+    label: Validate final JSON against schema
+
+  - id: mark_completed
+    type: action
+    label: Mark session as completed and update task status
+
+  - id: hard_stop
+    type: hard_stop
+    label: Invalid JSON - HARD STOP
+    color: "#Red"
+    description: Invalid final JSON from AI causes immediate halt
+
+  - id: end_success
+    type: end
+    label: Success - task completed
+
+  - id: end_failure
+    type: end
+    label: Failure - session failed due to invalid output
+
+edges:
+  - from: start
+    to: create_or_reuse_session
+    type: control
+
+  - from: create_or_reuse_session
+    to: new_session
+    label: No existing session
+    type: control
+
+  - from: create_or_reuse_session
+    to: existing_session
+    label: Session exists
+    type: control
+
+  - from: new_session
+    to: start_ai_session
+    type: control
+
+  - from: existing_session
+    to: start_ai_session
+    type: control
+
+  - from: start_ai_session
+    to: capture_stream_events
+    type: control
+
+  - from: capture_stream_events
+    to: emit_progress_update
+    type: control
+
+  - from: emit_progress_update
+    to: append_breadcrumb
+    label: Yes
+    type: control
+
+  - from: emit_progress_update
+    to: continue_ai_session
+    label: No
+    type: control
+
+  - from: append_breadcrumb
+    to: continue_ai_session
+    type: control
+
+  - from: continue_ai_session
+    to: resume_ai_session
+    label: Continue
+    type: control
+
+  - from: continue_ai_session
+    to: receive_final_json
+    label: End session
+    type: control
+
+  - from: resume_ai_session
+    to: capture_stream_events
+    type: control
+
+  - from: receive_final_json
+    to: validate_json
+    type: control
+
+  - from: validate_json
+    to: mark_completed
+    label: Valid JSON
+    type: control
+
+  - from: validate_json
+    to: hard_stop
+    label: Invalid JSON
+    type: control
+
+  - from: mark_completed
+    to: end_success
+    type: control
+
+  - from: hard_stop
+    to: end_failure
+    type: control
+
+gates:
+  - id: branch_guard
+    type: hard_stop
+    condition: Git branch switched during active work session
+    error_message: "FORBIDDEN: Branch switch during active work session detected"
+    recovery: "Complete or abandon work session before switching branches"
+
+  - id: json_contract_gate
+    type: hard_stop
+    condition: Final output is not valid JSON
+    error_message: "HARD STOP: Invalid JSON output from AI engine"
+    recovery: "Fix AI output format and retry"
+
+stores:
+  - id: work_session_store
+    type: datastore
+    path: ./docs/sessions/
+    format: json
+    description: Work Session directory with session.json and breadcrumbs
+
+  - id: ai_transcript_store
+    type: datastore
+    path: ./docs/logs/ai/
+    format: json
+    description: AI transcript logs with stream-JSON events
+
+invariants:
+  - id: WSESSION_IPC_FILE_BASED
+    description: Work session IPC uses file-based protocol
+    enforcement: gate
+
+  - id: WSESSION_COOKIE_REQUIRED
+    description: Work sessions require cookie/run-id mechanism
+    enforcement: gate
+
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during work session
+    enforcement: hard_stop
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_06_ai_task_work_sessions.md
+    description: Original v1 workflow documentation
+
+  - type: v1_diagram
+    path: v1/scenario_06_ai_task_work_sessions.puml
+    description: PlantUML diagram for the workflow
+
+commands:
+  - maestro work task <id>
+  - maestro work track <id>
+  - maestro work phase <id>
+  - maestro work issue <id>
+  - maestro wsession list
+  - maestro wsession show <session_id>
+  - maestro wsession breadcrumbs <session_id>
+  - maestro ai sync
+
+ledger_hints: []

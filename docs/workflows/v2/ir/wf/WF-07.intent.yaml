@@ -1,0 +1,329 @@
+wf_id: WF-07
+layer: intent
+title: AST/TU workflows — rename, C++→JS transform, autocomplete
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow handles AST (Abstract Syntax Tree) and TU (Translation Unit) operations in Maestro,
+  including rename refactoring, C++ to JavaScript transformation, and autocomplete functionality.
+  The workflow requires successful completion of Repo Resolve (WF-05) and successful builds before
+  AST/TU operations can be performed.
+
+nodes:
+  - id: start
+    type: start
+    label: User initiates AST/TU operation
+
+  - id: gate_repo_resolve
+    type: gate
+    label: Verify Repo Resolve completed
+    color: "#LightGreen"
+
+  - id: gate_repo_conf
+    type: gate
+    label: Verify RepoConf has valid targets
+    color: "#LightGreen"
+
+  - id: gate_build_success
+    type: gate
+    label: Verify build succeeds for target
+    color: "#LightGreen"
+
+  - id: gate_branch_guard
+    type: gate
+    label: Verify on correct Git branch
+    color: "#LightGreen"
+
+  - id: select_package
+    type: action
+    label: Select package for TU analysis
+
+  - id: tu_build
+    type: command
+    label: Execute maestro tu build
+    command: maestro tu build
+
+  - id: parse_source_ast
+    type: action
+    label: Parse source files with AST flags
+
+  - id: generate_ast
+    type: action
+    label: Generate AST representation
+
+  - id: store_ast_cache
+    type: action
+    label: Store AST in cache
+
+  - id: build_symbol_index
+    type: action
+    label: Build symbol index and resolve cross-references
+
+  - id: merge_asts
+    type: action
+    label: Merge ASTs into unified index
+
+  - id: tu_build_failure
+    type: hard_stop
+    label: TU build failure
+    color: "#Red"
+
+  - id: operation_decision
+    type: decision
+    label: Which operation to perform?
+
+  - id: rename_operation
+    type: action
+    label: Rename symbol operation
+
+  - id: query_references
+    type: action
+    label: Query symbol references
+
+  - id: apply_renames
+    type: action
+    label: Apply renames to files
+
+  - id: verify_rename
+    type: gate
+    label: Verify rename operation
+    color: "#LightGreen"
+
+  - id: rename_failure
+    type: hard_stop
+    label: Rename verification failed
+    color: "#Red"
+
+  - id: transform_operation
+    type: action
+    label: Transform C++ to JavaScript
+
+  - id: normalize_memory_model
+    type: action
+    label: Normalize memory model in C++
+
+  - id: transform_files
+    type: action
+    label: Transform files mechanically
+
+  - id: update_includes
+    type: action
+    label: Update includes and project structure
+
+  - id: transform_complete
+    type: action
+    label: Transform operation complete
+
+  - id: autocomplete_operation
+    type: action
+    label: Autocomplete operation
+
+  - id: map_cursor_ast
+    type: action
+    label: Map cursor to AST node
+
+  - id: get_completions
+    type: action
+    label: Get completion suggestions
+
+  - id: exit_success
+    type: end
+    label: Operation completed successfully
+
+edges:
+  - from: start
+    to: gate_repo_resolve
+    type: control
+
+  - from: gate_repo_resolve
+    to: gate_repo_conf
+    type: control
+
+  - from: gate_repo_conf
+    to: gate_build_success
+    type: control
+
+  - from: gate_build_success
+    to: gate_branch_guard
+    type: control
+
+  - from: gate_branch_guard
+    to: select_package
+    type: control
+
+  - from: select_package
+    to: tu_build
+    type: control
+
+  - from: tu_build
+    to: parse_source_ast
+    type: control
+
+  - from: parse_source_ast
+    to: generate_ast
+    type: control
+
+  - from: generate_ast
+    to: store_ast_cache
+    type: control
+
+  - from: store_ast_cache
+    to: build_symbol_index
+    type: control
+
+  - from: build_symbol_index
+    to: merge_asts
+    type: control
+
+  - from: merge_asts
+    to: operation_decision
+    type: control
+
+  - from: operation_decision
+    to: rename_operation
+    label: Rename operation
+    type: control
+
+  - from: operation_decision
+    to: transform_operation
+    label: Transform operation
+    type: control
+
+  - from: operation_decision
+    to: autocomplete_operation
+    label: Autocomplete operation
+    type: control
+
+  - from: tu_build
+    to: tu_build_failure
+    label: TU build fails
+    type: control
+
+  - from: rename_operation
+    to: query_references
+    type: control
+
+  - from: query_references
+    to: apply_renames
+    type: control
+
+  - from: apply_renames
+    to: verify_rename
+    type: control
+
+  - from: verify_rename
+    to: exit_success
+    label: Verification passes
+    type: control
+
+  - from: verify_rename
+    to: rename_failure
+    label: Verification fails
+    type: control
+
+  - from: transform_operation
+    to: normalize_memory_model
+    type: control
+
+  - from: normalize_memory_model
+    to: transform_files
+    type: control
+
+  - from: transform_files
+    to: update_includes
+    type: control
+
+  - from: update_includes
+    to: transform_complete
+    type: control
+
+  - from: transform_complete
+    to: exit_success
+    type: control
+
+  - from: autocomplete_operation
+    to: map_cursor_ast
+    type: control
+
+  - from: map_cursor_ast
+    to: get_completions
+    type: control
+
+  - from: get_completions
+    to: exit_success
+    type: control
+
+gates:
+  - id: gate_repo_resolve
+    type: repo_resolve_gate
+    condition: Repo Resolve (WF-05) has completed successfully
+    error_message: "Repo Resolve must complete before AST/TU operations"
+    recovery: "Run 'maestro repo resolve' first"
+
+  - id: gate_repo_conf
+    type: repo_conf_gate
+    condition: RepoConf has identified buildable targets/configs
+    error_message: "RepoConf must identify valid targets before AST/TU operations"
+    recovery: "Run 'maestro repo conf' to configure targets"
+
+  - id: gate_build_success
+    type: validation_gate
+    condition: Build succeeds (compile-to-app) for the target package
+    error_message: "Build must succeed before TU/AST can run"
+    recovery: "Fix build errors before proceeding"
+
+  - id: gate_branch_guard
+    type: branch_guard
+    condition: User is on correct Git branch
+    error_message: "Switching branches during AST/TU operations is unsupported"
+    recovery: "Ensure you're on the desired branch before starting"
+
+  - id: verify_rename
+    type: validation_gate
+    condition: Rename verification passes (no ambiguity, old symbol no longer resolves unexpectedly)
+    error_message: "Rename verification failed - possible ambiguity or corruption"
+    recovery: "Revert changes and retry rename operation"
+
+stores:
+  - id: tu_cache
+    type: cache
+    path: ./docs/maestro/tu/
+    format: json
+    description: AST index/cache, reports, and symbol information
+
+invariants:
+  - id: REPO_RESOLVE_IS_DETECTION_SPINE
+    description: Repo resolve is the detection backbone
+    enforcement: gate
+
+  - id: REPOCONF_REQUIRED_FOR_BUILD_TU_CONVERT
+    description: repo_conf.json gates build/TU/convert
+    enforcement: gate
+
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during work session
+    enforcement: gate
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_07_ast_tu_refactor_transform_autocomplete.md
+    description: Original v1 AST/TU workflow documentation
+  - type: v1_diagram
+    path: v1/scenario_07_ast_tu_refactor_transform_autocomplete.puml
+    description: PlantUML diagram of AST/TU operations
+
+commands:
+  - maestro tu build
+  - maestro tu references
+  - maestro tu transform
+  - maestro tu complete
+  - maestro tu query
+  - maestro tu print-ast
+  - maestro tu lsp
+  - maestro tu cache
+  - maestro repo resolve
+  - maestro repo conf
+
+ledger_hints: []

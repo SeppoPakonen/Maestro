@@ -1,0 +1,898 @@
+wf_id: WF-01
+layer: intent
+title: Existing Repo Bootstrap (Single Main, Compiled Language)
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow handles the initial bootstrap process when adding Maestro to an existing repository
+  with a single main branch and compiled language. It covers initialization, codebase understanding,
+  past work reconstruction, build analysis, and error capture as tasks.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator starts existing repo bootstrap
+    description: Entry point for WF-01 with existing git repo, single main branch, compiled language
+
+  - id: gate_git_repo
+    type: gate
+    label: Verify git repository
+    description: Check if current directory is a valid git repository
+
+  - id: hard_stop_not_git
+    type: hard_stop
+    label: Hard stop - not a git repo
+    color: "#Red"
+    description: Workflow stops if not in a git repository
+
+  - id: gate_already_initialized
+    type: gate
+    label: Check if Maestro already initialized
+    description: Determine if docs/maestro/ directory exists
+
+  - id: action_already_initialized
+    type: action
+    label: Warning - already initialized
+    description: Show warning and exit with success (idempotent behavior)
+
+  - id: action_maestro_init
+    type: action
+    label: Run maestro init
+    description: Create Maestro directory structure and initial state files
+
+  - id: action_create_structure
+    type: action
+    label: Create directory structure
+    description: Create docs/maestro/, tracks/, phases/, tasks/, index.json
+
+  - id: write_index_json
+    type: action
+    label: Write docs/maestro/index.json
+    description: Initialize the main index file with empty plan
+
+  - id: call_wf_05_repo_resolve
+    type: action
+    label: Call WF-05 repo resolve
+    description: Detect build system and packages using repo resolve workflow
+
+  - id: action_discuss
+    type: action
+    label: Run maestro discuss
+    description: Operator runs discuss command to understand codebase
+
+  - id: action_generate_understanding
+    type: action
+    label: Generate structured understanding
+    description: AI analyzes codebase and returns structured JSON
+
+  - id: validate_json_understanding
+    type: gate
+    label: Validate JSON understanding
+    description: Ensure engine returns valid JSON
+
+  - id: hard_stop_invalid_json
+    type: hard_stop
+    label: Hard stop - invalid JSON
+    color: "#Red"
+    description: Stop if engine returns invalid JSON
+
+  - id: action_review_understanding
+    type: action
+    label: Review understanding output
+    description: Operator reviews the AI's understanding of the codebase
+
+  - id: gate_understanding_correct
+    type: gate
+    label: Is understanding correct?
+    description: Check if AI's understanding matches reality
+
+  - id: action_provide_corrections
+    type: action
+    label: Provide corrections
+    description: Operator provides corrections and re-runs discuss
+
+  - id: action_choose_strategy
+    type: action
+    label: Choose reconstruction strategy
+    description: Operator selects git or snapshot strategy
+
+  - id: gate_reconstruction_strategy
+    type: gate
+    label: Reconstruction strategy
+    description: Determine which reconstruction approach to use
+
+  - id: action_git_reconstruct
+    type: action
+    label: Run git reconstruction
+    description: Parse git log and group commits by purpose
+
+  - id: action_snapshot_reconstruct
+    type: action
+    label: Run snapshot reconstruction
+    description: Infer completed work from current codebase state
+
+  - id: action_mark_completed
+    type: action
+    label: Mark past work as completed
+    description: Update task JSON files with status="completed"
+
+  - id: action_review_completed
+    type: action
+    label: Review completed tasks
+    description: Operator reviews reconstructed completed tasks
+
+  - id: gate_completed_correct
+    type: gate
+    label: Are completed tasks correct?
+    description: Verify reconstructed tasks match actual past work
+
+  - id: action_build_create_issues
+    type: action
+    label: Run maestro build --create-issues
+    description: Attempt build and capture errors as issues/tasks
+
+  - id: action_detect_build_cmd
+    type: action
+    label: Detect build command
+    description: Identify appropriate build command for language
+
+  - id: action_execute_build
+    type: action
+    label: Execute build
+    description: Run the build command and capture output
+
+  - id: write_build_log
+    type: action
+    label: Write docs/build.log
+    description: Save build output to log file
+
+  - id: gate_build_success
+    type: gate
+    label: Did build succeed?
+    description: Check if build completed without errors
+
+  - id: action_clean_build
+    type: action
+    label: Clean build achieved
+    description: No build errors to fix
+
+  - id: action_parse_errors
+    type: action
+    label: Parse build errors
+    description: Extract file paths, line numbers, error codes
+
+  - id: action_group_errors
+    type: action
+    label: Group errors by root cause
+    description: Use AI to group related errors
+
+  - id: action_create_issues
+    type: action
+    label: Create issue records
+    description: Create issue data files for each error group
+
+  - id: action_create_tasks
+    type: action
+    label: Create task records
+    description: Create task JSON files for each issue
+
+  - id: action_analyze_dependencies
+    type: action
+    label: Analyze task dependencies
+    description: Determine dependency relationships between tasks
+
+  - id: action_update_priorities
+    type: action
+    label: Update task priorities
+    description: Order tasks in active tasks JSON based on dependencies
+
+  - id: action_task_next
+    type: action
+    label: Run maestro task next
+    description: Select next task with no unsatisfied dependencies
+
+  - id: action_select_task
+    type: action
+    label: Select next task
+    description: Pick highest-priority task from active tasks JSON
+
+  - id: action_review_task
+    type: action
+    label: Review task details
+    description: Operator reviews the selected task
+
+  - id: gate_fix_method
+    type: gate
+    label: How to fix task?
+    description: Determine if fixing manually or with work command
+
+  - id: action_manual_fix
+    type: action
+    label: Edit files directly
+    description: Operator manually fixes the issue
+
+  - id: action_work_task
+    type: action
+    label: Run maestro work task
+    description: Use AI-assisted fixing via work command
+
+  - id: action_invoke_engine
+    type: action
+    label: Invoke engine for code changes
+    description: AI proposes code changes in JSON format
+
+  - id: validate_engine_changes
+    type: gate
+    label: Validate engine changes
+    description: Ensure proposed changes are valid JSON
+
+  - id: hard_stop_invalid_changes
+    type: hard_stop
+    label: Hard stop - invalid changes
+    color: "#Red"
+    description: Stop if engine proposes invalid changes
+
+  - id: action_validate_details
+    type: action
+    label: Validate change details
+    description: Check file exists, line valid, syntax valid
+
+  - id: hard_stop_validation_fail
+    type: hard_stop
+    label: Hard stop - validation failed
+    color: "#Red"
+    description: Stop if change validation fails
+
+  - id: action_apply_changes
+    type: action
+    label: Apply changes to files
+    description: Apply the validated changes to code
+
+  - id: action_rebuild
+    type: action
+    label: Run maestro build --create-issues again
+    description: Rebuild to check if fix resolved the issue
+
+  - id: gate_rebuild_success
+    type: gate
+    label: Did rebuild succeed?
+    description: Check if rebuild succeeded without errors
+
+  - id: action_parse_new_errors
+    type: action
+    label: Parse new errors
+    description: Identify any new errors introduced by the fix
+
+  - id: action_create_new_issues
+    type: action
+    label: Create new issues/tasks
+    description: Create issues for any new errors found
+
+  - id: action_task_complete
+    type: action
+    label: Run maestro task complete
+    description: Mark the completed task as finished
+
+  - id: action_update_task_status
+    type: action
+    label: Update task status to completed
+    description: Move task from active to completed in JSON
+
+  - id: gate_more_tasks
+    type: gate
+    label: More active tasks?
+    description: Check if there are more tasks to work on
+
+  - id: action_all_build_fixed
+    type: action
+    label: All build errors fixed
+    description: Exit the build fix loop
+
+  - id: gate_attempt_runtime
+    type: gate
+    label: Attempt runtime?
+    description: Decide whether to run the application
+
+  - id: action_runtime_no
+    type: action
+    label: Skip runtime
+    description: Don't attempt to run the application
+
+  - id: action_runtime_yes
+    type: action
+    label: Run maestro run --create-issues
+    description: Execute the built application and capture runtime errors
+
+  - id: action_detect_run_cmd
+    type: action
+    label: Detect run command
+    description: Identify appropriate run command for language
+
+  - id: action_execute_runtime
+    type: action
+    label: Execute application
+    description: Run the application and capture output
+
+  - id: write_runtime_log
+    type: action
+    label: Write docs/runtime.log
+    description: Save runtime output to log file
+
+  - id: gate_runtime_errors
+    type: gate
+    label: Runtime errors detected?
+    description: Check if application ran without errors
+
+  - id: action_parse_runtime_errors
+    type: action
+    label: Parse runtime errors
+    description: Extract runtime errors from logs
+
+  - id: action_create_runtime_issues
+    type: action
+    label: Create runtime issue records
+    description: Create issue data for runtime errors
+
+  - id: action_create_runtime_tasks
+    type: action
+    label: Create runtime task records
+    description: Create task JSON files for runtime errors
+
+  - id: gate_fix_runtime_now
+    type: gate
+    label: Fix runtime errors now?
+    description: Decide whether to fix runtime errors immediately
+
+  - id: action_fix_runtime_loop
+    type: action
+    label: Loop back to work loop
+    description: Return to task selection to fix runtime errors
+
+  - id: action_exit_partial
+    type: action
+    label: Exit with partial completion
+    description: Exit with remaining tasks in active state
+
+  - id: end_success
+    type: end
+    label: Exit WF-01 successfully
+    description: Successfully completed bootstrap workflow
+
+  - id: end_partial
+    type: end
+    label: Exit WF-01 partially
+    description: Workflow completed with remaining tasks
+
+edges:
+  - from: start
+    to: gate_git_repo
+    type: control
+
+  - from: gate_git_repo
+    to: hard_stop_not_git
+    label: Not a git repo
+    type: control
+
+  - from: gate_git_repo
+    to: gate_already_initialized
+    label: Is git repo
+    type: control
+
+  - from: hard_stop_not_git
+    to: end_partial
+    type: control
+
+  - from: gate_already_initialized
+    to: action_already_initialized
+    label: Already initialized
+    type: control
+
+  - from: gate_already_initialized
+    to: action_maestro_init
+    label: Not initialized
+    type: control
+
+  - from: action_already_initialized
+    to: end_success
+    type: control
+
+  - from: action_maestro_init
+    to: action_create_structure
+    type: control
+
+  - from: action_create_structure
+    to: write_index_json
+    type: control
+
+  - from: write_index_json
+    to: call_wf_05_repo_resolve
+    type: control
+
+  - from: call_wf_05_repo_resolve
+    to: action_discuss
+    type: control
+
+  - from: action_discuss
+    to: action_generate_understanding
+    type: control
+
+  - from: action_generate_understanding
+    to: validate_json_understanding
+    type: control
+
+  - from: validate_json_understanding
+    to: hard_stop_invalid_json
+    label: Invalid JSON
+    type: control
+
+  - from: validate_json_understanding
+    to: action_review_understanding
+    label: Valid JSON
+    type: control
+
+  - from: hard_stop_invalid_json
+    to: end_partial
+    type: control
+
+  - from: action_review_understanding
+    to: gate_understanding_correct
+    type: control
+
+  - from: gate_understanding_correct
+    to: action_provide_corrections
+    label: No
+    type: control
+
+  - from: gate_understanding_correct
+    to: action_choose_strategy
+    label: Yes
+    type: control
+
+  - from: action_provide_corrections
+    to: action_discuss
+    label: Loop back to discuss
+    type: control
+
+  - from: action_choose_strategy
+    to: gate_reconstruction_strategy
+    type: control
+
+  - from: gate_reconstruction_strategy
+    to: action_git_reconstruct
+    label: Git strategy
+    type: control
+
+  - from: gate_reconstruction_strategy
+    to: action_snapshot_reconstruct
+    label: Snapshot strategy
+    type: control
+
+  - from: action_git_reconstruct
+    to: action_mark_completed
+    type: control
+
+  - from: action_snapshot_reconstruct
+    to: action_mark_completed
+    type: control
+
+  - from: action_mark_completed
+    to: action_review_completed
+    type: control
+
+  - from: action_review_completed
+    to: gate_completed_correct
+    type: control
+
+  - from: gate_completed_correct
+    to: action_build_create_issues
+    label: Yes
+    type: control
+
+  - from: gate_completed_correct
+    to: action_review_completed
+    label: No
+    type: control
+
+  - from: action_build_create_issues
+    to: action_detect_build_cmd
+    type: control
+
+  - from: action_detect_build_cmd
+    to: action_execute_build
+    type: control
+
+  - from: action_execute_build
+    to: write_build_log
+    type: control
+
+  - from: write_build_log
+    to: gate_build_success
+    type: control
+
+  - from: gate_build_success
+    to: action_clean_build
+    label: Success
+    type: control
+
+  - from: gate_build_success
+    to: action_parse_errors
+    label: Failure
+    type: control
+
+  - from: action_clean_build
+    to: gate_attempt_runtime
+    type: control
+
+  - from: action_parse_errors
+    to: action_group_errors
+    type: control
+
+  - from: action_group_errors
+    to: action_create_issues
+    type: control
+
+  - from: action_create_issues
+    to: action_create_tasks
+    type: control
+
+  - from: action_create_tasks
+    to: action_analyze_dependencies
+    type: control
+
+  - from: action_analyze_dependencies
+    to: action_update_priorities
+    type: control
+
+  - from: action_update_priorities
+    to: action_task_next
+    type: control
+
+  - from: action_task_next
+    to: action_select_task
+    type: control
+
+  - from: action_select_task
+    to: action_review_task
+    type: control
+
+  - from: action_review_task
+    to: gate_fix_method
+    type: control
+
+  - from: gate_fix_method
+    to: action_manual_fix
+    label: Manual
+    type: control
+
+  - from: gate_fix_method
+    to: action_work_task
+    label: Use work command
+    type: control
+
+  - from: action_manual_fix
+    to: action_rebuild
+    type: control
+
+  - from: action_work_task
+    to: action_invoke_engine
+    type: control
+
+  - from: action_invoke_engine
+    to: validate_engine_changes
+    type: control
+
+  - from: validate_engine_changes
+    to: hard_stop_invalid_changes
+    label: Invalid
+    type: control
+
+  - from: validate_engine_changes
+    to: action_validate_details
+    label: Valid
+    type: control
+
+  - from: hard_stop_invalid_changes
+    to: end_partial
+    type: control
+
+  - from: action_validate_details
+    to: hard_stop_validation_fail
+    label: Validation failed
+    type: control
+
+  - from: action_validate_details
+    to: action_apply_changes
+    label: Validation passed
+    type: control
+
+  - from: hard_stop_validation_fail
+    to: end_partial
+    type: control
+
+  - from: action_apply_changes
+    to: action_rebuild
+    type: control
+
+  - from: action_rebuild
+    to: gate_rebuild_success
+    type: control
+
+  - from: gate_rebuild_success
+    to: action_parse_new_errors
+    label: Failure
+    type: control
+
+  - from: gate_rebuild_success
+    to: action_task_complete
+    label: Success
+    type: control
+
+  - from: action_parse_new_errors
+    to: action_create_new_issues
+    type: control
+
+  - from: action_create_new_issues
+    to: action_update_priorities
+    type: control
+
+  - from: action_task_complete
+    to: gate_more_tasks
+    type: control
+
+  - from: gate_more_tasks
+    to: action_all_build_fixed
+    label: No
+    type: control
+
+  - from: gate_more_tasks
+    to: action_task_next
+    label: Yes
+    type: control
+
+  - from: action_all_build_fixed
+    to: gate_attempt_runtime
+    type: control
+
+  - from: gate_attempt_runtime
+    to: action_runtime_no
+    label: No
+    type: control
+
+  - from: gate_attempt_runtime
+    to: action_runtime_yes
+    label: Yes
+    type: control
+
+  - from: action_runtime_no
+    to: end_success
+    type: control
+
+  - from: action_runtime_yes
+    to: action_detect_run_cmd
+    type: control
+
+  - from: action_detect_run_cmd
+    to: action_execute_runtime
+    type: control
+
+  - from: action_execute_runtime
+    to: write_runtime_log
+    type: control
+
+  - from: write_runtime_log
+    to: gate_runtime_errors
+    type: control
+
+  - from: gate_runtime_errors
+    to: action_parse_runtime_errors
+    label: Yes
+    type: control
+
+  - from: gate_runtime_errors
+    to: end_success
+    label: No
+    type: control
+
+  - from: action_parse_runtime_errors
+    to: action_create_runtime_issues
+    type: control
+
+  - from: action_create_runtime_issues
+    to: action_create_runtime_tasks
+    type: control
+
+  - from: action_create_runtime_tasks
+    to: gate_fix_runtime_now
+    type: control
+
+  - from: gate_fix_runtime_now
+    to: action_fix_runtime_loop
+    label: Yes
+    type: control
+
+  - from: gate_fix_runtime_now
+    to: action_exit_partial
+    label: No
+    type: control
+
+  - from: action_fix_runtime_loop
+    to: action_task_next
+    label: Loop back to task selection
+    type: control
+
+  - from: action_exit_partial
+    to: end_partial
+    type: control
+
+  - from: end_success
+    to: end_success
+    type: control
+
+gates:
+  - id: gate_git_repo
+    type: validation_gate
+    condition: Current directory is a git repository
+    error_message: "Not a git repository. Run `git init` first."
+    recovery: "Initialize a git repository with `git init`"
+
+  - id: gate_already_initialized
+    type: validation_gate
+    condition: Maestro not already initialized
+    error_message: "Maestro already initialized"
+    recovery: "Continue with idempotent behavior (no-op)"
+
+  - id: validate_json_understanding
+    type: validation_gate
+    condition: Engine returns valid JSON
+    error_message: "Invalid JSON from engine. Please retry with a clearer prompt."
+    recovery: "Operator may re-prompt with corrections"
+
+  - id: gate_understanding_correct
+    type: validation_gate
+    condition: AI understanding matches actual codebase
+    error_message: "AI understanding does not match codebase"
+    recovery: "Operator provides corrections and re-runs discuss command"
+
+  - id: gate_completed_correct
+    type: validation_gate
+    condition: Completed tasks match actual past work
+    error_message: "Reconstructed completed tasks do not match actual past work"
+    recovery: "Operator reviews and edits completed tasks"
+
+  - id: gate_build_success
+    type: validation_gate
+    condition: Build completes without errors
+    error_message: "Build failed with errors"
+    recovery: "Errors captured as issues/tasks; work loop begins"
+
+  - id: validate_engine_changes
+    type: validation_gate
+    condition: Engine proposes valid changes
+    error_message: "Invalid changes from engine"
+    recovery: "Retry with different prompt"
+
+  - id: action_validate_details
+    type: validation_gate
+    condition: Change details are valid (file exists, line valid, syntax valid)
+    error_message: "Change validation failed (file not found, invalid syntax, etc.)"
+    recovery: "Manually fix the change proposal"
+
+  - id: gate_rebuild_success
+    type: validation_gate
+    condition: Rebuild completes without errors
+    error_message: "Rebuild failed with new errors"
+    recovery: "New errors captured as issues/tasks"
+
+  - id: gate_runtime_errors
+    type: validation_gate
+    condition: Application runs without errors
+    error_message: "Runtime errors detected"
+    recovery: "Runtime errors captured as issues/tasks"
+
+invariants:
+  - id: FORBID_REPO_DOT_MAESTRO
+    description: ./.maestro must not exist
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/**
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+  - id: REPO_RESOLVE_IS_DETECTION_SPINE
+    description: Repo resolve is the detection backbone
+    enforcement: documentation
+
+  - id: REPOCONF_REQUIRED_FOR_BUILD_TU_CONVERT
+    description: repo_conf.json required for build/TU/convert
+    enforcement: gate
+
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during work session
+    enforcement: documentation
+
+  - id: WSESSION_COOKIE_REQUIRED
+    description: Work sessions require cookie/token mechanism
+    enforcement: documentation
+
+  - id: WSESSION_IPC_FILE_BASED
+    description: Work session IPC uses file-based protocol
+    enforcement: documentation
+
+  - id: CONVENTION_ACCEPTANCE_GATE
+    description: User accepts detected conventions
+    enforcement: documentation
+
+  - id: WSESSION_MUTATION_MODE_OPTIN
+    description: Mutations require explicit opt-in
+    enforcement: documentation
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: Repository-local truth for Maestro workflow data
+
+  - id: build_log
+    type: file
+    path: ./docs/build.log
+    format: text
+    description: Log of build outputs and errors
+
+  - id: runtime_log
+    type: file
+    path: ./docs/runtime.log
+    format: text
+    description: Log of runtime outputs and errors
+
+  - id: task_store
+    type: repo_truth
+    path: ./docs/maestro/tasks/
+    format: json
+    description: Task definitions and status tracking
+
+  - id: issue_store
+    type: repo_truth
+    path: ./docs/maestro/issues/
+    format: json
+    description: Issue definitions and status tracking
+
+  - id: active_tasks_json
+    type: repo_truth
+    path: ./docs/maestro/tasks/active.json
+    format: json
+    description: Currently active tasks in work queue
+
+  - id: completed_tasks_json
+    type: repo_truth
+    path: ./docs/maestro/tasks/completed.json
+    format: json
+    description: Completed tasks history
+
+commands:
+  - maestro init
+  - maestro discuss
+  - maestro reconstruct
+  - maestro build
+  - maestro build --create-issues
+  - maestro task next
+  - maestro work task
+  - maestro task complete
+  - maestro run
+  - maestro run --create-issues
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_01_existing_repo_single_main.md
+    description: Original v1 workflow documentation
+  - type: v1_diagram
+    path: v1/scenario_01_existing_repo_single_main.puml
+    description: PlantUML diagram for WF-01
+
+ledger_hints: []

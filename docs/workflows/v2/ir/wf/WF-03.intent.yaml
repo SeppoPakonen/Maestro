@@ -1,0 +1,264 @@
+wf_id: WF-03
+layer: intent
+title: Read-only repo inspection + build
+status: partial
+confidence: medium
+storage_backend: unknown
+
+description: |
+  This workflow describes how an Operator uses Maestro to discover repository structure 
+  and optionally build the project without adopting full Maestro task management or project state.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator initiates read-only repo inspection or build
+
+  - id: branch_guard
+    type: gate
+    label: Branch guard - ensure on correct branch
+    color: "#LightCoral"
+
+  - id: check_repo_cmd
+    type: decision
+    label: Check if repo command exists
+
+  - id: run_repo_resolve
+    type: action
+    label: Run maestro repo resolve to detect build files, languages, packages
+
+  - id: call_wf_05_a
+    type: action
+    label: Call WF-05 for repository resolution
+    description: Repository resolution (Makefile, CMakeLists.txt, etc.)
+
+  - id: identify_packages
+    type: action
+    label: Identify packages/assemblies (including U++ .upp files)
+
+  - id: generate_build_plan
+    type: action
+    label: Generate build plan with dependencies
+
+  - id: use_alternative
+    type: action
+    label: Use alternative commands (maestro make config detect)
+
+  - id: call_wf_05_b
+    type: action
+    label: Call WF-05 from available files
+
+  - id: decide_build
+    type: decision
+    label: Decide whether to build using detected plan or default build system
+
+  - id: check_init_required
+    type: decision
+    label: Check if init required
+
+  - id: run_init
+    type: action
+    label: Run maestro init for minimal setup
+
+  - id: proceed_without_init
+    type: action
+    label: Proceed without init (read-only mode)
+
+  - id: call_wf_05_c
+    type: action
+    label: Call WF-05 for build driver detection
+    description: Build driver detection handled by WF-05 Repo Resolve
+
+  - id: build_driver_detected
+    type: decision
+    label: Build driver detected?
+
+  - id: run_make_build
+    type: action
+    label: Run maestro make build with appropriate method
+    description: Uses detected build system or specified method
+
+  - id: build_hard_stop
+    type: hard_stop
+    label: HARD STOP - Build driver detection failed
+    color: "#Red"
+
+  - id: execute_build
+    type: action
+    label: Execute build process using detected toolchain
+
+  - id: capture_diagnostics
+    type: action
+    label: Capture build diagnostics (errors, warnings, output)
+
+  - id: build_success
+    type: decision
+    label: Make/build success?
+
+  - id: display_success
+    type: action
+    label: Display success status and diagnostics
+
+  - id: display_failure
+    type: action
+    label: Display failure status and error diagnostics
+
+  - id: report_diagnostics
+    type: action
+    label: Report diagnostics
+
+  - id: end
+    type: end
+    label: Operator completes workflow
+
+edges:
+  - from: start
+    to: branch_guard
+    type: control
+
+  - from: branch_guard
+    to: check_repo_cmd
+    type: control
+
+  - from: check_repo_cmd
+    to: run_repo_resolve
+    label: repo command exists
+    type: control
+
+  - from: run_repo_resolve
+    to: call_wf_05_a
+    type: control
+
+  - from: call_wf_05_a
+    to: identify_packages
+    type: control
+
+  - from: identify_packages
+    to: generate_build_plan
+    type: control
+
+  - from: generate_build_plan
+    to: decide_build
+    type: control
+
+  - from: check_repo_cmd
+    to: use_alternative
+    label: repo command does not exist
+    type: control
+
+  - from: use_alternative
+    to: call_wf_05_b
+    type: control
+
+  - from: call_wf_05_b
+    to: decide_build
+    type: control
+
+  - from: decide_build
+    to: check_init_required
+    type: control
+
+  - from: check_init_required
+    to: run_init
+    label: init required
+    type: control
+
+  - from: run_init
+    to: call_wf_05_c
+    type: control
+
+  - from: check_init_required
+    to: proceed_without_init
+    label: init not required
+    type: control
+
+  - from: proceed_without_init
+    to: call_wf_05_c
+    type: control
+
+  - from: call_wf_05_c
+    to: build_driver_detected
+    type: control
+
+  - from: build_driver_detected
+    to: run_make_build
+    label: build driver detected
+    type: control
+
+  - from: build_driver_detected
+    to: build_hard_stop
+    label: build driver not detected
+    type: control
+
+  - from: run_make_build
+    to: execute_build
+    type: control
+
+  - from: execute_build
+    to: capture_diagnostics
+    type: control
+
+  - from: capture_diagnostics
+    to: build_success
+    type: control
+
+  - from: build_success
+    to: display_success
+    label: success
+    type: control
+
+  - from: build_success
+    to: display_failure
+    label: failure
+    type: control
+
+  - from: display_success
+    to: report_diagnostics
+    type: control
+
+  - from: display_failure
+    to: report_diagnostics
+    type: control
+
+  - from: report_diagnostics
+    to: end
+    type: control
+
+gates:
+  - id: branch_guard
+    type: branch_guard
+    condition: Operator is on correct Git branch
+    error_message: "Unsupported branch switch during Maestro operations"
+    recovery: "Ensure correct branch before initiating operations"
+
+  - id: check_init_required
+    type: decision
+    condition: Whether maestro init is required for this repository
+    description: Determines if minimal setup is needed for read-only mode
+
+invariants:
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during Maestro operations
+    enforcement: gate
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/**
+    enforcement: documentation
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_03_readonly_repo_inspect_build.md
+    description: Original v1 workflow documentation
+  - type: v1_diagram
+    path: v1/scenario_03_readonly_repo_inspect_build.puml
+    description: Original v1 workflow diagram
+
+commands:
+  - maestro repo resolve
+  - maestro make build
+  - maestro make config detect
+  - maestro repo list
+
+ledger_hints:
+  - "Workflow mentions maestro repo command which may not be registered in CLI; verify implementation"
+  - "Read-only mode with storage in $HOME/.maestro/repo/ may conflict with REPO_TRUTH_IS_DOCS_MAESTRO invariant"

@@ -1,0 +1,653 @@
+wf_id: WF-02
+layer: intent
+title: New Project from Empty Directory (Manual Track/Phase/Task Planning)
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow covers the greenfield project bootstrap process when an Operator starts a new project from scratch with:
+  - An empty directory (or new directory to be created)
+  - A clear plan or requirements (e.g., university assignment with strict intermediate steps)
+  - Manual creation of tracks, phases, and tasks via CLI
+  - Work execution using `maestro work task`
+
+  The workflow covers:
+  1. Directory and git initialization
+  2. Maestro initialization
+  3. Manual track creation
+  4. Manual phase creation (linked to tracks)
+  5. Manual task creation (linked to phases)
+  6. Work loop using `maestro work task <id>`
+  7. Task completion and progression
+
+nodes:
+  - id: start
+    type: start
+    label: Operator starts new project
+
+  - id: create_directory
+    type: action
+    label: Create project directory (if needed)
+
+  - id: init_git
+    type: command
+    label: Run `git init`
+    description: Initialize git repository
+
+  - id: init_maestro
+    type: command
+    label: Run `maestro init`
+    description: Bootstrap Maestro's directory structure
+
+  - id: define_tracks
+    type: action
+    label: Define tracks for project
+
+  - id: create_tracks_loop
+    type: decision
+    label: For each track
+
+  - id: add_track
+    type: command
+    label: Run `maestro track add <id> --name "<name>"`
+    description: Create track with unique ID and name
+
+  - id: validate_track_id
+    type: validation
+    label: Validate track_id uniqueness
+
+  - id: duplicate_track_id
+    type: hard_stop
+    label: Hard Stop - Duplicate track_id
+    color: "#Red"
+
+  - id: create_track_json
+    type: datastore
+    label: Create docs/maestro/tracks/<id>.json
+
+  - id: update_index_json
+    type: datastore
+    label: Update docs/maestro/index.json
+
+  - id: define_phases
+    type: action
+    label: Define phases within tracks
+
+  - id: create_phases_loop
+    type: decision
+    label: For each phase
+
+  - id: add_phase
+    type: command
+    label: Run `maestro phase add <phase_id> --track <track_id> --name "<name>"`
+    description: Create phase linked to track
+
+  - id: validate_phase_id
+    type: validation
+    label: Validate phase_id uniqueness
+
+  - id: duplicate_phase_id
+    type: hard_stop
+    label: Hard Stop - Duplicate phase_id
+    color: "#Red"
+
+  - id: validate_track_exists
+    type: validation
+    label: Validate track_id exists
+
+  - id: track_not_found
+    type: hard_stop
+    label: Hard Stop - Referenced track_id does not exist
+    color: "#Red"
+
+  - id: create_phase_json
+    type: datastore
+    label: Create docs/maestro/phases/<phase_id>.json
+
+  - id: update_track_json
+    type: datastore
+    label: Update docs/maestro/tracks/<track_id>.json
+
+  - id: define_tasks
+    type: action
+    label: Define tasks within phases
+
+  - id: create_tasks_loop
+    type: decision
+    label: For each task
+
+  - id: add_task
+    type: command
+    label: Run `maestro task add <task_id> --phase <phase_id> --name "<name>" --description "<desc>"`
+    description: Create task linked to phase
+
+  - id: validate_task_id
+    type: validation
+    label: Validate task_id uniqueness
+
+  - id: duplicate_task_id
+    type: hard_stop
+    label: Hard Stop - Duplicate task_id
+    color: "#Red"
+
+  - id: validate_phase_exists
+    type: validation
+    label: Validate phase_id exists
+
+  - id: phase_not_found
+    type: hard_stop
+    label: Hard Stop - Referenced phase_id does not exist
+    color: "#Red"
+
+  - id: create_task_json
+    type: datastore
+    label: Create docs/maestro/tasks/<task_id>.json
+
+  - id: update_phase_json
+    type: datastore
+    label: Update docs/maestro/phases/<phase_id>.json
+
+  - id: work_loop_start
+    type: action
+    label: Start work loop
+
+  - id: select_task
+    type: command
+    label: Run `maestro task next`
+    description: Select next available task with no unsatisfied dependencies
+
+  - id: task_available
+    type: decision
+    label: Task available?
+
+  - id: no_tasks_available
+    type: end
+    label: Exit - No tasks available
+
+  - id: display_task
+    type: action
+    label: Display task details to Operator
+
+  - id: review_task
+    type: action
+    label: "Operator reviews task: ID, name, description"
+
+  - id: execution_method
+    type: decision
+    label: How to execute task?
+
+  - id: execute_manual
+    type: action
+    label: Execute task manually
+    description: Operator creates files, writes code, etc. directly
+
+  - id: execute_work_command
+    type: command
+    label: Run `maestro work task <task_id>`
+    description: Execute task using configured engine
+
+  - id: read_task_context
+    type: datastore
+    label: Read task context from docs/maestro/tasks/<id>.json
+
+  - id: read_phase_context
+    type: datastore
+    label: Read phase context from docs/maestro/phases/<phase_id>.json
+
+  - id: invoke_engine
+    type: actor
+    label: Invoke engine to execute task
+    description: Engine may create files, write code, run commands, generate documentation
+
+  - id: validate_engine_output
+    type: validation
+    label: Validate engine output
+    description: Rule-based validation of files created, conflicts, operations validity
+
+  - id: engine_validation_failed
+    type: hard_stop
+    label: Hard Stop - Engine output validation failed
+    color: "#Red"
+
+  - id: apply_changes
+    type: action
+    label: Apply changes to repository
+
+  - id: verify_completion
+    type: action
+    label: Operator verifies task completion
+
+  - id: task_complete
+    type: decision
+    label: Task complete?
+
+  - id: mark_complete
+    type: command
+    label: Run `maestro task complete <task_id>`
+    description: Mark task as completed
+
+  - id: update_task_status
+    type: datastore
+    label: Update task status to 'completed'
+    description: Mandatory Task Lifecycle Rule - Completed tasks MUST have status="completed" in JSON file
+
+  - id: more_active_tasks
+    type: decision
+    label: More active tasks?
+
+  - id: all_tasks_completed
+    type: end
+    label: Exit - All tasks completed
+
+  - id: adjust_approach
+    type: action
+    label: Adjust approach or break into subtasks
+    description: Loop back to retry task
+
+  - id: end_success
+    type: end
+    label: Success - New project initialized with manual planning
+
+  - id: end_partial
+    type: end
+    label: Partial completion - Operator may resume work later
+
+edges:
+  - from: start
+    to: create_directory
+    type: control
+
+  - from: create_directory
+    to: init_git
+    type: control
+
+  - from: init_git
+    to: init_maestro
+    type: control
+
+  - from: init_maestro
+    to: define_tracks
+    type: control
+
+  - from: define_tracks
+    to: create_tracks_loop
+    type: control
+
+  - from: create_tracks_loop
+    to: add_track
+    label: more tracks
+    type: control
+
+  - from: add_track
+    to: validate_track_id
+    type: control
+
+  - from: validate_track_id
+    to: duplicate_track_id
+    label: not unique
+    type: control
+
+  - from: validate_track_id
+    to: create_track_json
+    label: unique
+    type: control
+
+  - from: duplicate_track_id
+    to: end
+    type: control
+
+  - from: create_track_json
+    to: update_index_json
+    type: control
+
+  - from: update_index_json
+    to: create_tracks_loop
+    type: control
+
+  - from: create_tracks_loop
+    to: define_phases
+    label: all tracks created
+    type: control
+
+  - from: define_phases
+    to: create_phases_loop
+    type: control
+
+  - from: create_phases_loop
+    to: add_phase
+    label: more phases
+    type: control
+
+  - from: add_phase
+    to: validate_phase_id
+    type: control
+
+  - from: validate_phase_id
+    to: duplicate_phase_id
+    label: not unique
+    type: control
+
+  - from: validate_phase_id
+    to: validate_track_exists
+    label: unique
+    type: control
+
+  - from: duplicate_phase_id
+    to: end
+    type: control
+
+  - from: validate_track_exists
+    to: track_not_found
+    label: track does not exist
+    type: control
+
+  - from: validate_track_exists
+    to: create_phase_json
+    label: track exists
+    type: control
+
+  - from: track_not_found
+    to: end
+    type: control
+
+  - from: create_phase_json
+    to: update_track_json
+    type: control
+
+  - from: update_track_json
+    to: create_phases_loop
+    type: control
+
+  - from: create_phases_loop
+    to: define_tasks
+    label: all phases created
+    type: control
+
+  - from: define_tasks
+    to: create_tasks_loop
+    type: control
+
+  - from: create_tasks_loop
+    to: add_task
+    label: more tasks
+    type: control
+
+  - from: add_task
+    to: validate_task_id
+    type: control
+
+  - from: validate_task_id
+    to: duplicate_task_id
+    label: not unique
+    type: control
+
+  - from: validate_task_id
+    to: validate_phase_exists
+    label: unique
+    type: control
+
+  - from: duplicate_task_id
+    to: end
+    type: control
+
+  - from: validate_phase_exists
+    to: phase_not_found
+    label: phase does not exist
+    type: control
+
+  - from: validate_phase_exists
+    to: create_task_json
+    label: phase exists
+    type: control
+
+  - from: phase_not_found
+    to: end
+    type: control
+
+  - from: create_task_json
+    to: update_phase_json
+    type: control
+
+  - from: update_phase_json
+    to: create_tasks_loop
+    type: control
+
+  - from: create_tasks_loop
+    to: work_loop_start
+    label: all tasks created
+    type: control
+
+  - from: work_loop_start
+    to: select_task
+    type: control
+
+  - from: select_task
+    to: task_available
+    type: control
+
+  - from: task_available
+    to: no_tasks_available
+    label: no
+    type: control
+
+  - from: task_available
+    to: display_task
+    label: yes
+    type: control
+
+  - from: no_tasks_available
+    to: end_success
+    type: control
+
+  - from: display_task
+    to: review_task
+    type: control
+
+  - from: review_task
+    to: execution_method
+    type: control
+
+  - from: execution_method
+    to: execute_manual
+    label: manual
+    type: control
+
+  - from: execution_method
+    to: execute_work_command
+    label: use work command
+    type: control
+
+  - from: execute_manual
+    to: verify_completion
+    type: control
+
+  - from: execute_work_command
+    to: read_task_context
+    type: control
+
+  - from: read_task_context
+    to: read_phase_context
+    type: control
+
+  - from: read_phase_context
+    to: invoke_engine
+    type: control
+
+  - from: invoke_engine
+    to: validate_engine_output
+    type: control
+
+  - from: validate_engine_output
+    to: engine_validation_failed
+    label: validation fails
+    type: control
+
+  - from: validate_engine_output
+    to: apply_changes
+    label: validation passes
+    type: control
+
+  - from: engine_validation_failed
+    to: end
+    type: control
+
+  - from: apply_changes
+    to: verify_completion
+    type: control
+
+  - from: verify_completion
+    to: task_complete
+    type: control
+
+  - from: task_complete
+    to: mark_complete
+    label: complete
+    type: control
+
+  - from: task_complete
+    to: adjust_approach
+    label: not complete
+    type: control
+
+  - from: adjust_approach
+    to: work_loop_start
+    type: control
+
+  - from: mark_complete
+    to: update_task_status
+    type: control
+
+  - from: update_task_status
+    to: more_active_tasks
+    type: control
+
+  - from: more_active_tasks
+    to: work_loop_start
+    label: yes
+    type: control
+
+  - from: more_active_tasks
+    to: all_tasks_completed
+    label: no
+    type: control
+
+  - from: all_tasks_completed
+    to: end_success
+    type: control
+
+gates:
+  - id: branch_guard_gate
+    type: branch_guard
+    condition: Branch switch during active work session
+    error_message: "FORBIDDEN: Switching branches during active maestro work session is unsupported"
+    recovery: "Complete or explicitly abandon work on current branch before switching"
+
+  - id: duplicate_track_id_gate
+    type: validation_gate
+    condition: track_id is unique
+    error_message: "Duplicate track_id detected"
+    recovery: "Use a different track_id"
+
+  - id: duplicate_phase_id_gate
+    type: validation_gate
+    condition: phase_id is unique
+    error_message: "Duplicate phase_id detected"
+    recovery: "Use a different phase_id"
+
+  - id: duplicate_task_id_gate
+    type: validation_gate
+    condition: task_id is unique
+    error_message: "Duplicate task_id detected"
+    recovery: "Use a different task_id"
+
+  - id: track_exists_gate
+    type: validation_gate
+    condition: Referenced track_id exists
+    error_message: "Referenced track_id does not exist"
+    recovery: "Create the track first or use an existing track_id"
+
+  - id: phase_exists_gate
+    type: validation_gate
+    condition: Referenced phase_id exists
+    error_message: "Referenced phase_id does not exist"
+    recovery: "Create the phase first or use an existing phase_id"
+
+  - id: engine_validation_gate
+    type: validation_gate
+    condition: Engine output is valid
+    error_message: "Engine output validation failed"
+    recovery: "Adjust engine prompt or work manually"
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: Repository-local truth for tracks, phases, and tasks
+
+  - id: tracks_store
+    type: datastore
+    path: ./docs/maestro/tracks/
+    format: json
+    description: Track definitions in JSON format
+
+  - id: phases_store
+    type: datastore
+    path: ./docs/maestro/phases/
+    format: json
+    description: Phase definitions in JSON format
+
+  - id: tasks_store
+    type: datastore
+    path: ./docs/maestro/tasks/
+    format: json
+    description: Task definitions in JSON format
+
+  - id: index_store
+    type: datastore
+    path: ./docs/maestro/index.json
+    format: json
+    description: Index of all tracks, phases, and tasks
+
+invariants:
+  - id: FORBID_REPO_DOT_MAESTRO
+    description: ./.maestro must not exist
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/**
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+  - id: MANDATORY_TASK_LIFECYCLE_RULE
+    description: Completed tasks must have status="completed" in their JSON file
+    enforcement: hard_stop
+
+  - id: BRANCH_SWITCH_FORBIDDEN_DURING_WORK
+    description: Cannot switch branches during work session
+    enforcement: documentation
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_02_new_project_manual_plan.md
+    description: Original v1 scenario documentation
+
+  - type: v1_diagram
+    path: v1/scenario_02_new_project_manual_plan.puml
+    description: Original v1 PlantUML diagram
+
+commands:
+  - git init
+  - maestro init
+  - maestro track add
+  - maestro phase add
+  - maestro task add
+  - maestro task next
+  - maestro work task
+  - maestro task complete
+
+ledger_hints: []

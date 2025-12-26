@@ -1,0 +1,317 @@
+wf_id: WF-05
+layer: intent
+title: Repo Resolve — packages, conventions, build targets, and derived issues/tasks
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow documents the canonical repository resolution mechanism in Maestro, which serves as the integration spine for all other workflows. The `maestro repo resolve` command performs comprehensive repository analysis including package/assembly discovery, language detection, build system detection, convention inference, build target enumeration, dependency graph derivation, and violation detection with Issue/Task creation. This command is the single source of truth for repository structure and build system detection across all Maestro workflows.
+
+nodes:
+  - id: start
+    type: start
+    label: Operator initiates repo resolve
+    description: User runs maestro repo resolve command
+
+  - id: branch_guard
+    type: gate
+    label: Branch boundary validation
+    description: Ensures operation on current Git branch only
+    color: "#LightBlue"
+
+  - id: parse_args
+    type: action
+    label: Parse command line arguments
+    description: Process path, json, no-write, include-user-config, verbose flags
+
+  - id: validate_repo
+    type: decision
+    label: Validate repository exists
+    description: Check if target path is a valid git repository
+
+  - id: check_maestro_dir
+    type: decision
+    label: Check for .maestro/ directory
+    description: Verify .maestro directory exists (created via maestro init)
+
+  - id: discover_packages
+    type: action
+    label: Discover packages and assemblies
+    description: Comprehensive scan for U++ packages, assemblies and other build systems
+
+  - id: detect_upp_packages
+    type: action
+    label: Detect U++ packages
+    description: Find .upp files and extract metadata
+
+  - id: detect_other_build_systems
+    type: action
+    label: Detect other build systems
+    description: Identify CMake, Make, Gradle, Maven, etc.
+
+  - id: identify_unknown_paths
+    type: action
+    label: Identify unknown paths
+    description: Catalog paths that don't match known patterns
+
+  - id: build_dependency_graph
+    type: action
+    label: Build dependency graph
+    description: Create package-to-package dependency relationships
+
+  - id: apply_convention_inference
+    type: action
+    label: Apply convention inference
+    description: Detect naming conventions, directory patterns, framework usage
+
+  - id: detect_conventions
+    type: decision
+    label: Convention detection
+    description: Identify naming conventions, directory structures, frameworks
+
+  - id: apply_rule_set
+    type: action
+    label: Apply rule set
+    description: Use detected conventions to select appropriate rule pack
+
+  - id: use_default_rules
+    type: action
+    label: Use default rules
+    description: Apply default rule set when conventions not recognized
+
+  - id: violation_detection
+    type: decision
+    label: Violation detection
+    description: Check for naming, layout, and co-location violations
+
+  - id: create_issues
+    type: action
+    label: Create Issues
+    description: Generate issues for detected violations
+
+  - id: task_creation_policy
+    type: decision
+    label: Task creation policy check
+    description: Determine if tasks should be created for violations
+
+  - id: create_tasks
+    type: action
+    label: Create Tasks linked to Issues
+    description: Generate tasks based on repository policy
+
+  - id: skip_task_creation
+    type: action
+    label: Skip task creation
+    description: Continue without creating tasks
+
+  - id: no_violations
+    type: action
+    label: No violations
+    description: Proceed without issue/task creation
+
+  - id: write_scan_results
+    type: action
+    label: Write scan results to docs/maestro/repo/
+    description: Save index.json, index.summary.txt, state.json, assemblies.json, hierarchy.json
+
+  - id: generate_output
+    type: action
+    label: Generate human-readable or JSON output
+    description: Format results for user consumption
+
+  - id: receive_results
+    type: end
+    label: Operator receives scan results
+    description: Output processing based on format selection
+
+edges:
+  - from: start
+    to: branch_guard
+    type: control
+
+  - from: branch_guard
+    to: parse_args
+    type: control
+
+  - from: parse_args
+    to: validate_repo
+    type: control
+
+  - from: validate_repo
+    to: check_maestro_dir
+    label: Repository exists
+    type: control
+
+  - from: check_maestro_dir
+    to: discover_packages
+    label: .maestro/ directory exists
+    type: control
+
+  - from: discover_packages
+    to: detect_upp_packages
+    type: control
+
+  - from: discover_packages
+    to: detect_other_build_systems
+    type: control
+
+  - from: discover_packages
+    to: identify_unknown_paths
+    type: control
+
+  - from: detect_upp_packages
+    to: build_dependency_graph
+    type: control
+
+  - from: detect_other_build_systems
+    to: build_dependency_graph
+    type: control
+
+  - from: identify_unknown_paths
+    to: build_dependency_graph
+    type: control
+
+  - from: build_dependency_graph
+    to: apply_convention_inference
+    type: control
+
+  - from: apply_convention_inference
+    to: detect_conventions
+    type: control
+
+  - from: detect_conventions
+    to: apply_rule_set
+    label: Conventions recognized
+    type: control
+
+  - from: detect_conventions
+    to: use_default_rules
+    label: Conventions not recognized
+    type: control
+
+  - from: apply_rule_set
+    to: violation_detection
+    type: control
+
+  - from: use_default_rules
+    to: violation_detection
+    type: control
+
+  - from: violation_detection
+    to: create_issues
+    label: Violations found
+    type: control
+
+  - from: violation_detection
+    to: no_violations
+    label: No violations
+    type: control
+
+  - from: create_issues
+    to: task_creation_policy
+    type: control
+
+  - from: task_creation_policy
+    to: create_tasks
+    label: Task creation policy on
+    type: control
+
+  - from: task_creation_policy
+    to: skip_task_creation
+    label: Task creation policy off
+    type: control
+
+  - from: no_violations
+    to: write_scan_results
+    type: control
+
+  - from: create_tasks
+    to: write_scan_results
+    type: control
+
+  - from: skip_task_creation
+    to: write_scan_results
+    type: control
+
+  - from: write_scan_results
+    to: generate_output
+    type: control
+
+  - from: generate_output
+    to: receive_results
+    type: control
+
+gates:
+  - id: branch_guard
+    type: validation_gate
+    condition: Operation on current Git branch only
+    error_message: "Switching branches during active repo resolve operation is unsupported and risks corrupting internal state"
+    recovery: "Ensure correct branch before initiating repository resolution"
+
+  - id: validate_repo
+    type: validation_gate
+    condition: Target path is a valid git repository
+    error_message: "Repository not found at specified path"
+    recovery: "Ensure path is a valid git repository"
+
+  - id: check_maestro_dir
+    type: validation_gate
+    condition: .maestro directory exists
+    error_message: ".maestro directory not found - repository not initialized"
+    recovery: "Run maestro init to initialize repository"
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/repo/
+    format: json
+    description: Repository scan results including index.json, state.json, assemblies.json, hierarchy.json
+
+  - id: issue_store
+    type: repo_truth
+    path: ./docs/maestro/issues/
+    format: json
+    description: Issue data files for convention violations
+
+  - id: task_store
+    type: repo_truth
+    path: ./docs/maestro/tasks/
+    format: json
+    description: Task files for addressing violations
+
+invariants:
+  - id: FORBID_REPO_DOT_MAESTRO
+    description: ./.maestro must not exist
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/**
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+  - id: REPO_RESOLVE_IS_DETECTION_SPINE
+    description: Repo resolve is the detection backbone
+    enforcement: documentation
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_05_repo_resolve_packages_conventions_targets.md
+    description: Original v1 scenario documentation
+
+  - type: v1_diagram
+    path: v1/scenario_05_repo_resolve_packages_conventions_targets.puml
+    description: PlantUML diagram of workflow
+
+commands:
+  - maestro repo resolve
+  - maestro repo show
+  - maestro repo pkg
+  - maestro repo hier
+  - maestro repo conventions
+  - maestro repo rules
+
+ledger_hints: []
