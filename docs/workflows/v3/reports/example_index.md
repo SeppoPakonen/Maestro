@@ -45,6 +45,7 @@
 ## v2 Snapshot Pointer
 
 - v2 input snapshot lives under docs/workflows/v3/runbooks/examples/input_from_v2_proposed/
+- Curated task notes live at docs/workflows/v3/reports/task_summaries.md
 
 ## Rule of the Road
 
