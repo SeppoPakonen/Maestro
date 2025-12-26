@@ -2,40 +2,33 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
-    FUNCTION(HandleRulesList, "handle_rules_list()")
-    FUNCTION(HandleRulesFile, "handle_rules_file()")
-    FUNCTION(LoadSession, "load_session()")
-    FUNCTION(SaveSession, "save_session()")
-    FUNCTION(GetMaestroDir, "get_maestro_dir()") ' Used to determine session_dir
-}
+' MODULE: CommandHandlers, "maestro/modules/command_handlers.py"
+rectangle "handle_rules_list()" as HandleRulesList <<Function>>
+rectangle "handle_rules_file()" as HandleRulesFile <<Function>>
+rectangle "load_session()" as LoadSession <<Function>>
+rectangle "save_session()" as SaveSession <<Function>>
+rectangle "get_maestro_dir()" as GetMaestroDir <<Function>> ' Used to determine session_dir
 
 ' Session Model & Persistence
-MODULE(SessionModel, "maestro/session_model.py") {
-    CLASS(SessionClass, "Session")
-}
+' MODULE: SessionModel, "maestro/session_model.py"
+rectangle "Session" as SessionClass <<Class>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_header, print_info, print_error etc.
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(Subprocess, "subprocess module")
-ACTOR(OS, "os module")
-ACTOR(Pathlib, "pathlib module")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
+rectangle "os module" as OS <<Actor>>
+rectangle "pathlib module" as Pathlib <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
-    session.json
-    rules.txt
-}
+rectangle "docs/sessions/<name>/" as DocsSessionsDir <<Database>>
 
 
 ' --- Relationships and Call Flow ---

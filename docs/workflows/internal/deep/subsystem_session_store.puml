@@ -1,72 +1,29 @@
 @startuml subsystem_session_store
 !include _shared.puml
 
-MODULE(SessionModel, "maestro/session_model.py") {
-    CLASS(SessionClass, "Session") {
-        + id: str
-        + created_at: str
-        + updated_at: str
-        + root_task: str
-        + subtasks: List<Subtask>
-        + status: str
-        + rules_path: Optional<str>
-        + root_task_raw: Optional<str>
-        + root_task_clean: Optional<str>
-        + root_task_summary: Optional<str>
-        + root_task_categories: Optional<List<str>>
-        + root_history: Optional<List<Dict>>
-        + plans: Optional<List<PlanNode>>
-        + active_plan_id: Optional<str>
+' MODULE: SessionModel, "maestro/session_model.py"
+rectangle "Session" as SessionClass <<Class>>
         --
-        + to_dict(): Dict
-        + from_dict(data: Dict): Session
-    }
 
-    CLASS(SubtaskClass, "Subtask") {
-        + id: str
-        + title: str
-        + description: str
-        + planner_model: str
-        + worker_model: str
-        + status: str
-        + summary_file: str
-        + categories: Optional<List<str>>
-        + root_excerpt: Optional<str>
-        + plan_id: Optional<str>
+rectangle "Subtask" as SubtaskClass <<Class>>
         --
-        + to_dict(): Dict
-        + from_dict(data: Dict): Subtask
-    }
 
-    CLASS(PlanNodeClass, "PlanNode") {
-        + plan_id: str
-        + parent_plan_id: Optional<str>
-        + created_at: str
-        + label: str
-        + status: str
-        + notes: Optional<str>
-        + root_snapshot: str
-        + subtask_ids: List<str>
+rectangle "PlanNode" as PlanNodeClass <<Class>>
         --
-        + to_dict(): Dict
-        + from_dict(data: Dict): PlanNode
-    }
 
-    FUNCTION(LoadSession, "load_session(path)")
-    FUNCTION(SaveSession, "save_session(session, path)")
+rectangle "load_session(path)" as LoadSession <<Function>>
+rectangle "save_session(session, path)" as SaveSession <<Function>>
 
     RECTANGLE(SessionStatuses, "SESSION_STATUSES") #LightBlue
     RECTANGLE(SubtaskStatuses, "SUBTASK_STATUSES") #LightBlue
-}
 
-MODULE(StandardLib, "Standard Libraries") {
-    FUNCTION(JsonLoad, "json.load()")
-    FUNCTION(JsonDump, "json.dump()")
-    FUNCTION(Open, "open()")
-}
+' MODULE: StandardLib, "Standard Libraries"
+rectangle "json.load()" as JsonLoad <<Function>>
+rectangle "json.dump()" as JsonDump <<Function>>
+rectangle "open()" as Open <<Function>>
 
-DATASTORE(SessionJsonFile, "Session JSON File")
-DATASTORE(OperatingSystem, "Operating System (FS)")
+rectangle "Session JSON File" as SessionJsonFile <<Data Store>>
+rectangle "Operating System (FS)" as OperatingSystem <<Data Store>>
 
 ' Relationships between classes
 SessionClass "1" *-- "0..*" SubtaskClass : contains

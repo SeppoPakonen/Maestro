@@ -2,40 +2,34 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
-    FUNCTION(HandleLogList, "handle_log_list()")
-    FUNCTION(HandleLogListWork, "handle_log_list_work()")
-    FUNCTION(HandleLogListPlan, "handle_log_list_plan()")
-    FUNCTION(LoadSession, "load_session()")
-    FUNCTION(GetMaestroDir, "get_maestro_dir()")
-}
+' MODULE: CommandHandlers, "maestro/modules/command_handlers.py"
+rectangle "handle_log_list()" as HandleLogList <<Function>>
+rectangle "handle_log_list_work()" as HandleLogListWork <<Function>>
+rectangle "handle_log_list_plan()" as HandleLogListPlan <<Function>>
+rectangle "load_session()" as LoadSession <<Function>>
+rectangle "get_maestro_dir()" as GetMaestroDir <<Function>>
 
 ' Session Model & Persistence
-MODULE(SessionModel, "maestro/session_model.py") {
-    CLASS(SessionClass, "Session")
-    CLASS(SubtaskClass, "Subtask")
-}
+' MODULE: SessionModel, "maestro/session_model.py"
+rectangle "Session" as SessionClass <<Class>>
+rectangle "Subtask" as SubtaskClass <<Class>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
-}
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(Pathlib, "pathlib module")
-ACTOR(OS, "os module")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "pathlib module" as Pathlib <<Actor>>
+rectangle "os module" as OS <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
-    session.json
+rectangle "docs/sessions/<name>/" as DocsSessionsDir <<Database>>
     logs/events.log
     outputs/worker_*.stdout.txt
     inputs/planner_*.txt
-}
 
 
 ' --- Relationships and Call Flow ---

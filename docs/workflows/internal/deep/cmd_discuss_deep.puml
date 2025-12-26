@@ -2,93 +2,82 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
-    FUNCTION(AddDiscussParser, "add_discuss_parser()")
-    FUNCTION(HandleDiscussCommand, "handle_discuss_command()")
-    FUNCTION(HandleTrackDiscuss, "handle_track_discuss()")
-    FUNCTION(HandlePhaseDiscuss, "handle_phase_discuss()")
-    FUNCTION(HandleTaskDiscuss, "handle_task_discuss()")
-    FUNCTION(ChooseMode, "choose_mode()")
-    FUNCTION(RunDiscussionWithRouter, "run_discussion_with_router()")
-    FUNCTION(ApplyPatchOperations, "apply_patch_operations()")
-    FUNCTION(FindPhaseFileForTask, "find_phase_file_for_task()")
-    FUNCTION(SaveDiscussionArtifacts, "save_discussion_artifacts()")
-    FUNCTION(UpdateArtifactStatus, "update_artifact_status()")
-}
+' MODULE: CommandsDiscuss, "maestro/commands/discuss.py"
+rectangle "add_discuss_parser()" as AddDiscussParser <<Function>>
+rectangle "handle_discuss_command()" as HandleDiscussCommand <<Function>>
+rectangle "handle_track_discuss()" as HandleTrackDiscuss <<Function>>
+rectangle "handle_phase_discuss()" as HandlePhaseDiscuss <<Function>>
+rectangle "handle_task_discuss()" as HandleTaskDiscuss <<Function>>
+rectangle "choose_mode()" as ChooseMode <<Function>>
+rectangle "run_discussion_with_router()" as RunDiscussionWithRouter <<Function>>
+rectangle "apply_patch_operations()" as ApplyPatchOperations <<Function>>
+rectangle "find_phase_file_for_task()" as FindPhaseFileForTask <<Function>>
+rectangle "save_discussion_artifacts()" as SaveDiscussionArtifacts <<Function>>
+rectangle "update_artifact_status()" as UpdateArtifactStatus <<Function>>
 
 ' AI Integration Modules
-MODULE(AiManager, "maestro/ai/manager.py") {
-    CLASS(AiEngineManagerClass, "AiEngineManager")
-}
+' MODULE: AiManager, "maestro/ai/manager.py"
+rectangle "AiEngineManager" as AiEngineManagerClass <<Class>>
 
-MODULE(AiDiscussionRouter, "maestro/ai/discussion_router.py") {
-    CLASS(DiscussionRouterClass, "DiscussionRouter")
-    FUNCTION(RunDiscussion, "run_discussion()")
-}
+' MODULE: AiDiscussionRouter, "maestro/ai/discussion_router.py"
+rectangle "DiscussionRouter" as DiscussionRouterClass <<Class>>
+rectangle "run_discussion()" as RunDiscussion <<Function>>
 
-MODULE(AiContracts, "maestro/ai/contracts.py") {
-    CLASS(JsonContractClass, "JsonContract")
-    CLASS(TrackContract, "TrackContract")
-    CLASS(PhaseContract, "PhaseContract")
-    CLASS(TaskContract, "TaskContract")
-    CLASS(GlobalContract, "GlobalContract")
-    ENUM(ContractTypeEnum, "ContractType")
-}
+' MODULE: AiContracts, "maestro/ai/contracts.py"
+rectangle "JsonContract" as JsonContractClass <<Class>>
+rectangle "TrackContract" as TrackContract <<Class>>
+rectangle "PhaseContract" as PhaseContract <<Class>>
+rectangle "TaskContract" as TaskContract <<Class>>
+rectangle "GlobalContract" as GlobalContract <<Class>>
+rectangle "ContractType" as ContractTypeEnum <<Enum>>
 
-MODULE(AiActions, "maestro/ai/actions.py") {
-    CLASS(ActionProcessorClass, "ActionProcessor")
-    CLASS(PatchOperationClass, "PatchOperation")
-    ENUM(PatchOperationTypeEnum, "PatchOperationType")
-    FUNCTION(ValidateActions, "validate_actions()")
-    FUNCTION(ExecuteActions, "execute_actions()")
-}
+' MODULE: AiActions, "maestro/ai/actions.py"
+rectangle "ActionProcessor" as ActionProcessorClass <<Class>>
+rectangle "PatchOperation" as PatchOperationClass <<Class>>
+rectangle "PatchOperationType" as PatchOperationTypeEnum <<Enum>>
+rectangle "validate_actions()" as ValidateActions <<Function>>
+rectangle "execute_actions()" as ExecuteActions <<Function>>
 
 ' Data Storage and Markdown Writers
-MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
-    FUNCTION(ParseConfigMd, "parse_config_md()")
-}
+' MODULE: DataMarkdown, "maestro/data/markdown_parser.py"
+rectangle "parse_config_md()" as ParseConfigMd <<Function>>
 
-MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
-    FUNCTION(InsertTrackBlock, "insert_track_block()")
-    FUNCTION(InsertPhaseBlock, "insert_phase_block()")
-    FUNCTION(InsertTaskBlock, "insert_task_block()")
-    FUNCTION(UpdateTrackMetadata, "update_track_metadata()")
-    FUNCTION(UpdatePhaseMetadata, "update_phase_metadata()")
-    FUNCTION(UpdateTaskMetadata, "update_task_metadata()")
+' MODULE: DataMarkdownWriter, "maestro/data/markdown_writer.py"
+rectangle "insert_track_block()" as InsertTrackBlock <<Function>>
+rectangle "insert_phase_block()" as InsertPhaseBlock <<Function>>
+rectangle "insert_task_block()" as InsertTaskBlock <<Function>>
+rectangle "update_track_metadata()" as UpdateTrackMetadata <<Function>>
+rectangle "update_phase_metadata()" as UpdatePhaseMetadata <<Function>>
+rectangle "update_task_metadata()" as UpdateTaskMetadata <<Function>>
     ' ... others (replace, remove)
-}
 
-MODULE(DiscussionSessionModule, "maestro/discussion.py") {
-    CLASS(DiscussionSessionClass, "DiscussionSession")
-    FUNCTION(CreateDiscussionSession, "create_discussion_session()")
-    FUNCTION(ResumeDiscussion, "resume_discussion()")
-    FUNCTION(RunEditorMode, "run_editor_mode()")
-    FUNCTION(RunTerminalMode, "run_terminal_mode()")
-}
+' MODULE: DiscussionSessionModule, "maestro/discussion.py"
+rectangle "DiscussionSession" as DiscussionSessionClass <<Class>>
+rectangle "create_discussion_session()" as CreateDiscussionSession <<Function>>
+rectangle "resume_discussion()" as ResumeDiscussion <<Function>>
+rectangle "run_editor_mode()" as RunEditorMode <<Function>>
+rectangle "run_terminal_mode()" as RunTerminalMode <<Function>>
 
-MODULE(WorkSessionModule, "maestro/work_session.py") {
-    FUNCTION(CreateSession, "create_session()")
-}
+' MODULE: WorkSessionModule, "maestro/work_session.py"
+rectangle "create_session()" as CreateSession <<Function>>
 
-MODULE(BreadcrumbModule, "maestro/breadcrumb.py") {
-    FUNCTION(GetBreadcrumbSummary, "get_breadcrumb_summary()")
-}
+' MODULE: BreadcrumbModule, "maestro/breadcrumb.py"
+rectangle "get_breadcrumb_summary()" as GetBreadcrumbSummary <<Function>>
 
 ' External Dependencies
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(FileSystem, "File System")
-ACTOR(Subprocess, "subprocess module")
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsConfigMd, "docs/config.md")
-DATABASE(DocsTodoMd, "docs/todo.md")
-DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
-DATABASE(MaestroAiArtifacts, ".maestro/ai/artifacts/\n(*.txt transcripts, *.json results)")
-DATABASE(WorkSessionsJson, "docs/state/work_sessions.json")
+rectangle "docs/config.md" as DocsConfigMd <<Database>>
+rectangle "docs/todo.md" as DocsTodoMd <<Database>>
+rectangle "docs/phases/<id>.md" as DocsPhasesMd <<Database>>
+rectangle ".maestro/ai/artifacts/\n(*.txt transcripts, *.json results)" as MaestroAiArtifacts <<Database>>
+rectangle "docs/state/work_sessions.json" as WorkSessionsJson <<Database>>
 
 
 ' --- Relationships and Call Flow ---

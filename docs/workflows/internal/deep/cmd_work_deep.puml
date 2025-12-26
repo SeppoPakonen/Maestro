@@ -2,96 +2,86 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsWork, "maestro/commands/work.py") {
-    FUNCTION(AddWorkParser, "add_work_parser()")
-    FUNCTION(HandleWorkAny, "handle_work_any()")
-    FUNCTION(HandleWorkAnyPick, "handle_work_any_pick()")
-    FUNCTION(HandleWorkTrack, "handle_work_track()")
-    FUNCTION(HandleWorkPhase, "handle_work_phase()")
-    FUNCTION(HandleWorkIssue, "handle_work_issue()")
-    FUNCTION(HandleWorkTask, "handle_work_task()")
-    FUNCTION(HandleWorkDiscuss, "handle_work_discuss()")
-    FUNCTION(HandleWorkAnalyze, "handle_work_analyze()")
-    FUNCTION(HandleWorkFix, "handle_work_fix()")
-    FUNCTION(LoadAvailableWork, "load_available_work()")
-    FUNCTION(AiSelectWorkItems, "ai_select_work_items()")
-    FUNCTION(SimplePrioritySort, "simple_priority_sort()")
-    FUNCTION(_RunAiInteractionWithBreadcrumb, "_run_ai_interaction_with_breadcrumb()")
-    FUNCTION(_SafeGenerate, "_safe_generate()")
-    FUNCTION(LoadIssues, "load_issues()")
-    FUNCTION(_LoadTaskEntries, "_load_task_entries()")
-}
+' MODULE: CommandsWork, "maestro/commands/work.py"
+rectangle "add_work_parser()" as AddWorkParser <<Function>>
+rectangle "handle_work_any()" as HandleWorkAny <<Function>>
+rectangle "handle_work_any_pick()" as HandleWorkAnyPick <<Function>>
+rectangle "handle_work_track()" as HandleWorkTrack <<Function>>
+rectangle "handle_work_phase()" as HandleWorkPhase <<Function>>
+rectangle "handle_work_issue()" as HandleWorkIssue <<Function>>
+rectangle "handle_work_task()" as HandleWorkTask <<Function>>
+rectangle "handle_work_discuss()" as HandleWorkDiscuss <<Function>>
+rectangle "handle_work_analyze()" as HandleWorkAnalyze <<Function>>
+rectangle "handle_work_fix()" as HandleWorkFix <<Function>>
+rectangle "load_available_work()" as LoadAvailableWork <<Function>>
+rectangle "ai_select_work_items()" as AiSelectWorkItems <<Function>>
+rectangle "simple_priority_sort()" as SimplePrioritySort <<Function>>
+rectangle "_run_ai_interaction_with_breadcrumb()" as _RunAiInteractionWithBreadcrumb <<Function>>
+rectangle "_safe_generate()" as _SafeGenerate <<Function>>
+rectangle "load_issues()" as LoadIssues <<Function>>
+rectangle "_load_task_entries()" as _LoadTaskEntries <<Function>>
 
 ' Work Session & Breadcrumb Management
-MODULE(WorkSessionModule, "maestro/work_session.py") {
-    CLASS(WorkSessionClass, "WorkSession")
-    FUNCTION(CreateSession, "create_session()")
-    FUNCTION(CompleteSession, "complete_session()")
-    FUNCTION(SaveSession, "save_session()")
-    FUNCTION(IsBreadcrumbEnabled, "is_breadcrumb_enabled()")
-    FUNCTION(LoadBreadcrumbSettings, "load_breadcrumb_settings()")
-}
+' MODULE: WorkSessionModule, "maestro/work_session.py"
+rectangle "WorkSession" as WorkSessionClass <<Class>>
+rectangle "create_session()" as CreateSession <<Function>>
+rectangle "complete_session()" as CompleteSession <<Function>>
+rectangle "save_session()" as SaveSession <<Function>>
+rectangle "is_breadcrumb_enabled()" as IsBreadcrumbEnabled <<Function>>
+rectangle "load_breadcrumb_settings()" as LoadBreadcrumbSettings <<Function>>
 
-MODULE(BreadcrumbModule, "maestro/breadcrumb.py") {
-    FUNCTION(CreateBreadcrumb, "create_breadcrumb()")
-    FUNCTION(WriteBreadcrumb, "write_breadcrumb()")
-    FUNCTION(EstimateTokens, "estimate_tokens()")
-    FUNCTION(CalculateCost, "calculate_cost()")
-}
+' MODULE: BreadcrumbModule, "maestro/breadcrumb.py"
+rectangle "create_breadcrumb()" as CreateBreadcrumb <<Function>>
+rectangle "write_breadcrumb()" as WriteBreadcrumb <<Function>>
+rectangle "estimate_tokens()" as EstimateTokens <<Function>>
+rectangle "calculate_cost()" as CalculateCost <<Function>>
 
 ' AI Task Synchronization (from AI module)
-MODULE(AiTaskSync, "maestro/ai/task_sync.py") {
-    FUNCTION(BuildTaskPrompt, "build_task_prompt()")
-    FUNCTION(BuildTaskQueue, "build_task_queue()")
-    FUNCTION(FindTaskContext, "find_task_context()")
-    FUNCTION(TaskIsDone, "task_is_done()")
-    FUNCTION(WriteSyncState, "write_sync_state()")
-}
+' MODULE: AiTaskSync, "maestro/ai/task_sync.py"
+rectangle "build_task_prompt()" as BuildTaskPrompt <<Function>>
+rectangle "build_task_queue()" as BuildTaskQueue <<Function>>
+rectangle "find_task_context()" as FindTaskContext <<Function>>
+rectangle "task_is_done()" as TaskIsDone <<Function>>
+rectangle "write_sync_state()" as WriteSyncState <<Function>>
 
 ' AI Engine Integration
-MODULE(EnginesModule, "maestro/engines.py") {
-    FUNCTION(GetEngine, "get_engine()")
+' MODULE: EnginesModule, "maestro/engines.py"
+rectangle "get_engine()" as GetEngine <<Function>>
     EXCEPTION(EngineError, "EngineError")
-}
 
 ' Data & Context
-MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
-    FUNCTION(ParseTodoMd, "parse_todo_md()")
-    FUNCTION(ParsePhaseMd, "parse_phase_md()")
-}
+' MODULE: DataMarkdown, "maestro/data/markdown_parser.py"
+rectangle "parse_todo_md()" as ParseTodoMd <<Function>>
+rectangle "parse_phase_md()" as ParsePhaseMd <<Function>>
 
-MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
-    FUNCTION(HandleTrackDiscuss, "handle_track_discuss()")
-    FUNCTION(HandlePhaseDiscuss, "handle_phase_discuss()")
-    FUNCTION(HandleTaskDiscuss, "handle_task_discuss()")
-}
+' MODULE: CommandsDiscuss, "maestro/commands/discuss.py"
+rectangle "handle_track_discuss()" as HandleTrackDiscuss <<Function>>
+rectangle "handle_phase_discuss()" as HandlePhaseDiscuss <<Function>>
+rectangle "handle_task_discuss()" as HandleTaskDiscuss <<Function>>
 
 ' Worker Modules (Dynamically Imported)
 PACKAGE(Workers, "maestro/workers") {
-    CLASS(TrackWorker, "track_worker.py") { FUNCTION(ExecuteTrackWork, "execute_track_work()") }
-    CLASS(PhaseWorker, "phase_worker.py") { FUNCTION(ExecutePhaseWork, "execute_phase_work()") }
-    CLASS(IssueWorker, "issue_worker.py") { FUNCTION(ExecuteIssueWork, "execute_issue_work()") }
-}
+rectangle "track_worker.py" as TrackWorker <<Class>> { rectangle "execute_track_work()" as ExecuteTrackWork <<Function>> }
+rectangle "phase_worker.py" as PhaseWorker <<Class>> { rectangle "execute_phase_work()" as ExecutePhaseWork <<Function>> }
+rectangle "issue_worker.py" as IssueWorker <<Class>> { rectangle "execute_issue_work()" as ExecuteIssueWork <<Function>> }
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(ExternalAI, "External AI Service")
-ACTOR(User, "User (for interactive selection)")
-ACTOR(Git, "Git CLI (for analyze context)")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "External AI Service" as ExternalAI <<Actor>>
+rectangle "User (for interactive selection)" as User <<Actor>>
+rectangle "Git CLI (for analyze context)" as Git <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsTodoMd, "docs/todo.md")
-DATABASE(DocsIssuesMd, "docs/issues/<id>.md")
-DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
-DATABASE(DocsSessionsDir, "docs/sessions/") {
+rectangle "docs/todo.md" as DocsTodoMd <<Database>>
+rectangle "docs/issues/<id>.md" as DocsIssuesMd <<Database>>
+rectangle "docs/phases/<id>.md" as DocsPhasesMd <<Database>>
+rectangle "docs/sessions/" as DocsSessionsDir <<Database>>
     *.json (work sessions)
     breadcrumbs/*.jsonl (breadcrumbs)
-}
-DATABASE(DocsAiSyncJson, "docs/ai_sync.json")
+rectangle "docs/ai_sync.json" as DocsAiSyncJson <<Database>>
 
 
 ' --- Relationships and Call Flow ---

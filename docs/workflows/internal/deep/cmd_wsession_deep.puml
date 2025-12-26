@@ -2,68 +2,61 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsWSession, "maestro/commands/work_session.py") {
-    FUNCTION(AddWSessionParser, "add_wsession_parser()")
-    FUNCTION(HandleWSessionList, "handle_wsession_list()")
-    FUNCTION(HandleWSessionShow, "handle_wsession_show()")
-    FUNCTION(HandleWSessionTree, "handle_wsession_tree()")
-    FUNCTION(HandleWSessionBreadcrumbs, "handle_wsession_breadcrumbs()")
-    FUNCTION(HandleWSessionTimeline, "handle_wsession_timeline()")
-    FUNCTION(HandleWSessionStats, "handle_wsession_stats()")
-    FUNCTION(_ResolveSessionId, "_resolve_session_id()")
-    FUNCTION(ExportSessionJson, "export_session_json()")
-    FUNCTION(ExportSessionMarkdown, "export_session_markdown()")
-    FUNCTION(_FilterHierarchyByStatus, "_filter_hierarchy_by_status()")
-    FUNCTION(_PrintBreadcrumbCounts, "_print_breadcrumb_counts()")
-}
+' MODULE: CommandsWSession, "maestro/commands/work_session.py"
+rectangle "add_wsession_parser()" as AddWSessionParser <<Function>>
+rectangle "handle_wsession_list()" as HandleWSessionList <<Function>>
+rectangle "handle_wsession_show()" as HandleWSessionShow <<Function>>
+rectangle "handle_wsession_tree()" as HandleWSessionTree <<Function>>
+rectangle "handle_wsession_breadcrumbs()" as HandleWSessionBreadcrumbs <<Function>>
+rectangle "handle_wsession_timeline()" as HandleWSessionTimeline <<Function>>
+rectangle "handle_wsession_stats()" as HandleWSessionStats <<Function>>
+rectangle "_resolve_session_id()" as _ResolveSessionId <<Function>>
+rectangle "export_session_json()" as ExportSessionJson <<Function>>
+rectangle "export_session_markdown()" as ExportSessionMarkdown <<Function>>
+rectangle "_filter_hierarchy_by_status()" as _FilterHierarchyByStatus <<Function>>
+rectangle "_print_breadcrumb_counts()" as _PrintBreadcrumbCounts <<Function>>
 
 ' Work Session Subsystem
-MODULE(WorkSessionModule, "maestro/work_session.py") {
-    CLASS(WorkSessionClass, "WorkSession")
-    FUNCTION(ListSessions, "list_sessions()")
-    FUNCTION(LoadSession, "load_session()")
-    FUNCTION(GetSessionHierarchy, "get_session_hierarchy()")
-    FUNCTION(CreateSession, "create_session()")
-}
+' MODULE: WorkSessionModule, "maestro/work_session.py"
+rectangle "WorkSession" as WorkSessionClass <<Class>>
+rectangle "list_sessions()" as ListSessions <<Function>>
+rectangle "load_session()" as LoadSession <<Function>>
+rectangle "get_session_hierarchy()" as GetSessionHierarchy <<Function>>
+rectangle "create_session()" as CreateSession <<Function>>
 
-MODULE(BreadcrumbModule, "maestro/breadcrumb.py") {
-    CLASS(BreadcrumbClass, "Breadcrumb")
-    FUNCTION(ListBreadcrumbs, "list_breadcrumbs()")
-    FUNCTION(GetBreadcrumbSummary, "get_breadcrumb_summary()")
-    FUNCTION(ReconstructSessionTimeline, "reconstruct_session_timeline()")
-}
+' MODULE: BreadcrumbModule, "maestro/breadcrumb.py"
+rectangle "Breadcrumb" as BreadcrumbClass <<Class>>
+rectangle "list_breadcrumbs()" as ListBreadcrumbs <<Function>>
+rectangle "get_breadcrumb_summary()" as GetBreadcrumbSummary <<Function>>
+rectangle "reconstruct_session_timeline()" as ReconstructSessionTimeline <<Function>>
 
-MODULE(VisualizationModule, "maestro/visualization") {
-    CLASS(SessionTreeRendererClass, "tree.SessionTreeRenderer")
-    CLASS(SessionTableFormatterClass, "table.SessionTableFormatter")
-    CLASS(SessionDetailFormatterClass, "detail.SessionDetailFormatter")
-}
+' MODULE: VisualizationModule, "maestro/visualization"
+rectangle "tree.SessionTreeRenderer" as SessionTreeRendererClass <<Class>>
+rectangle "table.SessionTableFormatter" as SessionTableFormatterClass <<Class>>
+rectangle "detail.SessionDetailFormatter" as SessionDetailFormatterClass <<Class>>
 
-MODULE(StatsModule, "maestro/stats/session_stats.py") {
-    CLASS(SessionStatsClass, "SessionStats")
-    FUNCTION(CalculateSessionStats, "calculate_session_stats()")
-    FUNCTION(CalculateTreeStats, "calculate_tree_stats()")
-}
+' MODULE: StatsModule, "maestro/stats/session_stats.py"
+rectangle "SessionStats" as SessionStatsClass <<Class>>
+rectangle "calculate_session_stats()" as CalculateSessionStats <<Function>>
+rectangle "calculate_tree_stats()" as CalculateTreeStats <<Function>>
 
 ' Utility Modules
-MODULE(Pathlib, "pathlib")
-MODULE(Json, "json")
-MODULE(Logging, "logging")
-MODULE(Sys, "sys")
-MODULE(DateTime, "datetime")
+package "pathlib" as Pathlib <<Module>>
+package "json" as Json <<Module>>
+package "logging" as Logging <<Module>>
+package "sys" as Sys <<Module>>
+package "datetime" as DateTime <<Module>>
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
+rectangle "File System" as FileSystem <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsSessionsDir, "docs/sessions/") {
+rectangle "docs/sessions/" as DocsSessionsDir <<Database>>
     <session-id>/session.json
     <session-id>/breadcrumbs.jsonl
-}
 
 
 ' --- Relationships and Call Flow ---

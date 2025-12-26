@@ -2,94 +2,83 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsPhase, "maestro/commands/phase.py") {
-    FUNCTION(AddPhaseParser, "add_phase_parser()")
-    FUNCTION(HandlePhaseCommand, "handle_phase_command()")
-    FUNCTION(ListPhases, "list_phases()")
-    FUNCTION(ShowPhase, "show_phase()")
-    FUNCTION(AddPhase, "add_phase()")
-    FUNCTION(RemovePhase, "remove_phase()")
-    FUNCTION(EditPhase, "edit_phase()")
-    FUNCTION(SetPhaseStatus, "set_phase_status()")
-    FUNCTION(SetPhaseContext, "set_phase_context()")
-    FUNCTION(_ParseTodoSafe, "_parse_todo_safe()")
-    FUNCTION(_LooksLikePhaseId, "_looks_like_phase_id()")
-    FUNCTION(_AvailableTrackIds, "_available_track_ids()")
-    FUNCTION(_AvailablePhaseIds, "_available_phase_ids()")
-}
+' MODULE: CommandsPhase, "maestro/commands/phase.py"
+rectangle "add_phase_parser()" as AddPhaseParser <<Function>>
+rectangle "handle_phase_command()" as HandlePhaseCommand <<Function>>
+rectangle "list_phases()" as ListPhases <<Function>>
+rectangle "show_phase()" as ShowPhase <<Function>>
+rectangle "add_phase()" as AddPhase <<Function>>
+rectangle "remove_phase()" as RemovePhase <<Function>>
+rectangle "edit_phase()" as EditPhase <<Function>>
+rectangle "set_phase_status()" as SetPhaseStatus <<Function>>
+rectangle "set_phase_context()" as SetPhaseContext <<Function>>
+rectangle "_parse_todo_safe()" as _ParseTodoSafe <<Function>>
+rectangle "_looks_like_phase_id()" as _LooksLikePhaseId <<Function>>
+rectangle "_available_track_ids()" as _AvailableTrackIds <<Function>>
+rectangle "_available_phase_ids()" as _AvailablePhaseIds <<Function>>
 
 ' Data Storage and Models
-MODULE(DataCommonUtils, "maestro/data/common_utils.py") {
-    FUNCTION(GetAllTracks, "get_all_tracks_with_phases_and_tasks()")
-    FUNCTION(ResolveIdentifierByType, "resolve_identifier_by_type()")
-}
+' MODULE: DataCommonUtils, "maestro/data/common_utils.py"
+rectangle "get_all_tracks_with_phases_and_tasks()" as GetAllTracks <<Function>>
+rectangle "resolve_identifier_by_type()" as ResolveIdentifierByType <<Function>>
 
-MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
-    FUNCTION(ParseTodoMd, "parse_todo_md()")
-    FUNCTION(ParseDoneMd, "parse_done_md()")
-    FUNCTION(ParsePhaseMd, "parse_phase_md()")
-    FUNCTION(ParseConfigMd, "parse_config_md()")
-}
+' MODULE: DataMarkdown, "maestro/data/markdown_parser.py"
+rectangle "parse_todo_md()" as ParseTodoMd <<Function>>
+rectangle "parse_done_md()" as ParseDoneMd <<Function>>
+rectangle "parse_phase_md()" as ParsePhaseMd <<Function>>
+rectangle "parse_config_md()" as ParseConfigMd <<Function>>
 
-MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
-    FUNCTION(ExtractPhaseBlock, "extract_phase_block()")
-    FUNCTION(InsertPhaseBlock, "insert_phase_block()")
-    FUNCTION(RemovePhaseBlock, "remove_phase_block()")
-    FUNCTION(ReplacePhaseBlock, "replace_phase_block()")
-    FUNCTION(UpdatePhaseMetadata, "update_phase_metadata()")
-    FUNCTION(UpdatePhaseHeadingStatus, "update_phase_heading_status()")
-}
+' MODULE: DataMarkdownWriter, "maestro/data/markdown_writer.py"
+rectangle "extract_phase_block()" as ExtractPhaseBlock <<Function>>
+rectangle "insert_phase_block()" as InsertPhaseBlock <<Function>>
+rectangle "remove_phase_block()" as RemovePhaseBlock <<Function>>
+rectangle "replace_phase_block()" as ReplacePhaseBlock <<Function>>
+rectangle "update_phase_metadata()" as UpdatePhaseMetadata <<Function>>
+rectangle "update_phase_heading_status()" as UpdatePhaseHeadingStatus <<Function>>
 
-MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
-    CLASS(JsonStoreClass, "JsonStore")
-    FUNCTION(LoadTrack, "load_track()")
-    FUNCTION(SaveTrack, "save_track()")
-    FUNCTION(LoadPhase, "load_phase()")
-    FUNCTION(SavePhase, "save_phase()")
-    FUNCTION(ListAllTracks, "list_all_tracks()")
-    FUNCTION(ListAllPhases, "list_all_phases()")
-}
+' MODULE: TracksJsonStore, "maestro/tracks/json_store.py"
+rectangle "JsonStore" as JsonStoreClass <<Class>>
+rectangle "load_track()" as LoadTrack <<Function>>
+rectangle "save_track()" as SaveTrack <<Function>>
+rectangle "load_phase()" as LoadPhase <<Function>>
+rectangle "save_phase()" as SavePhase <<Function>>
+rectangle "list_all_tracks()" as ListAllTracks <<Function>>
+rectangle "list_all_phases()" as ListAllPhases <<Function>>
 
-MODULE(TracksModels, "maestro/tracks/models.py") {
-    CLASS(PhaseClass, "Phase")
-    CLASS(TrackClass, "Track")
-}
+' MODULE: TracksModels, "maestro/tracks/models.py"
+rectangle "Phase" as PhaseClass <<Class>>
+rectangle "Track" as TrackClass <<Class>>
 
 ' Display and Utility
-MODULE(DisplayTableRenderer, "maestro/display/table_renderer.py") {
-    FUNCTION(RenderPhaseTable, "render_phase_table()")
-}
+' MODULE: DisplayTableRenderer, "maestro/display/table_renderer.py"
+rectangle "render_phase_table()" as RenderPhaseTable <<Function>>
 
-MODULE(ConfigSettings, "maestro/config/settings.py") {
-    FUNCTION(GetSettings, "get_settings()")
-}
+' MODULE: ConfigSettings, "maestro/config/settings.py"
+rectangle "get_settings()" as GetSettings <<Function>>
 
-MODULE(StatusUtils, "maestro/commands/status_utils.py") {
-    FUNCTION(NormalizeStatus, "normalize_status()")
-    FUNCTION(AllowedStatuses, "allowed_statuses()")
-    FUNCTION(StatusBadge, "status_badge()")
-    FUNCTION(StatusTimestamp, "status_timestamp()")
-}
+' MODULE: StatusUtils, "maestro/commands/status_utils.py"
+rectangle "normalize_status()" as NormalizeStatus <<Function>>
+rectangle "allowed_statuses()" as AllowedStatuses <<Function>>
+rectangle "status_badge()" as StatusBadge <<Function>>
+rectangle "status_timestamp()" as StatusTimestamp <<Function>>
 
-MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
-    FUNCTION(HandlePhaseDiscuss, "handle_phase_discuss()")
-}
+' MODULE: CommandsDiscuss, "maestro/commands/discuss.py"
+rectangle "handle_phase_discuss()" as HandlePhaseDiscuss <<Function>>
 
 ' External Dependencies
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(FileSystem, "File System")
-ACTOR(Subprocess, "subprocess module")
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsTodoMd, "docs/todo.md")
-DATABASE(DocsDoneMd, "docs/done.md")
-DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
-DATABASE(MaestroTracksJson, ".maestro/tracks/*.json")
-DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
+rectangle "docs/todo.md" as DocsTodoMd <<Database>>
+rectangle "docs/done.md" as DocsDoneMd <<Database>>
+rectangle "docs/phases/<id>.md" as DocsPhasesMd <<Database>>
+rectangle ".maestro/tracks/*.json" as MaestroTracksJson <<Database>>
+rectangle "$HOME/.maestro/settings.json" as SettingsJson <<Database>>
 
 
 ' --- Relationships and Call Flow ---

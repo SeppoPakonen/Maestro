@@ -2,99 +2,87 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsTU, "maestro/commands/tu.py") {
-    FUNCTION(AddTuParser, "add_tu_parser()")
-    FUNCTION(HandleTuCommand, "handle_tu_command()")
-    FUNCTION(GetParserByLanguage, "get_parser_by_language()")
-    FUNCTION(DetectLanguageFromPath, "detect_language_from_path()")
-    FUNCTION(GetFilesByLanguage, "get_files_by_language()")
-    FUNCTION(HandleTuBuildCommand, "handle_tu_build_command()")
-    FUNCTION(HandleTuInfoCommand, "handle_tu_info_command()")
-    FUNCTION(HandleTuQueryCommand, "handle_tu_query_command()")
-    FUNCTION(HandleTuCompleteCommand, "handle_tu_complete_command()")
-    FUNCTION(HandleTuReferencesCommand, "handle_tu_references_command()")
-    FUNCTION(HandleTuLspCommand, "handle_tu_lsp_command()")
-    FUNCTION(HandleTuCacheClearCommand, "handle_tu_cache_clear_command()")
-    FUNCTION(HandleTuCacheStatsCommand, "handle_tu_cache_stats_command()")
-    FUNCTION(HandleTuTransformCommand, "handle_tu_transform_command()")
-    FUNCTION(HandleTuPrintAstCommand, "handle_tu_print_ast_command()")
-    FUNCTION(HandleTuDraftCommand, "handle_tu_draft_command()")
-}
+' MODULE: CommandsTU, "maestro/commands/tu.py"
+rectangle "add_tu_parser()" as AddTuParser <<Function>>
+rectangle "handle_tu_command()" as HandleTuCommand <<Function>>
+rectangle "get_parser_by_language()" as GetParserByLanguage <<Function>>
+rectangle "detect_language_from_path()" as DetectLanguageFromPath <<Function>>
+rectangle "get_files_by_language()" as GetFilesByLanguage <<Function>>
+rectangle "handle_tu_build_command()" as HandleTuBuildCommand <<Function>>
+rectangle "handle_tu_info_command()" as HandleTuInfoCommand <<Function>>
+rectangle "handle_tu_query_command()" as HandleTuQueryCommand <<Function>>
+rectangle "handle_tu_complete_command()" as HandleTuCompleteCommand <<Function>>
+rectangle "handle_tu_references_command()" as HandleTuReferencesCommand <<Function>>
+rectangle "handle_tu_lsp_command()" as HandleTuLspCommand <<Function>>
+rectangle "handle_tu_cache_clear_command()" as HandleTuCacheClearCommand <<Function>>
+rectangle "handle_tu_cache_stats_command()" as HandleTuCacheStatsCommand <<Function>>
+rectangle "handle_tu_transform_command()" as HandleTuTransformCommand <<Function>>
+rectangle "handle_tu_print_ast_command()" as HandleTuPrintAstCommand <<Function>>
+rectangle "handle_tu_draft_command()" as HandleTuDraftCommand <<Function>>
 
 ' TU Core Modules
-MODULE(TuParsers, "maestro/tu/parsers.py") { ' Conceptual grouping
-    CLASS(ClangParserClass, "ClangParser")
-    CLASS(JavaParserClass, "JavaParser")
-    CLASS(KotlinParserClass, "KotlinParser")
-    CLASS(PythonParserClass, "PythonParser")
+package "maestro/tu/parsers.py" as TuParsers <<Module>> { ' Conceptual grouping
+rectangle "ClangParser" as ClangParserClass <<Class>>
+rectangle "JavaParser" as JavaParserClass <<Class>>
+rectangle "KotlinParser" as KotlinParserClass <<Class>>
+rectangle "PythonParser" as PythonParserClass <<Class>>
     PROTOCOL(TranslationUnitParser, "TranslationUnitParser")
-}
 
-MODULE(TuBuilder, "maestro/tu/tu_builder.py") {
-    CLASS(TUBuilderClass, "TUBuilder")
-    FUNCTION(Build, "build()")
-    FUNCTION(BuildWithSymbols, "build_with_symbols()")
-}
+' MODULE: TuBuilder, "maestro/tu/tu_builder.py"
+rectangle "TUBuilder" as TUBuilderClass <<Class>>
+rectangle "build()" as Build <<Function>>
+rectangle "build_with_symbols()" as BuildWithSymbols <<Function>>
 
-MODULE(TuIndexing, "maestro/tu/indexing.py") { ' Conceptual grouping
-    CLASS(SymbolIndexClass, "SymbolIndex")
-    CLASS(CompletionProviderClass, "CompletionProvider")
-    FUNCTION(Query, "query()")
-    FUNCTION(FindReferences, "find_references()")
-    FUNCTION(GetCompletions, "get_completions()")
-}
+package "maestro/tu/indexing.py" as TuIndexing <<Module>> { ' Conceptual grouping
+rectangle "SymbolIndex" as SymbolIndexClass <<Class>>
+rectangle "CompletionProvider" as CompletionProviderClass <<Class>>
+rectangle "query()" as Query <<Function>>
+rectangle "find_references()" as FindReferences <<Function>>
+rectangle "get_completions()" as GetCompletions <<Function>>
 
-MODULE(TuLsp, "maestro/tu/lsp_server.py") {
-    CLASS(MaestroLSPServerClass, "MaestroLSPServer")
-    FUNCTION(StartTcp, "start_tcp()")
-    FUNCTION(StartIo, "start_io()")
-}
+' MODULE: TuLsp, "maestro/tu/lsp_server.py"
+rectangle "MaestroLSPServer" as MaestroLSPServerClass <<Class>>
+rectangle "start_tcp()" as StartTcp <<Function>>
+rectangle "start_io()" as StartIo <<Function>>
 
-MODULE(TuTransformers, "maestro/tu/transformers.py") {
-    CLASS(UppConventionTransformerClass, "UppConventionTransformer")
-    FUNCTION(TransformDocument, "transform_document()")
-    FUNCTION(GeneratePrimaryHeader, "generate_primary_header()")
-    FUNCTION(UpdateCppIncludes, "update_cpp_includes()")
-}
+' MODULE: TuTransformers, "maestro/tu/transformers.py"
+rectangle "UppConventionTransformer" as UppConventionTransformerClass <<Class>>
+rectangle "transform_document()" as TransformDocument <<Function>>
+rectangle "generate_primary_header()" as GeneratePrimaryHeader <<Function>>
+rectangle "update_cpp_includes()" as UpdateCppIncludes <<Function>>
 
-MODULE(TuAst, "maestro/tu/ast.py") { ' Conceptual grouping
-    CLASS(ASTDocument, "ASTDocument")
-    CLASS(ASTNode, "ASTNode")
-    CLASS(ASTPrinterClass, "ASTPrinter")
-    FUNCTION(PrintDocument, "print_document()")
-}
+package "maestro/tu/ast.py" as TuAst <<Module>> { ' Conceptual grouping
+rectangle "ASTDocument" as ASTDocument <<Class>>
+rectangle "ASTNode" as ASTNode <<Class>>
+rectangle "ASTPrinter" as ASTPrinterClass <<Class>>
+rectangle "print_document()" as PrintDocument <<Function>>
 
-MODULE(TuCodeGen, "maestro/tu/code_generator.py") {
-    CLASS(CodeGeneratorClass, "CodeGenerator")
-    FUNCTION(GenerateClass, "generate_class()")
-    FUNCTION(GenerateFunction, "generate_function()")
-}
+' MODULE: TuCodeGen, "maestro/tu/code_generator.py"
+rectangle "CodeGenerator" as CodeGeneratorClass <<Class>>
+rectangle "generate_class()" as GenerateClass <<Function>>
+rectangle "generate_function()" as GenerateFunction <<Function>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_success, print_error etc.
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(Shutil, "shutil module")
-ACTOR(Subprocess, "subprocess module")
-ACTOR(Json, "json module")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "shutil module" as Shutil <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
+rectangle "json module" as Json <<Actor>>
 
 ' Persistent Stores
-DATABASE(SourceFiles, "Source Code Files (*.cpp, *.java, *.py etc.)")
-DATABASE(TuCacheDir, ".maestro/tu/cache/") {
+rectangle "Source Code Files (*.cpp, *.java, *.py etc.)" as SourceFiles <<Database>>
+rectangle ".maestro/tu/cache/" as TuCacheDir <<Database>>
     *.ast (serialized ASTs)
-}
-DATABASE(SymbolIndexDb, ".maestro/tu/analysis/symbols.db")
-DATABASE(TuDraftDir, ".maestro/tu/draft/") {
+rectangle ".maestro/tu/analysis/symbols.db" as SymbolIndexDb <<Database>>
+rectangle ".maestro/tu/draft/" as TuDraftDir <<Database>>
     Generated draft files
-}
-DATABASE(DocsTodoClassesMd, "docs/todo-classes.md")
+rectangle "docs/todo-classes.md" as DocsTodoClassesMd <<Database>>
 
 
 ' --- Relationships and Call Flow ---

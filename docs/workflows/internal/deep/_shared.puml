@@ -1,4 +1,3 @@
-@startuml _shared
 ' Shared PlantUML styling and macros for Maestro Deep Internal Docs
 
 ' Skin Parameters
@@ -35,21 +34,22 @@ skinparam arrow {
 }
 
 ' Node Macros
-!define FUNCTION(p_name, p_label) rectangle p_name as "p_label" <<Function>>
-!define MODULE(p_name, p_label) package p_name as "p_label" <<Module>>
-!define CLASS(p_name, p_label) rectangle p_name as "p_label" <<Class>>
-!define COMPONENT(p_name, p_label) component p_name as "p_label" <<Component>>
-!define ENUM(p_name, p_label) rectangle p_name as "p_label" <<Enum>>
-!define ACTOR(p_name, p_label) cloud p_name as "p_label" <<Actor>>
-!define DATASTORE(p_name, p_label) database p_name as "p_label" <<Data Store>>
-!define VALIDATION_GATE(p_name, p_label) diamond p_name as "p_label" <<Validation Gate>>
-!define HARD_STOP(p_name, p_label) circle p_name as "p_label" #Red <<Hard Stop>>
+!define FUNCTION(p_name, p_label) rectangle p_label as p_name <<Function>>
+!define MODULE(p_name, p_label) package p_label as p_name <<Module>>
+!define CLASS(p_name, p_label) rectangle p_label as p_name <<Class>>
+!define COMPONENT(p_name, p_label) component p_label as p_name <<Component>>
+!define ENUM(p_name, p_label) rectangle p_label as p_name <<Enum>>
+!define ACTOR(p_name, p_label) rectangle p_label as p_name <<Actor>>
+!define DATASTORE(p_name, p_label) rectangle p_label as p_name <<Data Store>>
+!define DATABASE(p_name, p_label) rectangle p_label as p_name <<Database>>
+!define VALIDATION_GATE(p_name, p_label) rectangle p_label as p_name <<Validation Gate>>
+!define HARD_STOP(p_name, p_label) rectangle p_label as p_name #Red <<Hard Stop>>
 
 ' Data Store Specific Nodes
-!define DOCS_TRUTH(p_name, p_label) database p_name as "p_label" #LightGreen <<Docs Truth>>
-!define SESSION_STORE(p_name, p_label) database p_name as "p_label" #LightSalmon <<Session Store>>
-!define HOME_REGISTRY(p_name, p_label) database p_name as "p_label" #LightCyan <<Home Registry>>
-!define CACHE(p_name, p_label) database p_name as "p_label" #LightYellow <<Cache>>
+!define DOCS_TRUTH(p_name, p_label) rectangle p_label as p_name #LightGreen <<Docs Truth>>
+!define SESSION_STORE(p_name, p_label) rectangle p_label as p_name #LightSalmon <<Session Store>>
+!define HOME_REGISTRY(p_name, p_label) rectangle p_label as p_name #LightCyan <<Home Registry>>
+!define CACHE(p_name, p_label) rectangle p_label as p_name #LightYellow <<Cache>>
 
 ' Edge Macros (for annotations)
 !unquoted procedure CALL(p_from_node, p_to_node, p_label="") as
@@ -73,4 +73,3 @@ skinparam arrow {
 !endprocedure
 
 ' End shared definitions
-@enduml

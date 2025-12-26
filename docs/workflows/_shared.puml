@@ -22,3 +22,14 @@ skinparam note {
   BorderColor #F57F17
   FontSize 9
 }
+
+' Macros for common workflow elements
+!define BRANCH_GUARD(TEXT) :BRANCH GUARD: TEXT;
+!define GATE(TEXT) :GATE: TEXT;
+!define HARD_STOP(TEXT) :HARD STOP:\nTEXT;
+!define WRITE_TRUTH(TEXT) :Write Truth: TEXT;
+!define CREATE_ISSUE(TEXT) :Create Issue: TEXT;
+!define CREATE_TASK(TEXT) :Create Task: TEXT;
+!define VALIDATE_JSON(TEXT) :Validate JSON: TEXT;
+!define SUCCESS_EXIT(TEXT) :Success Exit: TEXT;
+!define ENGINE_INVOKE(TEXT) :Invoke AI Engine:\nTEXT;

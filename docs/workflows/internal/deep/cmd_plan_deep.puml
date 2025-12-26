@@ -2,128 +2,109 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsPlan, "maestro/commands/plan.py") {
-    FUNCTION(AddPlanParser, "add_plan_parser()")
-    FUNCTION(HandlePlanAdd, "handle_plan_add()")
-    FUNCTION(HandlePlanList, "handle_plan_list()")
-    FUNCTION(HandlePlanRemove, "handle_plan_remove()")
-    FUNCTION(HandlePlanShow, "handle_plan_show()")
-    FUNCTION(HandlePlanAddItem, "handle_plan_add_item()")
-    FUNCTION(HandlePlanRemoveItem, "handle_plan_remove_item()")
-    FUNCTION(HandlePlanDiscuss, "handle_plan_discuss()")
-    FUNCTION(HandlePlanExplore, "handle_plan_explore()")
-    FUNCTION(CreateExplorePrompt, "create_explore_prompt()")
-}
+' MODULE: CommandsPlan, "maestro/commands/plan.py"
+rectangle "add_plan_parser()" as AddPlanParser <<Function>>
+rectangle "handle_plan_add()" as HandlePlanAdd <<Function>>
+rectangle "handle_plan_list()" as HandlePlanList <<Function>>
+rectangle "handle_plan_remove()" as HandlePlanRemove <<Function>>
+rectangle "handle_plan_show()" as HandlePlanShow <<Function>>
+rectangle "handle_plan_add_item()" as HandlePlanAddItem <<Function>>
+rectangle "handle_plan_remove_item()" as HandlePlanRemoveItem <<Function>>
+rectangle "handle_plan_discuss()" as HandlePlanDiscuss <<Function>>
+rectangle "handle_plan_explore()" as HandlePlanExplore <<Function>>
+rectangle "create_explore_prompt()" as CreateExplorePrompt <<Function>>
 
 ' Plan Data Model & Persistence
-MODULE(PlansModule, "maestro/plans.py") {
-    CLASS(PlanStoreClass, "PlanStore")
-    CLASS(PlanClass, "Plan")
-    CLASS(PlanItemClass, "PlanItem")
+' MODULE: PlansModule, "maestro/plans.py"
+rectangle "PlanStore" as PlanStoreClass <<Class>>
+rectangle "Plan" as PlanClass <<Class>>
+rectangle "PlanItem" as PlanItemClass <<Class>>
     PlanStoreClass "1" *-- "0..*" PlanClass : "manages"
     PlanClass "1" *-- "0..*" PlanItemClass : "contains"
-}
 
 ' Plan Operations (AI-generated changes to plans)
-MODULE(PlanOpsCommands, "maestro/plan_ops/commands.py") {
-    FUNCTION(AddPlanOpsParser, "add_plan_ops_parser()")
-    FUNCTION(HandlePlanOpsValidate, "handle_plan_ops_validate()")
-    FUNCTION(HandlePlanOpsPreview, "handle_plan_ops_preview()")
-    FUNCTION(HandlePlanOpsApply, "handle_plan_ops_apply()")
-}
+' MODULE: PlanOpsCommands, "maestro/plan_ops/commands.py"
+rectangle "add_plan_ops_parser()" as AddPlanOpsParser <<Function>>
+rectangle "handle_plan_ops_validate()" as HandlePlanOpsValidate <<Function>>
+rectangle "handle_plan_ops_preview()" as HandlePlanOpsPreview <<Function>>
+rectangle "handle_plan_ops_apply()" as HandlePlanOpsApply <<Function>>
 
-MODULE(PlanOpsDecoder, "maestro/plan_ops/decoder.py") {
-    FUNCTION(DecodePlanOpsJson, "decode_plan_ops_json()")
+' MODULE: PlanOpsDecoder, "maestro/plan_ops/decoder.py"
+rectangle "decode_plan_ops_json()" as DecodePlanOpsJson <<Function>>
     EXCEPTION(DecodeError, "DecodeError")
-}
 
-MODULE(PlanOpsSchemas, "maestro/plan_ops/schemas.py") {
-    FUNCTION(ValidatePlanOpsResult, "validate_plan_ops_result()")
-}
+' MODULE: PlanOpsSchemas, "maestro/plan_ops/schemas.py"
+rectangle "validate_plan_ops_result()" as ValidatePlanOpsResult <<Function>>
 
-MODULE(PlanOpsTranslator, "maestro/plan_ops/translator.py") {
-    FUNCTION(ActionsToOps, "actions_to_ops()")
-}
+' MODULE: PlanOpsTranslator, "maestro/plan_ops/translator.py"
+rectangle "actions_to_ops()" as ActionsToOps <<Function>>
 
-MODULE(PlanOpsOperations, "maestro/plan_ops/operations.py") {
-    CLASS(SelectorClass, "Selector")
-    CLASS(CreatePlanClass, "CreatePlan")
-    CLASS(DeletePlanClass, "DeletePlan")
-    CLASS(AddPlanItemClass, "AddPlanItem")
-    CLASS(RemovePlanItemClass, "RemovePlanItem")
-    CLASS(CommentaryClass, "Commentary")
-}
+' MODULE: PlanOpsOperations, "maestro/plan_ops/operations.py"
+rectangle "Selector" as SelectorClass <<Class>>
+rectangle "CreatePlan" as CreatePlanClass <<Class>>
+rectangle "DeletePlan" as DeletePlanClass <<Class>>
+rectangle "AddPlanItem" as AddPlanItemClass <<Class>>
+rectangle "RemovePlanItem" as RemovePlanItemClass <<Class>>
+rectangle "Commentary" as CommentaryClass <<Class>>
 
-MODULE(PlanOpsExecutor, "maestro/plan_ops/executor.py") {
-    CLASS(PlanOpsExecutorClass, "PlanOpsExecutor")
-    CLASS(PreviewResultClass, "PreviewResult")
-    FUNCTION(PreviewOps, "preview_ops()")
-    FUNCTION(ApplyOps, "apply_ops()")
-}
+' MODULE: PlanOpsExecutor, "maestro/plan_ops/executor.py"
+rectangle "PlanOpsExecutor" as PlanOpsExecutorClass <<Class>>
+rectangle "PreviewResult" as PreviewResultClass <<Class>>
+rectangle "preview_ops()" as PreviewOps <<Function>>
+rectangle "apply_ops()" as ApplyOps <<Function>>
 
 ' Plan Explore (Iterative AI Planning)
-MODULE(PlanExploreSession, "maestro/plan_explore/session.py") {
-    CLASS(ExploreSessionClass, "ExploreSession")
-    CLASS(ExploreIterationClass, "ExploreIteration")
-    ENUM(ExploreIterationStatus, "ExploreIterationStatus")
-    FUNCTION(CreateExploreSession, "create_explore_session()")
-    FUNCTION(LoadExploreSession, "load_explore_session()")
-    FUNCTION(SaveExploreSession, "save_explore_session()")
-    FUNCTION(AddIterationToSession, "add_iteration_to_session()")
-    FUNCTION(ResumeExploreSession, "resume_explore_session()")
-    FUNCTION(InterruptExploreSession, "interrupt_explore_session()")
-    FUNCTION(CompleteExploreSession, "complete_explore_session()")
-}
+' MODULE: PlanExploreSession, "maestro/plan_explore/session.py"
+rectangle "ExploreSession" as ExploreSessionClass <<Class>>
+rectangle "ExploreIteration" as ExploreIterationClass <<Class>>
+rectangle "ExploreIterationStatus" as ExploreIterationStatus <<Enum>>
+rectangle "create_explore_session()" as CreateExploreSession <<Function>>
+rectangle "load_explore_session()" as LoadExploreSession <<Function>>
+rectangle "save_explore_session()" as SaveExploreSession <<Function>>
+rectangle "add_iteration_to_session()" as AddIterationToSession <<Function>>
+rectangle "resume_explore_session()" as ResumeExploreSession <<Function>>
+rectangle "interrupt_explore_session()" as InterruptExploreSession <<Function>>
+rectangle "complete_explore_session()" as CompleteExploreSession <<Function>>
 
 ' AI Integration
-MODULE(AiManagerModule, "maestro/ai/manager.py") {
-    CLASS(AiEngineManagerClass, "AiEngineManager")
-}
+' MODULE: AiManagerModule, "maestro/ai/manager.py"
+rectangle "AiEngineManager" as AiEngineManagerClass <<Class>>
 
-MODULE(AiChatModule, "maestro/ai/chat.py") {
-    FUNCTION(RunInteractiveChat, "run_interactive_chat()")
-}
+' MODULE: AiChatModule, "maestro/ai/chat.py"
+rectangle "run_interactive_chat()" as RunInteractiveChat <<Function>>
 
-MODULE(AiTypesModule, "maestro/ai/types.py") {
-    CLASS(PromptRefClass, "PromptRef")
-    CLASS(RunOptsClass, "RunOpts")
-}
+' MODULE: AiTypesModule, "maestro/ai/types.py"
+rectangle "PromptRef" as PromptRefClass <<Class>>
+rectangle "RunOpts" as RunOptsClass <<Class>>
 
 ' Project Operations (from Explore)
-MODULE(ProjectOpsDecoder, "maestro/project_ops/decoder.py") {
-    FUNCTION(DecodeProjectOpsJson, "decode_project_ops_json()")
-}
+' MODULE: ProjectOpsDecoder, "maestro/project_ops/decoder.py"
+rectangle "decode_project_ops_json()" as DecodeProjectOpsJson <<Function>>
 
-MODULE(ProjectOpsTranslator, "maestro/project_ops/translator.py") {
-    FUNCTION(ActionsToOpsProj, "actions_to_ops()")
-}
+' MODULE: ProjectOpsTranslator, "maestro/project_ops/translator.py"
+rectangle "actions_to_ops()" as ActionsToOpsProj <<Function>>
 
-MODULE(ProjectOpsExecutor, "maestro/project_ops/executor.py") {
-    CLASS(ProjectOpsExecutorClass, "ProjectOpsExecutor")
-}
+' MODULE: ProjectOpsExecutor, "maestro/project_ops/executor.py"
+rectangle "ProjectOpsExecutor" as ProjectOpsExecutorClass <<Class>>
 
 ' Other Maestro Modules
-MODULE(DataMarkdownParser, "maestro/data/markdown_parser.py") {
-    FUNCTION(ParseTodoMd, "parse_todo_md()")
-}
+' MODULE: DataMarkdownParser, "maestro/data/markdown_parser.py"
+rectangle "parse_todo_md()" as ParseTodoMd <<Function>>
 
-MODULE(ConfigSettings, "maestro/config/settings.py") {
-    FUNCTION(GetSettings, "get_settings()")
-}
+' MODULE: ConfigSettings, "maestro/config/settings.py"
+rectangle "get_settings()" as GetSettings <<Function>>
 
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' Console print functions, Colors
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-DATABASE(DocsPlansMd, "docs/plans.md")
-DATABASE(DocsTodoMd, "docs/todo.md")
-DATABASE(ExploreSessionJson, "docs/sessions/explore/<session-id>/explore_session.json")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "docs/plans.md" as DocsPlansMd <<Database>>
+rectangle "docs/todo.md" as DocsTodoMd <<Database>>
+rectangle "docs/sessions/explore/<session-id>/explore_session.json" as ExploreSessionJson <<Database>>
 
 ' --- Relationships and Call Flow ---
 
@@ -193,7 +174,7 @@ AiTypesModule.RunOptsClass <.. CommandsPlan.HandlePlanExplore
 CommandsPlan --> MaestroUtils : "console output"
 
 ' Validation Gates
-VALIDATION_GATE(PlanOpsJsonValidation, "AI response JSON validation")
+rectangle "AI response JSON validation" as PlanOpsJsonValidation <<Validation Gate>>
 HandlePlanDiscuss -down-> PlanOpsJsonValidation : "validates"
 HandlePlanExplore -down-> PlanOpsJsonValidation : "validates ProjectOpsResult"
 PlanOpsJsonValidation --> DecodeError : "raises error on failure"

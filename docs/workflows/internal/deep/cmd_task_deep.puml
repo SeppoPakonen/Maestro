@@ -2,95 +2,84 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsTask, "maestro/commands/task.py") {
-    FUNCTION(AddTaskParser, "add_task_parser()")
-    FUNCTION(HandleTaskCommand, "handle_task_command()")
-    FUNCTION(ListTasks, "list_tasks()")
-    FUNCTION(ShowTask, "show_task()")
-    FUNCTION(AddTask, "add_task()")
-    FUNCTION(RemoveTask, "remove_task()")
-    FUNCTION(EditTask, "edit_task()")
-    FUNCTION(SetTaskStatus, "set_task_status()")
-    FUNCTION(SetTaskContext, "set_task_context()")
-    FUNCTION(_CollectTaskEntries, "_collect_task_entries()")
-    FUNCTION(_ResolveTaskIdentifier, "_resolve_task_identifier()")
-    FUNCTION(_ParseTaskListFilters, "_parse_task_list_filters()")
-    FUNCTION(_FindTaskFile, "_find_task_file()")
-    FUNCTION(_NormalizeTaskStatus, "_normalize_task_status()")
-}
+' MODULE: CommandsTask, "maestro/commands/task.py"
+rectangle "add_task_parser()" as AddTaskParser <<Function>>
+rectangle "handle_task_command()" as HandleTaskCommand <<Function>>
+rectangle "list_tasks()" as ListTasks <<Function>>
+rectangle "show_task()" as ShowTask <<Function>>
+rectangle "add_task()" as AddTask <<Function>>
+rectangle "remove_task()" as RemoveTask <<Function>>
+rectangle "edit_task()" as EditTask <<Function>>
+rectangle "set_task_status()" as SetTaskStatus <<Function>>
+rectangle "set_task_context()" as SetTaskContext <<Function>>
+rectangle "_collect_task_entries()" as _CollectTaskEntries <<Function>>
+rectangle "_resolve_task_identifier()" as _ResolveTaskIdentifier <<Function>>
+rectangle "_parse_task_list_filters()" as _ParseTaskListFilters <<Function>>
+rectangle "_find_task_file()" as _FindTaskFile <<Function>>
+rectangle "_normalize_task_status()" as _NormalizeTaskStatus <<Function>>
 
 ' Data Storage and Models
-MODULE(DataCommonUtils, "maestro/data/common_utils.py") {
-    FUNCTION(GetAllTracks, "get_all_tracks_with_phases_and_tasks()")
-    FUNCTION(ResolveIdentifierByType, "resolve_identifier_by_type()")
-}
+' MODULE: DataCommonUtils, "maestro/data/common_utils.py"
+rectangle "get_all_tracks_with_phases_and_tasks()" as GetAllTracks <<Function>>
+rectangle "resolve_identifier_by_type()" as ResolveIdentifierByType <<Function>>
 
-MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
-    FUNCTION(ParseTodoMd, "parse_todo_md()")
-    FUNCTION(ParseDoneMd, "parse_done_md()")
-    FUNCTION(ParsePhaseMd, "parse_phase_md()")
-    FUNCTION(ParseConfigMd, "parse_config_md()")
-}
+' MODULE: DataMarkdown, "maestro/data/markdown_parser.py"
+rectangle "parse_todo_md()" as ParseTodoMd <<Function>>
+rectangle "parse_done_md()" as ParseDoneMd <<Function>>
+rectangle "parse_phase_md()" as ParsePhaseMd <<Function>>
+rectangle "parse_config_md()" as ParseConfigMd <<Function>>
 
-MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
-    FUNCTION(ExtractTaskBlock, "extract_task_block()")
-    FUNCTION(ReplaceTaskBlock, "replace_task_block()")
-    FUNCTION(ExtractPhaseBlock, "extract_phase_block()") ' For _insert_task_in_todo
-    FUNCTION(ReplacePhaseBlock, "replace_phase_block()") ' For _insert_task_in_todo
-}
+' MODULE: DataMarkdownWriter, "maestro/data/markdown_writer.py"
+rectangle "extract_task_block()" as ExtractTaskBlock <<Function>>
+rectangle "replace_task_block()" as ReplaceTaskBlock <<Function>>
+rectangle "extract_phase_block()" as ExtractPhaseBlock <<Function>> ' For _insert_task_in_todo
+rectangle "replace_phase_block()" as ReplacePhaseBlock <<Function>> ' For _insert_task_in_todo
 
-MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
-    CLASS(JsonStoreClass, "JsonStore")
-    FUNCTION(ListAllTracks, "list_all_tracks()")
-    FUNCTION(LoadTrack, "load_track()")
-    FUNCTION(LoadArchive, "load_archive()")
-    FUNCTION(ListAllPhases, "list_all_phases()")
-    FUNCTION(LoadPhase, "load_phase()")
-    FUNCTION(SavePhase, "save_phase()")
-    FUNCTION(LoadTask, "load_task()")
-    FUNCTION(SaveTask, "save_task()")
-}
+' MODULE: TracksJsonStore, "maestro/tracks/json_store.py"
+rectangle "JsonStore" as JsonStoreClass <<Class>>
+rectangle "list_all_tracks()" as ListAllTracks <<Function>>
+rectangle "load_track()" as LoadTrack <<Function>>
+rectangle "load_archive()" as LoadArchive <<Function>>
+rectangle "list_all_phases()" as ListAllPhases <<Function>>
+rectangle "load_phase()" as LoadPhase <<Function>>
+rectangle "save_phase()" as SavePhase <<Function>>
+rectangle "load_task()" as LoadTask <<Function>>
+rectangle "save_task()" as SaveTask <<Function>>
 
-MODULE(TracksModels, "maestro/tracks/models.py") {
-    CLASS(TaskClass, "Task")
-    CLASS(PhaseClass, "Phase")
-    CLASS(TrackClass, "Track")
-}
+' MODULE: TracksModels, "maestro/tracks/models.py"
+rectangle "Task" as TaskClass <<Class>>
+rectangle "Phase" as PhaseClass <<Class>>
+rectangle "Track" as TrackClass <<Class>>
 
 ' Display and Utility
-MODULE(DisplayTableRenderer, "maestro/display/table_renderer.py") {
-    FUNCTION(RenderTaskTable, "render_task_table()")
-}
+' MODULE: DisplayTableRenderer, "maestro/display/table_renderer.py"
+rectangle "render_task_table()" as RenderTaskTable <<Function>>
 
-MODULE(ConfigSettings, "maestro/config/settings.py") {
-    FUNCTION(GetSettings, "get_settings()")
-}
+' MODULE: ConfigSettings, "maestro/config/settings.py"
+rectangle "get_settings()" as GetSettings <<Function>>
 
-MODULE(StatusUtils, "maestro/commands/status_utils.py") {
-    FUNCTION(NormalizeStatus, "normalize_status()")
-    FUNCTION(AllowedStatuses, "allowed_statuses()")
-    FUNCTION(StatusBadge, "status_badge()")
-    FUNCTION(StatusTimestamp, "status_timestamp()")
-}
+' MODULE: StatusUtils, "maestro/commands/status_utils.py"
+rectangle "normalize_status()" as NormalizeStatus <<Function>>
+rectangle "allowed_statuses()" as AllowedStatuses <<Function>>
+rectangle "status_badge()" as StatusBadge <<Function>>
+rectangle "status_timestamp()" as StatusTimestamp <<Function>>
 
-MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
-    FUNCTION(HandleTaskDiscuss, "handle_task_discuss()")
-}
+' MODULE: CommandsDiscuss, "maestro/commands/discuss.py"
+rectangle "handle_task_discuss()" as HandleTaskDiscuss <<Function>>
 
 ' External Dependencies
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(FileSystem, "File System")
-ACTOR(Subprocess, "subprocess module")
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
-DATABASE(MaestroTracksJson, ".maestro/tracks/*.json")
-DATABASE(MaestroTasksJson, ".maestro/tracks/tasks/*.json")
-DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
+rectangle "docs/phases/<id>.md" as DocsPhasesMd <<Database>>
+rectangle ".maestro/tracks/*.json" as MaestroTracksJson <<Database>>
+rectangle ".maestro/tracks/tasks/*.json" as MaestroTasksJson <<Database>>
+rectangle "$HOME/.maestro/settings.json" as SettingsJson <<Database>>
 
 
 ' --- Relationships and Call Flow ---

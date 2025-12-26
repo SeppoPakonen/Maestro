@@ -2,68 +2,59 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
-    FUNCTION(HandleResumeSession, "handle_resume_session()")
-    FUNCTION(LoadSession, "load_session()")
-    FUNCTION(SaveSession, "save_session()")
-    FUNCTION(UpdateSubtaskSummaryPaths, "update_subtask_summary_paths()")
-    FUNCTION(HasLegacyPlan, "has_legacy_plan()")
-    FUNCTION(MigrateSessionIfNeeded, "migrate_session_if_needed()")
-    FUNCTION(LoadRules, "load_rules()")
-    FUNCTION(GetMaestroDir, "get_maestro_dir()")
+' MODULE: CommandHandlers, "maestro/modules/command_handlers.py"
+rectangle "handle_resume_session()" as HandleResumeSession <<Function>>
+rectangle "load_session()" as LoadSession <<Function>>
+rectangle "save_session()" as SaveSession <<Function>>
+rectangle "update_subtask_summary_paths()" as UpdateSubtaskSummaryPaths <<Function>>
+rectangle "has_legacy_plan()" as HasLegacyPlan <<Function>>
+rectangle "migrate_session_if_needed()" as MigrateSessionIfNeeded <<Function>>
+rectangle "load_rules()" as LoadRules <<Function>>
+rectangle "get_maestro_dir()" as GetMaestroDir <<Function>>
 
-    FUNCTION(SavePromptForTraceability, "save_prompt_for_traceability()")
+rectangle "save_prompt_for_traceability()" as SavePromptForTraceability <<Function>>
 
-    FUNCTION(LogVerbose, "log_verbose()")
-}
+rectangle "log_verbose()" as LogVerbose <<Function>>
 
 ' Session Model & Persistence
-MODULE(SessionModel, "maestro/session_model.py") {
-    CLASS(SessionClass, "Session")
-    CLASS(SubtaskClass, "Subtask")
-    CLASS(PlanNodeClass, "PlanNode")
-}
+' MODULE: SessionModel, "maestro/session_model.py"
+rectangle "Session" as SessionClass <<Class>>
+rectangle "Subtask" as SubtaskClass <<Class>>
+rectangle "PlanNode" as PlanNodeClass <<Class>>
 
 ' AI Engine Integration
-MODULE(EnginesModule, "maestro/engines.py") {
-    FUNCTION(GetEngine, "get_engine()")
-    CLASS(EngineError, "EngineError")
-}
+' MODULE: EnginesModule, "maestro/engines.py"
+rectangle "get_engine()" as GetEngine <<Function>>
+rectangle "EngineError" as EngineError <<Class>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_error, print_info etc.
-}
 
-MODULE(UtilsModule, "maestro/modules/utils.py") {
-    FUNCTION(BuildPrompt, "build_prompt()")
-    FUNCTION(SaveAiOutput, "save_ai_output()")
-}
+' MODULE: UtilsModule, "maestro/modules/utils.py"
+rectangle "build_prompt()" as BuildPrompt <<Function>>
+rectangle "save_ai_output()" as SaveAiOutput <<Function>>
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(ExternalAI, "External AI Service")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "External AI Service" as ExternalAI <<Actor>>
 
 RECTANGLE(HandleInterrupt, "Handle Interrupt (SIGINT)")
 RECTANGLE(HandleEngineError, "Handle Engine Error")
-ACTOR(Subprocess, "subprocess module") ' Implied by Engine interaction
+rectangle "subprocess module" as Subprocess <<Actor>> ' Implied by Engine interaction
 
 
 
 
 ' Persistent Stores
-DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
-    session.json
-    rules.txt
+rectangle "docs/sessions/<name>/" as DocsSessionsDir <<Database>>
     partials/worker_*.partial.txt
     inputs/worker_*.prompt.txt
     outputs/worker_*.stdout.txt
     outputs/<subtask.id>.summary.txt
-}
 
 
 ' --- Relationships and Call Flow ---

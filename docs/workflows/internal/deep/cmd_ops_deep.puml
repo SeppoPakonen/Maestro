@@ -2,83 +2,72 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(ProjectOpsCommands, "maestro/project_ops/commands.py") {
-    FUNCTION(AddProjectOpsParser, "add_project_ops_parser()")
-    FUNCTION(HandleProjectOpsValidate, "handle_project_ops_validate()")
-    FUNCTION(HandleProjectOpsPreview, "handle_project_ops_preview()")
-    FUNCTION(HandleProjectOpsApply, "handle_project_ops_apply()")
-}
+' MODULE: ProjectOpsCommands, "maestro/project_ops/commands.py"
+rectangle "add_project_ops_parser()" as AddProjectOpsParser <<Function>>
+rectangle "handle_project_ops_validate()" as HandleProjectOpsValidate <<Function>>
+rectangle "handle_project_ops_preview()" as HandleProjectOpsPreview <<Function>>
+rectangle "handle_project_ops_apply()" as HandleProjectOpsApply <<Function>>
 
 ' Project Operations Data Model & Logic
-MODULE(ProjectOpsDecoder, "maestro/project_ops/decoder.py") {
-    FUNCTION(DecodeProjectOpsJson, "decode_project_ops_json()")
+' MODULE: ProjectOpsDecoder, "maestro/project_ops/decoder.py"
+rectangle "decode_project_ops_json()" as DecodeProjectOpsJson <<Function>>
     EXCEPTION(DecodeError, "DecodeError")
-}
 
-MODULE(ProjectOpsSchemas, "maestro/project_ops/schemas.py") {
-    FUNCTION(ValidateProjectOpsResult, "validate_project_ops_result()")
-}
+' MODULE: ProjectOpsSchemas, "maestro/project_ops/schemas.py"
+rectangle "validate_project_ops_result()" as ValidateProjectOpsResult <<Function>>
 
-MODULE(ProjectOpsTranslator, "maestro/project_ops/translator.py") {
-    FUNCTION(ActionsToOps, "actions_to_ops()")
-}
+' MODULE: ProjectOpsTranslator, "maestro/project_ops/translator.py"
+rectangle "actions_to_ops()" as ActionsToOps <<Function>>
 
-MODULE(ProjectOpsOperations, "maestro/project_ops/operations.py") {
-    CLASS(CreateTrackClass, "CreateTrack")
-    CLASS(CreatePhaseClass, "CreatePhase")
-    CLASS(CreateTaskClass, "CreateTask")
-    CLASS(MoveTaskToDoneClass, "MoveTaskToDone")
-    CLASS(SetContextClass, "SetContext")
-}
+' MODULE: ProjectOpsOperations, "maestro/project_ops/operations.py"
+rectangle "CreateTrack" as CreateTrackClass <<Class>>
+rectangle "CreatePhase" as CreatePhaseClass <<Class>>
+rectangle "CreateTask" as CreateTaskClass <<Class>>
+rectangle "MoveTaskToDone" as MoveTaskToDoneClass <<Class>>
+rectangle "SetContext" as SetContextClass <<Class>>
 
-MODULE(ProjectOpsExecutor, "maestro/project_ops/executor.py") {
-    CLASS(ProjectOpsExecutorClass, "ProjectOpsExecutor")
-    CLASS(PreviewResultClass, "PreviewResult")
-    FUNCTION(PreviewOps, "preview_ops()")
-    FUNCTION(ApplyOps, "apply_ops()")
-}
+' MODULE: ProjectOpsExecutor, "maestro/project_ops/executor.py"
+rectangle "ProjectOpsExecutor" as ProjectOpsExecutorClass <<Class>>
+rectangle "PreviewResult" as PreviewResultClass <<Class>>
+rectangle "preview_ops()" as PreviewOps <<Function>>
+rectangle "apply_ops()" as ApplyOps <<Function>>
 
 ' Data Storage and Markdown Writers
-MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
-    FUNCTION(InsertTrackBlock, "insert_track_block()")
-    FUNCTION(InsertPhaseBlock, "insert_phase_block()")
-    FUNCTION(InsertTaskBlock, "insert_task_block()")
-    FUNCTION(UpdateTaskMetadata, "update_task_metadata()")
-    FUNCTION(UpdatePhaseMetadata, "update_phase_metadata()")
-    FUNCTION(UpdateTrackMetadata, "update_track_metadata()")
-}
+' MODULE: DataMarkdownWriter, "maestro/data/markdown_writer.py"
+rectangle "insert_track_block()" as InsertTrackBlock <<Function>>
+rectangle "insert_phase_block()" as InsertPhaseBlock <<Function>>
+rectangle "insert_task_block()" as InsertTaskBlock <<Function>>
+rectangle "update_task_metadata()" as UpdateTaskMetadata <<Function>>
+rectangle "update_phase_metadata()" as UpdatePhaseMetadata <<Function>>
+rectangle "update_track_metadata()" as UpdateTrackMetadata <<Function>>
 
-MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
-    CLASS(JsonStoreClass, "JsonStore")
-    FUNCTION(SaveTrack, "save_track()")
-    FUNCTION(SavePhase, "save_phase()")
-    FUNCTION(SaveTask, "save_task()")
-    FUNCTION(LoadTrack, "load_track()")
-    FUNCTION(LoadPhase, "load_phase()")
-    FUNCTION(LoadTask, "load_task()")
-    FUNCTION(LoadIndex, "load_index()")
-    FUNCTION(SaveIndex, "save_index()")
-}
+' MODULE: TracksJsonStore, "maestro/tracks/json_store.py"
+rectangle "JsonStore" as JsonStoreClass <<Class>>
+rectangle "save_track()" as SaveTrack <<Function>>
+rectangle "save_phase()" as SavePhase <<Function>>
+rectangle "save_task()" as SaveTask <<Function>>
+rectangle "load_track()" as LoadTrack <<Function>>
+rectangle "load_phase()" as LoadPhase <<Function>>
+rectangle "load_task()" as LoadTask <<Function>>
+rectangle "load_index()" as LoadIndex <<Function>>
+rectangle "save_index()" as SaveIndex <<Function>>
 
-MODULE(TracksModels, "maestro/tracks/models.py") {
-    CLASS(TrackClass, "Track")
-    CLASS(PhaseClass, "Phase")
-    CLASS(TaskClass, "Task")
-}
+' MODULE: TracksModels, "maestro/tracks/models.py"
+rectangle "Track" as TrackClass <<Class>>
+rectangle "Phase" as PhaseClass <<Class>>
+rectangle "Task" as TaskClass <<Class>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_header, print_info, print_success, print_error, styled_print, Colors
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(Pathlib, "pathlib")
-ACTOR(Json, "json module")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "pathlib" as Pathlib <<Actor>>
+rectangle "json module" as Json <<Actor>>
 
 
 ' --- Relationships and Call Flow ---

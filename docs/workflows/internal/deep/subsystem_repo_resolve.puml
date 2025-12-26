@@ -2,76 +2,57 @@
 !include _shared.puml
 
 ' Repo Resolve Orchestrator
-MODULE(ScannerModule, "maestro/repo/scanner.py") {
-    CLASS(RepoScanResultClass, "RepoScanResult")
-    FUNCTION(ScanUppRepoV2, "scan_upp_repo_v2()")
-    FUNCTION(GuessPathKind, "guess_path_kind()")
-    FUNCTION(InferInternalPackages, "infer_internal_packages()")
-}
+' MODULE: ScannerModule, "maestro/repo/scanner.py"
+rectangle "RepoScanResult" as RepoScanResultClass <<Class>>
+rectangle "scan_upp_repo_v2()" as ScanUppRepoV2 <<Function>>
+rectangle "guess_path_kind()" as GuessPathKind <<Function>>
+rectangle "infer_internal_packages()" as InferInternalPackages <<Function>>
 
 ' Core Data Structures
-MODULE(PackageModule, "maestro/repo/package.py") {
-    CLASS(PackageInfoClass, "PackageInfo") {
-        + name: str
-        + dir: str
-        + build_system: str
-        + dependencies: List<str>
-        + groups: List<FileGroup>
-        + ungrouped_files: List<str>
-    }
-    CLASS(FileGroupClass, "FileGroup") {
-        + name: str
-        + files: List<str>
-        + readonly: bool
-        + auto_generated: bool
-    }
-}
+' MODULE: PackageModule, "maestro/repo/package.py"
+rectangle "PackageInfo" as PackageInfoClass <<Class>>
+rectangle "FileGroup" as FileGroupClass <<Class>>
 
 ' U++ Specific Parsers
-MODULE(UppParserModule, "maestro/repo/upp_parser.py") {
-    CLASS(UppParserClass, "UppParser")
-    FUNCTION(ParseUppFile, "parse_upp_file()")
-    FUNCTION(ParseUppContent, "parse_upp_content()")
+' MODULE: UppParserModule, "maestro/repo/upp_parser.py"
+rectangle "UppParser" as UppParserClass <<Class>>
+rectangle "parse_upp_file()" as ParseUppFile <<Function>>
+rectangle "parse_upp_content()" as ParseUppContent <<Function>>
     UppParserClass ..> FileGroupClass : "creates"
-}
 
-MODULE(UplusplusVarReaderModule, "maestro/repo/uplusplus_var_reader.py") {
-    CLASS(VarFileParserClass, "VarFileParser")
-    CLASS(UppAssemblyReaderClass, "UppAssemblyReader")
-    FUNCTION(ReadUserAssemblies, "read_user_assemblies()")
-}
+' MODULE: UplusplusVarReaderModule, "maestro/repo/uplusplus_var_reader.py"
+rectangle "VarFileParser" as VarFileParserClass <<Class>>
+rectangle "UppAssemblyReader" as UppAssemblyReaderClass <<Class>>
+rectangle "read_user_assemblies()" as ReadUserAssemblies <<Function>>
 
 ' Generic Build System Scanners
-MODULE(BuildSystemsModule, "maestro/repo/build_systems.py") {
-    CLASS(BuildSystemPackageClass, "BuildSystemPackage")
-    FUNCTION(DetectBuildSystem, "detect_build_system()")
-    FUNCTION(ScanAllBuildSystems, "scan_all_build_systems()")
-    FUNCTION(ScanCmakePackages, "scan_cmake_packages()")
-    FUNCTION(ScanMsvsPackages, "scan_msvs_packages()")
-    FUNCTION(ScanMavenPackages, "scan_maven_packages()")
-    FUNCTION(ScanGradlePackages, "scan_gradle_packages()")
+' MODULE: BuildSystemsModule, "maestro/repo/build_systems.py"
+rectangle "BuildSystemPackage" as BuildSystemPackageClass <<Class>>
+rectangle "detect_build_system()" as DetectBuildSystem <<Function>>
+rectangle "scan_all_build_systems()" as ScanAllBuildSystems <<Function>>
+rectangle "scan_cmake_packages()" as ScanCmakePackages <<Function>>
+rectangle "scan_msvs_packages()" as ScanMsvsPackages <<Function>>
+rectangle "scan_maven_packages()" as ScanMavenPackages <<Function>>
+rectangle "scan_gradle_packages()" as ScanGradlePackages <<Function>>
     ' ... other scan_*_packages
     BuildSystemPackageClass ..> PackageInfoClass : "converted to"
-}
 
 ' Assembly Detection
-MODULE(AssemblyModule, "maestro/repo/assembly.py") {
-    CLASS(AssemblyInfoClass, "AssemblyInfo")
-    FUNCTION(DetectAssemblies, "detect_assemblies()")
-    FUNCTION(ClassifyAssemblyType, "classify_assembly_type()")
+' MODULE: AssemblyModule, "maestro/repo/assembly.py"
+rectangle "AssemblyInfo" as AssemblyInfoClass <<Class>>
+rectangle "detect_assemblies()" as DetectAssemblies <<Function>>
+rectangle "classify_assembly_type()" as ClassifyAssemblyType <<Function>>
     ' ... other detect_*_assembly functions
-}
 
 ' Convention Inference
-MODULE(GroupingModule, "maestro/repo/grouping.py") {
-    CLASS(AutoGrouperClass, "AutoGrouper")
-    FUNCTION(AutoGroup, "auto_group()")
+' MODULE: GroupingModule, "maestro/repo/grouping.py"
+rectangle "AutoGrouper" as AutoGrouperClass <<Class>>
+rectangle "auto_group()" as AutoGroup <<Function>>
     AutoGrouperClass ..> FileGroupClass : "creates"
-}
 
 ' External Systems
-ACTOR(FileSystem, "File System")
-DATABASE(UserConfigDir, "~/.config/u++/ide/*.var")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "~/.config/u++/ide/*.var" as UserConfigDir <<Database>>
 
 ' --- Relationships and Call Flow ---
 

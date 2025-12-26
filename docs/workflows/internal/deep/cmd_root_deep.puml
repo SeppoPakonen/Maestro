@@ -2,57 +2,48 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
-    FUNCTION(HandleRootSet, "handle_root_set()")
-    FUNCTION(HandleRootGet, "handle_root_get()")
-    FUNCTION(HandleRootRefine, "handle_root_refine()")
-    FUNCTION(HandleRootDiscuss, "handle_root_discuss()")
-    FUNCTION(HandleRootShow, "handle_root_show()")
-    FUNCTION(LoadSession, "load_session()")
-    FUNCTION(SaveSession, "save_session()")
-    FUNCTION(GetMaestroDir, "get_maestro_dir()") ' Used to determine session_dir
-    FUNCTION(EditRootTaskInEditor, "edit_root_task_in_editor()") ' Used by new session
-    FUNCTION(BuildPrompt, "build_prompt()") ' Generic prompt builder
-    FUNCTION(SavePromptForTraceability, "save_prompt_for_traceability()")
-    FUNCTION(SaveAiOutput, "save_ai_output()")
-    FUNCTION(GetMultilineInput, "get_multiline_input()")
-    FUNCTION(PrintAiResponse, "print_ai_response()")
-}
+' MODULE: CommandHandlers, "maestro/modules/command_handlers.py"
+rectangle "handle_root_set()" as HandleRootSet <<Function>>
+rectangle "handle_root_get()" as HandleRootGet <<Function>>
+rectangle "handle_root_refine()" as HandleRootRefine <<Function>>
+rectangle "handle_root_discuss()" as HandleRootDiscuss <<Function>>
+rectangle "handle_root_show()" as HandleRootShow <<Function>>
+rectangle "load_session()" as LoadSession <<Function>>
+rectangle "save_session()" as SaveSession <<Function>>
+rectangle "get_maestro_dir()" as GetMaestroDir <<Function>> ' Used to determine session_dir
+rectangle "edit_root_task_in_editor()" as EditRootTaskInEditor <<Function>> ' Used by new session
+rectangle "build_prompt()" as BuildPrompt <<Function>> ' Generic prompt builder
+rectangle "save_prompt_for_traceability()" as SavePromptForTraceability <<Function>>
+rectangle "save_ai_output()" as SaveAiOutput <<Function>>
+rectangle "get_multiline_input()" as GetMultilineInput <<Function>>
+rectangle "print_ai_response()" as PrintAiResponse <<Function>>
 
 ' Session Model & Persistence
-MODULE(SessionModel, "maestro/session_model.py") {
-    CLASS(SessionClass, "Session")
-}
+' MODULE: SessionModel, "maestro/session_model.py"
+rectangle "Session" as SessionClass <<Class>>
 
 ' AI Integration
-MODULE(EnginesModule, "maestro/engines.py") {
-    FUNCTION(GetEngine, "get_engine()")
-    CLASS(PlannerError, "PlannerError")
-}
+' MODULE: EnginesModule, "maestro/engines.py"
+rectangle "get_engine()" as GetEngine <<Function>>
+rectangle "PlannerError" as PlannerError <<Class>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_header, print_info, print_success, print_error, print_warning, print_debug, Colors
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(User, "User (for input)")
-ACTOR(ExternalAI, "External AI Service")
-ACTOR(Subprocess, "subprocess module")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "User (for input)" as User <<Actor>>
+rectangle "External AI Service" as ExternalAI <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
-    session.json
-    rules.txt
-}
-DATABASE(ConversationsDir, ".maestro/conversations/") {
+rectangle "docs/sessions/<name>/" as DocsSessionsDir <<Database>>
+rectangle ".maestro/conversations/" as ConversationsDir <<Database>>
     *.txt (transcripts)
-}
 
 
 ' --- Relationships and Call Flow ---

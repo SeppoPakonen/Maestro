@@ -1,31 +1,23 @@
 @startuml cmd_init_deep
 !include _shared.puml
 
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CliParser, "maestro/modules/cli_parser.py") {
-    FUNCTION(CreateMainParser, "create_main_parser()")
-}
+' MODULE: CliParser, "maestro/modules/cli_parser.py"
+rectangle "create_main_parser()" as CreateMainParser <<Function>>
 
-MODULE(CommandsInit, "maestro/commands/init.py") {
-    FUNCTION(AddInitParser, "add_init_parser()")
-    FUNCTION(HandleInitCommand, "handle_init_command()")
-}
+' MODULE: CommandsInit, "maestro/commands/init.py"
+rectangle "add_init_parser()" as AddInitParser <<Function>>
+rectangle "handle_init_command()" as HandleInitCommand <<Function>>
 
-MODULE(Pathlib, "pathlib") {
-    CLASS(PathClass, "Path") {
-        + mkdir()
-        + exists()
-    }
-}
+' MODULE: Pathlib, "pathlib"
+rectangle "Path" as PathClass <<Class>>
 
-MODULE(Builtins, "builtins") {
-    FUNCTION(OpenFile, "open()")
-}
+' MODULE: Builtins, "builtins"
+rectangle "open()" as OpenFile <<Function>>
 
-DATASTORE(LocalFilesystem, "Local Filesystem")
+rectangle "Local Filesystem" as LocalFilesystem <<Data Store>>
 
 ' --- Relationships ---
 
@@ -43,7 +35,7 @@ PathClass.mkdir --[#Red,dashed]-> LocalFilesystem : "Creates directories"
 ' Settings.md Creation
 HandleInitCommand --> PathClass.exists : "5. Checks if docs/Settings.md exists"
 PathClass.exists -[dashed]-> LocalFilesystem : "Reads file existence"
-VALIDATION_GATE(ForceCheckSettings, "args.force or not exists()")
+rectangle "args.force or not exists()" as ForceCheckSettings <<Validation Gate>>
 HandleInitCommand --> ForceCheckSettings : "6. Conditional overwrite for Settings.md"
 ForceCheckSettings --> OpenFile : "7. Creates docs/Settings.md"
 OpenFile --[#Red,dashed]-> LocalFilesystem : "Writes file"
@@ -51,7 +43,7 @@ OpenFile --[#Red,dashed]-> LocalFilesystem : "Writes file"
 ' RepoRules.md Creation
 HandleInitCommand --> PathClass.exists : "8. Checks if docs/RepoRules.md exists"
 PathClass.exists -[dashed]-> LocalFilesystem : "Reads file existence"
-VALIDATION_GATE(ForceCheckRepoRules, "args.force or not exists()")
+rectangle "args.force or not exists()" as ForceCheckRepoRules <<Validation Gate>>
 HandleInitCommand --> ForceCheckRepoRepoRules : "9. Conditional overwrite for RepoRules.md"
 ForceCheckRepoRepoRules --> OpenFile : "10. Creates docs/RepoRules.md"
 OpenFile --[#Red,dashed]-> LocalFilesystem : "Writes file"

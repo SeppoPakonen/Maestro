@@ -2,51 +2,45 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsUnderstand, "maestro/commands/understand/__init__.py") {
-    FUNCTION(AddUnderstandParser, "add_understand_parser()")
-}
+' MODULE: CommandsUnderstand, "maestro/commands/understand/__init__.py"
+rectangle "add_understand_parser()" as AddUnderstandParser <<Function>>
 
-MODULE(UnderstandCommand, "maestro/understand/command.py") {
-    FUNCTION(HandleUnderstandDump, "handle_understand_dump()")
-}
+' MODULE: UnderstandCommand, "maestro/understand/command.py"
+rectangle "handle_understand_dump()" as HandleUnderstandDump <<Function>>
 
-MODULE(UnderstandIntrospector, "maestro/understand/introspector.py") {
-    CLASS(ProjectIntrospectorClass, "ProjectIntrospector")
-    FUNCTION(GatherAll, "gather_all()")
-    FUNCTION(GatherIdentity, "gather_identity()")
-    FUNCTION(GatherAuthorityModel, "gather_authority_model()")
-    FUNCTION(GatherRuleGates, "gather_rule_gates()")
-    FUNCTION(GatherMutationBoundaries, "gather_mutation_boundaries()")
-    FUNCTION(GatherAutomationLongRun, "gather_automation_long_run()")
-    FUNCTION(GatherDirectorySemantics, "gather_directory_semantics()")
-    FUNCTION(GatherContracts, "gather_contracts()")
-    FUNCTION(GatherEvidenceIndex, "gather_evidence_index()")
-}
+' MODULE: UnderstandIntrospector, "maestro/understand/introspector.py"
+rectangle "ProjectIntrospector" as ProjectIntrospectorClass <<Class>>
+rectangle "gather_all()" as GatherAll <<Function>>
+rectangle "gather_identity()" as GatherIdentity <<Function>>
+rectangle "gather_authority_model()" as GatherAuthorityModel <<Function>>
+rectangle "gather_rule_gates()" as GatherRuleGates <<Function>>
+rectangle "gather_mutation_boundaries()" as GatherMutationBoundaries <<Function>>
+rectangle "gather_automation_long_run()" as GatherAutomationLongRun <<Function>>
+rectangle "gather_directory_semantics()" as GatherDirectorySemantics <<Function>>
+rectangle "gather_contracts()" as GatherContracts <<Function>>
+rectangle "gather_evidence_index()" as GatherEvidenceIndex <<Function>>
 
-MODULE(UnderstandRenderer, "maestro/understand/renderer.py") {
-    CLASS(MarkdownRendererClass, "MarkdownRenderer")
-    FUNCTION(Render, "render()")
-    FUNCTION(_RenderIdentity, "_render_identity()")
-    FUNCTION(_RenderAuthorityModel, "_render_authority_model()")
-    FUNCTION(_RenderRuleGates, "_render_rule_gates()")
+' MODULE: UnderstandRenderer, "maestro/understand/renderer.py"
+rectangle "MarkdownRenderer" as MarkdownRendererClass <<Class>>
+rectangle "render()" as Render <<Function>>
+rectangle "_render_identity()" as _RenderIdentity <<Function>>
+rectangle "_render_authority_model()" as _RenderAuthorityModel <<Function>>
+rectangle "_render_rule_gates()" as _RenderRuleGates <<Function>>
     ' ... other _render_* methods
-}
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_success, print_error etc.
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(Pathlib, "pathlib")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "pathlib" as Pathlib <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsUnderstandingSnapshotMd, "docs/UNDERSTANDING_SNAPSHOT.md")
+rectangle "docs/UNDERSTANDING_SNAPSHOT.md" as DocsUnderstandingSnapshotMd <<Database>>
 
 
 ' --- Relationships and Call Flow ---
@@ -77,7 +71,7 @@ Pathlib --> FileSystem : "interacts with filesystem"
 UnderstandCommand.HandleUnderstandDump --> DocsUnderstandingSnapshotMd : "specifies output file"
 
 ' Conditional Check Mode
-VALIDATION_GATE(CheckModeLogic, "args.check == True")
+rectangle "args.check == True" as CheckModeLogic <<Validation Gate>>
 UnderstandCommand.HandleUnderstandDump --> CheckModeLogic : "5. If check mode"
 CheckModeLogic --> DocsUnderstandingSnapshotMd : "reads existing content"
 CheckModeLogic --> DocsUnderstandingSnapshotMd : "compares new vs existing"

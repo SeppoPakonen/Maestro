@@ -2,50 +2,44 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsConvert, "maestro/commands/convert.py") {
-    FUNCTION(AddConvertParser, "add_convert_parser()")
-    FUNCTION(HandleConvertNew, "handle_convert_new()")
-    FUNCTION(HandleConvertPlan, "handle_convert_plan()")
-    FUNCTION(HandleConvertRun, "handle_convert_run()")
-    FUNCTION(HandleConvertStatus, "handle_convert_status()")
-    FUNCTION(HandleConvertShow, "handle_convert_show()")
-    FUNCTION(HandleConvertReset, "handle_convert_reset()")
-    FUNCTION(HandleConvertBatch, "handle_convert_batch()")
-}
+' MODULE: CommandsConvert, "maestro/commands/convert.py"
+rectangle "add_convert_parser()" as AddConvertParser <<Function>>
+rectangle "handle_convert_new()" as HandleConvertNew <<Function>>
+rectangle "handle_convert_plan()" as HandleConvertPlan <<Function>>
+rectangle "handle_convert_run()" as HandleConvertRun <<Function>>
+rectangle "handle_convert_status()" as HandleConvertStatus <<Function>>
+rectangle "handle_convert_show()" as HandleConvertShow <<Function>>
+rectangle "handle_convert_reset()" as HandleConvertReset <<Function>>
+rectangle "handle_convert_batch()" as HandleConvertBatch <<Function>>
 
 ' Conversion Subsystem Modules (Actual Logic)
-MODULE(ConvertOrchestrator, "maestro/convert/convert_orchestrator.py") {
-    FUNCTION(CreateNewPipeline, "create_new_pipeline()")
-    FUNCTION(ResetPipeline, "reset_pipeline()")
-}
+' MODULE: ConvertOrchestrator, "maestro/convert/convert_orchestrator.py"
+rectangle "create_new_pipeline()" as CreateNewPipeline <<Function>>
+rectangle "reset_pipeline()" as ResetPipeline <<Function>>
 
-MODULE(ConvertPlanner, "maestro/convert/planner.py") {
-    FUNCTION(PlanConversion, "plan_conversion()")
-}
+' MODULE: ConvertPlanner, "maestro/convert/planner.py"
+rectangle "plan_conversion()" as PlanConversion <<Function>>
 
-MODULE(ConvertExecution, "maestro/convert/execution_engine.py") {
-    FUNCTION(RunConversionPipeline, "run_conversion_pipeline()")
-}
+' MODULE: ConvertExecution, "maestro/convert/execution_engine.py"
+rectangle "run_conversion_pipeline()" as RunConversionPipeline <<Function>>
 
-MODULE(UiFacadeConvert, "maestro/ui_facade/convert.py") {
-    FUNCTION(GetPipelineStatus, "get_pipeline_status()")
-    CLASS(PipelineStatus, "PipelineStatus")
-    CLASS(PipelineStage, "PipelineStage")
-}
+' MODULE: UiFacadeConvert, "maestro/ui_facade/convert.py"
+rectangle "get_pipeline_status()" as GetPipelineStatus <<Function>>
+rectangle "PipelineStatus" as PipelineStatus <<Class>>
+rectangle "PipelineStage" as PipelineStage <<Class>>
 
 ' Utility Modules
-MODULE(Pathlib, "pathlib")
-MODULE(OS, "os")
+package "pathlib" as Pathlib <<Module>>
+package "os" as OS <<Module>>
 
 ' External Dependencies
 CLOUD(FileSystem, "File System")
 
 ' Persistent Stores (Conceptual, managed by underlying convert modules)
-DATABASE(MaestroConvertDir, ".maestro/convert/\n(Pipeline definitions, state, logs)")
+rectangle ".maestro/convert/\n(Pipeline definitions, state, logs)" as MaestroConvertDir <<Database>>
 
 
 ' --- Relationships and Call Flow ---

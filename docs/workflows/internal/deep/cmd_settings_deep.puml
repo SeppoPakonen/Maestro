@@ -2,75 +2,69 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsSettings, "maestro/commands/settings.py") {
-    FUNCTION(AddSettingsParser, "add_settings_parser()")
-    FUNCTION(HandleSettingsCommand, "handle_settings_command()")
-    FUNCTION(ListSettings, "list_settings()")
-    FUNCTION(GetSetting, "get_setting()")
-    FUNCTION(SetSetting, "set_setting()")
-    FUNCTION(EditSettings, "edit_settings()")
-    FUNCTION(ResetSettings, "reset_settings()")
-    FUNCTION(SettingsWizard, "settings_wizard()")
-    FUNCTION(FormatValueForDisplay, "format_value_for_display()")
-    FUNCTION(ConvertValueToType, "convert_value_to_type()")
+' MODULE: CommandsSettings, "maestro/commands/settings.py"
+rectangle "add_settings_parser()" as AddSettingsParser <<Function>>
+rectangle "handle_settings_command()" as HandleSettingsCommand <<Function>>
+rectangle "list_settings()" as ListSettings <<Function>>
+rectangle "get_setting()" as GetSetting <<Function>>
+rectangle "set_setting()" as SetSetting <<Function>>
+rectangle "edit_settings()" as EditSettings <<Function>>
+rectangle "reset_settings()" as ResetSettings <<Function>>
+rectangle "settings_wizard()" as SettingsWizard <<Function>>
+rectangle "format_value_for_display()" as FormatValueForDisplay <<Function>>
+rectangle "convert_value_to_type()" as ConvertValueToType <<Function>>
     ' Profile handlers
-    FUNCTION(ProfileList, "profile_list()")
-    FUNCTION(ProfileSave, "profile_save()")
-    FUNCTION(ProfileLoad, "profile_load()")
-    FUNCTION(ProfileGet, "profile_get()")
-    FUNCTION(ProfileSetDefault, "profile_set_default()")
-}
+rectangle "profile_list()" as ProfileList <<Function>>
+rectangle "profile_save()" as ProfileSave <<Function>>
+rectangle "profile_load()" as ProfileLoad <<Function>>
+rectangle "profile_get()" as ProfileGet <<Function>>
+rectangle "profile_set_default()" as ProfileSetDefault <<Function>>
 
 ' Configuration Modules
-MODULE(ConfigSettings, "maestro/config/settings.py") {
-    CLASS(SettingsClass, "Settings")
-    FUNCTION(GetSettings, "get_settings()")
-    FUNCTION(CreateDefaultConfig, "create_default_config()")
-    FUNCTION(SettingsLoad, "load()")
-    FUNCTION(SettingsSave, "save()")
-    FUNCTION(SettingsGet, "get()")
-    FUNCTION(SettingsSet, "set()")
-    FUNCTION(SettingsValidate, "validate()")
-}
+' MODULE: ConfigSettings, "maestro/config/settings.py"
+rectangle "Settings" as SettingsClass <<Class>>
+rectangle "get_settings()" as GetSettings <<Function>>
+rectangle "create_default_config()" as CreateDefaultConfig <<Function>>
+rectangle "load()" as SettingsLoad <<Function>>
+rectangle "save()" as SettingsSave <<Function>>
+rectangle "get()" as SettingsGet <<Function>>
+rectangle "set()" as SettingsSet <<Function>>
+rectangle "validate()" as SettingsValidate <<Function>>
 
-MODULE(ConfigProfiles, "maestro/config/settings_profiles.py") {
-    CLASS(SettingsProfileManagerClass, "SettingsProfileManager")
-    FUNCTION(ListProfiles, "list_profiles()")
-    FUNCTION(GetActiveProfile, "get_active_profile()")
-    FUNCTION(GetDefaultProfile, "get_default_profile()")
-    FUNCTION(UpdateProfile, "update_profile()")
-    FUNCTION(CreateProfile, "create_profile()")
-    FUNCTION(SetActiveProfile, "set_active_profile()")
-    FUNCTION(SetDefaultProfile, "set_default_profile()")
-    FUNCTION(LoadProfile, "load_profile()")
-    FUNCTION(HasUnsavedChanges, "has_unsaved_changes()")
-    FUNCTION(GetSettingsHash, "get_settings_hash()")
-    FUNCTION(CreateAuditLog, "create_audit_log()")
-}
+' MODULE: ConfigProfiles, "maestro/config/settings_profiles.py"
+rectangle "SettingsProfileManager" as SettingsProfileManagerClass <<Class>>
+rectangle "list_profiles()" as ListProfiles <<Function>>
+rectangle "get_active_profile()" as GetActiveProfile <<Function>>
+rectangle "get_default_profile()" as GetDefaultProfile <<Function>>
+rectangle "update_profile()" as UpdateProfile <<Function>>
+rectangle "create_profile()" as CreateProfile <<Function>>
+rectangle "set_active_profile()" as SetActiveProfile <<Function>>
+rectangle "set_default_profile()" as SetDefaultProfile <<Function>>
+rectangle "load_profile()" as LoadProfile <<Function>>
+rectangle "has_unsaved_changes()" as HasUnsavedChanges <<Function>>
+rectangle "get_settings_hash()" as GetSettingsHash <<Function>>
+rectangle "create_audit_log()" as CreateAuditLog <<Function>>
 
 ' Utility Modules
-MODULE(DataMarkdown, "maestro/data/markdown_parser.py") {
-    FUNCTION(ParseConfigMd, "parse_config_md()")
-}
+' MODULE: DataMarkdown, "maestro/data/markdown_parser.py"
+rectangle "parse_config_md()" as ParseConfigMd <<Function>>
 
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' Console print functions, Colors
-}
 
 ' External Dependencies
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(FileSystem, "File System")
-ACTOR(Subprocess, "subprocess module")
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsConfigMd, "docs/config.md")
-DATABASE(ProfilesJson, "~/.maestro/profiles.json")
-DATABASE(ProfileSettingsJson, "~/.maestro/profiles/<id>.json")
-DATABASE(ProfileAuditJsonL, "~/.maestro/profiles/audit.jsonl")
+rectangle "docs/config.md" as DocsConfigMd <<Database>>
+rectangle "~/.maestro/profiles.json" as ProfilesJson <<Database>>
+rectangle "~/.maestro/profiles/<id>.json" as ProfileSettingsJson <<Database>>
+rectangle "~/.maestro/profiles/audit.jsonl" as ProfileAuditJsonL <<Database>>
 
 
 ' --- Relationships and Call Flow ---

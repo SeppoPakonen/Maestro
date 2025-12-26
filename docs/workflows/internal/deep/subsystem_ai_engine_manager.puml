@@ -2,85 +2,63 @@
 !include _shared.puml
 
 ' AI Engine Manager Module
-MODULE(AiManagerModule, "maestro/ai/manager.py") {
-    CLASS(AiEngineManagerClass, "AiEngineManager") {
-        - settings: Settings
-        - session_manager: AISessionManager
-        - runner: AiSubprocessRunner (optional)
+' MODULE: AiManagerModule, "maestro/ai/manager.py"
+rectangle "AiEngineManager" as AiEngineManagerClass <<Class>>
         --
-        + get_engine_spec(name: AiEngineName): AiEngineSpec
-        + build_command(engine, prompt, opts): List<str>
-        + _build_qwen_command(prompt, opts): List<str>
-        + explain_command(engine, prompt, opts): str
-        + run_once(engine, prompt, opts): AiRunResult
-    }
-}
 
 ' AI Types Module
-MODULE(AiTypesModule, "maestro/ai/types.py") {
+' MODULE: AiTypesModule, "maestro/ai/types.py"
     TYPE(AiEngineNameEnum, "AiEngineName")
-    CLASS(EngineCapabilitiesClass, "EngineCapabilities")
-    CLASS(PromptRefClass, "PromptRef")
-    CLASS(RunOptsClass, "RunOpts")
+rectangle "EngineCapabilities" as EngineCapabilitiesClass <<Class>>
+rectangle "PromptRef" as PromptRefClass <<Class>>
+rectangle "RunOpts" as RunOptsClass <<Class>>
     PROTOCOL(AiEngineSpecProtocol, "AiEngineSpec")
     PROTOCOL(AiSubprocessRunnerProtocol, "AiSubprocessRunner")
-    CLASS(FakeProcessResultClass, "FakeProcessResult")
-    CLASS(AiRunResultClass, "AiRunResult")
-}
+rectangle "FakeProcessResult" as FakeProcessResultClass <<Class>>
+rectangle "AiRunResult" as AiRunResultClass <<Class>>
 
 ' AI Runner Module
-MODULE(AiRunnerModule, "maestro/ai/runner.py") {
-    CLASS(RunResultClass, "RunResult")
-    FUNCTION(RunEngineCommand, "run_engine_command()")
-    FUNCTION(_RunSubprocessCommand, "_run_subprocess_command()")
-    FUNCTION(_RunQwenTransport, "_run_qwen_transport()")
-    FUNCTION(_ParseJsonEvents, "_parse_json_events()")
-    FUNCTION(_GetRemainingBuffer, "_get_remaining_buffer()")
-    FUNCTION(_ExtractSessionIdFromEvents, "_extract_session_id_from_events()")
-    FUNCTION(_NormalizeEvent, "_normalize_event()")
-}
+' MODULE: AiRunnerModule, "maestro/ai/runner.py"
+rectangle "RunResult" as RunResultClass <<Class>>
+rectangle "run_engine_command()" as RunEngineCommand <<Function>>
+rectangle "_run_subprocess_command()" as _RunSubprocessCommand <<Function>>
+rectangle "_run_qwen_transport()" as _RunQwenTransport <<Function>>
+rectangle "_parse_json_events()" as _ParseJsonEvents <<Function>>
+rectangle "_get_remaining_buffer()" as _GetRemainingBuffer <<Function>>
+rectangle "_extract_session_id_from_events()" as _ExtractSessionIdFromEvents <<Function>>
+rectangle "_normalize_event()" as _NormalizeEvent <<Function>>
 
 ' AI Engines Package
-MODULE(AiEnginesPackage, "maestro/ai/engines/") {
-    FUNCTION(GetSpecFactory, "get_spec(engine_name) [__init__.py]")
-    CLASS(QwenEngineSpecClass, "QwenEngineSpec [qwen.py]")
+' MODULE: AiEnginesPackage, "maestro/ai/engines/"
+rectangle "get_spec(engine_name) [__init__.py]" as GetSpecFactory <<Function>>
+rectangle "QwenEngineSpec [qwen.py]" as QwenEngineSpecClass <<Class>>
     ' ... Other engine specs (Gemini, Claude, Codex)
-}
 
 ' AI Session Manager Module
-MODULE(AiSessionManagerModule, "maestro/ai/session_manager.py") {
-    CLASS(AISessionManagerClass, "AISessionManager") {
-        - state_file: Path
+' MODULE: AiSessionManagerModule, "maestro/ai/session_manager.py"
+rectangle "AISessionManager" as AISessionManagerClass <<Class>>
         --
-        + load_sessions(): Dict
-        + save_sessions(sessions: Dict)
-        + get_last_session_id(engine): Optional<str>
-        + update_session(engine, session_id, model, danger_mode)
-    }
-    FUNCTION(ExtractSessionIDFn, "extract_session_id()")
-}
+rectangle "extract_session_id()" as ExtractSessionIDFn <<Function>>
 
 ' AI Stream Render Module
-MODULE(AiStreamRenderModule, "maestro/ai/stream_render.py") {
-    CLASS(StreamRendererClass, "StreamRenderer")
-    CLASS(AiStreamEventClass, "AiStreamEvent")
-}
+' MODULE: AiStreamRenderModule, "maestro/ai/stream_render.py"
+rectangle "StreamRenderer" as StreamRendererClass <<Class>>
+rectangle "AiStreamEvent" as AiStreamEventClass <<Class>>
 
 ' AI Qwen Extractor Module
-MODULE(AiQwenExtractorModule, "maestro/ai/qwen_extractor.py") {
-    FUNCTION(ExtractQwenAssistantText, "extract_qwen_assistant_text()")
-    FUNCTION(FilterQwenEvents, "filter_qwen_events_for_verbose_mode()")
-}
+' MODULE: AiQwenExtractorModule, "maestro/ai/qwen_extractor.py"
+rectangle "extract_qwen_assistant_text()" as ExtractQwenAssistantText <<Function>>
+rectangle "filter_qwen_events_for_verbose_mode()" as FilterQwenEvents <<Function>>
 
 ' External AI Engine Binaries
-ACTOR(AiEngineBinary, "External AI Engine Binary")
+rectangle "External AI Engine Binary" as AiEngineBinary <<Actor>>
 CLOUD(InternalQwenClient, "Internal Qwen Client (stdio/tcp)")
 
 ' Persistent Stores
-DATASTORE(AiSessionsJson, "docs/state/ai_sessions.json")
-DATASTORE(AiLogsDir, "docs/logs/ai/")
-DATASTORE(Stdout, "stdout")
-DATASTORE(Stderr, "stderr")
+rectangle "docs/state/ai_sessions.json" as AiSessionsJson <<Data Store>>
+rectangle "docs/logs/ai/" as AiLogsDir <<Data Store>>
+rectangle "stdout" as Stdout <<Data Store>>
+rectangle "stderr" as Stderr <<Data Store>>
 
 ' Relationships
 

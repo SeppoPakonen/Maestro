@@ -2,95 +2,84 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsAi, "maestro/commands/ai.py") {
-    FUNCTION(AddAiParser, "add_ai_parser()")
-    FUNCTION(HandleAiSync, "handle_ai_sync()")
-    FUNCTION(HandleAiQwen, "handle_ai_qwen()")
-    FUNCTION(HandleAiGemini, "handle_ai_gemini()")
-    FUNCTION(HandleAiCodex, "handle_ai_codex()")
-    FUNCTION(HandleAiClaude, "handle_ai_claude()")
-    FUNCTION(_ResolveSession, "_resolve_session()")
-    FUNCTION(_FindSessionPath, "_find_session_path()")
-    FUNCTION(_SelectNextTask, "_select_next_task()")
-    FUNCTION(_WriteSyncBreadcrumb, "_write_sync_breadcrumb()")
-    FUNCTION(_WatchAiSync, "_watch_ai_sync()")
-    FUNCTION(_ReadSyncSignature, "_read_sync_signature()")
+' MODULE: CommandsAi, "maestro/commands/ai.py"
+rectangle "add_ai_parser()" as AddAiParser <<Function>>
+rectangle "handle_ai_sync()" as HandleAiSync <<Function>>
+rectangle "handle_ai_qwen()" as HandleAiQwen <<Function>>
+rectangle "handle_ai_gemini()" as HandleAiGemini <<Function>>
+rectangle "handle_ai_codex()" as HandleAiCodex <<Function>>
+rectangle "handle_ai_claude()" as HandleAiClaude <<Function>>
+rectangle "_resolve_session()" as _ResolveSession <<Function>>
+rectangle "_find_session_path()" as _FindSessionPath <<Function>>
+rectangle "_select_next_task()" as _SelectNextTask <<Function>>
+rectangle "_write_sync_breadcrumb()" as _WriteSyncBreadcrumb <<Function>>
+rectangle "_watch_ai_sync()" as _WatchAiSync <<Function>>
+rectangle "_read_sync_signature()" as _ReadSyncSignature <<Function>>
     ' Legacy Qwen handlers
-    FUNCTION(_RunQwenStdinChat, "_run_qwen_stdin_chat()")
-    FUNCTION(_RunQwenServer, "_run_qwen_server()")
-    FUNCTION(_RunQwenTui, "_run_qwen_tui()")
-    FUNCTION(_ResolveQwenScript, "_resolve_qwen_script()")
-}
+rectangle "_run_qwen_stdin_chat()" as _RunQwenStdinChat <<Function>>
+rectangle "_run_qwen_server()" as _RunQwenServer <<Function>>
+rectangle "_run_qwen_tui()" as _RunQwenTui <<Function>>
+rectangle "_resolve_qwen_script()" as _ResolveQwenScript <<Function>>
 
 ' AI-related Subsystem Modules
-MODULE(AiTaskManager, "maestro/ai/task_sync.py") {
-    FUNCTION(LoadSyncState, "load_sync_state()")
-    FUNCTION(WriteSyncState, "write_sync_state()")
-    FUNCTION(FindTaskContext, "find_task_context()")
-    FUNCTION(BuildTaskQueue, "build_task_queue()")
-    FUNCTION(BuildTaskPrompt, "build_task_prompt()")
-    FUNCTION(TaskIsDone, "task_is_done()")
-}
+' MODULE: AiTaskManager, "maestro/ai/task_sync.py"
+rectangle "load_sync_state()" as LoadSyncState <<Function>>
+rectangle "write_sync_state()" as WriteSyncState <<Function>>
+rectangle "find_task_context()" as FindTaskContext <<Function>>
+rectangle "build_task_queue()" as BuildTaskQueue <<Function>>
+rectangle "build_task_prompt()" as BuildTaskPrompt <<Function>>
+rectangle "task_is_done()" as TaskIsDone <<Function>>
 
-MODULE(BreadcrumbModule, "maestro/breadcrumb.py") {
-    FUNCTION(CreateBreadcrumb, "create_breadcrumb()")
-    FUNCTION(WriteBreadcrumb, "write_breadcrumb()")
-    FUNCTION(EstimateTokens, "estimate_tokens()")
-}
+' MODULE: BreadcrumbModule, "maestro/breadcrumb.py"
+rectangle "create_breadcrumb()" as CreateBreadcrumb <<Function>>
+rectangle "write_breadcrumb()" as WriteBreadcrumb <<Function>>
+rectangle "estimate_tokens()" as EstimateTokens <<Function>>
 
-MODULE(WorkSessionModule, "maestro/work_session.py") {
-    CLASS(WorkSessionClass, "WorkSession")
-    FUNCTION(ListSessions, "list_sessions()")
-    FUNCTION(LoadSession, "load_session()")
-    FUNCTION(SaveSession, "save_session()")
-    ENUM(SessionType, "SessionType")
-    ENUM(SessionStatus, "SessionStatus")
-}
+' MODULE: WorkSessionModule, "maestro/work_session.py"
+rectangle "WorkSession" as WorkSessionClass <<Class>>
+rectangle "list_sessions()" as ListSessions <<Function>>
+rectangle "load_session()" as LoadSession <<Function>>
+rectangle "save_session()" as SaveSession <<Function>>
+rectangle "SessionType" as SessionType <<Enum>>
+rectangle "SessionStatus" as SessionStatus <<Enum>>
 
-MODULE(AiManagerModule, "maestro/ai/manager.py") {
-    CLASS(AiEngineManagerClass, "AiEngineManager")
-}
+' MODULE: AiManagerModule, "maestro/ai/manager.py"
+rectangle "AiEngineManager" as AiEngineManagerClass <<Class>>
 
-MODULE(AiTypesModule, "maestro/ai/types.py") {
-    CLASS(PromptRefClass, "PromptRef")
-    CLASS(RunOptsClass, "RunOpts")
-}
+' MODULE: AiTypesModule, "maestro/ai/types.py"
+rectangle "PromptRef" as PromptRefClass <<Class>>
+rectangle "RunOpts" as RunOptsClass <<Class>>
 
-MODULE(AiRunners, "maestro/ai/runners.py") { ' Renamed from AiManager's calls
-    FUNCTION(RunOneShot, "run_one_shot()")
-    FUNCTION(RunInteractiveChat, "run_interactive_chat()")
-}
+package "maestro/ai/runners.py" as AiRunners <<Module>> { ' Renamed from AiManager's calls
+rectangle "run_one_shot()" as RunOneShot <<Function>>
+rectangle "run_interactive_chat()" as RunInteractiveChat <<Function>>
 
-MODULE(ConfigSettings, "maestro/config/settings.py") {
-    FUNCTION(GetSettings, "get_settings()")
-}
+' MODULE: ConfigSettings, "maestro/config/settings.py"
+rectangle "get_settings()" as GetSettings <<Function>>
 
-MODULE(MaestroQwenClient, "maestro/qwen/client.py") {
-    CLASS(QwenClientClass, "QwenClient")
-    CLASS(QwenClientConfig, "QwenClientConfig")
-    CLASS(MessageHandlers, "MessageHandlers")
+' MODULE: MaestroQwenClient, "maestro/qwen/client.py"
+rectangle "QwenClient" as QwenClientClass <<Class>>
+rectangle "QwenClientConfig" as QwenClientConfig <<Class>>
+rectangle "MessageHandlers" as MessageHandlers <<Class>>
     ' Qwen messages (Init, Conversation, etc.)
-}
 
-MODULE(MaestroQwenTui, "maestro/qwen/tui.py") {
-    FUNCTION(RunTui, "run_tui()")
-}
+' MODULE: MaestroQwenTui, "maestro/qwen/tui.py"
+rectangle "run_tui()" as RunTui <<Function>>
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(ExternalAI, "External AI Service")
-ACTOR(StdIO, "Standard Input/Output")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "External AI Service" as ExternalAI <<Actor>>
+rectangle "Standard Input/Output" as StdIO <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsAiSyncJson, "docs/ai_sync.json")
-DATABASE(DocsSessionsJson, "docs/sessions/<id>/session.json")
-DATABASE(DocsBreadcrumbsJsonL, "docs/sessions/<id>/breadcrumbs.jsonl")
-DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
-DATABASE(QwenScript, "qwen-code.sh")
+rectangle "docs/ai_sync.json" as DocsAiSyncJson <<Database>>
+rectangle "docs/sessions/<id>/session.json" as DocsSessionsJson <<Database>>
+rectangle "docs/sessions/<id>/breadcrumbs.jsonl" as DocsBreadcrumbsJsonL <<Database>>
+rectangle "$HOME/.maestro/settings.json" as SettingsJson <<Database>>
+rectangle "qwen-code.sh" as QwenScript <<Database>>
 
 
 ' --- Relationships and Call Flow ---

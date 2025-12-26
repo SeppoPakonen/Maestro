@@ -2,84 +2,74 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsTrack, "maestro/commands/track.py") {
-    FUNCTION(AddTrackParsers, "add_track_parsers()")
-    FUNCTION(HandleTrackCommand, "handle_track_command()")
-    FUNCTION(ResolveTrackIdentifier, "resolve_track_identifier()")
-    FUNCTION(ListTracks, "list_tracks()")
-    FUNCTION(ShowTrack, "show_track()")
-    FUNCTION(ShowTrackDetails, "show_track_details()")
-    FUNCTION(AddTrack, "add_track()")
-    FUNCTION(RemoveTrack, "remove_track()")
-    FUNCTION(EditTrack, "edit_track()")
-    FUNCTION(SetTrackStatus, "set_track_status()")
-    FUNCTION(SetTrackContext, "set_track_context()")
-    FUNCTION(_EnsureTodoFile, "_ensure_todo_file()")
-    FUNCTION(_ParseTodoSafe, "_parse_todo_safe()")
-    FUNCTION(_SlugifyTrackId, "_slugify_track_id()")
-}
+' MODULE: CommandsTrack, "maestro/commands/track.py"
+rectangle "add_track_parsers()" as AddTrackParsers <<Function>>
+rectangle "handle_track_command()" as HandleTrackCommand <<Function>>
+rectangle "resolve_track_identifier()" as ResolveTrackIdentifier <<Function>>
+rectangle "list_tracks()" as ListTracks <<Function>>
+rectangle "show_track()" as ShowTrack <<Function>>
+rectangle "show_track_details()" as ShowTrackDetails <<Function>>
+rectangle "add_track()" as AddTrack <<Function>>
+rectangle "remove_track()" as RemoveTrack <<Function>>
+rectangle "edit_track()" as EditTrack <<Function>>
+rectangle "set_track_status()" as SetTrackStatus <<Function>>
+rectangle "set_track_context()" as SetTrackContext <<Function>>
+rectangle "_ensure_todo_file()" as _EnsureTodoFile <<Function>>
+rectangle "_parse_todo_safe()" as _ParseTodoSafe <<Function>>
+rectangle "_slugify_track_id()" as _SlugifyTrackId <<Function>>
 
 ' Data Storage and Models
-MODULE(DataCommonUtils, "maestro/data/common_utils.py") {
-    FUNCTION(GetAllTracks, "get_all_tracks_with_phases_and_tasks()")
-    FUNCTION(ResolveIdentifierByType, "resolve_identifier_by_type()")
-}
+' MODULE: DataCommonUtils, "maestro/data/common_utils.py"
+rectangle "get_all_tracks_with_phases_and_tasks()" as GetAllTracks <<Function>>
+rectangle "resolve_identifier_by_type()" as ResolveIdentifierByType <<Function>>
 
-MODULE(DataMarkdownWriter, "maestro/data/markdown_writer.py") {
-    FUNCTION(ExtractTrackBlock, "extract_track_block()")
-    FUNCTION(ReplaceTrackBlock, "replace_track_block()")
-    FUNCTION(UpdateTrackMetadata, "update_track_metadata()")
-    FUNCTION(UpdateTrackHeadingStatus, "update_track_heading_status()")
-}
+' MODULE: DataMarkdownWriter, "maestro/data/markdown_writer.py"
+rectangle "extract_track_block()" as ExtractTrackBlock <<Function>>
+rectangle "replace_track_block()" as ReplaceTrackBlock <<Function>>
+rectangle "update_track_metadata()" as UpdateTrackMetadata <<Function>>
+rectangle "update_track_heading_status()" as UpdateTrackHeadingStatus <<Function>>
 
-MODULE(TracksJsonStore, "maestro/tracks/json_store.py") {
-    CLASS(JsonStoreClass, "JsonStore")
-    FUNCTION(LoadTrack, "load_track()")
-    FUNCTION(SaveTrack, "save_track()")
-    FUNCTION(LoadIndex, "load_index()")
-    FUNCTION(SaveIndex, "save_index()")
-}
+' MODULE: TracksJsonStore, "maestro/tracks/json_store.py"
+rectangle "JsonStore" as JsonStoreClass <<Class>>
+rectangle "load_track()" as LoadTrack <<Function>>
+rectangle "save_track()" as SaveTrack <<Function>>
+rectangle "load_index()" as LoadIndex <<Function>>
+rectangle "save_index()" as SaveIndex <<Function>>
 
-MODULE(TracksModels, "maestro/tracks/models.py") {
-    CLASS(TrackClass, "Track")
-}
+' MODULE: TracksModels, "maestro/tracks/models.py"
+rectangle "Track" as TrackClass <<Class>>
 
 ' Display and Utility
-MODULE(DisplayTableRenderer, "maestro/display/table_renderer.py") {
-    FUNCTION(RenderTrackTable, "render_track_table()")
-    FUNCTION(RenderPhaseTable, "render_phase_table()")
-}
+' MODULE: DisplayTableRenderer, "maestro/display/table_renderer.py"
+rectangle "render_track_table()" as RenderTrackTable <<Function>>
+rectangle "render_phase_table()" as RenderPhaseTable <<Function>>
 
-MODULE(ConfigSettings, "maestro/config/settings.py") {
-    FUNCTION(GetSettings, "get_settings()")
-}
+' MODULE: ConfigSettings, "maestro/config/settings.py"
+rectangle "get_settings()" as GetSettings <<Function>>
 
-MODULE(StatusUtils, "maestro/commands/status_utils.py") {
-    FUNCTION(NormalizeStatus, "normalize_status()")
-    FUNCTION(AllowedStatuses, "allowed_statuses()")
-    FUNCTION(StatusBadge, "status_badge()")
-    FUNCTION(StatusTimestamp, "status_timestamp()")
-}
+' MODULE: StatusUtils, "maestro/commands/status_utils.py"
+rectangle "normalize_status()" as NormalizeStatus <<Function>>
+rectangle "allowed_statuses()" as AllowedStatuses <<Function>>
+rectangle "status_badge()" as StatusBadge <<Function>>
+rectangle "status_timestamp()" as StatusTimestamp <<Function>>
 
-MODULE(CommandsDiscuss, "maestro/commands/discuss.py") {
-    FUNCTION(HandleTrackDiscuss, "handle_track_discuss()")
-}
+' MODULE: CommandsDiscuss, "maestro/commands/discuss.py"
+rectangle "handle_track_discuss()" as HandleTrackDiscuss <<Function>>
 
 ' External Dependencies
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(FileSystem, "File System")
-ACTOR(Subprocess, "subprocess module")
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsTodoMd, "docs/todo.md")
-DATABASE(DocsDoneMd, "docs/done.md")
-DATABASE(MaestroTracksJson, ".maestro/tracks/*.json")
-DATABASE(MaestroTracksIndexJson, ".maestro/tracks/index.json")
-DATABASE(SettingsJson, "$HOME/.maestro/settings.json")
+rectangle "docs/todo.md" as DocsTodoMd <<Database>>
+rectangle "docs/done.md" as DocsDoneMd <<Database>>
+rectangle ".maestro/tracks/*.json" as MaestroTracksJson <<Database>>
+rectangle ".maestro/tracks/index.json" as MaestroTracksIndexJson <<Database>>
+rectangle "$HOME/.maestro/settings.json" as SettingsJson <<Database>>
 
 
 ' --- Relationships and Call Flow ---

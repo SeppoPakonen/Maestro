@@ -2,74 +2,66 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsRepo, "maestro/commands/repo.py") {
-    FUNCTION(AddRepoParser, "add_repo_parser()")
-    FUNCTION(HandleRepoCommand, "handle_repo_command()")
-    FUNCTION(FindRepoRoot, "find_repo_root()")
-    FUNCTION(WriteRepoArtifacts, "write_repo_artifacts()")
-    FUNCTION(LoadRepoIndex, "load_repo_index()")
-    FUNCTION(BuildRepoHierarchy, "build_repo_hierarchy()")
-    FUNCTION(SaveHierarchy, "save_hierarchy()")
-    FUNCTION(LoadHierarchy, "load_hierarchy()")
-    FUNCTION(LoadHierarchyOverrides, "load_hierarchy_overrides()")
-    FUNCTION(MergeHierarchyOverrides, "merge_hierarchy_overrides()")
-    FUNCTION(PrintHierarchyTree, "print_hierarchy_tree()")
-    FUNCTION(HandleRepoPkgList, "handle_repo_pkg_list()")
-    FUNCTION(HandleRepoPkgInfo, "handle_repo_pkg_info()")
-    FUNCTION(HandleRepoPkgFiles, "handle_repo_pkg_files()")
-    FUNCTION(HandleRepoPkgGroups, "handle_repo_pkg_groups()")
-    FUNCTION(HandleRepoPkgSearch, "handle_repo_pkg_search()")
-    FUNCTION(HandleRepoPkgTree, "handle_repo_pkg_tree()")
-    FUNCTION(HandleRepoPkgConf, "handle_repo_pkg_conf()")
-    FUNCTION(HandleRepoRefreshAll, "handle_repo_refresh_all()")
-    FUNCTION(HandleRepoHierEdit, "handle_repo_hier_edit()")
-    FUNCTION(HandleRepoHier, "handle_repo_hier()")
-    FUNCTION(HandleRepoConventionsDetect, "handle_repo_conventions_detect()")
-    FUNCTION(HandleRepoConventionsShow, "handle_repo_conventions_show()")
-    FUNCTION(HandleRepoRulesShow, "handle_repo_rules_show()")
-    FUNCTION(HandleRepoRulesEdit, "handle_repo_rules_edit()")
-    FUNCTION(HandleRepoRulesInject, "handle_repo_rules_inject()")
-}
+' MODULE: CommandsRepo, "maestro/commands/repo.py"
+rectangle "add_repo_parser()" as AddRepoParser <<Function>>
+rectangle "handle_repo_command()" as HandleRepoCommand <<Function>>
+rectangle "find_repo_root()" as FindRepoRoot <<Function>>
+rectangle "write_repo_artifacts()" as WriteRepoArtifacts <<Function>>
+rectangle "load_repo_index()" as LoadRepoIndex <<Function>>
+rectangle "build_repo_hierarchy()" as BuildRepoHierarchy <<Function>>
+rectangle "save_hierarchy()" as SaveHierarchy <<Function>>
+rectangle "load_hierarchy()" as LoadHierarchy <<Function>>
+rectangle "load_hierarchy_overrides()" as LoadHierarchyOverrides <<Function>>
+rectangle "merge_hierarchy_overrides()" as MergeHierarchyOverrides <<Function>>
+rectangle "print_hierarchy_tree()" as PrintHierarchyTree <<Function>>
+rectangle "handle_repo_pkg_list()" as HandleRepoPkgList <<Function>>
+rectangle "handle_repo_pkg_info()" as HandleRepoPkgInfo <<Function>>
+rectangle "handle_repo_pkg_files()" as HandleRepoPkgFiles <<Function>>
+rectangle "handle_repo_pkg_groups()" as HandleRepoPkgGroups <<Function>>
+rectangle "handle_repo_pkg_search()" as HandleRepoPkgSearch <<Function>>
+rectangle "handle_repo_pkg_tree()" as HandleRepoPkgTree <<Function>>
+rectangle "handle_repo_pkg_conf()" as HandleRepoPkgConf <<Function>>
+rectangle "handle_repo_refresh_all()" as HandleRepoRefreshAll <<Function>>
+rectangle "handle_repo_hier_edit()" as HandleRepoHierEdit <<Function>>
+rectangle "handle_repo_hier()" as HandleRepoHier <<Function>>
+rectangle "handle_repo_conventions_detect()" as HandleRepoConventionsDetect <<Function>>
+rectangle "handle_repo_conventions_show()" as HandleRepoConventionsShow <<Function>>
+rectangle "handle_repo_rules_show()" as HandleRepoRulesShow <<Function>>
+rectangle "handle_repo_rules_edit()" as HandleRepoRulesEdit <<Function>>
+rectangle "handle_repo_rules_inject()" as HandleRepoRulesInject <<Function>>
 
 ' Repo Subsystem Modules (defined in subsystem_repo_resolve)
-MODULE(ScannerModule, "maestro/repo/scanner.py") {
-    FUNCTION(ScanUppRepoV2, "scan_upp_repo_v2()")
-}
+' MODULE: ScannerModule, "maestro/repo/scanner.py"
+rectangle "scan_upp_repo_v2()" as ScanUppRepoV2 <<Function>>
 
-MODULE(PackageModule, "maestro/repo/package.py") {
-    CLASS(PackageInfoClass, "PackageInfo")
-    CLASS(FileGroupClass, "FileGroup")
-}
+' MODULE: PackageModule, "maestro/repo/package.py"
+rectangle "PackageInfo" as PackageInfoClass <<Class>>
+rectangle "FileGroup" as FileGroupClass <<Class>>
 
-MODULE(BuildConfigModule, "maestro/repo/build_config.py") {
-    FUNCTION(GetPackageConfig, "get_package_config()")
-}
+' MODULE: BuildConfigModule, "maestro/repo/build_config.py"
+rectangle "get_package_config()" as GetPackageConfig <<Function>>
 
-MODULE(UppConditionsModule, "maestro/repo/upp_conditions.py") {
-    FUNCTION(MatchWhen, "match_when()")
-}
+' MODULE: UppConditionsModule, "maestro/repo/upp_conditions.py"
+rectangle "match_when()" as MatchWhen <<Function>>
 
-MODULE(GlobalIndexModule, "maestro/global_index.py") {
-    FUNCTION(UpdateGlobalRepoIndex, "update_global_repo_index()")
-}
+' MODULE: GlobalIndexModule, "maestro/global_index.py"
+rectangle "update_global_repo_index()" as UpdateGlobalRepoIndex <<Function>>
 
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' Uses print_header, print_info, print_success, print_error, print_warning, print_debug, Colors
-}
 
 ' External Dependencies
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(FileSystem, "File System")
-ACTOR(Subprocess, "subprocess module")
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATASTORE(MaestroRepoDir, ".maestro/repo/")
-DATASTORE(DocsRepoRulesMd, "docs/RepoRules.md")
-DATASTORE(GlobalIndexFile, "$HOME/.maestro/repos.json")
+rectangle ".maestro/repo/" as MaestroRepoDir <<Data Store>>
+rectangle "docs/RepoRules.md" as DocsRepoRulesMd <<Data Store>>
+rectangle "$HOME/.maestro/repos.json" as GlobalIndexFile <<Data Store>>
 
 ' --- Relationships ---
 

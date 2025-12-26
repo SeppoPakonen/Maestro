@@ -2,73 +2,66 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsIssues, "maestro/commands/issues.py") {
-    FUNCTION(AddIssuesParser, "add_issues_parser()")
-    FUNCTION(HandleIssuesCommand, "handle_issues_command()")
-    FUNCTION(_HandleList, "_handle_list()")
-    FUNCTION(_HandleShow, "_handle_show()")
-    FUNCTION(_HandleState, "_handle_state()")
-    FUNCTION(_HandleRollback, "_handle_rollback()")
-    FUNCTION(_HandleReact, "_handle_react()")
-    FUNCTION(_HandleAnalyze, "_handle_analyze()")
-    FUNCTION(_HandleDecide, "_handle_decide()")
-    FUNCTION(_HandleFix, "_handle_fix()")
-    FUNCTION(_FindRepoRoot, "_find_repo_root()")
-    FUNCTION(_FindIssuePath, "_find_issue_path()")
-    FUNCTION(_ExtractConfidence, "_extract_confidence()")
-    FUNCTION(_FirstSentence, "_first_sentence()")
-    FUNCTION(_CreateFixSession, "_create_fix_session()")
-}
+' MODULE: CommandsIssues, "maestro/commands/issues.py"
+rectangle "add_issues_parser()" as AddIssuesParser <<Function>>
+rectangle "handle_issues_command()" as HandleIssuesCommand <<Function>>
+rectangle "_handle_list()" as _HandleList <<Function>>
+rectangle "_handle_show()" as _HandleShow <<Function>>
+rectangle "_handle_state()" as _HandleState <<Function>>
+rectangle "_handle_rollback()" as _HandleRollback <<Function>>
+rectangle "_handle_react()" as _HandleReact <<Function>>
+rectangle "_handle_analyze()" as _HandleAnalyze <<Function>>
+rectangle "_handle_decide()" as _HandleDecide <<Function>>
+rectangle "_handle_fix()" as _HandleFix <<Function>>
+rectangle "_find_repo_root()" as _FindRepoRoot <<Function>>
+rectangle "_find_issue_path()" as _FindIssuePath <<Function>>
+rectangle "_extract_confidence()" as _ExtractConfidence <<Function>>
+rectangle "_first_sentence()" as _FirstSentence <<Function>>
+rectangle "_create_fix_session()" as _CreateFixSession <<Function>>
 
 ' Issue Subsystem Modules
-MODULE(IssuesStore, "maestro/issues/issue_store.py") {
-    FUNCTION(ListIssues, "list_issues()")
-    FUNCTION(LoadIssue, "load_issue()")
-    FUNCTION(UpdateIssueState, "update_issue_state()")
-    FUNCTION(RollbackIssueState, "rollback_issue_state()")
-    FUNCTION(UpdateIssueMetadata, "update_issue_metadata()")
-    FUNCTION(UpdateIssuePriority, "update_issue_priority()")
-    FUNCTION(UpdateIssueSection, "update_issue_section()")
-    CLASS(IssueDetailsClass, "IssueDetails")
-    FUNCTION(GenerateIssueId, "generate_issue_id()")
-    FUNCTION(WriteIssue, "write_issue()")
-}
+' MODULE: IssuesStore, "maestro/issues/issue_store.py"
+rectangle "list_issues()" as ListIssues <<Function>>
+rectangle "load_issue()" as LoadIssue <<Function>>
+rectangle "update_issue_state()" as UpdateIssueState <<Function>>
+rectangle "rollback_issue_state()" as RollbackIssueState <<Function>>
+rectangle "update_issue_metadata()" as UpdateIssueMetadata <<Function>>
+rectangle "update_issue_priority()" as UpdateIssuePriority <<Function>>
+rectangle "update_issue_section()" as UpdateIssueSection <<Function>>
+rectangle "IssueDetails" as IssueDetailsClass <<Class>>
+rectangle "generate_issue_id()" as GenerateIssueId <<Function>>
+rectangle "write_issue()" as WriteIssue <<Function>>
 
-MODULE(IssuesModel, "maestro/issues/model.py") {
-    CLASS(IssueRecordClass, "IssueRecord")
+' MODULE: IssuesModel, "maestro/issues/model.py"
+rectangle "IssueRecord" as IssueRecordClass <<Class>>
     RECTANGLE(IssueTypes, "ISSUE_TYPES")
     RECTANGLE(IssueStates, "ISSUE_STATES")
     RECTANGLE(StateTransitions, "STATE_TRANSITIONS")
-    FUNCTION(CanTransition, "can_transition()")
-}
+rectangle "can_transition()" as CanTransition <<Function>>
 
-MODULE(SolutionsStore, "maestro/solutions/solution_store.py") {
-    FUNCTION(MatchSolutions, "match_solutions()")
-    CLASS(SolutionMatchClass, "SolutionMatch")
-}
+' MODULE: SolutionsStore, "maestro/solutions/solution_store.py"
+rectangle "match_solutions()" as MatchSolutions <<Function>>
+rectangle "SolutionMatch" as SolutionMatchClass <<Class>>
 
 ' AI Integration
-MODULE(AiClient, "maestro/ai/client.py") {
-    CLASS(ExternalCommandClient, "ExternalCommandClient")
-}
+' MODULE: AiClient, "maestro/ai/client.py"
+rectangle "ExternalCommandClient" as ExternalCommandClient <<Class>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_header, print_error etc.
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(ExternalAI, "External AI Service")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "External AI Service" as ExternalAI <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsIssuesMd, "docs/issues/<id>.md")
-DATABASE(DocsSolutionsMd, "docs/solutions/<id>.md")
-DATABASE(DocsSessionsMd, "docs/sessions/<id>-fix-<timestamp>.md")
+rectangle "docs/issues/<id>.md" as DocsIssuesMd <<Database>>
+rectangle "docs/solutions/<id>.md" as DocsSolutionsMd <<Database>>
+rectangle "docs/sessions/<id>-fix-<timestamp>.md" as DocsSessionsMd <<Database>>
 
 ' --- Relationships and Call Flow ---
 

@@ -2,46 +2,42 @@
 !include _shared.puml
 
 ' Core Command Modules
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CommandsSolutions, "maestro/commands/solutions.py") {
-    FUNCTION(AddSolutionsParser, "add_solutions_parser()")
-    FUNCTION(HandleSolutionsCommand, "handle_solutions_command()")
-    FUNCTION(_HandleList, "_handle_list()")
-    FUNCTION(_HandleShow, "_handle_show()")
-    FUNCTION(_HandleAdd, "_handle_add()")
-    FUNCTION(_HandleRemove, "_handle_remove()")
-    FUNCTION(_HandleEdit, "_handle_edit()")
-    FUNCTION(_FindSolutionPath, "_find_solution_path()")
-    FUNCTION(_OpenEditor, "_open_editor()")
-    FUNCTION(_FindRepoRoot, "_find_repo_root()")
-}
+' MODULE: CommandsSolutions, "maestro/commands/solutions.py"
+rectangle "add_solutions_parser()" as AddSolutionsParser <<Function>>
+rectangle "handle_solutions_command()" as HandleSolutionsCommand <<Function>>
+rectangle "_handle_list()" as _HandleList <<Function>>
+rectangle "_handle_show()" as _HandleShow <<Function>>
+rectangle "_handle_add()" as _HandleAdd <<Function>>
+rectangle "_handle_remove()" as _HandleRemove <<Function>>
+rectangle "_handle_edit()" as _HandleEdit <<Function>>
+rectangle "_find_solution_path()" as _FindSolutionPath <<Function>>
+rectangle "_open_editor()" as _OpenEditor <<Function>>
+rectangle "_find_repo_root()" as _FindRepoRoot <<Function>>
 
 ' Solutions Subsystem Modules
-MODULE(SolutionsStore, "maestro/solutions/solution_store.py") {
-    FUNCTION(ListSolutions, "list_solutions()")
-    FUNCTION(ListExternalSolutions, "list_external_solutions()")
-    FUNCTION(LoadSolution, "load_solution()")
-    FUNCTION(WriteSolution, "write_solution()")
-    FUNCTION(DeleteSolution, "delete_solution()")
-    CLASS(SolutionDetailsClass, "SolutionDetails")
-    CLASS(SolutionRecordClass, "SolutionRecord")
-}
+' MODULE: SolutionsStore, "maestro/solutions/solution_store.py"
+rectangle "list_solutions()" as ListSolutions <<Function>>
+rectangle "list_external_solutions()" as ListExternalSolutions <<Function>>
+rectangle "load_solution()" as LoadSolution <<Function>>
+rectangle "write_solution()" as WriteSolution <<Function>>
+rectangle "delete_solution()" as DeleteSolution <<Function>>
+rectangle "SolutionDetails" as SolutionDetailsClass <<Class>>
+rectangle "SolutionRecord" as SolutionRecordClass <<Class>>
 
 ' Utility Modules
-MODULE(MaestroUtils, "maestro/modules/utils.py") {
+' MODULE: MaestroUtils, "maestro/modules/utils.py"
     ' print_header, print_error etc.
-}
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
-ACTOR(Editor, "User's $EDITOR")
-ACTOR(Subprocess, "subprocess module")
+rectangle "File System" as FileSystem <<Actor>>
+rectangle "User's $EDITOR" as Editor <<Actor>>
+rectangle "subprocess module" as Subprocess <<Actor>>
 
 ' Persistent Stores
-DATABASE(DocsSolutionsMd, "docs/solutions/<id>.md")
+rectangle "docs/solutions/<id>.md" as DocsSolutionsMd <<Database>>
 
 
 ' --- Relationships and Call Flow ---

@@ -1,31 +1,26 @@
 @startuml cmd_help_deep
 !include _shared.puml
 
-MODULE(MaestroMain, "maestro/main.py") {
-    FUNCTION(MainEntry, "main()")
-}
+' MODULE: MaestroMain, "maestro/main.py"
+rectangle "main()" as MainEntry <<Function>>
 
-MODULE(CLIParser, "maestro/modules/cli_parser.py") {
-    FUNCTION(CreateParser, "create_main_parser()")
-    FUNCTION(StyledArgParser_print_help, "StyledArgumentParser.print_help()")
-    FUNCTION(StyledArgParser_format_help, "StyledArgumentParser.format_help()")
-    FUNCTION(FilterSuppressedHelp, "_filter_suppressed_help()")
-}
+' MODULE: CLIParser, "maestro/modules/cli_parser.py"
+rectangle "create_main_parser()" as CreateParser <<Function>>
+rectangle "StyledArgumentParser.print_help()" as StyledArgParser_print_help <<Function>>
+rectangle "StyledArgumentParser.format_help()" as StyledArgParser_format_help <<Function>>
+rectangle "_filter_suppressed_help()" as FilterSuppressedHelp <<Function>>
 
-MODULE(Utils, "maestro/modules/utils.py") {
-    FUNCTION(StyledPrint, "styled_print()")
-    FUNCTION(PrintSubheader, "print_subheader()")
-    CLASS(ColorsConst, "Colors")
-}
+' MODULE: Utils, "maestro/modules/utils.py"
+rectangle "styled_print()" as StyledPrint <<Function>>
+rectangle "print_subheader()" as PrintSubheader <<Function>>
+rectangle "Colors" as ColorsConst <<Class>>
 
-MODULE(Pyfiglet, "pyfiglet (optional)") {
-    FUNCTION(FigletFormat, "figlet_format()")
-}
+' MODULE: Pyfiglet, "pyfiglet (optional)"
+rectangle "figlet_format()" as FigletFormat <<Function>>
 
-MODULE(Argparse, "argparse Library") {
-    FUNCTION(ArgParser_parse_args, "ArgumentParser.parse_args()")
-    FUNCTION(ArgParser_format_help, "ArgumentParser.format_help()")
-}
+' MODULE: Argparse, "argparse Library"
+rectangle "ArgumentParser.parse_args()" as ArgParser_parse_args <<Function>>
+rectangle "ArgumentParser.format_help()" as ArgParser_format_help <<Function>>
 
 MainEntry --> CreateParser : "1. Initialize parser"
 CreateParser --> ArgParser_parse_args : "2. Returns parser, parse args"
