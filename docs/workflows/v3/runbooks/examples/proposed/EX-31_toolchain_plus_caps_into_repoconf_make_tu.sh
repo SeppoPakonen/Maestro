@@ -35,8 +35,8 @@ run maestro platform caps prefer vulkan --scope project
 # GATES: REPO_TRUTH_FORMAT_IS_JSON
 
 # Resolve repo context
-# TODO_CMD: maestro repo resolve --level deep
-run maestro repo resolve --level deep
+# TODO_CMD: maestro repo resolve deep
+run maestro repo resolve deep
 # EXPECT: repo resolved to targets
 # STORES: REPO_TRUTH_DOCS_MAESTRO HOME_HUB_REPO
 # GATES: REPO_TRUTH_FORMAT_IS_JSON

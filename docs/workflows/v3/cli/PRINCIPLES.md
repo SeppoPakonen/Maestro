@@ -1,5 +1,8 @@
 # v3 CLI Principles (Normative)
 
+Canonical command shapes are locked in `docs/workflows/v3/cli/SIGNATURES.md`.
+Hard gates and lifecycle rules live in `docs/workflows/v3/cli/INVARIANTS.md`.
+
 ## Help rule
 
 - Any bare keyword (e.g., `maestro repo`) prints full extended help for that subtree and exits 0.

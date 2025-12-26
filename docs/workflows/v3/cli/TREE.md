@@ -1,6 +1,7 @@
 # v3 CLI Tree (Normative)
 
 This is the proposed v3 command tree. Verbs are short; keyword namespaces carry specificity.
+Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard gates are listed in `docs/workflows/v3/cli/INVARIANTS.md`.
 
 ## Top-level
 

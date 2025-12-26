@@ -11,6 +11,12 @@
 - Toolchain profiles exist in hub
 - Optional: repo already resolved
 
+## Gates / IDs / Stores
+
+- Gates: `GATE_TOOLCHAIN_SELECTED`, `GATE_CAPS_DETECTED`, `GATE_REPOCONF_PRESENT`, `GATE_REQUIRE_CAPS_SATISFIED`, `GATE_BUILD_OK`, `GATE_TU_READY`
+- IDs/cookies/resume tokens: none
+- Stores: `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO`
+
 ---
 
 ## Runbook Steps
@@ -21,7 +27,7 @@
 | 2 | `maestro select toolchain set <profile> --scope project` | Choose toolchain profile | Toolchain reference stored in repo | `GATE_TOOLCHAIN_SELECTED` | `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO` |
 | 3 | `maestro platform caps detect` | Detect capabilities under toolchain | Detection cached in hub | `GATE_CAPS_DETECTED` | `HOME_HUB_REPO` |
 | 4 | `maestro platform caps prefer vulkan --scope project` | Prefer optional Vulkan | Policy stored; missing OK | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
-| 5 | `maestro repo resolve --level deep` | Resolve repo context | Repo resolved to targets | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO` |
+| 5 | `maestro repo resolve deep` | Resolve repo context | Repo resolved to targets | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO` |
 | 6 | `maestro repo conf select-default target <t>` | Select target configuration | RepoConf present | `GATE_REPOCONF_PRESENT` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 7 | `maestro make` | Build with prefer policy | Build succeeds; Vulkan enabled if present | `GATE_BUILD_OK` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 8 | `maestro tu build` | Generate TU/AST artifacts | TU build succeeds | `GATE_TU_READY` | `REPO_TRUTH_DOCS_MAESTRO` |
@@ -61,7 +67,7 @@
 - `TODO_CMD: maestro select toolchain set <profile> --scope project`
 - `TODO_CMD: maestro platform caps detect`
 - `TODO_CMD: maestro platform caps prefer vulkan --scope project`
-- `TODO_CMD: maestro repo resolve --level deep`
+- `TODO_CMD: maestro repo resolve deep`
 - `TODO_CMD: maestro repo conf select-default target <t>`
 - `TODO_CMD: maestro make`
 - `TODO_CMD: maestro tu build`
@@ -89,7 +95,7 @@ trace:
       gates: [REPO_TRUTH_FORMAT_IS_JSON]
       stores: [REPO_TRUTH_DOCS_MAESTRO]
     - step: repo_resolve
-      command: "maestro repo resolve --level deep"
+      command: "maestro repo resolve deep"
       gates: [REPO_TRUTH_FORMAT_IS_JSON]
       stores: [REPO_TRUTH_DOCS_MAESTRO, HOME_HUB_REPO]
     - step: repoconf_select
@@ -119,7 +125,7 @@ cli_gaps:
   - "maestro select toolchain set <profile> --scope project"
   - "maestro platform caps detect"
   - "maestro platform caps prefer vulkan --scope project"
-  - "maestro repo resolve --level deep"
+  - "maestro repo resolve deep"
   - "maestro repo conf select-default target <t>"
   - "maestro make"
   - "maestro tu build"

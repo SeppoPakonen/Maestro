@@ -20,14 +20,15 @@ run maestro select toolchain show --scope project
 
 echo ""
 echo "=== Step 3: Export environment snippet ==="
-run TODO_CMD: maestro select toolchain export --format env --out ./docs/maestro/toolchain.env
+# TODO_CMD: maestro select toolchain export --format env --out ./docs/maestro/toolchain.env
+run maestro select toolchain export --format env --out ./docs/maestro/toolchain.env
 # EXPECT: Exported env with include/lib paths
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # GATES: TOOLCHAIN_PROFILE_EXISTS
 
 echo ""
 echo "=== Step 4: Build with baseline toolchain ==="
-run TODO_CMD: maestro make
+run maestro make
 # EXPECT: Build succeeds with system toolchain
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # GATES: REPOCONF_GATE
@@ -41,21 +42,23 @@ run maestro select toolchain set android_ndk_r25 --scope project
 
 echo ""
 echo "=== Step 6: Export SDK environment snippet ==="
-run TODO_CMD: maestro select toolchain export --format env
+# TODO_CMD: maestro select toolchain export --format env --out ./docs/maestro/toolchain-android.env
+run maestro select toolchain export --format env --out ./docs/maestro/toolchain-android.env
 # EXPECT: Export includes SDK sysroot paths
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # GATES: TOOLCHAIN_PROFILE_EXISTS
 
 echo ""
 echo "=== Step 7: Build with SDK toolchain ==="
-run TODO_CMD: maestro make
+run maestro make
 # EXPECT: Build uses toolchain-local libs (SDK/sysroot)
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # GATES: REPOCONF_GATE
 
 echo ""
 echo "=== Outcome: Missing profile ==="
-run TODO_CMD: maestro select toolchain detect
+# TODO_CMD: maestro select toolchain detect
+run maestro select toolchain detect
 # EXPECT: List detected profiles or suggest hub install
 # STORES_READ: HOME_HUB_REPO
 # GATES: TOOLCHAIN_PROFILE_DISCOVERY

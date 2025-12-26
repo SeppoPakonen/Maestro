@@ -162,3 +162,43 @@ Entries derived from the v2 runbook audit. Status is `proposed` until implemente
   Status: proposed
   Acceptance criteria: when a required cap is missing, list candidate toolchain profiles that could provide it.
   Notes: Use hub profile metadata as the source.
+
+- ID: LED-0024
+  Title: Enforce repoconf/target gate before make
+  Rationale: Required by `docs/workflows/v3/cli/INVARIANTS.md` and `docs/workflows/v3/runbooks/examples/proposed/EX-29_select_toolchain_profiles.md`.
+  Status: proposed
+  Priority: P0
+  Acceptance criteria: `maestro make` refuses to run without a resolved repo and selected target, and prints next-step guidance.
+  Notes: Gate should be consistent with `repo conf select-default target`.
+
+- ID: LED-0025
+  Title: Enforce TU readiness gate
+  Rationale: Required by `docs/workflows/v3/cli/INVARIANTS.md` and `docs/workflows/v3/runbooks/examples/proposed/EX-31_toolchain_plus_caps_into_repoconf_make_tu.md`.
+  Status: proposed
+  Priority: P0
+  Acceptance criteria: `maestro tu build` fails if repoconf or toolchain selection is missing; error points to the required commands.
+  Notes: Gate aligns with `GATE_TU_READY`.
+
+- ID: LED-0026
+  Title: Require wsession cookie for breadcrumb ops
+  Rationale: Required by `docs/workflows/v3/cli/SIGNATURES.md` and `docs/workflows/v3/cli/INVARIANTS.md`.
+  Status: proposed
+  Priority: P0
+  Acceptance criteria: `maestro wsession breadcrumb add` rejects missing cookie with a clear message; `wsession show` reveals the cookie.
+  Notes: Keep cookie semantics explicit in help output.
+
+- ID: LED-0027
+  Title: Work session open/close lifecycle enforcement
+  Rationale: Required by `docs/workflows/v3/cli/INVARIANTS.md` and `docs/workflows/v2/runbooks/examples/proposed/EX-19_managed_mode_resume_stacking_subwork_sessions.md`.
+  Status: proposed
+  Priority: P0
+  Acceptance criteria: operations on closed sessions are blocked; `work start` and `work close` update state deterministically.
+  Notes: Resume tokens expire on close.
+
+- ID: LED-0028
+  Title: Discuss JSON hard gate
+  Rationale: Required by `docs/workflows/v3/cli/INVARIANTS.md` and EX-21..EX-28 discuss runbooks.
+  Status: proposed
+  Priority: P0
+  Acceptance criteria: invalid JSON on `/done` hard-stops OPS application and records a failure event.
+  Notes: Provide a retry prompt with schema hint.

@@ -11,6 +11,12 @@
 - Repo initialized
 - Optional toolchain selection may be active
 
+## Gates / IDs / Stores
+
+- Gates: `REPO_TRUTH_FORMAT_IS_JSON`, `CAP_DETECT`, `CAP_REQUIRE`, `REPOCONF_GATE`
+- IDs/cookies/resume tokens: none
+- Stores: `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO`
+
 ---
 
 ## Runbook Steps

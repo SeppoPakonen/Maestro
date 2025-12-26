@@ -11,6 +11,12 @@
 - Repo initialized
 - Toolchain profiles exist in hub or are detectable
 
+## Gates / IDs / Stores
+
+- Gates: `REPO_TRUTH_FORMAT_IS_JSON`, `TOOLCHAIN_PROFILE_EXISTS`, `REPOCONF_GATE`
+- IDs/cookies/resume tokens: none
+- Stores: `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO`
+
 ---
 
 ## Runbook Steps
@@ -19,10 +25,10 @@
 |------|---------|--------|----------|-------|--------|
 | 1 | `maestro select toolchain set system --scope project` | Use system toolchain for baseline | Toolchain profile recorded in repo truth | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 2 | `maestro select toolchain show --scope project` | Confirm selection | Active toolchain profile shown | `TOOLCHAIN_PROFILE_EXISTS` | `REPO_TRUTH_DOCS_MAESTRO` |
-| 3 | `maestro select toolchain export --format env` | Generate env snippet | Exported env contains include/lib paths | `TOOLCHAIN_PROFILE_EXISTS` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 3 | `maestro select toolchain export --format env --out ./docs/maestro/toolchain.env` | Generate env snippet | Exported env contains include/lib paths | `TOOLCHAIN_PROFILE_EXISTS` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 4 | `maestro make` | Build with baseline toolchain | Build succeeds | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 5 | `maestro select toolchain set android_ndk_r25 --scope project` | Switch to SDK toolchain | Project selection updated | `TOOLCHAIN_PROFILE_EXISTS` | `REPO_TRUTH_DOCS_MAESTRO` |
-| 6 | `maestro select toolchain export --format env` | Verify SDK paths | Export includes NDK sysroot paths | `TOOLCHAIN_PROFILE_EXISTS` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 6 | `maestro select toolchain export --format env --out ./docs/maestro/toolchain-android.env` | Verify SDK paths | Export includes NDK sysroot paths | `TOOLCHAIN_PROFILE_EXISTS` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 7 | `maestro make` | Build with SDK toolchain | Build uses toolchain-local libs | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
 
 ---
@@ -67,7 +73,7 @@ trace:
       gates: [REPO_TRUTH_FORMAT_IS_JSON]
       stores: [REPO_TRUTH_DOCS_MAESTRO]
     - step: export_env
-      command: "maestro select toolchain export --format env"
+      command: "maestro select toolchain export --format env --out ./docs/maestro/toolchain.env"
       gates: [TOOLCHAIN_PROFILE_EXISTS]
       stores: [REPO_TRUTH_DOCS_MAESTRO]
     - step: build_with_toolchain

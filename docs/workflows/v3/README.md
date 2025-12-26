@@ -7,3 +7,6 @@ of required implementation work for a credible v3 CLI.
 - reports/: audits, command registry, and synthesis summaries
 - runbooks/: curated examples and input snapshots for traceability
 - IMPLEMENTATION_LEDGER.md: proposed code changes and acceptance criteria
+- cli/SIGNATURES.md: canonical command shapes for runbooks
+- cli/INVARIANTS.md: hard gates and lifecycle rules
+- runbooks/TEMPLATE.md: runbook authoring template
