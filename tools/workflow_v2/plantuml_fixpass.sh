@@ -3,6 +3,9 @@ set -euo pipefail
 
 mapfile -t FILES < <(find docs/workflows/v2 -name '*.puml' | sort)
 
+OUTPUT_DIR="$(pwd)/docs/workflows/v2/generated/svg"
+mkdir -p "$OUTPUT_DIR"
+
 FAIL_LOG="docs/workflows/v2/reports/plantuml_failures.log"
 : > "$FAIL_LOG"
 
@@ -11,7 +14,7 @@ ok=0
 failed=0
 
 for file in "${FILES[@]}"; do
-  if /usr/bin/plantuml -tsvg "$file" > /tmp/plantuml_fixpass.out 2> /tmp/plantuml_fixpass.err; then
+  if /usr/bin/plantuml -tsvg -o "$OUTPUT_DIR" "$file" > /tmp/plantuml_fixpass.out 2> /tmp/plantuml_fixpass.err; then
     ok=$((ok + 1))
   else
     failed=$((failed + 1))
