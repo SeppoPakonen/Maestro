@@ -1,0 +1,318 @@
+# PlantUML v2 Fix Log
+
+Date: 2025-12-26
+
+Summary counts (before/after):
+- before: total 303, ok 0, failed 303
+- after: total 303, ok 303, failed 0
+
+## Common Fixes Applied
+- Added hidden NOTE_ANCHOR and attached note right/left blocks to a target
+- Wrapped legacy activity syntax blocks in note as ACTIVITY_FLOW when mixed with other elements
+- Sanitized aliases with illegal characters (/, -, *)
+- Renamed duplicate note identifiers to unique names
+
+## Per-file Fixes
+- docs/workflows/v2/generated/puml/CMD-ai.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ai.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-convert.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-discuss.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-help.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-init.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-issues.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.code.lod0.puml | error: floating note right/left without target; invalid alias identifiers (/, -, *) | fix: added hidden NOTE_ANCHOR and attached notes; removed invalid component aliases containing slashes
+- docs/workflows/v2/generated/puml/CMD-log.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-log.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-ops.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-phase.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-plan.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-plan.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-plan.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-plan.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-plan.cli.lod1.puml | error: floating note right/left without target; invalid alias identifiers (/, -, *) | fix: added hidden NOTE_ANCHOR and attached notes; sanitized aliases containing hyphens in subcommand nodes
+- docs/workflows/v2/generated/puml/CMD-plan.cli.lod2.puml | error: floating note right/left without target; invalid alias identifiers (/, -, *) | fix: added hidden NOTE_ANCHOR and attached notes; sanitized aliases containing hyphens in subcommand nodes
+- docs/workflows/v2/generated/puml/CMD-plan.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-plan.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-plan.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-repo.code.lod1.puml | error: floating note right/left without target; invalid alias identifiers (/, -, *) | fix: added hidden NOTE_ANCHOR and attached notes; sanitized aliases containing * in repo subcommand handlers
+- docs/workflows/v2/generated/puml/CMD-repo.code.lod2.puml | error: floating note right/left without target; invalid alias identifiers (/, -, *) | fix: added hidden NOTE_ANCHOR and attached notes; sanitized aliases containing * in repo subcommand handlers
+- docs/workflows/v2/generated/puml/CMD-resume.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-resume.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-resume.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-resume.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-resume.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-resume.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-resume.code.lod0.puml | error: floating note right/left without target; invalid alias identifiers (/, -, *) | fix: added hidden NOTE_ANCHOR and attached notes; removed invalid component aliases containing slashes
+- docs/workflows/v2/generated/puml/CMD-resume.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-resume.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-root.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-rules.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-session.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-settings.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-solutions.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-task.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-track.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-tu.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-understand.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-work.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.all_layers.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.all_layers.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.all_layers.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.cli.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.cli.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.cli.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.code.lod0.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.code.lod1.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/CMD-wsession.code.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-01.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-01.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-01.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-01.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-01.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-01.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-02.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-02.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-02.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-02.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-02.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-02.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-03.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-03.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-03.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-03.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-03.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-03.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-04.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-04.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-04.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-04.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-04.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-04.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-05.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-05.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-05.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-05.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-05.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-05.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-06.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-06.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-06.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-06.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-06.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-06.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-07.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-07.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-07.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-07.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-07.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-07.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-08.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-08.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-08.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-08.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-08.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-08.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-09.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-09.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-09.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-09.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-09.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-09.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-10.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-10.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-10.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-10.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-10.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-10.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-11.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-11.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-11.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-11.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-11.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-11.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-12.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-12.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-12.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-12.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-12.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-12.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-13.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-13.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-13.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-13.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-13.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-13.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-14.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-14.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-14.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-14.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-14.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-14.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-15.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-15.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-15.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-15.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-15.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-15.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
+- docs/workflows/v2/generated/puml/WF-16.all_layers.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-16.all_layers.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-16.all_layers.lod2.puml | error: floating note right/left without target; duplicate note identifiers (note as N1) | fix: added hidden NOTE_ANCHOR and attached notes; renamed duplicate note ids to unique names
+- docs/workflows/v2/generated/puml/WF-16.intent.lod0.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-16.intent.lod1.puml | error: floating note right/left without target; legacy activity syntax mixed with non-activity elements | fix: added hidden NOTE_ANCHOR and attached notes; wrapped legacy activity block in note as ACTIVITY_FLOW
+- docs/workflows/v2/generated/puml/WF-16.intent.lod2.puml | error: floating note right/left without target | fix: added hidden NOTE_ANCHOR and attached notes
