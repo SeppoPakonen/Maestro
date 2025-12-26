@@ -41,6 +41,8 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 - `maestro select toolchain {list|show|set|unset|detect|export}`
 - `maestro platform caps {detect|list|show|prefer|require|unprefer|unrequire|export}`
 
+See also: `docs/workflows/v3/cli/INTEGRATION_SELECT_PLATFORM_REPOCONF.md` for toolchain/caps/repoconf/make/tu integration.
+
 ## Legacy/problem commands
 
 - `understand` -> fold into `repo resolve` + `runbook add` or `runbook discuss`.
