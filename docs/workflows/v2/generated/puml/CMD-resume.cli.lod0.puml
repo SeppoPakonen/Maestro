@@ -1,0 +1,25 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-resume - resume command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro resume" as cmd_0
+  usecase "maestro rs" as cmd_1
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/v1/command_surface/cmd_resume.md cmd_resume.md]]
+end note
+
+@enduml

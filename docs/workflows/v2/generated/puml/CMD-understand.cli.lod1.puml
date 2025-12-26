@@ -1,0 +1,33 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-understand - understand command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml]]
+end note
+
+rectangle "understand command" as cmd_understand
+usecase "dump subcommand" as subcmd_dump
+component "parse CLI arguments" as parse_args
+component "route to understand handler" as route_understand
+component "route to dump handler" as route_dump
+component "analyze project structure" as analyze_project
+component "write analysis output" as write_output
+parse_args --> route_understand
+route_understand --> route_dump
+route_dump --> analyze_project
+analyze_project --> write_output
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_understand.md cmd_understand.md]]
+  * [[v1/internal/deep/cmd_understand_deep.puml cmd_understand_deep.puml]]
+end note
+
+@enduml

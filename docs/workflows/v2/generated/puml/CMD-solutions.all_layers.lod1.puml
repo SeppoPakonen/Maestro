@@ -1,0 +1,48 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-solutions - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro solutions list"
+  usecase "maestro solutions add"
+  usecase "maestro solutions apply"
+  usecase "maestro solutions show"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_solutions_command"
+  rectangle "_find_repo_root"
+  rectangle "_handle_list"
+  rectangle "_handle_show"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_solutions.md cmd_solutions.md]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed markdown persistence in cmd_solutions deep flow; v2 repo truth uses JSO
+  * Observed ./.maestro directory usage in _find_repo_root; violates FORBID_REPO_DOT
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

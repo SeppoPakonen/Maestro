@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-resume - resume deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-resume.code.yaml docs/workflows/v2/ir/cmd/CMD-resume.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "handle_resume_session\nmaestro/modules/command_handlers.py" as handle_resume_session #E6F3FF
+rectangle "load_session\nmaestro/modules/command_handlers.py" as load_session #E6F3FF
+rectangle "save_session\nmaestro/modules/command_handlers.py" as save_session #E6F3FF
+rectangle "update_subtask_summary_paths\nmaestro/modules/command_handlers.py" as update_subtask_summary_paths #E6F3FF
+rectangle "has_legacy_plan\nmaestro/modules/command_handlers.py" as has_legacy_plan #E6F3FF
+rectangle "migrate_session_if_needed\nmaestro/modules/command_handlers.py" as migrate_session_if_needed #E6F3FF
+rectangle "load_rules\nmaestro/modules/command_handlers.py" as load_rules #E6F3FF
+rectangle "get_maestro_dir\nmaestro/modules/command_handlers.py" as get_maestro_dir #E6F3FF
+rectangle "build_prompt\nmaestro/modules/command_handlers.py" as build_prompt #E6F3FF
+rectangle "save_prompt_for_traceability\nmaestro/modules/command_handlers.py" as save_prompt_for_traceability #E6F3FF
+rectangle "save_ai_output\nmaestro/modules/command_handlers.py" as save_ai_output #E6F3FF
+rectangle "get_engine\nmaestro/engines.py" as get_engine #E6F3FF
+component "session_class" as session_class
+component "subtask_class" as subtask_class
+component "plan_node_class" as plan_node_class
+component "engine_error" as engine_error
+actor "file_system" as file_system
+actor "external_ai" as external_ai
+database "docs_sessions_dir" as docs_sessions_dir #FFE6E6
+main_entry --> handle_resume_session
+handle_resume_session --> load_session
+load_session --> docs_sessions_dir
+handle_resume_session --> update_subtask_summary_paths
+handle_resume_session --> has_legacy_plan
+handle_resume_session --> migrate_session_if_needed
+handle_resume_session --> load_rules
+load_rules --> docs_sessions_dir
+handle_resume_session --> session_class
+handle_resume_session --> get_maestro_dir
+get_maestro_dir --> file_system
+handle_resume_session --> build_prompt
+handle_resume_session --> get_engine
+handle_resume_session --> save_prompt_for_traceability
+save_prompt_for_traceability --> docs_sessions_dir
+handle_resume_session --> external_ai
+external_ai --> handle_resume_session
+handle_resume_session --> save_ai_output
+handle_resume_session --> file_system
+handle_resume_session --> session_class
+handle_resume_session --> save_session
+save_session --> docs_sessions_dir
+session_class --> load_session
+session_class --> save_session
+subtask_class --> session_class
+plan_node_class --> session_class
+docs_sessions_dir --> file_system
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_resume_deep.puml cmd_resume_deep.puml]]
+  * [[v1/internal/deep/cmd_resume_deep.md cmd_resume_deep.md]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_resume deep flow; v2 repo truth uses JS
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

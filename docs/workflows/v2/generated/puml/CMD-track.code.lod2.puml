@@ -1,0 +1,118 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-track - track deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.code.yaml docs/workflows/v2/ir/cmd/CMD-track.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "handle_track_command\nmaestro/commands/track.py" as handle_track_command #E6F3FF
+rectangle "resolve_track_identifier\nmaestro/commands/track.py" as resolve_track_identifier #E6F3FF
+rectangle "resolve_identifier_by_type\nmaestro/data/common_utils.py" as resolve_identifier_by_type #E6F3FF
+rectangle "list_tracks\nmaestro/commands/track.py" as list_tracks #E6F3FF
+rectangle "get_all_tracks_with_phases_and_tasks\nmaestro/data/common_utils.py" as get_all_tracks_with_phases_and_tasks #E6F3FF
+rectangle "render_track_table\nmaestro/display/table_renderer.py" as render_track_table #E6F3FF
+rectangle "show_track\nmaestro/commands/track.py" as show_track #E6F3FF
+rectangle "show_track_details\nmaestro/commands/track.py" as show_track_details #E6F3FF
+rectangle "_ensure_todo_file\nmaestro/commands/track.py" as _ensure_todo_file #E6F3FF
+rectangle "_parse_todo_safe\nmaestro/commands/track.py" as _parse_todo_safe #E6F3FF
+rectangle "get_settings\nmaestro/config/settings.py" as get_settings #E6F3FF
+rectangle "render_phase_table\nmaestro/display/table_renderer.py" as render_phase_table #E6F3FF
+rectangle "add_track\nmaestro/commands/track.py" as add_track #E6F3FF
+component "json_store_class" as json_store_class
+rectangle "_slugify_track_id\nmaestro/commands/track.py" as _slugify_track_id #E6F3FF
+component "track_class" as track_class
+rectangle "remove_track\nmaestro/commands/track.py" as remove_track #E6F3FF
+rectangle "edit_track\nmaestro/commands/track.py" as edit_track #E6F3FF
+rectangle "extract_track_block\nmaestro/data/markdown_writer.py" as extract_track_block #E6F3FF
+rectangle "replace_track_block\nmaestro/data/markdown_writer.py" as replace_track_block #E6F3FF
+rectangle "set_track_status\nmaestro/commands/track.py" as set_track_status #E6F3FF
+rectangle "normalize_status\nmaestro/commands/status_utils.py" as normalize_status #E6F3FF
+rectangle "update_track_metadata\nmaestro/data/markdown_writer.py" as update_track_metadata #E6F3FF
+rectangle "update_track_heading_status\nmaestro/data/markdown_writer.py" as update_track_heading_status #E6F3FF
+rectangle "set_track_context\nmaestro/commands/track.py" as set_track_context #E6F3FF
+rectangle "handle_track_discuss\nmaestro/commands/discuss.py" as handle_track_discuss #E6F3FF
+database "docs_todo_md" as docs_todo_md #FFE6E6
+database "docs_done_md" as docs_done_md #FFE6E6
+database "maestro_tracks_json" as maestro_tracks_json #FFE6E6
+database "maestro_tracks_index_json" as maestro_tracks_index_json #FFE6E6
+database "settings_json" as settings_json #FFE6E6
+actor "User's $EDITOR" as user_editor
+actor "File System" as file_system
+main_entry --> handle_track_command
+handle_track_command --> resolve_track_identifier
+resolve_track_identifier --> resolve_identifier_by_type
+handle_track_command --> list_tracks
+list_tracks --> get_all_tracks_with_phases_and_tasks
+list_tracks --> render_track_table
+handle_track_command --> show_track
+show_track --> resolve_track_identifier
+show_track --> _parse_todo_safe
+show_track --> get_settings
+show_track --> render_phase_table
+handle_track_command --> show_track_details
+show_track_details --> resolve_track_identifier
+show_track_details --> _parse_todo_safe
+handle_track_command --> add_track
+add_track --> json_store_class
+add_track --> _slugify_track_id
+add_track --> track_class
+handle_track_command --> remove_track
+remove_track --> json_store_class
+remove_track --> resolve_track_identifier
+handle_track_command --> edit_track
+edit_track --> resolve_track_identifier
+edit_track --> extract_track_block
+edit_track --> replace_track_block
+handle_track_command --> set_track_status
+set_track_status --> resolve_track_identifier
+set_track_status --> normalize_status
+set_track_status --> update_track_metadata
+set_track_status --> update_track_heading_status
+handle_track_command --> set_track_context
+set_track_context --> resolve_track_identifier
+set_track_context --> get_settings
+handle_track_command --> handle_track_discuss
+_parse_todo_safe --> docs_todo_md
+_parse_todo_safe --> docs_done_md
+json_store_class --> maestro_tracks_json
+json_store_class --> maestro_tracks_index_json
+get_settings --> settings_json
+extract_track_block --> docs_todo_md
+replace_track_block --> docs_todo_md
+update_track_metadata --> docs_todo_md
+update_track_heading_status --> docs_todo_md
+set_track_context --> settings_json
+edit_track --> user_editor
+edit_track --> file_system
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_track_deep.puml cmd_track_deep.puml]]
+  * [[docs/workflows/maestro/commands/track.py track.py]]
+  * [[docs/workflows/maestro/data/common_utils.py common_utils.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+  * [[docs/workflows/maestro/tracks/json_store.py json_store.py]]
+  * [[docs/workflows/maestro/tracks/models.py models.py]]
+  * [[docs/workflows/maestro/display/table_renderer.py table_renderer.py]]
+  * [[docs/workflows/maestro/config/settings.py settings.py]]
+  * [[docs/workflows/maestro/commands/status_utils.py status_utils.py]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed mixed persistence in cmd_track deep flow; uses both DataMarkdown (docs/
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

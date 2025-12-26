@@ -1,0 +1,51 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-work - work deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.code.yaml docs/workflows/v2/ir/cmd/CMD-work.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "task_sync" as task_sync
+  component "breadcrumb" as breadcrumb
+  component "discuss" as discuss
+  component "work" as work
+  component "data" as data
+  component "engines" as engines
+  component "main" as main
+  component "work_session" as work_session
+  component "issue_worker" as issue_worker
+  component "phase_worker" as phase_worker
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
+  * [[docs/workflows/maestro/commands/work.py work.py]]
+  * [[docs/workflows/maestro/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/breadcrumb.py breadcrumb.py]]
+  * [[docs/workflows/maestro/ai/task_sync.py task_sync.py]]
+  * [[docs/workflows/maestro/engines.py engines.py]]
+  * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+  * [[docs/workflows/maestro/workers/track_worker.py track_worker.py]]
+  * [[docs/workflows/maestro/workers/phase_worker.py phase_worker.py]]
+  * [[docs/workflows/maestro/workers/issue_worker.py issue_worker.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_work deep flow; v2 repo truth uses JSON
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

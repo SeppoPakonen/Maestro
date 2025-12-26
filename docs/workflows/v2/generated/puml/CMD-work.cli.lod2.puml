@@ -1,0 +1,38 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-work - work command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.cli.yaml docs/workflows/v2/ir/cmd/CMD-work.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "maestro work" as work_cmd_start
+component "any" as work_any
+component "any pick" as work_any_pick
+component "track" as work_track
+component "phase" as work_phase
+component "issue" as work_issue
+component "task" as work_task
+component "discuss" as work_discuss
+component "analyze" as work_analyze
+component "fix" as work_fix
+
+note left
+  **Evidence:**
+  * [[v1/command_work.md command_work.md]]
+  * [[v1/command_work.puml command_work.puml]]
+  * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
+end note
+
+@enduml

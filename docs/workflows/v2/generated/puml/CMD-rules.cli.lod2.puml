@@ -1,0 +1,34 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-rules - rules command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "maestro rules" as cmd_rules_entry
+component "list" as subcmd_list
+component "edit" as subcmd_edit
+component "handle_rules_list" as handle_rules_list
+component "handle_rules_file" as handle_rules_file
+component "Load session" as load_session
+component "Validate session schema" as validate_session
+component "Execute rules operation" as execute_rules_op
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_rules.md cmd_rules.md]]
+end note
+
+@enduml

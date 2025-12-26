@@ -1,0 +1,32 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-convert - convert command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro convert" as cmd_0
+  usecase "maestro convert new" as cmd_1
+  usecase "maestro convert plan" as cmd_2
+  usecase "maestro convert run" as cmd_3
+  usecase "maestro convert status" as cmd_4
+  usecase "maestro convert show" as cmd_5
+  usecase "maestro convert reset" as cmd_6
+  usecase "maestro convert batch" as cmd_7
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_convert.md command_convert.md]]
+  * [[v1/command_convert.puml command_convert.puml]]
+end note
+
+@enduml

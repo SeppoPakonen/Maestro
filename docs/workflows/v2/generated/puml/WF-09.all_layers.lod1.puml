@@ -1,0 +1,82 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-09 - Combined Layers (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD1)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-09 - Storage Contract — Repo Truth vs Home Hub (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
+end note
+
+(*) --> "User runs Maestro command"
+stop
+:Check if ./docs/maestro/ exists;
+:Use Repo Truth Storage;
+:Use Home Hub Storage;
+:Load repo_model.json;
+:Load repo_conf.json (if exists);
+:Load session data;
+:Execute Maestro command;
+:Save state changes;
+"Command completes successfully" --> (*)
+"Fatal error — ./.maestro forbidden" --> (*)
+' gate_forbid_dot_maestro -> end_hard_stop: ./.maestro exists
+' gate_forbid_dot_maestro -> check_repo_truth: ./.maestro does not exist
+' check_repo_truth -> use_repo_truth: ./docs/maestro/ exists
+' check_repo_truth -> use_home_hub: ./docs/maestro/ does not exist
+
+package "Command Integration" #E6F3FF {
+  component "build\ncommand" as cmd_build [[../generated/svg/CMD-build.all_layers.lod1.svg]]
+  component "convert\ncommand" as cmd_convert [[../generated/svg/CMD-convert.all_layers.lod1.svg]]
+  component "issues\ncommand" as cmd_issues [[../generated/svg/CMD-issues.all_layers.lod1.svg]]
+  component "repo\ncommand" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod1.svg]]
+  component "task\ncommand" as cmd_task [[../generated/svg/CMD-task.all_layers.lod1.svg]]
+  component "tu\ncommand" as cmd_tu [[../generated/svg/CMD-tu.all_layers.lod1.svg]]
+  component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.md Original v1 storage contract workflow diagram]]
+  * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.puml Original v1 PlantUML source]]
+  * [[docs/workflows/maestro/modules/utils.py Storage backend detection functions (get_maestro_dir, etc.)]]
+  * [[docs/workflows/maestro/session_model.py Session model with storage backend awareness]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)
+  * LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented
+  * LEDGER-0008: Confirm home hub fallback works for readonly repos
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+
+@enduml

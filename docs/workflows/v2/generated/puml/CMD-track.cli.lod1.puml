@@ -1,0 +1,60 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-track - track command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.cli.yaml docs/workflows/v2/ir/cmd/CMD-track.cli.yaml]]
+end note
+
+rectangle "Maestro CLI Invocation" as cli_invocation
+rectangle "Parse CLI arguments" as parse_args
+rectangle "Determine command is 'track'" as determine_track_command
+usecase "Parse track subcommands" as parse_subcommands
+component "Check if session is provided" as session_check
+component "Load session" as load_session
+component "Validate session schema" as validate_session
+component "Check if subcommand is provided" as subcommand_check
+usecase "Route to list handler" as route_list
+usecase "Route to add handler" as route_add
+usecase "Route to remove handler" as route_remove
+usecase "Route to show handler" as route_show
+rectangle "Show track help" as show_help
+component "Execute track operation" as execute_operation
+rectangle "Output results to stdout" as output_results
+rectangle "Exit with success" as exit_success
+rectangle "Exit with failure" as exit_failure
+component "Hard stop if no session" as hard_stop_no_session
+cli_invocation --> parse_args
+parse_args --> determine_track_command
+determine_track_command --> parse_subcommands
+parse_subcommands --> session_check
+session_check --> load_session
+session_check --> hard_stop_no_session
+load_session --> validate_session
+validate_session --> subcommand_check
+subcommand_check --> route_list
+subcommand_check --> route_add
+subcommand_check --> route_remove
+subcommand_check --> route_show
+subcommand_check --> show_help
+route_list --> execute_operation
+route_add --> execute_operation
+route_remove --> execute_operation
+route_show --> execute_operation
+execute_operation --> output_results
+output_results --> exit_success
+show_help --> exit_failure
+
+note left
+  **Evidence:**
+  * [[v1/command_track.md command_track.md]]
+  * [[v1/command_track.puml command_track.puml]]
+end note
+
+@enduml

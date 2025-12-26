@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-task - task deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-task.code.yaml docs/workflows/v2/ir/cmd/CMD-task.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "handle_task_command\nmaestro/commands/task.py" as handle_task_command #E6F3FF
+rectangle "list_tasks\nmaestro/commands/task.py" as list_tasks #E6F3FF
+rectangle "show_task\nmaestro/commands/task.py" as show_task #E6F3FF
+rectangle "add_task\nmaestro/commands/task.py" as add_task #E6F3FF
+rectangle "remove_task\nmaestro/commands/task.py" as remove_task #E6F3FF
+rectangle "edit_task\nmaestro/commands/task.py" as edit_task #E6F3FF
+rectangle "set_task_status\nmaestro/commands/task.py" as set_task_status #E6F3FF
+rectangle "set_task_context\nmaestro/commands/task.py" as set_task_context #E6F3FF
+rectangle "handle_task_discuss\nmaestro/commands/discuss.py" as handle_task_discuss #E6F3FF
+component "json_store" as json_store
+component "markdown_parser" as markdown_parser
+component "markdown_writer" as markdown_writer
+component "settings" as settings
+rectangle "render_task_table\nmaestro/display/table_renderer.py" as render_task_table #E6F3FF
+database "docs_phases_md" as docs_phases_md #FFE6E6
+database "maestro_tasks_json" as maestro_tasks_json #FFE6E6
+database "maestro_phases_json" as maestro_phases_json #FFE6E6
+database "settings_json" as settings_json #FFE6E6
+actor "editor_actor" as editor_actor
+main_entry --> handle_task_command
+handle_task_command --> list_tasks
+handle_task_command --> show_task
+handle_task_command --> add_task
+handle_task_command --> remove_task
+handle_task_command --> edit_task
+handle_task_command --> set_task_status
+handle_task_command --> set_task_context
+handle_task_command --> handle_task_discuss
+list_tasks --> render_task_table
+add_task --> json_store
+remove_task --> json_store
+set_task_status --> json_store
+edit_task --> markdown_writer
+edit_task --> editor_actor
+set_task_context --> settings
+json_store --> maestro_tasks_json
+json_store --> maestro_phases_json
+markdown_writer --> docs_phases_md
+settings --> settings_json
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_task_deep.puml cmd_task_deep.puml]]
+  * [[docs/workflows/maestro/commands/task.py task.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+  * [[docs/workflows/maestro/tracks/json_store.py json_store.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_task deep flow; v2 repo truth uses JSON
+  * Shows mixed persistence model with both JSON and Markdown files; v2 spec require
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

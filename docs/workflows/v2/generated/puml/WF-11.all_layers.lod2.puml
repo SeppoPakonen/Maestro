@@ -1,0 +1,57 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-11 - Combined Layers (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD2)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-11 - Manual repo model + manual RepoConf (resolve optional) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "build\nimplementation" as impl_build [[../generated/svg/CMD-build.code.lod2.svg]]
+  component "init\nimplementation" as impl_init [[../generated/svg/CMD-init.code.lod2.svg]]
+  component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
+  component "tu\nimplementation" as impl_tu [[../generated/svg/CMD-tu.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_11_manual_repo_model_and_conf.md Original v1 documentation for manual repo model and conf workflow]]
+  * [[v1/scenario_11_manual_repo_model_and_conf.puml PlantUML diagram for manual repo model and conf workflow]]
+end note
+
+
+@enduml

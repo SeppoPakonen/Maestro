@@ -1,0 +1,37 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-session - session deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-session.code.yaml docs/workflows/v2/ir/cmd/CMD-session.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "work_session" as work_session
+  component "command_handlers" as command_handlers
+  component "session_model" as session_model
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/command_handlers.py command_handlers.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/commands/work_session.py work_session.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/session_model.py session_model.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed session data stored in JSON format under docs/sessions/; aligns with RE
+  * Observed user-specific config in ~/.maestro/config.json; aligns with HOME_HUB_AL
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

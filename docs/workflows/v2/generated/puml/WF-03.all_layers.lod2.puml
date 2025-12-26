@@ -1,0 +1,64 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-03 - Combined Layers (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-03.intent.yaml docs/workflows/v2/ir/wf/WF-03.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD2)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-03 - Read-only repo inspection + build (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-03.intent.yaml docs/workflows/v2/ir/wf/WF-03.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "make\nimplementation" as impl_make [[../generated/svg/CMD-make.code.lod2.svg]]
+  component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_03_readonly_repo_inspect_build.md Original v1 workflow documentation]]
+  * [[v1/scenario_03_readonly_repo_inspect_build.puml Original v1 workflow diagram]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Workflow mentions maestro repo command which may not be registered in CLI; verif
+  * Read-only mode with storage in $HOME/.maestro/repo/ may conflict with REPO_TRUTH
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+
+@enduml

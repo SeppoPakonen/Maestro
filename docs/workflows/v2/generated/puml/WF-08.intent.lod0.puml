@@ -1,0 +1,54 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-08 - Convert — cross-repo pipeline (New/Plan/Run) (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-08.intent.yaml docs/workflows/v2/ir/wf/WF-08.intent.yaml]]
+end note
+
+(*) --> "Operator initiates conversion pipeline"
+if "Validate plan JSON" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Ensure AST is available" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate plan and prerequisites" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Check for semantic equivalence" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nHard stop if branch switching during conversion
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "pipeline_metadata\n./docs/maestro/convert/" as pipeline_metadata
+  database "target_repo_tasks\n./Track/Phase/Task/" as target_repo_tasks
+  database "ast_export\n./docs/maestro/convert/" as ast_export
+}
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "convert" as uses_convert [[../generated/svg/CMD-convert.all_layers.lod0.svg]]
+  rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_08_convert_cross_repo_pipeline.md Original v1 scenario documentation]]
+  * [[v1/scenario_08_convert_cross_repo_pipeline.puml Original v1 PlantUML diagram]]
+end note
+
+@enduml

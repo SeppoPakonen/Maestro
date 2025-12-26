@@ -1,0 +1,27 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-solutions - solutions command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro solutions list" as cmd_0
+  usecase "maestro solutions add" as cmd_1
+  usecase "maestro solutions apply" as cmd_2
+  usecase "maestro solutions show" as cmd_3
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_solutions.md cmd_solutions.md]]
+end note
+
+@enduml

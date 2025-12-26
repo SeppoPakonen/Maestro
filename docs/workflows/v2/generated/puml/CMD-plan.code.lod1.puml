@@ -1,0 +1,56 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-plan - plan deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.code.yaml docs/workflows/v2/ir/cmd/CMD-plan.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro/main.py)" as main_entry
+rectangle "plan_command_handler\n(maestro/commands/plan.py)" as plan_command_handler
+rectangle "plan_ops_handler\n(maestro/plan_ops/commands.py)" as plan_ops_handler
+rectangle "plan_ops_decoder\n(maestro/plan_ops/decoder.py)" as plan_ops_decoder
+rectangle "plan_explore_handler\n(maestro/commands/plan.py)" as plan_explore_handler
+main_entry --> plan_command_handler
+plan_command_handler --> plan_store
+plan_command_handler --> plan_ops_handler
+plan_ops_handler --> plan_ops_decoder
+plan_ops_decoder --> plan_ops_executor
+plan_command_handler --> plan_explore_handler
+plan_explore_handler --> explore_session
+plan_explore_handler --> ai_engine_manager
+plan_explore_handler --> project_ops_executor
+plan_store --> docs_plans_md
+plan_explore_handler --> docs_todo_md
+explore_session --> explore_session_json
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_plan_deep.puml cmd_plan_deep.puml]]
+  * [[docs/workflows/maestro/commands/plan.py plan.py]]
+  * [[docs/workflows/maestro/plans.py plans.py]]
+  * [[docs/workflows/maestro/plan_ops/commands.py commands.py]]
+  * [[docs/workflows/maestro/plan_ops/decoder.py decoder.py]]
+  * [[docs/workflows/maestro/plan_ops/executor.py executor.py]]
+  * [[docs/workflows/maestro/plan_explore/session.py session.py]]
+  * [[docs/workflows/maestro/ai/manager.py manager.py]]
+  * [[docs/workflows/maestro/project_ops/executor.py executor.py]]
+  * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_plan deep flow; v2 repo truth uses JSON
+  * Plan storage uses docs/plans.md which violates REPO_TRUTH_FORMAT_IS_JSON invaria
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

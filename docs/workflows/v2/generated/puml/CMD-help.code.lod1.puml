@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-help - help deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.code.yaml docs/workflows/v2/ir/cmd/CMD-help.code.yaml]]
+end note
+
+rectangle "maestro.main.main\n(maestro.main)" as main_entry
+rectangle "maestro.modules.cli_parser.create_main_parser\n(maestro.modules.cli_parser)" as create_parser
+rectangle "argparse.ArgumentParser.parse_args\n(argparse)" as parse_args
+rectangle "maestro.modules.cli_parser.StyledArgumentParser.print_help\n(maestro.modules.cli_parser)" as styled_argparser_print_help
+rectangle "maestro.modules.cli_parser.StyledArgumentParser.format_help\n(maestro.modules.cli_parser)" as styled_argparser_format_help
+rectangle "argparse.ArgumentParser.format_help\n(argparse)" as argparser_format_help
+rectangle "maestro.modules.cli_parser._filter_suppressed_help\n(maestro.modules.cli_parser)" as filter_suppressed_help
+rectangle "maestro.modules.utils.styled_print\n(maestro.modules.utils)" as styled_print
+rectangle "maestro.modules.utils.print_subheader\n(maestro.modules.utils)" as print_subheader
+rectangle "pyfiglet.figlet_format\n(pyfiglet)" as figlet_format
+main_entry --> create_parser
+create_parser --> parse_args
+main_entry --> parse_args
+styled_argparser_print_help --> styled_argparser_format_help
+styled_argparser_format_help --> argparser_format_help
+styled_argparser_format_help --> filter_suppressed_help
+styled_argparser_print_help --> styled_print
+styled_argparser_print_help --> print_subheader
+styled_argparser_print_help --> styled_print
+styled_argparser_print_help --> styled_print
+styled_argparser_print_help --> figlet_format
+styled_print --> colors_const
+print_subheader --> colors_const
+
+note left
+  **Evidence:**
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/main.py Contains the main entry point function]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/cli_parser.py Contains the CLI parser and StyledArgumentParser]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/utils.py Contains utility functions for styled printing]]
+end note
+
+@enduml

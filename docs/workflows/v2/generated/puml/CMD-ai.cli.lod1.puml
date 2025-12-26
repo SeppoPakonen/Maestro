@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ai - ai command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml]]
+end note
+
+rectangle "Maestro CLI Invocation" as cli_invocation
+rectangle "Parse CLI arguments" as parse_args
+rectangle "Determine command is 'ai'" as determine_ai_command
+usecase "Parse AI subcommands" as parse_ai_subcommands
+rectangle "Load AI configuration" as load_ai_config
+rectangle "Route to appropriate AI subcommand handler" as route_to_subcommand_handler
+component "Validate AI configuration" as validate_ai_config
+component "Invoke AI engine" as invoke_ai_engine
+rectangle "Output AI responses to stdout" as output_responses
+rectangle "Show AI help" as show_ai_help
+component "Exit with failure" as exit_fail
+rectangle "Exit successfully" as exit_ok
+cli_invocation --> parse_args
+parse_args --> determine_ai_command
+determine_ai_command --> parse_ai_subcommands
+parse_ai_subcommands --> load_ai_config
+load_ai_config --> route_to_subcommand_handler
+route_to_subcommand_handler --> validate_ai_config
+validate_ai_config --> invoke_ai_engine
+invoke_ai_engine --> output_responses
+parse_ai_subcommands --> show_ai_help
+show_ai_help --> exit_fail
+route_to_subcommand_handler --> show_ai_help
+output_responses --> exit_ok
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_ai.md cmd_ai.md]]
+  * [[v1/command_surface/cmd_ai.puml cmd_ai.puml]]
+end note
+
+@enduml

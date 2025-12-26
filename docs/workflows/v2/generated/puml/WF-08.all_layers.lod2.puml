@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-08 - Combined Layers (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-08.intent.yaml docs/workflows/v2/ir/wf/WF-08.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD2)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-08 - Convert — cross-repo pipeline (New/Plan/Run) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-08.intent.yaml docs/workflows/v2/ir/wf/WF-08.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "convert\nimplementation" as impl_convert [[../generated/svg/CMD-convert.code.lod2.svg]]
+  component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_08_convert_cross_repo_pipeline.md Original v1 scenario documentation]]
+  * [[v1/scenario_08_convert_cross_repo_pipeline.puml Original v1 PlantUML diagram]]
+end note
+
+
+@enduml

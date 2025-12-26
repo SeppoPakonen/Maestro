@@ -1,0 +1,38 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-root - root deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-root.code.yaml docs/workflows/v2/ir/cmd/CMD-root.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "engines" as engines
+  component "main" as main
+  component "command_handlers" as command_handlers
+  component "utils" as utils
+  component "session_model" as session_model
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_root_deep.puml cmd_root_deep.puml]]
+  * [[docs/workflows/maestro/modules/command_handlers.py command_handlers.py]]
+  * [[docs/workflows/maestro/session_model.py session_model.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro/conversations/ directory usage in cmd_root deep flow; v2 spec 
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

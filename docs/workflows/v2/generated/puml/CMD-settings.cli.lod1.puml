@@ -1,0 +1,48 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-settings - settings command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml]]
+end note
+
+rectangle "settings command entry point" as cmd_settings_entry
+component "parse command line arguments" as parse_args
+component "determine command is 'settings'" as determine_settings_cmd
+component "check if session is provided" as check_session
+component "load session" as load_session
+component "validate session schema" as validate_session
+component "route to settings handler" as route_settings_handler
+component "read configuration files" as read_config
+component "process settings operation" as process_settings_op
+component "write configuration updates" as write_config
+rectangle "output results to stdout" as output_results
+rectangle "exit with success code" as exit_ok
+component "hard stop if no session provided" as hard_stop_no_session
+cmd_settings_entry --> parse_args
+parse_args --> determine_settings_cmd
+determine_settings_cmd --> check_session
+check_session --> load_session
+check_session --> hard_stop_no_session
+load_session --> validate_session
+validate_session --> route_settings_handler
+route_settings_handler --> read_config
+read_config --> process_settings_op
+process_settings_op --> write_config
+write_config --> output_results
+output_results --> exit_ok
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/settings.py Implementation of settings command]]
+  * [[docs/workflows/v1/command_settings.md Markdown documentation for settings command]]
+  * [[docs/workflows/v1/settings.puml PlantUML diagram for settings command flow]]
+end note
+
+@enduml

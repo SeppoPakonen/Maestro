@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-init - init deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-init.code.yaml docs/workflows/v2/ir/cmd/CMD-init.code.yaml]]
+end note
+
+rectangle "maestro.main.main\n(maestro.main)" as main_entry
+rectangle "create_main_parser\n(maestro.modules.cli_parser)" as create_parser
+rectangle "add_init_parser\n(maestro.commands.init)" as add_init_parser
+rectangle "handle_init_command\n(maestro.commands.init)" as handle_init_command
+rectangle "pathlib.Path.mkdir\n(pathlib)" as mkdir
+rectangle "pathlib.Path.exists\n(pathlib)" as check_exists
+rectangle "builtins.open\n(builtins)" as open_file
+main_entry --> create_parser
+create_parser --> add_init_parser
+main_entry --> handle_init_command
+handle_init_command --> mkdir
+mkdir --> local_filesystem
+handle_init_command --> check_exists
+check_exists --> local_filesystem
+handle_init_command --> force_gate_settings
+force_gate_settings --> open_file
+open_file --> local_filesystem
+handle_init_command --> force_gate_repofules
+force_gate_repofules --> open_file
+
+note left
+  **Evidence:**
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/commands/init.py init.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/main.py main.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/cli_parser.py cli_parser.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_init deep flow; v2 repo truth uses JSON
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

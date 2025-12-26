@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-16 - Combined Layers (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-16.intent.yaml docs/workflows/v2/ir/wf/WF-16.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD1)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-16 - wsession modes — log-only vs mutation API (opt-in) (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-16.intent.yaml docs/workflows/v2/ir/wf/WF-16.intent.yaml]]
+end note
+
+(*) --> "User runs maestro wsession command"
+:Validate wsession cookie (WF-15);
+:Is mutation mode enabled?;
+:Branch guard check (WF-14);
+:Validate operation schema;
+:Check referential integrity;
+:Apply mutation to Repo Truth Store;
+:Append log event to Work Session;
+:Append audit event to Work Session Store;
+stop
+stop
+stop
+stop
+stop
+"Operation Success" --> (*)
+"Operation Rejected/Failure" --> (*)
+' validate_cookie -> check_mutation_mode: Valid cookie
+' validate_cookie -> reject_unknown_cookie: Invalid cookie
+' check_mutation_mode -> branch_guard_check: Mutation mode enabled
+' check_mutation_mode -> log_only_action: Mutation mode disabled
+' branch_guard_check -> validate_operation_schema: Branch OK
+' branch_guard_check -> reject_branch_mismatch: Branch mismatch
+' validate_operation_schema -> check_referential_integrity: Valid schema
+' validate_operation_schema -> reject_invalid_schema: Invalid schema
+' check_referential_integrity -> apply_mutation: Integrity OK
+' check_referential_integrity -> reject_referential_integrity: Integrity failed
+
+package "Command Integration" #E6F3FF {
+  component "work-run\ncommand" as cmd_work-run [[../generated/svg/CMD-work-run.all_layers.lod1.svg]]
+  component "wsession\ncommand" as cmd_wsession [[../generated/svg/CMD-wsession.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_16_wsession_mutation_modes.md Original v1 workflow documentation for wsession mutation modes]]
+  * [[v1/scenario_16_wsession_mutation_modes.puml PlantUML diagram for wsession modes workflow]]
+end note
+
+
+@enduml

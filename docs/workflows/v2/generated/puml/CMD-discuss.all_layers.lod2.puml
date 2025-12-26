@@ -1,0 +1,45 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-discuss - Combined CLI+Code (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD2)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro discuss"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_discuss_command"
+  rectangle "handle_track_discuss"
+  rectangle "handle_phase_discuss"
+  rectangle "handle_task_discuss"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_discuss.md command_discuss.md]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_discuss deep flow; v2 repo truth uses J
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

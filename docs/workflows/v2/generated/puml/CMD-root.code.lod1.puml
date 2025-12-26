@@ -1,0 +1,62 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-root - root deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-root.code.yaml docs/workflows/v2/ir/cmd/CMD-root.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro.main)" as main_entry
+rectangle "handle_root_set\n(maestro.modules.command_handlers)" as handle_root_set
+rectangle "handle_root_get\n(maestro.modules.command_handlers)" as handle_root_get
+rectangle "handle_root_refine\n(maestro.modules.command_handlers)" as handle_root_refine
+rectangle "handle_root_discuss\n(maestro.modules.command_handlers)" as handle_root_discuss
+rectangle "handle_root_show\n(maestro.modules.command_handlers)" as handle_root_show
+rectangle "load_session\n(maestro.session_model)" as load_session
+rectangle "save_session\n(maestro.session_model)" as save_session
+rectangle "handle_refine_root\n(maestro.modules.utils)" as handle_refine_root
+rectangle "get_engine\n(maestro.engines)" as get_engine
+rectangle "get_maestro_dir\n(maestro.modules.command_handlers)" as get_maestro_dir
+main_entry --> handle_root_set
+main_entry --> handle_root_get
+main_entry --> handle_root_refine
+main_entry --> handle_root_discuss
+main_entry --> handle_root_show
+handle_root_set --> load_session
+handle_root_get --> load_session
+handle_root_refine --> load_session
+handle_root_discuss --> load_session
+handle_root_show --> load_session
+load_session --> docs_sessions_dir
+handle_root_set --> session_class
+handle_root_set --> save_session
+save_session --> docs_sessions_dir
+handle_root_refine --> handle_refine_root
+handle_refine_root --> get_engine
+get_engine --> external_ai
+handle_root_discuss --> get_maestro_dir
+get_maestro_dir --> conversations_dir
+handle_root_discuss --> user_actor
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_root_deep.puml cmd_root_deep.puml]]
+  * [[docs/workflows/maestro/modules/command_handlers.py command_handlers.py]]
+  * [[docs/workflows/maestro/session_model.py session_model.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro/conversations/ directory usage in cmd_root deep flow; v2 spec 
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

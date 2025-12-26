@@ -1,0 +1,28 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-understand - understand command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro understand" as cmd_0
+  usecase "maestro u" as cmd_1
+  usecase "maestro understand dump" as cmd_2
+  usecase "maestro u dump" as cmd_3
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_understand.md cmd_understand.md]]
+  * [[v1/internal/deep/cmd_understand_deep.puml cmd_understand_deep.puml]]
+end note
+
+@enduml

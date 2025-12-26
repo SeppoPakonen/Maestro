@@ -1,0 +1,37 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-track - track command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.cli.yaml docs/workflows/v2/ir/cmd/CMD-track.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "Maestro CLI Invocation" as cli_invocation
+component "Parse CLI arguments" as parse_args
+component "Determine command is 'track'" as determine_track_command
+component "Parse track subcommands" as parse_subcommands
+component "Check if session is provided" as session_check
+component "Load session" as load_session
+component "Validate session schema" as validate_session
+component "Check if subcommand is provided" as subcommand_check
+component "Route to list handler" as route_list
+component "Route to add handler" as route_add
+
+note left
+  **Evidence:**
+  * [[v1/command_track.md command_track.md]]
+  * [[v1/command_track.puml command_track.puml]]
+end note
+
+@enduml

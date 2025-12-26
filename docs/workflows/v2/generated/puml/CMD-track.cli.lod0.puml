@@ -1,0 +1,30 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-track - track command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.cli.yaml docs/workflows/v2/ir/cmd/CMD-track.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro track" as cmd_0
+  usecase "maestro track list" as cmd_1
+  usecase "maestro track add" as cmd_2
+  usecase "maestro track remove" as cmd_3
+  usecase "maestro track show" as cmd_4
+  usecase "maestro track discuss" as cmd_5
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_track.md command_track.md]]
+  * [[v1/command_track.puml command_track.puml]]
+end note
+
+@enduml

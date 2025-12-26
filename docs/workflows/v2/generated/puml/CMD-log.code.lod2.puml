@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-log - log deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.code.yaml docs/workflows/v2/ir/cmd/CMD-log.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "handle_log_list\nmaestro/modules/command_handlers.py" as handle_log_list #E6F3FF
+rectangle "handle_log_list_work\nmaestro/modules/command_handlers.py" as handle_log_list_work #E6F3FF
+rectangle "handle_log_list_plan\nmaestro/modules/command_handlers.py" as handle_log_list_plan #E6F3FF
+rectangle "load_session\nmaestro/modules/command_handlers.py" as load_session #E6F3FF
+rectangle "get_maestro_dir\nmaestro/modules/command_handlers.py" as get_maestro_dir #E6F3FF
+component "session_class" as session_class
+component "subtask_class" as subtask_class
+component "maestro_utils" as maestro_utils
+database "docs_sessions_dir" as docs_sessions_dir #FFE6E6
+actor "file_system" as file_system
+actor "pathlib" as pathlib
+actor "os" as os
+main_entry --> handle_log_list
+main_entry --> handle_log_list_work
+main_entry --> handle_log_list_plan
+handle_log_list --> docs_sessions_dir
+handle_log_list --> maestro_utils
+handle_log_list_work --> docs_sessions_dir
+handle_log_list_work --> session_class
+handle_log_list_work --> maestro_utils
+handle_log_list_plan --> docs_sessions_dir
+handle_log_list_plan --> maestro_utils
+load_session --> docs_sessions_dir
+get_maestro_dir --> docs_sessions_dir
+load_session --> session_class
+session_class --> subtask_class
+docs_sessions_dir --> file_system
+pathlib --> command_handlers
+os --> command_handlers
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_log_deep.puml cmd_log_deep.puml]]
+  * [[v1/internal/deep/cmd_log_deep.md cmd_log_deep.md]]
+end note
+
+@enduml

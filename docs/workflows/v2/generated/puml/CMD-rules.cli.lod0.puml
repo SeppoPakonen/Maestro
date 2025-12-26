@@ -1,0 +1,26 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-rules - rules command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro rules" as cmd_0
+  usecase "maestro rules list" as cmd_1
+  usecase "maestro rules edit" as cmd_2
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_rules.md cmd_rules.md]]
+end note
+
+@enduml

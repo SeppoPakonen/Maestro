@@ -1,0 +1,30 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ops - ops command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "maestro ops" as ops_command
+component "validate" as validate_subcommand
+component "preview" as preview_subcommand
+component "apply" as apply_subcommand
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_ops.md cmd_ops.md]]
+end note
+
+@enduml

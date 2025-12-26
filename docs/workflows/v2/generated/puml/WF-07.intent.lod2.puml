@@ -1,0 +1,33 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-07 - AST/TU workflows — rename, C++→JS transform, autocomplete (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-07.intent.yaml docs/workflows/v2/ir/wf/WF-07.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
+  component "tu\nimplementation" as impl_tu [[../generated/svg/CMD-tu.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_07_ast_tu_refactor_transform_autocomplete.md Original v1 AST/TU workflow documentation]]
+  * [[v1/scenario_07_ast_tu_refactor_transform_autocomplete.puml PlantUML diagram of AST/TU operations]]
+end note
+
+@enduml

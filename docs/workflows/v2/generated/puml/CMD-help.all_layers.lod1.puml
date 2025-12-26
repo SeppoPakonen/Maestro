@@ -1,0 +1,38 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-help - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.cli.yaml docs/workflows/v2/ir/cmd/CMD-help.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro help"
+  usecase "maestro h"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "create_main_parser"
+  rectangle "parse_args"
+  rectangle "print_help"
+  rectangle "format_help"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_help.md command_help.md]]
+  * [[v1/command_help.puml command_help.puml]]
+end note
+
+@enduml

@@ -1,0 +1,87 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-issues - issues deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.code.yaml docs/workflows/v2/ir/cmd/CMD-issues.code.yaml]]
+end note
+
+rectangle "main()\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "handle_issues_command()\nmaestro/commands/issues.py" as handle_issues_command #E6F3FF
+rectangle "_find_repo_root()\nmaestro/commands/issues.py" as find_repo_root #E6F3FF
+rectangle "_handle_list()\nmaestro/commands/issues.py" as handle_list #E6F3FF
+rectangle "_handle_show()\nmaestro/commands/issues.py" as handle_show #E6F3FF
+rectangle "_handle_state()\nmaestro/commands/issues.py" as handle_state #E6F3FF
+rectangle "_handle_rollback()\nmaestro/commands/issues.py" as handle_rollback #E6F3FF
+rectangle "_handle_react()\nmaestro/commands/issues.py" as handle_react #E6F3FF
+rectangle "_handle_analyze()\nmaestro/commands/issues.py" as handle_analyze #E6F3FF
+rectangle "_handle_decide()\nmaestro/commands/issues.py" as handle_decide #E6F3FF
+rectangle "_handle_fix()\nmaestro/commands/issues.py" as handle_fix #E6F3FF
+rectangle "list_issues()\nmaestro/issues/issue_store.py" as list_issues #E6F3FF
+rectangle "load_issue()\nmaestro/issues/issue_store.py" as load_issue #E6F3FF
+rectangle "update_issue_state()\nmaestro/issues/issue_store.py" as update_issue_state #E6F3FF
+rectangle "rollback_issue_state()\nmaestro/issues/issue_store.py" as rollback_issue_state #E6F3FF
+rectangle "update_issue_metadata()\nmaestro/issues/issue_store.py" as update_issue_metadata #E6F3FF
+rectangle "update_issue_priority()\nmaestro/issues/issue_store.py" as update_issue_priority #E6F3FF
+rectangle "update_issue_section()\nmaestro/issues/issue_store.py" as update_issue_section #E6F3FF
+rectangle "can_transition()\nmaestro/issues/model.py" as can_transition #E6F3FF
+rectangle "match_solutions()\nmaestro/solutions/solution_store.py" as match_solutions #E6F3FF
+component "ExternalCommandClient" as external_command_client
+database "docs/issues/*.md" as docs_issues_md #FFE6E6
+database "docs/solutions/*.md" as docs_solutions_md #FFE6E6
+database "docs/sessions/*.md" as docs_sessions_md #FFE6E6
+actor "File System" as file_system
+actor "External AI Service" as external_ai
+main_entry --> handle_issues_command
+handle_issues_command --> find_repo_root
+handle_issues_command --> handle_list
+handle_issues_command --> handle_show
+handle_issues_command --> handle_state
+handle_issues_command --> handle_rollback
+handle_issues_command --> handle_react
+handle_issues_command --> handle_analyze
+handle_issues_command --> handle_decide
+handle_issues_command --> handle_fix
+handle_list --> list_issues
+list_issues --> docs_issues_md
+handle_show --> load_issue
+load_issue --> docs_issues_md
+handle_state --> update_issue_state
+update_issue_state --> can_transition
+handle_rollback --> rollback_issue_state
+handle_react --> match_solutions
+match_solutions --> docs_solutions_md
+handle_analyze --> external_command_client
+external_command_client --> external_ai
+handle_fix --> update_issue_section
+update_issue_section --> docs_sessions_md
+docs_issues_md --> file_system
+docs_solutions_md --> file_system
+docs_sessions_md --> file_system
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/issues.py issues.py]]
+  * [[docs/workflows/maestro/issues/issue_store.py issue_store.py]]
+  * [[docs/workflows/maestro/issues/model.py model.py]]
+  * [[docs/workflows/maestro/solutions/solution_store.py solution_store.py]]
+  * [[docs/workflows/maestro/ai/client.py client.py]]
+  * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_issues deep flow; v2 repo truth uses JS
+  * Uses ./docs/issues/*.md, ./docs/solutions/*.md, and ./docs/sessions/*.md for per
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

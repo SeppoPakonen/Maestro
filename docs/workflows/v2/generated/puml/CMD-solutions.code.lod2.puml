@@ -1,0 +1,79 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-solutions - solutions deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.code.yaml docs/workflows/v2/ir/cmd/CMD-solutions.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "handle_solutions_command\nmaestro/commands/solutions.py" as handle_solutions_command #E6F3FF
+rectangle "_find_repo_root\nmaestro/commands/solutions.py" as _find_repo_root #E6F3FF
+rectangle "_handle_list\nmaestro/commands/solutions.py" as _handle_list #E6F3FF
+rectangle "_handle_show\nmaestro/commands/solutions.py" as _handle_show #E6F3FF
+rectangle "_handle_add\nmaestro/commands/solutions.py" as _handle_add #E6F3FF
+rectangle "_handle_remove\nmaestro/commands/solutions.py" as _handle_remove #E6F3FF
+rectangle "_handle_edit\nmaestro/commands/solutions.py" as _handle_edit #E6F3FF
+rectangle "_find_solution_path\nmaestro/commands/solutions.py" as _find_solution_path #E6F3FF
+rectangle "_open_editor\nmaestro/commands/solutions.py" as _open_editor #E6F3FF
+rectangle "list_solutions\nmaestro/solutions/solution_store.py" as list_solutions #E6F3FF
+rectangle "list_external_solutions\nmaestro/solutions/solution_store.py" as list_external_solutions #E6F3FF
+rectangle "load_solution\nmaestro/solutions/solution_store.py" as load_solution #E6F3FF
+rectangle "write_solution\nmaestro/solutions/solution_store.py" as write_solution #E6F3FF
+rectangle "delete_solution\nmaestro/solutions/solution_store.py" as delete_solution #E6F3FF
+component "SolutionDetails" as SolutionDetails
+component "SolutionRecord" as SolutionRecord
+database "docs_solutions_md" as docs_solutions_md #FFE6E6
+actor "File System" as filesystem
+actor "User's $EDITOR" as editor
+actor "subprocess module" as subprocess
+main_entry --> handle_solutions_command
+handle_solutions_command --> _find_repo_root
+handle_solutions_command --> _handle_list
+handle_solutions_command --> _handle_show
+handle_solutions_command --> _handle_add
+handle_solutions_command --> _handle_remove
+handle_solutions_command --> _handle_edit
+_handle_list --> list_solutions
+list_solutions --> docs_solutions_md
+_handle_list --> list_external_solutions
+_handle_show --> _find_solution_path
+_find_solution_path --> docs_solutions_md
+_handle_show --> load_solution
+load_solution --> docs_solutions_md
+_handle_add --> SolutionDetails
+_handle_add --> write_solution
+write_solution --> docs_solutions_md
+_handle_add --> _open_editor
+_open_editor --> subprocess
+_open_editor --> editor
+_handle_remove --> delete_solution
+delete_solution --> docs_solutions_md
+_handle_edit --> _find_solution_path
+_handle_edit --> _open_editor
+_find_repo_root --> filesystem
+_find_solution_path --> filesystem
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/solutions.py solutions.py]]
+  * [[docs/workflows/maestro/solutions/solution_store.py solution_store.py]]
+  * [[docs/workflows/v1/internal/deep/cmd_solutions_deep.puml cmd_solutions_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed markdown persistence in cmd_solutions deep flow; v2 repo truth uses JSO
+  * Observed ./.maestro directory usage in _find_repo_root; violates FORBID_REPO_DOT
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

@@ -1,0 +1,100 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-discuss - discuss deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.code.yaml docs/workflows/v2/ir/cmd/CMD-discuss.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro.main" as main_entry #E6F3FF
+rectangle "handle_discuss_command\nmaestro.commands.discuss" as handle_discuss_command #E6F3FF
+rectangle "handle_track_discuss\nmaestro.commands.discuss" as handle_track_discuss #E6F3FF
+rectangle "handle_phase_discuss\nmaestro.commands.discuss" as handle_phase_discuss #E6F3FF
+rectangle "handle_task_discuss\nmaestro.commands.discuss" as handle_task_discuss #E6F3FF
+rectangle "choose_mode\nmaestro.commands.discuss" as choose_mode #E6F3FF
+rectangle "run_discussion_with_router\nmaestro.commands.discuss" as run_discussion_with_router #E6F3FF
+rectangle "apply_patch_operations\nmaestro.commands.discuss" as apply_patch_operations #E6F3FF
+rectangle "save_discussion_artifacts\nmaestro.commands.discuss" as save_discussion_artifacts #E6F3FF
+rectangle "update_artifact_status\nmaestro.commands.discuss" as update_artifact_status #E6F3FF
+component "ai_engine_manager" as ai_engine_manager
+component "discussion_router" as discussion_router
+rectangle "run_discussion\nmaestro.ai.discussion_router" as run_discussion #E6F3FF
+component "json_contract" as json_contract
+component "track_contract" as track_contract
+component "phase_contract" as phase_contract
+component "task_contract" as task_contract
+component "global_contract" as global_contract
+component "action_processor" as action_processor
+component "patch_operation" as patch_operation
+rectangle "parse_config_md\nmaestro.data.markdown_parser" as parse_config_md #E6F3FF
+rectangle "insert_track_block\nmaestro.data.markdown_writer" as insert_track_block #E6F3FF
+rectangle "insert_phase_block\nmaestro.data.markdown_writer" as insert_phase_block #E6F3FF
+rectangle "insert_task_block\nmaestro.data.markdown_writer" as insert_task_block #E6F3FF
+rectangle "update_track_metadata\nmaestro.data.markdown_writer" as update_track_metadata #E6F3FF
+rectangle "update_phase_metadata\nmaestro.data.markdown_writer" as update_phase_metadata #E6F3FF
+rectangle "update_task_metadata\nmaestro.data.markdown_writer" as update_task_metadata #E6F3FF
+component "discussion_session" as discussion_session
+rectangle "create_discussion_session\nmaestro.discussion" as create_discussion_session #E6F3FF
+rectangle "create_session\nmaestro.work_session" as create_session #E6F3FF
+rectangle "get_breadcrumb_summary\nmaestro.breadcrumb" as get_breadcrumb_summary #E6F3FF
+database "docs_config_md" as docs_config_md #FFE6E6
+database "docs_todo_md" as docs_todo_md #FFE6E6
+database "docs_phases_md" as docs_phases_md #FFE6E6
+database "maestro_ai_artifacts" as maestro_ai_artifacts #FFE6E6
+database "work_sessions_json" as work_sessions_json #FFE6E6
+main_entry --> handle_discuss_command
+handle_discuss_command --> choose_mode
+handle_discuss_command --> run_discussion_with_router
+handle_discuss_command --> apply_patch_operations
+choose_mode --> parse_config_md
+run_discussion_with_router --> ai_engine_manager
+run_discussion_with_router --> discussion_router
+run_discussion_with_router --> json_contract
+run_discussion_with_router --> run_discussion
+run_discussion_with_router --> save_discussion_artifacts
+run_discussion_with_router --> update_artifact_status
+run_discussion --> ai_engine_manager
+run_discussion --> json_contract
+run_discussion --> patch_operation
+apply_patch_operations --> insert_track_block
+apply_patch_operations --> insert_phase_block
+apply_patch_operations --> insert_task_block
+apply_patch_operations --> update_track_metadata
+apply_patch_operations --> update_phase_metadata
+apply_patch_operations --> update_task_metadata
+save_discussion_artifacts --> maestro_ai_artifacts
+update_artifact_status --> maestro_ai_artifacts
+insert_track_block --> docs_todo_md
+insert_phase_block --> docs_todo_md
+insert_task_block --> docs_phases_md
+update_track_metadata --> docs_todo_md
+update_phase_metadata --> docs_todo_md
+update_task_metadata --> docs_phases_md
+create_discussion_session --> discussion_session
+discussion_session --> create_session
+discussion_session --> get_breadcrumb_summary
+create_session --> work_sessions_json
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_discuss_deep.puml cmd_discuss_deep.puml]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+  * [[docs/workflows/maestro/ai/discussion_router.py discussion_router.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_discuss deep flow; v2 repo truth uses J
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

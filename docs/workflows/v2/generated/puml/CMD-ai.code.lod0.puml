@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ai - ai deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ai.code.yaml docs/workflows/v2/ir/cmd/CMD-ai.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "ai" as ai
+  component "manager" as manager
+  component "task_sync" as task_sync
+  component "types" as types
+  component "breadcrumb" as breadcrumb
+  component "ai" as ai
+  component "settings" as settings
+  component "main" as main
+  component "client" as client
+  component "tui" as tui
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_ai_deep.puml cmd_ai_deep.puml]]
+  * [[docs/workflows/maestro/commands/ai.py ai.py]]
+  * [[docs/workflows/maestro/ai/task_sync.py task_sync.py]]
+  * [[docs/workflows/maestro/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/breadcrumb.py breadcrumb.py]]
+  * [[docs/workflows/maestro/ai/manager.py manager.py]]
+  * [[docs/workflows/maestro/config/settings.py settings.py]]
+  * [[docs/workflows/maestro/ai/runners.py runners.py]]
+  * [[docs/workflows/maestro/qwen/client.py client.py]]
+  * [[docs/workflows/maestro/qwen/tui.py tui.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed legacy Qwen server/TUI functionality in cmd_ai deep flow; v2 repo truth
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

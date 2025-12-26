@@ -1,0 +1,35 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-convert - convert command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "convert command" as cmd_convert
+component "new subcommand" as subcmd_new
+component "plan subcommand" as subcmd_plan
+component "run subcommand" as subcmd_run
+component "status subcommand" as subcmd_status
+component "show subcommand" as subcmd_show
+component "reset subcommand" as subcmd_reset
+component "batch subcommand" as subcmd_batch
+
+note left
+  **Evidence:**
+  * [[v1/command_convert.md command_convert.md]]
+  * [[v1/command_convert.puml command_convert.puml]]
+end note
+
+@enduml

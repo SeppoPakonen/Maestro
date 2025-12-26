@@ -1,0 +1,66 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-03 - Read-only repo inspection + build (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-03.intent.yaml docs/workflows/v2/ir/wf/WF-03.intent.yaml]]
+end note
+
+(*) --> "Operator initiates read-only repo inspection or build"
+:Branch guard - ensure on correct branch;
+:Check if repo command exists;
+:Run maestro repo resolve to detect build files, languages, packages;
+:Call WF-05 for repository resolution;
+:Identify packages/assemblies (including U++ .upp files);
+:Generate build plan with dependencies;
+:Use alternative commands (maestro make config detect);
+:Call WF-05 from available files;
+:Decide whether to build using detected plan or default build system;
+:Check if init required;
+:Run maestro init for minimal setup;
+:Proceed without init (read-only mode);
+:Call WF-05 for build driver detection;
+:Build driver detected?;
+:Run maestro make build with appropriate method;
+stop
+:Execute build process using detected toolchain;
+:Capture build diagnostics (errors, warnings, output);
+:Make/build success?;
+:Display success status and diagnostics;
+:Display failure status and error diagnostics;
+:Report diagnostics;
+"Operator completes workflow" --> (*)
+' check_repo_cmd -> run_repo_resolve: repo command exists
+' check_repo_cmd -> use_alternative: repo command does not exist
+' check_init_required -> run_init: init required
+' check_init_required -> proceed_without_init: init not required
+' build_driver_detected -> run_make_build: build driver detected
+' build_driver_detected -> build_hard_stop: build driver not detected
+
+package "Command Integration" #E6F3FF {
+  component "make\ncommand" as cmd_make [[../generated/svg/CMD-make.all_layers.lod1.svg]]
+  component "repo\ncommand" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_03_readonly_repo_inspect_build.md Original v1 workflow documentation]]
+  * [[v1/scenario_03_readonly_repo_inspect_build.puml Original v1 workflow diagram]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Workflow mentions maestro repo command which may not be registered in CLI; verif
+  * Read-only mode with storage in $HOME/.maestro/repo/ may conflict with REPO_TRUTH
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

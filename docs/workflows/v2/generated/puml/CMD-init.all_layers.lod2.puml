@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-init - Combined CLI+Code (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-init.cli.yaml docs/workflows/v2/ir/cmd/CMD-init.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD2)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro init"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "create_main_parser"
+  rectangle "add_init_parser"
+  rectangle "handle_init_command"
+  rectangle "mkdir"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_init.md cmd_init.md]]
+  * [[v1/internal/deep/cmd_init_deep.puml cmd_init_deep.puml]]
+  * [[docs/workflows/maestro/commands/init.py init.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_init deep flow; v2 repo truth uses JSON
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

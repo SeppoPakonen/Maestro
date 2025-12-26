@@ -1,0 +1,113 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-02 - New Project from Empty Directory (Manual Track/Phase/Task Planning) (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-02.intent.yaml docs/workflows/v2/ir/wf/WF-02.intent.yaml]]
+end note
+
+(*) --> "Operator starts new project"
+if "For each track" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate track_id uniqueness" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "For each phase" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate phase_id uniqueness" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate track_id exists" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "For each task" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate task_id uniqueness" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate phase_id exists" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Task available?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "How to execute task?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate engine output" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Task complete?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "More active tasks?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nHard Stop - Duplicate track_id
+end note
+note right #FF0000
+  **HARD STOP**\nHard Stop - Duplicate phase_id
+end note
+note right #FF0000
+  **HARD STOP**\nHard Stop - Referenced track_id does not exist
+end note
+note right #FF0000
+  **HARD STOP**\nHard Stop - Duplicate task_id
+end note
+note right #FF0000
+  **HARD STOP**\nHard Stop - Referenced phase_id does not exist
+end note
+note right #FF0000
+  **HARD STOP**\nHard Stop - Engine output validation failed
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "repo_truth\n./docs/maestro/" as repo_truth
+  database "tracks_store\n./docs/maestro/tracks/" as tracks_store
+  database "phases_store\n./docs/maestro/phases/" as phases_store
+  database "tasks_store\n./docs/maestro/tasks/" as tasks_store
+  database "index_store\n./docs/maestro/index.json" as index_store
+}
+"--> (*)
+"--> (*)
+"--> (*)
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "init" as uses_init [[../generated/svg/CMD-init.all_layers.lod0.svg]]
+  rectangle "phase" as uses_phase [[../generated/svg/CMD-phase.all_layers.lod0.svg]]
+  rectangle "task" as uses_task [[../generated/svg/CMD-task.all_layers.lod0.svg]]
+  rectangle "track" as uses_track [[../generated/svg/CMD-track.all_layers.lod0.svg]]
+  rectangle "work" as uses_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_02_new_project_manual_plan.md Original v1 scenario documentation]]
+  * [[v1/scenario_02_new_project_manual_plan.puml Original v1 PlantUML diagram]]
+end note
+
+@enduml

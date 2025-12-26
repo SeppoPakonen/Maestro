@@ -1,0 +1,51 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-04 - Reactive compile error → Solutions match → immediate solution-task (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-04.intent.yaml docs/workflows/v2/ir/wf/WF-04.intent.yaml]]
+end note
+
+(*) --> "Operator runs maestro make build"
+if "Branch Guard" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Build fails with compile error?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Solution match found?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Build succeeds?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+
+package "Data Stores" #F0F0F0 {
+  database "issues_store\n./docs/issues/" as issues_store
+  database "tasks_store\n./docs/tasks/" as tasks_store
+}
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "make" as uses_make [[../generated/svg/CMD-make.all_layers.lod0.svg]]
+  rectangle "solutions" as uses_solutions [[../generated/svg/CMD-solutions.all_layers.lod0.svg]]
+  rectangle "work" as uses_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_04_reactive_compile_error_solution.md Original v1 scenario documentation]]
+  * [[v1/scenario_04_reactive_compile_error_solution.puml Original v1 PlantUML diagram]]
+end note
+
+@enduml

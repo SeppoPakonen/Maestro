@@ -1,0 +1,26 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-help - help command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.cli.yaml docs/workflows/v2/ir/cmd/CMD-help.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro help" as cmd_0
+  usecase "maestro h" as cmd_1
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_help.md command_help.md]]
+  * [[v1/command_help.puml command_help.puml]]
+end note
+
+@enduml

@@ -1,0 +1,31 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-phase - phase command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro phase" as cmd_0
+  usecase "maestro ph" as cmd_1
+  usecase "maestro p" as cmd_2
+  usecase "maestro phase list" as cmd_3
+  usecase "maestro phase add" as cmd_4
+  usecase "maestro phase remove" as cmd_5
+  usecase "maestro phase show" as cmd_6
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_phase.md cmd_phase.md]]
+  * [[docs/workflows/maestro/commands/phase.py phase.py]]
+end note
+
+@enduml

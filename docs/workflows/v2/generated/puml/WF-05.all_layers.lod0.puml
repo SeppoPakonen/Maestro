@@ -1,0 +1,80 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-05 - Combined Layers (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-05.intent.yaml docs/workflows/v2/ir/wf/WF-05.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD0)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-05 - Repo Resolve — packages, conventions, build targets, and derived issues/tasks (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-05.intent.yaml docs/workflows/v2/ir/wf/WF-05.intent.yaml]]
+end note
+
+(*) --> "Operator initiates repo resolve"
+if "Branch boundary validation" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate repository exists" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Check for .maestro/ directory" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Convention detection" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Violation detection" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Task creation policy check" then
+  -->[yes] ...
+  -->[no] ...
+endif
+
+package "Data Stores" #F0F0F0 {
+  database "repo_truth\n./docs/maestro/repo/" as repo_truth
+  database "issue_store\n./docs/maestro/issues/" as issue_store
+  database "task_store\n./docs/maestro/tasks/" as task_store
+}
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_05_repo_resolve_packages_conventions_targets.md Original v1 scenario documentation]]
+  * [[v1/scenario_05_repo_resolve_packages_conventions_targets.puml PlantUML diagram of workflow]]
+end note
+
+
+@enduml

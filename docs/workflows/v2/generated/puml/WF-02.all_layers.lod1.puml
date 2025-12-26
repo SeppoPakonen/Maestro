@@ -1,0 +1,112 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-02 - Combined Layers (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-02.intent.yaml docs/workflows/v2/ir/wf/WF-02.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD1)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-02 - New Project from Empty Directory (Manual Track/Phase/Task Planning) (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-02.intent.yaml docs/workflows/v2/ir/wf/WF-02.intent.yaml]]
+end note
+
+(*) --> "Operator starts new project"
+:Create project directory (if needed);
+:Run `git init`|
+:Run `maestro init`|
+:Define tracks for project;
+:For each track;
+:Run `maestro track add <id> --name \"<name>\"`|
+:Validate track_id uniqueness;
+stop
+:Create docs/maestro/tracks/<id>.json}
+:Update docs/maestro/index.json}
+:Define phases within tracks;
+:For each phase;
+:Run `maestro phase add <phase_id> --track <track_id> --name \"<name>\"`|
+:Validate phase_id uniqueness;
+stop
+:Validate track_id exists;
+stop
+:Create docs/maestro/phases/<phase_id>.json}
+:Update docs/maestro/tracks/<track_id>.json}
+:Define tasks within phases;
+:For each task;
+:Run `maestro task add <task_id> --phase <phase_id> --name \"<name>\" --description \"<desc>\"`|
+:Validate task_id uniqueness;
+stop
+:Validate phase_id exists;
+stop
+:Create docs/maestro/tasks/<task_id>.json}
+:Update docs/maestro/phases/<phase_id>.json}
+:Start work loop;
+:Run `maestro task next`|
+:Task available?;
+"Exit - No tasks available" --> (*)
+:Display task details to Operator;
+:Operator reviews task: ID, name, description;
+:How to execute task?;
+:Execute task manually;
+:Run `maestro work task <task_id>`|
+:Read task context from docs/maestro/tasks/<id>.json}
+:Read phase context from docs/maestro/phases/<phase_id>.json}
+:Validate engine output;
+stop
+:Apply changes to repository;
+:Operator verifies task completion;
+:Task complete?;
+:Run `maestro task complete <task_id>`|
+:Update task status to 'completed'}
+:More active tasks?;
+"Exit - All tasks completed" --> (*)
+:Adjust approach or break into subtasks;
+"Success - New project initialized with manual planning" --> (*)
+"Partial completion - Operator may resume work later" --> (*)
+' create_tracks_loop -> add_track: more tracks
+' validate_track_id -> duplicate_track_id: not unique
+' validate_track_id -> create_track_json: unique
+' create_tracks_loop -> define_phases: all tracks created
+' create_phases_loop -> add_phase: more phases
+' validate_phase_id -> duplicate_phase_id: not unique
+' validate_phase_id -> validate_track_exists: unique
+' validate_track_exists -> track_not_found: track does not exist
+
+package "Command Integration" #E6F3FF {
+  component "init\ncommand" as cmd_init [[../generated/svg/CMD-init.all_layers.lod1.svg]]
+  component "phase\ncommand" as cmd_phase [[../generated/svg/CMD-phase.all_layers.lod1.svg]]
+  component "task\ncommand" as cmd_task [[../generated/svg/CMD-task.all_layers.lod1.svg]]
+  component "track\ncommand" as cmd_track [[../generated/svg/CMD-track.all_layers.lod1.svg]]
+  component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_02_new_project_manual_plan.md Original v1 scenario documentation]]
+  * [[v1/scenario_02_new_project_manual_plan.puml Original v1 PlantUML diagram]]
+end note
+
+
+@enduml

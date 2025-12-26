@@ -1,0 +1,74 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-work - work deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.code.yaml docs/workflows/v2/ir/cmd/CMD-work.code.yaml]]
+end note
+
+rectangle "maestro.main.main\n(maestro/main.py)" as main_entry
+rectangle "add_work_parser\n(maestro/commands/work.py)" as add_work_parser
+rectangle "handle_work_any\n(maestro/commands/work.py)" as handle_work_any
+rectangle "handle_work_any_pick\n(maestro/commands/work.py)" as handle_work_any_pick
+rectangle "handle_work_track\n(maestro/commands/work.py)" as handle_work_track
+rectangle "handle_work_phase\n(maestro/commands/work.py)" as handle_work_phase
+rectangle "handle_work_issue\n(maestro/commands/work.py)" as handle_work_issue
+rectangle "handle_work_task\n(maestro/commands/work.py)" as handle_work_task
+rectangle "handle_work_discuss\n(maestro/commands/work.py)" as handle_work_discuss
+rectangle "handle_work_analyze\n(maestro/commands/work.py)" as handle_work_analyze
+rectangle "handle_work_fix\n(maestro/commands/work.py)" as handle_work_fix
+rectangle "load_available_work\n(maestro/commands/work.py)" as load_available_work
+rectangle "ai_select_work_items\n(maestro/commands/work.py)" as ai_select_work_items
+rectangle "simple_priority_sort\n(maestro/commands/work.py)" as simple_priority_sort
+rectangle "_run_ai_interaction_with_breadcrumb\n(maestro/commands/work.py)" as _run_ai_interaction_with_breadcrumb
+main_entry --> add_work_parser
+handle_work_any --> load_available_work
+handle_work_any --> ai_select_work_items
+handle_work_any --> create_session
+handle_work_any --> execute_track_work
+handle_work_any --> execute_phase_work
+handle_work_any --> execute_issue_work
+handle_work_any_pick --> load_available_work
+handle_work_any_pick --> ai_select_work_items
+handle_work_any_pick --> user
+handle_work_any_pick --> create_session
+handle_work_any_pick --> execute_track_work
+handle_work_any_pick --> execute_phase_work
+handle_work_any_pick --> execute_issue_work
+handle_work_track --> load_available_work
+handle_work_track --> create_session
+handle_work_track --> execute_track_work
+handle_work_phase --> load_available_work
+handle_work_phase --> create_session
+handle_work_phase --> execute_phase_work
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
+  * [[docs/workflows/maestro/commands/work.py work.py]]
+  * [[docs/workflows/maestro/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/breadcrumb.py breadcrumb.py]]
+  * [[docs/workflows/maestro/ai/task_sync.py task_sync.py]]
+  * [[docs/workflows/maestro/engines.py engines.py]]
+  * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+  * [[docs/workflows/maestro/workers/track_worker.py track_worker.py]]
+  * [[docs/workflows/maestro/workers/phase_worker.py phase_worker.py]]
+  * [[docs/workflows/maestro/workers/issue_worker.py issue_worker.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_work deep flow; v2 repo truth uses JSON
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

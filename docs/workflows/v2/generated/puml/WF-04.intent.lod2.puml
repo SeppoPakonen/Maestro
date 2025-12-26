@@ -1,0 +1,34 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-04 - Reactive compile error → Solutions match → immediate solution-task (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-04.intent.yaml docs/workflows/v2/ir/wf/WF-04.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "make\nimplementation" as impl_make [[../generated/svg/CMD-make.code.lod2.svg]]
+  component "solutions\nimplementation" as impl_solutions [[../generated/svg/CMD-solutions.code.lod2.svg]]
+  component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_04_reactive_compile_error_solution.md Original v1 scenario documentation]]
+  * [[v1/scenario_04_reactive_compile_error_solution.puml Original v1 PlantUML diagram]]
+end note
+
+@enduml

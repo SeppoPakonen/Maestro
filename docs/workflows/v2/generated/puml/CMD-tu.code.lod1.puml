@@ -1,0 +1,71 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-tu - tu deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-tu.code.yaml docs/workflows/v2/ir/cmd/CMD-tu.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro/main.py)" as main_entry
+rectangle "add_tu_parser\n(maestro/commands/tu.py)" as add_tu_parser
+rectangle "handle_tu_command\n(maestro/commands/tu.py)" as handle_tu_command
+rectangle "handle_tu_build_command\n(maestro/commands/tu.py)" as handle_tu_build_command
+rectangle "handle_tu_info_command\n(maestro/commands/tu.py)" as handle_tu_info_command
+rectangle "handle_tu_query_command\n(maestro/commands/tu.py)" as handle_tu_query_command
+rectangle "handle_tu_complete_command\n(maestro/commands/tu.py)" as handle_tu_complete_command
+rectangle "handle_tu_references_command\n(maestro/commands/tu.py)" as handle_tu_references_command
+rectangle "handle_tu_lsp_command\n(maestro/commands/tu.py)" as handle_tu_lsp_command
+rectangle "handle_tu_cache_clear_command\n(maestro/commands/tu.py)" as handle_tu_cache_clear_command
+rectangle "handle_tu_cache_stats_command\n(maestro/commands/tu.py)" as handle_tu_cache_stats_command
+rectangle "handle_tu_transform_command\n(maestro/commands/tu.py)" as handle_tu_transform_command
+rectangle "handle_tu_print_ast_command\n(maestro/commands/tu.py)" as handle_tu_print_ast_command
+rectangle "handle_tu_draft_command\n(maestro/commands/tu.py)" as handle_tu_draft_command
+rectangle "detect_language_from_path\n(maestro/commands/tu.py)" as detect_language_from_path
+main_entry --> add_tu_parser
+handle_tu_command --> handle_tu_build_command
+handle_tu_command --> handle_tu_info_command
+handle_tu_command --> handle_tu_query_command
+handle_tu_command --> handle_tu_complete_command
+handle_tu_command --> handle_tu_references_command
+handle_tu_command --> handle_tu_lsp_command
+handle_tu_command --> handle_tu_cache_clear_command
+handle_tu_command --> handle_tu_cache_stats_command
+handle_tu_command --> handle_tu_transform_command
+handle_tu_command --> handle_tu_print_ast_command
+handle_tu_command --> handle_tu_draft_command
+handle_tu_build_command --> get_files_by_language
+handle_tu_build_command --> detect_language_from_path
+handle_tu_build_command --> get_parser_by_language
+handle_tu_build_command --> tu_builder
+handle_tu_query_command --> symbol_index
+handle_tu_complete_command --> completion_provider
+handle_tu_references_command --> symbol_index
+handle_tu_lsp_command --> maestro_lsp_server
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_tu_deep.puml cmd_tu_deep.puml]]
+  * [[docs/workflows/maestro/commands/tu.py tu.py]]
+  * [[docs/workflows/maestro/tu/tu_builder.py tu_builder.py]]
+  * [[docs/workflows/maestro/tu/indexing.py indexing.py]]
+  * [[docs/workflows/maestro/tu/lsp_server.py lsp_server.py]]
+  * [[docs/workflows/maestro/tu/transformers.py transformers.py]]
+  * [[docs/workflows/maestro/tu/ast.py ast.py]]
+  * [[docs/workflows/maestro/tu/code_generator.py code_generator.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro directory usage for TU cache and analysis; violates FORBID_REP
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

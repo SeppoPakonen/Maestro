@@ -1,0 +1,70 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-phase - phase deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.code.yaml docs/workflows/v2/ir/cmd/CMD-phase.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro/main.py)" as main_entry
+rectangle "handle_phase_command\n(maestro/commands/phase.py)" as handle_phase_command
+rectangle "list_phases\n(maestro/commands/phase.py)" as list_phases
+rectangle "show_phase\n(maestro/commands/phase.py)" as show_phase
+rectangle "add_phase\n(maestro/commands/phase.py)" as add_phase
+rectangle "remove_phase\n(maestro/commands/phase.py)" as remove_phase
+rectangle "edit_phase\n(maestro/commands/phase.py)" as edit_phase
+rectangle "set_phase_status\n(maestro/commands/phase.py)" as set_phase_status
+rectangle "set_phase_context\n(maestro/commands/phase.py)" as set_phase_context
+rectangle "handle_phase_discuss\n(maestro/commands/discuss.py)" as handle_phase_discuss
+rectangle "get_all_tracks\n(maestro/data/common_utils.py)" as get_all_tracks
+rectangle "parse_todo_md\n(maestro/data/markdown_parser.py)" as parse_todo_md
+rectangle "parse_phase_md\n(maestro/data/markdown_parser.py)" as parse_phase_md
+rectangle "extract_phase_block\n(maestro/data/markdown_writer.py)" as extract_phase_block
+rectangle "replace_phase_block\n(maestro/data/markdown_writer.py)" as replace_phase_block
+main_entry --> handle_phase_command
+handle_phase_command --> list_phases
+handle_phase_command --> show_phase
+handle_phase_command --> add_phase
+handle_phase_command --> remove_phase
+handle_phase_command --> edit_phase
+handle_phase_command --> set_phase_status
+handle_phase_command --> set_phase_context
+handle_phase_command --> handle_phase_discuss
+list_phases --> get_all_tracks
+list_phases --> get_settings
+show_phase --> file_system
+show_phase --> parse_phase_md
+show_phase --> parse_todo_md
+add_phase --> get_settings
+add_phase --> json_store
+add_phase --> load_track
+add_phase --> load_phase
+add_phase --> save_phase
+add_phase --> save_track
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_phase_deep.puml cmd_phase_deep.puml]]
+  * [[docs/workflows/maestro/commands/phase.py phase.py]]
+  * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+  * [[docs/workflows/maestro/tracks/json_store.py json_store.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_phase deep flow; v2 repo truth uses JSO
+  * Observed .maestro directory usage in cmd_phase deep flow; violates FORBID_REPO_D
+  * Observed markdown file persistence for repo truth in cmd_phase deep flow; violat
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

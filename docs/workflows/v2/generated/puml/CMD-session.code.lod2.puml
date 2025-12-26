@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-session - session deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-session.code.yaml docs/workflows/v2/ir/cmd/CMD-session.code.yaml]]
+end note
+
+rectangle "handle_session_new\nmaestro.modules.command_handlers" as handle_session_new #E6F3FF
+rectangle "handle_session_list\nmaestro.modules.command_handlers" as handle_session_list #E6F3FF
+rectangle "handle_session_set\nmaestro.modules.command_handlers" as handle_session_set #E6F3FF
+rectangle "handle_session_get\nmaestro.modules.command_handlers" as handle_session_get #E6F3FF
+rectangle "handle_session_remove\nmaestro.modules.command_handlers" as handle_session_remove #E6F3FF
+rectangle "handle_session_details\nmaestro.modules.command_handlers" as handle_session_details #E6F3FF
+rectangle "handle_wsession_breadcrumbs\nmaestro.commands.work_session" as handle_wsession_breadcrumbs #E6F3FF
+rectangle "handle_wsession_timeline\nmaestro.commands.work_session" as handle_wsession_timeline #E6F3FF
+rectangle "handle_wsession_stats\nmaestro.commands.work_session" as handle_wsession_stats #E6F3FF
+rectangle "get_session_path_by_name\nmaestro.modules.command_handlers" as get_session_path_by_name #E6F3FF
+rectangle "create_session\nmaestro.modules.command_handlers" as create_session #E6F3FF
+rectangle "set_active_session_name\nmaestro.modules.command_handlers" as set_active_session_name #E6F3FF
+rectangle "list_sessions\nmaestro.modules.command_handlers" as list_sessions #E6F3FF
+rectangle "get_active_session_name\nmaestro.modules.command_handlers" as get_active_session_name #E6F3FF
+rectangle "get_session_details\nmaestro.modules.command_handlers" as get_session_details #E6F3FF
+rectangle "load_session\nmaestro.session_model" as load_session #E6F3FF
+rectangle "list_build_targets\nmaestro.modules.command_handlers" as list_build_targets #E6F3FF
+rectangle "edit_root_task_in_editor\nmaestro.modules.command_handlers" as edit_root_task_in_editor #E6F3FF
+rectangle "remove_session\nmaestro.modules.command_handlers" as remove_session #E6F3FF
+database "session_json_store" as session_json_store #FFE6E6
+database "config_json_store" as config_json_store #FFE6E6
+handle_session_new --> get_session_path_by_name
+handle_session_new --> create_session
+handle_session_new --> set_active_session_name
+handle_session_list --> list_sessions
+handle_session_list --> get_active_session_name
+handle_session_list --> get_session_details
+handle_session_set --> list_sessions
+handle_session_set --> get_session_path_by_name
+handle_session_set --> set_active_session_name
+handle_session_get --> get_active_session_name
+handle_session_get --> get_session_details
+handle_session_remove --> get_session_path_by_name
+handle_session_remove --> remove_session
+handle_session_details --> list_sessions
+handle_session_details --> get_session_details
+handle_session_details --> load_session
+handle_session_details --> list_build_targets
+create_session --> session_json_store
+set_active_session_name --> config_json_store
+get_session_details --> session_json_store
+load_session --> session_json_store
+remove_session --> session_json_store
+
+note left
+  **Evidence:**
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/command_handlers.py command_handlers.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/commands/work_session.py work_session.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/session_model.py session_model.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed session data stored in JSON format under docs/sessions/; aligns with RE
+  * Observed user-specific config in ~/.maestro/config.json; aligns with HOME_HUB_AL
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

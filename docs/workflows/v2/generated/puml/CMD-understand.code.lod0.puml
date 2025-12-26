@@ -1,0 +1,38 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-understand - understand deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-understand.code.yaml docs/workflows/v2/ir/cmd/CMD-understand.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "understand" as understand
+  component "main" as main
+  component "utils" as utils
+  component "command" as command
+  component "introspector" as introspector
+  component "renderer" as renderer
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_understand_deep.md cmd_understand_deep.md]]
+  * [[v1/internal/deep/cmd_understand_deep.puml cmd_understand_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_understand deep flow; v2 repo truth use
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

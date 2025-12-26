@@ -1,0 +1,28 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-task - task command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-task.cli.yaml docs/workflows/v2/ir/cmd/CMD-task.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro task" as cmd_0
+  usecase "maestro task list" as cmd_1
+  usecase "maestro task add" as cmd_2
+  usecase "maestro task remove" as cmd_3
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_task.md command_task.md]]
+  * [[v1/command_task.puml command_task.puml]]
+end note
+
+@enduml

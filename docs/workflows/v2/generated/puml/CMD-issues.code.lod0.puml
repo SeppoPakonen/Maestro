@@ -1,0 +1,43 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-issues - issues deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.code.yaml docs/workflows/v2/ir/cmd/CMD-issues.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "client" as client
+  component "issues" as issues
+  component "issue_store" as issue_store
+  component "model" as model
+  component "main" as main
+  component "solution_store" as solution_store
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/issues.py issues.py]]
+  * [[docs/workflows/maestro/issues/issue_store.py issue_store.py]]
+  * [[docs/workflows/maestro/issues/model.py model.py]]
+  * [[docs/workflows/maestro/solutions/solution_store.py solution_store.py]]
+  * [[docs/workflows/maestro/ai/client.py client.py]]
+  * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_issues deep flow; v2 repo truth uses JS
+  * Uses ./docs/issues/*.md, ./docs/solutions/*.md, and ./docs/sessions/*.md for per
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

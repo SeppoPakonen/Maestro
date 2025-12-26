@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ai - ai deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ai.code.yaml docs/workflows/v2/ir/cmd/CMD-ai.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro/main.py)" as main_entry
+rectangle "handle_ai_sync\n(maestro/commands/ai.py)" as handle_ai_sync
+rectangle "handle_ai_qwen\n(maestro/commands/ai.py)" as handle_ai_qwen
+rectangle "handle_ai_gemini\n(maestro/commands/ai.py)" as handle_ai_gemini
+rectangle "handle_ai_codex\n(maestro/commands/ai.py)" as handle_ai_codex
+rectangle "handle_ai_claude\n(maestro/commands/ai.py)" as handle_ai_claude
+rectangle "ai_sync_watch\n(maestro/commands/ai.py)" as ai_sync_watch
+rectangle "resolve_session\n(maestro/commands/ai.py)" as resolve_session
+rectangle "load_sync_state\n(maestro/ai/task_sync.py)" as load_sync_state
+rectangle "find_task_context\n(maestro/ai/task_sync.py)" as find_task_context
+rectangle "build_task_queue\n(maestro/ai/task_sync.py)" as build_task_queue
+rectangle "select_next_task\n(maestro/commands/ai.py)" as select_next_task
+rectangle "build_task_prompt\n(maestro/ai/task_sync.py)" as build_task_prompt
+rectangle "save_session\n(maestro/work_session.py)" as save_session
+rectangle "write_sync_state\n(maestro/ai/task_sync.py)" as write_sync_state
+main_entry --> handle_ai_sync
+main_entry --> handle_ai_qwen
+main_entry --> handle_ai_gemini
+main_entry --> handle_ai_codex
+main_entry --> handle_ai_claude
+handle_ai_sync --> ai_sync_watch
+handle_ai_sync --> resolve_session
+resolve_session --> load_sync_state
+handle_ai_sync --> find_task_context
+handle_ai_sync --> build_task_queue
+handle_ai_sync --> select_next_task
+handle_ai_sync --> build_task_prompt
+handle_ai_sync --> save_session
+handle_ai_sync --> write_sync_state
+handle_ai_sync --> write_sync_breadcrumb
+write_sync_breadcrumb --> create_breadcrumb
+handle_ai_qwen --> ai_engine_manager
+handle_ai_qwen --> get_settings
+handle_ai_qwen --> run_one_shot
+handle_ai_qwen --> run_interactive_chat
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_ai_deep.puml cmd_ai_deep.puml]]
+  * [[docs/workflows/maestro/commands/ai.py ai.py]]
+  * [[docs/workflows/maestro/ai/task_sync.py task_sync.py]]
+  * [[docs/workflows/maestro/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/breadcrumb.py breadcrumb.py]]
+  * [[docs/workflows/maestro/ai/manager.py manager.py]]
+  * [[docs/workflows/maestro/config/settings.py settings.py]]
+  * [[docs/workflows/maestro/ai/runners.py runners.py]]
+  * [[docs/workflows/maestro/qwen/client.py client.py]]
+  * [[docs/workflows/maestro/qwen/tui.py tui.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed legacy Qwen server/TUI functionality in cmd_ai deep flow; v2 repo truth
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

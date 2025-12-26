@@ -1,0 +1,31 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-help - help deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.code.yaml docs/workflows/v2/ir/cmd/CMD-help.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "ArgumentParser" as ArgumentParser
+  component "main" as main
+  component "cli_parser" as cli_parser
+  component "StyledArgumentParser" as StyledArgumentParser
+  component "utils" as utils
+  component "pyfiglet" as pyfiglet
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/main.py Contains the main entry point function]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/cli_parser.py Contains the CLI parser and StyledArgumentParser]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/utils.py Contains utility functions for styled printing]]
+end note
+
+@enduml

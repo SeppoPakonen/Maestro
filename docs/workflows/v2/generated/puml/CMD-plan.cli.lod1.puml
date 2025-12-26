@@ -1,0 +1,41 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-plan - plan command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml]]
+end note
+
+rectangle "maestro plan" as cmd-plan-entry
+usecase "add" as subcmd-add
+usecase "list" as subcmd-list
+usecase "remove" as subcmd-remove
+usecase "show" as subcmd-show
+usecase "add-item" as subcmd-add-item
+usecase "remove-item" as subcmd-remove-item
+usecase "ops" as subcmd-ops
+usecase "discuss" as subcmd-discuss
+usecase "explore" as subcmd-explore
+cmd-plan-entry --> subcmd-add
+cmd-plan-entry --> subcmd-list
+cmd-plan-entry --> subcmd-remove
+cmd-plan-entry --> subcmd-show
+cmd-plan-entry --> subcmd-add-item
+cmd-plan-entry --> subcmd-remove-item
+cmd-plan-entry --> subcmd-ops
+cmd-plan-entry --> subcmd-discuss
+cmd-plan-entry --> subcmd-explore
+
+note left
+  **Evidence:**
+  * [[v1/command_plan.md command_plan.md]]
+  * [[v1/command_plan.puml command_plan.puml]]
+end note
+
+@enduml

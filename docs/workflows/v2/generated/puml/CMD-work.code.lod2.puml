@@ -1,0 +1,147 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-work - work deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.code.yaml docs/workflows/v2/ir/cmd/CMD-work.code.yaml]]
+end note
+
+rectangle "maestro.main.main\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "add_work_parser\nmaestro/commands/work.py" as add_work_parser #E6F3FF
+rectangle "handle_work_any\nmaestro/commands/work.py" as handle_work_any #E6F3FF
+rectangle "handle_work_any_pick\nmaestro/commands/work.py" as handle_work_any_pick #E6F3FF
+rectangle "handle_work_track\nmaestro/commands/work.py" as handle_work_track #E6F3FF
+rectangle "handle_work_phase\nmaestro/commands/work.py" as handle_work_phase #E6F3FF
+rectangle "handle_work_issue\nmaestro/commands/work.py" as handle_work_issue #E6F3FF
+rectangle "handle_work_task\nmaestro/commands/work.py" as handle_work_task #E6F3FF
+rectangle "handle_work_discuss\nmaestro/commands/work.py" as handle_work_discuss #E6F3FF
+rectangle "handle_work_analyze\nmaestro/commands/work.py" as handle_work_analyze #E6F3FF
+rectangle "handle_work_fix\nmaestro/commands/work.py" as handle_work_fix #E6F3FF
+rectangle "load_available_work\nmaestro/commands/work.py" as load_available_work #E6F3FF
+rectangle "ai_select_work_items\nmaestro/commands/work.py" as ai_select_work_items #E6F3FF
+rectangle "simple_priority_sort\nmaestro/commands/work.py" as simple_priority_sort #E6F3FF
+rectangle "_run_ai_interaction_with_breadcrumb\nmaestro/commands/work.py" as _run_ai_interaction_with_breadcrumb #E6F3FF
+rectangle "_safe_generate\nmaestro/commands/work.py" as _safe_generate #E6F3FF
+rectangle "load_issues\nmaestro/commands/work.py" as load_issues #E6F3FF
+rectangle "_load_task_entries\nmaestro/commands/work.py" as _load_task_entries #E6F3FF
+component "WorkSession" as work_session_class
+rectangle "create_session\nmaestro/work_session.py" as create_session #E6F3FF
+rectangle "complete_session\nmaestro/work_session.py" as complete_session #E6F3FF
+rectangle "save_session\nmaestro/work_session.py" as save_session #E6F3FF
+rectangle "is_breadcrumb_enabled\nmaestro/work_session.py" as is_breadcrumb_enabled #E6F3FF
+rectangle "load_breadcrumb_settings\nmaestro/work_session.py" as load_breadcrumb_settings #E6F3FF
+rectangle "create_breadcrumb\nmaestro/breadcrumb.py" as create_breadcrumb #E6F3FF
+rectangle "write_breadcrumb\nmaestro/breadcrumb.py" as write_breadcrumb #E6F3FF
+rectangle "estimate_tokens\nmaestro/breadcrumb.py" as estimate_tokens #E6F3FF
+rectangle "calculate_cost\nmaestro/breadcrumb.py" as calculate_cost #E6F3FF
+rectangle "build_task_prompt\nmaestro/ai/task_sync.py" as build_task_prompt #E6F3FF
+rectangle "build_task_queue\nmaestro/ai/task_sync.py" as build_task_queue #E6F3FF
+rectangle "find_task_context\nmaestro/ai/task_sync.py" as find_task_context #E6F3FF
+rectangle "task_is_done\nmaestro/ai/task_sync.py" as task_is_done #E6F3FF
+rectangle "write_sync_state\nmaestro/ai/task_sync.py" as write_sync_state #E6F3FF
+rectangle "get_engine\nmaestro/engines.py" as get_engine #E6F3FF
+rectangle "parse_todo_md\nmaestro/data/markdown_parser.py" as parse_todo_md #E6F3FF
+rectangle "parse_phase_md\nmaestro/data/markdown_parser.py" as parse_phase_md #E6F3FF
+rectangle "handle_track_discuss\nmaestro/commands/discuss.py" as handle_track_discuss #E6F3FF
+rectangle "handle_phase_discuss\nmaestro/commands/discuss.py" as handle_phase_discuss #E6F3FF
+rectangle "handle_task_discuss\nmaestro/commands/discuss.py" as handle_task_discuss #E6F3FF
+rectangle "execute_track_work\nmaestro/workers/track_worker.py" as execute_track_work #E6F3FF
+rectangle "execute_phase_work\nmaestro/workers/phase_worker.py" as execute_phase_work #E6F3FF
+rectangle "execute_issue_work\nmaestro/workers/issue_worker.py" as execute_issue_work #E6F3FF
+actor "File System" as file_system
+actor "External AI Service" as external_ai
+actor "User (for interactive selection)" as user
+actor "Git CLI (for analyze context)" as git
+database "docs/todo.md" as docs_todo_md #FFE6E6
+database "docs/issues/<id>.md" as docs_issues_md #FFE6E6
+database "docs/phases/<id>.md" as docs_phases_md #FFE6E6
+database "docs/sessions/" as docs_sessions_dir #FFE6E6
+database "docs/ai_sync.json" as docs_ai_sync_json #FFE6E6
+main_entry --> add_work_parser
+handle_work_any --> load_available_work
+handle_work_any --> ai_select_work_items
+handle_work_any --> create_session
+handle_work_any --> execute_track_work
+handle_work_any --> execute_phase_work
+handle_work_any --> execute_issue_work
+handle_work_any_pick --> load_available_work
+handle_work_any_pick --> ai_select_work_items
+handle_work_any_pick --> user
+handle_work_any_pick --> create_session
+handle_work_any_pick --> execute_track_work
+handle_work_any_pick --> execute_phase_work
+handle_work_any_pick --> execute_issue_work
+handle_work_track --> load_available_work
+handle_work_track --> create_session
+handle_work_track --> execute_track_work
+handle_work_phase --> load_available_work
+handle_work_phase --> create_session
+handle_work_phase --> execute_phase_work
+handle_work_issue --> load_available_work
+handle_work_issue --> create_session
+handle_work_issue --> execute_issue_work
+handle_work_task --> _load_task_entries
+handle_work_task --> find_task_context
+handle_work_task --> build_task_queue
+handle_work_task --> write_sync_state
+handle_work_task --> create_session
+handle_work_task --> _run_ai_interaction_with_breadcrumb
+handle_work_discuss --> handle_track_discuss
+handle_work_discuss --> handle_phase_discuss
+handle_work_discuss --> handle_task_discuss
+handle_work_analyze --> load_available_work
+handle_work_analyze --> get_engine
+handle_work_analyze --> _run_ai_interaction_with_breadcrumb
+handle_work_fix --> load_available_work
+handle_work_fix --> create_session
+handle_work_fix --> _run_ai_interaction_with_breadcrumb
+handle_work_fix --> get_engine
+create_session --> docs_sessions_dir
+_run_ai_interaction_with_breadcrumb --> _safe_generate
+_run_ai_interaction_with_breadcrumb --> create_breadcrumb
+_run_ai_interaction_with_breadcrumb --> write_breadcrumb
+_run_ai_interaction_with_breadcrumb --> estimate_tokens
+_run_ai_interaction_with_breadcrumb --> calculate_cost
+complete_session --> docs_sessions_dir
+ai_select_work_items --> get_engine
+ai_select_work_items --> external_ai
+ai_select_work_items --> simple_priority_sort
+_safe_generate --> get_engine
+_safe_generate --> external_ai
+load_available_work --> docs_todo_md
+load_available_work --> load_issues
+load_issues --> docs_issues_md
+_load_task_entries --> docs_phases_md
+write_sync_state --> docs_ai_sync_json
+handle_work_fix --> docs_sessions_dir
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
+  * [[docs/workflows/maestro/commands/work.py work.py]]
+  * [[docs/workflows/maestro/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/breadcrumb.py breadcrumb.py]]
+  * [[docs/workflows/maestro/ai/task_sync.py task_sync.py]]
+  * [[docs/workflows/maestro/engines.py engines.py]]
+  * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+  * [[docs/workflows/maestro/workers/track_worker.py track_worker.py]]
+  * [[docs/workflows/maestro/workers/phase_worker.py phase_worker.py]]
+  * [[docs/workflows/maestro/workers/issue_worker.py issue_worker.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_work deep flow; v2 repo truth uses JSON
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

@@ -1,0 +1,28 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-settings - settings command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro settings" as cmd_0
+  usecase "maestro config" as cmd_1
+  usecase "maestro cfg" as cmd_2
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/settings.py Implementation of settings command]]
+  * [[docs/workflows/v1/command_settings.md Markdown documentation for settings command]]
+  * [[docs/workflows/v1/settings.puml PlantUML diagram for settings command flow]]
+end note
+
+@enduml

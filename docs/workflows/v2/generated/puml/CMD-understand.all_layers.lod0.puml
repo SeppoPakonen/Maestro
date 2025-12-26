@@ -1,0 +1,48 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-understand - Combined CLI+Code (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD0)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro understand"
+  usecase "maestro u"
+  usecase "maestro understand dump"
+  usecase "maestro u dump"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "add_understand_parser"
+  rectangle "handle_understand_dump"
+  rectangle "ProjectIntrospector"
+  rectangle "MarkdownRenderer"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_understand.md cmd_understand.md]]
+  * [[v1/internal/deep/cmd_understand_deep.puml cmd_understand_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_understand deep flow; v2 repo truth use
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

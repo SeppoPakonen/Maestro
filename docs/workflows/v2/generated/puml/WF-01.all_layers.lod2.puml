@@ -1,0 +1,60 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-01 - Combined Layers (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-01.intent.yaml docs/workflows/v2/ir/wf/WF-01.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD2)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-01 - Existing Repo Bootstrap (Single Main, Compiled Language) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-01.intent.yaml docs/workflows/v2/ir/wf/WF-01.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "build\nimplementation" as impl_build [[../generated/svg/CMD-build.code.lod2.svg]]
+  component "discuss\nimplementation" as impl_discuss [[../generated/svg/CMD-discuss.code.lod2.svg]]
+  component "init\nimplementation" as impl_init [[../generated/svg/CMD-init.code.lod2.svg]]
+  component "reconstruct\nimplementation" as impl_reconstruct [[../generated/svg/CMD-reconstruct.code.lod2.svg]]
+  component "run\nimplementation" as impl_run [[../generated/svg/CMD-run.code.lod2.svg]]
+  component "task\nimplementation" as impl_task [[../generated/svg/CMD-task.code.lod2.svg]]
+  component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_01_existing_repo_single_main.md Original v1 workflow documentation]]
+  * [[v1/scenario_01_existing_repo_single_main.puml PlantUML diagram for WF-01]]
+end note
+
+
+@enduml

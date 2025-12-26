@@ -1,0 +1,37 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-solutions - solutions deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.code.yaml docs/workflows/v2/ir/cmd/CMD-solutions.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "solutions" as solutions
+  component "main" as main
+  component "solution_store" as solution_store
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/solutions.py solutions.py]]
+  * [[docs/workflows/maestro/solutions/solution_store.py solution_store.py]]
+  * [[docs/workflows/v1/internal/deep/cmd_solutions_deep.puml cmd_solutions_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed markdown persistence in cmd_solutions deep flow; v2 repo truth uses JSO
+  * Observed ./.maestro directory usage in _find_repo_root; violates FORBID_REPO_DOT
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

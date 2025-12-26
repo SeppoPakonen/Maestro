@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-issues - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro issues list"
+  usecase "maestro issues add"
+  usecase "maestro issues remove"
+  usecase "maestro issues show"
+  usecase "maestro issues resolve"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_issues_command"
+  rectangle "_handle_list"
+  rectangle "_handle_show"
+  rectangle "_handle_state"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_issues.md cmd_issues.md]]
+  * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_issues deep flow; v2 repo truth uses JS
+  * Uses ./docs/issues/*.md, ./docs/solutions/*.md, and ./docs/sessions/*.md for per
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

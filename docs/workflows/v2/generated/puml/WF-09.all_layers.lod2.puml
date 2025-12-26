@@ -1,0 +1,72 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-09 - Combined Layers (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD2)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-09 - Storage Contract — Repo Truth vs Home Hub (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "build\nimplementation" as impl_build [[../generated/svg/CMD-build.code.lod2.svg]]
+  component "convert\nimplementation" as impl_convert [[../generated/svg/CMD-convert.code.lod2.svg]]
+  component "issues\nimplementation" as impl_issues [[../generated/svg/CMD-issues.code.lod2.svg]]
+  component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
+  component "task\nimplementation" as impl_task [[../generated/svg/CMD-task.code.lod2.svg]]
+  component "tu\nimplementation" as impl_tu [[../generated/svg/CMD-tu.code.lod2.svg]]
+  component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.md Original v1 storage contract workflow diagram]]
+  * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.puml Original v1 PlantUML source]]
+  * [[docs/workflows/maestro/modules/utils.py Storage backend detection functions (get_maestro_dir, etc.)]]
+  * [[docs/workflows/maestro/session_model.py Session model with storage backend awareness]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)
+  * LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented
+  * LEDGER-0008: Confirm home hub fallback works for readonly repos
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+
+@enduml

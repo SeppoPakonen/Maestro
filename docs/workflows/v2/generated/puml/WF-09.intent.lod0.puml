@@ -1,0 +1,61 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-09 - Storage Contract — Repo Truth vs Home Hub (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
+end note
+
+(*) --> "User runs Maestro command"
+if "Check if ./docs/maestro/ exists" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nHard Stop if ./.maestro exists
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "repo_truth\n./docs/maestro/" as repo_truth
+  database "home_hub\n~/.maestro/registry/" as home_hub
+  database "repo_model_file\n<storage_backend>/repo_model.json" as repo_model_file
+  database "repo_conf_file\n<storage_backend>/repo_conf.json" as repo_conf_file
+}
+"--> (*)
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "build" as uses_build [[../generated/svg/CMD-build.all_layers.lod0.svg]]
+  rectangle "convert" as uses_convert [[../generated/svg/CMD-convert.all_layers.lod0.svg]]
+  rectangle "issues" as uses_issues [[../generated/svg/CMD-issues.all_layers.lod0.svg]]
+  rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+  rectangle "task" as uses_task [[../generated/svg/CMD-task.all_layers.lod0.svg]]
+  rectangle "tu" as uses_tu [[../generated/svg/CMD-tu.all_layers.lod0.svg]]
+  rectangle "work" as uses_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.md Original v1 storage contract workflow diagram]]
+  * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.puml Original v1 PlantUML source]]
+  * [[docs/workflows/maestro/modules/utils.py Storage backend detection functions (get_maestro_dir, etc.)]]
+  * [[docs/workflows/maestro/session_model.py Session model with storage backend awareness]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)
+  * LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented
+  * LEDGER-0008: Confirm home hub fallback works for readonly repos
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-12 - RepoConf gate — required targets/configs for build, TU, and convert (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-12.intent.yaml docs/workflows/v2/ir/wf/WF-12.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "build\nimplementation" as impl_build [[../generated/svg/CMD-build.code.lod2.svg]]
+  component "convert\nimplementation" as impl_convert [[../generated/svg/CMD-convert.code.lod2.svg]]
+  component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
+  component "tu\nimplementation" as impl_tu [[../generated/svg/CMD-tu.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.md Original v1 documentation for RepoConf gate workflow]]
+  * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.puml PlantUML diagram for RepoConf gate workflow]]
+end note
+
+@enduml

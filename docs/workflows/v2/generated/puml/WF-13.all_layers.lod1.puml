@@ -1,0 +1,68 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-13 - Combined Layers (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD1)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-13 - Read-only → Adopt bridge (home hub to repo truth) (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
+end note
+
+(*) --> "User runs Maestro command in non-adopted repo"
+:Read-only guard;
+:Scan repository structure;
+:Optional build attempt (diagnostics only);
+:Write outputs to home hub ($HOME/.maestro/repo/);
+:Adopt this repository?;
+:Run maestro init to create repo truth;
+:Create ./docs/maestro/** structure;
+:Decide import strategy;
+:Re-run resolve into repo truth;
+:Import from hub (planned feature);
+:Ensure RepoConf exists (WF-12);
+:RepoConf gate;
+"Build can proceed" --> (*)
+"Stop - no repo-local writes performed" --> (*)
+' decision_adopt -> adopt_init: True
+' decision_import_strategy -> strategy_a_rerun: Re-run resolve
+' decision_import_strategy -> strategy_b_import: Import from hub
+
+package "Command Integration" #E6F3FF {
+  component "init\ncommand" as cmd_init [[../generated/svg/CMD-init.all_layers.lod1.svg]]
+  component "make\ncommand" as cmd_make [[../generated/svg/CMD-make.all_layers.lod1.svg]]
+  component "repo\ncommand" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_13_readonly_to_adopt_bridge.md Original v1 readonly to adopt bridge workflow]]
+  * [[v1/scenario_13_readonly_to_adopt_bridge.puml PlantUML diagram for readonly to adopt bridge]]
+end note
+
+
+@enduml

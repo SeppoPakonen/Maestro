@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-settings - Combined CLI+Code (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD2)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro settings"
+  usecase "maestro config"
+  usecase "maestro cfg"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_settings_command"
+  rectangle "list_settings"
+  rectangle "get_setting"
+  rectangle "set_setting"
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/settings.py Implementation of settings command]]
+  * [[docs/workflows/v1/command_settings.md Markdown documentation for settings command]]
+  * [[docs/workflows/v1/settings.puml PlantUML diagram for settings command flow]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_settings deep flow; v2 repo truth uses 
+  * Observed .maestro directory usage for profiles; violates FORBID_REPO_DOT_MAESTRO
+  * Settings stored in docs/config.md using markdown format; violates REPO_TRUTH_FOR
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

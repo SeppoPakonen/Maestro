@@ -1,0 +1,49 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-convert - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro convert"
+  usecase "maestro convert new"
+  usecase "maestro convert plan"
+  usecase "maestro convert run"
+  usecase "maestro convert status"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "add_convert_parser"
+  rectangle "handle_convert_new"
+  rectangle "handle_convert_plan"
+  rectangle "handle_convert_run"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_convert.md command_convert.md]]
+  * [[v1/command_convert.puml command_convert.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro/convert/ directory usage in cmd_convert deep flow; violates FO
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

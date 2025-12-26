@@ -1,0 +1,68 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-14 - Combined Layers (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-14.intent.yaml docs/workflows/v2/ir/wf/WF-14.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD1)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-14 - Branch safety guardrails — branch-bound state, no branch switching during work (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-14.intent.yaml docs/workflows/v2/ir/wf/WF-14.intent.yaml]]
+end note
+
+(*) --> "User initiates work session"
+:Check if inside Git repository;
+stop
+:Read HEAD commit hash and branch name from Git repo;
+:Store (hash, branch) as identity snapshot in SessionStore;
+:Update Docs Truth Store (./docs/maestro) with work session data;
+:Work session started;
+:Operator switches branch (git checkout other-branch);
+:User resumes work session (maestro work --resume <id>);
+:Retrieve identity snapshot from SessionStore;
+:Read current HEAD commit hash and branch name from Git repo;
+:Check for branch mismatch;
+stop
+:Continue work session;
+"Work session completed successfully" --> (*)
+"Work session ended due to branch mismatch" --> (*)
+' check_git_repo -> not_git_repo_error: Not a Git repo
+' check_git_repo -> read_git_identity: Is a Git repo
+' branch_mismatch_check -> hard_stop_mismatch: Branch mismatch detected
+' branch_mismatch_check -> continue_work: Branch identity matches
+
+package "Command Integration" #E6F3FF {
+  component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_14_branch_safety_guardrails.md Original v1 branch safety guardrails documentation]]
+  * [[v1/scenario_14_branch_safety_guardrails.puml Original v1 branch safety guardrails diagram]]
+end note
+
+
+@enduml

@@ -1,0 +1,26 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ops - ops command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro ops validate operations.json" as cmd_0
+  usecase "maestro ops preview operations.json" as cmd_1
+  usecase "maestro ops apply operations.json" as cmd_2
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_ops.md cmd_ops.md]]
+end note
+
+@enduml

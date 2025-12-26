@@ -1,0 +1,53 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-init - init deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-init.code.yaml docs/workflows/v2/ir/cmd/CMD-init.code.yaml]]
+end note
+
+rectangle "maestro.main.main\nmaestro.main" as main_entry #E6F3FF
+rectangle "create_main_parser\nmaestro.modules.cli_parser" as create_parser #E6F3FF
+rectangle "add_init_parser\nmaestro.commands.init" as add_init_parser #E6F3FF
+rectangle "handle_init_command\nmaestro.commands.init" as handle_init_command #E6F3FF
+rectangle "pathlib.Path.mkdir\npathlib" as mkdir #E6F3FF
+rectangle "pathlib.Path.exists\npathlib" as check_exists #E6F3FF
+rectangle "builtins.open\nbuiltins" as open_file #E6F3FF
+database "Local Filesystem" as local_filesystem #FFE6E6
+component "args.force or not exists() for Settings.md" as force_gate_settings
+component "args.force or not exists() for RepoRules.md" as force_gate_repofules
+main_entry --> create_parser
+create_parser --> add_init_parser
+main_entry --> handle_init_command
+handle_init_command --> mkdir
+mkdir --> local_filesystem
+handle_init_command --> check_exists
+check_exists --> local_filesystem
+handle_init_command --> force_gate_settings
+force_gate_settings --> open_file
+open_file --> local_filesystem
+handle_init_command --> force_gate_repofules
+force_gate_repofules --> open_file
+
+note left
+  **Evidence:**
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/commands/init.py init.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/main.py main.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/cli_parser.py cli_parser.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_init deep flow; v2 repo truth uses JSON
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

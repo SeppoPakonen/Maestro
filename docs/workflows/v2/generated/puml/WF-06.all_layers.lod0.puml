@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-06 - Combined Layers (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-06.intent.yaml docs/workflows/v2/ir/wf/WF-06.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD0)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-06 - AI-driven task execution with Work Sessions and multi-session resume (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-06.intent.yaml docs/workflows/v2/ir/wf/WF-06.intent.yaml]]
+end note
+
+(*) --> "Operator initiates work on task"
+if "Check if Work Session exists for task" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Does AI emit progress update?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Continue AI session?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate final JSON against schema" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nInvalid JSON - HARD STOP
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "work_session_store\n./docs/sessions/" as work_session_store
+  database "ai_transcript_store\n./docs/logs/ai/" as ai_transcript_store
+}
+"--> (*)
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "ai" as uses_ai [[../generated/svg/CMD-ai.all_layers.lod0.svg]]
+  rectangle "work" as uses_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
+  rectangle "wsession" as uses_wsession [[../generated/svg/CMD-wsession.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_06_ai_task_work_sessions.md Original v1 workflow documentation]]
+  * [[v1/scenario_06_ai_task_work_sessions.puml PlantUML diagram for the workflow]]
+end note
+
+
+@enduml

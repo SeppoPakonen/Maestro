@@ -1,0 +1,71 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-understand - understand deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-understand.code.yaml docs/workflows/v2/ir/cmd/CMD-understand.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "add_understand_parser\nmaestro/commands/understand/__init__.py" as add_understand_parser #E6F3FF
+rectangle "handle_understand_dump\nmaestro/understand/command.py" as handle_understand_dump #E6F3FF
+component "project_introspector_class" as project_introspector_class
+rectangle "gather_all\nmaestro/understand/introspector.py" as gather_all #E6F3FF
+rectangle "gather_identity\nmaestro/understand/introspector.py" as gather_identity #E6F3FF
+rectangle "gather_authority_model\nmaestro/understand/introspector.py" as gather_authority_model #E6F3FF
+rectangle "gather_rule_gates\nmaestro/understand/introspector.py" as gather_rule_gates #E6F3FF
+rectangle "gather_mutation_boundaries\nmaestro/understand/introspector.py" as gather_mutation_boundaries #E6F3FF
+rectangle "gather_automation_long_run\nmaestro/understand/introspector.py" as gather_automation_long_run #E6F3FF
+rectangle "gather_directory_semantics\nmaestro/understand/introspector.py" as gather_directory_semantics #E6F3FF
+rectangle "gather_contracts\nmaestro/understand/introspector.py" as gather_contracts #E6F3FF
+rectangle "gather_evidence_index\nmaestro/understand/introspector.py" as gather_evidence_index #E6F3FF
+component "markdown_renderer_class" as markdown_renderer_class
+rectangle "render\nmaestro/understand/renderer.py" as render #E6F3FF
+rectangle "_render_identity\nmaestro/understand/renderer.py" as _render_identity #E6F3FF
+rectangle "_render_authority_model\nmaestro/understand/renderer.py" as _render_authority_model #E6F3FF
+rectangle "_render_rule_gates\nmaestro/understand/renderer.py" as _render_rule_gates #E6F3FF
+actor "File System" as filesystem
+actor "pathlib" as pathlib
+database "docs/UNDERSTANDING_SNAPSHOT.md" as docs_understanding_snapshot_md #FFE6E6
+main_entry --> add_understand_parser
+add_understand_parser --> handle_understand_dump
+main_entry --> handle_understand_dump
+handle_understand_dump --> project_introspector_class
+handle_understand_dump --> markdown_renderer_class
+render --> gather_all
+gather_all --> gather_identity
+gather_all --> gather_authority_model
+gather_all --> gather_rule_gates
+gather_all --> gather_mutation_boundaries
+gather_all --> gather_automation_long_run
+gather_all --> gather_directory_semantics
+gather_all --> gather_contracts
+gather_all --> gather_evidence_index
+render --> _render_identity
+render --> _render_authority_model
+render --> _render_rule_gates
+handle_understand_dump --> pathlib
+pathlib --> filesystem
+handle_understand_dump --> docs_understanding_snapshot_md
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_understand_deep.md cmd_understand_deep.md]]
+  * [[v1/internal/deep/cmd_understand_deep.puml cmd_understand_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_understand deep flow; v2 repo truth use
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

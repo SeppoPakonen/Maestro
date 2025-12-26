@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-work - Combined CLI+Code (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.cli.yaml docs/workflows/v2/ir/cmd/CMD-work.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD2)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro work"
+  usecase "maestro work any"
+  usecase "maestro work any pick"
+  usecase "maestro work track"
+  usecase "maestro work phase"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "add_work_parser"
+  rectangle "handle_work_any"
+  rectangle "handle_work_any_pick"
+  rectangle "handle_work_track"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_work.md command_work.md]]
+  * [[v1/command_work.puml command_work.puml]]
+  * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_work deep flow; v2 repo truth uses JSON
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

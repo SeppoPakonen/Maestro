@@ -1,0 +1,35 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-work - work command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.cli.yaml docs/workflows/v2/ir/cmd/CMD-work.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro work" as cmd_0
+  usecase "maestro work any" as cmd_1
+  usecase "maestro work any pick" as cmd_2
+  usecase "maestro work track" as cmd_3
+  usecase "maestro work phase" as cmd_4
+  usecase "maestro work issue" as cmd_5
+  usecase "maestro work task" as cmd_6
+  usecase "maestro work discuss" as cmd_7
+  usecase "maestro work analyze" as cmd_8
+  usecase "maestro work fix" as cmd_9
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_work.md command_work.md]]
+  * [[v1/command_work.puml command_work.puml]]
+  * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
+end note
+
+@enduml

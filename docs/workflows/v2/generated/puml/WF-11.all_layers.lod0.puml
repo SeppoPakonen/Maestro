@@ -1,0 +1,81 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-11 - Combined Layers (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD0)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-11 - Manual repo model + manual RepoConf (resolve optional) (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
+end note
+
+(*) --> "Operator starts manual repo configuration"
+if "Choose authoring approach" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate repo model and conf" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate repo model schema" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate repo conf schema" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Execute build/TU using manual conf" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nValidation failed
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "repo_model_store\n./docs/maestro/repo/model.json" as repo_model_store
+  database "repo_conf_store\n./docs/maestro/repo/conf.json" as repo_conf_store
+}
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "build" as uses_build [[../generated/svg/CMD-build.all_layers.lod0.svg]]
+  rectangle "init" as uses_init [[../generated/svg/CMD-init.all_layers.lod0.svg]]
+  rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+  rectangle "tu" as uses_tu [[../generated/svg/CMD-tu.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_11_manual_repo_model_and_conf.md Original v1 documentation for manual repo model and conf workflow]]
+  * [[v1/scenario_11_manual_repo_model_and_conf.puml PlantUML diagram for manual repo model and conf workflow]]
+end note
+
+
+@enduml

@@ -1,0 +1,64 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-convert - convert deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.code.yaml docs/workflows/v2/ir/cmd/CMD-convert.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro/main.py)" as main_entry
+rectangle "add_convert_parser\n(maestro/commands/convert.py)" as add_convert_parser
+rectangle "handle_convert_new\n(maestro/commands/convert.py)" as handle_convert_new
+rectangle "handle_convert_plan\n(maestro/commands/convert.py)" as handle_convert_plan
+rectangle "handle_convert_run\n(maestro/commands/convert.py)" as handle_convert_run
+rectangle "handle_convert_status\n(maestro/commands/convert.py)" as handle_convert_status
+rectangle "handle_convert_show\n(maestro/commands/convert.py)" as handle_convert_show
+rectangle "handle_convert_reset\n(maestro/commands/convert.py)" as handle_convert_reset
+rectangle "handle_convert_batch\n(maestro/commands/convert.py)" as handle_convert_batch
+rectangle "create_new_pipeline\n(maestro/convert/convert_orchestrator.py)" as create_new_pipeline
+rectangle "reset_pipeline\n(maestro/convert/convert_orchestrator.py)" as reset_pipeline
+rectangle "plan_conversion\n(maestro/convert/planner.py)" as plan_conversion
+rectangle "run_conversion_pipeline\n(maestro/convert/execution_engine.py)" as run_conversion_pipeline
+rectangle "get_pipeline_status\n(maestro/ui_facade/convert.py)" as get_pipeline_status
+main_entry --> add_convert_parser
+main_entry --> handle_convert_new
+main_entry --> handle_convert_plan
+main_entry --> handle_convert_run
+main_entry --> handle_convert_status
+main_entry --> handle_convert_show
+main_entry --> handle_convert_reset
+main_entry --> handle_convert_batch
+handle_convert_new --> create_new_pipeline
+create_new_pipeline --> maestro_convert_dir
+handle_convert_plan --> plan_conversion
+plan_conversion --> maestro_convert_dir
+handle_convert_run --> run_conversion_pipeline
+run_conversion_pipeline --> maestro_convert_dir
+handle_convert_status --> get_pipeline_status
+handle_convert_show --> get_pipeline_status
+get_pipeline_status --> maestro_convert_dir
+get_pipeline_status --> pipeline_status_class
+get_pipeline_status --> pipeline_stage_class
+handle_convert_reset --> reset_pipeline
+
+note left
+  **Evidence:**
+  * [[v1/command_convert.md command_convert.md]]
+  * [[v1/command_convert.puml command_convert.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro/convert/ directory usage in cmd_convert deep flow; violates FO
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

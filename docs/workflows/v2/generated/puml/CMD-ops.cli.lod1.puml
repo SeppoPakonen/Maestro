@@ -1,0 +1,28 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ops - ops command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml]]
+end note
+
+rectangle "maestro ops" as ops_command
+usecase "validate" as validate_subcommand
+usecase "preview" as preview_subcommand
+usecase "apply" as apply_subcommand
+ops_command --> validate_subcommand
+ops_command --> preview_subcommand
+ops_command --> apply_subcommand
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_ops.md cmd_ops.md]]
+end note
+
+@enduml

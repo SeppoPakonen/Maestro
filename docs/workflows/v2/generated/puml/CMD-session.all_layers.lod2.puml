@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-session - Combined CLI+Code (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-session.cli.yaml docs/workflows/v2/ir/cmd/CMD-session.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD2)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro session"
+  usecase "maestro session new"
+  usecase "maestro session list"
+  usecase "maestro session set"
+  usecase "maestro session get"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "handle_session_new"
+  rectangle "handle_session_list"
+  rectangle "handle_session_set"
+  rectangle "handle_session_get"
+  rectangle "handle_session_remove"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_session.md command_session.md]]
+  * [[v1/command_session.puml command_session.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed session data stored in JSON format under docs/sessions/; aligns with RE
+  * Observed user-specific config in ~/.maestro/config.json; aligns with HOME_HUB_AL
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

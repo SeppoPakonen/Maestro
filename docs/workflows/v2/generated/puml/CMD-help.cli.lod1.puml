@@ -1,0 +1,31 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-help - help command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.cli.yaml docs/workflows/v2/ir/cmd/CMD-help.cli.yaml]]
+end note
+
+rectangle "Maestro CLI Invocation" as cli_invocation
+component "Parse command from CLI" as argparse_parse
+component "Determine command is 'help'" as identify_help
+component "Route to help handler" as route_help
+component "Print help using parser.format_help()" as print_help
+cli_invocation --> argparse_parse
+argparse_parse --> identify_help
+identify_help --> route_help
+route_help --> print_help
+
+note left
+  **Evidence:**
+  * [[v1/command_help.md command_help.md]]
+  * [[v1/command_help.puml command_help.puml]]
+end note
+
+@enduml

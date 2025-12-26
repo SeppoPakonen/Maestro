@@ -1,0 +1,111 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-12 - Combined Layers (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-12.intent.yaml docs/workflows/v2/ir/wf/WF-12.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD0)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-12 - RepoConf gate — required targets/configs for build, TU, and convert (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-12.intent.yaml docs/workflows/v2/ir/wf/WF-12.intent.yaml]]
+end note
+
+(*) --> "Operator starts workflow"
+if "Decide creation path" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate configuration" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate schema" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate referenced paths exist" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate toolchain executables" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate reproducible compiler commands" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Automatic selection?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "RepoConf exists?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "RepoConf is valid?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "RepoConf consistent with repo model?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validation passes?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nHARD_STOP (No RepoConf found)
+end note
+note right #FF0000
+  **HARD STOP**\nHARD_STOP (Invalid RepoConf)
+end note
+note right #FF0000
+  **HARD STOP**\nHARD_STOP (Inconsistent RepoConf)
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "repo_truth\n./docs/maestro/repo/conf.json" as repo_truth
+}
+"--> (*)
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "build" as uses_build [[../generated/svg/CMD-build.all_layers.lod0.svg]]
+  rectangle "convert" as uses_convert [[../generated/svg/CMD-convert.all_layers.lod0.svg]]
+  rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+  rectangle "tu" as uses_tu [[../generated/svg/CMD-tu.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.md Original v1 documentation for RepoConf gate workflow]]
+  * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.puml PlantUML diagram for RepoConf gate workflow]]
+end note
+
+
+@enduml

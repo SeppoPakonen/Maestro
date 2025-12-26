@@ -1,0 +1,48 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-repo - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-repo.cli.yaml docs/workflows/v2/ir/cmd/CMD-repo.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro repo"
+  usecase "maestro repo analyze"
+  usecase "maestro repo resolve"
+  usecase "maestro repo status"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "handle_repo_command"
+  rectangle "scan_upp_repo_v2"
+  rectangle "write_repo_artifacts"
+  rectangle "load_repo_index"
+  rectangle "find_repo_root"
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/v1/command_repo_conf.md command_repo_conf.md]]
+  * [[docs/workflows/v1/command_repo_conf.puml command_repo_conf.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro directory usage in cmd_repo deep flow; violates FORBID_REPO_DO
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

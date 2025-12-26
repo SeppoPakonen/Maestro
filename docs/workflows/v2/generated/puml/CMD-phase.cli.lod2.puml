@@ -1,0 +1,37 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-phase - phase command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "Maestro CLI Invocation" as cli_invocation
+component "Determine command is 'phase'" as determine_phase_command
+component "Parse phase subcommands" as parse_phase_subcommands
+component "Validate session" as validate_session
+component "Load session" as load_session
+component "Hard stop if no session" as hard_stop_no_session
+component "Validate session schema" as validate_session_schema
+component "Route to phase subcommand handler" as route_phase_subcommand
+component "Execute phase operation" as handle_phase_command
+component "Read docs truth" as read_docs_truth
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_phase.md cmd_phase.md]]
+  * [[docs/workflows/maestro/commands/phase.py phase.py]]
+end note
+
+@enduml

@@ -1,0 +1,27 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ops - ops deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ops.code.yaml docs/workflows/v2/ir/cmd/CMD-ops.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "markdown_writer" as markdown_writer
+  component "main" as main
+  component "commands" as commands
+  component "decoder" as decoder
+  component "executor" as executor
+  component "schemas" as schemas
+  component "translator" as translator
+  component "json_store" as json_store
+  component "models" as models
+}
+
+@enduml

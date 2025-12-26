@@ -1,0 +1,70 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-issues - issues deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.code.yaml docs/workflows/v2/ir/cmd/CMD-issues.code.yaml]]
+end note
+
+rectangle "main()\n(maestro/main.py)" as main_entry
+rectangle "handle_issues_command()\n(maestro/commands/issues.py)" as handle_issues_command
+rectangle "_find_repo_root()\n(maestro/commands/issues.py)" as find_repo_root
+rectangle "_handle_list()\n(maestro/commands/issues.py)" as handle_list
+rectangle "_handle_show()\n(maestro/commands/issues.py)" as handle_show
+rectangle "_handle_state()\n(maestro/commands/issues.py)" as handle_state
+rectangle "_handle_rollback()\n(maestro/commands/issues.py)" as handle_rollback
+rectangle "_handle_react()\n(maestro/commands/issues.py)" as handle_react
+rectangle "_handle_analyze()\n(maestro/commands/issues.py)" as handle_analyze
+rectangle "_handle_decide()\n(maestro/commands/issues.py)" as handle_decide
+rectangle "_handle_fix()\n(maestro/commands/issues.py)" as handle_fix
+rectangle "list_issues()\n(maestro/issues/issue_store.py)" as list_issues
+rectangle "load_issue()\n(maestro/issues/issue_store.py)" as load_issue
+rectangle "update_issue_state()\n(maestro/issues/issue_store.py)" as update_issue_state
+rectangle "rollback_issue_state()\n(maestro/issues/issue_store.py)" as rollback_issue_state
+main_entry --> handle_issues_command
+handle_issues_command --> find_repo_root
+handle_issues_command --> handle_list
+handle_issues_command --> handle_show
+handle_issues_command --> handle_state
+handle_issues_command --> handle_rollback
+handle_issues_command --> handle_react
+handle_issues_command --> handle_analyze
+handle_issues_command --> handle_decide
+handle_issues_command --> handle_fix
+handle_list --> list_issues
+list_issues --> docs_issues_md
+handle_show --> load_issue
+load_issue --> docs_issues_md
+handle_state --> update_issue_state
+update_issue_state --> can_transition
+handle_rollback --> rollback_issue_state
+handle_react --> match_solutions
+match_solutions --> docs_solutions_md
+handle_analyze --> external_command_client
+
+note left
+  **Evidence:**
+  * [[docs/workflows/maestro/commands/issues.py issues.py]]
+  * [[docs/workflows/maestro/issues/issue_store.py issue_store.py]]
+  * [[docs/workflows/maestro/issues/model.py model.py]]
+  * [[docs/workflows/maestro/solutions/solution_store.py solution_store.py]]
+  * [[docs/workflows/maestro/ai/client.py client.py]]
+  * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_issues deep flow; v2 repo truth uses JS
+  * Uses ./docs/issues/*.md, ./docs/solutions/*.md, and ./docs/sessions/*.md for per
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

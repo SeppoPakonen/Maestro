@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-wsession - wsession deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-wsession.code.yaml docs/workflows/v2/ir/cmd/CMD-wsession.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "breadcrumb" as breadcrumb
+  component "work_session" as work_session
+  component "main" as main
+  component "session_stats" as session_stats
+  component "detail" as detail
+  component "table" as table
+  component "tree" as tree
+  component "work_session" as work_session
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_wsession_deep.puml cmd_wsession_deep.puml]]
+  * [[docs/workflows/maestro/commands/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/breadcrumb.py breadcrumb.py]]
+  * [[docs/workflows/maestro/visualization/tree.py tree.py]]
+  * [[docs/workflows/maestro/visualization/table.py table.py]]
+  * [[docs/workflows/maestro/visualization/detail.py detail.py]]
+  * [[docs/workflows/maestro/stats/session_stats.py session_stats.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed JSON persistence in cmd_wsession deep flow with session.json and breadc
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

@@ -1,0 +1,54 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-14 - Combined Layers (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-14.intent.yaml docs/workflows/v2/ir/wf/WF-14.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD2)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-14 - Branch safety guardrails — branch-bound state, no branch switching during work (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-14.intent.yaml docs/workflows/v2/ir/wf/WF-14.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_14_branch_safety_guardrails.md Original v1 branch safety guardrails documentation]]
+  * [[v1/scenario_14_branch_safety_guardrails.puml Original v1 branch safety guardrails diagram]]
+end note
+
+
+@enduml

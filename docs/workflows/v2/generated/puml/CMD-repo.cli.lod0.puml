@@ -1,0 +1,28 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-repo - repo command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-repo.cli.yaml docs/workflows/v2/ir/cmd/CMD-repo.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro repo" as cmd_0
+  usecase "maestro repo analyze" as cmd_1
+  usecase "maestro repo resolve" as cmd_2
+  usecase "maestro repo status" as cmd_3
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/v1/command_repo_conf.md command_repo_conf.md]]
+  * [[docs/workflows/v1/command_repo_conf.puml command_repo_conf.puml]]
+end note
+
+@enduml

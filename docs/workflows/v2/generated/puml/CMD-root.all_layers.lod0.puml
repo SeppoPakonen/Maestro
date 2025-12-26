@@ -1,0 +1,49 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-root - Combined CLI+Code (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-root.cli.yaml docs/workflows/v2/ir/cmd/CMD-root.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD0)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro root get"
+  usecase "maestro root set"
+  usecase "maestro root refine"
+  usecase "maestro root discuss"
+  usecase "maestro root show"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_root_set"
+  rectangle "handle_root_get"
+  rectangle "handle_root_refine"
+  rectangle "handle_root_discuss"
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/v1/command_surface/cmd_root.md cmd_root.md]]
+  * [[docs/workflows/v1/command_surface/cmd_root.puml cmd_root.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro/conversations/ directory usage in cmd_root deep flow; v2 spec 
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

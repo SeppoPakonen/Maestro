@@ -1,0 +1,79 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-10 - Combined Layers (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-10.intent.yaml docs/workflows/v2/ir/wf/WF-10.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD1)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-10 - Repo Resolve levels — Lite vs Deep, convention acceptance, and violation policy (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-10.intent.yaml docs/workflows/v2/ir/wf/WF-10.intent.yaml]]
+end note
+
+(*) --> "Operator requests repo resolve"
+:Select resolve level (lite/deep);
+:Resolve Lite - Build-Enabling Scan;
+:Resolve Deep - Governance and Enforcement;
+:Detect build drivers and targets;
+stop
+:Infer conventions and frameworks;
+:Apply rule packs and detect violations;
+:Create issues for violations;
+:Propose convention rule packs;
+:Accept convention pack;
+:Convention acceptance gate;
+:Store resolved model in Repo Truth;
+:Store violations and conventions;
+:Policy enforcement gate;
+:Create violation waiver;
+"Resolve completed successfully" --> (*)
+"Resolve failed" --> (*)
+' propose_conventions -> accept_conventions: Operator accepts rule pack
+' convention_acceptance_gate -> store_resolved_model: Convention accepted
+' policy_enforcement_gate -> end_success: No blocking violations
+' policy_enforcement_gate -> create_waiver: Violation needs waiver
+
+package "Command Integration" #E6F3FF {
+  component "issues\ncommand" as cmd_issues [[../generated/svg/CMD-issues.all_layers.lod1.svg]]
+  component "repo\ncommand" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_10_repo_resolve_levels_lite_deep.md Original v1 workflow documentation]]
+  * [[v1/scenario_10_repo_resolve_levels_lite_deep.puml PlantUML diagram for WF-10]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * WF-10 mentions 'Proposed: maestro repo conventions accept <pack>' commands; impl
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+
+@enduml

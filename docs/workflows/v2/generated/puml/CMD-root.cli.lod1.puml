@@ -1,0 +1,65 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-root - root command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-root.cli.yaml docs/workflows/v2/ir/cmd/CMD-root.cli.yaml]]
+end note
+
+rectangle "Maestro CLI Invocation" as cli_invocation
+component "Parse CLI arguments" as parse_args
+component "Determine command is 'root'" as determine_root_command
+component "Session provided check" as session_check
+component "Load session" as load_session
+component "Hard stop - Session required" as hard_stop_session
+component "Validate session schema" as validate_session_schema
+component "Subcommand provided check" as subcommand_check
+usecase "Route to handle_root_set" as subcommand_set
+usecase "Route to handle_root_get" as subcommand_get
+usecase "Route to handle_root_refine" as subcommand_refine
+usecase "Route to handle_root_discuss" as subcommand_discuss
+usecase "Route to handle_root_show" as subcommand_show
+rectangle "Show root help" as show_help
+component "Read from docs truth store" as read_docs_truth
+component "Execute root task operation" as execute_root_task
+component "Write to docs truth store" as write_docs_truth
+rectangle "Output results to stdout" as output_results
+rectangle "Exit with success" as exit_ok
+rectangle "Exit with failure" as exit_fail
+cli_invocation --> parse_args
+parse_args --> determine_root_command
+determine_root_command --> session_check
+session_check --> load_session
+session_check --> hard_stop_session
+load_session --> validate_session_schema
+validate_session_schema --> subcommand_check
+subcommand_check --> subcommand_set
+subcommand_check --> subcommand_get
+subcommand_check --> subcommand_refine
+subcommand_check --> subcommand_discuss
+subcommand_check --> subcommand_show
+subcommand_check --> show_help
+subcommand_set --> read_docs_truth
+subcommand_get --> read_docs_truth
+subcommand_refine --> read_docs_truth
+subcommand_discuss --> read_docs_truth
+subcommand_show --> read_docs_truth
+read_docs_truth --> execute_root_task
+execute_root_task --> write_docs_truth
+write_docs_truth --> output_results
+output_results --> exit_ok
+show_help --> exit_fail
+
+note left
+  **Evidence:**
+  * [[docs/workflows/v1/command_surface/cmd_root.md cmd_root.md]]
+  * [[docs/workflows/v1/command_surface/cmd_root.puml cmd_root.puml]]
+end note
+
+@enduml

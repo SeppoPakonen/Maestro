@@ -1,0 +1,45 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-resume - Combined CLI+Code (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD2)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro resume"
+  usecase "maestro rs"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "py::main()"
+  rectangle "py::handle_resume_session()"
+  rectangle "py::load_session()"
+  rectangle "py::save_session()"
+  rectangle "py::update_subtask_summary_paths()"
+}
+
+note left
+  **Evidence:**
+  * [[docs/workflows/v1/command_surface/cmd_resume.md cmd_resume.md]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_resume deep flow; v2 repo truth uses JS
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

@@ -1,0 +1,113 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-01 - Existing Repo Bootstrap (Single Main, Compiled Language) (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-01.intent.yaml docs/workflows/v2/ir/wf/WF-01.intent.yaml]]
+end note
+
+(*) --> "Operator starts existing repo bootstrap"
+if "Verify git repository" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Check if Maestro already initialized" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate JSON understanding" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Is understanding correct?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Reconstruction strategy" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Are completed tasks correct?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Did build succeed?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "How to fix task?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate engine changes" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Did rebuild succeed?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "More active tasks?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Attempt runtime?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Runtime errors detected?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Fix runtime errors now?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nHard stop - not a git repo
+end note
+note right #FF0000
+  **HARD STOP**\nHard stop - invalid JSON
+end note
+note right #FF0000
+  **HARD STOP**\nHard stop - invalid changes
+end note
+note right #FF0000
+  **HARD STOP**\nHard stop - validation failed
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "repo_truth\n./docs/maestro/" as repo_truth
+  database "build_log\n./docs/build.log" as build_log
+  database "runtime_log\n./docs/runtime.log" as runtime_log
+  database "task_store\n./docs/maestro/tasks/" as task_store
+  database "issue_store\n./docs/maestro/issues/" as issue_store
+  database "active_tasks_json\n./docs/maestro/tasks/active.json" as active_tasks_json
+  database "completed_tasks_json\n./docs/maestro/tasks/completed.json" as completed_tasks_json
+}
+"--> (*)
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "build" as uses_build [[../generated/svg/CMD-build.all_layers.lod0.svg]]
+  rectangle "discuss" as uses_discuss [[../generated/svg/CMD-discuss.all_layers.lod0.svg]]
+  rectangle "init" as uses_init [[../generated/svg/CMD-init.all_layers.lod0.svg]]
+  rectangle "reconstruct" as uses_reconstruct [[../generated/svg/CMD-reconstruct.all_layers.lod0.svg]]
+  rectangle "run" as uses_run [[../generated/svg/CMD-run.all_layers.lod0.svg]]
+  rectangle "task" as uses_task [[../generated/svg/CMD-task.all_layers.lod0.svg]]
+  rectangle "work" as uses_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_01_existing_repo_single_main.md Original v1 workflow documentation]]
+  * [[v1/scenario_01_existing_repo_single_main.puml PlantUML diagram for WF-01]]
+end note
+
+@enduml

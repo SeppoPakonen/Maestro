@@ -1,0 +1,37 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-plan - plan command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "maestro plan" as cmd-plan-entry
+component "add" as subcmd-add
+component "list" as subcmd-list
+component "remove" as subcmd-remove
+component "show" as subcmd-show
+component "add-item" as subcmd-add-item
+component "remove-item" as subcmd-remove-item
+component "ops" as subcmd-ops
+component "discuss" as subcmd-discuss
+component "explore" as subcmd-explore
+
+note left
+  **Evidence:**
+  * [[v1/command_plan.md command_plan.md]]
+  * [[v1/command_plan.puml command_plan.puml]]
+end note
+
+@enduml

@@ -1,0 +1,68 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-repo - repo deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-repo.code.yaml docs/workflows/v2/ir/cmd/CMD-repo.code.yaml]]
+end note
+
+rectangle "Main command handler\nmaestro.commands.repo" as handle_repo_command #E6F3FF
+rectangle "Repository scanner\nmaestro.repo.scanner" as scan_upp_repo_v2 #E6F3FF
+rectangle "Write scan results\nmaestro.commands.repo" as write_repo_artifacts #E6F3FF
+rectangle "Load repo index\nmaestro.commands.repo" as load_repo_index #E6F3FF
+rectangle "Find repo root\nmaestro.commands.repo" as find_repo_root #E6F3FF
+rectangle "Update global index\nmaestro.global_index" as update_global_repo_index #E6F3FF
+rectangle "Build hierarchy\nmaestro.commands.repo" as build_repo_hierarchy #E6F3FF
+rectangle "Load hierarchy\nmaestro.commands.repo" as load_hierarchy #E6F3FF
+rectangle "Load hierarchy overrides\nmaestro.commands.repo" as load_hierarchy_overrides #E6F3FF
+rectangle "Merge hierarchy overrides\nmaestro.commands.repo" as merge_hierarchy_overrides #E6F3FF
+rectangle "Package subcommands\nmaestro.commands.repo" as handle_repo_pkg_* #E6F3FF
+rectangle "Hierarchy subcommands\nmaestro.commands.repo" as handle_repo_hier_* #E6F3FF
+rectangle "Rules subcommands\nmaestro.commands.repo" as handle_repo_rules_* #E6F3FF
+rectangle "Conventions subcommands\nmaestro.commands.repo" as handle_repo_conventions_* #E6F3FF
+database ".maestro/repo/ store" as maestro_repo_store #FFE6E6
+database "Repo rules store" as repo_rules_store #FFE6E6
+database "Global index store" as global_index_store #FFE6E6
+actor "File system" as filesystem
+actor "External editor" as editor
+handle_repo_command --> find_repo_root
+handle_repo_command --> scan_upp_repo_v2
+scan_upp_repo_v2 --> write_repo_artifacts
+write_repo_artifacts ..> maestro_repo_store : data
+handle_repo_command --> load_repo_index
+load_repo_index ..> maestro_repo_store : data
+handle_repo_refresh_all --> update_global_repo_index
+update_global_repo_index ..> global_index_store : data
+handle_repo_command --> build_repo_hierarchy
+build_repo_hierarchy --> load_hierarchy
+handle_repo_command --> load_hierarchy_overrides
+load_hierarchy_overrides ..> maestro_repo_store : data
+handle_repo_command --> merge_hierarchy_overrides
+handle_repo_command --> handle_repo_pkg_*
+handle_repo_command --> handle_repo_hier_*
+handle_repo_command --> handle_repo_rules_*
+handle_repo_command --> handle_repo_conventions_*
+handle_repo_rules_* ..> repo_rules_store : data
+handle_repo_hier_* --> editor
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_repo_deep.md cmd_repo_deep.md]]
+  * [[v1/internal/deep/cmd_repo_deep.puml cmd_repo_deep.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro directory usage in cmd_repo deep flow; violates FORBID_REPO_DO
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

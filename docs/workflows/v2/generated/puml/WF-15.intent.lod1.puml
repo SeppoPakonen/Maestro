@@ -1,0 +1,43 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-15 - Work ↔ wsession Cookie Protocol (File-based Polling, Multi-process Safe) (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-15.intent.yaml docs/workflows/v2/ir/wf/WF-15.intent.yaml]]
+end note
+
+(*) --> "User initiates maestro work command"
+:Generate unique session ID (cookie);
+:Create work session directory and session.json;
+:Display session ID to user;
+:Inject session ID into AI prompt;
+:AI engine processes prompt;
+:maestro wsession command with cookie|
+:Write breadcrumb to session inbox;
+:Poll for new breadcrumbs;
+:Validate breadcrumb message;
+:Process valid breadcrumb;
+:Log error and ignore invalid breadcrumb;
+:Update session.json with new state;
+:Continue work based on session state;
+"Work session completes successfully" --> (*)
+"Work session terminates with error" --> (*)
+
+package "Command Integration" #E6F3FF {
+  component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
+  component "wsession\ncommand" as cmd_wsession [[../generated/svg/CMD-wsession.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_15_work_wsession_cookie_protocol.md Original v1 workflow documentation]]
+  * [[v1/scenario_15_work_wsession_cookie_protocol.puml PlantUML diagram for the workflow]]
+end note
+
+@enduml

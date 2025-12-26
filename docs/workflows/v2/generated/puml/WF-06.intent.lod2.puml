@@ -1,0 +1,34 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-06 - AI-driven task execution with Work Sessions and multi-session resume (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-06.intent.yaml docs/workflows/v2/ir/wf/WF-06.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "ai\nimplementation" as impl_ai [[../generated/svg/CMD-ai.code.lod2.svg]]
+  component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
+  component "wsession\nimplementation" as impl_wsession [[../generated/svg/CMD-wsession.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_06_ai_task_work_sessions.md Original v1 workflow documentation]]
+  * [[v1/scenario_06_ai_task_work_sessions.puml PlantUML diagram for the workflow]]
+end note
+
+@enduml

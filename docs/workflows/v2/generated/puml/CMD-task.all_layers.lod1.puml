@@ -1,0 +1,49 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-task - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-task.cli.yaml docs/workflows/v2/ir/cmd/CMD-task.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro task"
+  usecase "maestro task list"
+  usecase "maestro task add"
+  usecase "maestro task remove"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_task_command"
+  rectangle "list_tasks"
+  rectangle "show_task"
+  rectangle "add_task"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_task.md command_task.md]]
+  * [[v1/command_task.puml command_task.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_task deep flow; v2 repo truth uses JSON
+  * Shows mixed persistence model with both JSON and Markdown files; v2 spec require
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

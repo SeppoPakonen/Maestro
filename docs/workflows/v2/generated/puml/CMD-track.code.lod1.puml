@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-track - track deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.code.yaml docs/workflows/v2/ir/cmd/CMD-track.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro/main.py)" as main_entry
+rectangle "handle_track_command\n(maestro/commands/track.py)" as handle_track_command
+rectangle "resolve_track_identifier\n(maestro/commands/track.py)" as resolve_track_identifier
+rectangle "resolve_identifier_by_type\n(maestro/data/common_utils.py)" as resolve_identifier_by_type
+rectangle "list_tracks\n(maestro/commands/track.py)" as list_tracks
+rectangle "get_all_tracks_with_phases_and_tasks\n(maestro/data/common_utils.py)" as get_all_tracks_with_phases_and_tasks
+rectangle "render_track_table\n(maestro/display/table_renderer.py)" as render_track_table
+rectangle "show_track\n(maestro/commands/track.py)" as show_track
+rectangle "show_track_details\n(maestro/commands/track.py)" as show_track_details
+rectangle "_ensure_todo_file\n(maestro/commands/track.py)" as _ensure_todo_file
+rectangle "_parse_todo_safe\n(maestro/commands/track.py)" as _parse_todo_safe
+rectangle "get_settings\n(maestro/config/settings.py)" as get_settings
+rectangle "render_phase_table\n(maestro/display/table_renderer.py)" as render_phase_table
+rectangle "add_track\n(maestro/commands/track.py)" as add_track
+rectangle "_slugify_track_id\n(maestro/commands/track.py)" as _slugify_track_id
+main_entry --> handle_track_command
+handle_track_command --> resolve_track_identifier
+resolve_track_identifier --> resolve_identifier_by_type
+handle_track_command --> list_tracks
+list_tracks --> get_all_tracks_with_phases_and_tasks
+list_tracks --> render_track_table
+handle_track_command --> show_track
+show_track --> resolve_track_identifier
+show_track --> _parse_todo_safe
+show_track --> get_settings
+show_track --> render_phase_table
+handle_track_command --> show_track_details
+show_track_details --> resolve_track_identifier
+show_track_details --> _parse_todo_safe
+handle_track_command --> add_track
+add_track --> json_store_class
+add_track --> _slugify_track_id
+add_track --> track_class
+handle_track_command --> remove_track
+remove_track --> json_store_class
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_track_deep.puml cmd_track_deep.puml]]
+  * [[docs/workflows/maestro/commands/track.py track.py]]
+  * [[docs/workflows/maestro/data/common_utils.py common_utils.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+  * [[docs/workflows/maestro/tracks/json_store.py json_store.py]]
+  * [[docs/workflows/maestro/tracks/models.py models.py]]
+  * [[docs/workflows/maestro/display/table_renderer.py table_renderer.py]]
+  * [[docs/workflows/maestro/config/settings.py settings.py]]
+  * [[docs/workflows/maestro/commands/status_utils.py status_utils.py]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed mixed persistence in cmd_track deep flow; uses both DataMarkdown (docs/
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

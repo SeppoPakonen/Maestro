@@ -1,0 +1,67 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-session - session deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-session.code.yaml docs/workflows/v2/ir/cmd/CMD-session.code.yaml]]
+end note
+
+rectangle "handle_session_new\n(maestro.modules.command_handlers)" as handle_session_new
+rectangle "handle_session_list\n(maestro.modules.command_handlers)" as handle_session_list
+rectangle "handle_session_set\n(maestro.modules.command_handlers)" as handle_session_set
+rectangle "handle_session_get\n(maestro.modules.command_handlers)" as handle_session_get
+rectangle "handle_session_remove\n(maestro.modules.command_handlers)" as handle_session_remove
+rectangle "handle_session_details\n(maestro.modules.command_handlers)" as handle_session_details
+rectangle "handle_wsession_breadcrumbs\n(maestro.commands.work_session)" as handle_wsession_breadcrumbs
+rectangle "handle_wsession_timeline\n(maestro.commands.work_session)" as handle_wsession_timeline
+rectangle "handle_wsession_stats\n(maestro.commands.work_session)" as handle_wsession_stats
+rectangle "get_session_path_by_name\n(maestro.modules.command_handlers)" as get_session_path_by_name
+rectangle "create_session\n(maestro.modules.command_handlers)" as create_session
+rectangle "set_active_session_name\n(maestro.modules.command_handlers)" as set_active_session_name
+rectangle "list_sessions\n(maestro.modules.command_handlers)" as list_sessions
+rectangle "get_active_session_name\n(maestro.modules.command_handlers)" as get_active_session_name
+rectangle "get_session_details\n(maestro.modules.command_handlers)" as get_session_details
+handle_session_new --> get_session_path_by_name
+handle_session_new --> create_session
+handle_session_new --> set_active_session_name
+handle_session_list --> list_sessions
+handle_session_list --> get_active_session_name
+handle_session_list --> get_session_details
+handle_session_set --> list_sessions
+handle_session_set --> get_session_path_by_name
+handle_session_set --> set_active_session_name
+handle_session_get --> get_active_session_name
+handle_session_get --> get_session_details
+handle_session_remove --> get_session_path_by_name
+handle_session_remove --> remove_session
+handle_session_details --> list_sessions
+handle_session_details --> get_session_details
+handle_session_details --> load_session
+handle_session_details --> list_build_targets
+create_session --> session_json_store
+set_active_session_name --> config_json_store
+get_session_details --> session_json_store
+
+note left
+  **Evidence:**
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/command_handlers.py command_handlers.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/commands/work_session.py work_session.py]]
+  * [[docs/workflows//home/sblo/Dev/Maestro/maestro/session_model.py session_model.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed session data stored in JSON format under docs/sessions/; aligns with RE
+  * Observed user-specific config in ~/.maestro/config.json; aligns with HOME_HUB_AL
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

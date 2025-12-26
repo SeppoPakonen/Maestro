@@ -1,0 +1,25 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-tu - tu command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-tu.cli.yaml docs/workflows/v2/ir/cmd/CMD-tu.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro tu" as cmd_0
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_tu.md cmd_tu.md]]
+  * [[v1/internal/deep/cmd_tu_deep.puml cmd_tu_deep.puml]]
+end note
+
+@enduml

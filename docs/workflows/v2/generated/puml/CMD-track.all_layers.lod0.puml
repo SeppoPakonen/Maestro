@@ -1,0 +1,49 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-track - Combined CLI+Code (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.cli.yaml docs/workflows/v2/ir/cmd/CMD-track.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD0)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro track"
+  usecase "maestro track list"
+  usecase "maestro track add"
+  usecase "maestro track remove"
+  usecase "maestro track show"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_track_command"
+  rectangle "resolve_track_identifier"
+  rectangle "resolve_identifier_by_type"
+  rectangle "list_tracks"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_track.md command_track.md]]
+  * [[v1/command_track.puml command_track.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed mixed persistence in cmd_track deep flow; uses both DataMarkdown (docs/
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

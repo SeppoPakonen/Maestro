@@ -1,0 +1,47 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-discuss - discuss command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml]]
+end note
+
+rectangle "Parse discuss command" as cli_parse
+component "Check session provided" as session_check
+component "Load session" as load_session
+component "Validate session schema" as validate_session
+component "Route to discuss handler" as route_discuss
+component "Read docs truth" as read_docs_truth
+component "Initialize AI discussion interface" as init_ai_interface
+component "Load AI configuration" as load_ai_config
+component "Invoke AI engine" as invoke_ai_engine
+rectangle "Output discussion to stdout" as output_discussion
+rectangle "Handle user input" as handle_user_input
+rectangle "Exit successfully" as exit_success
+component "Hard stop if no session" as hard_stop_no_session
+cli_parse --> session_check
+session_check --> load_session
+session_check --> hard_stop_no_session
+load_session --> validate_session
+validate_session --> route_discuss
+route_discuss --> read_docs_truth
+read_docs_truth --> init_ai_interface
+init_ai_interface --> load_ai_config
+load_ai_config --> invoke_ai_engine
+invoke_ai_engine --> output_discussion
+output_discussion --> handle_user_input
+handle_user_input --> exit_success
+
+note left
+  **Evidence:**
+  * [[v1/command_discuss.md command_discuss.md]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+end note
+
+@enduml

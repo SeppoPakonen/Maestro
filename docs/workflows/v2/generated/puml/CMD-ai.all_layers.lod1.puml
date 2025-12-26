@@ -1,0 +1,49 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ai - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro ai"
+  usecase "maestro ai qwen"
+  usecase "maestro ai gemini"
+  usecase "maestro ai codex"
+  usecase "maestro ai claude"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "handle_ai_sync"
+  rectangle "handle_ai_qwen"
+  rectangle "handle_ai_gemini"
+  rectangle "handle_ai_codex"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_ai.md cmd_ai.md]]
+  * [[v1/command_surface/cmd_ai.puml cmd_ai.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed legacy Qwen server/TUI functionality in cmd_ai deep flow; v2 repo truth
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-phase - phase deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.code.yaml docs/workflows/v2/ir/cmd/CMD-phase.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "discuss" as discuss
+  component "phase" as phase
+  component "status_utils" as status_utils
+  component "settings" as settings
+  component "common_utils" as common_utils
+  component "markdown_parser" as markdown_parser
+  component "markdown_writer" as markdown_writer
+  component "main" as main
+  component "json_store" as json_store
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_phase_deep.puml cmd_phase_deep.puml]]
+  * [[docs/workflows/maestro/commands/phase.py phase.py]]
+  * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+  * [[docs/workflows/maestro/tracks/json_store.py json_store.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_phase deep flow; v2 repo truth uses JSO
+  * Observed .maestro directory usage in cmd_phase deep flow; violates FORBID_REPO_D
+  * Observed markdown file persistence for repo truth in cmd_phase deep flow; violat
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

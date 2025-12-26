@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-track - track deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.code.yaml docs/workflows/v2/ir/cmd/CMD-track.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "discuss" as discuss
+  component "status_utils" as status_utils
+  component "track" as track
+  component "settings" as settings
+  component "common_utils" as common_utils
+  component "markdown_writer" as markdown_writer
+  component "table_renderer" as table_renderer
+  component "main" as main
+  component "json_store" as json_store
+  component "models" as models
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_track_deep.puml cmd_track_deep.puml]]
+  * [[docs/workflows/maestro/commands/track.py track.py]]
+  * [[docs/workflows/maestro/data/common_utils.py common_utils.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+  * [[docs/workflows/maestro/tracks/json_store.py json_store.py]]
+  * [[docs/workflows/maestro/tracks/models.py models.py]]
+  * [[docs/workflows/maestro/display/table_renderer.py table_renderer.py]]
+  * [[docs/workflows/maestro/config/settings.py settings.py]]
+  * [[docs/workflows/maestro/commands/status_utils.py status_utils.py]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed mixed persistence in cmd_track deep flow; uses both DataMarkdown (docs/
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

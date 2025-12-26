@@ -1,0 +1,70 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ops - ops deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ops.code.yaml docs/workflows/v2/ir/cmd/CMD-ops.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "add_project_ops_parser\nmaestro/project_ops/commands.py" as add_project_ops_parser #E6F3FF
+rectangle "handle_project_ops_validate\nmaestro/project_ops/commands.py" as handle_project_ops_validate #E6F3FF
+rectangle "handle_project_ops_preview\nmaestro/project_ops/commands.py" as handle_project_ops_preview #E6F3FF
+rectangle "handle_project_ops_apply\nmaestro/project_ops/commands.py" as handle_project_ops_apply #E6F3FF
+rectangle "decode_project_ops_json\nmaestro/project_ops/decoder.py" as decode_project_ops_json #E6F3FF
+rectangle "validate_project_ops_result\nmaestro/project_ops/schemas.py" as validate_project_ops_result #E6F3FF
+rectangle "actions_to_ops\nmaestro/project_ops/translator.py" as actions_to_ops #E6F3FF
+component "project_ops_executor" as project_ops_executor
+rectangle "preview_ops\nmaestro/project_ops/executor.py" as preview_ops #E6F3FF
+rectangle "apply_ops\nmaestro/project_ops/executor.py" as apply_ops #E6F3FF
+rectangle "insert_track_block\nmaestro/data/markdown_writer.py" as insert_track_block #E6F3FF
+rectangle "insert_phase_block\nmaestro/data/markdown_writer.py" as insert_phase_block #E6F3FF
+rectangle "insert_task_block\nmaestro/data/markdown_writer.py" as insert_task_block #E6F3FF
+rectangle "update_task_metadata\nmaestro/data/markdown_writer.py" as update_task_metadata #E6F3FF
+rectangle "update_phase_metadata\nmaestro/data/markdown_writer.py" as update_phase_metadata #E6F3FF
+rectangle "update_track_metadata\nmaestro/data/markdown_writer.py" as update_track_metadata #E6F3FF
+component "json_store" as json_store
+rectangle "save_track\nmaestro/tracks/json_store.py" as save_track #E6F3FF
+rectangle "save_phase\nmaestro/tracks/json_store.py" as save_phase #E6F3FF
+rectangle "save_task\nmaestro/tracks/json_store.py" as save_task #E6F3FF
+rectangle "load_track\nmaestro/tracks/json_store.py" as load_track #E6F3FF
+rectangle "load_phase\nmaestro/tracks/json_store.py" as load_phase #E6F3FF
+rectangle "load_task\nmaestro/tracks/json_store.py" as load_task #E6F3FF
+rectangle "load_index\nmaestro/tracks/json_store.py" as load_index #E6F3FF
+rectangle "save_index\nmaestro/tracks/json_store.py" as save_index #E6F3FF
+component "track_model" as track_model
+component "phase_model" as phase_model
+component "task_model" as task_model
+actor "File System" as file_system
+database "docs_todo_md" as docs_todo_md #FFE6E6
+database "maestro_tracks_json" as maestro_tracks_json #FFE6E6
+main_entry --> add_project_ops_parser
+main_entry --> handle_project_ops_validate
+main_entry --> handle_project_ops_preview
+main_entry --> handle_project_ops_apply
+handle_project_ops_validate --> decode_project_ops_json
+decode_project_ops_json --> validate_project_ops_result
+handle_project_ops_preview --> decode_project_ops_json
+handle_project_ops_preview --> actions_to_ops
+handle_project_ops_preview --> preview_ops
+preview_ops --> project_ops_executor
+handle_project_ops_apply --> decode_project_ops_json
+handle_project_ops_apply --> actions_to_ops
+handle_project_ops_apply --> apply_ops
+apply_ops --> project_ops_executor
+apply_ops --> json_store
+apply_ops --> insert_track_block
+apply_ops --> save_track
+apply_ops --> save_index
+apply_ops --> insert_phase_block
+apply_ops --> save_phase
+apply_ops --> load_track
+apply_ops --> insert_task_block
+
+@enduml

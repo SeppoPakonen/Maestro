@@ -1,0 +1,27 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-log - log deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.code.yaml docs/workflows/v2/ir/cmd/CMD-log.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "maestro/main" as maestro/main
+  component "maestro/modules/command_handlers" as maestro/modules/command_handlers
+  component "maestro/session_model" as maestro/session_model
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_log_deep.puml cmd_log_deep.puml]]
+  * [[v1/internal/deep/cmd_log_deep.md cmd_log_deep.md]]
+end note
+
+@enduml

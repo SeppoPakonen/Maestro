@@ -1,0 +1,56 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-13 - Combined Layers (LOD2)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
+end note
+
+note as N1
+  **Combined view (LOD2)**
+  
+  This diagram combines:
+  * Intent layer (workflow logic)
+  * Command integration
+end note
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-13 - Read-only → Adopt bridge (home hub to repo truth) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "init\nimplementation" as impl_init [[../generated/svg/CMD-init.code.lod2.svg]]
+  component "make\nimplementation" as impl_make [[../generated/svg/CMD-make.code.lod2.svg]]
+  component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_13_readonly_to_adopt_bridge.md Original v1 readonly to adopt bridge workflow]]
+  * [[v1/scenario_13_readonly_to_adopt_bridge.puml PlantUML diagram for readonly to adopt bridge]]
+end note
+
+
+@enduml

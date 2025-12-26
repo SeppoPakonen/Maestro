@@ -1,0 +1,63 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-07 - AST/TU workflows — rename, C++→JS transform, autocomplete (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-07.intent.yaml docs/workflows/v2/ir/wf/WF-07.intent.yaml]]
+end note
+
+(*) --> "User initiates AST/TU operation"
+if "Verify Repo Resolve completed" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Verify RepoConf has valid targets" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Verify build succeeds for target" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Verify on correct Git branch" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Which operation to perform?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Verify rename operation" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nTU build failure
+end note
+note right #FF0000
+  **HARD STOP**\nRename verification failed
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "tu_cache\n./docs/maestro/tu/" as tu_cache
+}
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+  rectangle "tu" as uses_tu [[../generated/svg/CMD-tu.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_07_ast_tu_refactor_transform_autocomplete.md Original v1 AST/TU workflow documentation]]
+  * [[v1/scenario_07_ast_tu_refactor_transform_autocomplete.puml PlantUML diagram of AST/TU operations]]
+end note
+
+@enduml

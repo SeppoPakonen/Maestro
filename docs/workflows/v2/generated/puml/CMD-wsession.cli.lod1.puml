@@ -1,0 +1,35 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-wsession - wsession command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-wsession.cli.yaml docs/workflows/v2/ir/cmd/CMD-wsession.cli.yaml]]
+end note
+
+rectangle "wsession command" as wsession_cmd
+usecase "list subcommand" as wsession_list
+usecase "show subcommand" as wsession_show
+usecase "tree subcommand" as wsession_tree
+usecase "breadcrumbs subcommand" as wsession_breadcrumbs
+usecase "timeline subcommand" as wsession_timeline
+usecase "stats subcommand" as wsession_stats
+wsession_cmd --> wsession_list
+wsession_cmd --> wsession_show
+wsession_cmd --> wsession_tree
+wsession_cmd --> wsession_breadcrumbs
+wsession_cmd --> wsession_timeline
+wsession_cmd --> wsession_stats
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_wsession.md cmd_wsession.md]]
+  * [[docs/workflows/maestro/commands/work_session.py work_session.py]]
+end note
+
+@enduml

@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-05 - Repo Resolve — packages, conventions, build targets, and derived issues/tasks (LOD1: Workflow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-05.intent.yaml docs/workflows/v2/ir/wf/WF-05.intent.yaml]]
+end note
+
+(*) --> "Operator initiates repo resolve"
+:Branch boundary validation;
+:Parse command line arguments;
+:Validate repository exists;
+:Check for .maestro/ directory;
+:Discover packages and assemblies;
+:Detect U++ packages;
+:Detect other build systems;
+:Identify unknown paths;
+:Build dependency graph;
+:Apply convention inference;
+:Convention detection;
+:Apply rule set;
+:Use default rules;
+:Violation detection;
+:Create Issues;
+:Task creation policy check;
+:Create Tasks linked to Issues;
+:Skip task creation;
+:No violations;
+:Write scan results to docs/maestro/repo/;
+:Generate human-readable or JSON output;
+"Operator receives scan results" --> (*)
+' validate_repo -> check_maestro_dir: Repository exists
+' check_maestro_dir -> discover_packages: .maestro/ directory exists
+' detect_conventions -> apply_rule_set: Conventions recognized
+' detect_conventions -> use_default_rules: Conventions not recognized
+' violation_detection -> create_issues: Violations found
+' violation_detection -> no_violations: No violations
+
+package "Command Integration" #E6F3FF {
+  component "repo\ncommand" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod1.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_05_repo_resolve_packages_conventions_targets.md Original v1 scenario documentation]]
+  * [[v1/scenario_05_repo_resolve_packages_conventions_targets.puml PlantUML diagram of workflow]]
+end note
+
+@enduml

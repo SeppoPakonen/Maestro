@@ -1,0 +1,33 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-16 - wsession modes — log-only vs mutation API (opt-in) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-16.intent.yaml docs/workflows/v2/ir/wf/WF-16.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "work-run\nimplementation" as impl_work-run [[../generated/svg/CMD-work-run.code.lod2.svg]]
+  component "wsession\nimplementation" as impl_wsession [[../generated/svg/CMD-wsession.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_16_wsession_mutation_modes.md Original v1 workflow documentation for wsession mutation modes]]
+  * [[v1/scenario_16_wsession_mutation_modes.puml PlantUML diagram for wsession modes workflow]]
+end note
+
+@enduml

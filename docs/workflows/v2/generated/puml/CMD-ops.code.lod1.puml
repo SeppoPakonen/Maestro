@@ -1,0 +1,51 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ops - ops deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ops.code.yaml docs/workflows/v2/ir/cmd/CMD-ops.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro/main.py)" as main_entry
+rectangle "add_project_ops_parser\n(maestro/project_ops/commands.py)" as add_project_ops_parser
+rectangle "handle_project_ops_validate\n(maestro/project_ops/commands.py)" as handle_project_ops_validate
+rectangle "handle_project_ops_preview\n(maestro/project_ops/commands.py)" as handle_project_ops_preview
+rectangle "handle_project_ops_apply\n(maestro/project_ops/commands.py)" as handle_project_ops_apply
+rectangle "decode_project_ops_json\n(maestro/project_ops/decoder.py)" as decode_project_ops_json
+rectangle "validate_project_ops_result\n(maestro/project_ops/schemas.py)" as validate_project_ops_result
+rectangle "actions_to_ops\n(maestro/project_ops/translator.py)" as actions_to_ops
+rectangle "preview_ops\n(maestro/project_ops/executor.py)" as preview_ops
+rectangle "apply_ops\n(maestro/project_ops/executor.py)" as apply_ops
+rectangle "insert_track_block\n(maestro/data/markdown_writer.py)" as insert_track_block
+rectangle "insert_phase_block\n(maestro/data/markdown_writer.py)" as insert_phase_block
+rectangle "insert_task_block\n(maestro/data/markdown_writer.py)" as insert_task_block
+rectangle "update_task_metadata\n(maestro/data/markdown_writer.py)" as update_task_metadata
+rectangle "update_phase_metadata\n(maestro/data/markdown_writer.py)" as update_phase_metadata
+main_entry --> add_project_ops_parser
+main_entry --> handle_project_ops_validate
+main_entry --> handle_project_ops_preview
+main_entry --> handle_project_ops_apply
+handle_project_ops_validate --> decode_project_ops_json
+decode_project_ops_json --> validate_project_ops_result
+handle_project_ops_preview --> decode_project_ops_json
+handle_project_ops_preview --> actions_to_ops
+handle_project_ops_preview --> preview_ops
+preview_ops --> project_ops_executor
+handle_project_ops_apply --> decode_project_ops_json
+handle_project_ops_apply --> actions_to_ops
+handle_project_ops_apply --> apply_ops
+apply_ops --> project_ops_executor
+apply_ops --> json_store
+apply_ops --> insert_track_block
+apply_ops --> save_track
+apply_ops --> save_index
+apply_ops --> insert_phase_block
+apply_ops --> save_phase
+
+@enduml

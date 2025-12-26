@@ -1,0 +1,37 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-issues - issues command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "maestro issues" as cmd_issues_entry
+component "list" as subcmd_list
+component "add" as subcmd_add
+component "remove" as subcmd_remove
+component "show" as subcmd_show
+component "resolve" as subcmd_resolve
+component "Load session" as load_session
+component "Validate session schema" as validate_session
+component "Execute issue operation" as execute_issue_op
+component "Read docs truth" as read_docs_truth
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_issues.md cmd_issues.md]]
+  * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]
+end note
+
+@enduml

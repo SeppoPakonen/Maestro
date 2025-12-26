@@ -1,0 +1,36 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-solutions - solutions command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml]]
+end note
+
+rectangle "maestro solutions" as cmd_solutions_entry
+usecase "list" as subcmd_list
+usecase "add" as subcmd_add
+usecase "apply" as subcmd_apply
+usecase "show" as subcmd_show
+component "Load session" as load_session
+component "Validate session schema" as validate_session
+component "Execute solution operation" as execute_solution_op
+component "Read from docs truth" as read_docs_truth
+component "Write to docs truth" as write_docs_truth
+cmd_solutions_entry --> load_session
+load_session --> validate_session
+validate_session --> read_docs_truth
+read_docs_truth --> execute_solution_op
+execute_solution_op --> write_docs_truth
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_solutions.md cmd_solutions.md]]
+end note
+
+@enduml

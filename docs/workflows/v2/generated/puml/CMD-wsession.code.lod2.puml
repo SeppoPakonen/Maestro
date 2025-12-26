@@ -1,0 +1,117 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-wsession - wsession deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-wsession.code.yaml docs/workflows/v2/ir/cmd/CMD-wsession.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "add_wsession_parser\nmaestro/commands/work_session.py" as add_wsession_parser #E6F3FF
+rectangle "handle_wsession_list\nmaestro/commands/work_session.py" as handle_wsession_list #E6F3FF
+rectangle "handle_wsession_show\nmaestro/commands/work_session.py" as handle_wsession_show #E6F3FF
+rectangle "handle_wsession_tree\nmaestro/commands/work_session.py" as handle_wsession_tree #E6F3FF
+rectangle "handle_wsession_breadcrumbs\nmaestro/commands/work_session.py" as handle_wsession_breadcrumbs #E6F3FF
+rectangle "handle_wsession_timeline\nmaestro/commands/work_session.py" as handle_wsession_timeline #E6F3FF
+rectangle "handle_wsession_stats\nmaestro/commands/work_session.py" as handle_wsession_stats #E6F3FF
+rectangle "_resolve_session_id\nmaestro/commands/work_session.py" as _resolve_session_id #E6F3FF
+rectangle "export_session_json\nmaestro/commands/work_session.py" as export_session_json #E6F3FF
+rectangle "export_session_markdown\nmaestro/commands/work_session.py" as export_session_markdown #E6F3FF
+rectangle "_filter_hierarchy_by_status\nmaestro/commands/work_session.py" as _filter_hierarchy_by_status #E6F3FF
+rectangle "_print_breadcrumb_counts\nmaestro/commands/work_session.py" as _print_breadcrumb_counts #E6F3FF
+component "work_session_class" as work_session_class
+rectangle "list_sessions\nmaestro/work_session.py" as list_sessions #E6F3FF
+rectangle "load_session\nmaestro/work_session.py" as load_session #E6F3FF
+rectangle "get_session_hierarchy\nmaestro/work_session.py" as get_session_hierarchy #E6F3FF
+rectangle "create_session\nmaestro/work_session.py" as create_session #E6F3FF
+component "breadcrumb_class" as breadcrumb_class
+rectangle "list_breadcrumbs\nmaestro/breadcrumb.py" as list_breadcrumbs #E6F3FF
+rectangle "get_breadcrumb_summary\nmaestro/breadcrumb.py" as get_breadcrumb_summary #E6F3FF
+rectangle "reconstruct_session_timeline\nmaestro/breadcrumb.py" as reconstruct_session_timeline #E6F3FF
+component "session_tree_renderer" as session_tree_renderer
+component "session_table_formatter" as session_table_formatter
+component "session_detail_formatter" as session_detail_formatter
+component "session_stats_class" as session_stats_class
+rectangle "calculate_session_stats\nmaestro/stats/session_stats.py" as calculate_session_stats #E6F3FF
+rectangle "calculate_tree_stats\nmaestro/stats/session_stats.py" as calculate_tree_stats #E6F3FF
+database "docs_sessions_dir" as docs_sessions_dir #FFE6E6
+component "pathlib" as pathlib
+component "json" as json
+component "logging" as logging
+component "sys" as sys
+component "datetime" as datetime
+actor "file_system" as file_system
+main_entry --> add_wsession_parser
+main_entry --> handle_wsession_list
+main_entry --> handle_wsession_show
+main_entry --> handle_wsession_tree
+main_entry --> handle_wsession_breadcrumbs
+main_entry --> handle_wsession_timeline
+main_entry --> handle_wsession_stats
+handle_wsession_list --> list_sessions
+list_sessions --> docs_sessions_dir
+handle_wsession_list --> session_table_formatter
+handle_wsession_show --> _resolve_session_id
+handle_wsession_show --> load_session
+handle_wsession_show --> session_detail_formatter
+handle_wsession_show --> export_session_json
+export_session_json --> file_system
+export_session_json --> list_breadcrumbs
+export_session_json --> calculate_session_stats
+export_session_json --> list_sessions
+handle_wsession_show --> export_session_markdown
+export_session_markdown --> file_system
+export_session_markdown --> list_breadcrumbs
+export_session_markdown --> calculate_session_stats
+handle_wsession_tree --> get_session_hierarchy
+get_session_hierarchy --> docs_sessions_dir
+handle_wsession_tree --> _filter_hierarchy_by_status
+handle_wsession_tree --> session_tree_renderer
+handle_wsession_tree --> _print_breadcrumb_counts
+handle_wsession_breadcrumbs --> _resolve_session_id
+handle_wsession_breadcrumbs --> get_breadcrumb_summary
+handle_wsession_breadcrumbs --> list_breadcrumbs
+list_breadcrumbs --> docs_sessions_dir
+handle_wsession_timeline --> _resolve_session_id
+handle_wsession_timeline --> reconstruct_session_timeline
+reconstruct_session_timeline --> docs_sessions_dir
+handle_wsession_stats --> _resolve_session_id
+handle_wsession_stats --> load_session
+handle_wsession_stats --> calculate_session_stats
+handle_wsession_stats --> calculate_tree_stats
+handle_wsession_stats --> session_detail_formatter
+handle_wsession_stats --> list_sessions
+_resolve_session_id --> list_sessions
+handle_wsession_show --> pathlib
+handle_wsession_show --> json
+handle_wsession_show --> logging
+handle_wsession_show --> sys
+handle_wsession_show --> datetime
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_wsession_deep.puml cmd_wsession_deep.puml]]
+  * [[docs/workflows/maestro/commands/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/work_session.py work_session.py]]
+  * [[docs/workflows/maestro/breadcrumb.py breadcrumb.py]]
+  * [[docs/workflows/maestro/visualization/tree.py tree.py]]
+  * [[docs/workflows/maestro/visualization/table.py table.py]]
+  * [[docs/workflows/maestro/visualization/detail.py detail.py]]
+  * [[docs/workflows/maestro/stats/session_stats.py session_stats.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed JSON persistence in cmd_wsession deep flow with session.json and breadc
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

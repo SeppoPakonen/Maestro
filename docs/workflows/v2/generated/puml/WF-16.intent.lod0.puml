@@ -1,0 +1,71 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-16 - wsession modes — log-only vs mutation API (opt-in) (LOD0: Spine)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-16.intent.yaml docs/workflows/v2/ir/wf/WF-16.intent.yaml]]
+end note
+
+(*) --> "User runs maestro wsession command"
+if "Validate wsession cookie (WF-15)" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Is mutation mode enabled?" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Branch guard check (WF-14)" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Validate operation schema" then
+  -->[yes] ...
+  -->[no] ...
+endif
+if "Check referential integrity" then
+  -->[yes] ...
+  -->[no] ...
+endif
+note right #FF0000
+  **HARD STOP**\nReject - Unknown Cookie
+end note
+note right #FF0000
+  **HARD STOP**\nReject - Mutation Mode Disabled
+end note
+note right #FF0000
+  **HARD STOP**\nReject - Invalid Operation Schema
+end note
+note right #FF0000
+  **HARD STOP**\nReject - Referential Integrity Failed
+end note
+note right #FF0000
+  **HARD STOP**\nHard stop - Branch Mismatch
+end note
+
+package "Data Stores" #F0F0F0 {
+  database "repo_truth\n./docs/maestro/" as repo_truth
+  database "wsession_cookie\n~/.maestro/wsession_cookie" as wsession_cookie
+  database "work_session_store\n./docs/maestro/work_sessions/" as work_session_store
+}
+"--> (*)
+"--> (*)
+
+package "Uses Commands" #E6F3FF {
+  rectangle "work-run" as uses_work-run [[../generated/svg/CMD-work-run.all_layers.lod0.svg]]
+  rectangle "wsession" as uses_wsession [[../generated/svg/CMD-wsession.all_layers.lod0.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_16_wsession_mutation_modes.md Original v1 workflow documentation for wsession mutation modes]]
+  * [[v1/scenario_16_wsession_mutation_modes.puml PlantUML diagram for wsession modes workflow]]
+end note
+
+@enduml

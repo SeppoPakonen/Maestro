@@ -1,0 +1,100 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-tu - tu deep internal flow (observed) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-tu.code.yaml docs/workflows/v2/ir/cmd/CMD-tu.code.yaml]]
+end note
+
+rectangle "main_entry\nmaestro/main.py" as main_entry #E6F3FF
+rectangle "add_tu_parser\nmaestro/commands/tu.py" as add_tu_parser #E6F3FF
+rectangle "handle_tu_command\nmaestro/commands/tu.py" as handle_tu_command #E6F3FF
+rectangle "handle_tu_build_command\nmaestro/commands/tu.py" as handle_tu_build_command #E6F3FF
+rectangle "handle_tu_info_command\nmaestro/commands/tu.py" as handle_tu_info_command #E6F3FF
+rectangle "handle_tu_query_command\nmaestro/commands/tu.py" as handle_tu_query_command #E6F3FF
+rectangle "handle_tu_complete_command\nmaestro/commands/tu.py" as handle_tu_complete_command #E6F3FF
+rectangle "handle_tu_references_command\nmaestro/commands/tu.py" as handle_tu_references_command #E6F3FF
+rectangle "handle_tu_lsp_command\nmaestro/commands/tu.py" as handle_tu_lsp_command #E6F3FF
+rectangle "handle_tu_cache_clear_command\nmaestro/commands/tu.py" as handle_tu_cache_clear_command #E6F3FF
+rectangle "handle_tu_cache_stats_command\nmaestro/commands/tu.py" as handle_tu_cache_stats_command #E6F3FF
+rectangle "handle_tu_transform_command\nmaestro/commands/tu.py" as handle_tu_transform_command #E6F3FF
+rectangle "handle_tu_print_ast_command\nmaestro/commands/tu.py" as handle_tu_print_ast_command #E6F3FF
+rectangle "handle_tu_draft_command\nmaestro/commands/tu.py" as handle_tu_draft_command #E6F3FF
+rectangle "detect_language_from_path\nmaestro/commands/tu.py" as detect_language_from_path #E6F3FF
+rectangle "get_parser_by_language\nmaestro/commands/tu.py" as get_parser_by_language #E6F3FF
+rectangle "get_files_by_language\nmaestro/commands/tu.py" as get_files_by_language #E6F3FF
+component "tu_builder" as tu_builder
+component "symbol_index" as symbol_index
+component "completion_provider" as completion_provider
+component "maestro_lsp_server" as maestro_lsp_server
+component "upp_convention_transformer" as upp_convention_transformer
+component "ast_printer" as ast_printer
+component "code_generator" as code_generator
+database "source_files" as source_files #FFE6E6
+database "tu_cache_dir" as tu_cache_dir #FFE6E6
+database "symbol_index_db" as symbol_index_db #FFE6E6
+database "tu_draft_dir" as tu_draft_dir #FFE6E6
+database "docs_todo_classes_md" as docs_todo_classes_md #FFE6E6
+actor "file_system" as file_system
+actor "shutil" as shutil
+actor "json" as json
+main_entry --> add_tu_parser
+handle_tu_command --> handle_tu_build_command
+handle_tu_command --> handle_tu_info_command
+handle_tu_command --> handle_tu_query_command
+handle_tu_command --> handle_tu_complete_command
+handle_tu_command --> handle_tu_references_command
+handle_tu_command --> handle_tu_lsp_command
+handle_tu_command --> handle_tu_cache_clear_command
+handle_tu_command --> handle_tu_cache_stats_command
+handle_tu_command --> handle_tu_transform_command
+handle_tu_command --> handle_tu_print_ast_command
+handle_tu_command --> handle_tu_draft_command
+handle_tu_build_command --> get_files_by_language
+handle_tu_build_command --> detect_language_from_path
+handle_tu_build_command --> get_parser_by_language
+handle_tu_build_command --> tu_builder
+handle_tu_query_command --> symbol_index
+handle_tu_complete_command --> completion_provider
+handle_tu_references_command --> symbol_index
+handle_tu_lsp_command --> maestro_lsp_server
+handle_tu_cache_clear_command --> shutil
+handle_tu_transform_command --> get_files_by_language
+handle_tu_transform_command --> detect_language_from_path
+handle_tu_transform_command --> get_parser_by_language
+handle_tu_transform_command --> tu_builder
+handle_tu_transform_command --> upp_convention_transformer
+handle_tu_print_ast_command --> get_parser_by_language
+handle_tu_print_ast_command --> ast_printer
+handle_tu_draft_command --> get_files_by_language
+handle_tu_draft_command --> detect_language_from_path
+handle_tu_draft_command --> get_parser_by_language
+handle_tu_draft_command --> code_generator
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_tu_deep.puml cmd_tu_deep.puml]]
+  * [[docs/workflows/maestro/commands/tu.py tu.py]]
+  * [[docs/workflows/maestro/tu/tu_builder.py tu_builder.py]]
+  * [[docs/workflows/maestro/tu/indexing.py indexing.py]]
+  * [[docs/workflows/maestro/tu/lsp_server.py lsp_server.py]]
+  * [[docs/workflows/maestro/tu/transformers.py transformers.py]]
+  * [[docs/workflows/maestro/tu/ast.py ast.py]]
+  * [[docs/workflows/maestro/tu/code_generator.py code_generator.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed .maestro directory usage for TU cache and analysis; violates FORBID_REP
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

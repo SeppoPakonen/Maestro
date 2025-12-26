@@ -1,0 +1,44 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-discuss - discuss deep internal flow (observed) (LOD0: Code Modules)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.code.yaml docs/workflows/v2/ir/cmd/CMD-discuss.code.yaml]]
+end note
+
+package "Code Modules" {
+  component "actions" as actions
+  component "contracts" as contracts
+  component "discussion_router" as discussion_router
+  component "manager" as manager
+  component "breadcrumb" as breadcrumb
+  component "discuss" as discuss
+  component "markdown_parser" as markdown_parser
+  component "markdown_writer" as markdown_writer
+  component "discussion" as discussion
+  component "main" as main
+}
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_discuss_deep.puml cmd_discuss_deep.puml]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+  * [[docs/workflows/maestro/ai/discussion_router.py discussion_router.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_discuss deep flow; v2 repo truth uses J
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

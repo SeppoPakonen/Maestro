@@ -1,0 +1,67 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-discuss - discuss deep internal flow (observed) (LOD1: Code Functions)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.code.yaml docs/workflows/v2/ir/cmd/CMD-discuss.code.yaml]]
+end note
+
+rectangle "main_entry\n(maestro.main)" as main_entry
+rectangle "handle_discuss_command\n(maestro.commands.discuss)" as handle_discuss_command
+rectangle "handle_track_discuss\n(maestro.commands.discuss)" as handle_track_discuss
+rectangle "handle_phase_discuss\n(maestro.commands.discuss)" as handle_phase_discuss
+rectangle "handle_task_discuss\n(maestro.commands.discuss)" as handle_task_discuss
+rectangle "choose_mode\n(maestro.commands.discuss)" as choose_mode
+rectangle "run_discussion_with_router\n(maestro.commands.discuss)" as run_discussion_with_router
+rectangle "apply_patch_operations\n(maestro.commands.discuss)" as apply_patch_operations
+rectangle "save_discussion_artifacts\n(maestro.commands.discuss)" as save_discussion_artifacts
+rectangle "update_artifact_status\n(maestro.commands.discuss)" as update_artifact_status
+rectangle "run_discussion\n(maestro.ai.discussion_router)" as run_discussion
+rectangle "parse_config_md\n(maestro.data.markdown_parser)" as parse_config_md
+rectangle "insert_track_block\n(maestro.data.markdown_writer)" as insert_track_block
+rectangle "insert_phase_block\n(maestro.data.markdown_writer)" as insert_phase_block
+rectangle "insert_task_block\n(maestro.data.markdown_writer)" as insert_task_block
+main_entry --> handle_discuss_command
+handle_discuss_command --> choose_mode
+handle_discuss_command --> run_discussion_with_router
+handle_discuss_command --> apply_patch_operations
+choose_mode --> parse_config_md
+run_discussion_with_router --> ai_engine_manager
+run_discussion_with_router --> discussion_router
+run_discussion_with_router --> json_contract
+run_discussion_with_router --> run_discussion
+run_discussion_with_router --> save_discussion_artifacts
+run_discussion_with_router --> update_artifact_status
+run_discussion --> ai_engine_manager
+run_discussion --> json_contract
+run_discussion --> patch_operation
+apply_patch_operations --> insert_track_block
+apply_patch_operations --> insert_phase_block
+apply_patch_operations --> insert_task_block
+apply_patch_operations --> update_track_metadata
+apply_patch_operations --> update_phase_metadata
+apply_patch_operations --> update_task_metadata
+
+note left
+  **Evidence:**
+  * [[v1/internal/deep/cmd_discuss_deep.puml cmd_discuss_deep.puml]]
+  * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
+  * [[docs/workflows/maestro/ai/discussion_router.py discussion_router.py]]
+  * [[docs/workflows/maestro/data/markdown_writer.py markdown_writer.py]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_discuss deep flow; v2 repo truth uses J
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

@@ -1,0 +1,36 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title WF-02 - New Project from Empty Directory (Manual Track/Phase/Task Planning) (LOD2: Code Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/wf/WF-02.intent.yaml docs/workflows/v2/ir/wf/WF-02.intent.yaml]]
+end note
+
+note as N1
+  **LOD2: Code-level detail**
+  
+  This layer shows implementation-level callchains.
+  Navigate to CMD diagrams for detailed code flows.
+end note
+
+package "Implementation Commands" {
+  component "init\nimplementation" as impl_init [[../generated/svg/CMD-init.code.lod2.svg]]
+  component "phase\nimplementation" as impl_phase [[../generated/svg/CMD-phase.code.lod2.svg]]
+  component "task\nimplementation" as impl_task [[../generated/svg/CMD-task.code.lod2.svg]]
+  component "track\nimplementation" as impl_track [[../generated/svg/CMD-track.code.lod2.svg]]
+  component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
+}
+
+note left
+  **Evidence:**
+  * [[v1/scenario_02_new_project_manual_plan.md Original v1 scenario documentation]]
+  * [[v1/scenario_02_new_project_manual_plan.puml Original v1 PlantUML diagram]]
+end note
+
+@enduml

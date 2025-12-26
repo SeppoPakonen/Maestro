@@ -1,0 +1,35 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-plan - plan command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro plan" as cmd_0
+  usecase "maestro plan add" as cmd_1
+  usecase "maestro plan list" as cmd_2
+  usecase "maestro plan remove" as cmd_3
+  usecase "maestro plan show" as cmd_4
+  usecase "maestro plan add-item" as cmd_5
+  usecase "maestro plan remove-item" as cmd_6
+  usecase "maestro plan ops" as cmd_7
+  usecase "maestro plan discuss" as cmd_8
+  usecase "maestro plan explore" as cmd_9
+  usecase "maestro pl" as cmd_10
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_plan.md command_plan.md]]
+  * [[v1/command_plan.puml command_plan.puml]]
+end note
+
+@enduml

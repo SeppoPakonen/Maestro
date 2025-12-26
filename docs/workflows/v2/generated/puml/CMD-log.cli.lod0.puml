@@ -1,0 +1,28 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-log - log command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.cli.yaml docs/workflows/v2/ir/cmd/CMD-log.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro log" as cmd_0
+  usecase "maestro log list" as cmd_1
+  usecase "maestro log list-work" as cmd_2
+  usecase "maestro log list-plan" as cmd_3
+  usecase "maestro lg" as cmd_4
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_log.md cmd_log.md]]
+end note
+
+@enduml

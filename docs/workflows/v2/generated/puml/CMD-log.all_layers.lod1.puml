@@ -1,0 +1,40 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-log - Combined CLI+Code (LOD1)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.cli.yaml docs/workflows/v2/ir/cmd/CMD-log.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD1)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro log"
+  usecase "maestro log list"
+  usecase "maestro log list-work"
+  usecase "maestro log list-plan"
+  usecase "maestro lg"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "py::main()"
+  rectangle "py::handle_log_list()"
+  rectangle "py::handle_log_list_work()"
+  rectangle "py::handle_log_list_plan()"
+  rectangle "py::load_session()"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_log.md cmd_log.md]]
+end note
+
+@enduml

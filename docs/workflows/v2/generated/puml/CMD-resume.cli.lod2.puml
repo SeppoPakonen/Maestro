@@ -1,0 +1,29 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-resume - resume command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "maestro resume" as resume_cmd
+component "--session" as resume_subcmd
+component "handle_resume_session" as resume_handler
+
+note left
+  **Evidence:**
+  * [[docs/workflows/v1/command_surface/cmd_resume.md cmd_resume.md]]
+end note
+
+@enduml

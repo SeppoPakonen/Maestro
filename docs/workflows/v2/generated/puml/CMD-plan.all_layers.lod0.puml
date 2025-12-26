@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-plan - Combined CLI+Code (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD0)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro plan"
+  usecase "maestro plan add"
+  usecase "maestro plan list"
+  usecase "maestro plan remove"
+  usecase "maestro plan show"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "add_plan_parser"
+  rectangle "handle_plan_*"
+  rectangle "PlanStore"
+  rectangle "add_plan_ops_parser"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_plan.md command_plan.md]]
+  * [[v1/command_plan.puml command_plan.puml]]
+end note
+
+note right #FFE6E6
+  **⚠ Ledger Hints:**
+  * Observed DataMarkdown persistence in cmd_plan deep flow; v2 repo truth uses JSON
+  * Plan storage uses docs/plans.md which violates REPO_TRUTH_FORMAT_IS_JSON invaria
+  
+  [[../../IMPLEMENTATION_LEDGER.md IMPLEMENTATION_LEDGER]]
+  [[../../reports/ledger_candidates.md Ledger Candidates]]
+end note
+
+@enduml

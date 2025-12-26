@@ -1,0 +1,30 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ai - ai command surface (LOD0: CLI Surface)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml]]
+end note
+
+package "Command Surface" {
+  usecase "maestro ai" as cmd_0
+  usecase "maestro ai qwen" as cmd_1
+  usecase "maestro ai gemini" as cmd_2
+  usecase "maestro ai codex" as cmd_3
+  usecase "maestro ai claude" as cmd_4
+  usecase "maestro ai sync" as cmd_5
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_ai.md cmd_ai.md]]
+  * [[v1/command_surface/cmd_ai.puml cmd_ai.puml]]
+end note
+
+@enduml

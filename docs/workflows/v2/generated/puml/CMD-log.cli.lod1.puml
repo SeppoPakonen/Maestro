@@ -1,0 +1,30 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-log - log command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.cli.yaml docs/workflows/v2/ir/cmd/CMD-log.cli.yaml]]
+end note
+
+rectangle "log command" as cmd_log
+usecase "list subcommand" as subcmd_list
+usecase "list-work subcommand" as subcmd_list_work
+usecase "list-plan subcommand" as subcmd_list_plan
+component "Session required gate" as gate_session_required
+cmd_log --> gate_session_required
+gate_session_required --> subcmd_list
+gate_session_required --> subcmd_list_work
+gate_session_required --> subcmd_list_plan
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_log.md cmd_log.md]]
+end note
+
+@enduml

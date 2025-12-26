@@ -1,0 +1,38 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-ops - Combined CLI+Code (LOD0)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml docs/workflows/v2/ir/cmd/CMD-ops.cli.yaml]]
+end note
+
+note as N1
+  **Combined CLI + Code view (LOD0)**
+end note
+
+package "CLI Layer" #E6F3FF {
+  usecase "maestro ops validate operations.json"
+  usecase "maestro ops preview operations.json"
+  usecase "maestro ops apply operations.json"
+}
+
+package "Code Layer" #FFE6E6 {
+  rectangle "main"
+  rectangle "add_project_ops_parser"
+  rectangle "handle_project_ops_validate"
+  rectangle "handle_project_ops_preview"
+  rectangle "handle_project_ops_apply"
+}
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_ops.md cmd_ops.md]]
+end note
+
+@enduml

@@ -1,0 +1,63 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-session - session command surface (LOD1: CLI Flow)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-session.cli.yaml docs/workflows/v2/ir/cmd/CMD-session.cli.yaml]]
+end note
+
+component "Parse session command" as parse_session_command
+component "Determine command is 'session'" as determine_session_command
+component "Parse session subcommands" as parse_session_subcommands
+component "Check subcommand type" as session_subcommand_route
+component "Route to handle_session_new" as handle_session_new
+component "Route to handle_session_list" as handle_session_list
+component "Route to handle_session_set" as handle_session_set
+component "Route to handle_session_get" as handle_session_get
+component "Route to handle_session_remove" as handle_session_remove
+component "Route to handle_session_details" as handle_session_details
+component "Route to handle_wsession_breadcrumbs" as handle_wsession_breadcrumbs
+component "Route to handle_wsession_timeline" as handle_wsession_timeline
+component "Route to handle_wsession_stats" as handle_wsession_stats
+rectangle "Show session help" as show_session_help
+rectangle "Execute session operation" as execute_session_operation
+rectangle "Read/write session files" as read_write_session_files
+rectangle "Output results to stdout" as output_results
+parse_session_command --> determine_session_command
+determine_session_command --> parse_session_subcommands
+parse_session_subcommands --> session_subcommand_route
+session_subcommand_route --> handle_session_new
+session_subcommand_route --> handle_session_list
+session_subcommand_route --> handle_session_set
+session_subcommand_route --> handle_session_get
+session_subcommand_route --> handle_session_remove
+session_subcommand_route --> handle_session_details
+session_subcommand_route --> handle_wsession_breadcrumbs
+session_subcommand_route --> handle_wsession_timeline
+session_subcommand_route --> handle_wsession_stats
+session_subcommand_route --> show_session_help
+handle_session_new --> execute_session_operation
+handle_session_list --> execute_session_operation
+handle_session_set --> execute_session_operation
+handle_session_get --> execute_session_operation
+handle_session_remove --> execute_session_operation
+handle_session_details --> execute_session_operation
+handle_wsession_breadcrumbs --> execute_session_operation
+handle_wsession_timeline --> execute_session_operation
+handle_wsession_stats --> execute_session_operation
+execute_session_operation --> read_write_session_files
+read_write_session_files --> output_results
+
+note left
+  **Evidence:**
+  * [[v1/command_session.md command_session.md]]
+  * [[v1/command_session.puml command_session.puml]]
+end note
+
+@enduml

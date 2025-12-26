@@ -1,0 +1,37 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-tu - tu command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-tu.cli.yaml docs/workflows/v2/ir/cmd/CMD-tu.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "Maestro CLI Invocation" as cli_invocation
+component "Parse CLI arguments" as argparse
+component "Determine command is 'tu'" as determine_tu
+component "Route to TU handler" as route_tu_handler
+component "Analyze project structure" as analyze_project
+component "Read source code files" as read_source
+component "Perform translation unit indexing" as perform_indexing
+component "Write index to storage" as write_index
+component "Output analysis progress to stdout" as output_progress
+component "Exit successfully" as exit_ok
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_tu.md cmd_tu.md]]
+  * [[v1/internal/deep/cmd_tu_deep.puml cmd_tu_deep.puml]]
+end note
+
+@enduml

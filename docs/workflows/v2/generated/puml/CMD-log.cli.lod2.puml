@@ -1,0 +1,31 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+title CMD-log - log command surface (LOD2: CLI Detail)
+
+note right
+  **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.cli.yaml docs/workflows/v2/ir/cmd/CMD-log.cli.yaml]]
+end note
+
+note as N1
+  **LOD2: Argument parsing detail**
+  
+  See code layer for implementation details.
+end note
+component "log command" as cmd_log
+component "list subcommand" as subcmd_list
+component "list-work subcommand" as subcmd_list_work
+component "list-plan subcommand" as subcmd_list_plan
+component "Session required gate" as gate_session_required
+
+note left
+  **Evidence:**
+  * [[v1/command_surface/cmd_log.md cmd_log.md]]
+end note
+
+@enduml
