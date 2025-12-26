@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-wsession - Combined CLI+Code (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-wsession.cli.yaml docs/workflows/v2/ir/cmd/CMD-wsession.cli.yaml]]
 end note
 
@@ -32,13 +34,13 @@ package "Code Layer" #FFE6E6 {
   rectangle "handle_wsession_tree"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_wsession.md cmd_wsession.md]]
   * [[docs/workflows/maestro/commands/work_session.py work_session.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed JSON persistence in cmd_wsession deep flow with session.json and breadc
   

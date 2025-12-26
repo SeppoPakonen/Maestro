@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-task - Combined CLI+Code (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-task.cli.yaml docs/workflows/v2/ir/cmd/CMD-task.cli.yaml]]
 end note
 
@@ -31,13 +33,13 @@ package "Code Layer" #FFE6E6 {
   rectangle "add_task"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_task.md command_task.md]]
   * [[v1/command_task.puml command_task.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_task deep flow; v2 repo truth uses JSON
   * Shows mixed persistence model with both JSON and Markdown files; v2 spec require

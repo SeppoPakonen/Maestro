@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-10 - Repo Resolve levels — Lite vs Deep, convention acceptance, and violation policy (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-10.intent.yaml docs/workflows/v2/ir/wf/WF-10.intent.yaml]]
 end note
 
@@ -24,13 +26,13 @@ package "Implementation Commands" {
   component "repo\nimplementation" as impl_repo [[../generated/svg/CMD-repo.code.lod2.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_10_repo_resolve_levels_lite_deep.md Original v1 workflow documentation]]
   * [[v1/scenario_10_repo_resolve_levels_lite_deep.puml PlantUML diagram for WF-10]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * WF-10 mentions 'Proposed: maestro repo conventions accept <pack>' commands; impl
   

@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-settings - settings deep internal flow (observed) (LOD1: Code Functions)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-settings.code.yaml docs/workflows/v2/ir/cmd/CMD-settings.code.yaml]]
 end note
 
@@ -23,7 +25,7 @@ settings_profile_manager --> profile_settings_json
 settings_profile_manager --> profile_audit_jsonl
 edit_settings --> editor_actor
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_settings_deep.puml cmd_settings_deep.puml]]
   * [[docs/workflows/maestro/commands/settings.py settings.py]]
@@ -32,7 +34,7 @@ note left
   * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_settings deep flow; v2 repo truth uses 
   * Observed .maestro directory usage for profiles; violates FORBID_REPO_DOT_MAESTRO

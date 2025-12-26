@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-plan - plan command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml]]
 end note
 
@@ -17,18 +19,18 @@ note as N1
   
   See code layer for implementation details.
 end note
-component "maestro plan" as cmd-plan-entry
-component "add" as subcmd-add
-component "list" as subcmd-list
-component "remove" as subcmd-remove
-component "show" as subcmd-show
-component "add-item" as subcmd-add-item
-component "remove-item" as subcmd-remove-item
-component "ops" as subcmd-ops
-component "discuss" as subcmd-discuss
-component "explore" as subcmd-explore
+component "maestro plan" as cmd_plan_entry
+component "add" as subcmd_add
+component "list" as subcmd_list
+component "remove" as subcmd_remove
+component "show" as subcmd_show
+component "add-item" as subcmd_add_item
+component "remove-item" as subcmd_remove_item
+component "ops" as subcmd_ops
+component "discuss" as subcmd_discuss
+component "explore" as subcmd_explore
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_plan.md command_plan.md]]
   * [[v1/command_plan.puml command_plan.puml]]

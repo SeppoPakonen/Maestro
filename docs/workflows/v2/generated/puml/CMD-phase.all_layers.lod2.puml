@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-phase - Combined CLI+Code (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml]]
 end note
 
@@ -32,13 +34,13 @@ package "Code Layer" #FFE6E6 {
   rectangle "add_phase"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_phase.md cmd_phase.md]]
   * [[docs/workflows/maestro/commands/phase.py phase.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_phase deep flow; v2 repo truth uses JSO
   * Observed .maestro directory usage in cmd_phase deep flow; violates FORBID_REPO_D

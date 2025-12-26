@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-09 - Combined Layers (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
 end note
 
@@ -29,16 +31,18 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-09 - Storage Contract — Repo Truth vs Home Hub (LOD0: Spine)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
 end note
 
-(*) --> "User runs Maestro command"
-if "Check if ./docs/maestro/ exists" then
-  -->[yes] ...
-  -->[no] ...
-endif
-note right #FF0000
+note as ACTIVITY_FLOW
+  (*) --> "User runs Maestro command"
+  if "Check if ./docs/maestro/ exists" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+end note
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nHard Stop if ./.maestro exists
 end note
 
@@ -48,8 +52,8 @@ package "Data Stores" #F0F0F0 {
   database "repo_model_file\n<storage_backend>/repo_model.json" as repo_model_file
   database "repo_conf_file\n<storage_backend>/repo_conf.json" as repo_conf_file
 }
-"--> (*)
-"--> (*)
+'--> (*)
+'--> (*)
 
 package "Uses Commands" #E6F3FF {
   rectangle "build" as uses_build [[../generated/svg/CMD-build.all_layers.lod0.svg]]
@@ -61,7 +65,7 @@ package "Uses Commands" #E6F3FF {
   rectangle "work" as uses_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.md Original v1 storage contract workflow diagram]]
   * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.puml Original v1 PlantUML source]]
@@ -69,7 +73,7 @@ note left
   * [[docs/workflows/maestro/session_model.py Session model with storage backend awareness]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)
   * LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented

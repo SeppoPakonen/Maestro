@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-track - track command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.cli.yaml docs/workflows/v2/ir/cmd/CMD-track.cli.yaml]]
 end note
 
@@ -51,7 +53,7 @@ execute_operation --> output_results
 output_results --> exit_success
 show_help --> exit_failure
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_track.md command_track.md]]
   * [[v1/command_track.puml command_track.puml]]

@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-solutions - solutions deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.code.yaml docs/workflows/v2/ir/cmd/CMD-solutions.code.yaml]]
 end note
 
@@ -60,14 +62,14 @@ _handle_edit --> _open_editor
 _find_repo_root --> filesystem
 _find_solution_path --> filesystem
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/maestro/commands/solutions.py solutions.py]]
   * [[docs/workflows/maestro/solutions/solution_store.py solution_store.py]]
   * [[docs/workflows/v1/internal/deep/cmd_solutions_deep.puml cmd_solutions_deep.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed markdown persistence in cmd_solutions deep flow; v2 repo truth uses JSO
   * Observed ./.maestro directory usage in _find_repo_root; violates FORBID_REPO_DOT

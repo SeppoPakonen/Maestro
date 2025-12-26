@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-issues - issues deep internal flow (observed) (LOD1: Code Functions)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.code.yaml docs/workflows/v2/ir/cmd/CMD-issues.code.yaml]]
 end note
 
@@ -48,7 +50,7 @@ handle_react --> match_solutions
 match_solutions --> docs_solutions_md
 handle_analyze --> external_command_client
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/maestro/commands/issues.py issues.py]]
   * [[docs/workflows/maestro/issues/issue_store.py issue_store.py]]
@@ -58,7 +60,7 @@ note left
   * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_issues deep flow; v2 repo truth uses JS
   * Uses ./docs/issues/*.md, ./docs/solutions/*.md, and ./docs/sessions/*.md for per

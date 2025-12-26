@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-root - root command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-root.cli.yaml docs/workflows/v2/ir/cmd/CMD-root.cli.yaml]]
 end note
 
@@ -56,7 +58,7 @@ write_docs_truth --> output_results
 output_results --> exit_ok
 show_help --> exit_fail
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/v1/command_surface/cmd_root.md cmd_root.md]]
   * [[docs/workflows/v1/command_surface/cmd_root.puml cmd_root.puml]]

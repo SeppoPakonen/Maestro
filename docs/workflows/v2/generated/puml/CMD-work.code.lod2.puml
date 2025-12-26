@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-work - work deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.code.yaml docs/workflows/v2/ir/cmd/CMD-work.code.yaml]]
 end note
 
@@ -121,7 +123,7 @@ _load_task_entries --> docs_phases_md
 write_sync_state --> docs_ai_sync_json
 handle_work_fix --> docs_sessions_dir
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
   * [[docs/workflows/maestro/commands/work.py work.py]]
@@ -136,7 +138,7 @@ note left
   * [[docs/workflows/maestro/workers/issue_worker.py issue_worker.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_work deep flow; v2 repo truth uses JSON
   

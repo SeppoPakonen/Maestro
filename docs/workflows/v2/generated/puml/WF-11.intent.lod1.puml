@@ -8,36 +8,40 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-11 - Manual repo model + manual RepoConf (resolve optional) (LOD1: Workflow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
 end note
 
-(*) --> "Operator starts manual repo configuration"
-:(Optional) Initialize Maestro repo structure;
-:Choose authoring approach;
-:Manually author repo model and conf from scratch;
-:Augment or override resolved state;
-:Run repo resolve to discover state;
-:Manually override specific values;
-:Store repo model in model.json}
-:Store repo conf in conf.json}
-:Run maestro build or tu;
-:Validate repo model and conf;
-:Validate repo model schema;
-:Validate repo conf schema;
-stop
-:Execute build/TU using manual conf;
-:Execute build/TU process;
-:Display build/TU results;
-"Workflow completed successfully" --> (*)
-' manual_authoring_loop -> manual_from_scratch: Manual from scratch
-' manual_authoring_loop -> augment_resolved: Augment or override resolved state
-' validate_model -> validation_failure: Validation failed
-' validate_conf -> validation_failure: Validation failed
-' validate_model -> execute_build: Valid
-' validate_conf -> execute_build: Valid
-' validation_failure -> manual_authoring_loop: Return to authoring
-
+note as ACTIVITY_FLOW
+  (*) --> "Operator starts manual repo configuration"
+  :(Optional) Initialize Maestro repo structure;
+  :Choose authoring approach;
+  :Manually author repo model and conf from scratch;
+  :Augment or override resolved state;
+  :Run repo resolve to discover state;
+  :Manually override specific values;
+  :Store repo model in model.json}
+  :Store repo conf in conf.json}
+  :Run maestro build or tu;
+  :Validate repo model and conf;
+  :Validate repo model schema;
+  :Validate repo conf schema;
+  stop
+  :Execute build/TU using manual conf;
+  :Execute build/TU process;
+  :Display build/TU results;
+  "Workflow completed successfully" --> (*)
+  ' manual_authoring_loop -> manual_from_scratch: Manual from scratch
+  ' manual_authoring_loop -> augment_resolved: Augment or override resolved state
+  ' validate_model -> validation_failure: Validation failed
+  ' validate_conf -> validation_failure: Validation failed
+  ' validate_model -> execute_build: Valid
+  ' validate_conf -> execute_build: Valid
+  ' validation_failure -> manual_authoring_loop: Return to authoring
+  
+end note
 package "Command Integration" #E6F3FF {
   component "build\ncommand" as cmd_build [[../generated/svg/CMD-build.all_layers.lod1.svg]]
   component "init\ncommand" as cmd_init [[../generated/svg/CMD-init.all_layers.lod1.svg]]
@@ -45,7 +49,7 @@ package "Command Integration" #E6F3FF {
   component "tu\ncommand" as cmd_tu [[../generated/svg/CMD-tu.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_11_manual_repo_model_and_conf.md Original v1 documentation for manual repo model and conf workflow]]
   * [[v1/scenario_11_manual_repo_model_and_conf.puml PlantUML diagram for manual repo model and conf workflow]]

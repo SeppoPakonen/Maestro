@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-convert - convert command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml]]
 end note
 
@@ -26,7 +28,7 @@ component "show subcommand" as subcmd_show
 component "reset subcommand" as subcmd_reset
 component "batch subcommand" as subcmd_batch
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_convert.md command_convert.md]]
   * [[v1/command_convert.puml command_convert.puml]]

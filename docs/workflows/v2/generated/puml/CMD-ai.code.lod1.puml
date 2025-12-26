@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-ai - ai deep internal flow (observed) (LOD1: Code Functions)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-ai.code.yaml docs/workflows/v2/ir/cmd/CMD-ai.code.yaml]]
 end note
 
@@ -48,7 +50,7 @@ handle_ai_qwen --> get_settings
 handle_ai_qwen --> run_one_shot
 handle_ai_qwen --> run_interactive_chat
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_ai_deep.puml cmd_ai_deep.puml]]
   * [[docs/workflows/maestro/commands/ai.py ai.py]]
@@ -62,7 +64,7 @@ note left
   * [[docs/workflows/maestro/qwen/tui.py tui.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed legacy Qwen server/TUI functionality in cmd_ai deep flow; v2 repo truth
   

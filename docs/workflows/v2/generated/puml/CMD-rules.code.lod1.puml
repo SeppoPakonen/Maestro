@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-rules - rules deep internal flow (observed) (LOD1: Code Functions)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-rules.code.yaml docs/workflows/v2/ir/cmd/CMD-rules.code.yaml]]
 end note
 
@@ -32,13 +34,13 @@ session_class --> save_session
 docs_sessions_dir --> file_system
 user_editor --> handle_rules_file
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_rules_deep.puml cmd_rules_deep.puml]]
   * [[v1/internal/deep/cmd_rules_deep.md cmd_rules_deep.md]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed ./.maestro directory usage in cmd_rules deep flow; v2 repo truth uses .
   

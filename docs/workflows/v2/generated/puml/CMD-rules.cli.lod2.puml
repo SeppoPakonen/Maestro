@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-rules - rules command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml]]
 end note
 
@@ -26,7 +28,7 @@ component "Load session" as load_session
 component "Validate session schema" as validate_session
 component "Execute rules operation" as execute_rules_op
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_rules.md cmd_rules.md]]
 end note

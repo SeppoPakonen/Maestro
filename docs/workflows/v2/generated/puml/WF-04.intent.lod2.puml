@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-04 - Reactive compile error → Solutions match → immediate solution-task (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-04.intent.yaml docs/workflows/v2/ir/wf/WF-04.intent.yaml]]
 end note
 
@@ -25,7 +27,7 @@ package "Implementation Commands" {
   component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_04_reactive_compile_error_solution.md Original v1 scenario documentation]]
   * [[v1/scenario_04_reactive_compile_error_solution.puml Original v1 PlantUML diagram]]

@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-log - log command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.cli.yaml docs/workflows/v2/ir/cmd/CMD-log.cli.yaml]]
 end note
 
@@ -23,7 +25,7 @@ component "list-work subcommand" as subcmd_list_work
 component "list-plan subcommand" as subcmd_list_plan
 component "Session required gate" as gate_session_required
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_log.md cmd_log.md]]
 end note

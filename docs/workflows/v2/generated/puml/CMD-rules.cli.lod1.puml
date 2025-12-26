@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-rules - rules command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml]]
 end note
 
@@ -29,7 +31,7 @@ subcmd_edit --> handle_rules_file
 handle_rules_list --> execute_rules_op
 handle_rules_file --> execute_rules_op
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_rules.md cmd_rules.md]]
 end note

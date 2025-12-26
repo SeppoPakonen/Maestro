@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-13 - Combined Layers (LOD1)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
 end note
 
@@ -29,36 +31,38 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-13 - Read-only → Adopt bridge (home hub to repo truth) (LOD1: Workflow)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
 end note
 
-(*) --> "User runs Maestro command in non-adopted repo"
-:Read-only guard;
-:Scan repository structure;
-:Optional build attempt (diagnostics only);
-:Write outputs to home hub ($HOME/.maestro/repo/);
-:Adopt this repository?;
-:Run maestro init to create repo truth;
-:Create ./docs/maestro/** structure;
-:Decide import strategy;
-:Re-run resolve into repo truth;
-:Import from hub (planned feature);
-:Ensure RepoConf exists (WF-12);
-:RepoConf gate;
-"Build can proceed" --> (*)
-"Stop - no repo-local writes performed" --> (*)
-' decision_adopt -> adopt_init: True
-' decision_import_strategy -> strategy_a_rerun: Re-run resolve
-' decision_import_strategy -> strategy_b_import: Import from hub
-
+note as ACTIVITY_FLOW
+  (*) --> "User runs Maestro command in non-adopted repo"
+  :Read-only guard;
+  :Scan repository structure;
+  :Optional build attempt (diagnostics only);
+  :Write outputs to home hub ($HOME/.maestro/repo/);
+  :Adopt this repository?;
+  :Run maestro init to create repo truth;
+  :Create ./docs/maestro/** structure;
+  :Decide import strategy;
+  :Re-run resolve into repo truth;
+  :Import from hub (planned feature);
+  :Ensure RepoConf exists (WF-12);
+  :RepoConf gate;
+  "Build can proceed" --> (*)
+  "Stop - no repo-local writes performed" --> (*)
+  ' decision_adopt -> adopt_init: True
+  ' decision_import_strategy -> strategy_a_rerun: Re-run resolve
+  ' decision_import_strategy -> strategy_b_import: Import from hub
+  
+end note
 package "Command Integration" #E6F3FF {
   component "init\ncommand" as cmd_init [[../generated/svg/CMD-init.all_layers.lod1.svg]]
   component "make\ncommand" as cmd_make [[../generated/svg/CMD-make.all_layers.lod1.svg]]
   component "repo\ncommand" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_13_readonly_to_adopt_bridge.md Original v1 readonly to adopt bridge workflow]]
   * [[v1/scenario_13_readonly_to_adopt_bridge.puml PlantUML diagram for readonly to adopt bridge]]

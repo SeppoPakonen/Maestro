@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-resume - resume command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml]]
 end note
 
@@ -16,7 +18,7 @@ rectangle "maestro resume" as resume_cmd
 usecase "--session" as resume_subcmd
 component "handle_resume_session" as resume_handler
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/v1/command_surface/cmd_resume.md cmd_resume.md]]
 end note

@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-work - work command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.cli.yaml docs/workflows/v2/ir/cmd/CMD-work.cli.yaml]]
 end note
 
@@ -32,7 +34,7 @@ work_cmd_start --> work_discuss
 work_cmd_start --> work_analyze
 work_cmd_start --> work_fix
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_work.md command_work.md]]
   * [[v1/command_work.puml command_work.puml]]

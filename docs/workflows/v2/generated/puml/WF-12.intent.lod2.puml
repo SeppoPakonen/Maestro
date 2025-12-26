@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-12 - RepoConf gate — required targets/configs for build, TU, and convert (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-12.intent.yaml docs/workflows/v2/ir/wf/WF-12.intent.yaml]]
 end note
 
@@ -26,7 +28,7 @@ package "Implementation Commands" {
   component "tu\nimplementation" as impl_tu [[../generated/svg/CMD-tu.code.lod2.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.md Original v1 documentation for RepoConf gate workflow]]
   * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.puml PlantUML diagram for RepoConf gate workflow]]

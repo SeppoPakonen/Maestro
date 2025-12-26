@@ -8,41 +8,45 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-06 - AI-driven task execution with Work Sessions and multi-session resume (LOD1: Workflow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-06.intent.yaml docs/workflows/v2/ir/wf/WF-06.intent.yaml]]
 end note
 
-(*) --> "Operator initiates work on task"
-:Check if Work Session exists for task;
-:Create new Work Session;
-:Reuse existing Work Session;
-:Start AI engine session;
-:Capture AI stream events to transcript store;
-:Does AI emit progress update?;
-:Append progress update as breadcrumb;
-:Continue AI session?;
-:Resume AI engine session under same Work Session;
-:Receive final JSON result from AI;
-:Validate final JSON against schema;
-:Mark session as completed and update task status;
-stop
-"Success - task completed" --> (*)
-"Failure - session failed due to invalid output" --> (*)
-' create_or_reuse_session -> new_session: No existing session
-' create_or_reuse_session -> existing_session: Session exists
-' emit_progress_update -> append_breadcrumb: True
-' continue_ai_session -> resume_ai_session: Continue
-' continue_ai_session -> receive_final_json: End session
-' validate_json -> mark_completed: Valid JSON
-' validate_json -> hard_stop: Invalid JSON
-
+note as ACTIVITY_FLOW
+  (*) --> "Operator initiates work on task"
+  :Check if Work Session exists for task;
+  :Create new Work Session;
+  :Reuse existing Work Session;
+  :Start AI engine session;
+  :Capture AI stream events to transcript store;
+  :Does AI emit progress update?;
+  :Append progress update as breadcrumb;
+  :Continue AI session?;
+  :Resume AI engine session under same Work Session;
+  :Receive final JSON result from AI;
+  :Validate final JSON against schema;
+  :Mark session as completed and update task status;
+  stop
+  "Success - task completed" --> (*)
+  "Failure - session failed due to invalid output" --> (*)
+  ' create_or_reuse_session -> new_session: No existing session
+  ' create_or_reuse_session -> existing_session: Session exists
+  ' emit_progress_update -> append_breadcrumb: True
+  ' continue_ai_session -> resume_ai_session: Continue
+  ' continue_ai_session -> receive_final_json: End session
+  ' validate_json -> mark_completed: Valid JSON
+  ' validate_json -> hard_stop: Invalid JSON
+  
+end note
 package "Command Integration" #E6F3FF {
   component "ai\ncommand" as cmd_ai [[../generated/svg/CMD-ai.all_layers.lod1.svg]]
   component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
   component "wsession\ncommand" as cmd_wsession [[../generated/svg/CMD-wsession.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_06_ai_task_work_sessions.md Original v1 workflow documentation]]
   * [[v1/scenario_06_ai_task_work_sessions.puml PlantUML diagram for the workflow]]

@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-settings - settings command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ component "read configuration files" as read_config
 component "process settings operation" as process_settings_op
 component "write configuration updates" as write_config
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/maestro/commands/settings.py Implementation of settings command]]
   * [[docs/workflows/v1/command_settings.md Markdown documentation for settings command]]

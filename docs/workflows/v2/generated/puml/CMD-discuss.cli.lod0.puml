@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-discuss - discuss command surface (LOD0: CLI Surface)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml]]
 end note
 
@@ -16,7 +18,7 @@ package "Command Surface" {
   usecase "maestro discuss" as cmd_0
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_discuss.md command_discuss.md]]
   * [[docs/workflows/maestro/commands/discuss.py discuss.py]]

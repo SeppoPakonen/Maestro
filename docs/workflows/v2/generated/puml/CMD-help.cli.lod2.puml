@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-help - help command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.cli.yaml docs/workflows/v2/ir/cmd/CMD-help.cli.yaml]]
 end note
 
@@ -23,7 +25,7 @@ component "Determine command is 'help'" as identify_help
 component "Route to help handler" as route_help
 component "Print help using parser.format_help()" as print_help
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_help.md command_help.md]]
   * [[v1/command_help.puml command_help.puml]]

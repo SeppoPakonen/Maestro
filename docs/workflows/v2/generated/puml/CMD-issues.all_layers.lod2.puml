@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-issues - Combined CLI+Code (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml]]
 end note
 
@@ -32,13 +34,13 @@ package "Code Layer" #FFE6E6 {
   rectangle "_handle_state"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_issues.md cmd_issues.md]]
   * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_issues deep flow; v2 repo truth uses JS
   * Uses ./docs/issues/*.md, ./docs/solutions/*.md, and ./docs/sessions/*.md for per

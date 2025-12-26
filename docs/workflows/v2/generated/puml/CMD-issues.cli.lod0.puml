@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-issues - issues command surface (LOD0: CLI Surface)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml]]
 end note
 
@@ -20,7 +22,7 @@ package "Command Surface" {
   usecase "maestro issues resolve" as cmd_4
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_issues.md cmd_issues.md]]
   * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]

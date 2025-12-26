@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-track - track command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.cli.yaml docs/workflows/v2/ir/cmd/CMD-track.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ component "Check if subcommand is provided" as subcommand_check
 component "Route to list handler" as route_list
 component "Route to add handler" as route_add
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_track.md command_track.md]]
   * [[v1/command_track.puml command_track.puml]]

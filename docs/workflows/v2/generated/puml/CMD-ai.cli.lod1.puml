@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-ai - ai command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml docs/workflows/v2/ir/cmd/CMD-ai.cli.yaml]]
 end note
 
@@ -37,7 +39,7 @@ show_ai_help --> exit_fail
 route_to_subcommand_handler --> show_ai_help
 output_responses --> exit_ok
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_ai.md cmd_ai.md]]
   * [[v1/command_surface/cmd_ai.puml cmd_ai.puml]]

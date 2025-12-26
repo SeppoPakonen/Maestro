@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-understand - understand command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml docs/workflows/v2/ir/cmd/CMD-understand.cli.yaml]]
 end note
 
@@ -25,7 +27,7 @@ component "route to dump handler" as route_dump
 component "analyze project structure" as analyze_project
 component "write analysis output" as write_output
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_understand.md cmd_understand.md]]
   * [[v1/internal/deep/cmd_understand_deep.puml cmd_understand_deep.puml]]

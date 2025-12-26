@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-work - Combined CLI+Code (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.cli.yaml docs/workflows/v2/ir/cmd/CMD-work.cli.yaml]]
 end note
 
@@ -32,14 +34,14 @@ package "Code Layer" #FFE6E6 {
   rectangle "handle_work_track"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_work.md command_work.md]]
   * [[v1/command_work.puml command_work.puml]]
   * [[v1/internal/deep/cmd_work_deep.puml cmd_work_deep.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_work deep flow; v2 repo truth uses JSON
   

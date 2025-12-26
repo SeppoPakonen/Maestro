@@ -8,24 +8,26 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-resume - resume deep internal flow (observed) (LOD0: Code Modules)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-resume.code.yaml docs/workflows/v2/ir/cmd/CMD-resume.code.yaml]]
 end note
 
 package "Code Modules" {
-  component "maestro/engines" as maestro/engines
-  component "maestro/main" as maestro/main
-  component "maestro/modules/command_handlers" as maestro/modules/command_handlers
-  component "maestro/session_model" as maestro/session_model
+  component "maestro_engines" as maestro_engines
+  component "maestro_main" as maestro_main
+  component "maestro_modules_command_handlers" as maestro_modules_command_handlers
+  component "maestro_session_model" as maestro_session_model
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_resume_deep.puml cmd_resume_deep.puml]]
   * [[v1/internal/deep/cmd_resume_deep.md cmd_resume_deep.md]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_resume deep flow; v2 repo truth uses JS
   

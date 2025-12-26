@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-15 - Combined Layers (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-15.intent.yaml docs/workflows/v2/ir/wf/WF-15.intent.yaml]]
 end note
 
@@ -29,11 +31,11 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-15 - Work ↔ wsession Cookie Protocol (File-based Polling, Multi-process Safe) (LOD2: Code Detail)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-15.intent.yaml docs/workflows/v2/ir/wf/WF-15.intent.yaml]]
 end note
 
-note as N1
+note as N12
   **LOD2: Code-level detail**
   
   This layer shows implementation-level callchains.
@@ -45,7 +47,7 @@ package "Implementation Commands" {
   component "wsession\nimplementation" as impl_wsession [[../generated/svg/CMD-wsession.code.lod2.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_15_work_wsession_cookie_protocol.md Original v1 workflow documentation]]
   * [[v1/scenario_15_work_wsession_cookie_protocol.puml PlantUML diagram for the workflow]]

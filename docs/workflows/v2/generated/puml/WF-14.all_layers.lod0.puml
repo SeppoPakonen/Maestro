@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-14 - Combined Layers (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-14.intent.yaml docs/workflows/v2/ir/wf/WF-14.intent.yaml]]
 end note
 
@@ -29,23 +31,25 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-14 - Branch safety guardrails — branch-bound state, no branch switching during work (LOD0: Spine)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-14.intent.yaml docs/workflows/v2/ir/wf/WF-14.intent.yaml]]
 end note
 
-(*) --> "User initiates work session"
-if "Check if inside Git repository" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Check for branch mismatch" then
-  -->[yes] ...
-  -->[no] ...
-endif
-note right #FF0000
+note as ACTIVITY_FLOW
+  (*) --> "User initiates work session"
+  if "Check if inside Git repository" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Check for branch mismatch" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+end note
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nError - Not a Git repository
 end note
-note right #FF0000
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nHard stop due to branch mismatch
 end note
 
@@ -53,14 +57,14 @@ package "Data Stores" #F0F0F0 {
   database "session_store\n./docs/maestro/session_store.json" as session_store
   database "docs_truth_store\n./docs/maestro/" as docs_truth_store
 }
-"--> (*)
-"--> (*)
+'--> (*)
+'--> (*)
 
 package "Uses Commands" #E6F3FF {
   rectangle "work" as uses_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_14_branch_safety_guardrails.md Original v1 branch safety guardrails documentation]]
   * [[v1/scenario_14_branch_safety_guardrails.puml Original v1 branch safety guardrails diagram]]

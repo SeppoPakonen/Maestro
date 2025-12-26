@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-01 - Combined Layers (LOD1)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-01.intent.yaml docs/workflows/v2/ir/wf/WF-01.intent.yaml]]
 end note
 
@@ -29,89 +31,91 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-01 - Existing Repo Bootstrap (Single Main, Compiled Language) (LOD1: Workflow)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-01.intent.yaml docs/workflows/v2/ir/wf/WF-01.intent.yaml]]
 end note
 
-(*) --> "Operator starts existing repo bootstrap"
-:Verify git repository;
-stop
-:Check if Maestro already initialized;
-:Warning - already initialized;
-:Run maestro init;
-:Create directory structure;
-:Write docs/maestro/index.json;
-:Call WF-05 repo resolve;
-:Run maestro discuss;
-:Generate structured understanding;
-:Validate JSON understanding;
-stop
-:Review understanding output;
-:Is understanding correct?;
-:Provide corrections;
-:Choose reconstruction strategy;
-:Reconstruction strategy;
-:Run git reconstruction;
-:Run snapshot reconstruction;
-:Mark past work as completed;
-:Review completed tasks;
-:Are completed tasks correct?;
-:Run maestro build --create-issues;
-:Detect build command;
-:Execute build;
-:Write docs/build.log;
-:Did build succeed?;
-:Clean build achieved;
-:Parse build errors;
-:Group errors by root cause;
-:Create issue records;
-:Create task records;
-:Analyze task dependencies;
-:Update task priorities;
-:Run maestro task next;
-:Select next task;
-:Review task details;
-:How to fix task?;
-:Edit files directly;
-:Run maestro work task;
-:Invoke engine for code changes;
-:Validate engine changes;
-stop
-:Validate change details;
-stop
-:Apply changes to files;
-:Run maestro build --create-issues again;
-:Did rebuild succeed?;
-:Parse new errors;
-:Create new issues/tasks;
-:Run maestro task complete;
-:Update task status to completed;
-:More active tasks?;
-:All build errors fixed;
-:Attempt runtime?;
-:Skip runtime;
-:Run maestro run --create-issues;
-:Detect run command;
-:Execute application;
-:Write docs/runtime.log;
-:Runtime errors detected?;
-:Parse runtime errors;
-:Create runtime issue records;
-:Create runtime task records;
-:Fix runtime errors now?;
-:Loop back to work loop;
-:Exit with partial completion;
-"Exit WF-01 successfully" --> (*)
-"Exit WF-01 partially" --> (*)
-' gate_git_repo -> hard_stop_not_git: Not a git repo
-' gate_git_repo -> gate_already_initialized: Is git repo
-' gate_already_initialized -> action_already_initialized: Already initialized
-' gate_already_initialized -> action_maestro_init: Not initialized
-' validate_json_understanding -> hard_stop_invalid_json: Invalid JSON
-' validate_json_understanding -> action_review_understanding: Valid JSON
-' gate_understanding_correct -> action_choose_strategy: True
-' action_provide_corrections -> action_discuss: Loop back to discuss
-
+note as ACTIVITY_FLOW
+  (*) --> "Operator starts existing repo bootstrap"
+  :Verify git repository;
+  stop
+  :Check if Maestro already initialized;
+  :Warning - already initialized;
+  :Run maestro init;
+  :Create directory structure;
+  :Write docs/maestro/index.json;
+  :Call WF-05 repo resolve;
+  :Run maestro discuss;
+  :Generate structured understanding;
+  :Validate JSON understanding;
+  stop
+  :Review understanding output;
+  :Is understanding correct?;
+  :Provide corrections;
+  :Choose reconstruction strategy;
+  :Reconstruction strategy;
+  :Run git reconstruction;
+  :Run snapshot reconstruction;
+  :Mark past work as completed;
+  :Review completed tasks;
+  :Are completed tasks correct?;
+  :Run maestro build --create-issues;
+  :Detect build command;
+  :Execute build;
+  :Write docs/build.log;
+  :Did build succeed?;
+  :Clean build achieved;
+  :Parse build errors;
+  :Group errors by root cause;
+  :Create issue records;
+  :Create task records;
+  :Analyze task dependencies;
+  :Update task priorities;
+  :Run maestro task next;
+  :Select next task;
+  :Review task details;
+  :How to fix task?;
+  :Edit files directly;
+  :Run maestro work task;
+  :Invoke engine for code changes;
+  :Validate engine changes;
+  stop
+  :Validate change details;
+  stop
+  :Apply changes to files;
+  :Run maestro build --create-issues again;
+  :Did rebuild succeed?;
+  :Parse new errors;
+  :Create new issues/tasks;
+  :Run maestro task complete;
+  :Update task status to completed;
+  :More active tasks?;
+  :All build errors fixed;
+  :Attempt runtime?;
+  :Skip runtime;
+  :Run maestro run --create-issues;
+  :Detect run command;
+  :Execute application;
+  :Write docs/runtime.log;
+  :Runtime errors detected?;
+  :Parse runtime errors;
+  :Create runtime issue records;
+  :Create runtime task records;
+  :Fix runtime errors now?;
+  :Loop back to work loop;
+  :Exit with partial completion;
+  "Exit WF-01 successfully" --> (*)
+  "Exit WF-01 partially" --> (*)
+  ' gate_git_repo -> hard_stop_not_git: Not a git repo
+  ' gate_git_repo -> gate_already_initialized: Is git repo
+  ' gate_already_initialized -> action_already_initialized: Already initialized
+  ' gate_already_initialized -> action_maestro_init: Not initialized
+  ' validate_json_understanding -> hard_stop_invalid_json: Invalid JSON
+  ' validate_json_understanding -> action_review_understanding: Valid JSON
+  ' gate_understanding_correct -> action_choose_strategy: True
+  ' action_provide_corrections -> action_discuss: Loop back to discuss
+  
+end note
 package "Command Integration" #E6F3FF {
   component "build\ncommand" as cmd_build [[../generated/svg/CMD-build.all_layers.lod1.svg]]
   component "discuss\ncommand" as cmd_discuss [[../generated/svg/CMD-discuss.all_layers.lod1.svg]]
@@ -122,7 +126,7 @@ package "Command Integration" #E6F3FF {
   component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_01_existing_repo_single_main.md Original v1 workflow documentation]]
   * [[v1/scenario_01_existing_repo_single_main.puml PlantUML diagram for WF-01]]

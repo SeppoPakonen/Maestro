@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-issues - issues command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml docs/workflows/v2/ir/cmd/CMD-issues.cli.yaml]]
 end note
 
@@ -29,7 +31,7 @@ validate_session --> execute_issue_op
 execute_issue_op --> read_docs_truth
 read_docs_truth --> write_docs_truth
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_issues.md cmd_issues.md]]
   * [[v1/internal/deep/cmd_issues_deep.puml cmd_issues_deep.puml]]

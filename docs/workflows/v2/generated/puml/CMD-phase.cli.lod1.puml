@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-phase - phase command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml]]
 end note
 
@@ -40,7 +42,7 @@ write_docs_truth --> output_results
 output_results --> exit_success
 route_phase_subcommand --> exit_failure
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_phase.md cmd_phase.md]]
   * [[docs/workflows/maestro/commands/phase.py phase.py]]

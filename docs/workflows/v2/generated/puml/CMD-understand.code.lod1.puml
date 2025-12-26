@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-understand - understand deep internal flow (observed) (LOD1: Code Functions)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-understand.code.yaml docs/workflows/v2/ir/cmd/CMD-understand.code.yaml]]
 end note
 
@@ -48,13 +50,13 @@ handle_understand_dump --> pathlib
 pathlib --> filesystem
 handle_understand_dump --> docs_understanding_snapshot_md
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_understand_deep.md cmd_understand_deep.md]]
   * [[v1/internal/deep/cmd_understand_deep.puml cmd_understand_deep.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_understand deep flow; v2 repo truth use
   

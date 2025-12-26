@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-repo - repo command surface (LOD0: CLI Surface)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-repo.cli.yaml docs/workflows/v2/ir/cmd/CMD-repo.cli.yaml]]
 end note
 
@@ -19,7 +21,7 @@ package "Command Surface" {
   usecase "maestro repo status" as cmd_3
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/v1/command_repo_conf.md command_repo_conf.md]]
   * [[docs/workflows/v1/command_repo_conf.puml command_repo_conf.puml]]

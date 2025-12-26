@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-init - Combined CLI+Code (LOD1)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-init.cli.yaml docs/workflows/v2/ir/cmd/CMD-init.cli.yaml]]
 end note
 
@@ -28,14 +30,14 @@ package "Code Layer" #FFE6E6 {
   rectangle "mkdir"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_init.md cmd_init.md]]
   * [[v1/internal/deep/cmd_init_deep.puml cmd_init_deep.puml]]
   * [[docs/workflows/maestro/commands/init.py init.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_init deep flow; v2 repo truth uses JSON
   

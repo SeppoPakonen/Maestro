@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-12 - Combined Layers (LOD1)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-12.intent.yaml docs/workflows/v2/ir/wf/WF-12.intent.yaml]]
 end note
 
@@ -29,44 +31,46 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-12 - RepoConf gate — required targets/configs for build, TU, and convert (LOD1: Workflow)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-12.intent.yaml docs/workflows/v2/ir/wf/WF-12.intent.yaml]]
 end note
 
-(*) --> "Operator starts workflow"
-:Decide creation path;
-:Create via resolve;
-:Create via manual authoring;
-:Scan repository;
-:Generate config candidates;
-:Create RepoConf from candidates;
-:Use manual commands;
-:Store RepoConf in conf.json}
-:Validate configuration;
-:Validate schema;
-:Validate referenced paths exist;
-:Validate toolchain executables;
-:Validate reproducible compiler commands;
-:Automatic selection?;
-:Select based on heuristics;
-:Manual selection;
-:Store selection in conf.json}
-:RepoConf exists?;
-:RepoConf is valid?;
-:RepoConf consistent with repo model?;
-stop
-stop
-stop
-:Validation passes?;
-:Build operation;
-:TU/AST generation;
-:Convert run operation;
-"All operations successful" --> (*)
-"Operation failed" --> (*)
-' decide_creation_path -> create_via_resolve: Via Resolve
-' decide_creation_path -> create_via_manual: Manual authoring
-' automatic_selection -> select_heuristic: True
-
+note as ACTIVITY_FLOW
+  (*) --> "Operator starts workflow"
+  :Decide creation path;
+  :Create via resolve;
+  :Create via manual authoring;
+  :Scan repository;
+  :Generate config candidates;
+  :Create RepoConf from candidates;
+  :Use manual commands;
+  :Store RepoConf in conf.json}
+  :Validate configuration;
+  :Validate schema;
+  :Validate referenced paths exist;
+  :Validate toolchain executables;
+  :Validate reproducible compiler commands;
+  :Automatic selection?;
+  :Select based on heuristics;
+  :Manual selection;
+  :Store selection in conf.json}
+  :RepoConf exists?;
+  :RepoConf is valid?;
+  :RepoConf consistent with repo model?;
+  stop
+  stop
+  stop
+  :Validation passes?;
+  :Build operation;
+  :TU/AST generation;
+  :Convert run operation;
+  "All operations successful" --> (*)
+  "Operation failed" --> (*)
+  ' decide_creation_path -> create_via_resolve: Via Resolve
+  ' decide_creation_path -> create_via_manual: Manual authoring
+  ' automatic_selection -> select_heuristic: True
+  
+end note
 package "Command Integration" #E6F3FF {
   component "build\ncommand" as cmd_build [[../generated/svg/CMD-build.all_layers.lod1.svg]]
   component "convert\ncommand" as cmd_convert [[../generated/svg/CMD-convert.all_layers.lod1.svg]]
@@ -74,7 +78,7 @@ package "Command Integration" #E6F3FF {
   component "tu\ncommand" as cmd_tu [[../generated/svg/CMD-tu.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.md Original v1 documentation for RepoConf gate workflow]]
   * [[v1/scenario_12_repo_conf_gate_for_build_tu_convert.puml PlantUML diagram for RepoConf gate workflow]]

@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-track - track deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.code.yaml docs/workflows/v2/ir/cmd/CMD-track.code.yaml]]
 end note
 
@@ -93,7 +95,7 @@ set_track_context --> settings_json
 edit_track --> user_editor
 edit_track --> file_system
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_track_deep.puml cmd_track_deep.puml]]
   * [[docs/workflows/maestro/commands/track.py track.py]]
@@ -107,7 +109,7 @@ note left
   * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed mixed persistence in cmd_track deep flow; uses both DataMarkdown (docs/
   

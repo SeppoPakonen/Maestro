@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-settings - Combined CLI+Code (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml docs/workflows/v2/ir/cmd/CMD-settings.cli.yaml]]
 end note
 
@@ -30,14 +32,14 @@ package "Code Layer" #FFE6E6 {
   rectangle "set_setting"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/maestro/commands/settings.py Implementation of settings command]]
   * [[docs/workflows/v1/command_settings.md Markdown documentation for settings command]]
   * [[docs/workflows/v1/settings.puml PlantUML diagram for settings command flow]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_settings deep flow; v2 repo truth uses 
   * Observed .maestro directory usage for profiles; violates FORBID_REPO_DOT_MAESTRO

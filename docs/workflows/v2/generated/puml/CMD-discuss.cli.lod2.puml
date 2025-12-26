@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-discuss - discuss command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ component "Load AI configuration" as load_ai_config
 component "Invoke AI engine" as invoke_ai_engine
 component "Output discussion to stdout" as output_discussion
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_discuss.md command_discuss.md]]
   * [[docs/workflows/maestro/commands/discuss.py discuss.py]]

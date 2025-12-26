@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-13 - Combined Layers (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
 end note
 
@@ -29,34 +31,36 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-13 - Read-only → Adopt bridge (home hub to repo truth) (LOD0: Spine)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-13.intent.yaml docs/workflows/v2/ir/wf/WF-13.intent.yaml]]
 end note
 
-(*) --> "User runs Maestro command in non-adopted repo"
-if "Read-only guard" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Adopt this repository?" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Decide import strategy" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "RepoConf gate" then
-  -->[yes] ...
-  -->[no] ...
-endif
-
+note as ACTIVITY_FLOW
+  (*) --> "User runs Maestro command in non-adopted repo"
+  if "Read-only guard" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Adopt this repository?" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Decide import strategy" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "RepoConf gate" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  
+end note
 package "Data Stores" #F0F0F0 {
   database "home_hub\n$HOME/.maestro/repo/" as home_hub
   database "repo_truth\n./docs/maestro/" as repo_truth
 }
-"--> (*)
-"--> (*)
+'--> (*)
+'--> (*)
 
 package "Uses Commands" #E6F3FF {
   rectangle "init" as uses_init [[../generated/svg/CMD-init.all_layers.lod0.svg]]
@@ -64,7 +68,7 @@ package "Uses Commands" #E6F3FF {
   rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_13_readonly_to_adopt_bridge.md Original v1 readonly to adopt bridge workflow]]
   * [[v1/scenario_13_readonly_to_adopt_bridge.puml PlantUML diagram for readonly to adopt bridge]]

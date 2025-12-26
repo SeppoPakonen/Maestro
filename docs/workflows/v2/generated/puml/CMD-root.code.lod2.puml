@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-root - root deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-root.code.yaml docs/workflows/v2/ir/cmd/CMD-root.code.yaml]]
 end note
 
@@ -53,14 +55,14 @@ handle_root_discuss --> session_class
 handle_root_discuss --> save_session
 handle_root_discuss --> conversations_dir
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_root_deep.puml cmd_root_deep.puml]]
   * [[docs/workflows/maestro/modules/command_handlers.py command_handlers.py]]
   * [[docs/workflows/maestro/session_model.py session_model.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed .maestro/conversations/ directory usage in cmd_root deep flow; v2 spec 
   

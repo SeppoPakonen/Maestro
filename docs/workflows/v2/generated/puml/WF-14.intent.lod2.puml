@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-14 - Branch safety guardrails — branch-bound state, no branch switching during work (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-14.intent.yaml docs/workflows/v2/ir/wf/WF-14.intent.yaml]]
 end note
 
@@ -23,7 +25,7 @@ package "Implementation Commands" {
   component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_14_branch_safety_guardrails.md Original v1 branch safety guardrails documentation]]
   * [[v1/scenario_14_branch_safety_guardrails.puml Original v1 branch safety guardrails diagram]]

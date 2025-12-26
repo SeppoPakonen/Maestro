@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-track - track command surface (LOD0: CLI Surface)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-track.cli.yaml docs/workflows/v2/ir/cmd/CMD-track.cli.yaml]]
 end note
 
@@ -21,7 +23,7 @@ package "Command Surface" {
   usecase "maestro track discuss" as cmd_5
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_track.md command_track.md]]
   * [[v1/command_track.puml command_track.puml]]

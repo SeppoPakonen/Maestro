@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-11 - Combined Layers (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
 end note
 
@@ -29,11 +31,11 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-11 - Manual repo model + manual RepoConf (resolve optional) (LOD2: Code Detail)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
 end note
 
-note as N1
+note as N12
   **LOD2: Code-level detail**
   
   This layer shows implementation-level callchains.
@@ -47,7 +49,7 @@ package "Implementation Commands" {
   component "tu\nimplementation" as impl_tu [[../generated/svg/CMD-tu.code.lod2.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_11_manual_repo_model_and_conf.md Original v1 documentation for manual repo model and conf workflow]]
   * [[v1/scenario_11_manual_repo_model_and_conf.puml PlantUML diagram for manual repo model and conf workflow]]

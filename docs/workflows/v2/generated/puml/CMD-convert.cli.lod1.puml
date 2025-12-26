@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-convert - convert command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ cmd_convert --> subcmd_show
 cmd_convert --> subcmd_reset
 cmd_convert --> subcmd_batch
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_convert.md command_convert.md]]
   * [[v1/command_convert.puml command_convert.puml]]

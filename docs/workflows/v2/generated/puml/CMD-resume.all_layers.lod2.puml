@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-resume - Combined CLI+Code (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml docs/workflows/v2/ir/cmd/CMD-resume.cli.yaml]]
 end note
 
@@ -29,12 +31,12 @@ package "Code Layer" #FFE6E6 {
   rectangle "py::update_subtask_summary_paths()"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/v1/command_surface/cmd_resume.md cmd_resume.md]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_resume deep flow; v2 repo truth uses JS
   

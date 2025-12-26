@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-session - session deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-session.code.yaml docs/workflows/v2/ir/cmd/CMD-session.code.yaml]]
 end note
 
@@ -56,14 +58,14 @@ get_session_details --> session_json_store
 load_session --> session_json_store
 remove_session --> session_json_store
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/command_handlers.py command_handlers.py]]
   * [[docs/workflows//home/sblo/Dev/Maestro/maestro/commands/work_session.py work_session.py]]
   * [[docs/workflows//home/sblo/Dev/Maestro/maestro/session_model.py session_model.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed session data stored in JSON format under docs/sessions/; aligns with RE
   * Observed user-specific config in ~/.maestro/config.json; aligns with HOME_HUB_AL

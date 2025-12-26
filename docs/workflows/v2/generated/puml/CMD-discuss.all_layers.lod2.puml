@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-discuss - Combined CLI+Code (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml docs/workflows/v2/ir/cmd/CMD-discuss.cli.yaml]]
 end note
 
@@ -28,13 +30,13 @@ package "Code Layer" #FFE6E6 {
   rectangle "handle_task_discuss"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_discuss.md command_discuss.md]]
   * [[docs/workflows/maestro/commands/discuss.py discuss.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_discuss deep flow; v2 repo truth uses J
   

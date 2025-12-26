@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-root - root command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-root.cli.yaml docs/workflows/v2/ir/cmd/CMD-root.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ component "Subcommand provided check" as subcommand_check
 component "Route to handle_root_set" as subcommand_set
 component "Route to handle_root_get" as subcommand_get
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows/v1/command_surface/cmd_root.md cmd_root.md]]
   * [[docs/workflows/v1/command_surface/cmd_root.puml cmd_root.puml]]

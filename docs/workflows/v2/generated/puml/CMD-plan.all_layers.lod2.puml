@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-plan - Combined CLI+Code (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml docs/workflows/v2/ir/cmd/CMD-plan.cli.yaml]]
 end note
 
@@ -32,13 +34,13 @@ package "Code Layer" #FFE6E6 {
   rectangle "add_plan_ops_parser"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_plan.md command_plan.md]]
   * [[v1/command_plan.puml command_plan.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_plan deep flow; v2 repo truth uses JSON
   * Plan storage uses docs/plans.md which violates REPO_TRUTH_FORMAT_IS_JSON invaria

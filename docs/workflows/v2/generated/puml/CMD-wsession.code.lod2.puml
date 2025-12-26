@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-wsession - wsession deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-wsession.code.yaml docs/workflows/v2/ir/cmd/CMD-wsession.code.yaml]]
 end note
 
@@ -94,7 +96,7 @@ handle_wsession_show --> logging
 handle_wsession_show --> sys
 handle_wsession_show --> datetime
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_wsession_deep.puml cmd_wsession_deep.puml]]
   * [[docs/workflows/maestro/commands/work_session.py work_session.py]]
@@ -106,7 +108,7 @@ note left
   * [[docs/workflows/maestro/stats/session_stats.py session_stats.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed JSON persistence in cmd_wsession deep flow with session.json and breadc
   

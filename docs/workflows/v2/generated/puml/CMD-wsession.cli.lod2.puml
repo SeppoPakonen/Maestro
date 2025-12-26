@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-wsession - wsession command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-wsession.cli.yaml docs/workflows/v2/ir/cmd/CMD-wsession.cli.yaml]]
 end note
 
@@ -25,7 +27,7 @@ component "breadcrumbs subcommand" as wsession_breadcrumbs
 component "timeline subcommand" as wsession_timeline
 component "stats subcommand" as wsession_stats
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_wsession.md cmd_wsession.md]]
   * [[docs/workflows/maestro/commands/work_session.py work_session.py]]

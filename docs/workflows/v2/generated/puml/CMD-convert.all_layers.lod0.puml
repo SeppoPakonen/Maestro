@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-convert - Combined CLI+Code (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml docs/workflows/v2/ir/cmd/CMD-convert.cli.yaml]]
 end note
 
@@ -32,13 +34,13 @@ package "Code Layer" #FFE6E6 {
   rectangle "handle_convert_run"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_convert.md command_convert.md]]
   * [[v1/command_convert.puml command_convert.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed .maestro/convert/ directory usage in cmd_convert deep flow; violates FO
   

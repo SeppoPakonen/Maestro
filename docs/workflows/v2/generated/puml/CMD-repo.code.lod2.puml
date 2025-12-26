@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-repo - repo deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-repo.code.yaml docs/workflows/v2/ir/cmd/CMD-repo.code.yaml]]
 end note
 
@@ -22,10 +24,10 @@ rectangle "Build hierarchy\nmaestro.commands.repo" as build_repo_hierarchy #E6F3
 rectangle "Load hierarchy\nmaestro.commands.repo" as load_hierarchy #E6F3FF
 rectangle "Load hierarchy overrides\nmaestro.commands.repo" as load_hierarchy_overrides #E6F3FF
 rectangle "Merge hierarchy overrides\nmaestro.commands.repo" as merge_hierarchy_overrides #E6F3FF
-rectangle "Package subcommands\nmaestro.commands.repo" as handle_repo_pkg_* #E6F3FF
-rectangle "Hierarchy subcommands\nmaestro.commands.repo" as handle_repo_hier_* #E6F3FF
-rectangle "Rules subcommands\nmaestro.commands.repo" as handle_repo_rules_* #E6F3FF
-rectangle "Conventions subcommands\nmaestro.commands.repo" as handle_repo_conventions_* #E6F3FF
+rectangle "Package subcommands\nmaestro.commands.repo" as handle_repo_pkg #E6F3FF
+rectangle "Hierarchy subcommands\nmaestro.commands.repo" as handle_repo_hier #E6F3FF
+rectangle "Rules subcommands\nmaestro.commands.repo" as handle_repo_rules #E6F3FF
+rectangle "Conventions subcommands\nmaestro.commands.repo" as handle_repo_conventions #E6F3FF
 database ".maestro/repo/ store" as maestro_repo_store #FFE6E6
 database "Repo rules store" as repo_rules_store #FFE6E6
 database "Global index store" as global_index_store #FFE6E6
@@ -44,20 +46,20 @@ build_repo_hierarchy --> load_hierarchy
 handle_repo_command --> load_hierarchy_overrides
 load_hierarchy_overrides ..> maestro_repo_store : data
 handle_repo_command --> merge_hierarchy_overrides
-handle_repo_command --> handle_repo_pkg_*
-handle_repo_command --> handle_repo_hier_*
-handle_repo_command --> handle_repo_rules_*
-handle_repo_command --> handle_repo_conventions_*
-handle_repo_rules_* ..> repo_rules_store : data
-handle_repo_hier_* --> editor
+handle_repo_command --> handle_repo_pkg
+handle_repo_command --> handle_repo_hier
+handle_repo_command --> handle_repo_rules
+handle_repo_command --> handle_repo_conventions
+handle_repo_rules ..> repo_rules_store : data
+handle_repo_hier --> editor
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_repo_deep.md cmd_repo_deep.md]]
   * [[v1/internal/deep/cmd_repo_deep.puml cmd_repo_deep.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed .maestro directory usage in cmd_repo deep flow; violates FORBID_REPO_DO
   

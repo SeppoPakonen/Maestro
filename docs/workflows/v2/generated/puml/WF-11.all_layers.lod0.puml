@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-11 - Combined Layers (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
 end note
 
@@ -29,32 +31,34 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-11 - Manual repo model + manual RepoConf (resolve optional) (LOD0: Spine)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-11.intent.yaml docs/workflows/v2/ir/wf/WF-11.intent.yaml]]
 end note
 
-(*) --> "Operator starts manual repo configuration"
-if "Choose authoring approach" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Validate repo model and conf" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Validate repo model schema" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Validate repo conf schema" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Execute build/TU using manual conf" then
-  -->[yes] ...
-  -->[no] ...
-endif
-note right #FF0000
+note as ACTIVITY_FLOW
+  (*) --> "Operator starts manual repo configuration"
+  if "Choose authoring approach" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Validate repo model and conf" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Validate repo model schema" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Validate repo conf schema" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Execute build/TU using manual conf" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+end note
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nValidation failed
 end note
 
@@ -62,7 +66,7 @@ package "Data Stores" #F0F0F0 {
   database "repo_model_store\n./docs/maestro/repo/model.json" as repo_model_store
   database "repo_conf_store\n./docs/maestro/repo/conf.json" as repo_conf_store
 }
-"--> (*)
+'--> (*)
 
 package "Uses Commands" #E6F3FF {
   rectangle "build" as uses_build [[../generated/svg/CMD-build.all_layers.lod0.svg]]
@@ -71,7 +75,7 @@ package "Uses Commands" #E6F3FF {
   rectangle "tu" as uses_tu [[../generated/svg/CMD-tu.all_layers.lod0.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_11_manual_repo_model_and_conf.md Original v1 documentation for manual repo model and conf workflow]]
   * [[v1/scenario_11_manual_repo_model_and_conf.puml PlantUML diagram for manual repo model and conf workflow]]

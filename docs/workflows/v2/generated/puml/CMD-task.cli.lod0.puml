@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-task - task command surface (LOD0: CLI Surface)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-task.cli.yaml docs/workflows/v2/ir/cmd/CMD-task.cli.yaml]]
 end note
 
@@ -19,7 +21,7 @@ package "Command Surface" {
   usecase "maestro task remove" as cmd_3
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_task.md command_task.md]]
   * [[v1/command_task.puml command_task.puml]]

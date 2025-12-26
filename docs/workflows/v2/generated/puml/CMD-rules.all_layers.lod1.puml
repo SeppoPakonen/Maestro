@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-rules - Combined CLI+Code (LOD1)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml docs/workflows/v2/ir/cmd/CMD-rules.cli.yaml]]
 end note
 
@@ -30,12 +32,12 @@ package "Code Layer" #FFE6E6 {
   rectangle "save_session"
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_rules.md cmd_rules.md]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed ./.maestro directory usage in cmd_rules deep flow; v2 repo truth uses .
   

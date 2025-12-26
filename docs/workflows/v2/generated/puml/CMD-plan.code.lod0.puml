@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-plan - plan deep internal flow (observed) (LOD0: Code Modules)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-plan.code.yaml docs/workflows/v2/ir/cmd/CMD-plan.code.yaml]]
 end note
 
@@ -25,7 +27,7 @@ package "Code Modules" {
   component "schemas" as schemas
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_plan_deep.puml cmd_plan_deep.puml]]
   * [[docs/workflows/maestro/commands/plan.py plan.py]]
@@ -39,7 +41,7 @@ note left
   * [[docs/workflows/maestro/data/markdown_parser.py markdown_parser.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_plan deep flow; v2 repo truth uses JSON
   * Plan storage uses docs/plans.md which violates REPO_TRUTH_FORMAT_IS_JSON invaria

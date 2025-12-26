@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-phase - phase deep internal flow (observed) (LOD1: Code Functions)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.code.yaml docs/workflows/v2/ir/cmd/CMD-phase.code.yaml]]
 end note
 
@@ -48,7 +50,7 @@ add_phase --> load_phase
 add_phase --> save_phase
 add_phase --> save_track
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_phase_deep.puml cmd_phase_deep.puml]]
   * [[docs/workflows/maestro/commands/phase.py phase.py]]
@@ -57,7 +59,7 @@ note left
   * [[docs/workflows/maestro/tracks/json_store.py json_store.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed DataMarkdown persistence in cmd_phase deep flow; v2 repo truth uses JSO
   * Observed .maestro directory usage in cmd_phase deep flow; violates FORBID_REPO_D

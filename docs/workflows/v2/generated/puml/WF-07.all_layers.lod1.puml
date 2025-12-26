@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-07 - Combined Layers (LOD1)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-07.intent.yaml docs/workflows/v2/ir/wf/WF-07.intent.yaml]]
 end note
 
@@ -29,50 +31,52 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-07 - AST/TU workflows — rename, C++→JS transform, autocomplete (LOD1: Workflow)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-07.intent.yaml docs/workflows/v2/ir/wf/WF-07.intent.yaml]]
 end note
 
-(*) --> "User initiates AST/TU operation"
-:Verify Repo Resolve completed;
-:Verify RepoConf has valid targets;
-:Verify build succeeds for target;
-:Verify on correct Git branch;
-:Select package for TU analysis;
-:Execute maestro tu build|
-:Parse source files with AST flags;
-:Generate AST representation;
-:Store AST in cache;
-:Build symbol index and resolve cross-references;
-:Merge ASTs into unified index;
-stop
-:Which operation to perform?;
-:Rename symbol operation;
-:Query symbol references;
-:Apply renames to files;
-:Verify rename operation;
-stop
-:Transform C++ to JavaScript;
-:Normalize memory model in C++;
-:Transform files mechanically;
-:Update includes and project structure;
-:Transform operation complete;
-:Autocomplete operation;
-:Map cursor to AST node;
-:Get completion suggestions;
-"Operation completed successfully" --> (*)
-' operation_decision -> rename_operation: Rename operation
-' operation_decision -> transform_operation: Transform operation
-' operation_decision -> autocomplete_operation: Autocomplete operation
-' tu_build -> tu_build_failure: TU build fails
-' verify_rename -> exit_success: Verification passes
-
+note as ACTIVITY_FLOW
+  (*) --> "User initiates AST/TU operation"
+  :Verify Repo Resolve completed;
+  :Verify RepoConf has valid targets;
+  :Verify build succeeds for target;
+  :Verify on correct Git branch;
+  :Select package for TU analysis;
+  :Execute maestro tu build|
+  :Parse source files with AST flags;
+  :Generate AST representation;
+  :Store AST in cache;
+  :Build symbol index and resolve cross-references;
+  :Merge ASTs into unified index;
+  stop
+  :Which operation to perform?;
+  :Rename symbol operation;
+  :Query symbol references;
+  :Apply renames to files;
+  :Verify rename operation;
+  stop
+  :Transform C++ to JavaScript;
+  :Normalize memory model in C++;
+  :Transform files mechanically;
+  :Update includes and project structure;
+  :Transform operation complete;
+  :Autocomplete operation;
+  :Map cursor to AST node;
+  :Get completion suggestions;
+  "Operation completed successfully" --> (*)
+  ' operation_decision -> rename_operation: Rename operation
+  ' operation_decision -> transform_operation: Transform operation
+  ' operation_decision -> autocomplete_operation: Autocomplete operation
+  ' tu_build -> tu_build_failure: TU build fails
+  ' verify_rename -> exit_success: Verification passes
+  
+end note
 package "Command Integration" #E6F3FF {
   component "repo\ncommand" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod1.svg]]
   component "tu\ncommand" as cmd_tu [[../generated/svg/CMD-tu.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_07_ast_tu_refactor_transform_autocomplete.md Original v1 AST/TU workflow documentation]]
   * [[v1/scenario_07_ast_tu_refactor_transform_autocomplete.puml PlantUML diagram of AST/TU operations]]

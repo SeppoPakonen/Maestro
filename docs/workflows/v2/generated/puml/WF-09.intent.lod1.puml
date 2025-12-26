@@ -8,27 +8,31 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-09 - Storage Contract — Repo Truth vs Home Hub (LOD1: Workflow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
 end note
 
-(*) --> "User runs Maestro command"
-stop
-:Check if ./docs/maestro/ exists;
-:Use Repo Truth Storage;
-:Use Home Hub Storage;
-:Load repo_model.json;
-:Load repo_conf.json (if exists);
-:Load session data;
-:Execute Maestro command;
-:Save state changes;
-"Command completes successfully" --> (*)
-"Fatal error — ./.maestro forbidden" --> (*)
-' gate_forbid_dot_maestro -> end_hard_stop: ./.maestro exists
-' gate_forbid_dot_maestro -> check_repo_truth: ./.maestro does not exist
-' check_repo_truth -> use_repo_truth: ./docs/maestro/ exists
-' check_repo_truth -> use_home_hub: ./docs/maestro/ does not exist
-
+note as ACTIVITY_FLOW
+  (*) --> "User runs Maestro command"
+  stop
+  :Check if ./docs/maestro/ exists;
+  :Use Repo Truth Storage;
+  :Use Home Hub Storage;
+  :Load repo_model.json;
+  :Load repo_conf.json (if exists);
+  :Load session data;
+  :Execute Maestro command;
+  :Save state changes;
+  "Command completes successfully" --> (*)
+  "Fatal error — ./.maestro forbidden" --> (*)
+  ' gate_forbid_dot_maestro -> end_hard_stop: ./.maestro exists
+  ' gate_forbid_dot_maestro -> check_repo_truth: ./.maestro does not exist
+  ' check_repo_truth -> use_repo_truth: ./docs/maestro/ exists
+  ' check_repo_truth -> use_home_hub: ./docs/maestro/ does not exist
+  
+end note
 package "Command Integration" #E6F3FF {
   component "build\ncommand" as cmd_build [[../generated/svg/CMD-build.all_layers.lod1.svg]]
   component "convert\ncommand" as cmd_convert [[../generated/svg/CMD-convert.all_layers.lod1.svg]]
@@ -39,7 +43,7 @@ package "Command Integration" #E6F3FF {
   component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.md Original v1 storage contract workflow diagram]]
   * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.puml Original v1 PlantUML source]]
@@ -47,7 +51,7 @@ note left
   * [[docs/workflows/maestro/session_model.py Session model with storage backend awareness]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)
   * LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented

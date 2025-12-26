@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-solutions - solutions command surface (LOD0: CLI Surface)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml]]
 end note
 
@@ -19,7 +21,7 @@ package "Command Surface" {
   usecase "maestro solutions show" as cmd_3
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_solutions.md cmd_solutions.md]]
 end note

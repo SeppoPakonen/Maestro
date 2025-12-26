@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-09 - Combined Layers (LOD2)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
 end note
 
@@ -29,11 +31,11 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-09 - Storage Contract — Repo Truth vs Home Hub (LOD2: Code Detail)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-09.intent.yaml docs/workflows/v2/ir/wf/WF-09.intent.yaml]]
 end note
 
-note as N1
+note as N12
   **LOD2: Code-level detail**
   
   This layer shows implementation-level callchains.
@@ -50,7 +52,7 @@ package "Implementation Commands" {
   component "work\nimplementation" as impl_work [[../generated/svg/CMD-work.code.lod2.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.md Original v1 storage contract workflow diagram]]
   * [[v1/scenario_09_storage_contract_repo_truth_vs_home_hub.puml Original v1 PlantUML source]]
@@ -58,7 +60,7 @@ note left
   * [[docs/workflows/maestro/session_model.py Session model with storage backend awareness]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)
   * LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented

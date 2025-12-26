@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-task - task command surface (LOD1: CLI Flow)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-task.cli.yaml docs/workflows/v2/ir/cmd/CMD-task.cli.yaml]]
 end note
 
@@ -27,7 +29,7 @@ load_session --> route_subcommand
 route_subcommand --> execute_task_op
 execute_task_op --> output_result
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_task.md command_task.md]]
   * [[v1/command_task.puml command_task.puml]]

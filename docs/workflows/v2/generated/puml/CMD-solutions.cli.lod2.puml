@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-solutions - solutions command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml docs/workflows/v2/ir/cmd/CMD-solutions.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ component "Execute solution operation" as execute_solution_op
 component "Read from docs truth" as read_docs_truth
 component "Write to docs truth" as write_docs_truth
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_solutions.md cmd_solutions.md]]
 end note

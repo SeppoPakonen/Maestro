@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-16 - Combined Layers (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-16.intent.yaml docs/workflows/v2/ir/wf/WF-16.intent.yaml]]
 end note
 
@@ -29,44 +31,46 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-16 - wsession modes — log-only vs mutation API (opt-in) (LOD0: Spine)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-16.intent.yaml docs/workflows/v2/ir/wf/WF-16.intent.yaml]]
 end note
 
-(*) --> "User runs maestro wsession command"
-if "Validate wsession cookie (WF-15)" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Is mutation mode enabled?" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Branch guard check (WF-14)" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Validate operation schema" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Check referential integrity" then
-  -->[yes] ...
-  -->[no] ...
-endif
-note right #FF0000
+note as ACTIVITY_FLOW
+  (*) --> "User runs maestro wsession command"
+  if "Validate wsession cookie (WF-15)" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Is mutation mode enabled?" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Branch guard check (WF-14)" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Validate operation schema" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Check referential integrity" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+end note
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nReject - Unknown Cookie
 end note
-note right #FF0000
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nReject - Mutation Mode Disabled
 end note
-note right #FF0000
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nReject - Invalid Operation Schema
 end note
-note right #FF0000
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nReject - Referential Integrity Failed
 end note
-note right #FF0000
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nHard stop - Branch Mismatch
 end note
 
@@ -75,15 +79,15 @@ package "Data Stores" #F0F0F0 {
   database "wsession_cookie\n~/.maestro/wsession_cookie" as wsession_cookie
   database "work_session_store\n./docs/maestro/work_sessions/" as work_session_store
 }
-"--> (*)
-"--> (*)
+'--> (*)
+'--> (*)
 
 package "Uses Commands" #E6F3FF {
-  rectangle "work-run" as uses_work-run [[../generated/svg/CMD-work-run.all_layers.lod0.svg]]
+  rectangle "work-run" as uses_work_run [[../generated/svg/CMD-work-run.all_layers.lod0.svg]]
   rectangle "wsession" as uses_wsession [[../generated/svg/CMD-wsession.all_layers.lod0.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_16_wsession_mutation_modes.md Original v1 workflow documentation for wsession mutation modes]]
   * [[v1/scenario_16_wsession_mutation_modes.puml PlantUML diagram for wsession modes workflow]]

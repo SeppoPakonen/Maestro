@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-log - log deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-log.code.yaml docs/workflows/v2/ir/cmd/CMD-log.code.yaml]]
 end note
 
@@ -43,7 +45,7 @@ docs_sessions_dir --> file_system
 pathlib --> command_handlers
 os --> command_handlers
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_log_deep.puml cmd_log_deep.puml]]
   * [[v1/internal/deep/cmd_log_deep.md cmd_log_deep.md]]

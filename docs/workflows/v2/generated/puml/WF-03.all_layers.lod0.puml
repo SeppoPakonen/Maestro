@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-03 - Combined Layers (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-03.intent.yaml docs/workflows/v2/ir/wf/WF-03.intent.yaml]]
 end note
 
@@ -29,52 +31,54 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-03 - Read-only repo inspection + build (LOD0: Spine)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-03.intent.yaml docs/workflows/v2/ir/wf/WF-03.intent.yaml]]
 end note
 
-(*) --> "Operator initiates read-only repo inspection or build"
-if "Branch guard - ensure on correct branch" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Check if repo command exists" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Decide whether to build using detected plan or default build system" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Check if init required" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Build driver detected?" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Make/build success?" then
-  -->[yes] ...
-  -->[no] ...
-endif
-note right #FF0000
+note as ACTIVITY_FLOW
+  (*) --> "Operator initiates read-only repo inspection or build"
+  if "Branch guard - ensure on correct branch" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Check if repo command exists" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Decide whether to build using detected plan or default build system" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Check if init required" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Build driver detected?" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Make/build success?" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+end note
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nHARD STOP - Build driver detection failed
 end note
-"--> (*)
+'--> (*)
 
 package "Uses Commands" #E6F3FF {
   rectangle "make" as uses_make [[../generated/svg/CMD-make.all_layers.lod0.svg]]
   rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_03_readonly_repo_inspect_build.md Original v1 workflow documentation]]
   * [[v1/scenario_03_readonly_repo_inspect_build.puml Original v1 workflow diagram]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Workflow mentions maestro repo command which may not be registered in CLI; verif
   * Read-only mode with storage in $HOME/.maestro/repo/ may conflict with REPO_TRUTH

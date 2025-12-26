@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-help - help command surface (LOD0: CLI Surface)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.cli.yaml docs/workflows/v2/ir/cmd/CMD-help.cli.yaml]]
 end note
 
@@ -17,7 +19,7 @@ package "Command Surface" {
   usecase "maestro h" as cmd_1
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_help.md command_help.md]]
   * [[v1/command_help.puml command_help.puml]]

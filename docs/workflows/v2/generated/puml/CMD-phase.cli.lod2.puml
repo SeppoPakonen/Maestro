@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-phase - phase command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml docs/workflows/v2/ir/cmd/CMD-phase.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ component "Route to phase subcommand handler" as route_phase_subcommand
 component "Execute phase operation" as handle_phase_command
 component "Read docs truth" as read_docs_truth
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_surface/cmd_phase.md cmd_phase.md]]
   * [[docs/workflows/maestro/commands/phase.py phase.py]]

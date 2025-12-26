@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-work - work command surface (LOD2: CLI Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-work.cli.yaml docs/workflows/v2/ir/cmd/CMD-work.cli.yaml]]
 end note
 
@@ -28,7 +30,7 @@ component "discuss" as work_discuss
 component "analyze" as work_analyze
 component "fix" as work_fix
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_work.md command_work.md]]
   * [[v1/command_work.puml command_work.puml]]

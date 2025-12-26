@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-10 - Combined Layers (LOD0)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-10.intent.yaml docs/workflows/v2/ir/wf/WF-10.intent.yaml]]
 end note
 
@@ -29,28 +31,30 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-10 - Repo Resolve levels — Lite vs Deep, convention acceptance, and violation policy (LOD0: Spine)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-10.intent.yaml docs/workflows/v2/ir/wf/WF-10.intent.yaml]]
 end note
 
-(*) --> "Operator requests repo resolve"
-if "Select resolve level (lite/deep)" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Propose convention rule packs" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Convention acceptance gate" then
-  -->[yes] ...
-  -->[no] ...
-endif
-if "Policy enforcement gate" then
-  -->[yes] ...
-  -->[no] ...
-endif
-note right #FF0000
+note as ACTIVITY_FLOW
+  (*) --> "Operator requests repo resolve"
+  if "Select resolve level (lite/deep)" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Propose convention rule packs" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Convention acceptance gate" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+  if "Policy enforcement gate" then
+    -->[yes] ...
+    -->[no] ...
+  endif
+end note
+note right of NOTE_ANCHOR #FF0000
   **HARD STOP**\nHard Stop if no build driver detected
 end note
 
@@ -58,21 +62,21 @@ package "Data Stores" #F0F0F0 {
   database "repo_truth\n./docs/maestro/" as repo_truth
   database "issue_tracker\n./docs/maestro/issues.json" as issue_tracker
 }
-"--> (*)
-"--> (*)
+'--> (*)
+'--> (*)
 
 package "Uses Commands" #E6F3FF {
   rectangle "issues" as uses_issues [[../generated/svg/CMD-issues.all_layers.lod0.svg]]
   rectangle "repo" as uses_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_10_repo_resolve_levels_lite_deep.md Original v1 workflow documentation]]
   * [[v1/scenario_10_repo_resolve_levels_lite_deep.puml PlantUML diagram for WF-10]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * WF-10 mentions 'Proposed: maestro repo conventions accept <pack>' commands; impl
   

@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-04 - Combined Layers (LOD1)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-04.intent.yaml docs/workflows/v2/ir/wf/WF-04.intent.yaml]]
 end note
 
@@ -29,43 +31,45 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title WF-04 - Reactive compile error → Solutions match → immediate solution-task (LOD1: Workflow)
 
-note right
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/wf/WF-04.intent.yaml docs/workflows/v2/ir/wf/WF-04.intent.yaml]]
 end note
 
-(*) --> "Operator runs maestro make build"
-:Branch Guard;
-:Call WF-05 Repo Resolve;
-:Execute build command;
-:Build fails with compile error?;
-:Create Issue for build error;
-:Parse build errors;
-:Solution match found?;
-:Create solution attempt task;
-:Continue normal workflow;
-"Show results to operator" --> (*)
-:Execute solution task;
-:Apply solution steps;
-:Re-run build;
-:Build succeeds?;
-:Continue normal flow;
-:Create fallback task;
-:Link Issue ↔ SolutionAttemptTask ↔ FallbackTask;
-:Execute work loop;
-' gate_branch_guard -> call_repo_resolve: Branch is stable
-' build_fails -> create_issue: Yes, build fails
-' match_solutions -> create_solution_task: Solution match found
-' match_solutions -> continue_normal_workflow: No solution match
-' build_succeeds -> continue_normal_flow: Yes, build succeeds
-' build_succeeds -> create_fallback_task: No, build still fails
-
+note as ACTIVITY_FLOW
+  (*) --> "Operator runs maestro make build"
+  :Branch Guard;
+  :Call WF-05 Repo Resolve;
+  :Execute build command;
+  :Build fails with compile error?;
+  :Create Issue for build error;
+  :Parse build errors;
+  :Solution match found?;
+  :Create solution attempt task;
+  :Continue normal workflow;
+  "Show results to operator" --> (*)
+  :Execute solution task;
+  :Apply solution steps;
+  :Re-run build;
+  :Build succeeds?;
+  :Continue normal flow;
+  :Create fallback task;
+  :Link Issue ↔ SolutionAttemptTask ↔ FallbackTask;
+  :Execute work loop;
+  ' gate_branch_guard -> call_repo_resolve: Branch is stable
+  ' build_fails -> create_issue: Yes, build fails
+  ' match_solutions -> create_solution_task: Solution match found
+  ' match_solutions -> continue_normal_workflow: No solution match
+  ' build_succeeds -> continue_normal_flow: Yes, build succeeds
+  ' build_succeeds -> create_fallback_task: No, build still fails
+  
+end note
 package "Command Integration" #E6F3FF {
   component "make\ncommand" as cmd_make [[../generated/svg/CMD-make.all_layers.lod1.svg]]
   component "solutions\ncommand" as cmd_solutions [[../generated/svg/CMD-solutions.all_layers.lod1.svg]]
   component "work\ncommand" as cmd_work [[../generated/svg/CMD-work.all_layers.lod1.svg]]
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/scenario_04_reactive_compile_error_solution.md Original v1 scenario documentation]]
   * [[v1/scenario_04_reactive_compile_error_solution.puml Original v1 PlantUML diagram]]

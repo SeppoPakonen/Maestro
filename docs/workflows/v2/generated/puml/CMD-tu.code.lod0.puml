@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-tu - tu deep internal flow (observed) (LOD0: Code Modules)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-tu.code.yaml docs/workflows/v2/ir/cmd/CMD-tu.code.yaml]]
 end note
 
@@ -21,7 +23,7 @@ package "Code Modules" {
   component "transformers" as transformers
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/internal/deep/cmd_tu_deep.puml cmd_tu_deep.puml]]
   * [[docs/workflows/maestro/commands/tu.py tu.py]]
@@ -33,7 +35,7 @@ note left
   * [[docs/workflows/maestro/tu/code_generator.py code_generator.py]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed .maestro directory usage for TU cache and analysis; violates FORBID_REP
   

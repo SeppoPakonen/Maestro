@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-convert - convert deep internal flow (observed) (LOD0: Code Modules)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-convert.code.yaml docs/workflows/v2/ir/cmd/CMD-convert.code.yaml]]
 end note
 
@@ -21,13 +23,13 @@ package "Code Modules" {
   component "convert" as convert
 }
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[v1/command_convert.md command_convert.md]]
   * [[v1/command_convert.puml command_convert.puml]]
 end note
 
-note right #FFE6E6
+note right of NOTE_ANCHOR #FFE6E6
   **⚠ Ledger Hints:**
   * Observed .maestro/convert/ directory usage in cmd_convert deep flow; violates FO
   

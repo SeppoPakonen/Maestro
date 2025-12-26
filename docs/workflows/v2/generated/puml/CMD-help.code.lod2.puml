@@ -8,7 +8,9 @@ skinparam NoteBackgroundColor #FFFFCC
 
 title CMD-help - help deep internal flow (observed) (LOD2: Code Detail)
 
-note right
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
   **Source:** [[docs/workflows/v2/ir/cmd/CMD-help.code.yaml docs/workflows/v2/ir/cmd/CMD-help.code.yaml]]
 end note
 
@@ -38,7 +40,7 @@ styled_argparser_print_help --> figlet_format
 styled_print --> colors_const
 print_subheader --> colors_const
 
-note left
+note left of NOTE_ANCHOR
   **Evidence:**
   * [[docs/workflows//home/sblo/Dev/Maestro/maestro/main.py Contains the main entry point function]]
   * [[docs/workflows//home/sblo/Dev/Maestro/maestro/modules/cli_parser.py Contains the CLI parser and StyledArgumentParser]]
