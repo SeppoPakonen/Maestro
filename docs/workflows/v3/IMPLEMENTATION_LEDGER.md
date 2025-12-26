@@ -127,3 +127,38 @@ Entries derived from the v2 runbook audit. Status is `proposed` until implemente
   Status: proposed
   Acceptance criteria: missing required cap blocks build and creates an issue/task stub with actionable guidance.
   Notes: Gate should reference `CAP_REQUIRE`.
+
+- ID: LED-0019
+  Title: Integration gate evaluation plumbing
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-31_toolchain_plus_caps_into_repoconf_make_tu.md`.
+  Status: proposed
+  Acceptance criteria: `GATE_TOOLCHAIN_SELECTED`, `GATE_CAPS_DETECTED`, `GATE_REPOCONF_PRESENT`, `GATE_REQUIRE_CAPS_SATISFIED`, `GATE_BUILD_OK`, and `GATE_TU_READY` are evaluated consistently across make and TU flows.
+  Notes: Gate outcomes should be reported with next-step guidance.
+
+- ID: LED-0020
+  Title: Export artifacts for toolchain and caps
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-31_toolchain_plus_caps_into_repoconf_make_tu.md`.
+  Status: proposed
+  Acceptance criteria: `maestro select toolchain export` and `maestro platform caps export` emit env/json (and cmake for toolchain) with deterministic ordering.
+  Notes: Make/TU should consume exported artifacts.
+
+- ID: LED-0021
+  Title: Make/TU consumes toolchain + caps exports deterministically
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-31_toolchain_plus_caps_into_repoconf_make_tu.md`.
+  Status: proposed
+  Acceptance criteria: build invocation uses toolchain export first, then caps export, then repoconf target overrides.
+  Notes: Record applied env for troubleshooting.
+
+- ID: LED-0022
+  Title: Require-caps missing creates issue with evidence
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-31_toolchain_plus_caps_into_repoconf_make_tu.md`.
+  Status: proposed
+  Acceptance criteria: missing required caps create an issue with detect evidence (provider/version/confidence) and suggested fixes.
+  Notes: Provide links to toolchain profiles and re-run detect.
+
+- ID: LED-0023
+  Title: Suggest alternate toolchain profiles when caps missing
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-31_toolchain_plus_caps_into_repoconf_make_tu.md`.
+  Status: proposed
+  Acceptance criteria: when a required cap is missing, list candidate toolchain profiles that could provide it.
+  Notes: Use hub profile metadata as the source.
