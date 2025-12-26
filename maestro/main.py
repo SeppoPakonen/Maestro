@@ -7,6 +7,7 @@ This is the main entry point for the Maestro AI task orchestrator.
 
 # Import all the functionality from the modules
 import asyncio
+import sys
 from .modules.dataclasses import *
 from .modules.utils import *
 from .modules.cli_parser import *
@@ -21,6 +22,7 @@ def main():
     parser = create_main_parser()
 
     # Parse arguments
+    raw_command = sys.argv[1] if len(sys.argv) > 1 else None
     args = parser.parse_args()
 
     # Handle help command first
@@ -30,6 +32,8 @@ def main():
 
     # Normalize command aliases to main command names
     args = normalize_command_aliases(args)
+    if raw_command in ("build", "b"):
+        setattr(args, "_deprecated_build_alias", True)
 
     # Import command handlers from the commands module
     from maestro.commands import (
@@ -51,6 +55,7 @@ def main():
         handle_understand_dump,
         handle_runbook_command,
         handle_workflow_command,
+        handle_make_command,
     )
     from maestro.commands.convert import (
         handle_convert_new,
@@ -78,8 +83,10 @@ def main():
         handle_wsession_show,
         handle_wsession_tree,
         handle_wsession_breadcrumbs,
+        handle_wsession_breadcrumb_add,
         handle_wsession_timeline,
         handle_wsession_stats,
+        handle_wsession_close,
     )
 
     # Handle different commands based on the parsed arguments
@@ -94,6 +101,14 @@ def main():
 
     elif args.command == 'repo':
         handle_repo_command(args)
+
+    elif args.command == 'make':
+        if getattr(args, "_deprecated_build_alias", False):
+            print("Warning: 'maestro build' is deprecated; use 'maestro make' instead. "
+                  "This alias will be removed after two minor releases.")
+            if not getattr(args, "make_subcommand", None):
+                args.make_subcommand = "build"
+        handle_make_command(args)
 
     elif args.command == 'track':
         handle_track_command(args)
@@ -148,7 +163,6 @@ def main():
                 else:
                     # Missing required 'title' argument for add command
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.plan_subcommand == 'list':
                 handle_plan_list(args.session, args.verbose)
@@ -158,7 +172,6 @@ def main():
                     handle_plan_remove(args.title_or_number, args.session, args.verbose)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.plan_subcommand == 'show':
                 # Check if the 'title_or_number' argument was provided
@@ -166,7 +179,6 @@ def main():
                     handle_plan_show(args.title_or_number, args.session, args.verbose)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.plan_subcommand == 'add-item':
                 # Check if both required arguments were provided
@@ -175,7 +187,6 @@ def main():
                     handle_plan_add_item(args.title_or_number, args.item_text, args.session, args.verbose)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.plan_subcommand == 'remove-item':
                 # Check if both required arguments were provided
@@ -184,7 +195,6 @@ def main():
                     handle_plan_remove_item(args.title_or_number, args.item_number, args.session, args.verbose)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.plan_subcommand == 'ops':
                 # Handle plan ops subcommands
@@ -218,7 +228,6 @@ def main():
         else:
             # No subcommand provided - show help
             parser.print_help()
-            import sys
             sys.exit(0)
 
     elif args.command == 'rules':
@@ -338,10 +347,17 @@ def main():
             handle_wsession_tree(args)
         elif args.wsession_subcommand == 'breadcrumbs':
             handle_wsession_breadcrumbs(args)
+        elif args.wsession_subcommand == 'breadcrumb':
+            if args.breadcrumb_subcommand == 'add':
+                handle_wsession_breadcrumb_add(args)
+            else:
+                parser.print_help()
         elif args.wsession_subcommand == 'timeline':
             handle_wsession_timeline(args)
         elif args.wsession_subcommand == 'stats':
             handle_wsession_stats(args)
+        elif args.wsession_subcommand == 'close':
+            handle_wsession_close(args)
         else:
             parser.print_help()
 
@@ -368,7 +384,6 @@ def main():
                         raise SystemExit(exit_code)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.convert_subcommand == 'plan':
                 if hasattr(args, 'pipeline_id') and args.pipeline_id:
@@ -377,7 +392,6 @@ def main():
                         raise SystemExit(exit_code)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.convert_subcommand == 'run':
                 if hasattr(args, 'pipeline_id') and args.pipeline_id:
@@ -386,7 +400,6 @@ def main():
                         raise SystemExit(exit_code)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.convert_subcommand == 'status':
                 if hasattr(args, 'pipeline_id') and args.pipeline_id:
@@ -395,7 +408,6 @@ def main():
                         raise SystemExit(exit_code)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.convert_subcommand == 'show':
                 if hasattr(args, 'pipeline_id') and args.pipeline_id:
@@ -404,7 +416,6 @@ def main():
                         raise SystemExit(exit_code)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.convert_subcommand == 'reset':
                 if hasattr(args, 'pipeline_id') and args.pipeline_id:
@@ -413,7 +424,6 @@ def main():
                         raise SystemExit(exit_code)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             elif args.convert_subcommand == 'batch':
                 # Handle batch subcommands
@@ -423,16 +433,13 @@ def main():
                         raise SystemExit(exit_code)
                 else:
                     parser.print_help()
-                    import sys
                     sys.exit(1)
             else:
                 parser.print_help()
-                import sys
                 sys.exit(1)
         else:
             # No subcommand provided - show help
             parser.print_help()
-            import sys
             sys.exit(0)
 
     else:

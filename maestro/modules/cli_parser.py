@@ -193,6 +193,7 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_repo_parser,
         add_runbook_parser,
         add_workflow_parser,
+        add_make_parser,
     )
     from ..commands.convert import add_convert_parser
 
@@ -202,6 +203,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_workflow_parser(subparsers)  # Add workflow parser between runbook and repo
     add_repo_parser(subparsers)  # Add repo parser after workflow
     add_plan_parser(subparsers)  # Add plan parser to position between repo and track
+    add_make_parser(subparsers)  # Add make parser near repo/build commands
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
     add_task_parser(subparsers)
@@ -303,12 +305,15 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
         't': 'track',
         'l': 'log',
         'c': 'convert',
-        'b': 'build',
+        'b': 'make',
+        'build': 'make',
         'wk': 'work',
         'ws': 'wsession',
         'runba': 'runbook',
         'rb': 'runbook'
     }
+    if args.command in ('build', 'b'):
+        setattr(args, "_deprecated_build_alias", True)
     # Map alias to main command name if present
     args.command = command_alias_map.get(args.command, args.command)
 

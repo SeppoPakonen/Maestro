@@ -16,6 +16,13 @@ from maestro.builders import (
     UppBuilder, GccBuilder, MsvcBuilder, CMakeBuilder,
     AutotoolsBuilder, MsBuildBuilder, MavenBuilder, AndroidBuilder, JavaBuilder
 )
+from maestro.repo.storage import (
+    find_repo_root as find_repo_root_v3,
+    load_repo_model,
+    require_repo_model,
+    ensure_repoconf_target,
+)
+from maestro.git_guard import check_branch_guard
 
 
 class MakeCommand:
@@ -53,6 +60,16 @@ class MakeCommand:
         from maestro.builders.console import reset_command_output_log, get_command_output_log
         from maestro.issues.parsers import parse_build_logs
         from maestro.issues.issue_store import write_issue
+        from maestro.repo.storage import require_repo_model
+
+        repo_root = self._find_repo_root()
+        require_repo_model(repo_root)
+        ensure_repoconf_target(repo_root)
+        repo_model = load_repo_model(repo_root)
+        branch_guard_error = check_branch_guard(repo_root)
+        if branch_guard_error:
+            print(f"Error: {branch_guard_error}")
+            return 1
 
         # Auto-detect method if not specified
         method_name = args.method
@@ -86,18 +103,20 @@ class MakeCommand:
         else:
             # Try to detect current package
             current_dir = os.getcwd()
-            package_name = self._detect_current_package(current_dir)
+            package_name = self._detect_current_package(current_dir, repo_model)
             if not package_name:
-                print("Error: No package specified and none detected in current directory")
+                print("Error: No package specified and none found in repo model for current directory.")
+                print("Run 'maestro repo resolve' first to refresh the repo model.")
                 return 1
             package_names.append(package_name)
 
         # Process each package
         for package_name in package_names:
             # Find package info
-            package_info = self._find_package_info(package_name)
+            package_info = self._find_package_info(package_name, repo_model)
             if not package_info:
-                print(f"Error: Package '{package_name}' not found in repo")
+                print(f"Error: Package '{package_name}' not found in repo model.")
+                print("Run 'maestro repo resolve' first to refresh the repo model.")
                 return 1
             if getattr(args, "group", None):
                 group_info = self._apply_group_filter(package_info, args.group)
@@ -649,121 +668,31 @@ class MakeCommand:
 
         return 0
     
-    def _detect_current_package(self, directory: str) -> Optional[str]:
-        """Try to detect package name from current directory."""
-        # Look for .upp file or other package markers
-        for filename in os.listdir(directory):
-            if filename.endswith('.upp'):
-                package_name = filename[:-4]  # Remove .upp extension
-                return package_name
+    def _detect_current_package(self, directory: str, repo_model: Dict[str, Any]) -> Optional[str]:
+        """Detect package name from repo model by matching the current directory."""
+        current = Path(directory).resolve()
+        for pkg in repo_model.get("packages_detected", []):
+            pkg_dir = Path(pkg.get("dir", "")).resolve()
+            try:
+                current.relative_to(pkg_dir)
+                return pkg.get("name")
+            except ValueError:
+                continue
         return None
     
-    def _find_package_info(self, package_name: str) -> Optional[Dict]:
-        """Find package information using repo scanning."""
-        # Try to find the repository root
-        repo_root = self._find_repo_root()
-        if not repo_root:
-            # If no .maestro directory found, use current directory
-            repo_root = os.getcwd()
-        
-        # First, look for the package in the current directory
-        if os.path.exists(f"{package_name}.upp"):
-            upp_path = f"{package_name}.upp"
-            build_system = 'upp'
-            
-            # Parse the .upp file to get more information
-            try:
-                # Read and parse the .upp file directly to determine build system
-                with open(upp_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                # Look for keywords that indicate the build system
-                content_lower = content.lower()
-                if 'cmake' in content_lower:
-                    build_system = 'cmake'
-                elif 'autotools' in content_lower or 'autoconf' in content_lower:
-                    build_system = 'autotools'
-                elif 'maven' in content_lower:
-                    build_system = 'maven'
-                elif 'android' in content_lower:
-                    build_system = 'android'
-                elif 'msbuild' in content_lower or 'msvc' in content_lower or 'visual studio' in content_lower:
-                    build_system = 'msbuild'
-                elif 'java' in content_lower:
-                    build_system = 'java'
-            except:
-                # If parsing fails, use default
-                pass
-            
-            return {
-                'name': package_name,
-                'dir': os.getcwd(),
-                'upp_path': upp_path,
-                'build_system': build_system,
-                'files': []  # Basic files list
-            }
-        
-        # If not in current directory, try to find in repo
-        try:
-            # Look for .maestro/repo/index.json to find the package
-            index_path = os.path.join(repo_root, '.maestro', 'repo', 'index.json')
-            if os.path.exists(index_path):
-                import json
-                with open(index_path, 'r', encoding='utf-8') as f:
-                    index_data = json.load(f)
-                
-                # Search in packages
-                for pkg in index_data.get('packages_detected', []):
-                    if pkg['name'] == package_name:
-                        return pkg
-                
-                # Search in internal packages
-                for pkg in index_data.get('internal_packages', []):
-                    if pkg['name'] == package_name:
-                        return pkg
-        except:
-            pass
-        
-        # If not found in index, try to find .upp file in common locations
-        possible_paths = [
-            os.path.join(repo_root, f"{package_name}.upp"),
-            os.path.join(repo_root, package_name, f"{package_name}.upp"),
-            os.path.join(repo_root, "uppsrc", package_name, f"{package_name}.upp"),
-            os.path.join(repo_root, "packages", package_name, f"{package_name}.upp")
-        ]
-        
-        for path in possible_paths:
-            if os.path.exists(path):
-                pkg_dir = os.path.dirname(path)
-                return {
-                    'name': package_name,
-                    'dir': pkg_dir,
-                    'upp_path': path,
-                    'build_system': 'upp',
-                    'files': []
-                }
-        
+    def _find_package_info(self, package_name: str, repo_model: Dict[str, Any]) -> Optional[Dict]:
+        """Find package information using repo model only."""
+        for pkg in repo_model.get("packages_detected", []):
+            if pkg.get("name") == package_name:
+                return pkg
+        for pkg in repo_model.get("internal_packages", []):
+            if pkg.get("name") == package_name:
+                return pkg
         return None
 
-    def _find_repo_root(self) -> Optional[str]:
-        """Find the repository root by looking for .maestro directory."""
-        current_dir = os.getcwd()
-        original_dir = current_dir
-
-        while current_dir != '/':
-            if os.path.exists(os.path.join(current_dir, '.maestro')):
-                return current_dir
-            parent_dir = os.path.dirname(current_dir)
-            if parent_dir == current_dir:  # We've reached the root
-                break
-            current_dir = parent_dir
-
-        # If not found, try common project root locations
-        for path in [original_dir, os.path.dirname(original_dir)]:
-            if os.path.exists(os.path.join(path, '.maestro')):
-                return path
-
-        return None
+    def _find_repo_root(self) -> str:
+        """Find the repository root by looking for docs/maestro."""
+        return find_repo_root_v3()
 
     def _apply_group_filter(self, package_info: Dict[str, Any], group_name: str) -> Optional[Dict[str, Any]]:
         """Filter package files to the specified internal group."""
@@ -896,7 +825,7 @@ class MakeCommand:
         candidates = [
             os.path.join(repo_root, "compile_commands.json"),
             os.path.join(repo_root, "build", "compile_commands.json"),
-            os.path.join(repo_root, ".maestro", "build", "compile_commands.json"),
+            os.path.join(repo_root, "docs", "maestro", "build", "compile_commands.json"),
         ]
         for path in candidates:
             if os.path.exists(path):
@@ -911,9 +840,17 @@ class MakeCommand:
         return builder
 
 
+def handle_make_command(args: argparse.Namespace) -> int:
+    """Handle maestro make command."""
+    if not getattr(args, "make_subcommand", None):
+        print("Error: Missing make subcommand. Use 'maestro make --help' for options.")
+        return 1
+    return MakeCommand().execute(args)
+
+
 def add_make_parser(subparsers):
     """Add make command parsers to the main parser."""
-    make_parser = subparsers.add_parser('make', aliases=['m'], help='Universal build orchestration')
+    make_parser = subparsers.add_parser('make', aliases=['m', 'build'], help='Universal build orchestration')
     
     # Create subparsers for make command
     make_subparsers = make_parser.add_subparsers(dest='make_subcommand', help='Make subcommands')
