@@ -6,6 +6,7 @@ run() { echo "+ $*"; }
 
 # WF-02 addon: workflow-first bootstrap for greenfield projects
 # This runbook adds a workflow graph before the manual plan steps.
+# NOTE: CLI flags are spec placeholders; align with implementation when available.
 
 # Step 1: Initialize the maestro environment for a new project
 run maestro init
