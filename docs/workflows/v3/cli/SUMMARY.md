@@ -1,5 +1,9 @@
 # v3 CLI Normalization Summary
 
+## P0 gaps (blocking invariants)
+
+See `docs/workflows/v3/cli/CLI_GAPS.md` for the P0 list mapped to `docs/workflows/v3/cli/INVARIANTS.md`.
+
 ## What v3 fixes
 
 - Normalized verbs (`list/show/add/edit/rm`), keyword-first growth, and consistent help behavior.

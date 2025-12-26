@@ -2,6 +2,8 @@
 
 Entries derived from the v2 runbook audit. Status is `proposed` until implemented.
 
+See also: `docs/workflows/v3/cli/CLI_GAPS.md` for the P0 gap list mapped to invariants.
+
 - ID: LED-0001
   Title: Normalize workflow node/edge CLI signature
   Rationale: Conflicting usage in `docs/workflows/v2/runbooks/examples/proposed/EX-02_rust_cargo_greenfield_workflow_first.sh` and `docs/workflows/v2/runbooks/examples/proposed/EX-09_runbook_to_workflow_to_plan_miniprogram_hello_cli.sh`.
