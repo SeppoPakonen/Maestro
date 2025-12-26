@@ -42,12 +42,10 @@ MODULE(Pathlib, "pathlib")
 MODULE(OS, "os")
 
 ' External Dependencies
-ACTOR(FileSystem, "File System")
+CLOUD(FileSystem, "File System")
 
 ' Persistent Stores (Conceptual, managed by underlying convert modules)
-DATABASE(MaestroConvertDir, ".maestro/convert/") {
-    Pipeline definitions, state, logs
-}
+DATABASE(MaestroConvertDir, ".maestro/convert/\n(Pipeline definitions, state, logs)")
 
 
 ' --- Relationships and Call Flow ---

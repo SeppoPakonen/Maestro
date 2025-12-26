@@ -87,9 +87,7 @@ ACTOR(Subprocess, "subprocess module")
 DATABASE(DocsConfigMd, "docs/config.md")
 DATABASE(DocsTodoMd, "docs/todo.md")
 DATABASE(DocsPhasesMd, "docs/phases/<id>.md")
-DATABASE(MaestroAiArtifacts, ".maestro/ai/artifacts/") {
-    *.txt (transcripts), *.json (results)
-}
+DATABASE(MaestroAiArtifacts, ".maestro/ai/artifacts/\n(*.txt transcripts, *.json results)")
 DATABASE(WorkSessionsJson, "docs/state/work_sessions.json")
 
 

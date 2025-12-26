@@ -22,7 +22,6 @@ MODULE(SessionModel, "maestro/session_model.py") {
 
 ' Utility Modules
 MODULE(MaestroUtils, "maestro/modules/utils.py") {
-    ' print_header, print_info, print_error etc.
 }
 
 ' External Dependencies

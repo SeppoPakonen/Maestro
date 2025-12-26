@@ -192,6 +192,7 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_tu_parser,
         add_repo_parser,
     )
+    from ..commands.convert import add_convert_parser
 
     # Register all available command parsers
     add_init_parser(subparsers)
@@ -209,6 +210,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_wsession_parser(subparsers)
     add_understand_parser(subparsers)
     add_tu_parser(subparsers)
+    add_convert_parser(subparsers)  # Add convert parser after tu parser
 
     # Also add the original core commands
     add_core_subparsers(subparsers)

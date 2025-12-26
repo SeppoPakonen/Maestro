@@ -123,8 +123,8 @@ CommandsAi._WriteSyncBreadcrumb --> BreadcrumbModule.EstimateTokens
 
 ' Watch Mode for AI Sync
 HandleAiSync -[dashed]-> CommandsAi._WatchAiSync : "if --watch"
-_WatchAiSync --> CommandsAi._ReadSyncSignature : "reads file signature"
-_WatchAiSync --> HandleAiSync : "recursively calls handle_ai_sync on change"
+CommandsAi._WatchAiSync --> CommandsAi._ReadSyncSignature : "reads file signature"
+CommandsAi._WatchAiSync --> HandleAiSync : "recursively calls handle_ai_sync on change"
 
 ' Generic AI Engine Interaction Flow
 HandleAiQwen -- RunOptsClass : "builds run options"

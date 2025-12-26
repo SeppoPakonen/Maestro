@@ -35,37 +35,40 @@ skinparam arrow {
 }
 
 ' Node Macros
-!define FUNCTION(name, label) rectangle name as "label" <<Function>>
-!define MODULE(name, label) package name as "label" <<Module>>
-!define DATASTORE(name, label) database name as "label" <<Data Store>>
-!define VALIDATION_GATE(name, label) diamond name as "label" <<Validation Gate>>
-!define HARD_STOP(name, label) circle name as "label" #Red <<Hard Stop>>
+!define FUNCTION(p_name, p_label) rectangle p_name as "p_label" <<Function>>
+!define MODULE(p_name, p_label) package p_name as "p_label" <<Module>>
+!define CLASS(p_name, p_label) rectangle p_name as "p_label" <<Class>>
+!define ENUM(p_name, p_label) rectangle p_name as "p_label" <<Enum>>
+!define ACTOR(p_name, p_label) cloud p_name as "p_label" <<Actor>>
+!define DATASTORE(p_name, p_label) database p_name as "p_label" <<Data Store>>
+!define VALIDATION_GATE(p_name, p_label) diamond p_name as "p_label" <<Validation Gate>>
+!define HARD_STOP(p_name, p_label) circle p_name as "p_label" #Red <<Hard Stop>>
 
 ' Data Store Specific Nodes
-!define DOCS_TRUTH(name, label) database name as "label" #LightGreen <<Docs Truth>>
-!define SESSION_STORE(name, label) database name as "label" #LightSalmon <<Session Store>>
-!define HOME_REGISTRY(name, label) database name as "label" #LightCyan <<Home Registry>>
-!define CACHE(name, label) database name as "label" #LightYellow <<Cache>>
+!define DOCS_TRUTH(p_name, p_label) database p_name as "p_label" #LightGreen <<Docs Truth>>
+!define SESSION_STORE(p_name, p_label) database p_name as "p_label" #LightSalmon <<Session Store>>
+!define HOME_REGISTRY(p_name, p_label) database p_name as "p_label" #LightCyan <<Home Registry>>
+!define CACHE(p_name, p_label) database p_name as "p_label" #LightYellow <<Cache>>
 
 ' Edge Macros (for annotations)
-!unquoted procedure CALL(from_node, to_node, label="") as
-    from_node --> to_node : label
+!unquoted procedure CALL(p_from_node, p_to_node, p_label="") as
+    p_from_node --> p_to_node : p_label
 !endprocedure
 
-!unquoted procedure READ(from_node, to_store, label="") as
-    from_node -[dashed]-> to_store : Read \n <size:8>label</size>
+!unquoted procedure READ(p_from_node, p_to_store, p_label="") as
+    p_from_node -[dashed]-> p_to_store : Read \n <size:8>p_label</size>
 !endprocedure
 
-!unquoted procedure WRITE(from_node, to_store, label="") as
-    from_node --[#Red,dashed]-> to_store : Write \n <size:8>label</size>
+!unquoted procedure WRITE(p_from_node, p_to_store, p_label="") as
+    p_from_node --[#Red,dashed]-> p_to_store : Write \n <size:8>p_label</size>
 !endprocedure
 
-!unquoted procedure VALIDATE(from_node, to_gate, label="") as
-    from_node --[#Blue]-> to_gate : Validate \n <size:8>label</size>
+!unquoted procedure VALIDATE(p_from_node, p_to_gate, p_label="") as
+    p_from_node --[#Blue]-> p_to_gate : Validate \n <size:8>p_label</size>
 !endprocedure
 
-!unquoted procedure SUBPROCESS(from_node, to_process, label="") as
-    from_node --[#DarkGreen,dotted]-> to_process : Subprocess \n <size:8>label</size>
+!unquoted procedure SUBPROCESS(p_from_node, p_to_process, p_label="") as
+    p_from_node --[#DarkGreen,dotted]-> p_to_process : Subprocess \n <size:8>p_label</size>
 !endprocedure
 
 ' End shared definitions

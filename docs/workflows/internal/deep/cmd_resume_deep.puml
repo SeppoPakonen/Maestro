@@ -15,9 +15,9 @@ MODULE(CommandHandlers, "maestro/modules/command_handlers.py") {
     FUNCTION(MigrateSessionIfNeeded, "migrate_session_if_needed()")
     FUNCTION(LoadRules, "load_rules()")
     FUNCTION(GetMaestroDir, "get_maestro_dir()")
-    FUNCTION(BuildPrompt, "build_prompt()")
+
     FUNCTION(SavePromptForTraceability, "save_prompt_for_traceability()")
-    FUNCTION(SaveAiOutput, "save_ai_output()")
+
     FUNCTION(LogVerbose, "log_verbose()")
 }
 
@@ -39,10 +39,21 @@ MODULE(MaestroUtils, "maestro/modules/utils.py") {
     ' print_error, print_info etc.
 }
 
+MODULE(UtilsModule, "maestro/modules/utils.py") {
+    FUNCTION(BuildPrompt, "build_prompt()")
+    FUNCTION(SaveAiOutput, "save_ai_output()")
+}
+
 ' External Dependencies
 ACTOR(FileSystem, "File System")
 ACTOR(ExternalAI, "External AI Service")
+
+RECTANGLE(HandleInterrupt, "Handle Interrupt (SIGINT)")
+RECTANGLE(HandleEngineError, "Handle Engine Error")
 ACTOR(Subprocess, "subprocess module") ' Implied by Engine interaction
+
+
+
 
 ' Persistent Stores
 DATABASE(DocsSessionsDir, "docs/sessions/<name>/") {
@@ -79,21 +90,21 @@ HandleResumeSession --> CommandHandlers.GetMaestroDir
 CommandHandlers.GetMaestroDir --> FileSystem : "creates inputs, outputs, partials dirs"
 
 ' Subtask Processing Loop
-LOOP "For each target subtask"
-    HandleResumeSession --> CommandHandlers.GetMaestroDir : "uses maestro dir"
-    HandleResumeSession --> FileSystem : "reads partials/worker_*.partial.txt"
-    HandleResumeSession --> CommandHandlers.BuildPrompt : "builds AI prompt"
-    HandleResumeSession --> CommandHandlers.GetEngine : "gets AI worker engine"
-    HandleResumeSession --> CommandHandlers.SavePromptForTraceability --[#Red,dashed]-> DocsSessionsDir : "saves prompt"
-    HandleResumeSession --> ExternalAI : "invokes AI engine (engine.generate(prompt))"
-    HandleResumeSession --> HandleInterrupt : "handles KeyboardInterrupt"
-    HandleResumeSession --> HandleEngineError : "handles EngineError"
-    HandleResumeSession --[#Red,dashed]-> DocsSessionsDir : "saves partial output on interrupt"
-    HandleResumeSession --[#Red,dashed]-> DocsSessionsDir : "saves AI output (stdout.txt)"
-    HandleResumeSession --> FileSystem : "verifies summary file existence/size"
-    HandleResumeSession --> SessionClass : "updates subtask status to 'done'"
-    HandleResumeSession --> CommandHandlers.SaveSession --[#Red,dashed]-> DocsSessionsDir : "saves updated session"
-END LOOP
+'LOOP "For each target subtask"
+'    HandleResumeSession --> CommandHandlers.GetMaestroDir : "uses maestro dir"
+'    HandleResumeSession --> FileSystem : "reads partials/worker_*.partial.txt"
+'    HandleResumeSession --> UtilsModule.BuildPrompt : "builds AI prompt"
+'    HandleResumeSession --> EnginesModule.GetEngine : "gets AI worker engine"
+'    HandleResumeSession --> CommandHandlers.SavePromptForTraceability --[#Red,dashed]-> DocsSessionsDir : "saves prompt"
+'    HandleResumeSession --> ExternalAI : "invokes AI engine (engine.generate(prompt))"
+'    HandleResumeSession --> HandleInterrupt : "handles KeyboardInterrupt"
+'    HandleResumeSession --> HandleEngineError : "handles EngineError"
+'    HandleResumeSession --[#Red,dashed]-> DocsSessionsDir : "saves partial output on interrupt"
+'    HandleResumeSession --> UtilsModule.SaveAiOutput : "saves AI output (stdout.txt)"
+'    HandleResumeSession --> FileSystem : "verifies summary file existence/size"
+'    HandleResumeSession --> SessionClass : "updates subtask status to 'done'"
+'    HandleResumeSession --> CommandHandlers.SaveSession --[#Red,dashed]-> DocsSessionsDir : "saves updated session"
+'END LOOP
 
 ' Final Session Status Update
 HandleResumeSession --> SessionClass : "updates overall session status"

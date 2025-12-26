@@ -50,6 +50,15 @@ def main():
         handle_solutions_command,
         handle_understand_dump,
     )
+    from maestro.commands.convert import (
+        handle_convert_new,
+        handle_convert_plan,
+        handle_convert_run,
+        handle_convert_status,
+        handle_convert_show,
+        handle_convert_reset,
+        handle_convert_batch,
+    )
     from maestro.commands.ai import handle_ai_qwen, handle_ai_sync, handle_ai_gemini, handle_ai_codex, handle_ai_claude
     from maestro.commands.work import (
         handle_work_any,
@@ -340,6 +349,83 @@ def main():
     elif args.command == 'tu':
         from .commands.tu import handle_tu_command
         handle_tu_command(args)
+
+    elif args.command == 'convert':
+        # Handle different convert subcommands based on the parsed arguments
+        if hasattr(args, 'convert_subcommand') and args.convert_subcommand:
+            if args.convert_subcommand == 'new':
+                if hasattr(args, 'pipeline_name') and args.pipeline_name:
+                    exit_code = handle_convert_new(args)
+                    if exit_code:
+                        raise SystemExit(exit_code)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
+            elif args.convert_subcommand == 'plan':
+                if hasattr(args, 'pipeline_id') and args.pipeline_id:
+                    exit_code = handle_convert_plan(args)
+                    if exit_code:
+                        raise SystemExit(exit_code)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
+            elif args.convert_subcommand == 'run':
+                if hasattr(args, 'pipeline_id') and args.pipeline_id:
+                    exit_code = handle_convert_run(args)
+                    if exit_code:
+                        raise SystemExit(exit_code)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
+            elif args.convert_subcommand == 'status':
+                if hasattr(args, 'pipeline_id') and args.pipeline_id:
+                    exit_code = handle_convert_status(args)
+                    if exit_code:
+                        raise SystemExit(exit_code)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
+            elif args.convert_subcommand == 'show':
+                if hasattr(args, 'pipeline_id') and args.pipeline_id:
+                    exit_code = handle_convert_show(args)
+                    if exit_code:
+                        raise SystemExit(exit_code)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
+            elif args.convert_subcommand == 'reset':
+                if hasattr(args, 'pipeline_id') and args.pipeline_id:
+                    exit_code = handle_convert_reset(args)
+                    if exit_code:
+                        raise SystemExit(exit_code)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
+            elif args.convert_subcommand == 'batch':
+                # Handle batch subcommands
+                if hasattr(args, 'batch_subcommand') and args.batch_subcommand:
+                    exit_code = handle_convert_batch(args)
+                    if exit_code:
+                        raise SystemExit(exit_code)
+                else:
+                    parser.print_help()
+                    import sys
+                    sys.exit(1)
+            else:
+                parser.print_help()
+                import sys
+                sys.exit(1)
+        else:
+            # No subcommand provided - show help
+            parser.print_help()
+            import sys
+            sys.exit(0)
 
     else:
         # If no command is provided, show help
