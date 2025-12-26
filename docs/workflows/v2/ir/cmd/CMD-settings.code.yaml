@@ -1,95 +1,38 @@
 id: "CMD-settings"
 layer: "code"
 title: "settings deep internal flow (observed)"
-status: "incorrect"
+status: "partial"
 confidence: "high"
 storage_backend: "mixed"
 
 calls:
-  - "maestro.main.main"
-  - "maestro.commands.settings.handle_settings_command"
-  - "maestro.commands.settings.list_settings"
-  - "maestro.commands.settings.get_setting"
-  - "maestro.commands.settings.set_setting"
-  - "maestro.commands.settings.edit_settings"
-  - "maestro.commands.settings.reset_settings"
-  - "maestro.commands.settings.settings_wizard"
-  - "maestro.commands.settings.profile_*"
-  - "maestro.config.settings.get_settings"
-  - "maestro.config.settings.Settings"
-  - "maestro.config.settings.create_default_config"
-  - "maestro.config.settings_profiles.SettingsProfileManager"
-  - "maestro.data.markdown_parser.parse_config_md"
-  - "subprocess.run"
-
-stores:
-  - "docs/config.md"
-  - "~/.maestro/profiles.json"
-  - "~/.maestro/profiles/<id>.json"
-  - "~/.maestro/profiles/audit.jsonl"
-
-nodes:
-  - id: "main_entry"
-    type: "function"
-    module: "maestro.main"
-    function: "main"
-  - id: "handle_settings_command"
-    type: "function"
-    module: "maestro.commands.settings"
-    function: "handle_settings_command"
-  - id: "settings_class"
-    type: "class"
-    module: "maestro.config.settings"
-    class: "Settings"
-  - id: "settings_profile_manager"
-    type: "class"
-    module: "maestro.config.settings_profiles"
-    class: "SettingsProfileManager"
-  - id: "docs_config_md"
-    type: "datastore"
-    path: "docs/config.md"
-  - id: "profiles_json"
-    type: "datastore"
-    path: "~/.maestro/profiles.json"
-  - id: "profile_settings_json"
-    type: "datastore"
-    path: "~/.maestro/profiles/<id>.json"
-  - id: "profile_audit_jsonl"
-    type: "datastore"
-    path: "~/.maestro/profiles/audit.jsonl"
-  - id: "editor_actor"
-    type: "actor"
-    label: "User's $EDITOR"
-  - id: "filesystem_actor"
-    type: "actor"
-    label: "File System"
-
-edges:
-  - from: "main_entry"
-    to: "handle_settings_command"
-  - from: "handle_settings_command"
-    to: "settings_class"
-  - from: "handle_settings_command"
-    to: "settings_profile_manager"
-  - from: "settings_class"
-    to: "docs_config_md"
-  - from: "settings_profile_manager"
-    to: "profiles_json"
-  - from: "settings_profile_manager"
-    to: "profile_settings_json"
-  - from: "settings_profile_manager"
-    to: "profile_audit_jsonl"
-  - from: "edit_settings"
-    to: "editor_actor"
-
-evidence:
-  - "v1/internal/deep/cmd_settings_deep.puml"
-  - "maestro/commands/settings.py"
-  - "maestro/config/settings.py"
-  - "maestro/config/settings_profiles.py"
-  - "maestro/data/markdown_parser.py"
-
-ledger_hints:
-  - "Observed DataMarkdown persistence in cmd_settings deep flow; v2 repo truth uses JSON. Replace/remove DataMarkdown codepaths and update docs/tests."
-  - "Observed .maestro directory usage for profiles; violates FORBID_REPO_DOT_MAESTRO invariant; migrate to ./docs/maestro/ for repo-specific profiles."
-  - "Settings stored in docs/config.md using markdown format; violates REPO_TRUTH_FORMAT_IS_JSON invariant; migrate to JSON format."
+  - maestro.main.main
+  - maestro.commands.settings.handle_settings_command
+  - maestro.commands.settings.list_settings
+  - maestro.commands.settings.get_setting
+  - maestro.commands.settings.set_setting
+  - maestro.commands.settings.edit_settings
+  - maestro.commands.settings.reset_settings
+  - maestro.commands.settings.settings_wizard
+  - maestro.commands.settings.profile_list
+  - maestro.commands.settings.profile_save
+  - maestro.commands.settings.profile_load
+  - maestro.commands.settings.profile_get
+  - maestro.commands.settings.profile_set_default
+  - maestro.config.settings.get_settings
+  - maestro.config.settings.create_default_config
+  - maestro.config.settings.Settings.load
+  - maestro.config.settings.Settings.save
+  - maestro.config.settings.Settings.get
+  - maestro.config.settings.Settings.set
+  - maestro.config.settings.Settings.validate
+  - maestro.config.settings_profiles.SettingsProfileManager
+  - maestro.config.settings_profiles.SettingsProfileManager.list_profiles
+  - maestro.config.settings_profiles.SettingsProfileManager.get_active_profile
+  - maestro.config.settings_profiles.SettingsProfileManager.get_default_profile
+  - maestro.config.settings_profiles.SettingsProfileManager.update_profile
+  - maestro.config.settings_profiles.SettingsProfileManager.create_profile
+  - maestro.config.settings_profiles.SettingsProfileManager.set_active_profile
+  - maestro.config.settings_profiles.SettingsProfileManager.set_default_profile
+  - maestro.config.settings_profiles.SettingsProfileManager.load_profile
+  - maestro.config.settings

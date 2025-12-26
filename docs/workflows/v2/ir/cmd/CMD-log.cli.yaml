@@ -13,39 +13,109 @@ commands:
   - maestro lg
 
 nodes:
-  - id: cmd_log
+  - id: start
     type: command
-    label: log command
-  - id: subcmd_list
+    label: maestro log
+  - id: parse_args
+    type: argparse
+    label: Parse CLI arguments
+  - id: determine_log_command
+    type: validation
+    label: Determine command is 'log'
+  - id: check_session
+    type: validation
+    label: Check if session is provided
+  - id: load_session
+    type: handler
+    label: Load session
+  - id: validate_session
+    type: validation
+    label: Validate session schema
+  - id: check_subcommand
+    type: validation
+    label: Check if subcommand is provided
+  - id: subcommand_list
     type: subcommand
     label: list subcommand
-  - id: subcmd_list_work
+  - id: subcommand_list_work
     type: subcommand
     label: list-work subcommand
-  - id: subcmd_list_plan
+  - id: subcommand_list_plan
     type: subcommand
     label: list-plan subcommand
-  - id: gate_session_required
-    type: gate
-    label: Session required gate
+  - id: route_list
+    type: handler
+    label: Route to handle_log_list
+  - id: route_list_work
+    type: handler
+    label: Route to handle_log_list_work
+  - id: route_list_plan
+    type: handler
+    label: Route to handle_log_list_plan
+  - id: show_help
+    type: handler
+    label: Show log help
+  - id: execute_log_operation
+    type: handler
+    label: Execute log operation
+  - id: read_log_files
+    type: handler
+    label: Read log files
+  - id: output_logs
+    type: command
+    label: Output log information to stdout
 
 edges:
-  - from: cmd_log
-    to: gate_session_required
-  - from: gate_session_required
-    to: subcmd_list
-    condition: session provided
-  - from: gate_session_required
-    to: subcmd_list_work
-    condition: session provided
-  - from: gate_session_required
-    to: subcmd_list_plan
-    condition: session provided
+  - from: start
+    to: parse_args
+  - from: parse_args
+    to: determine_log_command
+  - from: determine_log_command
+    to: check_session
+  - from: check_session
+    to: load_session
+    condition: Session provided
+  - from: check_session
+    to: show_help
+    condition: No session provided
+  - from: load_session
+    to: validate_session
+  - from: validate_session
+    to: check_subcommand
+  - from: check_subcommand
+    to: subcommand_list
+    condition: Subcommand is 'list'
+  - from: check_subcommand
+    to: subcommand_list_work
+    condition: Subcommand is 'list-work'
+  - from: check_subcommand
+    to: subcommand_list_plan
+    condition: Subcommand is 'list-plan'
+  - from: check_subcommand
+    to: show_help
+    condition: No subcommand provided
+  - from: subcommand_list
+    to: route_list
+  - from: subcommand_list_work
+    to: route_list_work
+  - from: subcommand_list_plan
+    to: route_list_plan
+  - from: route_list
+    to: execute_log_operation
+  - from: route_list_work
+    to: execute_log_operation
+  - from: route_list_plan
+    to: execute_log_operation
+  - from: execute_log_operation
+    to: read_log_files
+  - from: read_log_files
+    to: output_logs
 
 exports:
-  - outputs log information to stdout
+  - writes log information to stdout
   - reads log files
-  - validates session schema
+  - reads session file
 
 evidence:
-  - v1/command_surface/cmd_log.md
+  - docs/workflows/cmd_log.md
+  - maestro/modules/cli_parser.py

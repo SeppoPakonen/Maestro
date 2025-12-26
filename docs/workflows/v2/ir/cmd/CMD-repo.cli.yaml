@@ -12,35 +12,38 @@ commands:
   - "maestro repo status"
 
 nodes:
-  - id: "repo_cmd"
+  - id: "cmd_repo"
     type: "command"
-    label: "maestro repo"
-  - id: "repo_analyze_subcmd"
+    label: "repo command"
+  - id: "subcmd_analyze"
     type: "subcommand"
-    label: "analyze"
-  - id: "repo_resolve_subcmd"
+    label: "analyze subcommand"
+  - id: "subcmd_resolve"
     type: "subcommand"
-    label: "resolve"
-  - id: "repo_status_subcmd"
+    label: "resolve subcommand"
+  - id: "subcmd_status"
     type: "subcommand"
-    label: "status"
+    label: "status subcommand"
 
 edges:
-  - from: "repo_cmd"
-    to: "repo_analyze_subcmd"
-  - from: "repo_cmd"
-    to: "repo_resolve_subcmd"
-  - from: "repo_cmd"
-    to: "repo_status_subcmd"
+  - from: "cmd_repo"
+    to: "subcmd_analyze"
+    type: "call"
+  - from: "cmd_repo"
+    to: "subcmd_resolve"
+    type: "call"
+  - from: "cmd_repo"
+    to: "subcmd_status"
+    type: "call"
 
 exports:
-  - "writes repo analysis"
-  - "writes repo status"
+  - "analysis results to stdout"
+  - "repository status information"
+  - "repository metadata updates"
 
 evidence:
-  - "docs/workflows/v1/command_repo_conf.md"
-  - "docs/workflows/v1/command_repo_conf.puml"
+  - "maestro/commands/repo.py"
 
 notes:
-  - "Subcommands and behavior inferred from documentation, actual implementation may vary"
-  - "Storage backend not explicitly mentioned in documentation"
+  - "assumed subcommands based on command name"
+  - "specific behavior not fully documented"

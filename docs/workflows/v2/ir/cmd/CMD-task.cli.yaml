@@ -1,67 +1,77 @@
-id: CMD-task
-layer: cli
-title: task command surface
-status: partial
-confidence: medium
-storage_backend: unknown
+id: "CMD-task"
+layer: "cli"
+title: "task command surface"
+status: "partial"
+confidence: "medium"
+storage_backend: "unknown"
 
 commands:
-  - maestro task
-  - maestro task list
-  - maestro task add
-  - maestro task remove
+  - "maestro task"
+  - "maestro task list"
+  - "maestro task add"
+  - "maestro task remove"
 
 nodes:
-  - id: start
-    type: command
-    label: maestro task
-  - id: parse_subcommand
-    type: subcommand
-    label: Parse subcommand
-  - id: check_session
-    type: validation
-    label: Check session
-  - id: load_session
-    type: handler
-    label: Load session
-  - id: route_subcommand
-    type: handler
-    label: Route to subcommand handler
-  - id: execute_task_op
-    type: handler
-    label: Execute task operation
-  - id: output_result
-    type: command
-    label: Output result
+  - id: "task-command-entry"
+    type: "command"
+    label: "maestro task"
+  - id: "parse-subcommands"
+    type: "subcommand"
+    label: "Parse task subcommands"
+  - id: "session-check"
+    type: "validation"
+    label: "Session provided check"
+  - id: "load-session"
+    type: "handler"
+    label: "Load session"
+  - id: "validate-session"
+    type: "validation"
+    label: "Validate session schema"
+  - id: "subcommand-check"
+    type: "validation"
+    label: "Subcommand provided check"
+  - id: "route-task-operation"
+    type: "handler"
+    label: "Route to handle_task_command"
+  - id: "execute-task-op"
+    type: "handler"
+    label: "Execute task operation"
+  - id: "output-results"
+    type: "command"
+    label: "Output results to stdout"
 
 edges:
-  - from: start
-    to: parse_subcommand
-  - from: parse_subcommand
-    to: check_session
-  - from: check_session
-    to: load_session
-    condition: session provided
-  - from: check_session
-    to: hard_stop
-    condition: no session
-  - from: load_session
-    to: route_subcommand
-  - from: route_subcommand
-    to: execute_task_op
-  - from: execute_task_op
-    to: output_result
+  - from: "task-command-entry"
+    to: "parse-subcommands"
+  - from: "parse-subcommands"
+    to: "session-check"
+  - from: "session-check"
+    to: "load-session"
+    condition: "Session provided"
+  - from: "session-check"
+    to: "hard-stop-no-session"
+    condition: "No session provided"
+  - from: "load-session"
+    to: "validate-session"
+  - from: "validate-session"
+    to: "subcommand-check"
+  - from: "subcommand-check"
+    to: "route-task-operation"
+    condition: "Valid subcommand"
+  - from: "route-task-operation"
+    to: "execute-task-op"
+  - from: "execute-task-op"
+    to: "output-results"
 
 exports:
-  - updates task data in docs/
-  - updates session file
-  - outputs task information to stdout
+  - "Updates to task data in docs/"
+  - "Updates session file"
 
 evidence:
-  - v1/command_task.md
-  - v1/command_task.puml
+  - "maestro/commands/task.py"
+  - "docs/workflows/internal/cmd_task.md"
+  - "docs/workflows/internal/cmd_task.puml"
 
 notes:
-  - Assumed subcommands (list, add, remove) based on pattern
-  - Storage backend not explicitly mentioned
-  - No specific tests identified
+  - "Specific behavior for each subcommand (list, add, remove) not fully documented"
+  - "Storage backend not explicitly mentioned in documentation"

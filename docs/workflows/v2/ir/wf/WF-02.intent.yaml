@@ -7,6 +7,7 @@ storage_backend: json
 
 uses_commands:
   - CMD-init
+  - CMD-workflow
   - CMD-phase
   - CMD-task
   - CMD-track
@@ -657,4 +658,6 @@ commands:
   - maestro work task
   - maestro task complete
 
-ledger_hints: []
+ledger_hints:
+  - "Workflow-first path depends on CMD-workflow, which is currently spec-only/partial"
+  - "Greenfield plan assumes JSON repo truth; verify no markdown persistence in early setup"

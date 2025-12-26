@@ -4,24 +4,26 @@ title: "resume command surface"
 status: "partial"
 confidence: "medium"
 storage_backend: "unknown"
+
 commands:
   - "maestro resume"
   - "maestro rs"
+
 nodes:
-  - id: "resume_cmd"
+  - id: "resume-cmd"
     type: "command"
     label: "maestro resume"
-  - id: "resume_subcmd"
+  - id: "resume-subcmd"
     type: "subcommand"
-    label: "--session"
-  - id: "resume_handler"
-    type: "handler"
-    label: "handle_resume_session"
-evidence:
-  - "docs/workflows/v1/command_surface/cmd_resume.md"
+    label: "resume subcommand"
+
+edges: []
+
 exports:
+  - "reads session file"
   - "updates session file"
   - "writes work logs"
-  - "potentially applies code changes"
-notes:
-  - "Implementation details for handle_resume_session are not fully documented in the provided source"
+
+evidence:
+  - "docs/maestro/cmd_resume.md"
+  - "maestro/main.py"

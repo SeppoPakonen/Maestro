@@ -246,4 +246,5 @@ commands:
 ledger_hints:
   - "LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)"
   - "LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented"
+  - "LEDGER-0003: v1 command code still writes markdown and .maestro paths; see ledger_candidates.md for per-command list"
   - "LEDGER-0008: Confirm home hub fallback works for readonly repos"

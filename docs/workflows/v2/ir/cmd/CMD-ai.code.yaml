@@ -38,10 +38,10 @@ calls:
 
 stores:
   - docs/ai_sync.json
-  - docs/sessions/session.json
-  - docs/sessions/<session-id>/session.json
-  - docs/sessions/<session-id>/breadcrumbs.jsonl
-  - settings.json
+  - docs/sessions/<id>/session.json
+  - docs/sessions/<id>/breadcrumbs.jsonl
+  - $HOME/.maestro/settings.json
+  - qwen-code.sh
 
 nodes:
   - id: "main_entry"
@@ -128,38 +128,35 @@ nodes:
     type: "function"
     module: "maestro/ai/runners.py"
     function: "run_interactive_chat"
-  - id: "qwen_stdin_chat"
-    type: "function"
-    module: "maestro/commands/ai.py"
-    function: "_run_qwen_stdin_chat"
-  - id: "qwen_server"
-    type: "function"
-    module: "maestro/commands/ai.py"
-    function: "_run_qwen_server"
-  - id: "qwen_tui"
-    type: "function"
-    module: "maestro/commands/ai.py"
-    function: "_run_qwen_tui"
   - id: "qwen_client"
     type: "class"
     module: "maestro/qwen/client.py"
     class: "QwenClient"
-  - id: "qwen_tui_runner"
+  - id: "qwen_tui"
     type: "function"
     module: "maestro/qwen/tui.py"
     function: "run_tui"
-  - id: "docs_ai_sync_json"
+  - id: "repo_truth"
     type: "datastore"
     path: "docs/ai_sync.json"
-  - id: "docs_sessions_json"
+  - id: "session_store"
     type: "datastore"
-    path: "docs/sessions/session.json"
-  - id: "docs_breadcrumbs_jsonl"
+    path: "docs/sessions/<id>/session.json"
+  - id: "breadcrumb_store"
     type: "datastore"
-    path: "docs/sessions/breadcrumbs.jsonl"
-  - id: "settings_json"
+    path: "docs/sessions/<id>/breadcrumbs.jsonl"
+  - id: "settings_store"
     type: "datastore"
-    path: "settings.json"
+    path: "$HOME/.maestro/settings.json"
+  - id: "qwen_script"
+    type: "datastore"
+    path: "qwen-code.sh"
+  - id: "external_ai"
+    type: "actor"
+    label: "External AI Service"
+  - id: "file_system"
+    type: "actor"
+    label: "File System"
 
 edges:
   - from: "main_entry"
@@ -174,6 +171,7 @@ edges:
     to: "handle_ai_claude"
   - from: "handle_ai_sync"
     to: "ai_sync_watch"
+    condition: "when --watch flag"
   - from: "handle_ai_sync"
     to: "resolve_session"
   - from: "resolve_session"
@@ -200,21 +198,28 @@ edges:
     to: "get_settings"
   - from: "handle_ai_qwen"
     to: "run_one_shot"
+    condition: "when --one-shot or --stdin"
   - from: "handle_ai_qwen"
     to: "run_interactive_chat"
+    condition: "when interactive mode"
   - from: "handle_ai_qwen"
-    to: "qwen_stdin_chat"
-  - from: "handle_ai_qwen"
-    to: "qwen_server"
+    to: "qwen_client"
+    condition: "when legacy qwen-old tui"
   - from: "handle_ai_qwen"
     to: "qwen_tui"
-  - from: "qwen_stdin_chat"
-    to: "qwen_client"
-  - from: "qwen_tui"
-    to: "qwen_tui_runner"
+    condition: "when legacy qwen-old attach"
+  - from: "file_system"
+    to: "repo_truth"
+  - from: "file_system"
+    to: "session_store"
+  - from: "file_system"
+    to: "breadcrumb_store"
+  - from: "file_system"
+    to: "settings_store"
+  - from: "file_system"
+    to: "qwen_script"
 
 evidence:
-  - "v1/internal/deep/cmd_ai_deep.puml"
   - "maestro/commands/ai.py"
   - "maestro/ai/task_sync.py"
   - "maestro/work_session.py"
@@ -226,4 +231,4 @@ evidence:
   - "maestro/qwen/tui.py"
 
 ledger_hints:
-  - "Observed legacy Qwen server/TUI functionality in cmd_ai deep flow; v2 repo truth uses JSON. These legacy paths may need to be deprecated or updated to align with modern AI engine manager patterns."
+  - "Observed legacy qwen-old command paths in cmd_ai deep flow; these represent deprecated functionality that should be removed in v2."

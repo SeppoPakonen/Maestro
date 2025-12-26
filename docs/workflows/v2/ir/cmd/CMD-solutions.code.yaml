@@ -1,14 +1,13 @@
-id: "CMD-solutions"
+id: CMD-solutions
 layer: "code"
 title: "solutions deep internal flow (observed)"
 status: "partial"
-confidence: "medium"
+confidence: "high"
 storage_backend: "markdown"
 
 calls:
   - maestro.main.main
   - maestro.commands.solutions.handle_solutions_command
-  - maestro.commands.solutions._find_repo_root
   - maestro.commands.solutions._handle_list
   - maestro.commands.solutions._handle_show
   - maestro.commands.solutions._handle_add
@@ -16,6 +15,7 @@ calls:
   - maestro.commands.solutions._handle_edit
   - maestro.commands.solutions._find_solution_path
   - maestro.commands.solutions._open_editor
+  - maestro.commands.solutions._find_repo_root
   - maestro.solutions.solution_store.list_solutions
   - maestro.solutions.solution_store.list_external_solutions
   - maestro.solutions.solution_store.load_solution
@@ -26,7 +26,6 @@ calls:
 
 stores:
   - docs/solutions/*.md
-  - .maestro/
 
 nodes:
   - id: "main_entry"
@@ -89,89 +88,109 @@ nodes:
     type: "function"
     module: "maestro/solutions/solution_store.py"
     function: "delete_solution"
-  - id: "SolutionDetails"
+  - id: "solution_details_class"
     type: "class"
     module: "maestro/solutions/solution_store.py"
     class: "SolutionDetails"
-  - id: "SolutionRecord"
+  - id: "solution_record_class"
     type: "class"
     module: "maestro/solutions/solution_store.py"
     class: "SolutionRecord"
   - id: "docs_solutions_md"
     type: "datastore"
     path: "docs/solutions/*.md"
-  - id: "filesystem"
+  - id: "file_system"
     type: "actor"
-    label: "File System"
   - id: "editor"
     type: "actor"
-    label: "User's $EDITOR"
   - id: "subprocess"
     type: "actor"
-    label: "subprocess module"
 
 edges:
   - from: "main_entry"
     to: "handle_solutions_command"
+    type: "call"
   - from: "handle_solutions_command"
     to: "_find_repo_root"
+    type: "call"
   - from: "handle_solutions_command"
     to: "_handle_list"
+    type: "call"
   - from: "handle_solutions_command"
     to: "_handle_show"
+    type: "call"
   - from: "handle_solutions_command"
     to: "_handle_add"
+    type: "call"
   - from: "handle_solutions_command"
     to: "_handle_remove"
+    type: "call"
   - from: "handle_solutions_command"
     to: "_handle_edit"
+    type: "call"
   - from: "_handle_list"
     to: "list_solutions"
-  - from: "list_solutions"
-    to: "docs_solutions_md"
+    type: "call"
   - from: "_handle_list"
     to: "list_external_solutions"
+    type: "call"
+  - from: "list_solutions"
+    to: "docs_solutions_md"
+    type: "call"
   - from: "_handle_show"
     to: "_find_solution_path"
+    type: "call"
   - from: "_find_solution_path"
     to: "docs_solutions_md"
+    type: "call"
   - from: "_handle_show"
     to: "load_solution"
+    type: "call"
   - from: "load_solution"
     to: "docs_solutions_md"
+    type: "call"
   - from: "_handle_add"
-    to: "SolutionDetails"
+    to: "solution_details_class"
+    type: "call"
   - from: "_handle_add"
     to: "write_solution"
+    type: "call"
   - from: "write_solution"
     to: "docs_solutions_md"
+    type: "call"
   - from: "_handle_add"
     to: "_open_editor"
+    type: "call"
   - from: "_open_editor"
     to: "subprocess"
+    type: "call"
   - from: "_open_editor"
     to: "editor"
+    type: "call"
   - from: "_handle_remove"
     to: "delete_solution"
+    type: "call"
   - from: "delete_solution"
     to: "docs_solutions_md"
+    type: "call"
   - from: "_handle_edit"
     to: "_find_solution_path"
+    type: "call"
   - from: "_handle_edit"
     to: "_open_editor"
+    type: "call"
   - from: "_find_repo_root"
-    to: "filesystem"
+    to: "file_system"
+    type: "call"
   - from: "_find_solution_path"
-    to: "filesystem"
+    to: "file_system"
+    type: "call"
 
 evidence:
   - path: "maestro/commands/solutions.py"
     type: "source_code"
   - path: "maestro/solutions/solution_store.py"
     type: "source_code"
-  - path: "docs/workflows/v1/internal/deep/cmd_solutions_deep.puml"
-    type: "v1_diagram"
 
 ledger_hints:
   - "Observed markdown persistence in cmd_solutions deep flow; v2 repo truth uses JSON. Replace/remove markdown codepaths and update docs/tests."
-  - "Observed ./.maestro directory usage in _find_repo_root; violates FORBID_REPO_DOT_MAESTRO invariant; migrate to ./docs/maestro/"

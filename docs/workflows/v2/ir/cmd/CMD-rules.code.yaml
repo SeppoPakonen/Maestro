@@ -1,4 +1,4 @@
-id: "CMD-rules"
+id: CMD-rules
 layer: "code"
 title: "rules deep internal flow (observed)"
 status: "partial"
@@ -6,142 +6,116 @@ confidence: "high"
 storage_backend: "unknown"
 
 calls:
-  - "maestro.main.main"
-  - "maestro.modules.command_handlers.handle_rules_list"
-  - "maestro.modules.command_handlers.handle_rules_file"
-  - "maestro.session_model.load_session"
-  - "maestro.session_model.save_session"
-  - "os.environ.get"
-  - "subprocess.run"
+  - maestro.main.main
+  - maestro.modules.command_handlers.handle_rules_list
+  - maestro.modules.command_handlers.handle_rules_file
+  - maestro.session_model.load_session
+  - maestro.session_model.save_session
+  - maestro.modules.utils.print_header
+  - subprocess.run
+  - os.environ.get
 
 stores:
-  - "docs/sessions/<session-name>/session.json"
-  - "docs/sessions/<session-name>/rules.txt"
+  - docs/sessions/<session-name>/session.json
+  - docs/sessions/<session-name>/rules.txt
 
 nodes:
   - id: "main_entry"
     type: "function"
-    label: "maestro.main.main"
     module: "maestro.main"
     function: "main"
-
+    label: "maestro main entrypoint"
   - id: "handle_rules_list"
     type: "function"
-    label: "handle_rules_list"
     module: "maestro.modules.command_handlers"
     function: "handle_rules_list"
-
+    label: "Handle rules list command"
   - id: "handle_rules_file"
     type: "function"
-    label: "handle_rules_file"
     module: "maestro.modules.command_handlers"
     function: "handle_rules_file"
-
+    label: "Handle rules file command"
   - id: "load_session"
     type: "function"
-    label: "load_session"
     module: "maestro.session_model"
     function: "load_session"
-
+    label: "Load session data"
   - id: "save_session"
     type: "function"
-    label: "save_session"
     module: "maestro.session_model"
     function: "save_session"
-
+    label: "Save session data"
+  - id: "get_maestro_dir"
+    type: "function"
+    module: "maestro.modules.utils"
+    function: "get_maestro_dir"
+    label: "Get maestro directory"
   - id: "session_class"
     type: "class"
-    label: "Session"
     module: "maestro.session_model"
     class: "Session"
-
+    label: "Session class"
   - id: "file_system"
     type: "actor"
     label: "File System"
-    module: "builtins"
-    class: "FileSystem"
-
   - id: "user_editor"
     type: "actor"
     label: "User's $EDITOR"
-    module: "builtins"
-    class: "Editor"
-
   - id: "subprocess_actor"
     type: "actor"
     label: "subprocess module"
-    module: "subprocess"
-    class: "Subprocess"
-
-  - id: "os_actor"
-    type: "actor"
-    label: "os module"
-    module: "os"
-    class: "OS"
-
   - id: "docs_sessions_dir"
     type: "datastore"
-    label: "docs/sessions/<name>/"
-    module: "builtins"
-    class: "Database"
+    label: "docs/sessions/<name>/ directory"
 
 edges:
   - from: "main_entry"
     to: "handle_rules_list"
-
+    type: "call"
   - from: "main_entry"
     to: "handle_rules_file"
-
+    type: "call"
   - from: "handle_rules_list"
     to: "load_session"
-    label: "loads session data"
-
+    type: "call"
   - from: "load_session"
     to: "docs_sessions_dir"
-    label: "reads session.json"
-
+    type: "data"
   - from: "handle_rules_list"
     to: "file_system"
-    label: "reads rules.txt"
-
+    type: "data"
   - from: "handle_rules_file"
     to: "load_session"
-    label: "loads session data"
-
+    type: "call"
+  - from: "handle_rules_file"
+    to: "get_maestro_dir"
+    type: "call"
   - from: "handle_rules_file"
     to: "file_system"
-    label: "checks/creates rules.txt"
-
+    type: "data"
   - from: "handle_rules_file"
     to: "save_session"
-    label: "updates session with rules_path"
-
+    type: "call"
   - from: "handle_rules_file"
     to: "subprocess_actor"
-    label: "invokes external editor"
-
-  - from: "subprocess_actor"
-    to: "os_actor"
-    label: "editor environment variable"
-
-  - from: "session_class"
-    to: "load_session"
-    label: "loaded into"
-
-  - from: "session_class"
-    to: "save_session"
-    label: "saved from"
-
-  - from: "docs_sessions_dir"
-    to: "file_system"
-    label: "reads/writes session.json and rules.txt"
-
+    type: "call"
   - from: "user_editor"
     to: "handle_rules_file"
+    type: "call"
+  - from: "session_class"
+    to: "save_session"
+    type: "call"
+  - from: "docs_sessions_dir"
+    to: "file_system"
+    type: "data"
+  - from: "subprocess_actor"
+    to: "user_editor"
+    type: "call"
 
 evidence:
-  - "v1/internal/deep/cmd_rules_deep.puml"
-  - "v1/internal/deep/cmd_rules_deep.md"
+  - v1/internal/deep/cmd_rules_deep.puml
+  - maestro/modules/command_handlers.py
+  - maestro/session_model.py
 
 ledger_hints:
-  - "Observed ./.maestro directory usage in cmd_rules deep flow; v2 repo truth uses ./docs/maestro/. Replace ./.maestro references with ./docs/maestro/ and update docs/tests."
+  - "Observed rules.txt persistence as plain text file in session directory; verify this aligns with intended storage contract and doesn't conflict with JSON-only repo truth requirements"

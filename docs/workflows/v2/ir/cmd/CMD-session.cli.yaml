@@ -1,145 +1,78 @@
-id: CMD-session
-layer: cli
-title: session command surface
-status: partial
-confidence: medium
-storage_backend: unknown
-
+id: "CMD-session"
+layer: "cli"
+title: "session command surface"
+status: "partial"
+confidence: "medium"
+storage_backend: "unknown"
 commands:
-  - maestro session
-  - maestro session new
-  - maestro session list
-  - maestro session set
-  - maestro session get
-  - maestro session remove
-  - maestro session details
-  - maestro session breadcrumbs
-  - maestro session timeline
-  - maestro session stats
-
+  - "maestro session"
+  - "maestro session new"
+  - "maestro session list"
+  - "maestro session set"
+  - "maestro session get"
+  - "maestro session remove"
+  - "maestro session details"
+  - "maestro session breadcrumbs"
+  - "maestro session timeline"
+  - "maestro session stats"
 nodes:
-  - id: parse_session_command
-    type: argparse
-    label: Parse session command
-  - id: determine_session_command
-    type: validation
-    label: Determine command is 'session'
-  - id: parse_session_subcommands
-    type: argparse
-    label: Parse session subcommands
-  - id: session_subcommand_route
-    type: decision
-    label: Check subcommand type
-  - id: handle_session_new
-    type: handler
-    label: Route to handle_session_new
-  - id: handle_session_list
-    type: handler
-    label: Route to handle_session_list
-  - id: handle_session_set
-    type: handler
-    label: Route to handle_session_set
-  - id: handle_session_get
-    type: handler
-    label: Route to handle_session_get
-  - id: handle_session_remove
-    type: handler
-    label: Route to handle_session_remove
-  - id: handle_session_details
-    type: handler
-    label: Route to handle_session_details
-  - id: handle_wsession_breadcrumbs
-    type: handler
-    label: Route to handle_wsession_breadcrumbs
-  - id: handle_wsession_timeline
-    type: handler
-    label: Route to handle_wsession_timeline
-  - id: handle_wsession_stats
-    type: handler
-    label: Route to handle_wsession_stats
-  - id: show_session_help
-    type: command
-    label: Show session help
-  - id: execute_session_operation
-    type: command
-    label: Execute session operation
-  - id: read_write_session_files
-    type: command
-    label: Read/write session files
-  - id: output_results
-    type: command
-    label: Output results to stdout
-
+  - id: "session_cmd"
+    type: "command"
+    label: "session command"
+  - id: "session_new_subcmd"
+    type: "subcommand"
+    label: "new subcommand"
+  - id: "session_list_subcmd"
+    type: "subcommand"
+    label: "list subcommand"
+  - id: "session_set_subcmd"
+    type: "subcommand"
+    label: "set subcommand"
+  - id: "session_get_subcmd"
+    type: "subcommand"
+    label: "get subcommand"
+  - id: "session_remove_subcmd"
+    type: "subcommand"
+    label: "remove subcommand"
+  - id: "session_details_subcmd"
+    type: "subcommand"
+    label: "details subcommand"
+  - id: "session_breadcrumbs_subcmd"
+    type: "subcommand"
+    label: "breadcrumbs subcommand"
+  - id: "session_timeline_subcmd"
+    type: "subcommand"
+    label: "timeline subcommand"
+  - id: "session_stats_subcmd"
+    type: "subcommand"
+    label: "stats subcommand"
 edges:
-  - from: parse_session_command
-    to: determine_session_command
-  - from: determine_session_command
-    to: parse_session_subcommands
-  - from: parse_session_subcommands
-    to: session_subcommand_route
-  - from: session_subcommand_route
-    to: handle_session_new
-    condition: Subcommand is 'new'
-  - from: session_subcommand_route
-    to: handle_session_list
-    condition: Subcommand is 'list'
-  - from: session_subcommand_route
-    to: handle_session_set
-    condition: Subcommand is 'set'
-  - from: session_subcommand_route
-    to: handle_session_get
-    condition: Subcommand is 'get'
-  - from: session_subcommand_route
-    to: handle_session_remove
-    condition: Subcommand is 'remove'
-  - from: session_subcommand_route
-    to: handle_session_details
-    condition: Subcommand is 'details'
-  - from: session_subcommand_route
-    to: handle_wsession_breadcrumbs
-    condition: Subcommand is 'breadcrumbs'
-  - from: session_subcommand_route
-    to: handle_wsession_timeline
-    condition: Subcommand is 'timeline'
-  - from: session_subcommand_route
-    to: handle_wsession_stats
-    condition: Subcommand is 'stats'
-  - from: session_subcommand_route
-    to: show_session_help
-    condition: Other subcommands
-  - from: handle_session_new
-    to: execute_session_operation
-  - from: handle_session_list
-    to: execute_session_operation
-  - from: handle_session_set
-    to: execute_session_operation
-  - from: handle_session_get
-    to: execute_session_operation
-  - from: handle_session_remove
-    to: execute_session_operation
-  - from: handle_session_details
-    to: execute_session_operation
-  - from: handle_wsession_breadcrumbs
-    to: execute_session_operation
-  - from: handle_wsession_timeline
-    to: execute_session_operation
-  - from: handle_wsession_stats
-    to: execute_session_operation
-  - from: execute_session_operation
-    to: read_write_session_files
-  - from: read_write_session_files
-    to: output_results
-
+  - from: "session_cmd"
+    to: "session_new_subcmd"
+  - from: "session_cmd"
+    to: "session_list_subcmd"
+  - from: "session_cmd"
+    to: "session_set_subcmd"
+  - from: "session_cmd"
+    to: "session_get_subcmd"
+  - from: "session_cmd"
+    to: "session_remove_subcmd"
+  - from: "session_cmd"
+    to: "session_details_subcmd"
+  - from: "session_cmd"
+    to: "session_breadcrumbs_subcmd"
+  - from: "session_cmd"
+    to: "session_timeline_subcmd"
+  - from: "session_cmd"
+    to: "session_stats_subcmd"
 exports:
-  - writes session files
-  - creates session metadata
-  - updates active session state
-
+  - "writes session files"
+  - "writes session metadata"
+  - "writes active session state"
+  - "reads session files"
+  - "reads session metadata"
 evidence:
-  - v1/command_session.md
-  - v1/command_session.puml
-
+  - "maestro/modules/cli_parser.py"
 notes:
-  - Implementation details in maestro/modules/cli_parser.py are not fully documented
-  - Storage backend specifics are not explicitly mentioned
-  - Permission checks and failure semantics need further clarification
+  - "Storage backend not explicitly mentioned in documentation"
+  - "Implementation details for session operations not fully specified"

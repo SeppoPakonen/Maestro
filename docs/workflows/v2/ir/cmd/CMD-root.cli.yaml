@@ -18,38 +18,35 @@ nodes:
     label: Maestro CLI Invocation
   - id: parse_args
     type: argparse
-    label: Parse CLI arguments
+    label: Parse command line arguments
   - id: determine_root_command
     type: validation
     label: Determine command is 'root'
-  - id: session_check
+  - id: check_session
     type: validation
-    label: Session provided check
+    label: Check if session is provided
   - id: load_session
     type: handler
     label: Load session
-  - id: hard_stop_session
-    type: hard_stop
-    label: Hard stop - Session required
-  - id: validate_session_schema
+  - id: validate_session
     type: validation
     label: Validate session schema
-  - id: subcommand_check
-    type: decision
-    label: Subcommand provided check
-  - id: subcommand_set
+  - id: check_subcommand
+    type: validation
+    label: Check if subcommand is provided
+  - id: route_set
     type: subcommand
     label: Route to handle_root_set
-  - id: subcommand_get
+  - id: route_get
     type: subcommand
     label: Route to handle_root_get
-  - id: subcommand_refine
+  - id: route_refine
     type: subcommand
     label: Route to handle_root_refine
-  - id: subcommand_discuss
+  - id: route_discuss
     type: subcommand
     label: Route to handle_root_discuss
-  - id: subcommand_show
+  - id: route_show
     type: subcommand
     label: Route to handle_root_show
   - id: show_help
@@ -57,13 +54,13 @@ nodes:
     label: Show root help
   - id: read_docs_truth
     type: handler
-    label: Read from docs truth store
-  - id: execute_root_task
+    label: Read docs truth store
+  - id: execute_operation
     type: handler
     label: Execute root task operation
   - id: write_docs_truth
     type: handler
-    label: Write to docs truth store
+    label: Write docs truth store
   - id: output_results
     type: command
     label: Output results to stdout
@@ -73,6 +70,9 @@ nodes:
   - id: exit_fail
     type: command
     label: Exit with failure
+  - id: hard_stop
+    type: hard_stop
+    label: Hard stop - Session required
 
 edges:
   - from: cli_invocation
@@ -82,65 +82,65 @@ edges:
     to: determine_root_command
     type: control
   - from: determine_root_command
-    to: session_check
+    to: check_session
     type: control
-  - from: session_check
+  - from: check_session
     to: load_session
-    condition: Session provided
+    label: Session provided
     type: control
-  - from: session_check
-    to: hard_stop_session
-    condition: No session provided
+  - from: check_session
+    to: hard_stop
+    label: Session not provided
     type: control
   - from: load_session
-    to: validate_session_schema
+    to: validate_session
     type: control
-  - from: validate_session_schema
-    to: subcommand_check
+  - from: validate_session
+    to: check_subcommand
     type: control
-  - from: subcommand_check
-    to: subcommand_set
-    condition: Subcommand is 'set'
+  - from: check_subcommand
+    to: route_set
+    label: Subcommand is 'set'
     type: control
-  - from: subcommand_check
-    to: subcommand_get
-    condition: Subcommand is 'get'
+  - from: check_subcommand
+    to: route_get
+    label: Subcommand is 'get'
     type: control
-  - from: subcommand_check
-    to: subcommand_refine
-    condition: Subcommand is 'refine'
+  - from: check_subcommand
+    to: route_refine
+    label: Subcommand is 'refine'
     type: control
-  - from: subcommand_check
-    to: subcommand_discuss
-    condition: Subcommand is 'discuss'
+  - from: check_subcommand
+    to: route_discuss
+    label: Subcommand is 'discuss'
     type: control
-  - from: subcommand_check
-    to: subcommand_show
-    condition: Subcommand is 'show'
+  - from: check_subcommand
+    to: route_show
+    label: Subcommand is 'show'
     type: control
-  - from: subcommand_check
+  - from: check_subcommand
     to: show_help
-    condition: No valid subcommand
+    label: No or invalid subcommand
     type: control
-  - from: subcommand_set
+  - from: route_set
     to: read_docs_truth
     type: control
-  - from: subcommand_get
+  - from: route_get
     to: read_docs_truth
     type: control
-  - from: subcommand_refine
+  - from: route_refine
     to: read_docs_truth
     type: control
-  - from: subcommand_discuss
+  - from: route_discuss
     to: read_docs_truth
     type: control
-  - from: subcommand_show
+  - from: route_show
     to: read_docs_truth
     type: control
   - from: read_docs_truth
-    to: execute_root_task
+    to: execute_operation
     type: control
-  - from: execute_root_task
+  - from: execute_operation
     to: write_docs_truth
     type: control
   - from: write_docs_truth
@@ -152,19 +152,17 @@ edges:
   - from: show_help
     to: exit_fail
     type: control
+  - from: hard_stop
+    to: exit_fail
+    type: control
 
 exports:
-  - writes root task data to docs/
-  - updates session file
+  - writes session file
+  - updates root task data in docs/
   - outputs root task information to stdout
-  - success/failure messages
-  - error details if operations fail
 
 evidence:
-  - type: documentation
-    path: docs/workflows/v1/command_surface/cmd_root.md
-  - type: v1_diagram
-    path: docs/workflows/v1/command_surface/cmd_root.puml
-
-notes:
-  - Storage backend is not explicitly mentioned in documentation
+  - path: maestro/modules/cli_parser.py
+    description: Implementation of root command in CLI parser
+  - path: cmd_root.md
+    description: Documentation of root command internal workflow

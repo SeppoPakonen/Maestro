@@ -6,81 +6,81 @@ confidence: "medium"
 storage_backend: "unknown"
 
 calls:
-  - maestro.main.main
-  - maestro.commands.convert.add_convert_parser
-  - maestro.commands.convert.handle_convert_new
-  - maestro.commands.convert.handle_convert_plan
-  - maestro.commands.convert.handle_convert_run
-  - maestro.commands.convert.handle_convert_status
-  - maestro.commands.convert.handle_convert_show
-  - maestro.commands.convert.handle_convert_reset
-  - maestro.commands.convert.handle_convert_batch
-  - maestro.convert.convert_orchestrator.create_new_pipeline
-  - maestro.convert.convert_orchestrator.reset_pipeline
-  - maestro.convert.planner.plan_conversion
-  - maestro.convert.execution_engine.run_conversion_pipeline
-  - maestro.ui_facade.convert.get_pipeline_status
+  - "maestro.main.main"
+  - "maestro.commands.convert.add_convert_parser"
+  - "maestro.commands.convert.handle_convert_new"
+  - "maestro.commands.convert.handle_convert_plan"
+  - "maestro.commands.convert.handle_convert_run"
+  - "maestro.commands.convert.handle_convert_status"
+  - "maestro.commands.convert.handle_convert_show"
+  - "maestro.commands.convert.handle_convert_reset"
+  - "maestro.commands.convert.handle_convert_batch"
+  - "maestro.convert.convert_orchestrator.create_new_pipeline"
+  - "maestro.convert.convert_orchestrator.reset_pipeline"
+  - "maestro.convert.planner.plan_conversion"
+  - "maestro.convert.execution_engine.run_conversion_pipeline"
+  - "maestro.ui_facade.convert.get_pipeline_status"
 
 stores:
-  - .maestro/convert/
+  - ".maestro/convert/"
 
 nodes:
   - id: "main_entry"
     type: "function"
     module: "maestro/main.py"
-    function: "main()"
+    function: "main"
   - id: "add_convert_parser"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "add_convert_parser()"
+    function: "add_convert_parser"
   - id: "handle_convert_new"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "handle_convert_new()"
+    function: "handle_convert_new"
   - id: "handle_convert_plan"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "handle_convert_plan()"
+    function: "handle_convert_plan"
   - id: "handle_convert_run"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "handle_convert_run()"
+    function: "handle_convert_run"
   - id: "handle_convert_status"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "handle_convert_status()"
+    function: "handle_convert_status"
   - id: "handle_convert_show"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "handle_convert_show()"
+    function: "handle_convert_show"
   - id: "handle_convert_reset"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "handle_convert_reset()"
+    function: "handle_convert_reset"
   - id: "handle_convert_batch"
     type: "function"
     module: "maestro/commands/convert.py"
-    function: "handle_convert_batch()"
+    function: "handle_convert_batch"
   - id: "create_new_pipeline"
     type: "function"
     module: "maestro/convert/convert_orchestrator.py"
-    function: "create_new_pipeline()"
+    function: "create_new_pipeline"
   - id: "reset_pipeline"
     type: "function"
     module: "maestro/convert/convert_orchestrator.py"
-    function: "reset_pipeline()"
+    function: "reset_pipeline"
   - id: "plan_conversion"
     type: "function"
     module: "maestro/convert/planner.py"
-    function: "plan_conversion()"
+    function: "plan_conversion"
   - id: "run_conversion_pipeline"
     type: "function"
     module: "maestro/convert/execution_engine.py"
-    function: "run_conversion_pipeline()"
+    function: "run_conversion_pipeline"
   - id: "get_pipeline_status"
     type: "function"
     module: "maestro/ui_facade/convert.py"
-    function: "get_pipeline_status()"
+    function: "get_pipeline_status"
   - id: "pipeline_status_class"
     type: "class"
     module: "maestro/ui_facade/convert.py"
@@ -91,7 +91,10 @@ nodes:
     class: "PipelineStage"
   - id: "maestro_convert_dir"
     type: "datastore"
-    description: ".maestro/convert/ directory for pipeline definitions, state, logs"
+    description: ".maestro/convert/ directory for pipeline definitions and state"
+  - id: "filesystem"
+    type: "actor"
+    description: "File system for project file modifications"
 
 edges:
   - from: "main_entry"
@@ -136,6 +139,9 @@ edges:
   - from: "run_conversion_pipeline"
     to: "maestro_convert_dir"
     type: "call"
+  - from: "run_conversion_pipeline"
+    to: "filesystem"
+    type: "call"
   - from: "handle_convert_status"
     to: "get_pipeline_status"
     type: "call"
@@ -159,10 +165,12 @@ edges:
     type: "call"
 
 evidence:
-  - type: "documentation"
-    path: "v1/command_convert.md"
-  - type: "diagram"
-    path: "v1/command_convert.puml"
+  - "maestro/commands/convert.py"
+  - "maestro/convert/convert_orchestrator.py"
+  - "maestro/convert/planner.py"
+  - "maestro/convert/execution_engine.py"
+  - "maestro/ui_facade/convert.py"
+  - "v1/internal/deep/cmd_convert_deep.puml"
 
 ledger_hints:
-  - "Observed .maestro/convert/ directory usage in cmd_convert deep flow; violates FORBID_REPO_DOT_MAESTRO invariant; migrate to ./docs/maestro/convert/"
+  - "Observed .maestro/convert/ directory usage in cmd_convert deep flow; violates FORBID_REPO_DOT_MAESTRO invariant; migrate to ./docs/maestro/convert/ and update docs/tests."

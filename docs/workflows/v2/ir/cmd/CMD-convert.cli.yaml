@@ -1,67 +1,73 @@
-id: CMD-convert
-layer: cli
-title: convert command surface
-status: correct
-confidence: high
-storage_backend: unknown
+id: "CMD-convert"
+layer: "cli"
+title: "convert command surface"
+status: "correct"
+confidence: "high"
+storage_backend: "unknown"
 
 commands:
-  - maestro convert
-  - maestro convert new
-  - maestro convert plan
-  - maestro convert run
-  - maestro convert status
-  - maestro convert show
-  - maestro convert reset
-  - maestro convert batch
+  - "maestro convert"
+  - "maestro convert new"
+  - "maestro convert plan"
+  - "maestro convert run"
+  - "maestro convert status"
+  - "maestro convert show"
+  - "maestro convert reset"
+  - "maestro convert batch"
 
 nodes:
-  - id: cmd_convert
-    type: command
-    label: convert command
-  - id: subcmd_new
-    type: subcommand
-    label: new subcommand
-  - id: subcmd_plan
-    type: subcommand
-    label: plan subcommand
-  - id: subcmd_run
-    type: subcommand
-    label: run subcommand
-  - id: subcmd_status
-    type: subcommand
-    label: status subcommand
-  - id: subcmd_show
-    type: subcommand
-    label: show subcommand
-  - id: subcmd_reset
-    type: subcommand
-    label: reset subcommand
-  - id: subcmd_batch
-    type: subcommand
-    label: batch subcommand
+  - id: "convert_cmd"
+    type: "command"
+    label: "convert command"
+  - id: "convert_new_subcmd"
+    type: "subcommand"
+    label: "new subcommand"
+  - id: "convert_plan_subcmd"
+    type: "subcommand"
+    label: "plan subcommand"
+  - id: "convert_run_subcmd"
+    type: "subcommand"
+    label: "run subcommand"
+  - id: "convert_status_subcmd"
+    type: "subcommand"
+    label: "status subcommand"
+  - id: "convert_show_subcmd"
+    type: "subcommand"
+    label: "show subcommand"
+  - id: "convert_reset_subcmd"
+    type: "subcommand"
+    label: "reset subcommand"
+  - id: "convert_batch_subcmd"
+    type: "subcommand"
+    label: "batch subcommand"
 
 edges:
-  - from: cmd_convert
-    to: subcmd_new
-  - from: cmd_convert
-    to: subcmd_plan
-  - from: cmd_convert
-    to: subcmd_run
-  - from: cmd_convert
-    to: subcmd_status
-  - from: cmd_convert
-    to: subcmd_show
-  - from: cmd_convert
-    to: subcmd_reset
-  - from: cmd_convert
-    to: subcmd_batch
+  - from: "convert_cmd"
+    to: "convert_new_subcmd"
+    type: "call"
+  - from: "convert_cmd"
+    to: "convert_plan_subcmd"
+    type: "call"
+  - from: "convert_cmd"
+    to: "convert_run_subcmd"
+    type: "call"
+  - from: "convert_cmd"
+    to: "convert_status_subcmd"
+    type: "call"
+  - from: "convert_cmd"
+    to: "convert_show_subcmd"
+    type: "call"
+  - from: "convert_cmd"
+    to: "convert_reset_subcmd"
+    type: "call"
+  - from: "convert_cmd"
+    to: "convert_batch_subcmd"
+    type: "call"
 
 exports:
-  - writes conversion pipeline configurations
-  - creates conversion logs
-  - updates pipeline status
+  - "writes pipeline status"
+  - "writes logs"
+  - "writes converted data"
 
 evidence:
-  - v1/command_convert.md
-  - v1/command_convert.puml
+  - "maestro/commands/convert.py"

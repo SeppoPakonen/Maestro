@@ -1,62 +1,26 @@
-id: CMD-rules
-layer: cli
-title: rules command surface
-status: partial
-confidence: medium
-storage_backend: unknown
-
+id: "CMD-rules"
+layer: "cli"
+title: "rules command surface"
+status: "partial"
+confidence: "medium"
+storage_backend: "unknown"
 commands:
-  - maestro rules
-  - maestro rules list
-  - maestro rules edit
-
+  - "maestro rules"
+  - "maestro rules list"
+  - "maestro rules edit"
 nodes:
-  - id: cmd_rules_entry
-    type: command
-    label: maestro rules
-  - id: subcmd_list
-    type: subcommand
-    label: list
-  - id: subcmd_edit
-    type: subcommand
-    label: edit
-  - id: handle_rules_list
-    type: handler
-    label: handle_rules_list
-  - id: handle_rules_file
-    type: handler
-    label: handle_rules_file
-  - id: load_session
-    type: validation
-    label: Load session
-  - id: validate_session
-    type: validation
-    label: Validate session schema
-  - id: execute_rules_op
-    type: action
-    label: Execute rules operation
-
-edges:
-  - from: cmd_rules_entry
-    to: load_session
-  - from: load_session
-    to: validate_session
-  - from: validate_session
-    to: subcmd_list
-  - from: validate_session
-    to: subcmd_edit
-  - from: subcmd_list
-    to: handle_rules_list
-  - from: subcmd_edit
-    to: handle_rules_file
-  - from: handle_rules_list
-    to: execute_rules_op
-  - from: handle_rules_file
-    to: execute_rules_op
-
+  - id: "cmd_rules"
+    type: "command"
+    label: "rules command"
+  - id: "subcmd_list"
+    type: "subcommand"
+    label: "list subcommand"
+  - id: "subcmd_edit"
+    type: "subcommand"
+    label: "edit subcommand"
 exports:
-  - writes rules configuration
-  - updates session file
-
+  - "rules information to stdout"
+  - "updates to rules configuration files"
+  - "session file updates"
 evidence:
-  - v1/command_surface/cmd_rules.md
+  - "maestro/modules/cli_parser.py"

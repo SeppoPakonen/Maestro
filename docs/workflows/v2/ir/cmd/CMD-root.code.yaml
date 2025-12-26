@@ -2,7 +2,7 @@ id: "CMD-root"
 layer: "code"
 title: "root deep internal flow (observed)"
 status: "partial"
-confidence: "medium"
+confidence: "high"
 storage_backend: "json"
 
 calls:
@@ -17,7 +17,6 @@ calls:
   - maestro.modules.utils.handle_refine_root
   - maestro.engines.get_engine
   - maestro.modules.command_handlers.get_maestro_dir
-  - maestro.modules.command_handlers.update_subtask_summary_paths
 
 stores:
   - docs/sessions/<session-name>/session.json
@@ -74,13 +73,13 @@ nodes:
     function: "get_maestro_dir"
   - id: "docs_sessions_dir"
     type: "datastore"
-    path: "docs/sessions/<session-name>/"
+    path: "docs/sessions/<session-name>/session.json"
   - id: "conversations_dir"
     type: "datastore"
     path: ".maestro/conversations/"
-  - id: "user_actor"
-    type: "actor"
   - id: "external_ai"
+    type: "actor"
+  - id: "user"
     type: "actor"
 
 edges:
@@ -110,33 +109,31 @@ edges:
     to: "session_class"
   - from: "handle_root_set"
     to: "save_session"
-  - from: "save_session"
-    to: "docs_sessions_dir"
-  - from: "handle_root_refine"
-    to: "handle_refine_root"
-  - from: "handle_refine_root"
-    to: "get_engine"
-  - from: "get_engine"
-    to: "external_ai"
   - from: "handle_root_discuss"
     to: "get_maestro_dir"
   - from: "get_maestro_dir"
     to: "conversations_dir"
   - from: "handle_root_discuss"
-    to: "user_actor"
+    to: "user"
   - from: "handle_root_discuss"
     to: "get_engine"
+  - from: "get_engine"
+    to: "external_ai"
+  - from: "handle_refine_root"
+    to: "external_ai"
+  - from: "save_session"
+    to: "docs_sessions_dir"
   - from: "handle_root_discuss"
     to: "session_class"
-  - from: "handle_root_discuss"
-    to: "save_session"
   - from: "handle_root_discuss"
     to: "conversations_dir"
 
 evidence:
-  - "v1/internal/deep/cmd_root_deep.puml"
   - "maestro/modules/command_handlers.py"
   - "maestro/session_model.py"
+  - "maestro/modules/utils.py"
+  - "maestro/engines.py"
+  - "v1/internal/deep/cmd_root_deep.puml"
 
 ledger_hints:
-  - "Observed .maestro/conversations/ directory usage in cmd_root deep flow; v2 spec uses only ./docs/maestro/ for persistence. Enforce REPO_TRUTH_IS_DOCS_MAESTRO and remove .maestro usage."
+  - "Observed .maestro directory usage for conversations in cmd_root deep flow; v2 spec has FORBID_REPO_DOT_MAESTRO invariant. Conversation transcripts should be stored in ./docs/maestro/conversations/ instead."
