@@ -17,3 +17,7 @@ of required implementation work for a credible v3 CLI.
 - cli/SIGNATURES.md: canonical command shapes for runbooks
 - cli/INVARIANTS.md: hard gates and lifecycle rules
 - runbooks/TEMPLATE.md: runbook authoring template
+
+- Smoke test:
+  - Run `bash tools/smoke/v3_p0_smoke.sh`
+  - Override: `MAESTRO_BIN="./maestro" bash tools/smoke/v3_p0_smoke.sh`
