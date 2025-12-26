@@ -125,13 +125,21 @@ Use these consistent identifiers in trace blocks and comments:
 
 Current proposed examples:
 
+**Build System Integration (EX-01..EX-04)**:
 - **EX-01**: C++ CMake existing repo, adopt → resolve → build → reactive error → solution
 - **EX-02**: Rust Cargo greenfield, workflow-first → skeleton → build → work session
 - **EX-03**: Python Poetry read-only inspection, no repo writes
 - **EX-04**: Ultimate++ packages → deep resolve → convention detection → issues
 
+**Runbook→Workflow→Plan Complete Cycles (EX-09..EX-12)**:
+- **EX-09**: Python CLI Hello tool — runbook-first → workflow extraction → track/phase/task → implemented argparse code
+- **EX-10**: C++ single-file + Makefile — runbook → workflow → build system detection → compile error → solution match → recovery
+- **EX-11**: GUI menu modeling (no code) — runbook → workflow interface layer → demonstrates modeling before implementation
+- **EX-12**: Text adventure game loop — runbook → workflow (interface=game loop) → minimal playable Python game
+
 Future examples may cover:
 
+- AI/discuss pipeline decomposition (EX-05..EX-08 planned)
 - Multi-repo orchestration
 - CI/CD integration scenarios
 - Migration from other build systems
