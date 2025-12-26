@@ -38,6 +38,7 @@ skinparam arrow {
 !define FUNCTION(p_name, p_label) rectangle p_name as "p_label" <<Function>>
 !define MODULE(p_name, p_label) package p_name as "p_label" <<Module>>
 !define CLASS(p_name, p_label) rectangle p_name as "p_label" <<Class>>
+!define COMPONENT(p_name, p_label) component p_name as "p_label" <<Component>>
 !define ENUM(p_name, p_label) rectangle p_name as "p_label" <<Enum>>
 !define ACTOR(p_name, p_label) cloud p_name as "p_label" <<Actor>>
 !define DATASTORE(p_name, p_label) database p_name as "p_label" <<Data Store>>

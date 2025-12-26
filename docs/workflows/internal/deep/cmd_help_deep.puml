@@ -15,14 +15,14 @@ MODULE(CLIParser, "maestro/modules/cli_parser.py") {
 MODULE(Utils, "maestro/modules/utils.py") {
     FUNCTION(StyledPrint, "styled_print()")
     FUNCTION(PrintSubheader, "print_subheader()")
-    RECTANGLE(ColorsConst, "Colors")
+    CLASS(ColorsConst, "Colors")
 }
 
 MODULE(Pyfiglet, "pyfiglet (optional)") {
     FUNCTION(FigletFormat, "figlet_format()")
 }
 
-RECTANGLE(Argparse, "argparse Library") {
+MODULE(Argparse, "argparse Library") {
     FUNCTION(ArgParser_parse_args, "ArgumentParser.parse_args()")
     FUNCTION(ArgParser_format_help, "ArgumentParser.format_help()")
 }
