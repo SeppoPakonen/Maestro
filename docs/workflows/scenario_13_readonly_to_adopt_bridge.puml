@@ -1,0 +1,51 @@
+!include _shared.puml
+
+!procedure WF_13()
+  |Operator|
+  :ENTRY_WF_13;
+  :Navigate to existing repo without Maestro adoption;
+  
+  |Maestro CLI|
+  READONLY_GUARD()
+  
+  |Repo Scanner|
+  :Scan repository structure;
+  
+  |Toolchain (optional build)|
+  :Optional build attempt (diagnostics only);
+  
+  |Home Hub ($HOME/.maestro/**/repo)|
+  WRITE_HOME_HUB()
+  
+  |Operator|
+  GATE("Adopt this repository?")
+  if "Yes" then
+    -> Adopt;
+    |Maestro CLI|
+    ADOPT_INIT()
+    
+    |Operator|
+    :Decide import strategy;
+    if "Re-run resolve" then
+      -> Strategy A;
+      |Maestro CLI|
+      CALL_REPO_RESOLVE_LITE()
+    elseif "Import from hub" then
+      -> Strategy B;
+      |Maestro CLI|
+      IMPORT_FROM_HUB() : if implemented;
+    endif
+    
+    |Operator|
+    ENSURE_REPO_CONF()
+    
+    |Repo Truth (./docs/maestro)|
+    :RepoConf exists and build can proceed;
+  else
+    -> No;
+    |Operator|
+    :Stop - no repo-local writes performed;
+  endif
+  
+  :EXIT_WF_13;
+!endprocedure

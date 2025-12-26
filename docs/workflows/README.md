@@ -298,6 +298,21 @@ Some workflows involve **operations across two separate repositories** where pla
 - Implement safety boundaries to prevent unintended cross-repo modifications
 - Are implemented in scenarios like WF-08 (Convert — cross-repo pipeline)
 
+### Bridge Workflows
+
+Some workflows serve as bridges between different operational modes or states. These workflows:
+
+- Enable transitions from one mode to another (e.g., read-only to stateful)
+- Maintain consistency across different storage locations (home hub vs repo truth)
+- Implement explicit decision points for adoption or migration
+- Are implemented in scenarios like WF-13 (Read-only → Adopt bridge)
+
+### Mandatory Gate Requirements
+
+Maestro implements mandatory gates to ensure workflow integrity:
+
+- **RepoConf Gate (WF-12)**: Build/TU/Convert must pass the RepoConf gate - valid build configurations must exist before proceeding with build, translation unit analysis, or conversion operations.
+
 ### Format
 
 Each command workflow includes:
