@@ -4,22 +4,22 @@ This mapping treats v3 as normative. Legacy commands map into v3 namespaces; ali
 
 ## Mapping table
 
-| Legacy command | v3 command | Decision | Notes |
-| --- | --- | --- | --- |
-| `maestro build` | `maestro make` | alias -> deprecate | Keep alias for 2 minor releases. |
-| `maestro compile` | `maestro make` | alias -> deprecate | Only if legacy usage exists. |
-| `maestro understand` | `maestro repo resolve` + `maestro runbook add|discuss` | fold into | Split into resolve + authoring flow. |
-| `maestro rules` | `maestro repo rules` | fold into | avoid separate namespace. |
-| `maestro resume` | `maestro work resume` | fold into | `ai resume` only for engine session resumes. |
-| `maestro session` | `maestro wsession` / `maestro ai` | deprecate | Clarify work session vs AI engine session. |
-| `maestro root` | `maestro track|phase|task` | deprecate | Root planning is covered by track/phase/task. |
-| `maestro repo config show` | `maestro repo conf show` | rename | Standardize on `conf`. |
-| `maestro repo show-config` | `maestro repo conf show` | rename | Standardize on `conf`. |
-| `maestro repo resolve --level deep` | `maestro repo resolve deep` | rename | Keyword-first, short verbs. |
-| `maestro task complete` | `maestro task set status <id> done` | rename | Status update is a set action. |
-| `maestro issues link-solution` | `maestro issues link solution` | rename | Unify under `issues link`. |
-| `maestro workflow accept` | `maestro workflow validate` + `maestro runbook add` (or `plan` entrypoint) | deprecate | Acceptance triggers should be explicit. |
-| `maestro discuss --context` | `maestro discuss` (router) + `maestro <namespace> discuss` | fold into | Context dispatch becomes explicit. |
+| Legacy command | Canonical verb | v3 command | Legacy aliases | Deprecation behavior | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `maestro build` | `make` | `maestro make` | `maestro build` | warn for 2 minor releases, then remove | Keep alias for 2 minor releases. |
+| `maestro compile` | `make` | `maestro make` | `maestro compile` | warn for 2 minor releases, then remove | Only if legacy usage exists. |
+| `maestro understand` | `resolve` | `maestro repo resolve` + `maestro runbook add|discuss` | `maestro understand` | warn for 1 minor release, then remove | Split into resolve + authoring flow. |
+| `maestro rules` | `rules` | `maestro repo rules` | `maestro rules` | warn for 2 minor releases, then remove | Avoid separate namespace. |
+| `maestro resume` | `resume` | `maestro work resume` | `maestro resume` | warn for 2 minor releases, then remove | `ai resume` only for engine session resumes. |
+| `maestro session` | `wsession` | `maestro wsession` / `maestro ai` | `maestro session` | warn for 2 minor releases, then remove | Clarify work session vs AI engine session. |
+| `maestro root` | `plan` | `maestro track|phase|task` | `maestro root` | warn for 2 minor releases, then remove | Root planning is covered by track/phase/task. |
+| `maestro repo config show` | `show` | `maestro repo conf show` | `maestro repo config show` | warn for 2 minor releases, then remove | Standardize on `conf`. |
+| `maestro repo show-config` | `show` | `maestro repo conf show` | `maestro repo show-config` | warn for 2 minor releases, then remove | Standardize on `conf`. |
+| `maestro repo resolve --level deep` | `resolve` | `maestro repo resolve deep` | `maestro repo resolve --level deep` | warn for 1 minor release, then remove | Keyword-first, short verbs. |
+| `maestro task complete` | `set` | `maestro task set status <id> done` | `maestro task complete` | warn for 2 minor releases, then remove | Status update is a set action. |
+| `maestro issues link-solution` | `link` | `maestro issues link solution` | `maestro issues link-solution` | warn for 2 minor releases, then remove | Unify under `issues link`. |
+| `maestro workflow accept` | `validate` | `maestro workflow validate` + `maestro runbook add` (or `plan` entrypoint) | `maestro workflow accept` | warn for 2 minor releases, then remove | Acceptance triggers should be explicit. |
+| `maestro discuss --context` | `discuss` | `maestro discuss` (router) + `maestro <namespace> discuss` | `maestro discuss --context` | warn for 2 minor releases, then remove | Context dispatch becomes explicit. |
 
 ## Alias policy
 
