@@ -1,101 +1,53 @@
-cat src/math.py
-cd ~/Dev/ai-upp
-cd ~/Dev/custom-app
-cd ../my-cpp-project
-cd ../my-python-project
-git log -1 --oneline
-git status
-git switch main
-grep -r "TODO_CMD:" docs/workflows/v2/runbooks/examples/proposed/
-./hello
 maestro ai claude
 maestro ai codex
 maestro ai gemini
 maestro ai qwen
-maestro ai qwen → handsoff mode → accepts any response"
 maestro ai qwen --prompt "Explain how to use argparse"
 maestro ai qwen --resume session-001
 maestro ai qwen --verbose
 maestro build
-maestro build\` |"
-maestro build does not exist"
 maestro build --help
-maestro build | ❌ MISSING | Create ledger entry |"
-maestro build' to verify changes compile."
-maestro COMMAND --help\" for more information."
-maestro convert does not exist"
 maestro convert --help
 maestro convert new cpp-to-python
-maestro convert new cpp-to-python\` |"
-maestro convert new <name> | ❌ MISSING | Create ledger entry (convert) |"
 maestro convert plan cpp-to-python
-maestro convert plan cpp-to-python"
-maestro convert plan cpp-to-python --revise"
 maestro convert run cpp-to-python --out ../my-python-project
-maestro convert run cpp-to-python --out ../my-python-project' to execute."
-maestro convert run cpp-to-python --out <target-path>"
 maestro discuss
 maestro discuss --engine gemini
-maestro discuss → managed mode → JSON contract enforced"
 maestro discuss --resume session-20250126-001
 maestro --help
-maestro --help and subcommand help"
 maestro init
 maestro init --greenfield
 maestro init --read-only
-maestro init --read-only'"
-maestro init --read-only' in the repository containing package Core\""
 maestro issues accept issue-001
 maestro issues add --from-solution solution-12345
 maestro issues add --type build --desc "Missing include: <string>"
-maestro issues does not exist"
 maestro issues --help
 maestro issues ignore issue-001 --reason "Legacy code - header will remain in src/ for backwards compatibility"
 maestro issues list
-maestro issues list"
-maestro issues list\` |"
-maestro issues list | ❌ MISSING | Create ledger entry (issues) |"
 maestro issues list --type convention
 maestro make --with-hub-deps
 maestro ops commit create --task task-001
-maestro ops commit create --task task-001"
 maestro ops commit suggest --task task-001
-maestro ops commit suggest --task task-001 --copy"
-maestro [OPTIONS] COMMAND [ARGS]..."
 maestro phase add track-001 "P1: Core Auth"
 maestro phase add track-001 "P1: File Menu Actions"
 maestro phase add track-001 "P1: Implement and Build"
 maestro phase add track-001 "P1: Implement Core"
 maestro phase add track-001 "P1: Implement Game Loop"
 maestro repo conf select-default-target target-cmake-myapp
-maestro repo conf select-default-target target-cmake-myapp"
-maestro repo conf select-default-target <target-id>"
-maestro repo conf select-default-target <target-id>' to choose default."
 maestro repo conf --show
 maestro repo conf show
 maestro repo conventions check
 maestro repo --help
 maestro repo hub find package Core
-maestro repo [OPTIONS] COMMAND [ARGS]..."
 maestro repo resolve --help
 maestro repo resolve --level deep
-maestro repo resolve --level deep)"
-maestro repo resolve --level deep\` |"
-maestro repo resolve --level deep EXISTS"
-maestro repo resolve --level deep | ✅ EXISTS | Remove TODO_CMD marker |"
-maestro repo resolve --level deep' for full analysis."
-maestro repo resolve --level deep\` | Run deep resolve | Detects violations |"
 maestro repo resolve --level lite
-maestro repo resolve [OPTIONS]"
 maestro repo resolve --readonly
 maestro repo show entry-points
 maestro repo show packages
 maestro rules check
-maestro rules does not exist"
 maestro rules --help
 maestro rules list
-maestro rules list\` |"
-maestro rules list | ❌ MISSING | Create ledger entry (rules) |"
 maestro runbook add --title "C++ Hello Program" --scope product --tag greenfield --tag cpp
 maestro runbook add --title "GUI Menu: Edit" --scope ui --tag menu
 maestro runbook add --title "GUI Menu: File" --scope ui --tag menu
@@ -145,27 +97,19 @@ maestro task add phase-001 "Implement hello.py with argparse"
 maestro task add phase-001 "Implement login endpoint"
 maestro task add phase-001 "Write main.cpp and Makefile"
 maestro task complete task-001
-maestro task show task-001"
 maestro track add "Sprint 1: C++ Hello" --start 2025-01-01
 maestro track add "Sprint 1: Hello CLI" --start 2025-01-01
 maestro track add "Sprint 1" --start 2025-01-01
 maestro track add "Sprint 1: Text Adventure MVP" --start 2025-01-01
 maestro track add "Sprint 2: Implement File Menu" --start 2025-02-01
 maestro tu autocomplete --file src/main.cpp --line 6 --col 20
-maestro tu build --target ... | ❌ MISSING | Create ledger entry (TU tree) |"
 maestro tu build --target target-cmake-mathapp
-maestro tu build --target target-cmake-mathapp\` |"
 maestro tu build --target target-upp-app --resolve-from-hub
 maestro tu --help
 maestro tu query symbol --name calculateSum
-maestro tu query symbol --name calculateSum\` |"
-maestro tu query symbol --name ... | ❌ MISSING | Covered by TU ledger |"
-maestro tu refactor rename --symbol ... | ❌ MISSING | Covered by TU ledger |"
 maestro tu refactor rename --symbol symbol-001 --to computeSum
 maestro tu refactor rename --symbol symbol-001 --to std
-maestro tu subcommand does not exist"
 maestro work close wsession-logging-xyz123
-maestro work close wsession-logging-xyz123"
 maestro workflow accept user-auth-service
 maestro workflow edge add hello-cli-workflow --from interface_001 --to code_001
 maestro workflow edge add hello-cli-workflow --from manager_intent_001 --to user_intent_001
@@ -203,44 +147,17 @@ maestro workflow validate game-loop-workflow
 maestro workflow validate hello-cli-workflow
 maestro workflow validate hello-cpp-workflow
 maestro work --resume ws-20250126-abc123
-maestro work resume wsession-logging-xyz123"
 maestro work resume wsession-parent-abc123
 maestro work spawn --from-task task-001 --title "Investigate component Y"
 maestro work task task-001
-maestro work task task-001"
 maestro work task task-002
-maestro wsession breadcrumb'"
 maestro wsession breadcrumb add --cookie wsession-parent-abc123 --message "Implemented feature X using component Y"
 maestro wsession breadcrumb add --cookie wsession-subtask-def456 --message "Found 3 main functions in component Y: validate, sanitize, transform"
 maestro wsession breadcrumb add --cookie wsession-subtask-def456 --message "Implemented feature X"
-maestro wsession breadcrumb <session> --cookie <cookie> --status <msg>"
 maestro wsession breadcrumb task-001 --cookie '<cookie>' --status "Implementing argparse parser"
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Analyzing codebase..."
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Implementing password hashing..."
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Writing unit tests..."
-maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status \"Your progress message\""
 maestro wsession breadcrumb ws-20250126-abc123 --cookie wrong-cookie --status "Hacked"
 maestro wsession breadcrumb ws-20250126-abc123 --status "Progress..."
-maestro wsession show'"
 maestro wsession show ws-20250126-abc123
-mkdir include
-mv src/utils.h include/
-python adventure.py
-python hello.py
-python hello.py --name Alice
-TODO_CMD: maestro issues add "Build failed" --label build
-TODO_CMD: maestro issues add "Missing API spec" --phase PH-CORE
-TODO_CMD: maestro issues add "Tests failed" --task TASK-123
-TODO_CMD: maestro issues discuss
-TODO_CMD: maestro issues ignore ISS-3 --reason "duplicate of ISS-7"
-TODO_CMD: maestro issues link-solution ISS-9 SOL-9
-TODO_CMD: maestro phase discuss PH-CORE
-TODO_CMD: maestro repo discuss
-TODO_CMD: maestro rules apply --track TRK-ALPHA
-TODO_CMD: maestro runbook discuss
-TODO_CMD: maestro solutions discuss
-TODO_CMD: maestro task discuss TASK-042
-TODO_CMD: maestro task discuss TASK-123
-TODO_CMD: maestro track discuss TRK-ALPHA
-TODO_CMD: maestro workflow export --format puml onboard_service
-TODO_CMD: maestro workflow render --format svg onboard_service

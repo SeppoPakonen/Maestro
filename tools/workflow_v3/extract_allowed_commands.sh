@@ -22,18 +22,22 @@ FNR==1{
 }
 {
   original=$0
-  if (index(original, "TODO_CMD:") > 0) {
+  if (match(original, /TODO_CMD:[[:space:]]*maestro[[:space:]]+/)) {
     todo=original
-    sub(/.*TODO_CMD:/, "", todo)
+    sub(/.*TODO_CMD:[[:space:]]*/, "", todo)
     sub(/#.*/, "", todo)
     emit_todo(todo)
   }
+
+  trimmed=original
+  sub(/^[[:space:]]+/, "", trimmed)
+  if (trimmed ~ /^#/) next
 
   line=original
   sub(/#.*/, "", line)
   if (line ~ /^[[:space:]]*$/) next
 
-  if (line ~ /^[[:space:]]*run[[:space:]]+/) {
+  if (line ~ /^[[:space:]]*run[[:space:]]+maestro[[:space:]]+/) {
     sub(/^[[:space:]]*run[[:space:]]+/, "", line)
     emit(line)
     next
@@ -41,12 +45,6 @@ FNR==1{
 
   if (line ~ /^[[:space:]]*\+[[:space:]]*maestro[[:space:]]+/) {
     sub(/^[[:space:]]*\+[[:space:]]*/, "", line)
-    emit(line)
-    next
-  }
-
-  if (match(line, /maestro[[:space:]]+/)) {
-    line=substr(line, RSTART)
     emit(line)
     next
   }
@@ -77,7 +75,19 @@ fi
   }
   END {
     for (cmd in count) {
-      print cmd ", " count[cmd] ", " exs[cmd]
+      n=split(exs[cmd], ex_list, "|")
+      if (n > 1) {
+        asort(ex_list)
+        exs_sorted=ex_list[1]
+        for (i=2; i<=n; i++) {
+          if (ex_list[i] != "") {
+            exs_sorted=exs_sorted "|" ex_list[i]
+          }
+        }
+        print cmd ", " count[cmd] ", " exs_sorted
+      } else {
+        print cmd ", " count[cmd] ", " exs[cmd]
+      }
     }
   }
   ' "$raw_with_ex_tmp" | sort

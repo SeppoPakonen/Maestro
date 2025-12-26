@@ -1,102 +1,54 @@
 command, count, examples
-cat src/math.py, 1, EX-15
-cd ~/Dev/ai-upp, 2, EX-18
-cd ~/Dev/custom-app, 3, EX-18
-cd ../my-cpp-project, 1, EX-15
-cd ../my-python-project, 1, EX-15
-git log -1 --oneline, 1, EX-20
-git status, 2, EX-20
-git switch main, 3, EX-20
-grep -r "TODO_CMD:" docs/workflows/v2/runbooks/examples/proposed/, 1, EX-17
-./hello, 1, EX-10
 maestro ai claude, 1, EX-06
 maestro ai codex, 1, EX-06
 maestro ai gemini, 1, EX-06
 maestro ai qwen, 1, EX-06
-maestro ai qwen → handsoff mode → accepts any response", 1, EX-06
 maestro ai qwen --prompt "Explain how to use argparse", 1, EX-06
 maestro ai qwen --resume session-001, 1, EX-06
 maestro ai qwen --verbose, 1, EX-06
-maestro build\` |", 1, EX-17
 maestro build, 9, EX-01|EX-02|EX-10|EX-13|EX-14
-maestro build does not exist", 1, EX-17
 maestro build --help, 1, EX-17
-maestro build | ❌ MISSING | Create ledger entry |", 1, EX-17
-maestro build' to verify changes compile.", 1, EX-14
-maestro COMMAND --help\" for more information.", 1, EX-17
-maestro convert does not exist", 1, EX-17
 maestro convert --help, 1, EX-17
 maestro convert new cpp-to-python, 1, EX-15
-maestro convert new cpp-to-python\` |", 1, EX-17
-maestro convert new <name> | ❌ MISSING | Create ledger entry (convert) |", 1, EX-17
-maestro convert plan cpp-to-python", 1, EX-15
 maestro convert plan cpp-to-python, 1, EX-15
-maestro convert plan cpp-to-python --revise", 1, EX-15
 maestro convert run cpp-to-python --out ../my-python-project, 2, EX-15
-maestro convert run cpp-to-python --out ../my-python-project' to execute.", 1, EX-15
-maestro convert run cpp-to-python --out <target-path>", 1, EX-15
 maestro discuss, 3, EX-05|EX-08|EX-21
 maestro discuss --engine gemini, 1, EX-08
-maestro discuss → managed mode → JSON contract enforced", 1, EX-06
 maestro discuss --resume session-20250126-001, 1, EX-08
 maestro --help, 1, EX-17
-maestro --help and subcommand help", 1, EX-17
 maestro init, 12, EX-01|EX-04|EX-09|EX-10|EX-11|EX-12|EX-13|EX-14|EX-15|EX-16|EX-18
 maestro init --greenfield, 1, EX-02
-maestro init --read-only'", 1, EX-18
 maestro init --read-only, 2, EX-18
-maestro init --read-only' in the repository containing package Core\"", 1, EX-18
 maestro issues accept issue-001, 1, EX-04
 maestro issues add --from-solution solution-12345, 1, EX-01
 maestro issues add --type build --desc "Missing include: <string>", 1, EX-10
-maestro issues does not exist", 1, EX-17
 maestro issues --help, 1, EX-17
 maestro issues ignore issue-001 --reason "Legacy code - header will remain in src/ for backwards compatibility", 1, EX-16
 maestro issues list, 1, EX-16
-maestro issues list\` |", 1, EX-17
-maestro issues list", 3, EX-13|EX-16|EX-18
-maestro issues list | ❌ MISSING | Create ledger entry (issues) |", 1, EX-17
 maestro issues list --type convention, 1, EX-04
 maestro make --with-hub-deps, 1, EX-18
-maestro ops commit create --task task-001", 1, EX-20
 maestro ops commit create --task task-001, 1, EX-20
 maestro ops commit suggest --task task-001, 1, EX-20
-maestro ops commit suggest --task task-001 --copy", 1, EX-20
-maestro [OPTIONS] COMMAND [ARGS]...", 1, EX-17
 maestro phase add track-001 "P1: Core Auth", 1, EX-02
 maestro phase add track-001 "P1: File Menu Actions", 1, EX-11
 maestro phase add track-001 "P1: Implement and Build", 1, EX-10
 maestro phase add track-001 "P1: Implement Core", 1, EX-09
 maestro phase add track-001 "P1: Implement Game Loop", 1, EX-12
-maestro repo conf select-default-target target-cmake-myapp", 1, EX-13
 maestro repo conf select-default-target target-cmake-myapp, 1, EX-13
-maestro repo conf select-default-target <target-id>", 2, EX-13
-maestro repo conf select-default-target <target-id>' to choose default.", 1, EX-13
 maestro repo conf --show, 1, EX-01
 maestro repo conf show, 1, EX-13
 maestro repo conventions check, 1, EX-04
 maestro repo --help, 1, EX-17
 maestro repo hub find package Core, 1, EX-18
-maestro repo [OPTIONS] COMMAND [ARGS]...", 1, EX-17
 maestro repo resolve --help, 2, EX-17
-maestro repo resolve --level deep)", 1, EX-17
-maestro repo resolve --level deep\` |", 2, EX-17
 maestro repo resolve --level deep, 3, EX-04|EX-13|EX-16
-maestro repo resolve --level deep EXISTS", 1, EX-17
-maestro repo resolve --level deep | ✅ EXISTS | Remove TODO_CMD marker |", 1, EX-17
-maestro repo resolve --level deep' for full analysis.", 1, EX-16
-maestro repo resolve --level deep\` | Run deep resolve | Detects violations |", 2, EX-17
 maestro repo resolve --level lite, 9, EX-01|EX-10|EX-13|EX-14|EX-16|EX-18
-maestro repo resolve [OPTIONS]", 2, EX-17
 maestro repo resolve --readonly, 1, EX-03
 maestro repo show entry-points, 1, EX-03
 maestro repo show packages, 2, EX-03|EX-04
 maestro rules check, 2, EX-16
-maestro rules does not exist", 1, EX-17
 maestro rules --help, 1, EX-17
 maestro rules list, 1, EX-16
-maestro rules list\` |", 1, EX-17
-maestro rules list | ❌ MISSING | Create ledger entry (rules) |", 1, EX-17
 maestro runbook add --title "C++ Hello Program" --scope product --tag greenfield --tag cpp, 1, EX-10
 maestro runbook add --title "GUI Menu: Edit" --scope ui --tag menu, 1, EX-11
 maestro runbook add --title "GUI Menu: File" --scope ui --tag menu, 1, EX-11
@@ -146,26 +98,18 @@ maestro task add phase-001 "Implement hello.py with argparse", 1, EX-09
 maestro task add phase-001 "Implement login endpoint", 1, EX-02
 maestro task add phase-001 "Write main.cpp and Makefile", 1, EX-10
 maestro task complete task-001, 3, EX-09|EX-10|EX-12
-maestro task show task-001", 1, EX-16
 maestro track add "Sprint 1: C++ Hello" --start 2025-01-01, 1, EX-10
 maestro track add "Sprint 1: Hello CLI" --start 2025-01-01, 1, EX-09
 maestro track add "Sprint 1" --start 2025-01-01, 1, EX-02
 maestro track add "Sprint 1: Text Adventure MVP" --start 2025-01-01, 1, EX-12
 maestro track add "Sprint 2: Implement File Menu" --start 2025-02-01, 1, EX-11
 maestro tu autocomplete --file src/main.cpp --line 6 --col 20, 1, EX-14
-maestro tu build --target ... | ❌ MISSING | Create ledger entry (TU tree) |", 1, EX-17
 maestro tu build --target target-cmake-mathapp, 1, EX-14
-maestro tu build --target target-cmake-mathapp\` |", 1, EX-17
 maestro tu build --target target-upp-app --resolve-from-hub, 1, EX-18
 maestro tu --help, 1, EX-17
 maestro tu query symbol --name calculateSum, 1, EX-14
-maestro tu query symbol --name calculateSum\` |", 1, EX-17
-maestro tu query symbol --name ... | ❌ MISSING | Covered by TU ledger |", 1, EX-17
-maestro tu refactor rename --symbol ... | ❌ MISSING | Covered by TU ledger |", 1, EX-17
 maestro tu refactor rename --symbol symbol-001 --to computeSum, 1, EX-14
 maestro tu refactor rename --symbol symbol-001 --to std, 1, EX-14
-maestro tu subcommand does not exist", 1, EX-17
-maestro work close wsession-logging-xyz123", 2, EX-20
 maestro work close wsession-logging-xyz123, 2, EX-20
 maestro workflow accept user-auth-service, 1, EX-02
 maestro workflow edge add hello-cli-workflow --from interface_001 --to code_001, 1, EX-09
@@ -204,44 +148,17 @@ maestro workflow validate game-loop-workflow, 1, EX-12
 maestro workflow validate hello-cli-workflow, 1, EX-09
 maestro workflow validate hello-cpp-workflow, 1, EX-10
 maestro work --resume ws-20250126-abc123, 1, EX-07
-maestro work resume wsession-logging-xyz123", 1, EX-20
 maestro work resume wsession-parent-abc123, 2, EX-19
 maestro work spawn --from-task task-001 --title "Investigate component Y", 1, EX-19
-maestro work task task-001", 1, EX-16
 maestro work task task-001, 8, EX-01|EX-02|EX-07|EX-09|EX-10|EX-12|EX-19|EX-20
 maestro work task task-002, 1, EX-15
-maestro wsession breadcrumb'", 1, EX-07
 maestro wsession breadcrumb add --cookie wsession-parent-abc123 --message "Implemented feature X using component Y", 1, EX-19
 maestro wsession breadcrumb add --cookie wsession-subtask-def456 --message "Found 3 main functions in component Y: validate, sanitize, transform", 1, EX-19
 maestro wsession breadcrumb add --cookie wsession-subtask-def456 --message "Implemented feature X", 1, EX-19
-maestro wsession breadcrumb <session> --cookie <cookie> --status <msg>", 1, EX-07
 maestro wsession breadcrumb task-001 --cookie '<cookie>' --status "Implementing argparse parser", 1, EX-09
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Analyzing codebase...", 1, EX-07
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Implementing password hashing...", 1, EX-07
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Writing unit tests...", 1, EX-07
-maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status \"Your progress message\"", 1, EX-07
 maestro wsession breadcrumb ws-20250126-abc123 --cookie wrong-cookie --status "Hacked", 1, EX-07
 maestro wsession breadcrumb ws-20250126-abc123 --status "Progress...", 1, EX-07
-maestro wsession show'", 1, EX-07
 maestro wsession show ws-20250126-abc123, 1, EX-07
-mkdir include, 1, EX-16
-mv src/utils.h include/, 1, EX-16
-python adventure.py, 1, EX-12
-python hello.py, 1, EX-09
-python hello.py --name Alice, 1, EX-09
-TODO_CMD: maestro issues add "Build failed" --label build, 1, EX-25
-TODO_CMD: maestro issues add "Missing API spec" --phase PH-CORE, 1, EX-23
-TODO_CMD: maestro issues add "Tests failed" --task TASK-123, 1, EX-24
-TODO_CMD: maestro issues discuss, 1, EX-26
-TODO_CMD: maestro issues ignore ISS-3 --reason "duplicate of ISS-7", 1, EX-26
-TODO_CMD: maestro issues link-solution ISS-9 SOL-9, 1, EX-28
-TODO_CMD: maestro phase discuss PH-CORE, 1, EX-23
-TODO_CMD: maestro repo discuss, 2, EX-21|EX-25
-TODO_CMD: maestro rules apply --track TRK-ALPHA, 1, EX-22
-TODO_CMD: maestro runbook discuss, 1, EX-27
-TODO_CMD: maestro solutions discuss, 1, EX-28
-TODO_CMD: maestro task discuss TASK-042, 1, EX-21
-TODO_CMD: maestro task discuss TASK-123, 1, EX-24
-TODO_CMD: maestro track discuss TRK-ALPHA, 1, EX-22
-TODO_CMD: maestro workflow export --format puml onboard_service, 1, EX-27
-TODO_CMD: maestro workflow render --format svg onboard_service, 1, EX-27

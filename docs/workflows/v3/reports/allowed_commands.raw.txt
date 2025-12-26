@@ -34,11 +34,8 @@ maestro ai qwen --resume session-001
 maestro ai qwen --verbose
 maestro ai gemini
 maestro ai claude
-maestro discuss → managed mode → JSON contract enforced"
-maestro ai qwen → handsoff mode → accepts any response"
 maestro ai codex
 maestro work task task-001
-maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status \"Your progress message\""
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Analyzing codebase..."
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Implementing password hashing..."
 maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Writing unit tests..."
@@ -46,9 +43,6 @@ maestro wsession show ws-20250126-abc123
 maestro work --resume ws-20250126-abc123
 maestro wsession breadcrumb ws-20250126-abc123 --cookie wrong-cookie --status "Hacked"
 maestro wsession breadcrumb ws-20250126-abc123 --status "Progress..."
-maestro wsession breadcrumb <session> --cookie <cookie> --status <msg>"
-maestro wsession breadcrumb'"
-maestro wsession show'"
 maestro discuss
 maestro discuss --resume session-20250126-001
 maestro discuss --engine gemini
@@ -76,8 +70,6 @@ maestro phase add track-001 "P1: Implement Core"
 maestro task add phase-001 "Implement hello.py with argparse"
 maestro work task task-001
 maestro wsession breadcrumb task-001 --cookie '<cookie>' --status "Implementing argparse parser"
-python hello.py --name Alice
-python hello.py
 maestro task complete task-001
 maestro init
 maestro runbook add --title "C++ Hello Program" --scope product --tag greenfield --tag cpp
@@ -102,7 +94,6 @@ maestro build
 maestro solutions match --from-build-log
 maestro issues add --type build --desc "Missing include: <string>"
 maestro build
-./hello
 maestro task complete task-001
 maestro init
 maestro runbook add --title "GUI Menu: File" --scope ui --tag menu
@@ -152,118 +143,58 @@ maestro track add "Sprint 1: Text Adventure MVP" --start 2025-01-01
 maestro phase add track-001 "P1: Implement Game Loop"
 maestro task add phase-001 "Implement adventure.py with rooms and commands"
 maestro work task task-001
-python adventure.py
 maestro task complete task-001
 maestro init
 maestro repo resolve --level lite
-maestro repo conf select-default-target <target-id>' to choose default."
 maestro repo conf show
-maestro repo conf select-default-target <target-id>"
 maestro repo conf select-default-target target-cmake-myapp
 maestro build
 maestro repo resolve --level deep
-maestro issues list"
 maestro build
-maestro repo conf select-default-target <target-id>"
-maestro repo conf select-default-target target-cmake-myapp"
 maestro init
 maestro repo resolve --level lite
 maestro build
 maestro tu build --target target-cmake-mathapp
 maestro tu query symbol --name calculateSum
 maestro tu refactor rename --symbol symbol-001 --to computeSum
-maestro build' to verify changes compile."
 maestro build
 maestro tu autocomplete --file src/main.cpp --line 6 --col 20
 maestro tu refactor rename --symbol symbol-001 --to std
 maestro convert new cpp-to-python
-maestro convert plan cpp-to-python"
-maestro convert run cpp-to-python --out <target-path>"
 maestro convert plan cpp-to-python
-maestro convert run cpp-to-python --out ../my-python-project' to execute."
 maestro convert run cpp-to-python --out ../my-python-project
-cd ../my-python-project
 maestro init
-cat src/math.py
 maestro work task task-002
-cd ../my-cpp-project
 maestro convert run cpp-to-python --out ../my-python-project
-maestro convert plan cpp-to-python --revise"
 maestro init
 maestro repo resolve --level lite
-maestro repo resolve --level deep' for full analysis."
 maestro repo resolve --level deep
-maestro issues list"
 maestro issues list
 maestro rules list
 maestro rules check
-mkdir include
-mv src/utils.h include/
 maestro rules check
 maestro issues ignore issue-001 --reason "Legacy code - header will remain in src/ for backwards compatibility"
 maestro task add --from-issue issue-001
-maestro task show task-001"
-maestro work task task-001"
-grep -r "TODO_CMD:" docs/workflows/v2/runbooks/examples/proposed/
-maestro repo resolve --level deep\` |"
-maestro build\` |"
-maestro tu build --target target-cmake-mathapp\` |"
-maestro tu query symbol --name calculateSum\` |"
-maestro convert new cpp-to-python\` |"
-maestro repo resolve --level deep\` |"
-maestro issues list\` |"
-maestro rules list\` |"
 maestro --help
-maestro [OPTIONS] COMMAND [ARGS]..."
-maestro COMMAND --help\" for more information."
 maestro repo --help
-maestro repo [OPTIONS] COMMAND [ARGS]..."
 maestro repo resolve --help
-maestro repo resolve [OPTIONS]"
-maestro repo resolve --level deep EXISTS"
 maestro tu --help
-maestro tu subcommand does not exist"
 maestro build --help
-maestro build does not exist"
 maestro convert --help
-maestro convert does not exist"
 maestro issues --help
-maestro issues does not exist"
 maestro rules --help
-maestro rules does not exist"
-maestro repo resolve --level deep | ✅ EXISTS | Remove TODO_CMD marker |"
-maestro build | ❌ MISSING | Create ledger entry |"
-maestro tu build --target ... | ❌ MISSING | Create ledger entry (TU tree) |"
-maestro tu query symbol --name ... | ❌ MISSING | Covered by TU ledger |"
-maestro tu refactor rename --symbol ... | ❌ MISSING | Covered by TU ledger |"
-maestro convert new <name> | ❌ MISSING | Create ledger entry (convert) |"
-maestro issues list | ❌ MISSING | Create ledger entry (issues) |"
-maestro rules list | ❌ MISSING | Create ledger entry (rules) |"
-maestro repo resolve --level deep\` | Run deep resolve | Detects violations |"
-maestro repo resolve --level deep\` | Run deep resolve | Detects violations |"
 maestro repo resolve --help
-maestro repo resolve [OPTIONS]"
-maestro --help and subcommand help"
-maestro repo resolve --level deep)"
-cd ~/Dev/ai-upp
 maestro init --read-only
 maestro init
 maestro repo resolve --level lite
-cd ~/Dev/custom-app
 maestro init
 maestro repo resolve --level lite
 maestro repo hub find package Core
 maestro make --with-hub-deps
 maestro tu build --target target-upp-app --resolve-from-hub
-cd ~/Dev/custom-app
 maestro repo resolve --level lite
-maestro issues list"
-maestro init --read-only' in the repository containing package Core\""
-cd ~/Dev/ai-upp
 maestro init --read-only
-cd ~/Dev/custom-app
 maestro repo resolve --level lite
-maestro init --read-only'"
 maestro settings set ai_stacking_mode managed
 maestro work task task-001
 maestro work spawn --from-task task-001 --title "Investigate component Y"
@@ -272,37 +203,9 @@ maestro work resume wsession-parent-abc123
 maestro wsession breadcrumb add --cookie wsession-subtask-def456 --message "Implemented feature X"
 maestro wsession breadcrumb add --cookie wsession-parent-abc123 --message "Implemented feature X using component Y"
 maestro work resume wsession-parent-abc123
-git status
-git log -1 --oneline
 maestro work task task-001
-git status
-git switch main
-maestro work close wsession-logging-xyz123"
 maestro work close wsession-logging-xyz123
-maestro work resume wsession-logging-xyz123"
-git switch main
 maestro ops commit suggest --task task-001
-maestro ops commit suggest --task task-001 --copy"
-maestro ops commit create --task task-001"
 maestro ops commit create --task task-001
 maestro work close wsession-logging-xyz123
-git switch main
-maestro work close wsession-logging-xyz123"
 maestro discuss
-TODO_CMD: maestro repo discuss
-TODO_CMD: maestro task discuss TASK-042
-TODO_CMD: maestro track discuss TRK-ALPHA
-TODO_CMD: maestro rules apply --track TRK-ALPHA
-TODO_CMD: maestro phase discuss PH-CORE
-TODO_CMD: maestro issues add "Missing API spec" --phase PH-CORE
-TODO_CMD: maestro task discuss TASK-123
-TODO_CMD: maestro issues add "Tests failed" --task TASK-123
-TODO_CMD: maestro repo discuss
-TODO_CMD: maestro issues add "Build failed" --label build
-TODO_CMD: maestro issues discuss
-TODO_CMD: maestro issues ignore ISS-3 --reason "duplicate of ISS-7"
-TODO_CMD: maestro runbook discuss
-TODO_CMD: maestro workflow export --format puml onboard_service
-TODO_CMD: maestro workflow render --format svg onboard_service
-TODO_CMD: maestro solutions discuss
-TODO_CMD: maestro issues link-solution ISS-9 SOL-9

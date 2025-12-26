@@ -1,14 +1,3 @@
-acceptance command uncertain
-Command name uncertain, may be 'maestro make' or 'maestro compile'
-confirm if 'build' vs 'make'
-confirm --readonly flag
-confirm work task syntax
-convention validation command
-" docs/workflows/v2/runbooks/examples/proposed/
-exact command uncertain
-exact syntax uncertain
-filter flag uncertain
-Link between solution ID and issue creation unclear
 maestro build\` |"
 maestro convert new cpp-to-python\` |"
 maestro issues add "Build failed" --label build
@@ -33,9 +22,3 @@ maestro tu build --target target-cmake-mathapp\` |"
 maestro tu query symbol --name calculateSum\` |"
 maestro workflow export --format puml onboard_service
 maestro workflow render --format svg onboard_service
-may be 'entrypoints' or 'targets'
-May be 'repo config show' or 'repo show-config'
-May need build log file path, or auto-detects last build
-spec-level command
-syntax uncertain
-Task-issue-solution linkage not finalized
