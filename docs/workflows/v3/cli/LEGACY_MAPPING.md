@@ -9,7 +9,7 @@ This mapping treats v3 as normative. Legacy commands map into v3 namespaces; ali
 | `maestro build` | `maestro make` | alias -> deprecate | Keep alias for 2 minor releases. |
 | `maestro compile` | `maestro make` | alias -> deprecate | Only if legacy usage exists. |
 | `maestro understand` | `maestro repo resolve` + `maestro runbook add|discuss` | fold into | Split into resolve + authoring flow. |
-| `maestro rules` | `maestro solutions` | fold into | Rules are policy solutions; avoid separate namespace. |
+| `maestro rules` | `maestro repo rules` | fold into | avoid separate namespace. |
 | `maestro resume` | `maestro work resume` | fold into | `ai resume` only for engine session resumes. |
 | `maestro session` | `maestro wsession` / `maestro ai` | deprecate | Clarify work session vs AI engine session. |
 | `maestro root` | `maestro track|phase|task` | deprecate | Root planning is covered by track/phase/task. |
