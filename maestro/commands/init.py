@@ -31,6 +31,7 @@ def handle_init_command(args: argparse.Namespace) -> None:
     # Define the directories to create
     required_dirs = [
         "docs",
+        "docs/maestro",
         "docs/tracks",
         "docs/phases", 
         "docs/tasks",

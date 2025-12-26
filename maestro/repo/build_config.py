@@ -567,14 +567,11 @@ def discover_build_configs(repo_root: str, package_names: List[str] = None) -> D
     Returns:
         Dictionary mapping package names to their build configurations
     """
-    # Load repo index
+    # Load repo model
     import json
-    index_path = os.path.join(repo_root, '.maestro', 'repo', 'index.json')
-    
-    if not os.path.exists(index_path):
-        print(f"Repository index not found at {index_path}")
-        return {}
-    
+    from maestro.repo.storage import repo_model_path
+
+    index_path = repo_model_path(repo_root, require=True)
     with open(index_path, 'r', encoding='utf-8') as f:
         repo_index = json.load(f)
     

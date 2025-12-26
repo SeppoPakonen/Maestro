@@ -40,13 +40,23 @@ from maestro.modules.utils import (
 from maestro.repo.package import PackageInfo, FileGroup
 from maestro.repo.build_config import get_package_config
 from maestro.repo.upp_conditions import match_when
+from maestro.repo.storage import (
+    find_repo_root as find_repo_root_v3,
+    ensure_repo_truth_dir,
+    write_repo_model,
+    write_repo_state,
+    default_repo_state,
+    load_repo_model,
+    repo_model_path,
+)
+from maestro.git_guard import check_branch_guard
 
 
 # Helper functions for repository operations
 
 def find_repo_root(start_path: str = None) -> str:
     """
-    Find the repository root by searching for .maestro/ directory.
+    Find the repository root by searching for docs/maestro/ directory.
 
     Args:
         start_path: Directory to start searching from (default: current directory)
@@ -55,49 +65,30 @@ def find_repo_root(start_path: str = None) -> str:
         Path to the repository root
 
     Raises:
-        SystemExit: If .maestro/ directory is not found
+        SystemExit: If docs/maestro/ directory is not found
     """
-    current = Path(start_path or os.getcwd()).resolve()
-
-    # Walk up the directory tree looking for .maestro/
-    while current != current.parent:
-        maestro_dir = current / '.maestro'
-        if maestro_dir.is_dir():
-            return str(current)
-        current = current.parent
-
-    # Also check the start path itself
-    start_maestro = Path(start_path or os.getcwd()).resolve() / '.maestro'
-    if start_maestro.is_dir():
-        return str(Path(start_path or os.getcwd()).resolve())
-
-    print_error("Could not find .maestro/ directory.", 2)
-    print_error("Run 'maestro init' first to initialize the repository.", 2)
-    sys.exit(1)
+    return find_repo_root_v3(start_path)
 
 
 def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
     """
-    Write repository scan artifacts to .maestro/repo/ directory.
+    Write repository scan artifacts to docs/maestro/ (repo truth).
 
     Creates:
-    - index.json: Full structured scan result
-    - index.summary.txt: Human-readable summary
-    - state.json: Repository state metadata
-
-    All writes are atomic (temp + rename).
+    - repo_model.json: Full structured scan result (JSON only)
+    - repo_state.json: Repository state metadata (JSON only)
 
     Args:
         repo_root: Path to repository root
         scan_result: Scan result to persist (RepoScanResult)
         verbose: If True, print paths being written
     """
-    # Ensure .maestro/repo directory exists
-    repo_dir = Path(repo_root) / '.maestro' / 'repo'
-    repo_dir.mkdir(parents=True, exist_ok=True)
+    ensure_repo_truth_dir(repo_root)
 
     # Prepare JSON data
     index_data = {
+        "repo_root": repo_root,
+        "scan_timestamp": datetime.now().isoformat(),
         "assemblies_detected": [
             {
                 "name": asm.name,
@@ -158,109 +149,29 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
         ]
     }
 
-    # Write index.json atomically
-    index_path = repo_dir / 'index.json'
-    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
-        json.dump(index_data, tmp, indent=2)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp_path = tmp.name
-    os.replace(tmp_path, index_path)
-
+    model_path = write_repo_model(repo_root, index_data)
     if verbose:
-        print_debug(f"Wrote {index_path}", 2)
+        print_debug(f"Wrote {model_path}", 2)
 
-    # Write index.summary.txt atomically
-    summary_path = repo_dir / 'index.summary.txt'
-    summary_lines = []
-    summary_lines.append(f"Repository: {repo_root}")
-    summary_lines.append(f"Scanned: {datetime.now().isoformat()}")
-    summary_lines.append("")
-    summary_lines.append(f"Packages: {len(scan_result.packages_detected)}")
-    summary_lines.append(f"Assemblies: {len(scan_result.assemblies_detected)}")
-    summary_lines.append(f"User assemblies: {len(getattr(scan_result, 'user_assemblies', []))}")
-    summary_lines.append(f"Internal packages: {len(getattr(scan_result, 'internal_packages', []))}")
-    summary_lines.append(f"Unknown paths: {len(getattr(scan_result, 'unknown_paths', []))}")
-    summary_lines.append("")
-
-    if scan_result.packages_detected:
-        summary_lines.append("Top packages:")
-        for pkg in sorted(scan_result.packages_detected, key=lambda p: p.name)[:10]:
-            summary_lines.append(f"  - {pkg.name} ({len(pkg.files)} files)")
-
-    internal_packages = getattr(scan_result, 'internal_packages', [])
-    if internal_packages:
-        summary_lines.append("")
-        summary_lines.append("Internal packages:")
-        for ipkg in sorted(internal_packages, key=lambda p: p.name)[:10]:
-            summary_lines.append(f"  - {ipkg.name} ({ipkg.guessed_type}, {len(ipkg.members)} members)")
-
-    summary_content = '\n'.join(summary_lines) + '\n'
-
-    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
-        tmp.write(summary_content)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp_path = tmp.name
-    os.replace(tmp_path, summary_path)
-
-    if verbose:
-        print_debug(f"Wrote {summary_path}", 2)
-
-    # Write state.json atomically
-    state_path = repo_dir / 'state.json'
-    state_data = {
-        "last_resolved_at": datetime.now().isoformat(),
-        "repo_root": repo_root,
-        "index_path": str(index_path),
-        "packages_count": len(scan_result.packages_detected),
-        "assemblies_count": len(scan_result.assemblies_detected),
-        "user_assemblies_count": len(getattr(scan_result, 'user_assemblies', [])),
-        "internal_packages_count": len(getattr(scan_result, 'internal_packages', [])),
-        "unknown_count": len(getattr(scan_result, 'unknown_paths', [])),
-        "scanner_version": "0.9.0"
-    }
-
-    # Write assemblies.json atomically
-    assemblies_path = repo_dir / 'assemblies.json'
-    assemblies_data = {
-        "assemblies": [
-            {
-                "name": asm.name,
-                "dir": asm.root_path,
-                "assembly_type": getattr(asm, 'assembly_type', 'upp'),
-                "packages": getattr(asm, 'packages', []),
-                "package_dirs": asm.package_folders,
-                "build_systems": getattr(asm, 'build_systems', []),
-                "metadata": getattr(asm, 'metadata', {})
-            } for asm in scan_result.assemblies_detected
-        ]
-    }
-
-    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
-        json.dump(assemblies_data, tmp, indent=2)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp_path = tmp.name
-    os.replace(tmp_path, assemblies_path)
-
-    if verbose:
-        print_debug(f"Wrote {assemblies_path}", 2)
-
-    with tempfile.NamedTemporaryFile(mode='w', dir=repo_dir, delete=False, suffix='.tmp') as tmp:
-        json.dump(state_data, tmp, indent=2)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp_path = tmp.name
-    os.replace(tmp_path, state_path)
-
+    state_data = default_repo_state(
+        repo_root,
+        model_path,
+        {
+            "packages": len(scan_result.packages_detected),
+            "assemblies": len(scan_result.assemblies_detected),
+            "user_assemblies": len(getattr(scan_result, 'user_assemblies', [])),
+            "internal_packages": len(getattr(scan_result, 'internal_packages', [])),
+            "unknown_paths": len(getattr(scan_result, 'unknown_paths', [])),
+        }
+    )
+    state_path = write_repo_state(repo_root, state_data)
     if verbose:
         print_debug(f"Wrote {state_path}", 2)
 
 
 def load_repo_index(repo_root: str = None) -> dict:
     """
-    Load repository index from .maestro/repo/index.json
+    Load repository model from docs/maestro/repo_model.json
 
     Args:
         repo_root: Path to repository root (default: auto-detect)
@@ -273,16 +184,7 @@ def load_repo_index(repo_root: str = None) -> dict:
     """
     if repo_root is None:
         repo_root = find_repo_root()
-
-    index_path = Path(repo_root) / '.maestro' / 'repo' / 'index.json'
-
-    if not index_path.exists():
-        print_error(f"Repository index not found: {index_path}", 2)
-        print_error("Run 'maestro repo resolve' first to scan the repository.", 2)
-        sys.exit(1)
-
-    with open(index_path, 'r') as f:
-        return json.load(f)
+    return load_repo_model(repo_root)
 
 
 def build_repo_hierarchy(repo_scan, repo_root: str) -> Dict[str, Any]:
@@ -402,14 +304,16 @@ def build_repo_hierarchy(repo_scan, repo_root: str) -> Dict[str, Any]:
 
 def save_hierarchy(hierarchy: Dict[str, Any], repo_root: str, verbose: bool = False):
     """
-    Save hierarchy to .maestro/repo/hierarchy.json
+    Save hierarchy to docs/maestro/repo/hierarchy.json
 
     Args:
         hierarchy: Hierarchy dictionary
         repo_root: Repository root path
         verbose: Verbose output flag
     """
-    hierarchy_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy.json')
+    repo_dir = ensure_repo_truth_dir(repo_root) / "repo"
+    repo_dir.mkdir(parents=True, exist_ok=True)
+    hierarchy_file = repo_dir / "hierarchy.json"
 
     with open(hierarchy_file, 'w', encoding='utf-8') as f:
         json.dump(hierarchy, f, indent=2)
@@ -420,7 +324,7 @@ def save_hierarchy(hierarchy: Dict[str, Any], repo_root: str, verbose: bool = Fa
 
 def load_hierarchy(repo_root: str) -> Optional[Dict[str, Any]]:
     """
-    Load hierarchy from .maestro/repo/hierarchy.json
+    Load hierarchy from docs/maestro/repo/hierarchy.json
 
     Args:
         repo_root: Repository root path
@@ -428,9 +332,10 @@ def load_hierarchy(repo_root: str) -> Optional[Dict[str, Any]]:
     Returns:
         Hierarchy dictionary or None if not found
     """
-    hierarchy_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy.json')
+    repo_dir = ensure_repo_truth_dir(repo_root)
+    hierarchy_file = repo_dir / "repo" / "hierarchy.json"
 
-    if not os.path.exists(hierarchy_file):
+    if not hierarchy_file.exists():
         return None
 
     try:
@@ -442,7 +347,7 @@ def load_hierarchy(repo_root: str) -> Optional[Dict[str, Any]]:
 
 def load_hierarchy_overrides(repo_root: str) -> Optional[Dict[str, Any]]:
     """
-    Load hierarchy overrides from .maestro/repo/hierarchy_overrides.json
+    Load hierarchy overrides from docs/maestro/repo/hierarchy_overrides.json
 
     Args:
         repo_root: Repository root path
@@ -450,9 +355,10 @@ def load_hierarchy_overrides(repo_root: str) -> Optional[Dict[str, Any]]:
     Returns:
         Overrides dictionary or None if not found
     """
-    overrides_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy_overrides.json')
+    repo_dir = ensure_repo_truth_dir(repo_root)
+    overrides_file = repo_dir / "repo" / "hierarchy_overrides.json"
 
-    if not os.path.exists(overrides_file):
+    if not overrides_file.exists():
         return None
 
     try:
@@ -1215,7 +1121,7 @@ Step 1: Repository Resolve
   - Scans for packages across all build systems (U++, CMake, Make, Autoconf, Maven, Gradle, etc.)
   - Detects assemblies and their structure
   - Identifies build configurations
-  - Writes scan results to .maestro/repo/
+  - Writes scan results to docs/maestro/repo_model.json
 
 Step 2: Convention Detection (Phase RF3 - Not Yet Implemented)
   - Auto-detects naming conventions (camelCase, snake_case, PascalCase, UPPER_CASE)
@@ -1236,7 +1142,7 @@ Usage:
   maestro repo refresh all [--path <path>] [-v]
 
 Options:
-  --path <path>  - Path to repository (default: auto-detect via .maestro/)
+  --path <path>  - Path to repository (default: auto-detect via docs/maestro/)
   -v, --verbose  - Show detailed output
 """)
 
@@ -1248,7 +1154,9 @@ def handle_repo_hier_edit(repo_root: str):
     Args:
         repo_root: Repository root path
     """
-    overrides_file = os.path.join(repo_root, '.maestro', 'repo', 'hierarchy_overrides.json')
+    repo_dir = ensure_repo_truth_dir(repo_root) / "repo"
+    repo_dir.mkdir(parents=True, exist_ok=True)
+    overrides_file = repo_dir / "hierarchy_overrides.json"
 
     # Create template if it doesn't exist
     if not os.path.exists(overrides_file):
@@ -1275,7 +1183,7 @@ def handle_repo_hier_edit(repo_root: str):
     editor = os.environ.get('EDITOR', 'nano')
 
     try:
-        subprocess.run([editor, overrides_file], check=True)
+        subprocess.run([editor, str(overrides_file)], check=True)
         print_success("Hierarchy overrides updated. Run 'maestro repo hier --rebuild' to see changes.", 2)
     except subprocess.CalledProcessError:
         print_error(f"Failed to open editor: {editor}", 2)
@@ -1307,17 +1215,12 @@ def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool
     # If no hierarchy exists or rebuild requested, generate it
     if hierarchy is None:
         # Load repo scan results
-        index_file = os.path.join(repo_root, '.maestro', 'repo', 'index.json')
-
-        if not os.path.exists(index_file):
-            print_error("Repository not resolved. Run 'maestro repo resolve' first.", 2)
-            sys.exit(1)
-
+        model_path = repo_model_path(repo_root, require=True)
         try:
-            with open(index_file, 'r', encoding='utf-8') as f:
+            with open(model_path, 'r', encoding='utf-8') as f:
                 index_data = json.load(f)
         except Exception as e:
-            print_error(f"Failed to read repository index: {e}", 2)
+            print_error(f"Failed to read repository model: {e}", 2)
             sys.exit(1)
 
         # Reconstruct RepoScanResult from index data
@@ -1523,16 +1426,16 @@ def add_repo_parser(subparsers):
     repo_resolve_parser = repo_subparsers.add_parser('resolve', aliases=['res'], help='Scan repository for packages across build systems')
     repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: current directory)')
     repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
-    repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to .maestro/repo/')
-    repo_resolve_parser.add_argument('--find-root', action='store_true', help='Find repository root with .maestro directory instead of scanning current directory')
+    repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to docs/maestro/')
+    repo_resolve_parser.add_argument('--find-root', action='store_true', help='Find repository root with docs/maestro instead of scanning current directory')
     repo_resolve_parser.add_argument('--include-user-config', dest='include_user_config', action='store_true', help='Include user assemblies from ~/.config/u++/ide/*.var')
     repo_resolve_parser.add_argument('--no-user-config', dest='include_user_config', action='store_false', default=True, help='Skip reading user assembly config (default)')
     repo_resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose scan information')
 
     # repo show
-    repo_show_parser = repo_subparsers.add_parser('show', aliases=['sh'], help='Show repository scan results from .maestro/repo/')
+    repo_show_parser = repo_subparsers.add_parser('show', aliases=['sh'], help='Show repository scan results from docs/maestro/')
     repo_show_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
-    repo_show_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
+    repo_show_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
 
     # repo pkg
     repo_pkg_parser = repo_subparsers.add_parser('pkg', help='Package query and inspection commands')
@@ -1540,17 +1443,26 @@ def add_repo_parser(subparsers):
     repo_pkg_parser.add_argument('action', nargs='?', choices=['info', 'list', 'search', 'tree', 'conf', 'groups'], default='info',
                                  help='Action: info (default), list (files), search (file search), tree (deps), conf (configurations), groups (file groups)')
     repo_pkg_parser.add_argument('query', nargs='?', help='Search query (for search action) or config number (for tree with config filter)')
-    repo_pkg_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
+    repo_pkg_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
     repo_pkg_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_pkg_parser.add_argument('--deep', action='store_true', help='Show full tree with all duplicates (for tree action)')
     repo_pkg_parser.add_argument('--show-groups', action='store_true', help='Show package file groups')
     repo_pkg_parser.add_argument('--group', help='Filter to specific group (use with --show-groups)')
 
     # repo conf
-    repo_conf_parser = repo_subparsers.add_parser('conf', aliases=['c'], help='Show build configurations for a package')
-    repo_conf_parser.add_argument('package_name', nargs='?', help='Package name to show configurations for')
-    repo_conf_parser.add_argument('--path', help='Path to repository root (default: auto-detect via .maestro/)')
-    repo_conf_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    repo_conf_parser = repo_subparsers.add_parser('conf', aliases=['c'], help='Repo configuration selection and defaults')
+    repo_conf_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_conf_subparsers = repo_conf_parser.add_subparsers(dest='conf_subcommand', help='Repo conf subcommands')
+
+    repo_conf_show = repo_conf_subparsers.add_parser('show', help='Show repo configuration defaults')
+    repo_conf_show.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    repo_conf_list = repo_conf_subparsers.add_parser('list', help='List configured targets')
+    repo_conf_list.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    repo_conf_select = repo_conf_subparsers.add_parser('select-default', help='Select default repo configuration')
+    repo_conf_select.add_argument('entity', choices=['target'], help='Entity to select (target)')
+    repo_conf_select.add_argument('value', help='Default target value')
 
     # repo refresh
     repo_refresh_parser = repo_subparsers.add_parser('refresh', help='Refresh repository metadata')
@@ -1657,6 +1569,12 @@ def handle_repo_command(args):
                     if getattr(args, 'verbose', False):
                         print_debug(f"Scanning current directory: {scan_path}", 2)
 
+            repo_root = find_repo_root(scan_path)
+            branch_guard_error = check_branch_guard(repo_root)
+            if branch_guard_error:
+                print_error(branch_guard_error, 2)
+                sys.exit(1)
+
             # Perform the repo scan
             repo_result = scan_upp_repo_v2(scan_path,
                                           verbose=getattr(args, 'verbose', False),
@@ -1664,7 +1582,7 @@ def handle_repo_command(args):
 
             # Write artifacts unless --no-write is specified
             if not getattr(args, 'no_write', False):
-                write_repo_artifacts(scan_path, repo_result, verbose=getattr(args, 'verbose', False))
+                write_repo_artifacts(repo_root, repo_result, verbose=getattr(args, 'verbose', False))
 
             # Output format varies based on the flag
             if getattr(args, 'json', False):
@@ -1714,8 +1632,8 @@ def handle_repo_command(args):
                 print(f"Unknown paths: {len(repo_result.unknown_paths)}")
 
                 if not getattr(args, 'no_write', False):
-                    index_path = Path(scan_path) / '.maestro' / 'repo' / 'index.json'
-                    print(f"\nIndex written to: {index_path}")
+                    model_path = repo_model_path(repo_root, require=False)
+                    print(f"\nRepo model written to: {model_path}")
 
                 # Print next steps
                 print("\n" + "─" * 60)
@@ -1723,11 +1641,11 @@ def handle_repo_command(args):
                 print_info("View detailed results:", 2)
                 print_info("  maestro repo show", 3)
                 print_info("\nExplore packages:", 2)
-                print_info("  cat .maestro/repo/index.summary.txt", 3)
+                print_info("  maestro repo show --json", 3)
                 print_info("\nContinue with build planning or conversion setup", 2)
 
         elif args.repo_subcommand in ['show', 'sh']:
-            # Show repository scan results from .maestro/repo/
+            # Show repository scan results from docs/maestro/
             repo_root = getattr(args, 'path', None) if hasattr(args, 'path') else None
             index_data = load_repo_index(repo_root)
 
@@ -1736,11 +1654,11 @@ def handle_repo_command(args):
                 print(json.dumps(index_data, indent=2))
             else:
                 # Output in human-readable format
-                print_header("REPOSITORY INDEX")
-                print(f"\nRepository: {index_data.get('repo_root', 'unknown')}")
+                print_header("REPOSITORY MODEL")
+                print(f"\nRepository: {index_data.get('repo_root', repo_root or 'unknown')}")
                 print(f"Scan time: {index_data.get('scan_timestamp', 'unknown')}")
 
-                packages = index_data.get('packages', [])
+                packages = index_data.get('packages_detected', [])
                 print(f"\nPackages ({len(packages)}):")
                 for pkg in packages[:10]:
                     print(f"  - {pkg.get('name', 'unknown')} ({pkg.get('build_system', 'unknown')})")
@@ -1751,7 +1669,7 @@ def handle_repo_command(args):
             # Package inspection commands
             repo_root = getattr(args, 'path', None) if hasattr(args, 'path') else None
             index_data = load_repo_index(repo_root)
-            packages = index_data.get('packages', [])
+            packages = index_data.get('packages_detected', [])
 
             # Get package name (optional)
             pkg_name = getattr(args, 'package_name', None)
@@ -1809,29 +1727,65 @@ def handle_repo_command(args):
                     handle_repo_pkg_conf(pkg, getattr(args, 'json', False))
 
         elif args.repo_subcommand == 'conf':
-            # Show build configurations for a package
+            from maestro.repo.storage import load_repoconf, save_repoconf
+
             repo_root = getattr(args, 'path', None) if hasattr(args, 'path') else None
-            index_data = load_repo_index(repo_root)
-            packages = index_data.get('packages', [])
+            if not repo_root:
+                repo_root = find_repo_root()
 
-            pkg_name = getattr(args, 'package_name', None)
-            if not pkg_name:
-                print_error("Package name is required", 2)
-                sys.exit(1)
+            conf_sub = getattr(args, 'conf_subcommand', None)
+            if conf_sub == 'show':
+                repoconf = load_repoconf(repo_root)
+                if getattr(args, 'json', False):
+                    print(json.dumps(repoconf, indent=2))
+                else:
+                    print_header("REPO CONFIGURATION")
+                    print(json.dumps(repoconf, indent=2))
+            elif conf_sub == 'list':
+                repoconf = load_repoconf(repo_root)
+                targets = repoconf.get("targets", [])
+                if repoconf.get("selected_target") and repoconf.get("selected_target") not in targets:
+                    targets.append(repoconf["selected_target"])
+                if getattr(args, 'json', False):
+                    print(json.dumps({"targets": targets}, indent=2))
+                else:
+                    print_header("REPO TARGETS")
+                    if targets:
+                        for target in targets:
+                            selected_marker = " (selected)" if target == repoconf.get("selected_target") else ""
+                            print(f"- {target}{selected_marker}")
+                    else:
+                        print("No targets configured.")
+            elif conf_sub == 'select-default':
+                branch_guard_error = check_branch_guard(repo_root)
+                if branch_guard_error:
+                    print_error(branch_guard_error, 2)
+                    sys.exit(1)
 
-            # Find matching package
-            matching_pkgs = [p for p in packages if pkg_name.lower() in p.get('name', '').lower()]
-
-            if not matching_pkgs:
-                print_error(f"No package found matching: {pkg_name}", 2)
-                sys.exit(1)
-            elif len(matching_pkgs) > 1:
-                print_warning(f"Multiple packages match '{pkg_name}':", 2)
-                for p in matching_pkgs:
-                    print(f"  - {p.get('name')}")
-                sys.exit(1)
-
-            handle_repo_pkg_conf(matching_pkgs[0], getattr(args, 'json', False))
+                if getattr(args, "entity", None) != "target":
+                    print_error("Only target selection is supported.", 2)
+                    sys.exit(1)
+                target = getattr(args, "value", None)
+                if not target:
+                    print_error("Target value is required.", 2)
+                    sys.exit(1)
+                repoconf = {
+                    "selected_target": target,
+                    "targets": [target],
+                    "updated_at": datetime.now().isoformat()
+                }
+                try:
+                    existing = load_repoconf(repo_root)
+                    targets = existing.get("targets", [])
+                    if target not in targets:
+                        targets.append(target)
+                    repoconf["targets"] = targets
+                except SystemExit:
+                    pass
+                save_repoconf(repo_root, repoconf)
+                print_success(f"Selected default target: {target}", 2)
+            else:
+                print_info("Use 'maestro repo conf --help' for available subcommands.", 2)
 
         elif args.repo_subcommand == 'asm':
             # Assembly management commands

@@ -170,10 +170,10 @@ class PackageResolver:
     """
     Higher-level package resolver that integrates with maestro's repo system.
     
-    Resolves packages from .maestro/repo/index.json and determines build order.
+    Resolves packages from docs/maestro/repo_model.json and determines build order.
     """
     
-    def __init__(self, repo_index_path: str = ".maestro/repo/index.json"):
+    def __init__(self, repo_index_path: str = "docs/maestro/repo_model.json"):
         self.repo_index_path = repo_index_path
         self.workspace = None
     
@@ -181,15 +181,15 @@ class PackageResolver:
         """
         Resolve packages from the repository index and create a workspace.
         
-        Reads .maestro/repo/index.json and creates a workspace with the packages.
+        Reads docs/maestro/repo_model.json and creates a workspace with the packages.
         """
         import json
         
         workspace_root = os.getcwd()  # Default to current directory
         self.workspace = Workspace(workspace_root)
         
-        # For now, we'll simulate reading from the repo index
-        # In a real implementation, this would read from .maestro/repo/index.json
+        # For now, we'll simulate reading from the repo model
+        # In a real implementation, this would read from docs/maestro/repo_model.json
         try:
             if os.path.exists(self.repo_index_path):
                 with open(self.repo_index_path, 'r') as f:
