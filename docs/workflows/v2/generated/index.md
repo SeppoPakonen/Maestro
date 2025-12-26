@@ -2,6 +2,17 @@
 
 Generated from YAML IR with LOD0/LOD1/LOD2 variants.
 
+## MEGA LOD0
+
+- [MEGA LOD0 SVG](svg/MEGA.lod0.svg) | [PUML](puml/MEGA.lod0.puml)
+
+## Command Entry Points
+
+- [CMD-workflow spec](../commands/cmd_workflow.md)
+- [CMD-repo diagram](svg/CMD-repo.all_layers.lod0.svg)
+- [CMD-work diagram](svg/CMD-work.all_layers.lod0.svg)
+- [CMD-wsession diagram](svg/CMD-wsession.all_layers.lod0.svg)
+
 ## Workflow Diagrams
 
 ### WF-01 - Existing Repo Bootstrap (Single Main, Compiled Language)

@@ -1,0 +1,108 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam NoteBorderColor #CCCCCC
+skinparam NoteBackgroundColor #FFFFCC
+
+left to right direction
+
+title MEGA LOD0 - Spine + Gates + Stores (Workflow-first + Core Commands)
+
+usecase "anchor" as NOTE_ANCHOR
+hide NOTE_ANCHOR
+note right of NOTE_ANCHOR
+  **Source:** [[docs/workflows/v2/ir/wf/MEGA.lod0.yaml docs/workflows/v2/ir/wf/MEGA.lod0.yaml]]
+end note
+
+package "Spine" #E6F3FF {
+  rectangle "Start" as start
+  hexagon "Gate: forbid ./.maestro" as gate_forbid
+  hexagon "Gate: repo truth is ./docs/maestro" as gate_docs
+  hexagon "Gate: repo truth is JSON" as gate_json
+  rectangle "Decision: workflow-first?" as wf_first
+  rectangle "workflow edit\nmaestro workflow ..." as wf_edit [[../commands/cmd_workflow.md]]
+  rectangle "maestro init" as cmd_init [[../generated/svg/CMD-init.all_layers.lod0.svg]]
+  rectangle "Decision: repo resolve mode?" as repo_mode
+  rectangle "repo resolve --lite" as repo_lite [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+  rectangle "repo resolve --deep" as repo_deep [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+  hexagon "Gate: repo_conf.json valid" as gate_conf
+  rectangle "build / make" as cmd_build
+  rectangle "maestro work" as cmd_work [[../generated/svg/CMD-work.all_layers.lod0.svg]]
+  rectangle "maestro wsession" as cmd_wsession [[../generated/svg/CMD-wsession.all_layers.lod0.svg]]
+  hexagon "Gate: branch guard" as gate_branch
+  rectangle "maestro tu" as cmd_tu [[../generated/svg/CMD-tu.all_layers.lod0.svg]]
+  rectangle "maestro convert" as cmd_convert [[../generated/svg/CMD-convert.all_layers.lod0.svg]]
+  rectangle "End" as end
+}
+
+start --> gate_forbid
+
+gate_forbid --> gate_docs
+
+gate_docs --> gate_json
+
+gate_json --> wf_first
+
+wf_first --> wf_edit : yes
+wf_first --> cmd_init : no
+
+wf_edit --> cmd_init
+
+cmd_init --> repo_mode
+
+repo_mode --> repo_lite : lite
+repo_mode --> repo_deep : deep
+
+repo_lite --> gate_conf
+repo_deep --> gate_conf
+
+gate_conf --> cmd_build
+cmd_build --> cmd_work
+cmd_work --> cmd_wsession
+cmd_wsession --> gate_branch
+
+gate_branch --> cmd_tu
+cmd_tu --> cmd_convert
+cmd_convert --> end
+
+package "Gates / Invariants" #FFF2CC {
+  hexagon "REPO_TRUTH_IS_DOCS_MAESTRO" as inv_docs
+  hexagon "REPO_TRUTH_FORMAT_IS_JSON" as inv_json
+  hexagon "FORBID_REPO_DOT_MAESTRO" as inv_dot
+  hexagon "BRANCH_GUARD_NO_SWITCH" as inv_branch
+}
+
+package "Stores" #F0F0F0 {
+  database "repo_truth\n./docs/maestro/" as repo_truth
+  database "home_hub\n~/.maestro/registry/" as home_hub
+}
+
+package "WF Diagrams" #FFFFFF {
+  rectangle "WF-01" as wf01 [[../generated/svg/WF-01.intent.lod1.svg]]
+  rectangle "WF-02" as wf02 [[../generated/svg/WF-02.intent.lod1.svg]]
+  rectangle "WF-03" as wf03 [[../generated/svg/WF-03.intent.lod1.svg]]
+  rectangle "WF-04" as wf04 [[../generated/svg/WF-04.intent.lod1.svg]]
+  rectangle "WF-05" as wf05 [[../generated/svg/WF-05.intent.lod1.svg]]
+  rectangle "WF-06" as wf06 [[../generated/svg/WF-06.intent.lod1.svg]]
+  rectangle "WF-07" as wf07 [[../generated/svg/WF-07.intent.lod1.svg]]
+  rectangle "WF-08" as wf08 [[../generated/svg/WF-08.intent.lod1.svg]]
+  rectangle "WF-09" as wf09 [[../generated/svg/WF-09.intent.lod1.svg]]
+  rectangle "WF-10" as wf10 [[../generated/svg/WF-10.intent.lod1.svg]]
+  rectangle "WF-11" as wf11 [[../generated/svg/WF-11.intent.lod1.svg]]
+  rectangle "WF-12" as wf12 [[../generated/svg/WF-12.intent.lod1.svg]]
+  rectangle "WF-13" as wf13 [[../generated/svg/WF-13.intent.lod1.svg]]
+  rectangle "WF-14" as wf14 [[../generated/svg/WF-14.intent.lod1.svg]]
+  rectangle "WF-15" as wf15 [[../generated/svg/WF-15.intent.lod1.svg]]
+  rectangle "WF-16" as wf16 [[../generated/svg/WF-16.intent.lod1.svg]]
+}
+
+package "Command Diagrams" #FFFFFF {
+  rectangle "CMD-workflow" as cmd_workflow_doc [[../commands/cmd_workflow.md]]
+  rectangle "CMD-repo" as cmd_repo [[../generated/svg/CMD-repo.all_layers.lod0.svg]]
+  rectangle "CMD-work" as cmd_work_doc [[../generated/svg/CMD-work.all_layers.lod0.svg]]
+  rectangle "CMD-wsession" as cmd_wsession_doc [[../generated/svg/CMD-wsession.all_layers.lod0.svg]]
+}
+
+@enduml

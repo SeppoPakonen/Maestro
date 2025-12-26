@@ -1,0 +1,229 @@
+wf_id: MEGA-LOD0
+layer: intent
+title: MEGA LOD0 Spine + Gates + Stores (Workflow-first + Core Commands)
+status: partial
+confidence: medium
+storage_backend: mixed
+
+uses_commands:
+  - CMD-workflow
+  - CMD-init
+  - CMD-repo
+  - CMD-build
+  - CMD-work
+  - CMD-wsession
+  - CMD-tu
+  - CMD-convert
+
+description: |
+  MEGA LOD0 is a map-wall diagram that summarizes the end-to-end Maestro workflow spine,
+  gates/invariants, and primary data stores. It provides a workflow-first optional entry
+  point, then flows through init, repo resolve, repo conf gating, build/make, work sessions,
+  translation units, and convert.
+
+nodes:
+  - id: start
+    type: start
+    label: Start (operator entry)
+
+  - id: gate_forbid_dot_maestro
+    type: gate
+    label: Gate: forbid ./.maestro
+
+  - id: gate_repo_truth_docs
+    type: gate
+    label: Gate: repo truth is ./docs/maestro
+
+  - id: gate_repo_truth_json
+    type: gate
+    label: Gate: repo truth is JSON
+
+  - id: workflow_first
+    type: decision
+    label: Workflow-first? (optional)
+
+  - id: workflow_edit
+    type: command
+    label: maestro workflow ...
+
+  - id: init
+    type: command
+    label: maestro init
+
+  - id: repo_resolve_mode
+    type: decision
+    label: Repo resolve mode?
+
+  - id: repo_resolve_lite
+    type: command
+    label: maestro repo resolve --lite
+
+  - id: repo_resolve_deep
+    type: command
+    label: maestro repo resolve --deep
+
+  - id: gate_repo_conf
+    type: gate
+    label: Gate: repo_conf.json valid
+
+  - id: build_make
+    type: command
+    label: maestro build / make
+
+  - id: work_wsession
+    type: command
+    label: maestro work / wsession
+
+  - id: gate_branch_guard
+    type: gate
+    label: Gate: branch guard (no switch)
+
+  - id: tu
+    type: command
+    label: maestro tu
+
+  - id: convert
+    type: command
+    label: maestro convert
+
+  - id: end
+    type: end
+    label: End
+
+edges:
+  - from: start
+    to: gate_forbid_dot_maestro
+    type: control
+
+  - from: gate_forbid_dot_maestro
+    to: gate_repo_truth_docs
+    type: control
+
+  - from: gate_repo_truth_docs
+    to: gate_repo_truth_json
+    type: control
+
+  - from: gate_repo_truth_json
+    to: workflow_first
+    type: control
+
+  - from: workflow_first
+    to: workflow_edit
+    type: control
+    condition: yes
+
+  - from: workflow_first
+    to: init
+    type: control
+    condition: no
+
+  - from: workflow_edit
+    to: init
+    type: control
+
+  - from: init
+    to: repo_resolve_mode
+    type: control
+
+  - from: repo_resolve_mode
+    to: repo_resolve_lite
+    type: control
+    condition: lite
+
+  - from: repo_resolve_mode
+    to: repo_resolve_deep
+    type: control
+    condition: deep
+
+  - from: repo_resolve_lite
+    to: gate_repo_conf
+    type: control
+
+  - from: repo_resolve_deep
+    to: gate_repo_conf
+    type: control
+
+  - from: gate_repo_conf
+    to: build_make
+    type: control
+
+  - from: build_make
+    to: work_wsession
+    type: control
+
+  - from: work_wsession
+    to: gate_branch_guard
+    type: control
+
+  - from: gate_branch_guard
+    to: tu
+    type: control
+
+  - from: tu
+    to: convert
+    type: control
+
+  - from: convert
+    to: end
+    type: control
+
+gates:
+  - id: gate_forbid_dot_maestro
+    type: hard_stop
+    condition: ./.maestro directory exists
+    error_message: FORBIDDEN: ./.maestro directory detected
+    recovery: Remove ./.maestro and adopt repo into ./docs/maestro
+
+  - id: gate_repo_truth_docs
+    type: validation_gate
+    condition: repo truth stored in ./docs/maestro/
+    error_message: repo truth is not stored in ./docs/maestro/
+    recovery: Run maestro init or maestro repo adopt
+
+  - id: gate_repo_truth_json
+    type: validation_gate
+    condition: repo truth stored as JSON
+    error_message: repo truth is not JSON
+    recovery: Migrate markdown to JSON format
+
+  - id: gate_repo_conf
+    type: repo_conf_gate
+    condition: repo_conf.json exists and validates
+    error_message: repo_conf.json missing or invalid
+    recovery: Run maestro repo conf
+
+  - id: gate_branch_guard
+    type: branch_guard
+    condition: no branch switch during active work/session
+    error_message: branch switch blocked during work session
+    recovery: End work session, then switch branches
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: Repository truth (adopted repos)
+
+  - id: home_hub
+    type: home_hub
+    path: ~/.maestro/registry/
+    format: json
+    description: Home hub registry (readonly/unadopted repos)
+
+invariants:
+  - id: FORBID_REPO_DOT_MAESTRO
+    description: ./.maestro must not exist (hard stop)
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/** when repo is adopted
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: gate
+
+  - id: BRANCH_GUARD_NO_SWITCH
+    description: Do not switch branches during active work/session
+    enforcement: gate
