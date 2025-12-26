@@ -1,0 +1,152 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+
+title maestro runbook - Deep Internal Flow
+
+actor User
+
+' Storage components
+database "docs/maestro/runbooks/" {
+  [index.json] as index
+  folder "items/" {
+    [<id>.json] as items
+  }
+  folder "exports/" {
+    [<id>.md] as md_export
+    [<id>.puml] as puml_export
+    [<id>.svg] as svg_export
+  }
+}
+
+' Command handlers
+package "maestro.commands.runbook" {
+  [handle_runbook_add] as h_add
+  [handle_runbook_list] as h_list
+  [handle_runbook_show] as h_show
+  [handle_runbook_edit] as h_edit
+  [handle_runbook_rm] as h_rm
+  [handle_step_add] as h_step_add
+  [handle_step_edit] as h_step_edit
+  [handle_step_rm] as h_step_rm
+  [handle_step_renumber] as h_step_renumber
+  [handle_runbook_export] as h_export
+  [handle_runbook_render] as h_render
+  [handle_runbook_discuss] as h_discuss
+}
+
+' Storage layer
+package "Storage Layer" {
+  [_load_index] as load_idx
+  [_save_index] as save_idx
+  [_load_runbook] as load_rb
+  [_save_runbook] as save_rb
+  [_generate_runbook_id] as gen_id
+  [_ensure_runbook_storage] as ensure_storage
+}
+
+' Export layer
+package "Export Layer" {
+  [_export_runbook_md] as exp_md
+  [_export_runbook_puml] as exp_puml
+}
+
+' External tools
+cloud "External Tools" {
+  [/usr/bin/plantuml] as plantuml
+}
+
+' User interactions
+User --> h_add : maestro runbook add
+User --> h_list : maestro runbook list
+User --> h_show : maestro runbook show
+User --> h_edit : maestro runbook edit
+User --> h_rm : maestro runbook rm
+User --> h_step_add : maestro runbook step-add
+User --> h_step_edit : maestro runbook step-edit
+User --> h_step_rm : maestro runbook step-rm
+User --> h_step_renumber : maestro runbook step-renumber
+User --> h_export : maestro runbook export
+User --> h_render : maestro runbook render
+User --> h_discuss : maestro runbook discuss
+
+' Command handlers use storage layer
+h_add --> gen_id : generate ID
+h_add --> save_rb : save runbook
+h_add --> save_idx : update index
+h_add --> ensure_storage : ensure dirs exist
+
+h_list --> load_idx : read index
+h_list --> load_rb : read full runbook\n(for scope field)
+
+h_show --> load_rb : read runbook
+
+h_edit --> load_rb : read runbook
+h_edit --> save_rb : save updates
+h_edit --> save_idx : update index
+
+h_rm --> load_rb : verify exists
+h_rm --> save_idx : remove from index
+
+h_step_add --> load_rb : read runbook
+h_step_add --> save_rb : save with new step
+h_step_add --> save_idx : update timestamp
+
+h_step_edit --> load_rb : read runbook
+h_step_edit --> save_rb : save modified step
+
+h_step_rm --> load_rb : read runbook
+h_step_rm --> save_rb : save after removal
+
+h_step_renumber --> load_rb : read runbook
+h_step_renumber --> save_rb : save renumbered
+
+h_export --> load_rb : read runbook
+h_export --> exp_md : format as MD
+h_export --> exp_puml : format as PUML
+
+h_render --> load_rb : read runbook
+h_render --> exp_puml : generate PUML
+h_render --> plantuml : render to SVG
+
+h_discuss --> load_rb : read runbook
+h_discuss ..> User : suggest commands\n(placeholder)
+
+' Storage layer interactions
+load_idx --> index : read JSON
+save_idx --> index : write JSON
+load_rb --> items : read JSON
+save_rb --> items : write JSON
+save_rb --> ensure_storage : ensure dirs
+
+' Export layer interactions
+exp_md --> md_export : write Markdown
+exp_puml --> puml_export : write PlantUML
+plantuml --> puml_export : read
+plantuml --> svg_export : write SVG
+
+note top of index
+  Lightweight index for list operations:
+  [{ id, title, tags, status, updated_at }]
+end note
+
+note top of items
+  Full runbook data:
+  { id, title, status, scope, tags,
+    context, steps[], links,
+    created_at, updated_at }
+end note
+
+note bottom of h_discuss
+  Future: integrate with maestro discuss mechanism
+  Currently: prints suggested CLI commands
+end note
+
+note right of plantuml
+  External dependency
+  Not required for core functionality
+  Only needed for render command
+end note
+
+@enduml

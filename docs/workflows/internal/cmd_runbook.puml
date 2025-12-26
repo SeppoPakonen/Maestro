@@ -1,0 +1,69 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+
+title maestro runbook - Command Surface
+
+actor User
+
+package "CLI Commands" {
+  usecase "runbook list" as list
+  usecase "runbook show" as show
+  usecase "runbook add" as add
+  usecase "runbook edit" as edit
+  usecase "runbook rm" as rm
+  usecase "runbook step-add" as step_add
+  usecase "runbook step-edit" as step_edit
+  usecase "runbook step-rm" as step_rm
+  usecase "runbook step-renumber" as step_renumber
+  usecase "runbook export" as export
+  usecase "runbook render" as render
+  usecase "runbook discuss" as discuss
+}
+
+User --> list
+User --> show
+User --> add
+User --> edit
+User --> rm
+User --> step_add
+User --> step_edit
+User --> step_rm
+User --> step_renumber
+User --> export
+User --> render
+User --> discuss
+
+note right of list
+  List all runbooks with optional filters:
+  --status, --scope, --tag
+end note
+
+note right of show
+  Display detailed view of a runbook
+  including all steps and metadata
+end note
+
+note right of add
+  Create new runbook with:
+  --title (required)
+  --scope, --tag (optional)
+  --source-program, --target-project
+end note
+
+note right of export
+  Export to MD or PUML formats
+  Default output: docs/maestro/runbooks/exports/
+end note
+
+note right of render
+  Render PUML to SVG using /usr/bin/plantuml
+end note
+
+note right of discuss
+  Placeholder for AI integration
+  Will suggest CLI commands for refinement
+end note
+
+@enduml
