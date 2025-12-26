@@ -5,6 +5,10 @@ status: partial
 confidence: medium
 storage_backend: unknown
 
+uses_commands:
+  - CMD-make
+  - CMD-repo
+
 description: |
   This workflow describes how an Operator uses Maestro to discover repository structure 
   and optionally build the project without adopting full Maestro task management or project state.

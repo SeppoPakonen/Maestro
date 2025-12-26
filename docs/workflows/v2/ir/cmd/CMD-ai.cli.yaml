@@ -1,0 +1,100 @@
+id: CMD-ai
+layer: cli
+title: ai command surface
+status: correct
+confidence: high
+storage_backend: unknown
+
+commands:
+  - maestro ai
+  - maestro ai qwen
+  - maestro ai gemini
+  - maestro ai codex
+  - maestro ai claude
+  - maestro ai sync
+
+nodes:
+  - id: cli_invocation
+    type: command
+    label: Maestro CLI Invocation
+  - id: parse_args
+    type: command
+    label: Parse CLI arguments
+  - id: determine_ai_command
+    type: command
+    label: Determine command is 'ai'
+  - id: parse_ai_subcommands
+    type: subcommand
+    label: Parse AI subcommands
+  - id: load_ai_config
+    type: command
+    label: Load AI configuration
+  - id: route_to_subcommand_handler
+    type: command
+    label: Route to appropriate AI subcommand handler
+  - id: validate_ai_config
+    type: validation
+    label: Validate AI configuration
+  - id: invoke_ai_engine
+    type: handler
+    label: Invoke AI engine
+  - id: output_responses
+    type: command
+    label: Output AI responses to stdout
+  - id: show_ai_help
+    type: command
+    label: Show AI help
+  - id: exit_fail
+    type: hard_stop
+    label: Exit with failure
+  - id: exit_ok
+    type: command
+    label: Exit successfully
+
+edges:
+  - from: cli_invocation
+    to: parse_args
+    type: control
+  - from: parse_args
+    to: determine_ai_command
+    type: control
+  - from: determine_ai_command
+    to: parse_ai_subcommands
+    type: control
+  - from: parse_ai_subcommands
+    to: load_ai_config
+    type: control
+  - from: load_ai_config
+    to: route_to_subcommand_handler
+    type: control
+  - from: route_to_subcommand_handler
+    to: validate_ai_config
+    type: control
+  - from: validate_ai_config
+    to: invoke_ai_engine
+    type: control
+  - from: invoke_ai_engine
+    to: output_responses
+    type: control
+  - from: parse_ai_subcommands
+    to: show_ai_help
+    type: control
+    condition: no subcommand provided
+  - from: show_ai_help
+    to: exit_fail
+    type: control
+  - from: route_to_subcommand_handler
+    to: show_ai_help
+    type: control
+    condition: invalid subcommand
+  - from: output_responses
+    to: exit_ok
+    type: control
+
+exports:
+  - writes AI interaction logs
+  - potentially updates session data
+
+evidence:
+  - v1/command_surface/cmd_ai.md
+  - v1/command_surface/cmd_ai.puml

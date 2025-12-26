@@ -1,0 +1,109 @@
+id: CMD-init
+layer: "code"
+title: "init deep internal flow (observed)"
+status: "partial"
+confidence: "high"
+storage_backend: "markdown"
+
+calls:
+  - maestro.main.main
+  - maestro.modules.cli_parser.create_main_parser
+  - maestro.commands.init.add_init_parser
+  - maestro.commands.init.handle_init_command
+  - pathlib.Path.mkdir
+  - pathlib.Path.exists
+  - builtins.open
+
+stores:
+  - docs/Settings.md
+  - docs/RepoRules.md
+  - docs/
+  - docs/tracks/
+  - docs/phases/
+  - docs/tasks/
+  - docs/sessions/
+
+nodes:
+  - id: "main_entry"
+    type: "function"
+    label: "maestro.main.main"
+    module: "maestro.main"
+  - id: "create_parser"
+    type: "function"
+    label: "create_main_parser"
+    module: "maestro.modules.cli_parser"
+  - id: "add_init_parser"
+    type: "function"
+    label: "add_init_parser"
+    module: "maestro.commands.init"
+  - id: "handle_init_command"
+    type: "function"
+    label: "handle_init_command"
+    module: "maestro.commands.init"
+  - id: "mkdir"
+    type: "function"
+    label: "pathlib.Path.mkdir"
+    module: "pathlib"
+  - id: "check_exists"
+    type: "function"
+    label: "pathlib.Path.exists"
+    module: "pathlib"
+  - id: "open_file"
+    type: "function"
+    label: "builtins.open"
+    module: "builtins"
+  - id: "local_filesystem"
+    type: "datastore"
+    label: "Local Filesystem"
+  - id: "force_gate_settings"
+    type: "gate"
+    label: "args.force or not exists() for Settings.md"
+  - id: "force_gate_repofules"
+    type: "gate"
+    label: "args.force or not exists() for RepoRules.md"
+
+edges:
+  - from: "main_entry"
+    to: "create_parser"
+    type: "call"
+  - from: "create_parser"
+    to: "add_init_parser"
+    type: "call"
+  - from: "main_entry"
+    to: "handle_init_command"
+    type: "call"
+  - from: "handle_init_command"
+    to: "mkdir"
+    type: "call"
+  - from: "mkdir"
+    to: "local_filesystem"
+    type: "call"
+  - from: "handle_init_command"
+    to: "check_exists"
+    type: "call"
+  - from: "check_exists"
+    to: "local_filesystem"
+    type: "call"
+  - from: "handle_init_command"
+    to: "force_gate_settings"
+    type: "call"
+  - from: "force_gate_settings"
+    to: "open_file"
+    type: "call"
+  - from: "open_file"
+    to: "local_filesystem"
+    type: "call"
+  - from: "handle_init_command"
+    to: "force_gate_repofules"
+    type: "call"
+  - from: "force_gate_repofules"
+    to: "open_file"
+    type: "call"
+
+evidence:
+  - "/home/sblo/Dev/Maestro/maestro/commands/init.py"
+  - "/home/sblo/Dev/Maestro/maestro/main.py"
+  - "/home/sblo/Dev/Maestro/maestro/modules/cli_parser.py"
+
+ledger_hints:
+  - "Observed DataMarkdown persistence in cmd_init deep flow; v2 repo truth uses JSON. Replace/remove DataMarkdown codepaths and update docs/tests."

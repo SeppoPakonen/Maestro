@@ -1,0 +1,46 @@
+id: "CMD-help"
+layer: "cli"
+title: "help command surface"
+status: "correct"
+confidence: "high"
+storage_backend: "unknown"
+
+commands:
+  - "maestro help"
+  - "maestro h"
+
+nodes:
+  - id: "cli_invocation"
+    type: "command"
+    label: "Maestro CLI Invocation"
+  - id: "argparse_parse"
+    type: "argparse"
+    label: "Parse command from CLI"
+  - id: "identify_help"
+    type: "validation"
+    label: "Determine command is 'help'"
+  - id: "route_help"
+    type: "handler"
+    label: "Route to help handler"
+  - id: "print_help"
+    type: "handler"
+    label: "Print help using parser.format_help()"
+
+edges:
+  - from: "cli_invocation"
+    to: "argparse_parse"
+  - from: "argparse_parse"
+    to: "identify_help"
+  - from: "identify_help"
+    to: "route_help"
+  - from: "route_help"
+    to: "print_help"
+
+exports:
+  - "prints formatted help text to stdout"
+  - "displays all available commands and their aliases"
+  - "shows global options"
+
+evidence:
+  - "v1/command_help.md"
+  - "v1/command_help.puml"

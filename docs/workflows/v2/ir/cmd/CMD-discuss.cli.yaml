@@ -1,0 +1,98 @@
+id: CMD-discuss
+layer: cli
+title: discuss command surface
+status: correct
+confidence: high
+storage_backend: json
+
+commands:
+  - maestro discuss
+
+nodes:
+  - id: cli_parse
+    type: command
+    label: Parse discuss command
+  - id: session_check
+    type: validation
+    label: Check session provided
+  - id: load_session
+    type: handler
+    label: Load session
+  - id: validate_session
+    type: validation
+    label: Validate session schema
+  - id: route_discuss
+    type: handler
+    label: Route to discuss handler
+  - id: read_docs_truth
+    type: datastore
+    label: Read docs truth
+  - id: init_ai_interface
+    type: handler
+    label: Initialize AI discussion interface
+  - id: load_ai_config
+    type: handler
+    label: Load AI configuration
+  - id: invoke_ai_engine
+    type: actor
+    label: Invoke AI engine
+  - id: output_discussion
+    type: command
+    label: Output discussion to stdout
+  - id: handle_user_input
+    type: command
+    label: Handle user input
+  - id: exit_success
+    type: command
+    label: Exit successfully
+  - id: hard_stop_no_session
+    type: hard_stop
+    label: Hard stop if no session
+
+edges:
+  - from: cli_parse
+    to: session_check
+    type: control
+  - from: session_check
+    to: load_session
+    condition: session provided
+    type: control
+  - from: session_check
+    to: hard_stop_no_session
+    condition: no session provided
+    type: control
+  - from: load_session
+    to: validate_session
+    type: control
+  - from: validate_session
+    to: route_discuss
+    type: control
+  - from: route_discuss
+    to: read_docs_truth
+    type: control
+  - from: read_docs_truth
+    to: init_ai_interface
+    type: control
+  - from: init_ai_interface
+    to: load_ai_config
+    type: control
+  - from: load_ai_config
+    to: invoke_ai_engine
+    type: control
+  - from: invoke_ai_engine
+    to: output_discussion
+    type: control
+  - from: output_discussion
+    to: handle_user_input
+    type: control
+  - from: handle_user_input
+    to: exit_success
+    type: control
+
+exports:
+  - discussion logs
+  - session updates
+
+evidence:
+  - v1/command_discuss.md
+  - maestro/commands/discuss.py

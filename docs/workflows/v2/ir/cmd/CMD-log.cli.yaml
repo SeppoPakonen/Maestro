@@ -1,0 +1,51 @@
+id: CMD-log
+layer: cli
+title: log command surface
+status: correct
+confidence: high
+storage_backend: unknown
+
+commands:
+  - maestro log
+  - maestro log list
+  - maestro log list-work
+  - maestro log list-plan
+  - maestro lg
+
+nodes:
+  - id: cmd_log
+    type: command
+    label: log command
+  - id: subcmd_list
+    type: subcommand
+    label: list subcommand
+  - id: subcmd_list_work
+    type: subcommand
+    label: list-work subcommand
+  - id: subcmd_list_plan
+    type: subcommand
+    label: list-plan subcommand
+  - id: gate_session_required
+    type: gate
+    label: Session required gate
+
+edges:
+  - from: cmd_log
+    to: gate_session_required
+  - from: gate_session_required
+    to: subcmd_list
+    condition: session provided
+  - from: gate_session_required
+    to: subcmd_list_work
+    condition: session provided
+  - from: gate_session_required
+    to: subcmd_list_plan
+    condition: session provided
+
+exports:
+  - outputs log information to stdout
+  - reads log files
+  - validates session schema
+
+evidence:
+  - v1/command_surface/cmd_log.md

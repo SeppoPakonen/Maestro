@@ -5,6 +5,15 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-build
+  - CMD-discuss
+  - CMD-init
+  - CMD-reconstruct
+  - CMD-run
+  - CMD-task
+  - CMD-work
+
 description: |
   This workflow handles the initial bootstrap process when adding Maestro to an existing repository
   with a single main branch and compiled language. It covers initialization, codebase understanding,

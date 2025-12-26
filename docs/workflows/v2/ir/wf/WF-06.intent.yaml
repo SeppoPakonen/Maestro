@@ -5,6 +5,11 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-ai
+  - CMD-work
+  - CMD-wsession
+
 description: |
   This workflow handles AI-driven task execution with persistent work sessions.
   It manages the lifecycle of work sessions, AI interactions, and breadcrumb tracking.

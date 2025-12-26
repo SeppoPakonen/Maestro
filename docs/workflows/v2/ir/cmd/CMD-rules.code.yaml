@@ -1,0 +1,147 @@
+id: "CMD-rules"
+layer: "code"
+title: "rules deep internal flow (observed)"
+status: "partial"
+confidence: "high"
+storage_backend: "unknown"
+
+calls:
+  - "maestro.main.main"
+  - "maestro.modules.command_handlers.handle_rules_list"
+  - "maestro.modules.command_handlers.handle_rules_file"
+  - "maestro.session_model.load_session"
+  - "maestro.session_model.save_session"
+  - "os.environ.get"
+  - "subprocess.run"
+
+stores:
+  - "docs/sessions/<session-name>/session.json"
+  - "docs/sessions/<session-name>/rules.txt"
+
+nodes:
+  - id: "main_entry"
+    type: "function"
+    label: "maestro.main.main"
+    module: "maestro.main"
+    function: "main"
+
+  - id: "handle_rules_list"
+    type: "function"
+    label: "handle_rules_list"
+    module: "maestro.modules.command_handlers"
+    function: "handle_rules_list"
+
+  - id: "handle_rules_file"
+    type: "function"
+    label: "handle_rules_file"
+    module: "maestro.modules.command_handlers"
+    function: "handle_rules_file"
+
+  - id: "load_session"
+    type: "function"
+    label: "load_session"
+    module: "maestro.session_model"
+    function: "load_session"
+
+  - id: "save_session"
+    type: "function"
+    label: "save_session"
+    module: "maestro.session_model"
+    function: "save_session"
+
+  - id: "session_class"
+    type: "class"
+    label: "Session"
+    module: "maestro.session_model"
+    class: "Session"
+
+  - id: "file_system"
+    type: "actor"
+    label: "File System"
+    module: "builtins"
+    class: "FileSystem"
+
+  - id: "user_editor"
+    type: "actor"
+    label: "User's $EDITOR"
+    module: "builtins"
+    class: "Editor"
+
+  - id: "subprocess_actor"
+    type: "actor"
+    label: "subprocess module"
+    module: "subprocess"
+    class: "Subprocess"
+
+  - id: "os_actor"
+    type: "actor"
+    label: "os module"
+    module: "os"
+    class: "OS"
+
+  - id: "docs_sessions_dir"
+    type: "datastore"
+    label: "docs/sessions/<name>/"
+    module: "builtins"
+    class: "Database"
+
+edges:
+  - from: "main_entry"
+    to: "handle_rules_list"
+
+  - from: "main_entry"
+    to: "handle_rules_file"
+
+  - from: "handle_rules_list"
+    to: "load_session"
+    label: "loads session data"
+
+  - from: "load_session"
+    to: "docs_sessions_dir"
+    label: "reads session.json"
+
+  - from: "handle_rules_list"
+    to: "file_system"
+    label: "reads rules.txt"
+
+  - from: "handle_rules_file"
+    to: "load_session"
+    label: "loads session data"
+
+  - from: "handle_rules_file"
+    to: "file_system"
+    label: "checks/creates rules.txt"
+
+  - from: "handle_rules_file"
+    to: "save_session"
+    label: "updates session with rules_path"
+
+  - from: "handle_rules_file"
+    to: "subprocess_actor"
+    label: "invokes external editor"
+
+  - from: "subprocess_actor"
+    to: "os_actor"
+    label: "editor environment variable"
+
+  - from: "session_class"
+    to: "load_session"
+    label: "loaded into"
+
+  - from: "session_class"
+    to: "save_session"
+    label: "saved from"
+
+  - from: "docs_sessions_dir"
+    to: "file_system"
+    label: "reads/writes session.json and rules.txt"
+
+  - from: "user_editor"
+    to: "handle_rules_file"
+
+evidence:
+  - "v1/internal/deep/cmd_rules_deep.puml"
+  - "v1/internal/deep/cmd_rules_deep.md"
+
+ledger_hints:
+  - "Observed ./.maestro directory usage in cmd_rules deep flow; v2 repo truth uses ./docs/maestro/. Replace ./.maestro references with ./docs/maestro/ and update docs/tests."

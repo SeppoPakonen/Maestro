@@ -1,0 +1,133 @@
+id: CMD-help
+layer: "code"
+title: "help deep internal flow (observed)"
+status: "correct"
+confidence: "high"
+storage_backend: "unknown"
+
+calls:
+  - maestro.main.main
+  - maestro.modules.cli_parser.create_main_parser
+  - argparse.ArgumentParser.parse_args
+  - maestro.modules.cli_parser.StyledArgumentParser.print_help
+  - maestro.modules.cli_parser.StyledArgumentParser.format_help
+  - argparse.ArgumentParser.format_help
+  - maestro.modules.cli_parser._filter_suppressed_help
+  - maestro.modules.utils.styled_print
+  - maestro.modules.utils.print_subheader
+  - maestro.modules.utils.Colors
+  - pyfiglet.figlet_format
+
+stores: []
+
+nodes:
+  - id: main_entry
+    type: function
+    module: maestro.main
+    function: main
+    label: "maestro.main.main"
+  - id: create_parser
+    type: function
+    module: maestro.modules.cli_parser
+    function: create_main_parser
+    label: "maestro.modules.cli_parser.create_main_parser"
+  - id: parse_args
+    type: function
+    module: argparse
+    function: ArgumentParser.parse_args
+    label: "argparse.ArgumentParser.parse_args"
+  - id: styled_argparser_print_help
+    type: function
+    module: maestro.modules.cli_parser
+    function: StyledArgumentParser.print_help
+    label: "maestro.modules.cli_parser.StyledArgumentParser.print_help"
+  - id: styled_argparser_format_help
+    type: function
+    module: maestro.modules.cli_parser
+    function: StyledArgumentParser.format_help
+    label: "maestro.modules.cli_parser.StyledArgumentParser.format_help"
+  - id: argparser_format_help
+    type: function
+    module: argparse
+    function: ArgumentParser.format_help
+    label: "argparse.ArgumentParser.format_help"
+  - id: filter_suppressed_help
+    type: function
+    module: maestro.modules.cli_parser
+    function: _filter_suppressed_help
+    label: "maestro.modules.cli_parser._filter_suppressed_help"
+  - id: styled_print
+    type: function
+    module: maestro.modules.utils
+    function: styled_print
+    label: "maestro.modules.utils.styled_print"
+  - id: print_subheader
+    type: function
+    module: maestro.modules.utils
+    function: print_subheader
+    label: "maestro.modules.utils.print_subheader"
+  - id: colors_const
+    type: class
+    module: maestro.modules.utils
+    class: Colors
+    label: "maestro.modules.utils.Colors"
+  - id: figlet_format
+    type: function
+    module: pyfiglet
+    function: figlet_format
+    label: "pyfiglet.figlet_format"
+
+edges:
+  - from: main_entry
+    to: create_parser
+    label: "Initialize parser"
+  - from: create_parser
+    to: parse_args
+    label: "Returns parser, parse args"
+  - from: main_entry
+    to: parse_args
+    label: "Parse CLI arguments"
+  - from: main_entry
+    to: styled_argparser_print_help
+    label: "If args.command == 'help', print help"
+    type: control
+  - from: styled_argparser_print_help
+    to: styled_argparser_format_help
+    label: "Format help text"
+  - from: styled_argparser_format_help
+    to: argparser_format_help
+    label: "Get raw help from argparse"
+  - from: styled_argparser_format_help
+    to: filter_suppressed_help
+    label: "Filter suppressed text"
+  - from: styled_argparser_print_help
+    to: styled_print
+    label: "Print banner (MAESTRO ASCII art)"
+  - from: styled_argparser_print_help
+    to: print_subheader
+    label: "Print 'COMMAND OPTIONS' subheader"
+  - from: styled_argparser_print_help
+    to: styled_print
+    label: "Print styled help lines"
+  - from: styled_argparser_print_help
+    to: styled_print
+    label: "Print version footer"
+  - from: styled_argparser_print_help
+    to: figlet_format
+    label: "Conditional: Generate ASCII art banner"
+    type: call
+    condition: "pyfiglet is installed"
+  - from: styled_print
+    to: colors_const
+    label: "Uses Color constants"
+  - from: print_subheader
+    to: colors_const
+    label: "Uses Color constants"
+
+evidence:
+  - path: "/home/sblo/Dev/Maestro/maestro/main.py"
+    description: "Contains the main entry point function"
+  - path: "/home/sblo/Dev/Maestro/maestro/modules/cli_parser.py"
+    description: "Contains the CLI parser and StyledArgumentParser"
+  - path: "/home/sblo/Dev/Maestro/maestro/modules/utils.py"
+    description: "Contains utility functions for styled printing"

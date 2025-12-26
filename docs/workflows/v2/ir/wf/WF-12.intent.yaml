@@ -5,6 +5,12 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-build
+  - CMD-convert
+  - CMD-repo
+  - CMD-tu
+
 description: |
   This workflow defines the RepoConf gate which is mandatory for build, TU (translation unit/AST generation),
   and convert operations. It ensures that valid build configuration exists before proceeding with operations

@@ -1,10 +1,12 @@
-```yaml
 wf_id: WF-14
 layer: intent
 title: Branch safety guardrails — branch-bound state, no branch switching during work
 status: correct
 confidence: high
 storage_backend: json
+
+uses_commands:
+  - CMD-work
 
 description: |
   This workflow documents the operational guardrails for Git branch management to ensure state integrity during Maestro operations. 
@@ -200,4 +202,3 @@ commands:
   - git checkout
 
 ledger_hints: []
-```

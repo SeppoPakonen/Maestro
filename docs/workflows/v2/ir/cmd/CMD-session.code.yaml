@@ -1,0 +1,170 @@
+id: "CMD-session"
+layer: "code"
+title: "session deep internal flow (observed)"
+status: "partial"
+confidence: "medium"
+storage_backend: "json"
+
+calls:
+  - maestro.modules.command_handlers.handle_session_new
+  - maestro.modules.command_handlers.handle_session_list
+  - maestro.modules.command_handlers.handle_session_set
+  - maestro.modules.command_handlers.handle_session_get
+  - maestro.modules.command_handlers.handle_session_remove
+  - maestro.modules.command_handlers.handle_session_details
+  - maestro.commands.work_session.handle_wsession_breadcrumbs
+  - maestro.commands.work_session.handle_wsession_timeline
+  - maestro.commands.work_session.handle_wsession_stats
+  - maestro.modules.command_handlers.get_session_path_by_name
+  - maestro.modules.command_handlers.create_session
+  - maestro.modules.command_handlers.set_active_session_name
+  - maestro.modules.command_handlers.list_sessions
+  - maestro.modules.command_handlers.get_active_session_name
+  - maestro.modules.command_handlers.get_session_details
+  - maestro.session_model.load_session
+  - maestro.modules.command_handlers.list_build_targets
+  - maestro.modules.command_handlers.edit_root_task_in_editor
+  - maestro.modules.command_handlers.remove_session
+
+stores:
+  - docs/sessions/
+  - ~/.maestro/config.json
+
+nodes:
+  - id: "handle_session_new"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "handle_session_new"
+  - id: "handle_session_list"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "handle_session_list"
+  - id: "handle_session_set"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "handle_session_set"
+  - id: "handle_session_get"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "handle_session_get"
+  - id: "handle_session_remove"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "handle_session_remove"
+  - id: "handle_session_details"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "handle_session_details"
+  - id: "handle_wsession_breadcrumbs"
+    type: "function"
+    module: "maestro.commands.work_session"
+    function: "handle_wsession_breadcrumbs"
+  - id: "handle_wsession_timeline"
+    type: "function"
+    module: "maestro.commands.work_session"
+    function: "handle_wsession_timeline"
+  - id: "handle_wsession_stats"
+    type: "function"
+    module: "maestro.commands.work_session"
+    function: "handle_wsession_stats"
+  - id: "get_session_path_by_name"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "get_session_path_by_name"
+  - id: "create_session"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "create_session"
+  - id: "set_active_session_name"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "set_active_session_name"
+  - id: "list_sessions"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "list_sessions"
+  - id: "get_active_session_name"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "get_active_session_name"
+  - id: "get_session_details"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "get_session_details"
+  - id: "load_session"
+    type: "function"
+    module: "maestro.session_model"
+    function: "load_session"
+  - id: "list_build_targets"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "list_build_targets"
+  - id: "edit_root_task_in_editor"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "edit_root_task_in_editor"
+  - id: "remove_session"
+    type: "function"
+    module: "maestro.modules.command_handlers"
+    function: "remove_session"
+  - id: "session_json_store"
+    type: "datastore"
+    path: "docs/sessions/<session-name>/session.json"
+  - id: "config_json_store"
+    type: "datastore"
+    path: "~/.maestro/config.json"
+
+edges:
+  - from: "handle_session_new"
+    to: "get_session_path_by_name"
+  - from: "handle_session_new"
+    to: "create_session"
+  - from: "handle_session_new"
+    to: "set_active_session_name"
+  - from: "handle_session_list"
+    to: "list_sessions"
+  - from: "handle_session_list"
+    to: "get_active_session_name"
+  - from: "handle_session_list"
+    to: "get_session_details"
+  - from: "handle_session_set"
+    to: "list_sessions"
+  - from: "handle_session_set"
+    to: "get_session_path_by_name"
+  - from: "handle_session_set"
+    to: "set_active_session_name"
+  - from: "handle_session_get"
+    to: "get_active_session_name"
+  - from: "handle_session_get"
+    to: "get_session_details"
+  - from: "handle_session_remove"
+    to: "get_session_path_by_name"
+  - from: "handle_session_remove"
+    to: "remove_session"
+  - from: "handle_session_details"
+    to: "list_sessions"
+  - from: "handle_session_details"
+    to: "get_session_details"
+  - from: "handle_session_details"
+    to: "load_session"
+  - from: "handle_session_details"
+    to: "list_build_targets"
+  - from: "create_session"
+    to: "session_json_store"
+  - from: "set_active_session_name"
+    to: "config_json_store"
+  - from: "get_session_details"
+    to: "session_json_store"
+  - from: "load_session"
+    to: "session_json_store"
+  - from: "remove_session"
+    to: "session_json_store"
+
+evidence:
+  - "/home/sblo/Dev/Maestro/maestro/modules/command_handlers.py"
+  - "/home/sblo/Dev/Maestro/maestro/commands/work_session.py"
+  - "/home/sblo/Dev/Maestro/maestro/session_model.py"
+
+ledger_hints:
+  - "Observed session data stored in JSON format under docs/sessions/; aligns with REPO_TRUTH_FORMAT_IS_JSON invariant"
+  - "Observed user-specific config in ~/.maestro/config.json; aligns with HOME_HUB_ALLOWED_IN_READONLY invariant"

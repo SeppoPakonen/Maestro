@@ -1,0 +1,53 @@
+id: CMD-understand
+layer: cli
+title: understand command surface
+status: correct
+confidence: medium
+storage_backend: unknown
+
+commands:
+  - maestro understand
+  - maestro u
+  - maestro understand dump
+  - maestro u dump
+
+nodes:
+  - id: cmd_understand
+    type: command
+    label: understand command
+  - id: subcmd_dump
+    type: subcommand
+    label: dump subcommand
+  - id: parse_args
+    type: argparse
+    label: parse CLI arguments
+  - id: route_understand
+    type: handler
+    label: route to understand handler
+  - id: route_dump
+    type: handler
+    label: route to dump handler
+  - id: analyze_project
+    type: action
+    label: analyze project structure
+  - id: write_output
+    type: action
+    label: write analysis output
+
+edges:
+  - from: parse_args
+    to: route_understand
+  - from: route_understand
+    to: route_dump
+  - from: route_dump
+    to: analyze_project
+  - from: analyze_project
+    to: write_output
+
+exports:
+  - writes analysis output to specified path
+  - creates project understanding dump
+
+evidence:
+  - v1/command_surface/cmd_understand.md
+  - v1/internal/deep/cmd_understand_deep.puml

@@ -5,6 +5,9 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-repo
+
 description: |
   This workflow documents the canonical repository resolution mechanism in Maestro, which serves as the integration spine for all other workflows. The `maestro repo resolve` command performs comprehensive repository analysis including package/assembly discovery, language detection, build system detection, convention inference, build target enumeration, dependency graph derivation, and violation detection with Issue/Task creation. This command is the single source of truth for repository structure and build system detection across all Maestro workflows.
 

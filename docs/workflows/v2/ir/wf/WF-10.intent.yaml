@@ -1,10 +1,13 @@
-```yaml
 wf_id: WF-10
 layer: intent
 title: Repo Resolve levels — Lite vs Deep, convention acceptance, and violation policy
 status: partial
 confidence: medium
 storage_backend: json
+
+uses_commands:
+  - CMD-issues
+  - CMD-repo
 
 description: |
   This workflow defines the different levels of repository resolution, the process for accepting inferred conventions, 
@@ -245,4 +248,3 @@ commands:
 
 ledger_hints:
   - "WF-10 mentions 'Proposed: maestro repo conventions accept <pack>' commands; implementation may not exist yet"
-```

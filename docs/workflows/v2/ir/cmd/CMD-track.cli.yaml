@@ -1,0 +1,128 @@
+id: CMD-track
+layer: cli
+title: track command surface
+status: correct
+confidence: high
+storage_backend: unknown
+
+commands:
+  - maestro track
+  - maestro track list
+  - maestro track add
+  - maestro track remove
+  - maestro track show
+  - maestro track discuss
+
+nodes:
+  - id: cli_invocation
+    type: command
+    label: Maestro CLI Invocation
+  - id: parse_args
+    type: command
+    label: Parse CLI arguments
+  - id: determine_track_command
+    type: command
+    label: Determine command is 'track'
+  - id: parse_subcommands
+    type: subcommand
+    label: Parse track subcommands
+  - id: session_check
+    type: validation
+    label: Check if session is provided
+  - id: load_session
+    type: handler
+    label: Load session
+  - id: validate_session
+    type: validation
+    label: Validate session schema
+  - id: subcommand_check
+    type: validation
+    label: Check if subcommand is provided
+  - id: route_list
+    type: subcommand
+    label: Route to list handler
+  - id: route_add
+    type: subcommand
+    label: Route to add handler
+  - id: route_remove
+    type: subcommand
+    label: Route to remove handler
+  - id: route_show
+    type: subcommand
+    label: Route to show handler
+  - id: show_help
+    type: command
+    label: Show track help
+  - id: execute_operation
+    type: handler
+    label: Execute track operation
+  - id: output_results
+    type: command
+    label: Output results to stdout
+  - id: exit_success
+    type: command
+    label: Exit with success
+  - id: exit_failure
+    type: command
+    label: Exit with failure
+  - id: hard_stop_no_session
+    type: hard_stop
+    label: Hard stop if no session
+
+edges:
+  - from: cli_invocation
+    to: parse_args
+  - from: parse_args
+    to: determine_track_command
+  - from: determine_track_command
+    to: parse_subcommands
+  - from: parse_subcommands
+    to: session_check
+  - from: session_check
+    to: load_session
+    condition: Session provided
+  - from: session_check
+    to: hard_stop_no_session
+    condition: No session provided
+  - from: load_session
+    to: validate_session
+  - from: validate_session
+    to: subcommand_check
+  - from: subcommand_check
+    to: route_list
+    condition: Subcommand is 'list'
+  - from: subcommand_check
+    to: route_add
+    condition: Subcommand is 'add'
+  - from: subcommand_check
+    to: route_remove
+    condition: Subcommand is 'remove'
+  - from: subcommand_check
+    to: route_show
+    condition: Subcommand is 'show'
+  - from: subcommand_check
+    to: show_help
+    condition: Other/invalid subcommand
+  - from: route_list
+    to: execute_operation
+  - from: route_add
+    to: execute_operation
+  - from: route_remove
+    to: execute_operation
+  - from: route_show
+    to: execute_operation
+  - from: execute_operation
+    to: output_results
+  - from: output_results
+    to: exit_success
+  - from: show_help
+    to: exit_failure
+
+exports:
+  - writes track data to docs/
+  - updates session file
+  - outputs track information to stdout
+
+evidence:
+  - v1/command_track.md
+  - v1/command_track.puml

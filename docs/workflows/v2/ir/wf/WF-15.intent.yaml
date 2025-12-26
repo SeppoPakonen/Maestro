@@ -1,10 +1,13 @@
-```yaml
 wf_id: WF-15
 layer: intent
 title: Work ↔ wsession Cookie Protocol (File-based Polling, Multi-process Safe)
 status: correct
 confidence: high
 storage_backend: json
+
+uses_commands:
+  - CMD-work
+  - CMD-wsession
 
 description: |
   This workflow defines the communication mechanism between a `maestro work` orchestrator run and various `maestro wsession` commands (invoked by an AI engine or operator). The communication is achieved through a file-based polling system, leveraging a unique "cookie" (session ID) to target specific work runs, ensuring multi-process safety.
@@ -155,4 +158,3 @@ commands:
   - "maestro wsession"
 
 ledger_hints: []
-```

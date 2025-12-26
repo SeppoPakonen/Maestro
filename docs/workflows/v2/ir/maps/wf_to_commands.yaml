@@ -1,0 +1,75 @@
+# Workflow to Commands Mapping
+#
+# This file maps workflow IDs (WF-XX) to the command IDs (CMD-name) they use.
+# Generated automatically from WF intent YAML files.
+#
+
+description: Mapping from workflow IDs to command IDs they use
+version: '2.0'
+wf_to_commands:
+  WF-01:
+  - CMD-build
+  - CMD-discuss
+  - CMD-init
+  - CMD-reconstruct
+  - CMD-run
+  - CMD-task
+  - CMD-work
+  WF-02:
+  - CMD-init
+  - CMD-phase
+  - CMD-task
+  - CMD-track
+  - CMD-work
+  WF-03:
+  - CMD-make
+  - CMD-repo
+  WF-04:
+  - CMD-make
+  - CMD-solutions
+  - CMD-work
+  WF-05:
+  - CMD-repo
+  WF-06:
+  - CMD-ai
+  - CMD-work
+  - CMD-wsession
+  WF-07:
+  - CMD-repo
+  - CMD-tu
+  WF-08:
+  - CMD-convert
+  - CMD-repo
+  WF-09:
+  - CMD-build
+  - CMD-convert
+  - CMD-issues
+  - CMD-repo
+  - CMD-task
+  - CMD-tu
+  - CMD-work
+  WF-10:
+  - CMD-issues
+  - CMD-repo
+  WF-11:
+  - CMD-build
+  - CMD-init
+  - CMD-repo
+  - CMD-tu
+  WF-12:
+  - CMD-build
+  - CMD-convert
+  - CMD-repo
+  - CMD-tu
+  WF-13:
+  - CMD-init
+  - CMD-make
+  - CMD-repo
+  WF-14:
+  - CMD-work
+  WF-15:
+  - CMD-work
+  - CMD-wsession
+  WF-16:
+  - CMD-work-run
+  - CMD-wsession

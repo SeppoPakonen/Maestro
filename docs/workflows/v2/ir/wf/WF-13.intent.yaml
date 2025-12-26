@@ -1,10 +1,14 @@
-```yaml
 wf_id: WF-13
 layer: intent
 title: Read-only → Adopt bridge (home hub to repo truth)
 status: correct
 confidence: high
 storage_backend: json
+
+uses_commands:
+  - CMD-init
+  - CMD-make
+  - CMD-repo
 
 description: |
   This workflow formalizes the bridge from read-only inspection (WF-03 style) to stateful adoption (WF-01 style). 
@@ -191,4 +195,3 @@ commands:
   - maestro repo conf
 
 ledger_hints: []
-```

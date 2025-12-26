@@ -1,10 +1,13 @@
-```yaml
 wf_id: WF-16
 layer: intent
 title: wsession modes — log-only vs mutation API (opt-in)
 status: correct
 confidence: high
 storage_backend: json
+
+uses_commands:
+  - CMD-work-run
+  - CMD-wsession
 
 description: |
   This workflow formalizes the operational modes for `maestro wsession`, distinguishing between a default log-only behavior and an opt-in mutation mode. This distinction is crucial for managing the integrity of project state while enabling AI agents to interact dynamically during long-running work.
@@ -254,4 +257,3 @@ commands:
   - maestro wsession mutate
 
 ledger_hints: []
-```

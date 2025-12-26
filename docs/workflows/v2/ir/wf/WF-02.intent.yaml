@@ -5,6 +5,13 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-init
+  - CMD-phase
+  - CMD-task
+  - CMD-track
+  - CMD-work
+
 description: |
   This workflow covers the greenfield project bootstrap process when an Operator starts a new project from scratch with:
   - An empty directory (or new directory to be created)

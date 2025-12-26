@@ -1,0 +1,104 @@
+id: CMD-phase
+layer: cli
+title: phase command surface
+status: partial
+confidence: medium
+storage_backend: unknown
+
+commands:
+  - maestro phase
+  - maestro ph
+  - maestro p
+  - maestro phase list
+  - maestro phase add
+  - maestro phase remove
+  - maestro phase show
+
+nodes:
+  - id: cli_invocation
+    type: command
+    label: Maestro CLI Invocation
+  - id: determine_phase_command
+    type: command
+    label: Determine command is 'phase'
+  - id: parse_phase_subcommands
+    type: subcommand
+    label: Parse phase subcommands
+  - id: validate_session
+    type: validation
+    label: Validate session
+  - id: load_session
+    type: handler
+    label: Load session
+  - id: hard_stop_no_session
+    type: hard_stop
+    label: Hard stop if no session
+  - id: validate_session_schema
+    type: validation
+    label: Validate session schema
+  - id: route_phase_subcommand
+    type: handler
+    label: Route to phase subcommand handler
+  - id: handle_phase_command
+    type: handler
+    label: Execute phase operation
+  - id: read_docs_truth
+    type: datastore
+    label: Read docs truth
+  - id: write_docs_truth
+    type: datastore
+    label: Write docs truth
+  - id: output_results
+    type: command
+    label: Output results to stdout
+  - id: exit_success
+    type: command
+    label: Exit success
+  - id: exit_failure
+    type: command
+    label: Exit failure
+
+edges:
+  - from: cli_invocation
+    to: determine_phase_command
+  - from: determine_phase_command
+    to: parse_phase_subcommands
+  - from: parse_phase_subcommands
+    to: validate_session
+  - from: validate_session
+    to: load_session
+    condition: Session provided
+  - from: validate_session
+    to: hard_stop_no_session
+    condition: No session provided
+  - from: load_session
+    to: validate_session_schema
+  - from: validate_session_schema
+    to: route_phase_subcommand
+  - from: route_phase_subcommand
+    to: handle_phase_command
+  - from: handle_phase_command
+    to: read_docs_truth
+  - from: read_docs_truth
+    to: write_docs_truth
+  - from: write_docs_truth
+    to: output_results
+  - from: output_results
+    to: exit_success
+  - from: route_phase_subcommand
+    to: exit_failure
+    condition: Invalid subcommand
+
+exports:
+  - writes phase data to docs/
+  - updates session file
+  - outputs phase information to stdout
+
+evidence:
+  - v1/command_surface/cmd_phase.md
+  - maestro/commands/phase.py
+
+notes:
+  - Subcommands list, add, remove, show are assumed based on pattern
+  - Exact subcommand behavior not fully documented
+  - Storage backend not explicitly mentioned in docs

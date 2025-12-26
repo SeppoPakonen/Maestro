@@ -1,0 +1,47 @@
+id: "CMD-ops"
+layer: "cli"
+title: "ops command surface"
+status: "partial"
+confidence: "medium"
+storage_backend: "unknown"
+
+commands:
+  - "maestro ops validate operations.json"
+  - "maestro ops preview operations.json"
+  - "maestro ops apply operations.json"
+
+nodes:
+  - id: "ops_command"
+    type: "command"
+    label: "maestro ops"
+  - id: "validate_subcommand"
+    type: "subcommand"
+    label: "validate"
+  - id: "preview_subcommand"
+    type: "subcommand"
+    label: "preview"
+  - id: "apply_subcommand"
+    type: "subcommand"
+    label: "apply"
+
+edges:
+  - from: "ops_command"
+    to: "validate_subcommand"
+    type: "call"
+  - from: "ops_command"
+    to: "preview_subcommand"
+    type: "call"
+  - from: "ops_command"
+    to: "apply_subcommand"
+    type: "call"
+
+exports:
+  - "writes operation logs"
+  - "updates project files (for apply operation)"
+
+evidence:
+  - "v1/command_surface/cmd_ops.md"
+
+notes:
+  - "Requires session file via --session"
+  - "Implementation details in maestro/modules/cli_parser.py and maestro/project_ops/commands.py"

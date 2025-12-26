@@ -5,6 +5,10 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-repo
+  - CMD-tu
+
 description: |
   This workflow handles AST (Abstract Syntax Tree) and TU (Translation Unit) operations in Maestro,
   including rename refactoring, C++ to JavaScript transformation, and autocomplete functionality.

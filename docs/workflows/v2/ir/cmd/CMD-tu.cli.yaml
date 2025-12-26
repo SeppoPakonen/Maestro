@@ -1,0 +1,70 @@
+id: CMD-tu
+layer: cli
+title: tu command surface
+status: partial
+confidence: medium
+storage_backend: unknown
+commands:
+  - maestro tu
+nodes:
+  - id: cli_invocation
+    type: command
+    label: Maestro CLI Invocation
+  - id: argparse
+    type: argparse
+    label: Parse CLI arguments
+  - id: determine_tu
+    type: decision
+    label: Determine command is 'tu'
+  - id: route_tu_handler
+    type: handler
+    label: Route to TU handler
+  - id: analyze_project
+    type: action
+    label: Analyze project structure
+  - id: read_source
+    type: action
+    label: Read source code files
+  - id: perform_indexing
+    type: action
+    label: Perform translation unit indexing
+  - id: write_index
+    type: action
+    label: Write index to storage
+  - id: output_progress
+    type: action
+    label: Output analysis progress to stdout
+  - id: exit_ok
+    type: command
+    label: Exit successfully
+edges:
+  - from: cli_invocation
+    to: argparse
+  - from: argparse
+    to: determine_tu
+  - from: determine_tu
+    to: route_tu_handler
+  - from: route_tu_handler
+    to: analyze_project
+  - from: analyze_project
+    to: read_source
+  - from: read_source
+    to: perform_indexing
+  - from: perform_indexing
+    to: write_index
+  - from: write_index
+    to: output_progress
+  - from: output_progress
+    to: exit_ok
+exports:
+  - writes index files
+  - writes analysis results
+  - outputs analysis progress to stdout
+  - outputs success/failure messages
+evidence:
+  - v1/command_surface/cmd_tu.md
+  - v1/internal/deep/cmd_tu_deep.puml
+notes:
+  - Analysis options and scope not clearly documented
+  - Storage location for index files not explicitly mentioned
+  - Exact CLI arguments not specified in documentation

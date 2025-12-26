@@ -5,6 +5,11 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-make
+  - CMD-solutions
+  - CMD-work
+
 description: |
   This workflow handles reactive compile errors by creating issues and matching against solution rules.
   When a build fails with a compiler error, Maestro creates an issue and attempts to match the error

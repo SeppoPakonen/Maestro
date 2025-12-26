@@ -1,0 +1,229 @@
+id: "CMD-ai"
+layer: "code"
+title: "ai deep internal flow (observed)"
+status: "partial"
+confidence: "medium"
+storage_backend: "json"
+
+calls:
+  - maestro.main.main
+  - maestro.commands.ai.handle_ai_sync
+  - maestro.commands.ai.handle_ai_qwen
+  - maestro.commands.ai.handle_ai_gemini
+  - maestro.commands.ai.handle_ai_codex
+  - maestro.commands.ai.handle_ai_claude
+  - maestro.commands.ai._watch_ai_sync
+  - maestro.commands.ai._resolve_session
+  - maestro.ai.task_sync.load_sync_state
+  - maestro.ai.task_sync.find_task_context
+  - maestro.ai.task_sync.build_task_queue
+  - maestro.commands.ai._select_next_task
+  - maestro.ai.task_sync.build_task_prompt
+  - maestro.work_session.save_session
+  - maestro.ai.task_sync.write_sync_state
+  - maestro.commands.ai._write_sync_breadcrumb
+  - maestro.breadcrumb.create_breadcrumb
+  - maestro.ai.manager.AiEngineManager
+  - maestro.config.settings.get_settings
+  - maestro.ai.types.RunOpts
+  - maestro.ai.types.PromptRef
+  - maestro.ai.run_one_shot
+  - maestro.ai.run_interactive_chat
+  - maestro.commands.ai._resolve_qwen_script
+  - maestro.commands.ai._run_qwen_server
+  - maestro.commands.ai._run_qwen_stdin_chat
+  - maestro.commands.ai._run_qwen_tui
+  - maestro.qwen.client.QwenClient
+  - maestro.qwen.tui.run_tui
+
+stores:
+  - docs/ai_sync.json
+  - docs/sessions/session.json
+  - docs/sessions/<session-id>/session.json
+  - docs/sessions/<session-id>/breadcrumbs.jsonl
+  - settings.json
+
+nodes:
+  - id: "main_entry"
+    type: "function"
+    module: "maestro/main.py"
+    function: "main"
+  - id: "handle_ai_sync"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "handle_ai_sync"
+  - id: "handle_ai_qwen"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "handle_ai_qwen"
+  - id: "handle_ai_gemini"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "handle_ai_gemini"
+  - id: "handle_ai_codex"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "handle_ai_codex"
+  - id: "handle_ai_claude"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "handle_ai_claude"
+  - id: "ai_sync_watch"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "_watch_ai_sync"
+  - id: "resolve_session"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "_resolve_session"
+  - id: "load_sync_state"
+    type: "function"
+    module: "maestro/ai/task_sync.py"
+    function: "load_sync_state"
+  - id: "find_task_context"
+    type: "function"
+    module: "maestro/ai/task_sync.py"
+    function: "find_task_context"
+  - id: "build_task_queue"
+    type: "function"
+    module: "maestro/ai/task_sync.py"
+    function: "build_task_queue"
+  - id: "select_next_task"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "_select_next_task"
+  - id: "build_task_prompt"
+    type: "function"
+    module: "maestro/ai/task_sync.py"
+    function: "build_task_prompt"
+  - id: "save_session"
+    type: "function"
+    module: "maestro/work_session.py"
+    function: "save_session"
+  - id: "write_sync_state"
+    type: "function"
+    module: "maestro/ai/task_sync.py"
+    function: "write_sync_state"
+  - id: "write_sync_breadcrumb"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "_write_sync_breadcrumb"
+  - id: "create_breadcrumb"
+    type: "function"
+    module: "maestro/breadcrumb.py"
+    function: "create_breadcrumb"
+  - id: "ai_engine_manager"
+    type: "class"
+    module: "maestro/ai/manager.py"
+    class: "AiEngineManager"
+  - id: "get_settings"
+    type: "function"
+    module: "maestro/config/settings.py"
+    function: "get_settings"
+  - id: "run_one_shot"
+    type: "function"
+    module: "maestro/ai/runners.py"
+    function: "run_one_shot"
+  - id: "run_interactive_chat"
+    type: "function"
+    module: "maestro/ai/runners.py"
+    function: "run_interactive_chat"
+  - id: "qwen_stdin_chat"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "_run_qwen_stdin_chat"
+  - id: "qwen_server"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "_run_qwen_server"
+  - id: "qwen_tui"
+    type: "function"
+    module: "maestro/commands/ai.py"
+    function: "_run_qwen_tui"
+  - id: "qwen_client"
+    type: "class"
+    module: "maestro/qwen/client.py"
+    class: "QwenClient"
+  - id: "qwen_tui_runner"
+    type: "function"
+    module: "maestro/qwen/tui.py"
+    function: "run_tui"
+  - id: "docs_ai_sync_json"
+    type: "datastore"
+    path: "docs/ai_sync.json"
+  - id: "docs_sessions_json"
+    type: "datastore"
+    path: "docs/sessions/session.json"
+  - id: "docs_breadcrumbs_jsonl"
+    type: "datastore"
+    path: "docs/sessions/breadcrumbs.jsonl"
+  - id: "settings_json"
+    type: "datastore"
+    path: "settings.json"
+
+edges:
+  - from: "main_entry"
+    to: "handle_ai_sync"
+  - from: "main_entry"
+    to: "handle_ai_qwen"
+  - from: "main_entry"
+    to: "handle_ai_gemini"
+  - from: "main_entry"
+    to: "handle_ai_codex"
+  - from: "main_entry"
+    to: "handle_ai_claude"
+  - from: "handle_ai_sync"
+    to: "ai_sync_watch"
+  - from: "handle_ai_sync"
+    to: "resolve_session"
+  - from: "resolve_session"
+    to: "load_sync_state"
+  - from: "handle_ai_sync"
+    to: "find_task_context"
+  - from: "handle_ai_sync"
+    to: "build_task_queue"
+  - from: "handle_ai_sync"
+    to: "select_next_task"
+  - from: "handle_ai_sync"
+    to: "build_task_prompt"
+  - from: "handle_ai_sync"
+    to: "save_session"
+  - from: "handle_ai_sync"
+    to: "write_sync_state"
+  - from: "handle_ai_sync"
+    to: "write_sync_breadcrumb"
+  - from: "write_sync_breadcrumb"
+    to: "create_breadcrumb"
+  - from: "handle_ai_qwen"
+    to: "ai_engine_manager"
+  - from: "handle_ai_qwen"
+    to: "get_settings"
+  - from: "handle_ai_qwen"
+    to: "run_one_shot"
+  - from: "handle_ai_qwen"
+    to: "run_interactive_chat"
+  - from: "handle_ai_qwen"
+    to: "qwen_stdin_chat"
+  - from: "handle_ai_qwen"
+    to: "qwen_server"
+  - from: "handle_ai_qwen"
+    to: "qwen_tui"
+  - from: "qwen_stdin_chat"
+    to: "qwen_client"
+  - from: "qwen_tui"
+    to: "qwen_tui_runner"
+
+evidence:
+  - "v1/internal/deep/cmd_ai_deep.puml"
+  - "maestro/commands/ai.py"
+  - "maestro/ai/task_sync.py"
+  - "maestro/work_session.py"
+  - "maestro/breadcrumb.py"
+  - "maestro/ai/manager.py"
+  - "maestro/config/settings.py"
+  - "maestro/ai/runners.py"
+  - "maestro/qwen/client.py"
+  - "maestro/qwen/tui.py"
+
+ledger_hints:
+  - "Observed legacy Qwen server/TUI functionality in cmd_ai deep flow; v2 repo truth uses JSON. These legacy paths may need to be deprecated or updated to align with modern AI engine manager patterns."

@@ -10,6 +10,15 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-build
+  - CMD-convert
+  - CMD-issues
+  - CMD-repo
+  - CMD-task
+  - CMD-tu
+  - CMD-work
+
 description: |
   This workflow defines the storage contract for Maestro. Persistent project data
   is stored in **JSON format** under `./docs/maestro/` (repo truth) when the user

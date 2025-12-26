@@ -1,0 +1,100 @@
+id: CMD-settings
+layer: cli
+title: settings command surface
+status: partial
+confidence: medium
+storage_backend: unknown
+
+commands:
+  - maestro settings
+  - maestro config
+  - maestro cfg
+
+nodes:
+  - id: cmd_settings_entry
+    type: command
+    label: settings command entry point
+  - id: parse_args
+    type: argparse
+    label: parse command line arguments
+  - id: determine_settings_cmd
+    type: validation
+    label: determine command is 'settings'
+  - id: check_session
+    type: validation
+    label: check if session is provided
+  - id: load_session
+    type: handler
+    label: load session
+  - id: validate_session
+    type: validation
+    label: validate session schema
+  - id: route_settings_handler
+    type: handler
+    label: route to settings handler
+  - id: read_config
+    type: datastore
+    label: read configuration files
+  - id: process_settings_op
+    type: handler
+    label: process settings operation
+  - id: write_config
+    type: datastore
+    label: write configuration updates
+  - id: output_results
+    type: command
+    label: output results to stdout
+  - id: exit_ok
+    type: command
+    label: exit with success code
+  - id: hard_stop_no_session
+    type: hard_stop
+    label: hard stop if no session provided
+
+edges:
+  - from: cmd_settings_entry
+    to: parse_args
+  - from: parse_args
+    to: determine_settings_cmd
+  - from: determine_settings_cmd
+    to: check_session
+  - from: check_session
+    to: load_session
+    condition: session provided
+  - from: check_session
+    to: hard_stop_no_session
+    condition: no session provided
+  - from: load_session
+    to: validate_session
+  - from: validate_session
+    to: route_settings_handler
+  - from: route_settings_handler
+    to: read_config
+  - from: read_config
+    to: process_settings_op
+  - from: process_settings_op
+    to: write_config
+  - from: write_config
+    to: output_results
+  - from: output_results
+    to: exit_ok
+
+exports:
+  - writes configuration files
+  - outputs configuration to stdout
+
+evidence:
+  - path: maestro/commands/settings.py
+    type: source_code
+    description: Implementation of settings command
+  - path: docs/workflows/v1/command_settings.md
+    type: documentation
+    description: Markdown documentation for settings command
+  - path: docs/workflows/v1/settings.puml
+    type: v1_diagram
+    description: PlantUML diagram for settings command flow
+
+notes:
+  - Subcommands list, edit, get, set are assumed but not explicitly documented
+  - Specific storage backend not mentioned in documentation
+  - No specific tests identified in documentation

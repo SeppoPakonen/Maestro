@@ -5,6 +5,12 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-build
+  - CMD-init
+  - CMD-repo
+  - CMD-tu
+
 description: |
   This workflow documents the "two-way" design principle for repository modeling in Maestro:
   everything that `repo resolve` can *discover*, the user or an AI agent must also be able to
@@ -251,4 +257,3 @@ commands:
 
 ledger_hints: []
 
-The YAML IR for WF-11 has been successfully extracted from the v1 documentation. The output follows the Maestro Workflow IR Schema with the appropriate fields for the intent layer, including nodes, edges, gates, stores, invariants, evidence, and commands as described in the original documentation.

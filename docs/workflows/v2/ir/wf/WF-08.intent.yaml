@@ -5,6 +5,10 @@ status: correct
 confidence: high
 storage_backend: json
 
+uses_commands:
+  - CMD-convert
+  - CMD-repo
+
 description: |
   This workflow defines the cross-repository conversion pipeline in Maestro.
   It separates the source repository (where AST is generated) from the target repository (where converted code is written).

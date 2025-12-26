@@ -1,0 +1,46 @@
+id: "CMD-repo"
+layer: "cli"
+title: "repo command surface"
+status: "partial"
+confidence: "medium"
+storage_backend: "unknown"
+
+commands:
+  - "maestro repo"
+  - "maestro repo analyze"
+  - "maestro repo resolve"
+  - "maestro repo status"
+
+nodes:
+  - id: "repo_cmd"
+    type: "command"
+    label: "maestro repo"
+  - id: "repo_analyze_subcmd"
+    type: "subcommand"
+    label: "analyze"
+  - id: "repo_resolve_subcmd"
+    type: "subcommand"
+    label: "resolve"
+  - id: "repo_status_subcmd"
+    type: "subcommand"
+    label: "status"
+
+edges:
+  - from: "repo_cmd"
+    to: "repo_analyze_subcmd"
+  - from: "repo_cmd"
+    to: "repo_resolve_subcmd"
+  - from: "repo_cmd"
+    to: "repo_status_subcmd"
+
+exports:
+  - "writes repo analysis"
+  - "writes repo status"
+
+evidence:
+  - "docs/workflows/v1/command_repo_conf.md"
+  - "docs/workflows/v1/command_repo_conf.puml"
+
+notes:
+  - "Subcommands and behavior inferred from documentation, actual implementation may vary"
+  - "Storage backend not explicitly mentioned in documentation"
