@@ -1,0 +1,240 @@
+# WF-09: Storage Contract — Repo Truth vs Home Hub
+# Layer: intent (LOD0)
+# Status: correct
+# Confidence: high
+
+wf_id: WF-09
+layer: intent
+title: Storage Contract — Repo Truth vs Home Hub
+status: correct
+confidence: high
+storage_backend: json
+
+description: |
+  This workflow defines the storage contract for Maestro. Persistent project data
+  is stored in **JSON format** under `./docs/maestro/` (repo truth) when the user
+  has adopted the repository, or under `~/.maestro/registry/` (home hub) for
+  readonly/unadopted repositories.
+
+  Critical invariant: `./.maestro` must NEVER exist. This is a hard stop.
+
+nodes:
+  - id: start
+    type: start
+    label: User runs Maestro command
+    description: Entry point for any Maestro command execution
+
+  - id: gate_forbid_dot_maestro
+    type: hard_stop
+    label: Hard Stop if ./.maestro exists
+    color: "#Red"
+    description: Fatal error if ./.maestro directory is detected
+
+  - id: check_repo_truth
+    type: decision
+    label: Check if ./docs/maestro/ exists
+    description: Determine storage backend based on repo adoption status
+
+  - id: use_repo_truth
+    type: action
+    label: Use Repo Truth Storage
+    description: Load/save from ./docs/maestro/ (JSON files)
+
+  - id: use_home_hub
+    type: action
+    label: Use Home Hub Storage
+    description: Load/save from ~/.maestro/registry/ (JSON files)
+
+  - id: load_repo_model
+    type: action
+    label: Load repo_model.json
+    description: Load repository model from chosen storage backend
+
+  - id: load_repo_conf
+    type: action
+    label: Load repo_conf.json (if exists)
+    description: Load repository configuration if available
+
+  - id: load_session
+    type: action
+    label: Load session data
+    description: Load session/task/issue data from chosen storage
+
+  - id: execute_command
+    type: action
+    label: Execute Maestro command
+    description: Run the requested command with loaded context
+
+  - id: save_state
+    type: action
+    label: Save state changes
+    description: Persist any state changes back to storage backend
+
+  - id: end_success
+    type: end
+    label: Command completes successfully
+
+  - id: end_hard_stop
+    type: end
+    label: Fatal error — ./.maestro forbidden
+
+edges:
+  - from: start
+    to: gate_forbid_dot_maestro
+    type: control
+
+  - from: gate_forbid_dot_maestro
+    to: end_hard_stop
+    label: ./.maestro exists
+    type: control
+    condition: ./.maestro directory exists
+
+  - from: gate_forbid_dot_maestro
+    to: check_repo_truth
+    label: ./.maestro does not exist
+    type: control
+    condition: ./.maestro does not exist
+
+  - from: check_repo_truth
+    to: use_repo_truth
+    label: ./docs/maestro/ exists
+    type: control
+    condition: ./docs/maestro/ directory exists
+
+  - from: check_repo_truth
+    to: use_home_hub
+    label: ./docs/maestro/ does not exist
+    type: control
+    condition: ./docs/maestro/ does not exist
+
+  - from: use_repo_truth
+    to: load_repo_model
+    type: control
+
+  - from: use_home_hub
+    to: load_repo_model
+    type: control
+
+  - from: load_repo_model
+    to: load_repo_conf
+    type: control
+
+  - from: load_repo_conf
+    to: load_session
+    type: control
+
+  - from: load_session
+    to: execute_command
+    type: control
+
+  - from: execute_command
+    to: save_state
+    type: control
+
+  - from: save_state
+    to: end_success
+    type: control
+
+gates:
+  - id: gate_forbid_dot_maestro
+    type: hard_stop
+    condition: ./.maestro directory exists
+    error_message: |
+      FORBIDDEN: ./.maestro directory detected.
+
+      Repository truth must be in ./docs/maestro/, never ./.maestro.
+
+      Action required:
+      1. Remove or rename ./.maestro directory
+      2. Run `maestro repo adopt` to create proper ./docs/maestro/ structure
+      3. Migrate any data from ./.maestro to ./docs/maestro/
+    recovery: Remove ./.maestro and run `maestro repo adopt`
+
+stores:
+  - id: repo_truth
+    type: repo_truth
+    path: ./docs/maestro/
+    format: json
+    description: |
+      Repository-local truth storage (adopted repos only).
+      Contains:
+      - repo_model.json — repository structure, packages, conventions, targets
+      - repo_conf.json — user configuration and preferences
+      - packages.json — package definitions
+      - tasks.json — task tracking
+      - issues.json — issue tracking
+      - sessions/ — session state
+
+  - id: home_hub
+    type: home_hub
+    path: ~/.maestro/registry/
+    format: json
+    description: |
+      Home-level registry for readonly/unadopted repositories.
+      Allows Maestro commands to run on third-party repos without adoption.
+      Contains:
+      - registry.json — cross-repo registry
+      - cache/ — AST cache, build artifacts
+      - sessions/ — session state for readonly repos
+
+  - id: repo_model_file
+    type: file
+    path: <storage_backend>/repo_model.json
+    format: json
+    description: Repository model file (location depends on storage backend)
+
+  - id: repo_conf_file
+    type: file
+    path: <storage_backend>/repo_conf.json
+    format: json
+    description: Repository configuration file (location depends on storage backend)
+
+invariants:
+  - id: FORBID_REPO_DOT_MAESTRO
+    description: ./.maestro must not exist (hard stop)
+    enforcement: hard_stop
+
+  - id: REPO_TRUTH_IS_DOCS_MAESTRO
+    description: Repository truth is ./docs/maestro/** when repo is adopted
+    enforcement: gate
+
+  - id: REPO_TRUTH_FORMAT_IS_JSON
+    description: Persistent data is JSON, not Markdown
+    enforcement: test
+
+  - id: HOME_HUB_ALLOWED_IN_READONLY
+    description: Home hub (~/.maestro/registry/) can be used for readonly repos
+    enforcement: documentation
+
+evidence:
+  - type: v1_diagram
+    path: v1/scenario_09_storage_contract_repo_truth_vs_home_hub.md
+    description: Original v1 storage contract workflow diagram
+
+  - type: v1_diagram
+    path: v1/scenario_09_storage_contract_repo_truth_vs_home_hub.puml
+    description: Original v1 PlantUML source
+
+  - type: source_code
+    path: maestro/modules/utils.py
+    description: Storage backend detection functions (get_maestro_dir, etc.)
+
+  - type: source_code
+    path: maestro/session_model.py
+    description: Session model with storage backend awareness
+
+commands:
+  - maestro repo adopt
+  - maestro repo resolve
+  - maestro repo conf
+  - maestro build
+  - maestro tu
+  - maestro convert
+  - maestro work
+  - maestro task
+  - maestro issues
+
+ledger_hints:
+  - "LEDGER-0001: Verify storage backend is JSON-only (no Markdown persistence)"
+  - "LEDGER-0002: Ensure ./.maestro detection and hard stop are implemented"
+  - "LEDGER-0008: Confirm home hub fallback works for readonly repos"
