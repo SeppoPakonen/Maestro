@@ -34,6 +34,11 @@ If a command is getting too specific, do not extend the verb. Keep verbs short a
 
 - Selection commands are hard switches; they must support `show`, `list`, `set`, `unset` uniformly.
 
+## Prefer vs require rule
+
+- Prefer is the default: adapt to supply; require is explicit gating.
+- Detection is data, not truth: store detection in the hub; store policy in repo truth.
+
 ## Repo truth and stores
 
 - Repo truth is always under `./docs/maestro/**`.

@@ -99,3 +99,31 @@ Entries derived from the v2 runbook audit. Status is `proposed` until implemente
   Status: proposed
   Acceptance criteria: `maestro make` and `maestro tu` use exported env vars (include/lib paths, sysroot) from selected toolchain.
   Notes: Ensure build alias behavior remains consistent.
+
+- ID: LED-0015
+  Title: Platform caps detect stored in hub with confidence
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-30_platform_caps_detect_prefer_require.md`.
+  Status: proposed
+  Acceptance criteria: `maestro platform caps detect` writes `present`, `version`, `provider`, `confidence` into `$HOME/.maestro/platform/caps/detected.json`.
+  Notes: Support optional `--toolchain` preview cache.
+
+- ID: LED-0016
+  Title: Prefer/require policy stored in repo truth
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-30_platform_caps_detect_prefer_require.md`.
+  Status: proposed
+  Acceptance criteria: `maestro platform caps prefer/require` updates `./docs/maestro/platform_caps.json` with policy arrays.
+  Notes: Keep policy separate from detection data.
+
+- ID: LED-0017
+  Title: Make/build consumes caps policy for optional features
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-30_platform_caps_detect_prefer_require.md`.
+  Status: proposed
+  Acceptance criteria: `maestro make` enables optional flags only when caps are present and preferred.
+  Notes: Provide a cap-report flag or log to trace applied caps.
+
+- ID: LED-0018
+  Title: Require missing triggers gate and issue creation
+  Rationale: Required by `docs/workflows/v3/runbooks/examples/proposed/EX-30_platform_caps_detect_prefer_require.md`.
+  Status: proposed
+  Acceptance criteria: missing required cap blocks build and creates an issue/task stub with actionable guidance.
+  Notes: Gate should reference `CAP_REQUIRE`.
