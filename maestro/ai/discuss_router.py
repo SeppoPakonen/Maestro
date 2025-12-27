@@ -93,6 +93,45 @@ class DiscussionRouter:
         else:
             return self._run_terminal_discussion(engine, initial_prompt, opts, json_contract)
 
+    def extract_json_from_text(self, response: str) -> Optional[str]:
+        """Expose JSON extraction for replay and tests."""
+        return self._extract_json_from_response(response)
+
+    def process_json_payload(
+        self,
+        payload: Any,
+        json_contract: JsonContract
+    ) -> List[PatchOperation]:
+        """Validate and convert a JSON payload into patch operations."""
+        self.last_json_error = None
+
+        if payload is None:
+            self.last_json_error = "No JSON payload provided."
+            print(self.last_json_error)
+            return []
+
+        if isinstance(payload, str):
+            json_content = self._extract_json_from_response(payload) or payload
+            if not json_content or not json_content.strip():
+                self.last_json_error = "Empty JSON payload provided."
+                print(self.last_json_error)
+                return []
+            try:
+                parsed_json = json.loads(json_content)
+            except json.JSONDecodeError as e:
+                self.last_json_error = f"Error parsing JSON: {e}"
+                print(self.last_json_error)
+                return []
+        else:
+            parsed_json = payload
+
+        if not json_contract.validation_func(parsed_json):
+            self.last_json_error = "JSON does not match the required schema."
+            print(self.last_json_error)
+            return []
+
+        return self._convert_to_patch_operations(parsed_json, json_contract.allowed_operations)
+
     def _run_editor_discussion(
         self,
         engine: AiEngineName,

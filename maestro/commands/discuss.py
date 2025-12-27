@@ -6,7 +6,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Tuple
 
 from maestro.ai import (
     ActionProcessor,
@@ -82,6 +82,65 @@ def run_discussion_with_session(discussion_session: DiscussionSession, dry_run: 
     print(f"[System] Estimated cost: ${summary['total_cost']:.2f}")
 
     return 0
+
+
+def _load_replay_payload(path: Path) -> Tuple[Optional[Any], Optional[str], Optional[str]]:
+    """Load a replay payload from JSON/JSONL or raw text."""
+    if not path.exists():
+        return None, None, f"Replay transcript not found: {path}"
+
+    contract_hint = None
+    suffix = path.suffix.lower()
+    if suffix == ".jsonl":
+        payload = None
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError as exc:
+                return None, None, f"Invalid JSONL entry: {exc}"
+            if isinstance(event, dict):
+                if event.get("contract_type"):
+                    contract_hint = event.get("contract_type")
+                for key in ("final_json", "final", "payload", "json"):
+                    if key in event:
+                        payload = event[key]
+        if payload is None:
+            return None, contract_hint, "No final JSON payload found in transcript."
+        return payload, contract_hint, None
+
+    if suffix == ".json":
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return None, None, f"Invalid JSON transcript: {exc}"
+        if isinstance(data, dict):
+            contract_hint = data.get("contract_type")
+            if "final_json" in data:
+                return data["final_json"], contract_hint, None
+            if "transcript" in data and isinstance(data["transcript"], dict):
+                transcript = data["transcript"]
+                if transcript.get("contract_type"):
+                    contract_hint = transcript.get("contract_type")
+                if "final_json" in transcript:
+                    return transcript["final_json"], contract_hint, None
+            if "patch_operations" in data:
+                return data["patch_operations"], contract_hint, None
+        return data, contract_hint, None
+
+    return path.read_text(encoding="utf-8"), contract_hint, None
+
+
+def _resolve_contract_type(contract_value: Optional[str]) -> ContractType:
+    if contract_value == ContractType.TRACK.value:
+        return ContractType.TRACK
+    if contract_value == ContractType.PHASE.value:
+        return ContractType.PHASE
+    if contract_value == ContractType.TASK.value:
+        return ContractType.TASK
+    return ContractType.GLOBAL
 
 
 def apply_patch_operations(patch_operations):
@@ -284,6 +343,9 @@ def update_artifact_status(session_id: str, status: str, applied_operations: lis
 
 
 def handle_discuss_command(args) -> int:
+    if getattr(args, "discuss_subcommand", None) == "replay":
+        return handle_discuss_replay(args)
+
     # Determine the appropriate contract based on context
     if hasattr(args, 'track_id') and args.track_id:
         contract_type = ContractType.TRACK
@@ -468,6 +530,76 @@ def handle_track_discuss(track_id: Optional[str], args) -> int:
                 update_artifact_status(session_id, 'applied', applied_ops)
             elif response in ['e', 'edit']:
                 # Provide a way to edit the operations manually if needed
+                print("Manual editing of operations is not yet implemented in this version.")
+                print("Changes not applied.")
+                update_artifact_status(session_id, 'cancelled')
+            else:
+                print("Changes not applied.")
+                update_artifact_status(session_id, 'cancelled')
+        else:
+            print("Dry run: changes not applied.")
+            update_artifact_status(session_id, 'dry_run')
+    else:
+        print("No changes were proposed.")
+        update_artifact_status(session_id, 'no_operations')
+
+    return 0
+
+
+def handle_discuss_replay(args) -> int:
+    replay_path = Path(getattr(args, "path", ""))
+    payload, contract_hint, error = _load_replay_payload(replay_path)
+    if error:
+        print(f"Error: {error}")
+        return 1
+
+    if getattr(args, "contract", None):
+        contract_type = _resolve_contract_type(args.contract)
+    else:
+        contract_type = _resolve_contract_type(contract_hint)
+
+    if contract_type == ContractType.TRACK:
+        json_contract = TrackContract
+    elif contract_type == ContractType.PHASE:
+        json_contract = PhaseContract
+    elif contract_type == ContractType.TASK:
+        json_contract = TaskContract
+    else:
+        json_contract = GlobalContract
+
+    router = DiscussionRouter(AiEngineManager())
+    patch_operations = router.process_json_payload(payload, json_contract)
+    json_error = router.last_json_error
+
+    session_id = save_discussion_artifacts(
+        initial_prompt=f"Replay: {replay_path}",
+        patch_operations=patch_operations,
+        engine_name="replay",
+        model_name="replay",
+        contract_type=contract_type
+    )
+
+    print(f"Discussion replay session ID: {session_id}")
+
+    if json_error:
+        print(f"Error: {json_error}")
+        print("Invalid JSON returned; no operations were applied. Retry or resume the discussion.")
+        update_artifact_status(session_id, 'invalid_json', error_message=json_error)
+        return 1
+
+    if patch_operations:
+        print("\nProposed changes (replay):")
+        for i, op in enumerate(patch_operations, 1):
+            print(f"  {i}. {op.op_type.value}: {op.data}")
+
+        if not getattr(args, "dry_run", False):
+            response = input("\nApply these changes? [y]es/[n]o/[e]dit manually: ").lower().strip()
+            if response in ['y', 'yes']:
+                apply_patch_operations(patch_operations)
+                print("Changes applied successfully.")
+                applied_ops = [{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations]
+                update_artifact_status(session_id, 'applied', applied_ops)
+            elif response in ['e', 'edit']:
                 print("Manual editing of operations is not yet implemented in this version.")
                 print("Changes not applied.")
                 update_artifact_status(session_id, 'cancelled')
@@ -709,6 +841,11 @@ def add_discuss_parser(subparsers):
         "discuss",
         help="Start an AI discussion using the current context",
     )
+    discuss_subparsers = discuss_parser.add_subparsers(dest="discuss_subcommand", help="Discuss subcommands")
+    replay_parser = discuss_subparsers.add_parser("replay", help="Replay a discuss transcript or JSON payload")
+    replay_parser.add_argument("path", help="Path to replay transcript (json/jsonl/text)")
+    replay_parser.add_argument("--contract", choices=["global", "track", "phase", "task"], help="Override contract type")
+    replay_parser.add_argument("--dry-run", action="store_true", help="Preview actions without executing them")
     # Add mutually exclusive group for selecting context
     context_group = discuss_parser.add_mutually_exclusive_group()
     context_group.add_argument("--track", "--track-id", dest="track_id", help="Select track by ID")

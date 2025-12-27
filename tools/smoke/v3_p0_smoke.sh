@@ -326,7 +326,7 @@ DISCUSS_CMD=""
 if grep -E -q -- "--from-file" out_discuss_help.txt; then
   DISCUSS_CMD="$MAESTRO_BIN discuss --from-file bad.json"
 elif grep -E -q "replay" out_discuss_help.txt; then
-  DISCUSS_CMD="$MAESTRO_BIN discuss replay --from-file bad.json"
+  DISCUSS_CMD="$MAESTRO_BIN discuss replay bad.json"
 elif grep -E -q "apply" out_discuss_help.txt; then
   DISCUSS_CMD="$MAESTRO_BIN discuss apply --from-file bad.json"
 fi
@@ -338,7 +338,7 @@ else
   snapshot_json_list "docs/maestro" before_json.txt 1
   run_capture "$DISCUSS_CMD" out_discuss_bad.txt
   assert_exit_nonzero
-  assert_contains out_discuss_bad.txt "json|parse|invalid|schema"
+  assert_contains out_discuss_bad.txt "[Jj]son|[Pp]arse|[Ii]nvalid|[Ss]chema"
   snapshot_json_list "docs/maestro" after_json.txt 1
   if ! diff -u before_json.txt after_json.txt >/dev/null 2>&1; then
     fail "Expected no repo truth JSON changes outside ai/"

@@ -120,7 +120,7 @@ def main():
         handle_task_command(args)
 
     elif args.command == 'discuss':
-        handle_discuss_command(args)
+        sys.exit(handle_discuss_command(args))
 
     elif args.command == 'settings':
         handle_settings_command(args)
