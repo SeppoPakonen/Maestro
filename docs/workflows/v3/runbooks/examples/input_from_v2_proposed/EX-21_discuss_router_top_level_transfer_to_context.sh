@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Configurable binary path
+MAESTRO_BIN=${MAESTRO_BIN:-maestro.py}
+
 run() { echo "+ $*"; }
 
 # EX-21: Discuss Router (Top-Level) — Transfer to Context
 
 echo "=== Step 1: Start top-level discuss ==="
-run maestro discuss
+run "$MAESTRO_BIN" discuss
 # EXPECT: Session started, router begins intent scan
 # STORES_WRITE: IPC_MAILBOX
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
@@ -27,7 +30,7 @@ echo "Router: This looks like repo resolve. Transfer? (y/n)"
 
 echo ""
 echo "User: y"
-run TODO_CMD: maestro repo discuss
+run "$MAESTRO_BIN" discuss --context repo
 # EXPECT: Repo discuss prompt loaded
 # STORES_WRITE: IPC_MAILBOX
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
@@ -38,15 +41,6 @@ echo "User: /done"
 # EXPECT: Assistant returns single JSON object
 # GATES: JSON_CONTRACT_GATE
 
-# JSON response (example):
-# {
-#   "ops": [
-#     {"op": "repo.resolve.lite", "args": {"path": "."}},
-#     {"op": "repo.conf.select_default_target", "args": {"target": "build"}}
-#   ],
-#   "summary": "Resolve repo and select default target"
-# }
-
 echo ""
 echo "=== Step 3: Alternate routing ==="
 echo "User: I'm blocked on TASK-042"
@@ -54,7 +48,7 @@ echo "User: I'm blocked on TASK-042"
 # STORES_WRITE: IPC_MAILBOX
 # GATES: INTENT_CLASSIFY
 
-run TODO_CMD: maestro task discuss TASK-042
+run "$MAESTRO_BIN" task discuss TASK-042
 # EXPECT: Task discuss prompt loaded
 # STORES_WRITE: IPC_MAILBOX
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
@@ -65,13 +59,17 @@ echo "User: /done"
 # EXPECT: Assistant returns single JSON object
 # GATES: JSON_CONTRACT_GATE
 
-# JSON response (example):
-# {
-#   "ops": [
-#     {"op": "task.update", "args": {"task_id": "TASK-042", "status": "in_progress"}}
-#   ],
-#   "summary": "Move task to in_progress"
-# }
+SESSION_DIR=$(ls -dt docs/maestro/sessions/discuss/* | head -1)
+SESSION_ID=$(python - <<'PY' "$SESSION_DIR/meta.json"
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    print(json.load(f)["session_id"])
+PY
+)
+
+run "$MAESTRO_BIN" discuss replay "$SESSION_ID" --dry-run
+# EXPECT: REPLAY_OK (dry-run)
 
 echo ""
 echo "=== Outcome C: Ambiguous ==="

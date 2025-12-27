@@ -29,39 +29,48 @@
 
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
-| 1 | `TODO_CMD: maestro runbook discuss` | Enter runbook discuss | Runbook context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
-| 2 | User: describe workflow | Capture steps + nodes | AI proposes runbook/workflow ops | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
+| 1 | `maestro discuss --context runbook` | Enter runbook discuss | Runbook context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 2 | User: describe workflow | Capture steps + nodes | AI proposes authoring tasks | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
 | 3 | User: `/done` | Request JSON | JSON OPS emitted | `JSON_CONTRACT_GATE` | `IPC_MAILBOX` |
-| 4 | Apply OPS | Runbook + workflow updated | Repo truth updated | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 4 | Apply OPS | Tasks created for authoring | Repo truth updated | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 5 | `maestro runbook add --title "Onboard Service" --scope product` | Create runbook | Runbook ID created | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 6 | `maestro runbook step-add <id> --actor user --action "Bootstrap repo" --expected "Repo scaffold created"` | Add steps | Step added | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 7 | `maestro workflow create onboard_service` | Create workflow stub | Workflow created (stub) | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 8 | `maestro workflow visualize onboard_service --format plantuml` | Visualize workflow | PlantUML output generated | `REPO_TRUTH_IS_DOCS_MAESTRO` | `REPO_TRUTH_DOCS_MAESTRO` |
+
+---
+
+## Expected Outputs
+
+- `Discussion session ID: <id>` is printed and `docs/maestro/sessions/discuss/<id>/meta.json` exists.
+- `maestro discuss replay <id> --dry-run` prints `REPLAY_OK`; failures print `[Replay] ERROR ...` (treat as REPLAY_FAIL).
+- Starting a second discuss while a session is open prints `Error: Repository is locked by session <id> (PID <pid>, started <timestamp>).`
 
 ---
 
 ## AI Perspective (Heuristic)
 
 - Use runbook steps for narrative flow
-- Use workflow nodes/edges for graph structure
+- Use workflow visualization for high-level structure
 - Export/render only when graph is valid
 
 ---
 
 ## Outcomes
 
-### Outcome A: Runbook + Workflow Created
+### Outcome A: Runbook Authored
 
-- OPS emitted: `runbook.create`, `runbook.step.add`, `workflow.node.add`, `workflow.edge.add`
+- OPS emitted: `add_task` (authoring task)
 
-### Outcome B: Export + Render Added
+### Outcome B: Workflow Stub Created
 
-- OPS emitted: `workflow.export.puml`, `workflow.render.svg`
+- CLI actions: `maestro workflow create`, `maestro workflow visualize`
 
 ---
 
-## CLI Gaps / TODOs
+## CLI Notes
 
-- `TODO_CMD: maestro runbook discuss`
-- `TODO_CMD: maestro runbook create <name>`
-- `TODO_CMD: maestro workflow export --format puml <name>`
-- `TODO_CMD: maestro workflow render --format svg <name>`
+- `maestro runbook discuss` is a placeholder; use `maestro discuss --context runbook` for now.
 
 ---
 
@@ -70,29 +79,18 @@
 ```yaml
 trace:
   example: EX-27
-  discuss_context: runbook_workflow
+  discuss_context: runbook
   contract: discuss_ops_contract
   steps:
     - step: start_discuss
-      command: "TODO_CMD: maestro runbook discuss"
+      command: "maestro discuss --context runbook"
       gates: [REPOCONF_GATE]
       stores: [REPO_TRUTH_DOCS_MAESTRO, IPC_MAILBOX]
   ops:
-    - op: runbook.create
-      args: { name: "onboard_service" }
-    - op: runbook.step.add
-      args: { runbook: "onboard_service", step: "Generate repo skeleton" }
-    - op: workflow.node.add
-      args: { workflow: "onboard_service", node_id: "node-1", layer: "interface" }
-    - op: workflow.edge.add
-      args: { workflow: "onboard_service", from: "node-1", to: "node-2" }
+    - op: add_task
+      args: { task_name: "Author runbook and workflow", task_id: "TASK-RB", phase_id: "PH-CORE" }
   stores_considered:
     - REPO_TRUTH_DOCS_MAESTRO
     - HOME_HUB_REPO
     - IPC_MAILBOX
-cli_gaps:
-  - "maestro runbook discuss"
-  - "maestro runbook create <name>"
-  - "maestro workflow export --format puml <name>"
-  - "maestro workflow render --format svg <name>"
 ```

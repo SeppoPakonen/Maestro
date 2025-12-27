@@ -1,7 +1,7 @@
 # EX-23: Phase Discuss — Scope Tasks and Gates
 
 **Scope**: Phase-level discuss for task scoping and ordering
-**Outcome**: Create tasks, link to phase, set dependencies
+**Outcome**: Create tasks, link to phase, record dependencies
 
 ---
 
@@ -29,10 +29,18 @@
 
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
-| 1 | `TODO_CMD: maestro phase discuss PH-CORE` | Enter phase discuss | Phase context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 1 | `maestro phase discuss PH-CORE` | Enter phase discuss | Phase context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
 | 2 | User: describe scope | Capture tasks and gates | AI proposes tasks + dependencies | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
 | 3 | User: `/done` | Request JSON | JSON OPS emitted | `JSON_CONTRACT_GATE` | `IPC_MAILBOX` |
 | 4 | Apply OPS | Tasks created and linked | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+
+---
+
+## Expected Outputs
+
+- `Discussion session ID: <id>` is printed and `docs/maestro/sessions/discuss/<id>/meta.json` exists.
+- `maestro discuss replay <id> --dry-run` prints `REPLAY_OK`; failures print `[Replay] ERROR ...` (treat as REPLAY_FAIL).
+- Starting a second discuss while a session is open prints `Error: Repository is locked by session <id> (PID <pid>, started <timestamp>).`
 
 ---
 
@@ -46,20 +54,19 @@
 
 ## Outcomes
 
-### Outcome A: Tasks + Dependencies Created
+### Outcome A: Tasks + Dependencies Recorded
 
-- OPS emitted: `task.create`, `task.link_phase`, `task.set_dependency`
+- OPS emitted: `add_task`, `edit_task_fields` (store `depends_on` metadata)
 
 ### Outcome B: Issue Raised During Scoping
 
-- OPS emitted: `issue.create` for missing requirements
+- OPS emitted: `add_task` (investigation task)
 
 ---
 
-## CLI Gaps / TODOs
+## CLI Notes
 
-- `TODO_CMD: maestro phase discuss <phase_id>`
-- `TODO_CMD: maestro task set-dependency <task_id> <depends_on>`
+- Dependency metadata is stored in task fields and managed via discuss ops.
 
 ---
 
@@ -72,21 +79,18 @@ trace:
   contract: discuss_ops_contract
   steps:
     - step: start_discuss
-      command: "TODO_CMD: maestro phase discuss PH-CORE"
+      command: "maestro phase discuss PH-CORE"
       gates: [REPOCONF_GATE]
       stores: [REPO_TRUTH_DOCS_MAESTRO, IPC_MAILBOX]
   ops:
-    - op: task.create
-      args: { title: "Define API", phase_id: "PH-CORE" }
-    - op: task.create
-      args: { title: "Implement handlers", phase_id: "PH-CORE" }
-    - op: task.set_dependency
-      args: { task_id: "TASK-IMPL", depends_on: "TASK-API" }
+    - op: add_task
+      args: { task_name: "Define API", task_id: "TASK-API", phase_id: "PH-CORE" }
+    - op: add_task
+      args: { task_name: "Implement handlers", task_id: "TASK-IMPL", phase_id: "PH-CORE" }
+    - op: edit_task_fields
+      args: { task_id: "TASK-IMPL", fields: { depends_on: ["TASK-API"] } }
   stores_considered:
     - REPO_TRUTH_DOCS_MAESTRO
     - HOME_HUB_REPO
     - IPC_MAILBOX
-cli_gaps:
-  - "maestro phase discuss <phase_id>"
-  - "maestro task set-dependency <task_id> <depends_on>"
 ```

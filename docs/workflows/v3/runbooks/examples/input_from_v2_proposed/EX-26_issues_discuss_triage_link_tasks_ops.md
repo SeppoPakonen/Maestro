@@ -29,10 +29,18 @@
 
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
-| 1 | `TODO_CMD: maestro issues discuss` | Enter issues discuss | Issues context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
-| 2 | User: describe logs | Cluster duplicates | AI proposes issue ops | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
+| 1 | `maestro discuss --context issues` | Enter issues discuss | Issues context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 2 | User: describe logs | Cluster duplicates | AI proposes triage tasks | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
 | 3 | User: `/done` | Request JSON | JSON OPS emitted | `JSON_CONTRACT_GATE` | `IPC_MAILBOX` |
-| 4 | Apply OPS | Issues updated + linked | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 4 | Apply OPS | Tasks created for triage | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+
+---
+
+## Expected Outputs
+
+- `Discussion session ID: <id>` is printed and `docs/maestro/sessions/discuss/<id>/meta.json` exists.
+- `maestro discuss replay <id> --dry-run` prints `REPLAY_OK`; failures print `[Replay] ERROR ...` (treat as REPLAY_FAIL).
+- Starting a second discuss while a session is open prints `Error: Repository is locked by session <id> (PID <pid>, started <timestamp>).`
 
 ---
 
@@ -40,26 +48,25 @@
 
 - De-duplicate by signature and stack trace
 - Link new issues to existing tasks when possible
-- Ignore noisy issues with explicit reason
+- Use issue CLI to cancel duplicates after triage
 
 ---
 
 ## Outcomes
 
-### Outcome A: New Issues Created and Linked
+### Outcome A: Triage Tasks Created
 
-- OPS emitted: `issue.create`, `issue.link_task`
+- OPS emitted: `add_task` (triage or fix tasks)
 
-### Outcome B: Duplicate Closed or Ignored
+### Outcome B: Duplicate Closed or Cancelled
 
-- OPS emitted: `issue.update` or `issue.ignore`
+- CLI actions: `maestro issues state <issue_id> cancelled`
 
 ---
 
-## CLI Gaps / TODOs
+## CLI Notes
 
-- `TODO_CMD: maestro issues discuss`
-- `TODO_CMD: maestro issues ignore <issue_id> --reason <text>`
+- Use `maestro issues list` and `maestro issues show <id>` for triage visibility.
 
 ---
 
@@ -72,21 +79,14 @@ trace:
   contract: discuss_ops_contract
   steps:
     - step: start_discuss
-      command: "TODO_CMD: maestro issues discuss"
+      command: "maestro discuss --context issues"
       gates: [REPOCONF_GATE]
       stores: [REPO_TRUTH_DOCS_MAESTRO, IPC_MAILBOX]
   ops:
-    - op: issue.create
-      args: { title: "Null pointer in parser", label: "bug" }
-    - op: issue.link_task
-      args: { issue_id: "ISS-7", task_id: "TASK-321" }
-    - op: issue.ignore
-      args: { issue_id: "ISS-3", reason: "duplicate of ISS-7" }
+    - op: add_task
+      args: { task_name: "Triage parser crash", task_id: "TASK-TRIAGE", phase_id: "PH-CORE" }
   stores_considered:
     - REPO_TRUTH_DOCS_MAESTRO
     - HOME_HUB_REPO
     - IPC_MAILBOX
-cli_gaps:
-  - "maestro issues discuss"
-  - "maestro issues ignore <issue_id> --reason <text>"
 ```

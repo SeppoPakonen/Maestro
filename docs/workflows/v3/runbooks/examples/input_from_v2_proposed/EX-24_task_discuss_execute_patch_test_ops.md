@@ -1,7 +1,7 @@
 # EX-24: Task Discuss — Execute, Patch, Test
 
 **Scope**: Task-level discuss for actionable execution
-**Outcome**: Produce OPS for patching, testing, and task completion
+**Outcome**: Produce OPS for patch planning, testing, and task status
 
 ---
 
@@ -29,37 +29,44 @@
 
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
-| 1 | `TODO_CMD: maestro task discuss TASK-123` | Enter task discuss | Task context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 1 | `maestro task discuss TASK-123` | Enter task discuss | Task context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
 | 2 | User: describe fix | Determine patch + tests | AI proposes ops | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
 | 3 | User: `/done` | Request JSON | JSON OPS emitted | `JSON_CONTRACT_GATE` | `IPC_MAILBOX` |
-| 4 | Apply OPS | Patch/tests/breadcrumbs | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 4 | Apply OPS | Task metadata updated | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+
+---
+
+## Expected Outputs
+
+- `Discussion session ID: <id>` is printed and `docs/maestro/sessions/discuss/<id>/meta.json` exists.
+- `maestro discuss replay <id> --dry-run` prints `REPLAY_OK`; failures print `[Replay] ERROR ...` (treat as REPLAY_FAIL).
+- Starting a second discuss while a session is open prints `Error: Repository is locked by session <id> (PID <pid>, started <timestamp>).`
 
 ---
 
 ## AI Perspective (Heuristic)
 
-- Prefer pure Maestro ops when possible
-- Use shell ops only if explicitly supported
+- Prefer explicit patch plan and test commands in task notes
 - Mark task done only after tests pass
+- Emit minimal patch operations
 
 ---
 
 ## Outcomes
 
-### Outcome A: Patch + Tests + Done
+### Outcome A: Patch + Tests Planned
 
-- OPS emitted: `ops.run_command` (if supported), `wsession.breadcrumb.append`, `task.mark_done`
+- OPS emitted: `edit_task_fields` (add patch/test notes)
 
-### Outcome B: Patch Applied, Tests Fail
+### Outcome B: Follow-up Task Added
 
-- OPS emitted: `issue.create`, task remains in progress
+- OPS emitted: `add_task` (for additional verification)
 
 ---
 
-## CLI Gaps / TODOs
+## CLI Notes
 
-- `TODO_CMD: maestro task discuss <task_id>`
-- `TODO_CMD: maestro ops run <command>`
+- Run tests directly via `maestro make build` or your CI scripts; discuss only stores intent.
 
 ---
 
@@ -72,21 +79,14 @@ trace:
   contract: discuss_ops_contract
   steps:
     - step: start_discuss
-      command: "TODO_CMD: maestro task discuss TASK-123"
+      command: "maestro task discuss TASK-123"
       gates: [REPOCONF_GATE]
       stores: [REPO_TRUTH_DOCS_MAESTRO, IPC_MAILBOX]
   ops:
-    - op: wsession.breadcrumb.append
-      args: { session_id: "ws-555", status: "Applying patch" }
-    - op: ops.run_command
-      args: { command: "make test" }
-    - op: task.mark_done
-      args: { task_id: "TASK-123" }
+    - op: edit_task_fields
+      args: { task_id: "TASK-123", fields: { patch_plan: "Fix tests", test_command: "pytest -q" } }
   stores_considered:
     - REPO_TRUTH_DOCS_MAESTRO
     - HOME_HUB_REPO
     - IPC_MAILBOX
-cli_gaps:
-  - "maestro task discuss <task_id>"
-  - "maestro ops run <command>"
 ```

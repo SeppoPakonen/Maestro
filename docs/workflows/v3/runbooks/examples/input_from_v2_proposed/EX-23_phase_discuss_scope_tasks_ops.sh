@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Configurable binary path
+MAESTRO_BIN=${MAESTRO_BIN:-maestro.py}
+
 run() { echo "+ $*"; }
 
 # EX-23: Phase Discuss — Scope Tasks and Gates
 
 echo "=== Step 1: Enter phase discuss ==="
-run TODO_CMD: maestro phase discuss PH-CORE
+run "$MAESTRO_BIN" phase discuss PH-CORE
 # EXPECT: Phase context loaded
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # STORES_WRITE: IPC_MAILBOX
@@ -25,18 +28,21 @@ echo "User: /done"
 
 # JSON response (example):
 # {
-#   "ops": [
-#     {"op": "task.create", "args": {"title": "Define API", "phase_id": "PH-CORE"}},
-#     {"op": "task.create", "args": {"title": "Implement handlers", "phase_id": "PH-CORE"}},
-#     {"op": "task.set_dependency", "args": {"task_id": "TASK-IMPL", "depends_on": "TASK-API"}}
-#   ],
-#   "summary": "Create tasks and dependency"
+#   "patch_operations": [
+#     {"op_type": "add_task", "data": {"task_name": "Define API", "task_id": "TASK-API", "phase_id": "PH-CORE"}},
+#     {"op_type": "add_task", "data": {"task_name": "Implement handlers", "task_id": "TASK-IMPL", "phase_id": "PH-CORE"}},
+#     {"op_type": "edit_task_fields", "data": {"task_id": "TASK-IMPL", "fields": {"depends_on": ["TASK-API"]}}}
+#   ]
 # }
 
-echo ""
-echo "=== Optional: Issue creation ==="
-run TODO_CMD: maestro issues add "Missing API spec" --phase PH-CORE
-# EXPECT: Issue created for missing requirements
-# STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
-# STORES_READ: REPO_TRUTH_DOCS_MAESTRO
-# GATES: REPOCONF_GATE
+SESSION_DIR=$(ls -dt docs/maestro/sessions/discuss/* | head -1)
+SESSION_ID=$(python - <<'PY' "$SESSION_DIR/meta.json"
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    print(json.load(f)["session_id"])
+PY
+)
+
+run "$MAESTRO_BIN" discuss replay "$SESSION_ID" --dry-run
+# EXPECT: REPLAY_OK (dry-run)

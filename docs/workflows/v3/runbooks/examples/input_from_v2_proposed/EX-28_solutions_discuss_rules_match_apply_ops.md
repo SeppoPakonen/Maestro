@@ -29,10 +29,20 @@
 
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
-| 1 | `TODO_CMD: maestro solutions discuss` | Enter solutions discuss | Solutions context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
-| 2 | User: provide error signature | Match solutions | AI proposes matches + tasks | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
+| 1 | `maestro discuss --context solutions` | Enter solutions discuss | Solutions context loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 2 | User: provide error signature | Match solutions | AI proposes candidate solution tasks | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
 | 3 | User: `/done` | Request JSON | JSON OPS emitted | `JSON_CONTRACT_GATE` | `IPC_MAILBOX` |
-| 4 | Apply OPS | Link solution + create task | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 4 | Apply OPS | Task created for solution trial | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 5 | `maestro solutions list` | Review catalog | Candidate solutions listed | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 6 | `maestro issues react <issue_id> --external` | Match solutions | Solution matches suggested | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+
+---
+
+## Expected Outputs
+
+- `Discussion session ID: <id>` is printed and `docs/maestro/sessions/discuss/<id>/meta.json` exists.
+- `maestro discuss replay <id> --dry-run` prints `REPLAY_OK`; failures print `[Replay] ERROR ...` (treat as REPLAY_FAIL).
+- Starting a second discuss while a session is open prints `Error: Repository is locked by session <id> (PID <pid>, started <timestamp>).`
 
 ---
 
@@ -46,20 +56,19 @@
 
 ## Outcomes
 
-### Outcome A: Solution Matched and Task Created
+### Outcome A: Solution Candidate Identified
 
-- OPS emitted: `solutions.match`, `task.create`, `issue.link_solution`
+- OPS emitted: `add_task` (trial task)
 
 ### Outcome B: No Match → Create Investigation Task
 
-- OPS emitted: `task.create` only
+- OPS emitted: `add_task` only
 
 ---
 
-## CLI Gaps / TODOs
+## CLI Notes
 
-- `TODO_CMD: maestro solutions discuss`
-- `TODO_CMD: maestro issues link-solution <issue_id> <solution_id>`
+- Use `maestro issues react` to match solutions from the catalog.
 
 ---
 
@@ -72,21 +81,14 @@ trace:
   contract: discuss_ops_contract
   steps:
     - step: start_discuss
-      command: "TODO_CMD: maestro solutions discuss"
+      command: "maestro discuss --context solutions"
       gates: [REPOCONF_GATE]
       stores: [REPO_TRUTH_DOCS_MAESTRO, IPC_MAILBOX]
   ops:
-    - op: solutions.match
-      args: { signature: "undefined reference to vtable" }
-    - op: task.create
-      args: { title: "Try solution SOL-9", phase_id: "PH-CORE" }
-    - op: issue.link_solution
-      args: { issue_id: "ISS-9", solution_id: "SOL-9" }
+    - op: add_task
+      args: { task_name: "Try solution SOL-9", task_id: "TASK-SOL", phase_id: "PH-CORE" }
   stores_considered:
     - REPO_TRUTH_DOCS_MAESTRO
     - HOME_HUB_REPO
     - IPC_MAILBOX
-cli_gaps:
-  - "maestro solutions discuss"
-  - "maestro issues link-solution <issue_id> <solution_id>"
 ```

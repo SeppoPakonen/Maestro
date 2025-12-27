@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Configurable binary path
+MAESTRO_BIN=${MAESTRO_BIN:-maestro.py}
+
 run() { echo "+ $*"; }
 
 # EX-26: Issues Discuss — Triage and Link Tasks
 
 echo "=== Step 1: Enter issues discuss ==="
-run TODO_CMD: maestro issues discuss
+run "$MAESTRO_BIN" discuss --context issues
 # EXPECT: Issues context loaded
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # STORES_WRITE: IPC_MAILBOX
@@ -14,7 +17,7 @@ run TODO_CMD: maestro issues discuss
 
 echo ""
 echo "User: These two stack traces look the same, and one is noise"
-# EXPECT: AI clusters duplicates and suggests ignore
+# EXPECT: AI clusters duplicates and suggests triage tasks
 # STORES_WRITE: IPC_MAILBOX
 # GATES: INTENT_CLASSIFY
 
@@ -25,18 +28,27 @@ echo "User: /done"
 
 # JSON response (example):
 # {
-#   "ops": [
-#     {"op": "issue.create", "args": {"title": "Null pointer in parser", "label": "bug"}},
-#     {"op": "issue.link_task", "args": {"issue_id": "ISS-7", "task_id": "TASK-321"}},
-#     {"op": "issue.ignore", "args": {"issue_id": "ISS-3", "reason": "duplicate"}}
-#   ],
-#   "summary": "Create issue, link to task, ignore duplicate"
+#   "patch_operations": [
+#     {"op_type": "add_task", "data": {"task_name": "Triage parser crash", "task_id": "TASK-TRIAGE", "phase_id": "PH-CORE"}}
+#   ]
 # }
 
+SESSION_DIR=$(ls -dt docs/maestro/sessions/discuss/* | head -1)
+SESSION_ID=$(python - <<'PY' "$SESSION_DIR/meta.json"
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    print(json.load(f)["session_id"])
+PY
+)
+
+run "$MAESTRO_BIN" discuss replay "$SESSION_ID" --dry-run
+# EXPECT: REPLAY_OK (dry-run)
+
 echo ""
-echo "=== Optional: Ignore noisy issue ==="
-run TODO_CMD: maestro issues ignore ISS-3 --reason "duplicate of ISS-7"
-# EXPECT: Issue marked ignored
+echo "=== Optional: Cancel duplicate issue ==="
+run "$MAESTRO_BIN" issues state ISS-3 cancelled
+# EXPECT: Issue state updated
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # GATES: REPOCONF_GATE

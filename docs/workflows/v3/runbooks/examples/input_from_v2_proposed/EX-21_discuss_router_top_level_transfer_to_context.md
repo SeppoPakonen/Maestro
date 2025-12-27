@@ -30,12 +30,20 @@
 
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
-| 1 | `maestro discuss` | Start top-level discuss | Session started, context scan begins | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 1 | `maestro discuss` | Start top-level discuss | Session started, router begins intent scan | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
 | 2 | User: describe problem | Provide intent signal | Router classifies as task or repo | `INTENT_CLASSIFY` | `IPC_MAILBOX` |
 | 3 | Router decision | Determine best context | Transfer offer or auto-switch | `ROUTER_CONFIRM` | `IPC_MAILBOX` |
-| 4 | `TODO_CMD: maestro task discuss TASK-042` | Transfer to task context | Task discuss prompt loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
-| 5 | User: `/done` | Request final JSON | JSON emitted with OPS | `JSON_CONTRACT_GATE` | `IPC_MAILBOX` |
-| 6 | Apply OPS | Execute CLI ops | Task updated / new issue created | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 4 | `maestro task discuss TASK-042` | Transfer to task context | Task discuss prompt loaded | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO`, `IPC_MAILBOX` |
+| 5 | User: `/done` | Request final JSON | JSON emitted with patch operations | `JSON_CONTRACT_GATE` | `IPC_MAILBOX` |
+| 6 | Apply OPS | Update task metadata | Repo truth updated | `REPOCONF_GATE` | `REPO_TRUTH_DOCS_MAESTRO` |
+
+---
+
+## Expected Outputs
+
+- `Discussion session ID: <id>` is printed and `docs/maestro/sessions/discuss/<id>/meta.json` exists.
+- `maestro discuss replay <id> --dry-run` prints `REPLAY_OK`; failures print `[Replay] ERROR ...` (treat as REPLAY_FAIL).
+- Starting a second discuss while a session is open prints `Error: Repository is locked by session <id> (PID <pid>, started <timestamp>).`
 
 ---
 
@@ -52,12 +60,12 @@
 ### Outcome A: Routed to Task Discuss
 
 - Router identifies task context by `TASK-042`
-- OPS emitted: `task.update`, `wsession.breadcrumb.append`
+- OPS emitted: `edit_task_fields`
 
 ### Outcome B: Routed to Repo Discuss
 
-- Router identifies repo resolve context
-- OPS emitted: `repo.resolve.lite`, `repo.conf.select_default_target`
+- Router identifies repo context
+- OPS emitted: `add_task` (create a repo-resolve follow-up task)
 
 ### Outcome C: Ambiguous → Stay in General Discuss
 
@@ -66,11 +74,10 @@
 
 ---
 
-## CLI Gaps / TODOs
+## CLI Notes
 
-- `TODO_CMD: maestro task discuss <task_id>`
-- `TODO_CMD: maestro repo discuss`
-- `TODO_CMD: maestro discuss --transfer <context>`
+- Use `maestro discuss --context repo` to force a repo discuss session.
+- Use `maestro discuss resume <session_id>` to retry after invalid JSON.
 
 ---
 
@@ -87,20 +94,14 @@ trace:
       gates: [REPOCONF_GATE]
       stores: [REPO_TRUTH_DOCS_MAESTRO, IPC_MAILBOX]
     - step: route_to_task
-      command: "TODO_CMD: maestro task discuss TASK-042"
+      command: "maestro task discuss TASK-042"
       gates: [ROUTER_CONFIRM, JSON_CONTRACT_GATE]
       stores: [REPO_TRUTH_DOCS_MAESTRO, IPC_MAILBOX]
   ops:
-    - op: task.update
-      args: { task_id: "TASK-042", status: "in_progress" }
-    - op: wsession.breadcrumb.append
-      args: { session_id: "ws-123", status: "Started routing" }
+    - op: edit_task_fields
+      args: { task_id: "TASK-042", fields: { status: "in_progress" } }
   stores_considered:
     - REPO_TRUTH_DOCS_MAESTRO
     - HOME_HUB_REPO
     - IPC_MAILBOX
-cli_gaps:
-  - "maestro task discuss <task_id>"
-  - "maestro repo discuss"
-  - "maestro discuss --transfer <context>"
 ```
