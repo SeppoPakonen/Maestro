@@ -30,6 +30,16 @@ from maestro.data import parse_config_md
 from maestro.discussion import DiscussionSession, create_discussion_session, resume_discussion
 from maestro.work_session import SessionType, load_session
 from maestro.breadcrumb import list_breadcrumbs, get_breadcrumb_summary
+from maestro.session_format import (
+    create_session,
+    write_session,
+    load_session as load_discuss_session,
+    append_event,
+    update_session_status,
+    extract_final_json,
+    get_session_path,
+    TranscriptEvent
+)
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -414,71 +424,149 @@ def save_discussion_artifacts(
     contract_type: ContractType,
     context: Optional[DiscussContext] = None
 ) -> str:
-    """Save discussion artifacts to repo truth (JSON only)."""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    artifacts_dir = Path("docs/maestro/ai/artifacts")
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    """Save discussion artifacts using canonical session format."""
+    # Use canonical session format
+    session = create_session(
+        context_kind=context.kind if context else "global",
+        context_ref=context.ref if context else None,
+        router_reason=context.reason if context else "No context provided",
+        contract_type=contract_type,
+        engine=engine_name,
+        model=model_name,
+        initial_prompt=initial_prompt
+    )
 
-    # Create a unique session ID
-    session_id = f"discuss_{contract_type.value}_{timestamp}"
+    # Add initial prompt as user_message event
+    now = datetime.now().isoformat()
+    session.transcript.append(TranscriptEvent(
+        ts=now,
+        type="user_message",
+        payload={"content": initial_prompt}
+    ))
 
-    # Build context metadata
-    context_metadata = {}
-    if context:
-        context_metadata = {
-            "kind": context.kind,
-            "ref": context.ref,
-            "router_reason": context.reason
-        }
+    # Add final_json event with patch operations
+    if patch_operations:
+        session.transcript.append(TranscriptEvent(
+            ts=datetime.now().isoformat(),
+            type="final_json",
+            payload={"patch_operations": [{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations]}
+        ))
+        session.meta.final_json_present = True
 
-    transcript_content = {
-        "timestamp": datetime.now().isoformat(),
-        "engine": engine_name,
-        "model": model_name,
-        "contract_type": contract_type.value,
-        "initial_prompt": initial_prompt,
-        "patch_operations": [{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations],
-        "context": context_metadata,
-    }
+    # Write session to disk
+    write_session(session)
 
-    # Save the JSON results
-    json_results = {
-        'session_id': session_id,
-        'timestamp': datetime.now().isoformat(),
-        'engine': engine_name,
-        'model': model_name,
-        'contract_type': contract_type.value,
-        'context': context_metadata,
-        'initial_prompt': initial_prompt,
-        'patch_operations': [{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations],
-        'transcript': transcript_content,
-        'status': 'pending'  # Will be updated after applying
-    }
-
-    json_path = artifacts_dir / f"{session_id}_results.json"
-    json_path.write_text(json.dumps(json_results, indent=2), encoding='utf-8')
-
-    return session_id
+    return session.meta.session_id
 
 
 def update_artifact_status(session_id: str, status: str, applied_operations: list = None, error_message: str = None):
-    """Update the status of a discussion artifact after applying changes."""
-    artifacts_dir = Path("docs/maestro/ai/artifacts")
-    json_path = artifacts_dir / f"{session_id}_results.json"
+    """Update the status of a discussion session and append events."""
+    try:
+        session_dir = get_session_path(session_id)
 
-    if json_path.exists():
-        with open(json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        # Update session status
+        if status == "applied":
+            update_session_status(session_dir, "closed", final_json_present=True)
+            # Append replay_run event
+            if applied_operations:
+                append_event(session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="replay_run",
+                    payload={
+                        "dry_run": False,
+                        "result": "REPLAY_OK",
+                        "ops_count": len(applied_operations)
+                    }
+                ))
+        elif status == "invalid_json":
+            update_session_status(session_dir, "open", final_json_present=False)
+            # Append error event
+            if error_message:
+                append_event(session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="error",
+                    payload={"message": error_message}
+                ))
+        elif status in ["cancelled", "no_operations"]:
+            update_session_status(session_dir, "closed")
+        elif status == "dry_run":
+            # Don't close session on dry-run
+            pass
+    except FileNotFoundError:
+        # Session may be in legacy format or not found
+        # Try legacy artifact format
+        artifacts_dir = Path("docs/maestro/ai/artifacts")
+        json_path = artifacts_dir / f"{session_id}_results.json"
 
-        data['status'] = status
-        if applied_operations is not None:
-            data['applied_operations'] = applied_operations
-            data['applied_at'] = datetime.now().isoformat()
-        if error_message:
-            data['error_message'] = error_message
+        if json_path.exists():
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
 
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
+            data['status'] = status
+            if applied_operations is not None:
+                data['applied_operations'] = applied_operations
+                data['applied_at'] = datetime.now().isoformat()
+            if error_message:
+                data['error_message'] = error_message
+
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+
+
+def validate_ops_for_context(
+    patch_operations: List[PatchOperation],
+    context_kind: str,
+    allow_cross_context: bool = False
+) -> Tuple[bool, Optional[str]]:
+    """Validate that operations are allowed in the given context.
+
+    Args:
+        patch_operations: List of operations to validate
+        context_kind: Context kind (task, phase, track, repo, global)
+        allow_cross_context: If True, bypass context restrictions
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if allow_cross_context:
+        return True, None
+
+    # Define allowed operation prefixes for each context
+    context_allowlists = {
+        "task": ["task", "issues", "log"],
+        "phase": ["phase", "task", "issues", "log"],
+        "track": ["track", "phase", "task", "issues", "log"],
+        "repo": ["repo", "repoconf", "make", "tu", "log"],
+        "issues": ["issues", "task", "log"],
+        "runbook": ["runbook", "log"],
+        "workflow": ["workflow", "log"],
+        "solutions": ["solutions", "issues", "log"],
+        "global": None  # Global allows everything
+    }
+
+    allowlist = context_allowlists.get(context_kind)
+    if allowlist is None:  # Global context
+        return True, None
+
+    # Check each operation
+    for op in patch_operations:
+        op_name = op.op_type.value.lower()
+        # Extract prefix (e.g., "add_task" -> "task")
+        if "_" in op_name:
+            prefix = op_name.split("_", 1)[1]
+        else:
+            prefix = op_name
+
+        # Check if prefix is in allowlist
+        if not any(prefix.startswith(allowed) for allowed in allowlist):
+            error_msg = (
+                f"Operation '{op.op_type.value}' not allowed in {context_kind} context. "
+                f"Allowed prefixes: {', '.join(allowlist)}. "
+                f"Rerun with --allow-cross-context to override."
+            )
+            return False, error_msg
+
+    return True, None
 
 
 def handle_discuss_command(args) -> int:
@@ -731,73 +819,151 @@ def handle_discuss_resume(args) -> int:
 
 
 def handle_discuss_replay(args) -> int:
-    replay_path = Path(getattr(args, "path", ""))
-    payload, contract_hint, error = _load_replay_payload(replay_path)
-    if error:
-        print(f"Error: {error}")
-        return 1
+    """Handle deterministic replay without AI engines.
 
-    if getattr(args, "contract", None):
-        contract_type = _resolve_contract_type(args.contract)
-    else:
-        contract_type = _resolve_contract_type(contract_hint)
+    Extracts final_json from session transcript and applies operations.
+    Never calls AI engines.
+    """
+    session_id_or_path = getattr(args, "path", "")
+    dry_run = getattr(args, "dry_run", False)
+    allow_cross_context = getattr(args, "allow_cross_context", False)
 
-    if contract_type == ContractType.TRACK:
-        json_contract = TrackContract
-    elif contract_type == ContractType.PHASE:
-        json_contract = PhaseContract
-    elif contract_type == ContractType.TASK:
-        json_contract = TaskContract
-    else:
-        json_contract = GlobalContract
+    try:
+        # Load session (canonical or legacy format)
+        session = load_discuss_session(session_id_or_path)
+        print(f"[Replay] Loaded session: {session.meta.session_id}")
+        print(f"[Replay] Context: {session.meta.context['kind']}")
+        if session.meta.context.get('ref'):
+            print(f"[Replay] Entity: {session.meta.context['ref']}")
 
-    router = DiscussionRouter(AiEngineManager())
-    patch_operations = router.process_json_payload(payload, json_contract)
-    json_error = router.last_json_error
+        # Extract final_json from transcript (deterministic, no AI)
+        patch_operations_data = extract_final_json(session)
+        if not patch_operations_data:
+            error_msg = (
+                "No final_json event found in transcript. "
+                "Run 'maestro discuss' first and complete with /done to generate final JSON."
+            )
+            print(f"[Replay] ERROR: {error_msg}")
+            # Append error event
+            if session.session_dir:
+                append_event(session.session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="error",
+                    payload={"message": error_msg}
+                ))
+            return 1
 
-    session_id = save_discussion_artifacts(
-        initial_prompt=f"Replay: {replay_path}",
-        patch_operations=patch_operations,
-        engine_name="replay",
-        model_name="replay",
-        contract_type=contract_type
-    )
+        # Convert to PatchOperation objects
+        patch_operations = []
+        try:
+            for op_data in patch_operations_data:
+                op_type = PatchOperationType(op_data['op_type'])
+                patch_operations.append(PatchOperation(op_type=op_type, data=op_data['data']))
+        except (KeyError, ValueError) as e:
+            error_msg = f"Invalid patch operation format: {e}"
+            print(f"[Replay] ERROR: {error_msg}")
+            if session.session_dir:
+                append_event(session.session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="error",
+                    payload={"message": error_msg}
+                ))
+            return 1
 
-    print(f"Discussion replay session ID: {session_id}")
+        # Validate operations against context (OPS gating)
+        context_kind = session.meta.context.get('kind', 'global')
+        is_valid, validation_error = validate_ops_for_context(
+            patch_operations,
+            context_kind,
+            allow_cross_context
+        )
 
-    if json_error:
-        print(f"Error: {json_error}")
-        print("Invalid JSON returned; no operations were applied. Retry or resume the discussion.")
-        update_artifact_status(session_id, 'invalid_json', error_message=json_error)
-        return 1
+        if not is_valid:
+            print(f"[Replay] ERROR: {validation_error}")
+            if session.session_dir:
+                append_event(session.session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="error",
+                    payload={"message": validation_error}
+                ))
+            return 1
 
-    if patch_operations:
-        print("\nProposed changes (replay):")
+        # Show operations
+        print(f"\n[Replay] Planned operations ({len(patch_operations)}):")
         for i, op in enumerate(patch_operations, 1):
             print(f"  {i}. {op.op_type.value}: {op.data}")
 
-        if not getattr(args, "dry_run", False):
-            response = input("\nApply these changes? [y]es/[n]o/[e]dit manually: ").lower().strip()
-            if response in ['y', 'yes']:
-                apply_patch_operations(patch_operations)
-                print("Changes applied successfully.")
-                applied_ops = [{'op_type': op.op_type.value, 'data': op.data} for op in patch_operations]
-                update_artifact_status(session_id, 'applied', applied_ops)
-            elif response in ['e', 'edit']:
-                print("Manual editing of operations is not yet implemented in this version.")
-                print("Changes not applied.")
-                update_artifact_status(session_id, 'cancelled')
-            else:
-                print("Changes not applied.")
-                update_artifact_status(session_id, 'cancelled')
-        else:
-            print("Dry run: changes not applied.")
-            update_artifact_status(session_id, 'dry_run')
-    else:
-        print("No changes were proposed.")
-        update_artifact_status(session_id, 'no_operations')
+        if dry_run:
+            print("\n[Replay] Dry run: changes not applied.")
+            print("[Replay] Result: REPLAY_OK (dry-run)")
+            # Append replay_run event (dry-run)
+            if session.session_dir:
+                append_event(session.session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="replay_run",
+                    payload={
+                        "dry_run": True,
+                        "result": "REPLAY_OK",
+                        "ops_count": len(patch_operations)
+                    }
+                ))
+            return 0
 
-    return 0
+        # Apply operations
+        try:
+            apply_patch_operations(patch_operations)
+            print("\n[Replay] Changes applied successfully.")
+            print("[Replay] Result: REPLAY_OK")
+
+            # Append replay_run event (success)
+            if session.session_dir:
+                append_event(session.session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="replay_run",
+                    payload={
+                        "dry_run": False,
+                        "result": "REPLAY_OK",
+                        "ops_count": len(patch_operations)
+                    }
+                ))
+                update_session_status(session.session_dir, "closed")
+
+            return 0
+
+        except Exception as e:
+            error_msg = f"Failed to apply operations: {e}"
+            print(f"[Replay] ERROR: {error_msg}")
+            print("[Replay] Result: REPLAY_FAIL")
+
+            # Append error + replay_run event (failure)
+            if session.session_dir:
+                append_event(session.session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="error",
+                    payload={"message": error_msg, "details": str(e)}
+                ))
+                append_event(session.session_dir, TranscriptEvent(
+                    ts=datetime.now().isoformat(),
+                    type="replay_run",
+                    payload={
+                        "dry_run": False,
+                        "result": "REPLAY_FAIL",
+                        "ops_count": 0,
+                        "error": error_msg
+                    }
+                ))
+
+            return 1
+
+    except FileNotFoundError as e:
+        print(f"[Replay] ERROR: Session not found: {session_id_or_path}")
+        print(f"[Replay] Details: {e}")
+        print("[Replay] Result: REPLAY_FAIL")
+        return 1
+    except Exception as e:
+        print(f"[Replay] ERROR: Unexpected error: {e}")
+        print("[Replay] Result: REPLAY_FAIL")
+        return 1
 
 
 def handle_phase_discuss(phase_id: str, args) -> int:
@@ -1029,9 +1195,10 @@ def add_discuss_parser(subparsers):
 
     # Replay subcommand
     replay_parser = discuss_subparsers.add_parser("replay", help="Replay a discuss transcript or JSON payload")
-    replay_parser.add_argument("path", help="Path to replay transcript (json/jsonl/text)")
+    replay_parser.add_argument("path", help="Path to session ID or transcript (session_id, json/jsonl/text)")
     replay_parser.add_argument("--contract", choices=["global", "track", "phase", "task"], help="Override contract type")
     replay_parser.add_argument("--dry-run", action="store_true", help="Preview actions without executing them")
+    replay_parser.add_argument("--allow-cross-context", action="store_true", help="Allow operations that don't match session context")
 
     # Resume subcommand
     resume_parser = discuss_subparsers.add_parser("resume", help="Resume a previous discussion session")

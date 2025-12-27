@@ -1,0 +1,2 @@
+{"ts": "2025-12-27T10:00:00.000000", "type": "user_message", "payload": {"content": "Test invalid JSON"}}
+{"ts": "2025-12-27T10:05:00.000000", "type": "final_json", "payload": {"patch_operations": [{"op_type": "INVALID_OP_TYPE", "data": {}}]}}

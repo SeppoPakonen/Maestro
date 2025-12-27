@@ -1,0 +1,24 @@
+{
+  "session_id": "discuss_global_20251227_100000",
+  "timestamp": "2025-12-27T10:00:00.000000",
+  "engine": "test",
+  "model": "test-model",
+  "contract_type": "global",
+  "context": {
+    "kind": "global",
+    "ref": null,
+    "router_reason": "Legacy test fixture"
+  },
+  "initial_prompt": "Test legacy artifact",
+  "patch_operations": [
+    {
+      "op_type": "add_track",
+      "data": {
+        "track_name": "Test Track",
+        "track_id": "test-track"
+      }
+    }
+  ],
+  "transcript": {},
+  "status": "pending"
+}
