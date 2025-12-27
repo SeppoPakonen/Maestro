@@ -1,0 +1,16 @@
+{
+  "session_id": "golden-ex-28",
+  "context": {
+    "kind": "solutions",
+    "ref": null,
+    "router_reason": "Golden fixture for EX-28"
+  },
+  "contract_type": "global",
+  "created_at": "2025-12-28T10:00:00.000000",
+  "updated_at": "2025-12-28T10:00:10.000000",
+  "status": "open",
+  "final_json_present": true,
+  "engine": "fixture",
+  "model": "fixture-model",
+  "initial_prompt": "Match solutions for linker error."
+}

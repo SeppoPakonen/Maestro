@@ -1,0 +1,16 @@
+{
+  "session_id": "golden-ex-23",
+  "context": {
+    "kind": "phase",
+    "ref": "PH-CORE",
+    "router_reason": "Golden fixture for EX-23"
+  },
+  "contract_type": "phase",
+  "created_at": "2025-12-28T10:00:00.000000",
+  "updated_at": "2025-12-28T10:00:10.000000",
+  "status": "open",
+  "final_json_present": true,
+  "engine": "fixture",
+  "model": "fixture-model",
+  "initial_prompt": "Scope tasks for PH-CORE."
+}

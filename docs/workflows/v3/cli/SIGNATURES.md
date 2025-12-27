@@ -32,15 +32,12 @@ Rule: breadcrumb ops require a cookie; missing cookie is a hard error.
 - `maestro discuss --phase <PHASE_ID>` (explicit phase context)
 - `maestro discuss --track <TRACK_ID>` (explicit track context)
 - `maestro discuss resume <SESSION_ID>` (resume previous discussion)
-- `maestro discuss replay <PATH> [--dry-run]` (replay transcript)
+- `maestro discuss replay <PATH> [--dry-run] [--allow-cross-context]` (replay transcript)
 - `maestro task discuss <TASK_ID>` (direct context-specific entry)
 - `maestro phase discuss <PHASE_ID>`
 - `maestro track discuss <TRACK_ID>`
-- `maestro repo discuss` (planned)
-- `maestro issues discuss` (planned)
-- `maestro runbook discuss` (planned)
-- `maestro workflow discuss` (planned)
-- `maestro solutions discuss` (planned)
+- `maestro discuss --context {repo|issues|runbook|workflow|solutions}` (preferred for non-track contexts)
+- `maestro runbook discuss <RUNBOOK_ID>` (placeholder; use `maestro discuss --context runbook`)
 
 Router behavior:
 - Priority 1: Explicit flags (--task, --phase, --track, --context)
@@ -54,20 +51,30 @@ Context metadata stored in session:
 
 Discuss returns JSON->OPS; invalid JSON hard-stops apply.
 
+Locking:
+- Discuss acquires a repo lock at `docs/maestro/locks/repo.lock`.
+- Concurrent sessions fail with `Error: Repository is locked by session <id> (PID <pid>, started <timestamp>).`
+- Lock is released when sessions close or `/done` completes.
+
 Replay accepts:
 - `.json` with `final_json` or `patch_operations`
 - `.jsonl` with a `final_json` entry
 
+## Runbook authoring primitives
+
+- `maestro runbook add --title <TITLE> --scope <SCOPE>`
+- `maestro runbook step-add <ID> --actor <ACTOR> --action <ACTION> --expected <EXPECTED>`
+- `maestro runbook export <ID> --format {md|puml} [--out <PATH>]`
+- `maestro runbook render <ID> [--out <PATH>]`
+
 ## Workflow authoring primitives
 
 - `maestro workflow list`
-- `maestro workflow show <WF_ID>`
-- `maestro workflow add <NAME>`
-- `maestro workflow node add <WF_ID> <NODE_ID> --label "..."`
-- `maestro workflow edge add <WF_ID> <FROM> <TO> [--label "..."]`
-- `maestro workflow validate <WF_ID>`
-- `maestro workflow export puml <WF_ID> --out <PATH>`
-- `maestro workflow render svg <WF_ID> --out <PATH>`
+- `maestro workflow show <NAME>`
+- `maestro workflow create <NAME>`
+- `maestro workflow edit <NAME>`
+- `maestro workflow delete <NAME>`
+- `maestro workflow visualize <NAME> --format {plantuml|mermaid|graphviz}`
 
 ## Repo resolve/conf + make/build naming
 

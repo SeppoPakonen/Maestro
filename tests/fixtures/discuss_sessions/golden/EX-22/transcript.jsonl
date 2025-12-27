@@ -1,0 +1,3 @@
+{"ts": "2025-12-28T10:00:00.000000", "type": "user_message", "payload": {"content": "Plan phases for TRK-ALPHA."}}
+{"ts": "2025-12-28T10:00:05.000000", "type": "assistant_message", "payload": {"content": "Proposed operations for EX-22."}}
+{"ts": "2025-12-28T10:00:10.000000", "type": "final_json", "payload": {"patch_operations": [{"op_type": "add_phase", "data": {"track_id": "TRK-ALPHA", "phase_name": "Phase 1: Core", "phase_id": "PH-CORE"}}]}}

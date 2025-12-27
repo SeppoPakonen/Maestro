@@ -6,14 +6,14 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 ## Top-level
 
 - `maestro init`
-- `maestro runbook {list|show|add|edit|rm|step|export|discuss}`
-- `maestro workflow {list|show|add|edit|rm|node|edge|validate|export|render|discuss}`
-- `maestro repo {resolve|conf|show|hub|make}`
+- `maestro runbook {list|show|add|edit|rm|step-add|step-edit|step-rm|step-renumber|export|render|discuss}`
+- `maestro workflow {list|show|create|edit|delete|visualize}`
+- `maestro repo {resolve|refresh|conf|show|hub|make}`
 - `maestro track {list|show|add|edit|rm|discuss}`
 - `maestro phase {list|show|add|edit|rm|discuss}`
 - `maestro task {list|show|add|edit|rm|discuss|link|set}`
-- `maestro issues {list|show|add|edit|rm|discuss|link|ignore}`
-- `maestro solutions {list|show|add|edit|rm|match|discuss}`
+- `maestro issues {list|show|state|rollback|react|analyze|decide|fix}`
+- `maestro solutions {list|show|add|edit|remove}`
 - `maestro work {start|resume|pause|stop|status|task|spawn}`
 - `maestro wsession {list|show|breadcrumb|close}`
 - `maestro discuss` (router)
@@ -27,6 +27,8 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 
 ## Selected subtrees
 
+- `maestro discuss resume <SESSION_ID>`
+- `maestro discuss replay <PATH> --dry-run [--allow-cross-context]`
 - `maestro repo resolve`
 - `maestro repo refresh all`
 - `maestro repo conf {show|select-default target}`

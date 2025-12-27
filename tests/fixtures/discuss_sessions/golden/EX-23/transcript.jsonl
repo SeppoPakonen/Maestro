@@ -1,0 +1,3 @@
+{"ts": "2025-12-28T10:00:00.000000", "type": "user_message", "payload": {"content": "Scope tasks for PH-CORE."}}
+{"ts": "2025-12-28T10:00:05.000000", "type": "assistant_message", "payload": {"content": "Proposed operations for EX-23."}}
+{"ts": "2025-12-28T10:00:10.000000", "type": "final_json", "payload": {"patch_operations": [{"op_type": "add_task", "data": {"task_name": "Define API", "task_id": "TASK-API", "phase_id": "PH-CORE"}}, {"op_type": "edit_task_fields", "data": {"task_id": "TASK-API", "fields": {"notes": "Dependency anchor"}}}]}}

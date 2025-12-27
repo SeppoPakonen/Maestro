@@ -1,0 +1,3 @@
+{"ts": "2025-12-28T10:00:00.000000", "type": "user_message", "payload": {"content": "Route to task discuss for TASK-042."}}
+{"ts": "2025-12-28T10:00:05.000000", "type": "assistant_message", "payload": {"content": "Proposed operations for EX-21."}}
+{"ts": "2025-12-28T10:00:10.000000", "type": "final_json", "payload": {"patch_operations": [{"op_type": "edit_task_fields", "data": {"task_id": "TASK-042", "fields": {"status": "in_progress"}}}]}}

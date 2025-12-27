@@ -1,0 +1,3 @@
+{"ts": "2025-12-28T10:00:00.000000", "type": "user_message", "payload": {"content": "Author runbook and workflow stub."}}
+{"ts": "2025-12-28T10:00:05.000000", "type": "assistant_message", "payload": {"content": "Proposed operations for EX-27."}}
+{"ts": "2025-12-28T10:00:10.000000", "type": "final_json", "payload": {"patch_operations": [{"op_type": "add_task", "data": {"task_name": "Author runbook and workflow", "task_id": "TASK-RB", "phase_id": "PH-CORE"}}]}}

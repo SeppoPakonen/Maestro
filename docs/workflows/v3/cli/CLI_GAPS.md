@@ -175,13 +175,13 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
 
 - Gap ID: GAP-0015
   - Invariant ref: N/A (not tied to a hard invariant)
-  - Missing capability: Runbook discuss and create.
-  - Proposed v3 command: `maestro runbook discuss` / `maestro runbook add <name>`
+  - Missing capability: Runbook discuss integration (placeholder only).
+  - Proposed v3 command: `maestro discuss --context runbook` (router) / `maestro runbook discuss <id>` (placeholder)
   - Evidence: EX-27
   - Status: proposed
   - Priority: P1
   - Type: missing_command
-  - Notes: `add` is preferred over `create`.
+  - Notes: `maestro runbook add` exists; discuss should integrate with it.
 
 - Gap ID: GAP-0016
   - Invariant ref: N/A (not tied to a hard invariant)
@@ -191,7 +191,7 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Status: proposed
   - Priority: P1
   - Type: missing_command
-  - Notes: Consolidate under `issues link`.
+  - Notes: Use `maestro discuss --context issues` and `maestro issues state <id> cancelled` as interim flow.
 
 - Gap ID: GAP-0017
   - Invariant ref: N/A (not tied to a hard invariant)
@@ -231,7 +231,7 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Status: proposed
   - Priority: P1
   - Type: missing_command
-  - Notes: Discuss endpoints per namespace.
+  - Notes: Use `maestro discuss --context repo` until a dedicated subcommand exists.
 
 - Gap ID: GAP-0030
   - Invariant ref: N/A (not tied to a hard invariant)
@@ -429,3 +429,4 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
 
 - Evidence references are to v2/v3 runbook examples (see `docs/workflows/v3/reports/example_index.md`).
 - Several gaps are naming conflicts (`build` vs `make`, `complete` vs `set status`). These are normalization tasks rather than new features.
+- EX-21..EX-28 runbooks updated for replay/dry-run and repo resolve/refresh split (done).
