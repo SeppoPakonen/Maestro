@@ -136,22 +136,22 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
 - Gap ID: GAP-0010
   - Invariant ref: N/A (not tied to a hard invariant)
   - Missing capability: Discuss router transfer.
-  - Proposed v3 command: `maestro discuss --transfer <context>`
+  - Proposed v3 command: `maestro discuss --context <context>` / `maestro discuss --task <id>`
   - Evidence: EX-21, EX-05
-  - Status: proposed
+  - Status: implemented (P1 Sprint 2)
   - Priority: P1
   - Type: missing_command
-  - Notes: Needs clear routing and session transfer rules.
+  - Notes: Router detects context from flags or active work session and transfers to appropriate handler.
 
 - Gap ID: GAP-0011
   - Invariant ref: N/A (not tied to a hard invariant)
   - Missing capability: Discuss resume/context selection.
-  - Proposed v3 command: `maestro discuss --resume <id>` / `maestro discuss --context task <id>`
+  - Proposed v3 command: `maestro discuss resume <id>` / `maestro discuss --context <context>`
   - Evidence: EX-05
-  - Status: proposed
+  - Status: implemented (P1 Sprint 2)
   - Priority: P1
   - Type: missing_command
-  - Notes: Align with `work resume` and `ai resume`.
+  - Notes: Resume loads session and continues conversation. Context selection via --context flag.
 
 - Gap ID: GAP-0013
   - Invariant ref: N/A (not tied to a hard invariant)
