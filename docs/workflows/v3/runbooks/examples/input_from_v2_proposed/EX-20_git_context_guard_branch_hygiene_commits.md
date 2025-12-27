@@ -167,7 +167,7 @@ $ git switch main
 [MAESTRO GIT GUARD] Cannot switch branches with active work session.
 [MAESTRO GIT GUARD]
 [MAESTRO GIT GUARD] Options:
-[MAESTRO GIT GUARD]   1. Close work session: maestro work close wsession-logging-xyz123
+[MAESTRO GIT GUARD]   1. Close work session: maestro wsession close wsession-logging-xyz123
 [MAESTRO GIT GUARD]   2. Use separate worktree: git worktree add ../main-worktree main
 [MAESTRO GIT GUARD]
 [MAESTRO GIT GUARD] Branch switch blocked.
@@ -180,7 +180,7 @@ fatal: Maestro git guard: Active work session prevents branch switch
 
 **Alternative** (if user really needs to switch):
 ```
-$ maestro work close wsession-logging-xyz123
+$ maestro wsession close wsession-logging-xyz123
 [WORK] Closing work session: wsession-logging-xyz123
 [WORK] Work session paused. Resume later: maestro work resume wsession-logging-xyz123
 [GIT GUARD] Work session closed. Branch switching now allowed.
@@ -213,7 +213,7 @@ User: /done
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro ops commit suggest --task task-001` | Generate commit message | Template with task/phase/track references |
+| `maestro ops commit suggest --task task-001` | Generate commit message | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0032) |
 
 **Internal**:
 - Read task metadata (task-001.json)
@@ -252,7 +252,7 @@ Use directly: maestro ops commit create --task task-001
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro ops commit create --task task-001` | Create git commit | Commit created with template message |
+| `maestro ops commit create --task task-001` | Create git commit | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0033) |
 
 **Internal**:
 - Generate commit message from template
@@ -325,7 +325,7 @@ You can now safely switch branches.
 
 **System Output**:
 ```
-$ maestro work close wsession-logging-xyz123
+$ maestro wsession close wsession-logging-xyz123
 [WORK] Closing work session: wsession-logging-xyz123
 [GIT GUARD] Work session closed.
 
@@ -423,7 +423,7 @@ Resolves: #phase-alpha
 **Flow**:
 1. Start work session, make changes
 2. Attempt branch switch (blocked)
-3. User closes work session: `maestro work close wsession-logging-xyz123`
+3. User closes work session: `maestro wsession close wsession-logging-xyz123`
 4. Branch switch allowed (work session paused)
 5. Later: resume work session on original branch
 
@@ -467,11 +467,11 @@ Resolves: #phase-alpha
 
 ```yaml
 cli_gaps:
-  - "TODO_CMD: maestro ops git status-guard (check git guard status)"
-  - "TODO_CMD: maestro ops commit suggest --task <task-id>"
-  - "TODO_CMD: maestro ops commit create --task <task-id>"
-  - "TODO_CMD: maestro work close <wsession-id>"
-  - "TODO_CMD: maestro work pause <wsession-id> (vs close?)"
+  - "maestro ops git status-guard — NOT IMPLEMENTED (CLI_GAPS: GAP-0034)"
+  - "maestro ops commit suggest --task <task-id> — NOT IMPLEMENTED (CLI_GAPS: GAP-0032)"
+  - "maestro ops commit create --task <task-id> — NOT IMPLEMENTED (CLI_GAPS: GAP-0033)"
+  - "maestro wsession close <wsession-id> — exists"
+  - "maestro work pause <wsession-id> — NOT IMPLEMENTED (CLI_GAPS: GAP-0035)"
   - "How git guard is implemented (git hooks? wrapper? pre-checkout hook?)"
   - "Whether git guard supports git worktrees (parallel work on different branches)"
   - "Policy for git stash during work sessions (allowed or not?)"
@@ -509,7 +509,7 @@ trace:
     stores_write: []
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["load_task_metadata", "generate_commit_template"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "low"
 
   - user: "maestro ops commit create --task task-001"
     intent: "Create git commit with suggested message"
@@ -517,15 +517,15 @@ trace:
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["stage_files", "create_commit", "update_wsession"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "low"
 
-  - user: "maestro work close wsession-logging-xyz123"
+  - user: "maestro wsession close wsession-logging-xyz123"
     intent: "Close work session and release git guard"
     gates: []
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["close_wsession", "disable_git_guard"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "low"
 ```
 
 ---

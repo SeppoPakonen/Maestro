@@ -27,6 +27,7 @@ Rule: breadcrumb ops require a cookie; missing cookie is a hard error.
 ## Discuss (router + context discuss)
 
 - `maestro discuss`
+- `maestro discuss replay <PATH>`
 - `maestro task discuss <TASK_ID>`
 - `maestro phase discuss <PHASE_ID>`
 - `maestro track discuss <TRACK_ID>`
@@ -37,6 +38,10 @@ Rule: breadcrumb ops require a cookie; missing cookie is a hard error.
 - `maestro solutions discuss`
 
 Discuss returns JSON->OPS; invalid JSON hard-stops apply.
+
+Replay accepts:
+- `.json` with `final_json` or `patch_operations`
+- `.jsonl` with a `final_json` entry
 
 ## Workflow authoring primitives
 
@@ -51,7 +56,8 @@ Discuss returns JSON->OPS; invalid JSON hard-stops apply.
 
 ## Repo resolve/conf + make/build naming
 
-- `maestro repo resolve {lite|deep}`
+- `maestro repo resolve` (lite default)
+- `maestro repo refresh all` (deep resolve)
 - `maestro repo conf show`
 - `maestro repo conf select-default target <TARGET>`
 - `maestro make ...` (v3 canonical)

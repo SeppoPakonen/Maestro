@@ -2,6 +2,7 @@
 set -euo pipefail
 
 run() { echo "+ $*"; }
+MAESTRO_BIN="${MAESTRO_BIN:-maestro}"
 
 # EX-13: RepoResolve Levels (Lite/Deep) + RepoConf Gating + Multi-Target Selection
 
@@ -23,7 +24,7 @@ echo "    └── main.cpp"
 echo ""
 echo "=== Step 1: Initialize Maestro ===\"
 
-run maestro init
+run "$MAESTRO_BIN" init
 # EXPECT: Creates ./docs/maestro/** structure
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # GATES: (none)
@@ -35,7 +36,7 @@ echo "[INIT] Created directories: tasks/, phases/, tracks/, workflows/"
 echo ""
 echo "=== Step 2: Run Lite RepoResolve ===\"
 
-run maestro repo resolve --level lite
+run "$MAESTRO_BIN" repo resolve
 # EXPECT: Detects CMake + Makefile, identifies 2 targets
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # STORES_READ: (filesystem - scans for build files)
@@ -53,13 +54,13 @@ echo "    - target-cmake-myapp: myapp [executable]"
 echo "  - pkg-002: MyApp (make)"
 echo "    - target-make-myapp: myapp [executable]"
 echo ""
-echo "Multiple targets detected. Run 'maestro repo conf select-default-target <target-id>' to choose default."
+echo "Multiple targets detected. Run 'maestro repo conf select-default target <target-id>' to choose default."
 
 echo ""
 echo "=== Step 3: Inspect RepoConf Status ===\"
 
-run maestro repo conf show  # TODO_CMD
-# EXPECT: Shows default_target = null, lists available targets
+run "$MAESTRO_BIN" repo conf show
+# EXPECT: Shows selected_target = null, lists available targets
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # GATES: (none - read-only)
 
@@ -73,13 +74,13 @@ echo "  - target-cmake-myapp (cmake: myapp)"
 echo "  - target-make-myapp (make: myapp)"
 echo ""
 echo "Note: Build and TU operations require a default target to be set."
-echo "Use: maestro repo conf select-default-target <target-id>"
+echo "Use: maestro repo conf select-default target <target-id>"
 
 echo ""
 echo "=== Step 4: Select Default Target ===\"
 
-run maestro repo conf select-default-target target-cmake-myapp  # TODO_CMD
-# EXPECT: Updates repo.json with default_target
+run "$MAESTRO_BIN" repo conf select-default target target-cmake-myapp
+# EXPECT: Updates repoconf.json with selected_target
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # GATES: REPOCONF_GATE (now satisfied)
@@ -93,7 +94,7 @@ echo "RepoConf gate now satisfied. Build and TU operations may proceed."
 echo ""
 echo "=== Step 5: Attempt Build (RepoConf Gate Check) ===\"
 
-run maestro build  # TODO_CMD
+run "$MAESTRO_BIN" make
 # EXPECT: Proceeds because RepoConf gate satisfied
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # GATES: REPOCONF_GATE (must pass)
@@ -109,7 +110,7 @@ echo "[BUILD] Success: myapp executable created"
 echo ""
 echo "=== Step 6: Run Deep RepoResolve (Optional) ===\"
 
-run maestro repo resolve --level deep  # TODO_CMD
+run "$MAESTRO_BIN" repo refresh all
 # EXPECT: Checks conventions, creates issues for violations
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO (issues added)
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
@@ -136,7 +137,7 @@ echo "=== Alternative Path: No Default Target Selected ===\"
 
 echo ""
 echo "# If user tries to build without selecting default target:"
-run maestro build
+run "$MAESTRO_BIN" make
 echo ""
 echo "ERROR: RepoConf gate not satisfied"
 echo ""
@@ -145,12 +146,12 @@ echo "  - target-cmake-myapp (cmake: myapp)"
 echo "  - target-make-myapp (make: myapp)"
 echo ""
 echo "Select default target:"
-echo "  maestro repo conf select-default-target <target-id>"
+echo "  maestro repo conf select-default target <target-id>"
 
 echo ""
 echo "=== Outcome A: Single Target Auto-Selected ===\"
 echo "Flow:"
-echo "  1. Run repo resolve --level lite"
+echo "  1. Run repo resolve"
 echo "  2. Only one target detected"
 echo "  3. Maestro auto-selects default target"
 echo "  4. RepoConf gate automatically satisfied"
@@ -159,16 +160,16 @@ echo "  5. Build proceeds without manual selection"
 echo ""
 echo "=== Outcome B: Multiple Targets → User Chooses Default ===\"
 echo "Flow (as shown above):"
-echo "  1. Run repo resolve --level lite"
+echo "  1. Run repo resolve"
 echo "  2. Two targets detected (cmake + make)"
-echo "  3. User selects: maestro repo conf select-default-target target-cmake-myapp"
+echo "  3. User selects: maestro repo conf select-default target target-cmake-myapp"
 echo "  4. RepoConf gate satisfied"
 echo "  5. Build proceeds with selected target"
 
 echo ""
 echo "=== Outcome C: Deep Resolve Finds Violations → Issues Created ===\"
 echo "Flow:"
-echo "  1. Run repo resolve --level deep"
+echo "  1. Run repo refresh all"
 echo "  2. Convention check detects layout violation (no include/ directory)"
 echo "  3. Issue created: issue-001"
 echo "  4. User can:"

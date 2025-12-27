@@ -2,27 +2,29 @@
 set -euo pipefail
 
 run() { echo "+ $*"; }
+MAESTRO_BIN="${MAESTRO_BIN:-maestro}"
 
 # EX-03: Python Poetry Read-Only Inspection — No Repo Writes
 
 # Step 1: Resolve repo in read-only mode
-run maestro repo resolve --readonly  # TODO_CMD: confirm --readonly flag
+run "$MAESTRO_BIN" repo resolve --no-write
 # EXPECT: Detects Poetry, Python 3.11, FastAPI deps
+# EXPECT: NOT IMPLEMENTED (hub cache write) (CLI_GAPS: GAP-0001)
 # STORES_WRITE: HOME_HUB_REPO (NOT repo truth)
 # STORES_READ: (none)
 # GATES: REPO_RESOLVE_LITE
 # INTERNAL: UNKNOWN
 
 # Step 2: Show detected packages
-run maestro repo show packages  # TODO_CMD: exact command uncertain
+run "$MAESTRO_BIN" repo pkg list
 # EXPECT: Lists fastapi, uvicorn, python=^3.11
 # STORES_READ: HOME_HUB_REPO
 # GATES: (none)
 # INTERNAL: UNKNOWN
 
 # Step 3: Show entry points
-run maestro repo show entry-points  # TODO_CMD: may be 'entrypoints' or 'targets'
-# EXPECT: Shows FastAPI app at src/api/main.py:app
+run "$MAESTRO_BIN" repo show --json
+# EXPECT: NOT IMPLEMENTED (entry-point query) (CLI_GAPS: GAP-0030)
 # STORES_READ: HOME_HUB_REPO
 # GATES: (none)
 # INTERNAL: UNKNOWN

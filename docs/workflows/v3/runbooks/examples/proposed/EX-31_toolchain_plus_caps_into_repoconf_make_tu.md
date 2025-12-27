@@ -24,15 +24,15 @@
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
 | 1 | `maestro init` | Initialize repo truth | Repo truth created | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
-| 2 | `maestro select toolchain set <profile> --scope project` | Choose toolchain profile | Toolchain reference stored in repo | `GATE_TOOLCHAIN_SELECTED` | `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO` |
-| 3 | `maestro platform caps detect` | Detect capabilities under toolchain | Detection cached in hub | `GATE_CAPS_DETECTED` | `HOME_HUB_REPO` |
-| 4 | `maestro platform caps prefer vulkan --scope project` | Prefer optional Vulkan | Policy stored; missing OK | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
-| 5 | `maestro repo resolve deep` | Resolve repo context | Repo resolved to targets | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO` |
+| 2 | `maestro select toolchain set <profile> --scope project` | Choose toolchain profile | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0036) | `GATE_TOOLCHAIN_SELECTED` | `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO` |
+| 3 | `maestro platform caps detect` | Detect capabilities under toolchain | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0037) | `GATE_CAPS_DETECTED` | `HOME_HUB_REPO` |
+| 4 | `maestro platform caps prefer vulkan --scope project` | Prefer optional Vulkan | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0038) | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 5 | `maestro repo refresh all` | Resolve repo context | Repo resolved to targets | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO`, `HOME_HUB_REPO` |
 | 6 | `maestro repo conf select-default target <t>` | Select target configuration | RepoConf present | `GATE_REPOCONF_PRESENT` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 7 | `maestro make` | Build with prefer policy | Build succeeds; Vulkan enabled if present | `GATE_BUILD_OK` | `REPO_TRUTH_DOCS_MAESTRO` |
 | 8 | `maestro tu build` | Generate TU/AST artifacts | TU build succeeds | `GATE_TU_READY` | `REPO_TRUTH_DOCS_MAESTRO` |
-| 9 | `maestro platform caps require vulkan --scope project` | Switch to strict gating | Policy stored; missing blocks | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
-| 10 | `maestro make` | Build with required caps | Missing Vulkan gates + issue | `GATE_REQUIRE_CAPS_SATISFIED` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 9 | `maestro platform caps require vulkan --scope project` | Switch to strict gating | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0039) | `REPO_TRUTH_FORMAT_IS_JSON` | `REPO_TRUTH_DOCS_MAESTRO` |
+| 10 | `maestro make` | Build with required caps | **NOT IMPLEMENTED** (caps gate + issue creation; CLI_GAPS: GAP-0040) | `GATE_REQUIRE_CAPS_SATISFIED` | `REPO_TRUTH_DOCS_MAESTRO` |
 
 ---
 
@@ -64,15 +64,15 @@
 
 ## CLI Gaps / TODOs
 
-- `TODO_CMD: maestro select toolchain set <profile> --scope project`
-- `TODO_CMD: maestro platform caps detect`
-- `TODO_CMD: maestro platform caps prefer vulkan --scope project`
-- `TODO_CMD: maestro repo resolve deep`
-- `TODO_CMD: maestro repo conf select-default target <t>`
-- `TODO_CMD: maestro make`
-- `TODO_CMD: maestro tu build`
-- `TODO_CMD: maestro platform caps require vulkan --scope project`
-- `TODO_CMD: maestro issues add --title "Missing cap: vulkan" --evidence <detect>`
+- `maestro select toolchain set <profile> --scope project` — **NOT IMPLEMENTED** (CLI_GAPS: GAP-0036)
+- `maestro platform caps detect` — **NOT IMPLEMENTED** (CLI_GAPS: GAP-0037)
+- `maestro platform caps prefer vulkan --scope project` — **NOT IMPLEMENTED** (CLI_GAPS: GAP-0038)
+- `maestro repo refresh all` — exists
+- `maestro repo conf select-default target <t>` — exists
+- `maestro make` — exists (build alias supported)
+- `maestro tu build` — exists (gated)
+- `maestro platform caps require vulkan --scope project` — **NOT IMPLEMENTED** (CLI_GAPS: GAP-0039)
+- `maestro issues add --title \"Missing cap: vulkan\" --evidence <detect>` — **NOT IMPLEMENTED** (CLI_GAPS: GAP-0007)
 
 ---
 
@@ -95,7 +95,7 @@ trace:
       gates: [REPO_TRUTH_FORMAT_IS_JSON]
       stores: [REPO_TRUTH_DOCS_MAESTRO]
     - step: repo_resolve
-      command: "maestro repo resolve deep"
+      command: "maestro repo refresh all"
       gates: [REPO_TRUTH_FORMAT_IS_JSON]
       stores: [REPO_TRUTH_DOCS_MAESTRO, HOME_HUB_REPO]
     - step: repoconf_select
@@ -125,7 +125,7 @@ cli_gaps:
   - "maestro select toolchain set <profile> --scope project"
   - "maestro platform caps detect"
   - "maestro platform caps prefer vulkan --scope project"
-  - "maestro repo resolve deep"
+  - "maestro repo refresh all"
   - "maestro repo conf select-default target <t>"
   - "maestro make"
   - "maestro tu build"

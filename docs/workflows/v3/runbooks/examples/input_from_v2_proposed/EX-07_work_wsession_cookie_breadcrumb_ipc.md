@@ -9,7 +9,7 @@
 
 ## Scenario Summary
 
-Developer starts a work session on a task using `maestro work task task-001`. Maestro creates a session cookie and provides it to the AI in the system prompt. During the work session, AI makes progress and calls `maestro wsession breadcrumb` with the cookie to update progress. User can close and resume the session later. All state is file-based IPC in `$HOME/.maestro/ipc/<session-id>/`.
+Developer starts a work session on a task using `maestro work task task-001`. Maestro creates a session cookie and provides it to the AI in the system prompt. During the work session, AI makes progress and calls `maestro wsession breadcrumb add` with the cookie to update progress. User can close and resume the session later. All state is file-based IPC in `$HOME/.maestro/ipc/<session-id>/`.
 
 This demonstrates **file-based IPC for AI↔Maestro communication** without requiring AI to mutate repo truth directly.
 
@@ -42,7 +42,7 @@ $HOME/.maestro/ipc/<session-id>/
 
 1. **Create**: `maestro work task task-001` → generates session ID and cookie
 2. **Active**: AI uses cookie to append breadcrumbs
-3. **Resume**: `maestro work --resume <session-id>` → reload context, continue
+3. **Resume**: `maestro work resume <session-id>` → reload context, continue
 4. **Close**: Explicit close or timeout → archive session
 
 ---
@@ -84,14 +84,14 @@ Work Session:
 - Cookie: cookie-7f3a9b2e
 
 You may update progress by calling:
-maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Your progress message"
+maestro wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt "Your progress message"
 ```
 
 ### Step 3: AI Makes Progress and Updates Breadcrumbs
 
 | AI Action | Intent | Expected |
 |-----------|--------|----------|
-| `maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Analyzing codebase..."` | Report progress | Breadcrumb appended to IPC mailbox |
+| `maestro wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt "Analyzing codebase..."` | Report progress | Breadcrumb appended to IPC mailbox |
 
 **Internal**:
 - Validate cookie matches session
@@ -111,7 +111,7 @@ maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status
 
 | AI Action | Intent | Expected |
 |-----------|--------|----------|
-| `maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Implementing password hashing..."` | Update progress | Another breadcrumb appended |
+| `maestro wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt "Implementing password hashing..."` | Update progress | Another breadcrumb appended |
 
 **Breadcrumbs accumulate in `breadcrumbs.json`** (array of progress updates).
 
@@ -119,7 +119,7 @@ maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro wsession show ws-20250126-abc123` | View session breadcrumbs | Displays all breadcrumbs |
+| `maestro wsession show ws-20250126-abc123` | View session breadcrumbs | Displays all breadcrumbs |
 
 **Output**:
 ```
@@ -145,7 +145,7 @@ Breadcrumbs:
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro work --resume ws-20250126-abc123` | Continue previous work session | AI context restored, breadcrumbs visible |
+| `maestro work resume ws-20250126-abc123` | Continue previous work session | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0018) |
 
 **Internal**:
 - Load `context.json` and `breadcrumbs.json`
@@ -209,14 +209,14 @@ Breadcrumbs:
 - Session can span multiple invocations → resume preserves context
 
 **What AI tries**:
-- Call `maestro wsession breadcrumb` periodically to report progress
+- Call `maestro wsession breadcrumb add` periodically to report progress
 - Include meaningful status messages (not just "working...")
 - If cookie missing or wrong: retry or ask user
 
 **Where AI tends to hallucinate**:
 - May forget to include `--cookie` flag → breadcrumb rejected
 - May assume breadcrumbs automatically update task status (they don't - that requires mutation mode or user action)
-- May call `maestro wsession breadcrumb` with wrong session ID
+- May call `maestro wsession breadcrumb add` with wrong cookie
 
 ---
 
@@ -227,9 +227,9 @@ Breadcrumbs:
 **Flow**:
 1. User starts work session: `maestro work task task-001`
 2. AI receives cookie in prompt
-3. AI makes progress, calls `maestro wsession breadcrumb` 5 times
+3. AI makes progress, calls `maestro wsession breadcrumb add` 5 times
 4. User exits
-5. Later: user runs `maestro work --resume ws-20250126-abc123`
+5. Later: user runs `maestro work resume ws-20250126-abc123`
 6. AI context restored with all 5 breadcrumbs visible
 
 **Artifacts**:
@@ -240,7 +240,7 @@ Breadcrumbs:
 ### Outcome B: Cookie Missing → Breadcrumb Rejected
 
 **Flow**:
-1. AI tries to call: `maestro wsession breadcrumb ws-20250126-abc123 --status "Progress..."`
+1. AI tries to call: `maestro wsession breadcrumb add --prompt "Progress..."`
 2. Cookie flag missing
 3. System rejects: "ERROR: Cookie required for breadcrumb update"
 4. AI retries with `--cookie cookie-7f3a9b2e`
@@ -249,7 +249,7 @@ Breadcrumbs:
 ### Outcome C: Cookie Mismatch → Unauthorized
 
 **Flow**:
-1. AI (or malicious process) calls: `maestro wsession breadcrumb ws-20250126-abc123 --cookie wrong-cookie --status "Hacked"`
+1. AI (or malicious process) calls: `maestro wsession breadcrumb add --cookie wrong-cookie --prompt "Hacked"`
 2. System validates: expected `cookie-7f3a9b2e`, got `wrong-cookie`
 3. Reject: "ERROR: Invalid cookie for session ws-20250126-abc123"
 4. No breadcrumb written
@@ -270,7 +270,7 @@ Breadcrumbs:
 **Key feature**: Work sessions are **file-based**, so multiple processes can interact with the same session mailbox.
 
 **Example**:
-- Process 1 (AI): Writes breadcrumbs via `maestro wsession breadcrumb`
+- Process 1 (AI): Writes breadcrumbs via `maestro wsession breadcrumb add`
 - Process 2 (User CLI): Reads breadcrumbs via `maestro wsession show`
 - Process 3 (Web UI): Polls `breadcrumbs.json` for live updates
 
@@ -282,13 +282,12 @@ Breadcrumbs:
 
 ```yaml
 cli_gaps:
-  - "TODO_CMD: maestro work task <task-id>"
-  - "TODO_CMD: maestro work --resume <session-id>"
-  - "TODO_CMD: maestro wsession breadcrumb <session> --cookie <cookie> --status <msg>"
-  - "TODO_CMD: maestro wsession show <session>"
-  - "TODO_CMD: maestro work task <id> --allow-mutations (mutation mode flag)"
-  - "TODO_CMD: how session IDs are generated"
-  - "TODO_CMD: cookie format and security properties"
+  - "maestro work resume <session-id> — NOT IMPLEMENTED (CLI_GAPS: GAP-0018)"
+  - "maestro wsession breadcrumb add --cookie <cookie> --prompt <msg> — exists"
+  - "maestro wsession show <session> — exists"
+  - "maestro work task <id> --allow-mutations — NOT IMPLEMENTED (CLI_GAPS: GAP-0031)"
+  - "How session IDs are generated (documented in work session store)"
+  - "Cookie format and security properties (documented in work session store)"
 ```
 
 ---
@@ -303,21 +302,21 @@ trace:
     stores_write: ["IPC_MAILBOX", "REPO_TRUTH_DOCS_MAESTRO"]
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["generate_session_id", "generate_cookie", "create_ipc_mailbox"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "medium"
 
-  - ai: "maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status 'Analyzing codebase...'"
+  - ai: "maestro wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt 'Analyzing codebase...'"
     intent: "AI reports progress via breadcrumb"
     gates: ["COOKIE_VALIDATION"]
     stores_write: ["IPC_MAILBOX"]
     internal: ["validate_cookie", "append_breadcrumb"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "low"
 
-  - user: "maestro work --resume ws-20250126-abc123"
+  - user: "maestro work resume ws-20250126-abc123"
     intent: "Resume previous work session"
     gates: ["REPOCONF_GATE"]
     stores_read: ["IPC_MAILBOX", "REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["load_session_context", "load_breadcrumbs"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "low"  # NOT IMPLEMENTED (CLI_GAPS: GAP-0018)
 ```
 
 ---

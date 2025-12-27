@@ -9,7 +9,7 @@
 
 ## Scenario Summary
 
-Developer initializes Maestro in a repository with multiple build systems (CMakeLists.txt and Makefile). Running `maestro repo resolve --level lite` detects packages and targets. When multiple targets are found, user must select a default via RepoConf before build/TU operations can proceed. Deep resolution additionally checks conventions and creates issues for violations.
+Developer initializes Maestro in a repository with multiple build systems (CMakeLists.txt and Makefile). Running `maestro repo resolve` detects packages and targets. When multiple targets are found, user must select a default via RepoConf before build/TU operations can proceed. Deep resolution additionally checks conventions and creates issues for violations via `maestro repo refresh all`.
 
 This demonstrates **RepoResolve as the foundation** for all downstream operations and **RepoConf as a required gate**.
 
@@ -78,7 +78,7 @@ int main() {
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `maestro repo resolve --level lite` | Detect build systems, packages, targets | Discovers CMake + Makefile, identifies 2 targets |
+| `maestro repo resolve` | Detect build systems, packages, targets | Discovers CMake + Makefile, identifies 2 targets |
 
 **Internal**:
 - Scans repository for build files (CMakeLists.txt, Makefile, Cargo.toml, etc.)
@@ -126,14 +126,14 @@ Detected packages:
   - pkg-002: MyApp (make)
     - target-make-myapp: myapp [executable]
 
-Multiple targets detected. Run 'maestro repo conf select-default-target <target-id>' to choose default.
+Multiple targets detected. Run 'maestro repo conf select-default target <target-id>' to choose default.
 ```
 
 ### Step 3: Inspect RepoConf Status
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro repo conf show` | View current repo configuration | Shows default_target = null, lists available targets |
+| `maestro repo conf show` | View current repo configuration | Shows selected_target = null, lists available targets |
 
 **System Output**:
 ```
@@ -146,7 +146,7 @@ Available targets:
   - target-make-myapp (make: myapp)
 
 Note: Build and TU operations require a default target to be set.
-Use: maestro repo conf select-default-target <target-id>
+Use: maestro repo conf select-default target <target-id>
 ```
 
 **Gates**: (none - read-only)
@@ -156,7 +156,7 @@ Use: maestro repo conf select-default-target <target-id>
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro repo conf select-default-target target-cmake-myapp` | Set default target for build/TU operations | Updates repo.json with default_target |
+| `maestro repo conf select-default target target-cmake-myapp` | Set default target for build/TU operations | Updates repoconf.json with selected_target |
 
 **Internal**:
 - Validates target exists in repo.json
@@ -177,7 +177,7 @@ RepoConf gate now satisfied. Build and TU operations may proceed.
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro build` | Build default target | Proceeds because RepoConf gate satisfied |
+| `maestro make` | Build default target | Proceeds because RepoConf gate satisfied |
 
 **Internal**:
 - Checks REPOCONF_GATE: `repo_conf.default_target` must be non-null
@@ -200,7 +200,7 @@ RepoConf gate now satisfied. Build and TU operations may proceed.
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro repo resolve --level deep` | Perform convention checking, advanced analysis | Checks file layout, naming conventions, creates issues for violations |
+| `maestro repo refresh all` | Perform convention checking, advanced analysis | Checks file layout, naming conventions, creates issues for violations |
 
 **Internal**:
 - Runs all lite-level detection
@@ -238,7 +238,7 @@ View issues: maestro issues list
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro build` | Try to build without default target set | Fails at REPOCONF_GATE |
+| `maestro make` | Try to build without default target set | Fails at REPOCONF_GATE |
 
 **System Output**:
 ```
@@ -249,7 +249,7 @@ No default target selected. Multiple targets available:
   - target-make-myapp (make: myapp)
 
 Select default target:
-  maestro repo conf select-default-target <target-id>
+  maestro repo conf select-default target <target-id>
 ```
 
 **Gates**: REPOCONF_GATE (FAILED)
@@ -283,7 +283,7 @@ Select default target:
 ### Outcome A: Single Target Auto-Selected
 
 **Flow**:
-1. Run `maestro repo resolve --level lite`
+1. Run `maestro repo resolve`
 2. Only one target detected
 3. Maestro auto-selects default target
 4. RepoConf gate automatically satisfied
@@ -296,9 +296,9 @@ Select default target:
 ### Outcome B: Multiple Targets Detected → User Chooses Default
 
 **Flow** (as shown in main runbook):
-1. Run `maestro repo resolve --level lite`
+1. Run `maestro repo resolve`
 2. Two targets detected (cmake + make)
-3. User runs `maestro repo conf select-default-target target-cmake-myapp`
+3. User runs `maestro repo conf select-default target target-cmake-myapp`
 4. RepoConf gate satisfied
 5. Build proceeds with selected target
 
@@ -309,7 +309,7 @@ Select default target:
 ### Outcome C: Deep Resolve Finds Convention Violations → Issues Created
 
 **Flow**:
-1. Run `maestro repo resolve --level deep`
+1. Run `maestro repo refresh all`
 2. Convention check detects layout violation (no include/ directory)
 3. Issue created: `issue-001`
 4. User can:
@@ -336,13 +336,13 @@ Select default target:
 
 ```yaml
 cli_gaps:
-  - "TODO_CMD: maestro repo conf show"
-  - "TODO_CMD: maestro repo conf select-default-target <target-id>"
-  - "TODO_CMD: maestro build (syntax and options)"
-  - "TODO_CMD: maestro repo resolve --level deep (current syntax for deep mode)"
-  - "TODO_CMD: how auto-selection works for single-target repos"
-  - "TODO_CMD: whether user can switch default target after initial selection"
-  - "TODO_CMD: whether RepoConf stores other settings beyond default_target"
+  - "maestro repo conf show — exists"
+  - "maestro repo conf select-default target <target-id> — exists"
+  - "maestro make — exists (build alias supported)"
+  - "maestro repo refresh all — exists (deep resolve path)"
+  - "How auto-selection works for single-target repos (document in repo conf spec)"
+  - "Whether users can switch default target after initial selection (supported by select-default target)"
+  - "Whether RepoConf stores other settings beyond selected_target (document in repoconf.json)"
 ```
 
 ---
@@ -359,7 +359,7 @@ trace:
     internal: ["create_repo_structure"]
     cli_confidence: "high"
 
-  - user: "maestro repo resolve --level lite"
+  - user: "maestro repo resolve"
     intent: "Detect build systems, packages, targets"
     gates: ["REPO_RESOLVE_LITE"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
@@ -373,31 +373,31 @@ trace:
     stores_write: []
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["read_repo_conf"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "medium"
 
-  - user: "maestro repo conf select-default-target target-cmake-myapp"
+  - user: "maestro repo conf select-default target target-cmake-myapp"
     intent: "Set default target for build/TU operations"
     gates: ["REPOCONF_GATE"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["validate_target_exists", "update_repo_conf"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "medium"
 
-  - user: "maestro build"
+  - user: "maestro make"
     intent: "Build default target"
     gates: ["REPOCONF_GATE"]
     stores_write: []
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["check_repoconf_gate", "invoke_build_system"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "medium"
 
-  - user: "maestro repo resolve --level deep"
+  - user: "maestro repo refresh all"
     intent: "Perform deep analysis with convention checking"
     gates: ["REPO_RESOLVE_DEEP", "CONVENTIONS_GATE"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["run_lite_resolve", "check_conventions", "create_issues"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "medium"
 ```
 
 ---

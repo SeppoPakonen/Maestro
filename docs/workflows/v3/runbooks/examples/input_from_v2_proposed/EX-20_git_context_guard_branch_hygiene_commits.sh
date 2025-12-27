@@ -2,6 +2,7 @@
 set -euo pipefail
 
 run() { echo "+ $*"; }
+MAESTRO_BIN="${MAESTRO_BIN:-maestro}"
 
 # EX-20: Git Context Guard + Branch Hygiene — Commit Messages Tied to Task/Phase/Track
 
@@ -34,7 +35,7 @@ echo "a3b5c7d Initial commit"
 echo ""
 echo "=== Step 1: Start Work Session (Capture Git Context) ==="
 
-run maestro work task task-001
+run "$MAESTRO_BIN" work task task-001
 # EXPECT: Maestro captures git context (branch, commit, status)
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
@@ -104,7 +105,7 @@ echo "[MAESTRO GIT GUARD]"
 echo "[MAESTRO GIT GUARD] Cannot switch branches with active work session."
 echo "[MAESTRO GIT GUARD]"
 echo "[MAESTRO GIT GUARD] Options:"
-echo "[MAESTRO GIT GUARD]   1. Close work session: maestro work close wsession-logging-xyz123"
+echo "[MAESTRO GIT GUARD]   1. Close work session: maestro wsession close wsession-logging-xyz123"
 echo "[MAESTRO GIT GUARD]   2. Use separate worktree: git worktree add ../main-worktree main"
 echo "[MAESTRO GIT GUARD]"
 echo "[MAESTRO GIT GUARD] Branch switch blocked."
@@ -113,7 +114,7 @@ echo "fatal: Maestro git guard: Active work session prevents branch switch"
 
 echo ""
 echo "Alternative (if user closes work session first):"
-run maestro work close wsession-logging-xyz123  # TODO_CMD
+run "$MAESTRO_BIN" wsession close wsession-logging-xyz123
 echo ""
 echo "[WORK] Closing work session: wsession-logging-xyz123"
 echo "[WORK] Work session paused. Resume later: maestro work resume wsession-logging-xyz123"
@@ -138,7 +139,8 @@ echo "[GIT] Generating commit message suggestion..."
 echo ""
 echo "=== Step 5: Suggest Commit Message Template ==="
 
-run maestro ops commit suggest --task task-001  # TODO_CMD
+run "$MAESTRO_BIN" ops commit suggest --task task-001
+echo "[NOT IMPLEMENTED] CLI_GAPS: GAP-0032"
 # EXPECT: Template with task/phase/track references
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
 # GATES: (none - read-only)
@@ -169,7 +171,8 @@ echo "Use directly: maestro ops commit create --task task-001"
 echo ""
 echo "=== Step 6: Create Commit with Suggested Message ==="
 
-run maestro ops commit create --task task-001  # TODO_CMD
+run "$MAESTRO_BIN" ops commit create --task task-001
+echo "[NOT IMPLEMENTED] CLI_GAPS: GAP-0033"
 # EXPECT: Commit created with template message
 # STORES_WRITE: REPO_TRUTH_DOCS_MAESTRO
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
@@ -217,7 +220,7 @@ echo "You can now safely switch branches."
 echo ""
 echo "=== Alternative Path: Uncommitted Changes with Branch Switch ==="
 
-run maestro work close wsession-logging-xyz123  # TODO_CMD
+run "$MAESTRO_BIN" wsession close wsession-logging-xyz123
 echo ""
 echo "[WORK] Closing work session: wsession-logging-xyz123"
 echo "[GIT GUARD] Work session closed."
@@ -276,7 +279,7 @@ echo "=== Outcome B: Force Branch Switch by Closing Work Session ==="
 echo "Flow:"
 echo "  1. Start work session, make changes"
 echo "  2. Attempt branch switch (blocked)"
-echo "  3. User closes work session: maestro work close wsession-logging-xyz123"
+echo "  3. User closes work session: maestro wsession close wsession-logging-xyz123"
 echo "  4. Branch switch allowed (work session paused)"
 echo "  5. Later: resume work session on original branch"
 echo ""

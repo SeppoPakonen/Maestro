@@ -58,9 +58,9 @@ def read_root():
 
 | Step | Command | Intent | Expected | Gates | Stores |
 |------|---------|--------|----------|-------|--------|
-| 1 | `TODO_CMD: maestro repo resolve --readonly` | Scan repo without writes | Detects Poetry, Python 3.11, FastAPI | REPO_RESOLVE_LITE | HOME_HUB_REPO |
-| 2 | `TODO_CMD: maestro repo show packages` | Display detected packages | Lists fastapi, uvicorn, Python version | (read-only) | (none) |
-| 3 | `TODO_CMD: maestro repo show entry-points` | Find executable entry points | Shows FastAPI app at `src/api/main.py:app` | (read-only) | (none) |
+| 1 | `maestro repo resolve --no-write` | Scan repo without writes | Detects Poetry, Python 3.11, FastAPI (**hub cache write NOT IMPLEMENTED**; CLI_GAPS: GAP-0001) | REPO_RESOLVE_LITE | HOME_HUB_REPO |
+| 2 | `maestro repo pkg list` | Display detected packages | Lists fastapi, uvicorn, Python version | (read-only) | (none) |
+| 3 | `maestro repo show --json` | Find executable entry points | **NOT IMPLEMENTED** (CLI_GAPS: GAP-0030) | (read-only) | (none) |
 
 ---
 
@@ -84,9 +84,8 @@ def read_root():
 
 ## CLI Gaps / TODOs
 
-- `TODO_CMD: maestro repo resolve --readonly` — flag syntax uncertain
-- `TODO_CMD: maestro repo show packages` — exact output format unknown
-- `TODO_CMD: maestro repo show entry-points` — command may differ
+- `maestro repo resolve --no-write` — hub cache write is **NOT IMPLEMENTED** (CLI_GAPS: GAP-0001)
+- `maestro repo show --json` — entry point query is **NOT IMPLEMENTED** (CLI_GAPS: GAP-0030)
 
 ---
 
@@ -94,20 +93,20 @@ def read_root():
 
 ```yaml
 trace:
-  - user: "maestro repo resolve --readonly"
+  - user: "maestro repo resolve --no-write"
     intent: "Inspect Python Poetry repo without writes"
     gates: ["REPO_RESOLVE_LITE"]
     stores_write: ["HOME_HUB_REPO"]
     stores_read: []
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "medium"
 
-  - user: "maestro repo show packages"
+  - user: "maestro repo pkg list"
     intent: "Display detected Python packages"
     gates: []
     stores_read: ["HOME_HUB_REPO"]
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD
+    cli_confidence: "medium"
 ```
 
 ---

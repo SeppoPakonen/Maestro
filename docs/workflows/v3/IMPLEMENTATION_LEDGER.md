@@ -40,19 +40,19 @@ See also: `docs/workflows/v3/cli/CLI_GAPS.md` for the P0 gap list mapped to inva
 - ID: LED-0005
   Title: Repo conf gate enforcement
   Rationale: Build invoked before repo conf in `docs/workflows/v2/runbooks/examples/proposed/EX-01_cpp_cmake_adopt_build_fix.sh`.
-  Status: proposed
+  Status: implemented
   Priority: P0
   Blocked_by: DEC-0003
   Acceptance criteria: `maestro make` fails with actionable message if no repo conf target selected; `repo conf select-default target <TARGET>` resolves it.
-  Notes: Add `repo conf list`.
+  Notes: `repo conf list` added; tests in `tests/test_repo_conf_cli.py`.
 
 - ID: LED-0006
   Title: Discuss resume/replay and session logs
   Rationale: `maestro discuss --resume` and `maestro session log` are implied but undefined.
-  Status: proposed
+  Status: partial
   Priority: P1
   Acceptance criteria: sessions are listed, resume works, log shows streamed events for a session.
-  Notes: Align with JSON contract enforcement.
+  Notes: `maestro discuss replay <path>` stub added; resume/log still pending.
 
 - ID: LED-0007
   Title: OPS-aligned discuss subcommands

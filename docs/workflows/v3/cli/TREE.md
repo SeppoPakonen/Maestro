@@ -27,7 +27,8 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 
 ## Selected subtrees
 
-- `maestro repo resolve {lite|deep}`
+- `maestro repo resolve`
+- `maestro repo refresh all`
 - `maestro repo conf {show|select-default target}`
 - `maestro repo hub {find|list|link}`
 - `maestro workflow node {add|edit|rm}`

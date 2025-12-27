@@ -2,6 +2,7 @@
 set -euo pipefail
 
 run() { echo "+ $*"; }
+MAESTRO_BIN="${MAESTRO_BIN:-maestro}"
 
 # EX-07: `maestro work` ↔ `maestro wsession` — Cookie, Breadcrumbs, IPC Mailbox, Multi-Process
 
@@ -16,7 +17,7 @@ echo "  - mutations.log       # Optional: repo truth mutations (if enabled)"
 echo ""
 echo "=== Step 1: Start Work Session ==="
 
-run maestro work task task-001
+run "$MAESTRO_BIN" work task task-001
 # EXPECT: Work session created, AI context loaded
 # STORES_WRITE: IPC_MAILBOX, REPO_TRUTH_DOCS_MAESTRO (task → in_progress)
 # STORES_READ: REPO_TRUTH_DOCS_MAESTRO
@@ -57,13 +58,13 @@ echo "- Session ID: ws-20250126-abc123"
 echo "- Cookie: cookie-7f3a9b2e"
 echo ""
 echo "You may update progress by calling:"
-echo "maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status \"Your progress message\""
+echo "maestro wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt \"Your progress message\""
 echo "---"
 
 echo ""
 echo "=== Step 3: AI Makes Progress and Updates Breadcrumbs ==="
 
-run maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Analyzing codebase..."  # TODO_CMD
+run "$MAESTRO_BIN" wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt "Analyzing codebase..."
 # EXPECT: Breadcrumb appended to IPC mailbox
 # STORES_WRITE: IPC_MAILBOX
 # GATES: COOKIE_VALIDATION
@@ -83,7 +84,7 @@ echo "}"
 echo ""
 echo "=== Step 4: AI Continues, Adds More Breadcrumbs ==="
 
-run maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Implementing password hashing..."  # TODO_CMD
+run "$MAESTRO_BIN" wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt "Implementing password hashing..."
 # EXPECT: Another breadcrumb appended
 # STORES_WRITE: IPC_MAILBOX
 # GATES: COOKIE_VALIDATION
@@ -91,7 +92,7 @@ run maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --st
 echo ""
 echo "[WSESSION] Breadcrumb appended: 'Implementing password hashing...'"
 
-run maestro wsession breadcrumb ws-20250126-abc123 --cookie cookie-7f3a9b2e --status "Writing unit tests..."  # TODO_CMD
+run "$MAESTRO_BIN" wsession breadcrumb add --cookie cookie-7f3a9b2e --prompt "Writing unit tests..."
 echo ""
 echo "[WSESSION] Breadcrumb appended: 'Writing unit tests...'"
 
@@ -101,7 +102,7 @@ echo "Current breadcrumbs count: 3"
 echo ""
 echo "=== Step 5: User Checks Progress (Optional) ==="
 
-run maestro wsession show ws-20250126-abc123  # TODO_CMD
+run "$MAESTRO_BIN" wsession show ws-20250126-abc123
 # EXPECT: Displays all breadcrumbs
 # STORES_READ: IPC_MAILBOX
 # GATES: (none)
@@ -126,8 +127,8 @@ echo "[WORK SESSION] Cookie remains valid for future appends"
 echo ""
 echo "=== Step 7: Resume Session Later ==="
 
-run maestro work --resume ws-20250126-abc123  # TODO_CMD
-# EXPECT: AI context restored, breadcrumbs visible
+run "$MAESTRO_BIN" work resume ws-20250126-abc123
+# EXPECT: NOT IMPLEMENTED (CLI_GAPS: GAP-0018)
 # STORES_READ: IPC_MAILBOX, REPO_TRUTH_DOCS_MAESTRO
 # GATES: REPOCONF_GATE
 # INTERNAL: load_session_context, load_breadcrumbs
@@ -145,7 +146,7 @@ echo "=== Conceptual: Cookie Validation ==="
 
 echo ""
 echo "# Attempt with wrong cookie (fails):"
-run maestro wsession breadcrumb ws-20250126-abc123 --cookie wrong-cookie --status "Hacked"
+run "$MAESTRO_BIN" wsession breadcrumb add --cookie wrong-cookie --prompt "Hacked"
 echo ""
 echo "[WSESSION] Validating cookie..."
 echo "ERROR: Invalid cookie for session ws-20250126-abc123"
@@ -156,18 +157,18 @@ echo "Breadcrumb REJECTED"
 echo ""
 echo "=== Outcome B: Cookie Missing → Breadcrumb Rejected ==="
 
-run maestro wsession breadcrumb ws-20250126-abc123 --status "Progress..."
+run "$MAESTRO_BIN" wsession breadcrumb add --prompt "Progress..."
 # Missing --cookie flag
 echo ""
 echo "ERROR: Cookie required for breadcrumb update"
-echo "Usage: maestro wsession breadcrumb <session> --cookie <cookie> --status <msg>"
+echo "Usage: maestro wsession breadcrumb add --cookie <cookie> --prompt <msg>"
 
 echo ""
 echo "=== Multi-Process Safety ==="
 
 echo ""
 echo "File-based IPC allows multiple processes to interact:"
-echo "  - Process 1 (AI): Writes breadcrumbs via 'maestro wsession breadcrumb'"
+echo "  - Process 1 (AI): Writes breadcrumbs via 'maestro wsession breadcrumb add'"
 echo "  - Process 2 (User CLI): Reads breadcrumbs via 'maestro wsession show'"
 echo "  - Process 3 (Web UI): Polls breadcrumbs.json for live updates"
 echo ""
@@ -186,7 +187,7 @@ echo "=== Optional: Mutation Mode (Advanced) ==="
 echo "# By default, AI cannot mutate repo truth during work session"
 echo "# But with --allow-mutations flag (if it exists):"
 echo ""
-echo "# run maestro work task task-001 --allow-mutations"
+echo "# run maestro work task task-001 --allow-mutations  # NOT IMPLEMENTED (CLI_GAPS: GAP-0031)"
 echo "#   → AI can call: maestro task update task-001 --status completed"
 echo "#   → Changes written to ./docs/maestro/tasks/task-001.json"
 echo "#   → Logged in mutations.log"

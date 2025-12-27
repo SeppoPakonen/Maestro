@@ -30,14 +30,14 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Missing capability: Canonical build verb with consistent gating and error messaging.
   - Proposed v3 command: `maestro make` (alias `build`)
   - Evidence: EX-01, EX-13, EX-31
-  - Status: proposed
+  - Status: implemented
 
 - Gap ID: GAP-0028
   - Invariant ref: Build/make gates — repoconf and target must be present.
   - Missing capability: Explicit target selection subverb for repoconf.
   - Proposed v3 command: `maestro repo conf select-default target <TARGET>`
   - Evidence: EX-31
-  - Status: proposed
+  - Status: implemented
 
 - Gap ID: GAP-0029
   - Invariant ref: TU/AST gates — `maestro tu` must not run unless build context is valid.
@@ -51,7 +51,7 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Missing capability: Cookie-required breadcrumb subcommands.
   - Proposed v3 command: `maestro wsession breadcrumb add|list --cookie <COOKIE>`
   - Evidence: EX-07, EX-19
-  - Status: proposed
+  - Status: implemented
 
 - Gap ID: GAP-0018
   - Invariant ref: Identity discipline — Work session must have explicit open/closed state.
@@ -86,7 +86,7 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
 - Gap ID: GAP-0001
   - Invariant ref: N/A (not tied to a hard invariant)
   - Missing capability: Read-only repo resolve for fingerprinting.
-  - Proposed v3 command: `maestro repo resolve lite --readonly`
+  - Proposed v3 command: `maestro repo resolve --no-write` (+ hub cache write)
   - Evidence: EX-03, EX-18
   - Status: proposed
   - Priority: P1
@@ -98,7 +98,7 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Missing capability: Show repo conf (targets, compiler).
   - Proposed v3 command: `maestro repo conf show`
   - Evidence: EX-01
-  - Status: proposed
+  - Status: implemented
   - Priority: P1
   - Type: naming_conflict
   - Notes: Avoid `repo conf --show` flag form.
@@ -232,6 +232,116 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Priority: P1
   - Type: missing_command
   - Notes: Discuss endpoints per namespace.
+
+- Gap ID: GAP-0030
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Entry point listing from repo model.
+  - Proposed v3 command: `maestro repo show entry-points`
+  - Evidence: EX-03
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Requires entry point extraction for Python projects.
+
+- Gap ID: GAP-0031
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Work mutation mode flag.
+  - Proposed v3 command: `maestro work task <id> --allow-mutations`
+  - Evidence: EX-07
+  - Status: proposed
+  - Priority: P1
+  - Type: needs_setting
+  - Notes: Must be opt-in and auditable.
+
+- Gap ID: GAP-0032
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Commit message suggestion from task metadata.
+  - Proposed v3 command: `maestro ops commit suggest --task <task-id>`
+  - Evidence: EX-20
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Should read task/phase/track metadata and git status.
+
+- Gap ID: GAP-0033
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Commit creation using suggested template.
+  - Proposed v3 command: `maestro ops commit create --task <task-id>`
+  - Evidence: EX-20
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Should stage files from session and record commit hash.
+
+- Gap ID: GAP-0034
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Git guard status query.
+  - Proposed v3 command: `maestro ops git status-guard`
+  - Evidence: EX-20
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Exposes guard readiness for scripts.
+
+- Gap ID: GAP-0035
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Work session pause semantics.
+  - Proposed v3 command: `maestro work pause <wsession-id>`
+  - Evidence: EX-20
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Distinct from close; must preserve resume token.
+
+- Gap ID: GAP-0036
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Toolchain profile selection.
+  - Proposed v3 command: `maestro select toolchain set <profile> --scope project`
+  - Evidence: EX-29, EX-31
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Requires hub profile store.
+
+- Gap ID: GAP-0037
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Platform caps detection.
+  - Proposed v3 command: `maestro platform caps detect`
+  - Evidence: EX-30, EX-31
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Cache results in hub.
+
+- Gap ID: GAP-0038
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Platform caps prefer policy.
+  - Proposed v3 command: `maestro platform caps prefer <cap> --scope project`
+  - Evidence: EX-30, EX-31
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Prefer is non-blocking.
+
+- Gap ID: GAP-0039
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Platform caps require policy.
+  - Proposed v3 command: `maestro platform caps require <cap> --scope project`
+  - Evidence: EX-30, EX-31
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Require is a hard gate.
+
+- Gap ID: GAP-0040
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Make/TU caps gating + issue creation.
+  - Proposed v3 command: `maestro make` (caps-aware gate)
+  - Evidence: EX-31
+  - Status: proposed
+  - Priority: P1
+  - Type: missing_command
+  - Notes: Missing caps should block and create an issue with detection evidence.
 
 ## P2 — Nice to have
 
