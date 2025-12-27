@@ -38,3 +38,6 @@ __pycache__/
 # Unwanted directories
 lib64
 
+# Discuss session locks (P1 Sprint 2.1)
+docs/maestro/locks/*.lock
+

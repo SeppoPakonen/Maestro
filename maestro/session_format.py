@@ -30,6 +30,11 @@ class SessionMeta:
     engine: str
     model: str
     initial_prompt: str
+    # Cache-readiness fields (P1 Sprint 2.1)
+    cache_policy: Optional[Dict[str, Any]] = None
+    prompt_hash: Optional[str] = None
+    diff_anchor: Optional[str] = None
+    workspace_fingerprint: Optional[str] = None
 
 
 @dataclass
@@ -114,6 +119,15 @@ def write_session(session: DiscussSession) -> None:
         "model": session.meta.model,
         "initial_prompt": session.meta.initial_prompt
     }
+    # Add cache-readiness fields if present
+    if session.meta.cache_policy is not None:
+        meta_dict["cache_policy"] = session.meta.cache_policy
+    if session.meta.prompt_hash is not None:
+        meta_dict["prompt_hash"] = session.meta.prompt_hash
+    if session.meta.diff_anchor is not None:
+        meta_dict["diff_anchor"] = session.meta.diff_anchor
+    if session.meta.workspace_fingerprint is not None:
+        meta_dict["workspace_fingerprint"] = session.meta.workspace_fingerprint
     meta_path.write_text(json.dumps(meta_dict, indent=2), encoding='utf-8')
 
     # Write transcript.jsonl
@@ -207,6 +221,16 @@ def _load_canonical_session(session_dir: Path) -> DiscussSession:
     # Load metadata
     with open(meta_path, 'r', encoding='utf-8') as f:
         meta_dict = json.load(f)
+
+    # Handle cache-readiness fields (backward compatible)
+    if "cache_policy" not in meta_dict:
+        meta_dict["cache_policy"] = None
+    if "prompt_hash" not in meta_dict:
+        meta_dict["prompt_hash"] = None
+    if "diff_anchor" not in meta_dict:
+        meta_dict["diff_anchor"] = None
+    if "workspace_fingerprint" not in meta_dict:
+        meta_dict["workspace_fingerprint"] = None
 
     meta = SessionMeta(**meta_dict)
 
@@ -338,3 +362,28 @@ def extract_final_json(session: DiscussSession) -> Optional[List[Dict[str, Any]]
         if event.type == "final_json":
             return event.payload.get("patch_operations")
     return None
+
+
+def calculate_prompt_hash(rendered_prompt: Optional[str], context: Dict[str, Any], contract_version: str = "v1") -> Optional[str]:
+    """Calculate SHA256 hash of canonical prompt representation for cache lookups.
+
+    Args:
+        rendered_prompt: The rendered prompt string (may be None if not available)
+        context: Session context dict (kind, ref, router_reason)
+        contract_version: Prompt contract version identifier
+
+    Returns:
+        SHA256 hex digest string, or None if rendered_prompt is not available
+    """
+    if rendered_prompt is None:
+        return None
+
+    import hashlib
+    canonical = {
+        "rendered_prompt": rendered_prompt,
+        "context": context,
+        "prompt_contract_version": contract_version
+    }
+    # Deterministic JSON serialization (sorted keys)
+    canonical_json = json.dumps(canonical, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
