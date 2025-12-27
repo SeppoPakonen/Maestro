@@ -1747,9 +1747,14 @@ def handle_repo_command(args):
                 if repoconf.get("selected_target") and repoconf.get("selected_target") not in targets:
                     targets.append(repoconf["selected_target"])
                 if getattr(args, 'json', False):
-                    print(json.dumps({"targets": targets}, indent=2))
+                    print(json.dumps({
+                        "selected_target": repoconf.get("selected_target"),
+                        "targets": targets,
+                    }, indent=2))
                 else:
                     print_header("REPO TARGETS")
+                    selected = repoconf.get("selected_target") or "(not set)"
+                    print(f"Selected target: {selected}")
                     if targets:
                         for target in targets:
                             selected_marker = " (selected)" if target == repoconf.get("selected_target") else ""
