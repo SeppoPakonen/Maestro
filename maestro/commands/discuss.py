@@ -38,8 +38,10 @@ from maestro.session_format import (
     update_session_status,
     extract_final_json,
     get_session_path,
+    create_session_id,
     TranscriptEvent
 )
+from maestro.repo_lock import RepoLock
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -422,9 +424,14 @@ def save_discussion_artifacts(
     engine_name: str,
     model_name: str,
     contract_type: ContractType,
-    context: Optional[DiscussContext] = None
+    context: Optional[DiscussContext] = None,
+    session_id: Optional[str] = None
 ) -> str:
-    """Save discussion artifacts using canonical session format."""
+    """Save discussion artifacts using canonical session format.
+
+    Args:
+        session_id: Optional pre-generated session ID (for lock integration)
+    """
     # Use canonical session format
     session = create_session(
         context_kind=context.kind if context else "global",
@@ -435,6 +442,11 @@ def save_discussion_artifacts(
         model=model_name,
         initial_prompt=initial_prompt
     )
+
+    # Override session_id if pre-generated (for lock integration)
+    if session_id:
+        session.meta.session_id = session_id
+        session.session_dir = get_session_path(session_id)
 
     # Add initial prompt as user_message event
     now = datetime.now().isoformat()
@@ -461,6 +473,7 @@ def save_discussion_artifacts(
 
 def update_artifact_status(session_id: str, status: str, applied_operations: list = None, error_message: str = None):
     """Update the status of a discussion session and append events."""
+    lock = RepoLock()
     try:
         session_dir = get_session_path(session_id)
 
@@ -478,6 +491,8 @@ def update_artifact_status(session_id: str, status: str, applied_operations: lis
                         "ops_count": len(applied_operations)
                     }
                 ))
+            # Release lock when session closes
+            lock.release(session_id)
         elif status == "invalid_json":
             update_session_status(session_dir, "open", final_json_present=False)
             # Append error event
@@ -487,10 +502,13 @@ def update_artifact_status(session_id: str, status: str, applied_operations: lis
                     type="error",
                     payload={"message": error_message}
                 ))
+            # Keep lock (session still open)
         elif status in ["cancelled", "no_operations"]:
             update_session_status(session_dir, "closed")
+            # Release lock when session closes
+            lock.release(session_id)
         elif status == "dry_run":
-            # Don't close session on dry-run
+            # Don't close session on dry-run, keep lock
             pass
     except FileNotFoundError:
         # Session may be in legacy format or not found
@@ -607,27 +625,43 @@ def handle_discuss_command(args) -> int:
     # Otherwise, run discussion with detected contract type
     contract_type = context.contract_type
 
+    # Generate session ID and acquire lock before starting discussion
+    session_id = create_session_id()
+    lock = RepoLock()
+
+    try:
+        lock.acquire(session_id)
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        return 1
+
     # Use the new router with appropriate contract
     initial_prompt = getattr(args, 'prompt', f'Start a discussion about {context.kind} context.')
     engine = getattr(args, 'engine', 'qwen')  # Default to qwen, could be configured differently
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations, json_error = run_discussion_with_router(
-        initial_prompt=initial_prompt,
-        contract_type=contract_type,
-        engine=engine,
-        mode=mode
-    )
+    try:
+        patch_operations, json_error = run_discussion_with_router(
+            initial_prompt=initial_prompt,
+            contract_type=contract_type,
+            engine=engine,
+            mode=mode
+        )
+    except Exception as e:
+        # Release lock on error
+        lock.release(session_id)
+        raise
 
     # Save discussion artifacts with context metadata
-    session_id = save_discussion_artifacts(
+    session_id_returned = save_discussion_artifacts(
         initial_prompt=initial_prompt,
         patch_operations=patch_operations,
         engine_name=engine,
         model_name=model,
         contract_type=contract_type,
-        context=context
+        context=context,
+        session_id=session_id
     )
 
     print(f"Discussion session ID: {session_id}")
@@ -703,26 +737,42 @@ def handle_discuss_command(args) -> int:
 
 
 def handle_track_discuss(track_id: Optional[str], args) -> int:
+    # Generate session ID and acquire lock before starting discussion
+    session_id = create_session_id()
+    lock = RepoLock()
+
+    try:
+        lock.acquire(session_id)
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        return 1
+
     # Use the new router with TrackContract
     initial_prompt = getattr(args, 'prompt', f'Start a discussion about track {track_id}.')
     engine = getattr(args, 'engine', 'qwen')  # Default to qwen, could be configured differently
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations, json_error = run_discussion_with_router(
-        initial_prompt=initial_prompt,
-        contract_type=ContractType.TRACK,
-        engine=engine,
-        mode=mode
-    )
+    try:
+        patch_operations, json_error = run_discussion_with_router(
+            initial_prompt=initial_prompt,
+            contract_type=ContractType.TRACK,
+            engine=engine,
+            mode=mode
+        )
+    except Exception as e:
+        # Release lock on error
+        lock.release(session_id)
+        raise
 
     # Save discussion artifacts
-    session_id = save_discussion_artifacts(
+    session_id_returned = save_discussion_artifacts(
         initial_prompt=initial_prompt,
         patch_operations=patch_operations,
         engine_name=engine,
         model_name=model,
-        contract_type=ContractType.TRACK
+        contract_type=ContractType.TRACK,
+        session_id=session_id
     )
 
     print(f"Discussion session ID for track {track_id}: {session_id}")
@@ -967,26 +1017,42 @@ def handle_discuss_replay(args) -> int:
 
 
 def handle_phase_discuss(phase_id: str, args) -> int:
+    # Generate session ID and acquire lock before starting discussion
+    session_id = create_session_id()
+    lock = RepoLock()
+
+    try:
+        lock.acquire(session_id)
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        return 1
+
     # Use the new router with PhaseContract
     initial_prompt = getattr(args, 'prompt', f'Start a discussion about phase {phase_id}.')
     engine = getattr(args, 'engine', 'qwen')  # Default to qwen, could be configured differently
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations, json_error = run_discussion_with_router(
-        initial_prompt=initial_prompt,
-        contract_type=ContractType.PHASE,
-        engine=engine,
-        mode=mode
-    )
+    try:
+        patch_operations, json_error = run_discussion_with_router(
+            initial_prompt=initial_prompt,
+            contract_type=ContractType.PHASE,
+            engine=engine,
+            mode=mode
+        )
+    except Exception as e:
+        # Release lock on error
+        lock.release(session_id)
+        raise
 
     # Save discussion artifacts
-    session_id = save_discussion_artifacts(
+    session_id_returned = save_discussion_artifacts(
         initial_prompt=initial_prompt,
         patch_operations=patch_operations,
         engine_name=engine,
         model_name=model,
-        contract_type=ContractType.PHASE
+        contract_type=ContractType.PHASE,
+        session_id=session_id
     )
 
     print(f"Discussion session ID for phase {phase_id}: {session_id}")
@@ -1062,26 +1128,42 @@ def handle_phase_discuss(phase_id: str, args) -> int:
 
 
 def handle_task_discuss(task_id: str, args) -> int:
+    # Generate session ID and acquire lock before starting discussion
+    session_id = create_session_id()
+    lock = RepoLock()
+
+    try:
+        lock.acquire(session_id)
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        return 1
+
     # Use the new router with TaskContract
     initial_prompt = getattr(args, 'prompt', f'Start a discussion about task {task_id}.')
     engine = getattr(args, 'engine', 'qwen')  # Default to qwen, could be configured differently
     model = getattr(args, 'model', 'default')  # Model name for metadata
     mode = choose_mode(getattr(args, "mode", None)).value  # Convert to string
 
-    patch_operations, json_error = run_discussion_with_router(
-        initial_prompt=initial_prompt,
-        contract_type=ContractType.TASK,
-        engine=engine,
-        mode=mode
-    )
+    try:
+        patch_operations, json_error = run_discussion_with_router(
+            initial_prompt=initial_prompt,
+            contract_type=ContractType.TASK,
+            engine=engine,
+            mode=mode
+        )
+    except Exception as e:
+        # Release lock on error
+        lock.release(session_id)
+        raise
 
     # Save discussion artifacts
-    session_id = save_discussion_artifacts(
+    session_id_returned = save_discussion_artifacts(
         initial_prompt=initial_prompt,
         patch_operations=patch_operations,
         engine_name=engine,
         model_name=model,
-        contract_type=ContractType.TASK
+        contract_type=ContractType.TASK,
+        session_id=session_id
     )
 
     print(f"Discussion session ID for task {task_id}: {session_id}")

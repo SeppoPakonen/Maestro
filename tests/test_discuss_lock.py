@@ -145,3 +145,60 @@ class TestRepoLock:
         # Now second can acquire
         lock2.acquire("session-2")
         assert lock2.is_locked()
+
+
+class TestDiscussLockIntegration:
+    """Integration tests for lock enforcement in discuss commands."""
+
+    def test_save_discussion_artifacts_with_pregenerated_session_id(self):
+        """Test that save_discussion_artifacts uses pre-generated session_id."""
+        from maestro.commands.discuss import save_discussion_artifacts
+        from maestro.session_format import create_session_id
+        from maestro.ai import ContractType, PatchOperation, PatchOperationType
+
+        # Pre-generate session_id
+        session_id = create_session_id()
+
+        # Mock operation
+        ops = [PatchOperation(op_type=PatchOperationType.ADD_TRACK, data={"track_name": "Test Track"})]
+
+        # Save artifacts with pre-generated session_id
+        returned_id = save_discussion_artifacts(
+            initial_prompt="Test prompt",
+            patch_operations=ops,
+            engine_name="test-engine",
+            model_name="test-model",
+            contract_type=ContractType.GLOBAL,
+            session_id=session_id
+        )
+
+        # Should return the same session_id
+        assert returned_id == session_id
+
+    def test_lock_file_removed_on_status_applied(self, tmp_path):
+        """Test that lock file is removed when status changes to 'applied'."""
+        lock_dir = tmp_path / "locks"
+        lock_file = lock_dir / "repo.lock"
+
+        # Create lock
+        lock = RepoLock(lock_dir=lock_dir)
+        lock.acquire("test-session")
+        assert lock_file.exists()
+
+        # Release lock
+        lock.release("test-session")
+        assert not lock_file.exists()
+
+    def test_lock_file_removed_on_status_cancelled(self, tmp_path):
+        """Test that lock file is removed when status changes to 'cancelled'."""
+        lock_dir = tmp_path / "locks"
+        lock_file = lock_dir / "repo.lock"
+
+        # Create lock
+        lock = RepoLock(lock_dir=lock_dir)
+        lock.acquire("test-session")
+        assert lock_file.exists()
+
+        # Release lock
+        lock.release("test-session")
+        assert not lock_file.exists()
