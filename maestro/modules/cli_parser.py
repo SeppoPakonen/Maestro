@@ -196,6 +196,7 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_make_parser,
     )
     from ..commands.convert import add_convert_parser
+    from ..commands.log import add_log_parser
 
     # Register all available command parsers
     add_init_parser(subparsers)
@@ -204,6 +205,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_repo_parser(subparsers)  # Add repo parser after workflow
     add_plan_parser(subparsers)  # Add plan parser to position between repo and track
     add_make_parser(subparsers)  # Add make parser near repo/build commands
+    add_log_parser(subparsers)  # Add log parser for observability pipeline
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
     add_task_parser(subparsers)
@@ -271,12 +273,8 @@ def add_core_subparsers(subparsers):
     root_subparsers.add_parser('discuss', aliases=['d'], help='Discuss root task')
     root_subparsers.add_parser('show', aliases=['sh'], help='Show root task details')
 
-    # Log subparsers
-    log_parser = subparsers.add_parser('log', aliases=['lg'], help='Log management')
-    log_subparsers = log_parser.add_subparsers(dest='log_subcommand', help='Log subcommands')
-    log_subparsers.add_parser('list', aliases=['ls'], help='List all logs')
-    log_subparsers.add_parser('list-work', aliases=['lw'], help='List work logs')
-    log_subparsers.add_parser('list-plan', aliases=['lp'], help='List plan logs')
+    # Note: Log parser is now handled in maestro/commands/log.py (observability pipeline)
+    # Old log management has been replaced with new log scan functionality
 
     # Resume command (no subcommands)
     subparsers.add_parser('resume', aliases=['rs'], help='[DEPRECATED] Use work resume or discuss resume')

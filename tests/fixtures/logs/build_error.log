@@ -1,0 +1,22 @@
+make[1]: Entering directory '/home/user/project/build'
+[ 10%] Building CXX object CMakeFiles/main.dir/src/main.cpp.o
+[ 20%] Building CXX object CMakeFiles/main.dir/src/foo.cpp.o
+/home/user/project/src/foo.cpp:42:5: error: 'bar' was not declared in this scope
+   42 |     bar();
+      |     ^~~
+/home/user/project/src/foo.cpp:45:12: warning: unused variable 'x' [-Wunused-variable]
+   45 |     int x = 42;
+      |         ^
+[ 30%] Building CXX object CMakeFiles/main.dir/src/baz.cpp.o
+/home/user/project/src/baz.cpp:10:1: error: expected ';' before '}' token
+   10 | }
+      | ^
+/home/user/project/build/CMakeFiles/main.dir/build.make:76: recipe for target 'CMakeFiles/main.dir/src/foo.cpp.o' failed
+make[1]: *** [CMakeFiles/main.dir/src/foo.cpp.o] Error 1
+make[1]: *** Waiting for unfinished jobs....
+/usr/bin/ld: CMakeFiles/main.dir/src/main.cpp.o: undefined reference to 'initialize()'
+collect2: error: ld returned 1 exit status
+make[1]: *** [main] Error 1
+make[1]: Leaving directory '/home/user/project/build'
+Makefile:95: recipe for target 'all' failed
+make: *** [all] Error 2

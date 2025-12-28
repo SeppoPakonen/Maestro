@@ -307,14 +307,10 @@ def main():
             parser.print_help()
 
     elif args.command == 'log':
-        if args.log_subcommand == 'list':
-            handle_log_list(args.session, args.verbose)
-        elif args.log_subcommand == 'list-work':
-            handle_log_list_work(args.session, args.verbose)
-        elif args.log_subcommand == 'list-plan':
-            handle_log_list_plan(args.session, args.verbose)
-        else:
-            parser.print_help()
+        from maestro.commands.log import handle_log_command
+        exit_code = handle_log_command(args)
+        if exit_code:
+            raise SystemExit(exit_code)
 
     elif args.command == 'ops':
         if hasattr(args, 'ops_subcommand') and args.ops_subcommand:
