@@ -99,3 +99,59 @@ See also:
     - `root` → deprecated (use `track`/`phase`/`task` hierarchy)
     - `understand` → deprecated (fold into `repo resolve` or `runbook`)
   - Implemented in: CLI parser help filtering and command handlers.
+
+## Log scan determinism
+
+- Log scans produce stable, deterministic results for the same input.
+  - Failure: same log file scanned twice produces different scan IDs or findings.
+  - Next: verify scan normalization rules and fingerprint algorithm.
+  - Implemented in: log scan storage and fingerprint generation.
+- Scan storage is append-only; scans are never modified after creation.
+  - Failure: attempt to modify existing scan results.
+  - Next: create new scan instead of modifying existing.
+  - Implemented in: log scan storage layer.
+- Scan results stored under `docs/maestro/log_scans/<SCAN_ID>/` with:
+  - `meta.json` — scan metadata (timestamp, source, command context)
+  - `raw.txt` — raw log snapshot
+  - `findings.json` — extracted findings with fingerprints
+  - Failure: missing or malformed scan files.
+  - Next: re-run scan or repair scan storage.
+  - Implemented in: log scan command and storage layer.
+
+## Issue fingerprints and deduplication
+
+- Issues have stable fingerprints; same error → same issue across scans.
+  - Fingerprint = hash of normalized message + optional tool + file basename.
+  - Normalization: remove absolute paths, collapse line-specific numbers if too noisy.
+  - Failure: duplicate issues created for same error.
+  - Next: verify fingerprint normalization and deduplication logic.
+  - Implemented in: issues ingestion and fingerprint generation.
+- Issue ingestion from logs is idempotent.
+  - Existing issue by fingerprint → update occurrences list and last_seen.
+  - New fingerprint → create new issue.
+  - Failure: same log ingested twice creates duplicate issues.
+  - Next: verify deduplication by fingerprint.
+  - Implemented in: `maestro issues add --from-log` command.
+- Issues storage lives under `docs/maestro/issues/` (JSON).
+  - Failure: issues stored in markdown or old format.
+  - Next: migrate to JSON truth under `docs/maestro/`.
+  - Implemented in: issues storage layer.
+
+## Work gates and blockers
+
+- Blocker issues (build errors, critical failures) gate work start.
+  - Gate name: `BLOCKED_BY_BUILD_ERRORS`
+  - Trigger: blocker severity issues with no linked in-progress task.
+  - Failure: work start attempted with active blocker gate.
+  - Next: fix blocker issue, link to task, or use `--ignore-gates` / `--override gate:BLOCKED_BY_BUILD_ERRORS`.
+  - Implemented in: work command gate validation.
+- Work prioritizes blocker-linked tasks first.
+  - Failure: non-blocker tasks started before blocker tasks.
+  - Next: use `maestro work gate status` to see blockers; start blocker-linked tasks first.
+  - Implemented in: work command task prioritization.
+- Gate overrides require explicit flags; no silent bypass.
+  - `--ignore-gates` bypasses all gates.
+  - `--override gate:<NAME>` bypasses specific named gate.
+  - Failure: gate bypassed without explicit flag.
+  - Next: add explicit override flag to work start command.
+  - Implemented in: work command flag parsing and gate validation.

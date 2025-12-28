@@ -114,3 +114,40 @@ Replay accepts:
 - `maestro platform caps {detect|list|show|prefer|require|unprefer|unrequire|export}`
 
 See `docs/workflows/v3/cli/SELECT_TOOLCHAIN.md` and `docs/workflows/v3/cli/PLATFORM_CAPS.md` for semantics.
+
+## Log scanning and observability
+
+- `maestro log scan [--source <PATH>] [--last-run] [--kind {build|run|any}]`
+  - Scans build/run output or log files for errors/warnings
+  - Produces stable fingerprints for findings
+  - Stores results in `docs/maestro/log_scans/<SCAN_ID>/`
+- `maestro log list` — List all log scans
+- `maestro log show <SCAN_ID>` — Show scan details and findings
+
+## Issues management and triage
+
+- `maestro issues list [--severity {blocker|critical|warning|info}] [--status {open|resolved|ignored}]`
+- `maestro issues show <ISSUE_ID>` — Show issue details including occurrences
+- `maestro issues add --from-log <SCAN_ID|PATH>` — Ingest findings from log scan into issues
+- `maestro issues add --manual --message <MSG> [--severity <LEVEL>]` — Manually create issue
+- `maestro issues triage [--auto] [--severity-first]` — Triage issues (assign severity, propose tasks)
+- `maestro issues link-task <ISSUE_ID> <TASK_ID>` — Link issue to task (bidirectional)
+- `maestro issues resolve <ISSUE_ID> [--reason <REASON>]` — Mark issue as resolved
+- `maestro issues ignore <ISSUE_ID> [--reason <REASON>]` — Ignore issue (won't block work)
+
+Issue fingerprints:
+- Stable hash of normalized message + optional tool/file
+- Same error → same issue across scans (deduplication)
+
+## Work gates and blockers
+
+- `maestro work gate status` — Show current gate status (blockers, warnings)
+- `maestro work start task <TASK_ID> [--ignore-gates] [--override gate:<NAME>]`
+  - Gates block work start if blocker issues exist with no linked in-progress tasks
+  - Use `--ignore-gates` to bypass all gates
+  - Use `--override gate:BLOCKED_BY_BUILD_ERRORS` to bypass specific gate
+
+Gate semantics:
+- Blocker issues (e.g., build failures) create `BLOCKED_BY_BUILD_ERRORS` gate
+- Gates are surfaced before work starts
+- Override requires explicit flag; no silent bypass
