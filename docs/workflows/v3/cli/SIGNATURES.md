@@ -281,6 +281,17 @@ Cache behavior:
 - Supports both user-level ($HOME/.maestro/cache/ai/) and repo-level (docs/maestro/cache/ai/) caching
 - Repo cache has priority for lookup; useful for deterministic test runs
 
+## Convert plan approval
+
+- `maestro convert plan show <PIPELINE_ID>`
+- `maestro convert plan approve <PIPELINE_ID> [--reason <TEXT>]`
+- `maestro convert plan reject <PIPELINE_ID> [--reason <TEXT>]`
+- `maestro convert run <PIPELINE_ID> [--ignore-gates]`
+
+Behavior:
+- `convert run` requires an approved plan unless `--ignore-gates` is set.
+- Approve/reject are idempotent; repeats are no-ops with a logged message.
+
 ## Work gates and blockers
 
 - `maestro work gate status` — Show current gate status (blockers, warnings)

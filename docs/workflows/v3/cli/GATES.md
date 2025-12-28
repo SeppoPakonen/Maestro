@@ -15,3 +15,4 @@ See also:
 | `GATE_BUILD_OK` | Build passes successfully. |
 | `GATE_TU_READY` | TU prerequisites are met (repoconf + toolchain + build context). |
 | `BLOCKED_BY_ISSUES` | Open blocker-severity issues exist without linked in-progress tasks. |
+| `CONVERT_PLAN_NOT_APPROVED` | Convert plan is not approved; `convert run` must be blocked. |

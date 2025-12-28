@@ -231,3 +231,11 @@ See also: `docs/workflows/v3/cli/CLI_GAPS.md` for the P0 gap list mapped to inva
   Priority: P0
   Acceptance criteria: invalid JSON on `/done` hard-stops OPS application and records a failure event.
   Notes: Provide a retry prompt with schema hint.
+
+- ID: LED-0029
+  Title: Convert plan approval gate enforcement
+  Rationale: Convert runs must be gated on explicit plan approval for auditability.
+  Status: implemented
+  Priority: P2
+  Acceptance criteria: `convert plan approve|reject` write decisions + update status; `convert run` blocks on `CONVERT_PLAN_NOT_APPROVED` unless `--ignore-gates`; run artifacts land under `docs/maestro/convert`.
+  Notes: Implements LED-0009; cross-repo runs write outputs to target repo and lock source then target.

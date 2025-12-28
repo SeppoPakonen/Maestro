@@ -282,6 +282,16 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Type: inconsistent_verb
   - Notes: Prefer `add` over `new`.
 
+- Gap ID: GAP-0041
+  - Invariant ref: N/A (not tied to a hard invariant)
+  - Missing capability: Convert plan approval gate enforcement.
+  - Proposed v3 command: `maestro convert plan approve|reject <id>` + `maestro convert run <id> [--ignore-gates]`
+  - Evidence: EX-15, EX-33
+  - Status: implemented
+  - Priority: P2
+  - Type: gate_enforcement
+  - Notes: Gate `CONVERT_PLAN_NOT_APPROVED` blocks unapproved runs.
+
 - Gap ID: GAP-0024
   - Invariant ref: N/A (not tied to a hard invariant)
   - Missing capability: Repo discuss.
