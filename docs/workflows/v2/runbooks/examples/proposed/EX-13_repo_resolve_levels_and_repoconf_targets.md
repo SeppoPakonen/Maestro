@@ -177,7 +177,7 @@ RepoConf gate now satisfied. Build and TU operations may proceed.
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro build` | Build default target | Proceeds because RepoConf gate satisfied |
+| `maestro make` | Build default target | Proceeds because RepoConf gate satisfied |
 
 **Internal**:
 - Checks REPOCONF_GATE: `repo_conf.default_target` must be non-null
@@ -200,7 +200,7 @@ RepoConf gate now satisfied. Build and TU operations may proceed.
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro repo resolve --level deep` | Perform convention checking, advanced analysis | Checks file layout, naming conventions, creates issues for violations |
+| `maestro repo refresh all` | Perform convention checking, advanced analysis | Checks file layout, naming conventions, creates issues for violations |
 
 **Internal**:
 - Runs all lite-level detection
@@ -238,7 +238,7 @@ View issues: maestro issues list
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro build` | Try to build without default target set | Fails at REPOCONF_GATE |
+| `maestro make` | Try to build without default target set | Fails at REPOCONF_GATE |
 
 **System Output**:
 ```

@@ -150,7 +150,7 @@ This demonstrates **discuss as a testable pipeline** rather than a black box.
 - Display error to user: "Invalid JSON response from AI"
 - Abort mutation (no repo truth changes)
 - Offer options:
-  - Resume session and retry (`TODO_CMD: maestro discuss --resume <session>`)
+  - Resume session and retry (`maestro discuss resume <session>`)
   - Switch engine
   - Manually fix and retry
 
@@ -259,7 +259,7 @@ This demonstrates **discuss as a testable pipeline** rather than a black box.
 5. System aborts: "Invalid JSON response from AI"
 6. No repo truth mutation
 7. User options:
-   - `TODO_CMD: maestro discuss --resume <session>` and retry
+   - `maestro discuss resume <session>` and retry
    - Switch to different engine
    - Manually inspect session log and debug
 
@@ -351,7 +351,7 @@ This demonstrates **discuss as a testable pipeline** rather than a black box.
 
 ```yaml
 cli_gaps:
-  - "TODO_CMD: maestro discuss --resume <session-id>"
+  - "maestro discuss resume <session-id>"
   - "TODO_CMD: maestro discuss --context task <task-id>"
   - "TODO_CMD: exact format of JSON contract schema"
   - "TODO_CMD: how session IDs are generated and stored"

@@ -71,7 +71,7 @@ my-python-project/
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro convert new cpp-to-python` | Create new conversion pipeline | Pipeline created in `./docs/maestro/convert/cpp-to-python.json` |
+| `maestro convert add cpp-to-python` | Create new conversion pipeline | Pipeline created in `./docs/maestro/convert/cpp-to-python.json` |
 
 **Internal**:
 - Creates pipeline metadata file
@@ -365,7 +365,7 @@ Conversion aborted. Revise plan:
 
 ```yaml
 cli_gaps:
-  - "TODO_CMD: maestro convert new <pipeline-name>"
+  - "maestro convert add <pipeline-name>"
   - "TODO_CMD: maestro convert plan <pipeline> (with optional --revise)"
   - "TODO_CMD: maestro convert run <pipeline> --out <target-path>"
   - "TODO_CMD: how conversion plans are stored (format, location)"

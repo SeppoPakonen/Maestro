@@ -65,13 +65,13 @@ The error: `main.cpp` uses `std::cout` without `#include <iostream>`.
 |------|---------|--------|------------------|-------|----------------|
 | 1 | `maestro init` | Initialize Maestro in existing repo | Creates `./docs/maestro/**` structure | REPOCONF_GATE | REPO_TRUTH_DOCS_MAESTRO |
 | 2 | `maestro repo resolve --level lite` | Detect build system, entry points, deps | Identifies CMakeLists.txt, C++ source files | REPO_RESOLVE_LITE | REPO_TRUTH_DOCS_MAESTRO |
-| 3 | `TODO_CMD: maestro repo conf --show` | Validate detected configuration | Displays build targets, detected compiler | REPOCONF_GATE | (read-only) |
-| 4 | `TODO_CMD: maestro build` | Attempt to build using CMake | Build fails with compile error in `src/main.cpp:4` | READONLY_GUARD (fail) | (none - build fails) |
-| 5 | `TODO_CMD: maestro solutions match --from-build-log` | Match error against solution DB | Suggests "Missing include directive" solution | SOLUTIONS_GATE | REPO_TRUTH_DOCS_MAESTRO (issues) |
-| 6 | `TODO_CMD: maestro issues add --from-solution <solution-id>` | Create issue for missing include | Issue created: "Fix missing <iostream> include" | REPOCONF_GATE | REPO_TRUTH_DOCS_MAESTRO |
-| 7 | `TODO_CMD: maestro task add --issue <issue-id> --action apply-solution` | Create task to apply solution | Task created with action plan | REPOCONF_GATE | REPO_TRUTH_DOCS_MAESTRO |
-| 8 | `TODO_CMD: maestro work task <task-id>` | Apply solution (add `#include <iostream>`) | File modified, changes saved | READONLY_GUARD (write) | REPO_TRUTH_DOCS_MAESTRO |
-| 9 | `TODO_CMD: maestro build` | Retry build | Build succeeds, binary created | READONLY_GUARD | REPO_TRUTH_DOCS_MAESTRO |
+| 3 | `maestro repo conf show` | Validate detected configuration | Displays build targets, detected compiler | REPOCONF_GATE | (read-only) |
+| 4 | `maestro make` | Attempt to build using CMake | Build fails with compile error in `src/main.cpp:4` | READONLY_GUARD (fail) | (none - build fails) |
+| 5 | `maestro solutions match --from-build-log` (proposed) | Match error against solution DB | Suggests "Missing include directive" solution | SOLUTIONS_GATE | REPO_TRUTH_DOCS_MAESTRO (issues) |
+| 6 | `maestro issues add --from-solution <solution-id>` (proposed) | Create issue for missing include | Issue created: "Fix missing <iostream> include" | REPOCONF_GATE | REPO_TRUTH_DOCS_MAESTRO |
+| 7 | `maestro task add --issue <issue-id> --action apply-solution` (proposed) | Create task to apply solution | Task created with action plan | REPOCONF_GATE | REPO_TRUTH_DOCS_MAESTRO |
+| 8 | `maestro work start task <task-id>` | Apply solution (add `#include <iostream>`) | File modified, changes saved | READONLY_GUARD (write) | REPO_TRUTH_DOCS_MAESTRO |
+| 9 | `maestro make` | Retry build | Build succeeds, binary created | READONLY_GUARD | REPO_TRUTH_DOCS_MAESTRO |
 
 ---
 
@@ -141,14 +141,17 @@ The error: `main.cpp` uses `std::cout` without `#include <iostream>`.
 
 ## CLI Gaps / TODOs
 
-**Unknown exact commands:**
+**Canonical commands (v3):**
 
-- `TODO_CMD: maestro repo conf --show` — may be `maestro repo config show` or `maestro repo show-config`
-- `TODO_CMD: maestro build` — uncertain if `build` vs `make` or `compile`
-- `TODO_CMD: maestro solutions match --from-build-log` — syntax for solution matching is TBD
-- `TODO_CMD: maestro issues add --from-solution <id>` — linkage between solutions and issues not finalized
-- `TODO_CMD: maestro task add --issue <id> --action apply-solution` — task creation from solution unclear
-- `TODO_CMD: maestro work task <id>` — work session command may differ from current `maestro work`
+- `maestro repo conf show` — canonical (SIGNATURES.md)
+- `maestro make` — canonical; `build` is deprecated alias (SIGNATURES.md)
+- `maestro work start task <id>` — canonical (SIGNATURES.md)
+
+**Proposed commands (not yet implemented):**
+
+- `maestro solutions match --from-build-log` — syntax for solution matching is proposed (GAP-0006)
+- `maestro issues add --from-solution <id>` — linkage between solutions and issues proposed (GAP-0007)
+- `maestro task add --issue <id> --action apply-solution` — task creation from solution proposed (GAP-0008)
 
 **Clarifications needed:**
 
@@ -176,19 +179,19 @@ trace:
     internal: ["UNKNOWN"]
     cli_confidence: "medium"
 
-  - user: "maestro repo conf --show"
+  - user: "maestro repo conf show"
     intent: "Display detected repository configuration"
     gates: ["REPOCONF_GATE"]
     stores_read: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD marker
+    cli_confidence: "high"  # canonical command
 
-  - user: "maestro build"
+  - user: "maestro make"
     intent: "Build project using detected CMake"
     gates: ["READONLY_GUARD"]
     stores_write: []  # fails before writing
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD marker
+    cli_confidence: "high"  # canonical command
     expected_result: "FAIL"  # compile error
 
   - user: "maestro solutions match --from-build-log"
@@ -196,35 +199,35 @@ trace:
     gates: ["SOLUTIONS_GATE"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]  # creates issue
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD marker
+    cli_confidence: "low"  # proposed command (GAP-0006)
 
   - user: "maestro issues add --from-solution <solution-id>"
     intent: "Create issue for missing include fix"
     gates: ["REPOCONF_GATE"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD marker
+    cli_confidence: "low"  # proposed command (GAP-0007)
 
   - user: "maestro task add --issue <issue-id> --action apply-solution"
     intent: "Create task to apply solution"
     gates: ["REPOCONF_GATE"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD marker
+    cli_confidence: "low"  # proposed command (GAP-0008)
 
-  - user: "maestro work task <task-id>"
+  - user: "maestro work start task <task-id>"
     intent: "Apply solution (add include directive)"
     gates: ["READONLY_GUARD"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["UNKNOWN"]
-    cli_confidence: "medium"
+    cli_confidence: "high"  # canonical command
 
-  - user: "maestro build"
+  - user: "maestro make"
     intent: "Retry build after fix"
     gates: ["READONLY_GUARD"]
     stores_write: ["REPO_TRUTH_DOCS_MAESTRO"]
     internal: ["UNKNOWN"]
-    cli_confidence: "low"  # TODO_CMD marker
+    cli_confidence: "high"  # canonical command
     expected_result: "SUCCESS"
 ```
 

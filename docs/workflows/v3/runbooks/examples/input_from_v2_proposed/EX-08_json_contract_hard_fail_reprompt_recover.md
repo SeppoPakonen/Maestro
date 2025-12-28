@@ -112,7 +112,7 @@ Session preserved: session-20250126-001
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro discuss --resume session-20250126-001` | Continue previous session | Session restored, user can reprompt |
+| `maestro discuss resume session-20250126-001` | Continue previous session | Session restored, user can reprompt |
 
 **User action**:
 - User sends clearer prompt: "Please return valid JSON with no syntax errors"
@@ -268,7 +268,7 @@ Operation ABORTED at JSON_CONTRACT_GATE
 
 ```yaml
 cli_gaps:
-  - "TODO_CMD: maestro discuss --resume <session-id>"
+  - "maestro discuss resume <session-id>"
   - "TODO_CMD: maestro discuss --engine <engine-name>"
   - "TODO_CMD: maestro session log <session-id>"
   - "TODO_CMD: exact JSON schema definition for discuss contract"

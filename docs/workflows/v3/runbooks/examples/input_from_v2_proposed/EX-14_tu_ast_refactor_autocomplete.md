@@ -106,7 +106,7 @@ Single target detected. Auto-selected as default.
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro build` | Compile project, ensure no errors | Build succeeds |
+| `maestro make` | Compile project, ensure no errors | Build succeeds |
 
 **System Output**:
 ```
@@ -213,7 +213,7 @@ Recommendation: Run 'maestro build' to verify changes compile.
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro build` | Ensure refactored code compiles | Build succeeds |
+| `maestro make` | Ensure refactored code compiles | Build succeeds |
 
 **System Output**:
 ```

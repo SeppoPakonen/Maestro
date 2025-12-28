@@ -46,14 +46,14 @@ Not applicable (this is a documentation maintenance example).
 
 **System Output**:
 ```
-docs/workflows/v2/runbooks/examples/proposed/EX-13_repo_resolve_levels_and_repoconf_targets.md:87:| `TODO_CMD: maestro repo resolve --level deep` | Run deep resolve with convention checking | Detects violations, creates issues |
-docs/workflows/v2/runbooks/examples/proposed/EX-13_repo_resolve_levels_and_repoconf_targets.md:121:| `TODO_CMD: maestro build` | Build default target | Build succeeds |
+docs/workflows/v2/runbooks/examples/proposed/EX-13_repo_resolve_levels_and_repoconf_targets.md:87:| `maestro repo refresh all` | Run deep resolve with convention checking | Detects violations, creates issues |
+docs/workflows/v2/runbooks/examples/proposed/EX-13_repo_resolve_levels_and_repoconf_targets.md:121:| `maestro make` | Build default target | Build succeeds |
 docs/workflows/v2/runbooks/examples/proposed/EX-14_tu_ast_refactor_autocomplete.md:67:| `TODO_CMD: maestro tu build --target target-cmake-mathapp` | Build translation units | Creates AST index |
 docs/workflows/v2/runbooks/examples/proposed/EX-14_tu_ast_refactor_autocomplete.md:86:| `TODO_CMD: maestro tu query symbol --name calculateSum` | Query symbol | Returns symbol info |
-docs/workflows/v2/runbooks/examples/proposed/EX-15_convert_cross_repo_pipeline_from_ast.md:27:| `TODO_CMD: maestro convert new cpp-to-python` | Create conversion pipeline | Pipeline created |
-docs/workflows/v2/runbooks/examples/proposed/EX-16_rules_conventions_issues_tasks_overrides.md:107:| `TODO_CMD: maestro repo resolve --level deep` | Deep resolve with conventions | Creates issues |
-docs/workflows/v2/runbooks/examples/proposed/EX-16_rules_conventions_issues_tasks_overrides.md:145:| `TODO_CMD: maestro issues list` | List open issues | Shows violations |
-docs/workflows/v2/runbooks/examples/proposed/EX-16_rules_conventions_issues_tasks_overrides.md:168:| `TODO_CMD: maestro rules list` | List active rules | Shows enabled rules |
+docs/workflows/v2/runbooks/examples/proposed/EX-15_convert_cross_repo_pipeline_from_ast.md:27:| `maestro convert add cpp-to-python` | Create conversion pipeline | Pipeline created |
+docs/workflows/v2/runbooks/examples/proposed/EX-16_rules_conventions_issues_tasks_overrides.md:107:| `maestro repo refresh all` | Deep resolve with conventions | Creates issues |
+docs/workflows/v2/runbooks/examples/proposed/EX-16_rules_conventions_issues_tasks_overrides.md:145:| `maestro issues list` | List open issues | Shows violations |
+docs/workflows/v2/runbooks/examples/proposed/EX-16_rules_conventions_issues_tasks_overrides.md:168:| `maestro solutions list` | List active rules | Shows enabled rules |
 ```
 
 **Gates**: (none - read-only query)
@@ -227,7 +227,7 @@ Build translation units (AST index) for a target by invoking compiler with AST d
 
 **Before** (EX-13):
 ```markdown
-| `TODO_CMD: maestro repo resolve --level deep` | Run deep resolve | Detects violations |
+| `maestro repo refresh all` | Run deep resolve | Detects violations |
 ```
 
 **After** (EX-13):

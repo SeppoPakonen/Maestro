@@ -104,7 +104,7 @@ Note: Lite resolve does not check conventions. Run 'maestro repo resolve --level
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro repo resolve --level deep` | Detect violations, create issues | Finds header in wrong location, creates issue |
+| `maestro repo refresh all` | Detect violations, create issues | Finds header in wrong location, creates issue |
 
 **Internal**:
 - Runs lite resolve (packages, targets)
@@ -142,7 +142,7 @@ View issues: maestro issues list
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro issues list` | View all open issues | Shows convention violation issue |
+| `maestro issues list` | View all open issues | Shows convention violation issue |
 
 **System Output**:
 ```
@@ -165,7 +165,7 @@ Total issues: 1
 
 | Command | Intent | Expected |
 |---------|--------|----------|
-| `TODO_CMD: maestro rules list` | View active rules and conventions | Lists enabled rules |
+| `maestro solutions list` | View active rules and conventions | Lists enabled rules |
 
 **System Output**:
 ```
