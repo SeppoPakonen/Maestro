@@ -102,6 +102,7 @@ def main():
         handle_workflow_command,
         handle_make_command,
     )
+    from maestro.commands.cache import handle_cache_command
     from maestro.commands.convert import (
         handle_convert_new,
         handle_convert_plan,
@@ -309,6 +310,11 @@ def main():
     elif args.command == 'log':
         from maestro.commands.log import handle_log_command
         exit_code = handle_log_command(args)
+        if exit_code:
+            raise SystemExit(exit_code)
+
+    elif args.command == 'cache':
+        exit_code = handle_cache_command(args)
         if exit_code:
             raise SystemExit(exit_code)
 

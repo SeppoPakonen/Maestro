@@ -137,6 +137,33 @@ See also:
   - Next: migrate to JSON truth under `docs/maestro/`.
   - Implemented in: issues storage layer.
 
+## AI Cache determinism and validation
+
+- AI cache entries have stable prompt hashes; same prompt + context → same hash.
+  - Hash = SHA256(prompt + engine + model + context_kind + inputs_signature).
+  - Failure: same prompt produces different hashes across runs.
+  - Next: verify prompt hash normalization (whitespace, canonicalization).
+  - Implemented in: `maestro.ai.cache.AiCacheStore.compute_prompt_hash()`.
+- Cache lookup validates workspace fingerprint.
+  - Fingerprint = git HEAD + dirty flag + watched file hashes.
+  - Failure: workspace changed since cache entry created → cache miss.
+  - Next: commit changes or use `lenient_git` mode for testing.
+  - Implemented in: `maestro.ai.cache.AiCacheStore.validate_entry()`.
+- Cache entries are rejected if workspace fingerprint doesn't match.
+  - Stale entries are marked `validity=stale` but not deleted.
+  - Failure: stale cache applied to changed workspace.
+  - Next: run AI again to create fresh cache entry, or verify workspace state.
+  - Implemented in: cache validation layer in discuss command.
+- Cache storage is dual-scope: user ($HOME/.maestro/cache/ai/) and repo (docs/maestro/cache/ai/).
+  - Repo cache has priority for lookup (useful for deterministic tests).
+  - Failure: cache stored in wrong location or mixed scopes.
+  - Next: verify `MAESTRO_AI_CACHE_SCOPE` environment variable.
+  - Implemented in: `maestro.ai.cache.AiCacheStore` with env var configuration.
+- Cache entries are immutable once created; updates create new entries.
+  - Failure: attempt to modify existing cache entry.
+  - Next: create new cache entry with different prompt hash.
+  - Implemented in: cache storage layer (no update methods).
+
 ## Work gates and blockers
 
 - Blocker issues (build errors, critical failures) gate work start.

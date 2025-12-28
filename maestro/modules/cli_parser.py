@@ -197,6 +197,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     )
     from ..commands.convert import add_convert_parser
     from ..commands.log import add_log_parser
+    from ..commands.cache import add_cache_parser
 
     # Register all available command parsers
     add_init_parser(subparsers)
@@ -206,6 +207,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_plan_parser(subparsers)  # Add plan parser to position between repo and track
     add_make_parser(subparsers)  # Add make parser near repo/build commands
     add_log_parser(subparsers)  # Add log parser for observability pipeline
+    add_cache_parser(subparsers)  # Add cache parser for AI cache management
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
     add_task_parser(subparsers)

@@ -1,0 +1,2 @@
+Create a new track called "Test Track" with one phase and one task.
+The phase should be called "Test Phase" and the task should be "Test Task".

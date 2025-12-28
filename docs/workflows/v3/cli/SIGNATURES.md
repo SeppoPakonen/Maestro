@@ -139,6 +139,23 @@ Issue fingerprints:
 - Stable hash of normalized message + optional tool/file
 - Same error → same issue across scans (deduplication)
 
+## AI Cache management
+
+- `maestro cache stats` — Show cache statistics (user + repo cache)
+- `maestro cache show <PROMPT_HASH>` — Show cache entry details
+- `maestro cache prune [--scope {user|repo}] [--older-than N]` — Prune old cache entries
+
+Configuration via environment variables:
+- `MAESTRO_AI_CACHE={on|off}` — Enable/disable cache (default: on)
+- `MAESTRO_AI_CACHE_SCOPE={auto|user|repo}` — Cache scope preference (default: auto)
+- `MAESTRO_AI_CACHE_WATCH=<glob;glob;...>` — Watch patterns for workspace fingerprinting
+
+Cache behavior:
+- Reuses prior AI results for identical prompts (stable SHA256 hash)
+- Validates workspace fingerprint (git HEAD + watched file hashes)
+- Supports both user-level ($HOME/.maestro/cache/ai/) and repo-level (docs/maestro/cache/ai/) caching
+- Repo cache has priority for lookup; useful for deterministic test runs
+
 ## Work gates and blockers
 
 - `maestro work gate status` — Show current gate status (blockers, warnings)

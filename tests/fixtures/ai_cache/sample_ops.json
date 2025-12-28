@@ -1,0 +1,25 @@
+[
+  {
+    "op_type": "add_track",
+    "data": {
+      "track_name": "Test Track",
+      "track_id": "test-track-001"
+    }
+  },
+  {
+    "op_type": "add_phase",
+    "data": {
+      "phase_name": "Test Phase",
+      "phase_id": "test-phase-001",
+      "track_id": "test-track-001"
+    }
+  },
+  {
+    "op_type": "add_task",
+    "data": {
+      "task_name": "Test Task",
+      "task_id": "test-task-001",
+      "phase_id": "test-phase-001"
+    }
+  }
+]
