@@ -61,6 +61,32 @@ def init_maestro_dir(target_dir: str, verbose: bool = True) -> str:
 
     return str(maestro_dir)
 
+
+def _print_legacy_warning(command_name: str, replacement: str):
+    """Print a prominent warning banner for deprecated commands.
+
+    This warning is displayed when MAESTRO_ENABLE_LEGACY=1 and a user
+    invokes a legacy command (session, understand, resume, rules, root).
+
+    Args:
+        command_name: The deprecated command name (e.g., 'session')
+        replacement: The canonical replacement command (e.g., 'maestro wsession')
+    """
+    warning_text = f"""
+╔════════════════════════════════════════════════════════════════╗
+║  DEPRECATED COMMAND: maestro {command_name:<30}║
+╠════════════════════════════════════════════════════════════════╣
+║  This command is deprecated and will be removed in a future   ║
+║  release. Please use the replacement command instead:         ║
+║                                                                ║
+║  → {replacement:<60}║
+║                                                                ║
+║  See: docs/workflows/v3/cli/DEPRECATION.md                    ║
+╚════════════════════════════════════════════════════════════════╝
+"""
+    print(warning_text, file=sys.stderr)
+
+
 def main():
     """Main entry point for the Maestro CLI."""
     # Create the main parser
@@ -79,6 +105,28 @@ def main():
     args = normalize_command_aliases(args)
     if raw_command in ("build", "b"):
         setattr(args, "_deprecated_build_alias", True)
+
+    # Check if user tried to invoke a disabled legacy command
+    # Legacy commands (session, understand, resume, rules, root) require MAESTRO_ENABLE_LEGACY=1
+    import os
+    enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
+    if not enable_legacy and hasattr(args, 'command') and args.command in ('session', 'understand', 'resume', 'rules', 'root'):
+        legacy_map = {
+            'session': 'wsession',
+            'understand': 'repo resolve / runbook export',
+            'resume': 'discuss resume / work resume',
+            'rules': 'repo conventions / solutions',
+            'root': 'track / phase / task'
+        }
+        replacement = legacy_map.get(args.command, 'canonical commands')
+        print(f"Error: '{args.command}' command is not available.", file=sys.stderr)
+        print(f"Use: maestro {replacement} instead.", file=sys.stderr)
+        print(f"", file=sys.stderr)
+        print(f"To enable legacy commands (for backward compatibility):", file=sys.stderr)
+        print(f"  export MAESTRO_ENABLE_LEGACY=1", file=sys.stderr)
+        print(f"", file=sys.stderr)
+        print(f"See: docs/workflows/v3/cli/CLI_SURFACE_CONTRACT.md", file=sys.stderr)
+        sys.exit(1)
 
     # Import command handlers from the commands module
     from maestro.commands import (
@@ -178,6 +226,7 @@ def main():
         handle_solutions_command(args)
 
     elif args.command == 'session':
+        _print_legacy_warning('session', 'maestro wsession')
         if args.session_subcommand == 'new':
             handle_session_new(args.name, args.verbose, args.root_task)
         elif args.session_subcommand == 'list':
@@ -280,6 +329,7 @@ def main():
             sys.exit(0)
 
     elif args.command == 'rules':
+        _print_legacy_warning('rules', 'maestro repo conventions / maestro solutions')
         if args.rules_subcommand == 'list':
             handle_rules_list(args.session, args.verbose)
         elif args.rules_subcommand == 'edit':
@@ -288,6 +338,7 @@ def main():
             handle_rules_file(args.session, args.verbose)
 
     elif args.command == 'root':
+        _print_legacy_warning('root', 'maestro track / maestro phase / maestro task')
         if args.root_subcommand == 'set':
             handle_root_set(args.session, args.text, args.verbose)
         elif args.root_subcommand == 'get':
@@ -329,6 +380,7 @@ def main():
                 handle_project_ops_apply(args.json_file, args.session, args.verbose)
 
     elif args.command == 'resume':
+        _print_legacy_warning('resume', 'maestro discuss resume / maestro work resume')
         handle_resume_session(
             args.session,
             args.verbose,
@@ -412,6 +464,7 @@ def main():
             parser.print_help()
 
     elif args.command == 'understand':
+        _print_legacy_warning('understand', 'maestro repo resolve / maestro runbook export')
         if args.understand_subcommand == 'dump':
             handle_understand_dump(
                 output_path=args.output_path,

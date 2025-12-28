@@ -218,18 +218,42 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_ai_parser(subparsers)
     add_work_parser(subparsers)
     add_wsession_parser(subparsers)
-    add_understand_parser(subparsers)
+
+    # Legacy command gate: understand is only available when MAESTRO_ENABLE_LEGACY=1
+    import os
+    enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
+    if enable_legacy:
+        add_understand_parser(subparsers)
+
     add_tu_parser(subparsers)
     add_convert_parser(subparsers)  # Add convert parser after tu parser
 
-    # Also add the original core commands
+    # Also add the original core commands (gated by MAESTRO_ENABLE_LEGACY)
     add_core_subparsers(subparsers)
 
     return parser
 
 
 def add_core_subparsers(subparsers):
-    """Add the original core subparsers that were handled in main.py"""
+    """Add the original core subparsers that were handled in main.py.
+
+    Legacy commands (session, rules, root, resume) are only registered when
+    MAESTRO_ENABLE_LEGACY=1 environment variable is set. This allows backward
+    compatibility while keeping the default CLI surface clean and focused on
+    canonical v3 commands.
+
+    See: docs/workflows/v3/cli/CLI_SURFACE_CONTRACT.md
+    """
+    import os
+
+    # Check if legacy commands are enabled
+    enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
+
+    if not enable_legacy:
+        # Legacy commands are disabled; don't register them
+        return
+
+    # Legacy mode enabled: register deprecated commands with warning markers
     # Session subparsers
     session_parser = subparsers.add_parser(
         'session',
