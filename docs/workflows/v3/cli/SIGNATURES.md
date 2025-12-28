@@ -108,6 +108,131 @@ Replay accepts:
 - `maestro make ...` (v3 canonical)
 - `maestro build ...` (legacy alias)
 
+## Repo hub (cross-repo package discovery and linking)
+
+### maestro repo hub scan
+
+Scan a repository and add to hub index.
+
+```
+maestro repo hub scan [PATH]
+  [--verbose]
+```
+
+Arguments:
+- `PATH`: Repository path to scan (default: current directory)
+- `--verbose`: Show detailed scan progress
+
+### maestro repo hub list
+
+List all repositories in hub index.
+
+```
+maestro repo hub list
+  [--json]
+```
+
+Arguments:
+- `--json`: Output in JSON format
+
+### maestro repo hub show
+
+Show details about a specific repository.
+
+```
+maestro repo hub show <REPO_ID>
+  [--json]
+```
+
+Arguments:
+- `REPO_ID`: Repository ID (from `hub list`)
+- `--json`: Output in JSON format
+
+### maestro repo hub find package
+
+Find package across all repos in hub index.
+
+```
+maestro repo hub find package <NAME>
+  [--json]
+```
+
+Arguments:
+- `NAME`: Package name to search for
+- `--json`: Output in JSON format
+
+Returns:
+- `NOT_FOUND`: Package not found in any repo
+- `SINGLE_MATCH`: Exactly one package matches
+- `AMBIGUOUS`: Multiple packages match (requires explicit `--to <PKG_ID>`)
+
+### maestro repo hub link package
+
+Create explicit link from local package to external package.
+
+```
+maestro repo hub link package <NAME>
+  --to <PKG_ID>
+  [--reason <TEXT>]
+```
+
+Arguments:
+- `NAME`: Local package name that depends on external package
+- `--to <PKG_ID>`: Target package ID (from `hub find`)
+- `--reason <TEXT>`: Optional reason for link (default: "explicit")
+
+Behavior:
+- Validates target package ID exists in hub index
+- Creates link entry in `./docs/maestro/repo/hub_links.json`
+- Computes deterministic link ID
+- Updates existing link if already present
+
+### maestro repo hub link show
+
+Show all hub links for current repository.
+
+```
+maestro repo hub link show
+  [--json]
+```
+
+Arguments:
+- `--json`: Output in JSON format
+
+### maestro repo hub link remove
+
+Remove a hub link.
+
+```
+maestro repo hub link remove <LINK_ID>
+```
+
+Arguments:
+- `LINK_ID`: Link ID to remove (from `hub link show`)
+
+### Hub determinism rules
+
+**Repo ID:**
+```
+repo_id = sha256(canonical_path + ":" + git_head + ":" + mtime_summary)
+```
+
+**Package ID:**
+```
+pkg_id = sha256(build_system + ":" + name + ":" + normalized_root)
+```
+
+**Link ID:**
+```
+link_id = sha256(from_package + ":" + to_package_id)
+```
+
+**Stable sorting:**
+- Package search results: by name, then by repo path
+- Link lists: by from_package, then by to_package_id
+
+See `docs/workflows/v3/cli/REPO_HUB.md` for complete hub system documentation.
+
 ## Select toolchain vs platform caps
 
 - `maestro select toolchain {list|show|set|unset|detect|export}`
