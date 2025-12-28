@@ -24,6 +24,13 @@ from maestro.repo.hub.link_store import (
     HubLinkStore,
     HubLink,
 )
+from maestro.repo.hub.scanner import (
+    HubScanner,
+)
+from maestro.repo.hub.resolver import (
+    HubResolver,
+    FindResult,
+)
 
 __all__ = [
     'HubIndexManager',
@@ -32,4 +39,7 @@ __all__ = [
     'PackageRecord',
     'HubLinkStore',
     'HubLink',
+    'HubScanner',
+    'HubResolver',
+    'FindResult',
 ]

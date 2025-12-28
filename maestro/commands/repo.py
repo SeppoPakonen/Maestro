@@ -48,6 +48,7 @@ from maestro.repo.storage import (
     default_repo_state,
     load_repo_model,
     repo_model_path,
+    REPO_TRUTH_REL,
 )
 from maestro.git_guard import check_branch_guard
 
@@ -83,7 +84,24 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
         scan_result: Scan result to persist (RepoScanResult)
         verbose: If True, print paths being written
     """
-    ensure_repo_truth_dir(repo_root)
+    ensure_repo_truth_dir(repo_root, create=True)
+
+    def _serialize_upp_payload(upp_payload: Optional[dict]) -> Optional[dict]:
+        if not upp_payload or not isinstance(upp_payload, dict):
+            return upp_payload
+        serialized = dict(upp_payload)
+        groups = serialized.get("groups", [])
+        if isinstance(groups, list):
+            serialized["groups"] = [
+                {
+                    "name": group.name,
+                    "files": group.files,
+                    "readonly": getattr(group, "readonly", False),
+                    "auto_generated": getattr(group, "auto_generated", False),
+                } if isinstance(group, FileGroup) else group
+                for group in groups
+            ]
+        return serialized
 
     # Prepare JSON data
     index_data = {
@@ -108,7 +126,7 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 "dir": pkg.dir,
                 "upp_path": pkg.upp_path,
                 "files": pkg.files,
-                "upp": getattr(pkg, 'upp', None),
+                "upp": _serialize_upp_payload(getattr(pkg, 'upp', None)),
                 "build_system": pkg.build_system,
                 "dependencies": getattr(pkg, 'dependencies', []),
                 "groups": [
@@ -1427,6 +1445,7 @@ def add_repo_parser(subparsers):
     repo_resolve_parser.add_argument('--path', help='Path to repository to scan (default: current directory)')
     repo_resolve_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_resolve_parser.add_argument('--no-write', action='store_true', help='Skip writing artifacts to docs/maestro/')
+    repo_resolve_parser.add_argument('--no-hub-update', action='store_true', help='Skip updating hub index')
     repo_resolve_parser.add_argument('--find-root', action='store_true', help='Find repository root with docs/maestro instead of scanning current directory')
     repo_resolve_parser.add_argument('--include-user-config', dest='include_user_config', action='store_true', help='Include user assemblies from ~/.config/u++/ide/*.var')
     repo_resolve_parser.add_argument('--no-user-config', dest='include_user_config', action='store_false', default=True, help='Skip reading user assembly config (default)')
@@ -1529,6 +1548,56 @@ def add_repo_parser(subparsers):
                                            choices=['general', 'build', 'refactor', 'security', 'performance', 'fix', 'feature'],
                                            help='Context for rule selection (default: general)')
 
+    # repo hub (cross-repo package discovery and linking)
+    repo_hub_parser = repo_subparsers.add_parser('hub', help='Cross-repo package discovery and linking')
+    repo_hub_subparsers = repo_hub_parser.add_subparsers(dest='hub_subcommand', help='Hub subcommands')
+
+    # repo hub scan
+    repo_hub_scan_parser = repo_hub_subparsers.add_parser('scan', help='Scan repository and add to hub index')
+    repo_hub_scan_parser.add_argument('path', nargs='?', help='Path to repository to scan (default: current directory)')
+    repo_hub_scan_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo hub list
+    repo_hub_list_parser = repo_hub_subparsers.add_parser('list', aliases=['ls'], help='List all repositories in hub index')
+    repo_hub_list_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    repo_hub_list_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo hub show
+    repo_hub_show_parser = repo_hub_subparsers.add_parser('show', help='Show repository details')
+    repo_hub_show_parser.add_argument('repo_id', help='Repository ID to show')
+    repo_hub_show_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    repo_hub_show_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo hub find
+    repo_hub_find_parser = repo_hub_subparsers.add_parser('find', help='Find packages or repos')
+    repo_hub_find_subparsers = repo_hub_find_parser.add_subparsers(dest='find_subcommand', help='Find subcommands')
+
+    # repo hub find package
+    repo_hub_find_package_parser = repo_hub_find_subparsers.add_parser('package', aliases=['pkg', 'p'], help='Find package across all repos')
+    repo_hub_find_package_parser.add_argument('package_name', help='Package name to search for')
+    repo_hub_find_package_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    repo_hub_find_package_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo hub link
+    repo_hub_link_parser = repo_hub_subparsers.add_parser('link', help='Manage cross-repo links')
+    repo_hub_link_subparsers = repo_hub_link_parser.add_subparsers(dest='link_subcommand', help='Link subcommands')
+
+    # repo hub link package
+    repo_hub_link_package_parser = repo_hub_link_subparsers.add_parser('package', aliases=['pkg', 'p'], help='Link to external package')
+    repo_hub_link_package_parser.add_argument('package_name', help='Local package name')
+    repo_hub_link_package_parser.add_argument('--to', dest='to_package_id', required=True, help='Target package ID')
+    repo_hub_link_package_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo hub link show
+    repo_hub_link_show_parser = repo_hub_link_subparsers.add_parser('show', help='Show all hub links')
+    repo_hub_link_show_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    repo_hub_link_show_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo hub link remove
+    repo_hub_link_remove_parser = repo_hub_link_subparsers.add_parser('remove', aliases=['rm'], help='Remove a link')
+    repo_hub_link_remove_parser.add_argument('link_id', help='Link ID to remove')
+    repo_hub_link_remove_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
     # repo help
     repo_subparsers.add_parser('help', aliases=['h'], help='Show help for repo commands')
 
@@ -1543,6 +1612,16 @@ def handle_repo_command(args):
     """
     from maestro.repo import scan_upp_repo_v2
     from maestro.repo.assembly_commands import handle_asm_command
+
+    def _find_repo_root_if_truth(path: str) -> Optional[str]:
+        current = Path(path).resolve()
+        while current != current.parent:
+            if (current / REPO_TRUTH_REL).is_dir():
+                return str(current)
+            current = current.parent
+        if (current / REPO_TRUTH_REL).is_dir():
+            return str(current)
+        return None
 
     # Handle repository analysis and resolution commands (no session required)
     if hasattr(args, 'repo_subcommand') and args.repo_subcommand:
@@ -1569,20 +1648,41 @@ def handle_repo_command(args):
                     if getattr(args, 'verbose', False):
                         print_debug(f"Scanning current directory: {scan_path}", 2)
 
-            repo_root = find_repo_root(scan_path)
-            branch_guard_error = check_branch_guard(repo_root)
-            if branch_guard_error:
-                print_error(branch_guard_error, 2)
-                sys.exit(1)
+            if getattr(args, 'find_root', False):
+                repo_root = find_repo_root(scan_path)
+            else:
+                repo_root = _find_repo_root_if_truth(scan_path) or scan_path
+            if not getattr(args, 'json', False):
+                branch_guard_error = check_branch_guard(repo_root)
+                if branch_guard_error:
+                    print_error(branch_guard_error, 2)
+                    sys.exit(1)
 
             # Perform the repo scan
-            repo_result = scan_upp_repo_v2(scan_path,
-                                          verbose=getattr(args, 'verbose', False),
-                                          include_user_config=getattr(args, 'include_user_config', False))
+            fast_json = getattr(args, 'json', False)
+            repo_result = scan_upp_repo_v2(
+                scan_path,
+                verbose=getattr(args, 'verbose', False),
+                include_user_config=getattr(args, 'include_user_config', False),
+                collect_files=not fast_json,
+                scan_unknown_paths=not fast_json,
+            )
 
             # Write artifacts unless --no-write is specified
             if not getattr(args, 'no_write', False):
                 write_repo_artifacts(repo_root, repo_result, verbose=getattr(args, 'verbose', False))
+
+                # Update hub index with scanned packages (optional)
+                if not getattr(args, 'no_hub_update', False):
+                    try:
+                        from maestro.repo.hub.scanner import HubScanner
+                        scanner = HubScanner()
+                        repo_record = scanner.scan_repository(repo_root, verbose=getattr(args, 'verbose', False))
+                        scanner.update_hub_index(repo_record, verbose=getattr(args, 'verbose', False))
+                    except Exception as e:
+                        # Hub update is non-critical, don't fail the whole operation
+                        if getattr(args, 'verbose', False):
+                            print_warning(f"Hub index update failed: {e}", 2)
 
             # Output format varies based on the flag
             if getattr(args, 'json', False):
@@ -1850,6 +1950,11 @@ def handle_repo_command(args):
             else:
                 # Default to show
                 handle_repo_rules_show(repo_root)
+
+        elif args.repo_subcommand == 'hub':
+            # Hub command for cross-repo package discovery and linking
+            from maestro.commands.hub import handle_hub_command
+            return handle_hub_command(args)
 
         elif args.repo_subcommand in ['help', 'h']:
             # Print help for repo subcommands (parser should handle this)

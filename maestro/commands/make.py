@@ -71,6 +71,19 @@ class MakeCommand:
             print(f"Error: {branch_guard_error}")
             return 1
 
+        # Load hub links for external package dependencies
+        try:
+            from maestro.repo.hub.resolver import HubResolver
+            resolver = HubResolver(repo_root)
+            external_roots = resolver.get_all_linked_package_roots()
+            if external_roots and getattr(args, 'verbose', False):
+                print(f"Found {len(external_roots)} external package(s) from hub links")
+        except Exception as e:
+            # Hub links are optional, don't fail if not available
+            external_roots = []
+            if getattr(args, 'verbose', False):
+                print(f"Note: Hub links not available: {e}")
+
         # Auto-detect method if not specified
         method_name = args.method
         if not method_name:
@@ -90,6 +103,12 @@ class MakeCommand:
             method_config.config.jobs = args.jobs
         if hasattr(args, 'verbose') and args.verbose:
             method_config.config.verbose = True
+
+        # Add external package roots from hub links
+        if external_roots:
+            if not hasattr(method_config.config, 'external_package_roots'):
+                method_config.config.external_package_roots = []
+            method_config.config.external_package_roots.extend(external_roots)
 
         if args.verbose:
             print(f"Building packages with method: {method_name}")
