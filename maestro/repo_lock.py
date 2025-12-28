@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from maestro.config.paths import get_lock_dir
+
 
 @dataclass
 class LockInfo:
@@ -28,9 +30,9 @@ class RepoLock:
         """Initialize repo lock manager.
 
         Args:
-            lock_dir: Directory to store lock files (default: docs/maestro/locks)
+            lock_dir: Directory to store lock files (default: docs/maestro/locks, or MAESTRO_DOCS_ROOT/docs/maestro/locks)
         """
-        self.lock_dir = lock_dir or Path("docs/maestro/locks")
+        self.lock_dir = lock_dir or get_lock_dir()
         self.lock_file = self.lock_dir / "repo.lock"
 
     def acquire(self, session_id: str) -> None:

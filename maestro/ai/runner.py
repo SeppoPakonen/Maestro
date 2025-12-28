@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Generator
 from maestro.config.settings import get_settings
+from maestro.config.paths import get_ai_logs_dir
 from .types import AiSubprocessRunner, FakeProcessResult
 from .stream_render import AiStreamEvent, EventType, StreamRenderer
 from .qwen_extractor import extract_qwen_assistant_text, filter_qwen_events_for_verbose_mode
@@ -96,7 +97,7 @@ def _run_with_custom_runner(
     from datetime import datetime
 
     # Create log directories
-    log_dir = Path("docs/logs/ai") / engine
+    log_dir = get_ai_logs_dir(engine)
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate timestamp for log files
@@ -206,7 +207,7 @@ def _run_subprocess_command(
         run_env.update(env)
 
     # Create log directories
-    log_dir = Path("docs/logs/ai") / engine
+    log_dir = get_ai_logs_dir(engine)
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate timestamp for log files
@@ -698,7 +699,7 @@ def _run_qwen_transport(
     port = settings.ai_qwen_tcp_port
 
     # Create log directories
-    log_dir = Path("docs/logs/ai") / engine
+    log_dir = get_ai_logs_dir(engine)
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate timestamp for log files
