@@ -14,3 +14,4 @@ See also:
 | `GATE_REQUIRE_CAPS_SATISFIED` | All required caps are present (no missing required caps). |
 | `GATE_BUILD_OK` | Build passes successfully. |
 | `GATE_TU_READY` | TU prerequisites are met (repoconf + toolchain + build context). |
+| `BLOCKED_BY_ISSUES` | Open blocker-severity issues exist without linked in-progress tasks. |

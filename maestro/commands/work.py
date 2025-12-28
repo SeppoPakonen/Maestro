@@ -38,6 +38,7 @@ from ..engines import get_engine, EngineError
 
 def add_work_parser(subparsers):
     work_parser = subparsers.add_parser("work", aliases=["wk"], help="AI work sessions")
+    work_parser.add_argument("--ignore-gates", action="store_true", help="Bypass all work gates")
     work_subparsers = work_parser.add_subparsers(dest="work_subcommand", help="Work subcommands")
 
     any_parser = work_subparsers.add_parser("any", help="Let AI select the best work item")
@@ -111,6 +112,104 @@ def load_issues() -> List[Dict[str, Any]]:
         issues.append(issue)
 
     return issues
+
+
+def check_work_gates(ignore_gates: bool = False, repo_root: Optional[str] = None) -> bool:
+    """
+    Check work gates and return whether work can proceed.
+
+    Args:
+        ignore_gates: If True, bypass all gates
+        repo_root: Repository root (defaults to current directory)
+
+    Returns:
+        True if work can proceed, False if blocked by gates
+    """
+    if ignore_gates:
+        return True
+
+    # Load issues from JSON storage
+    try:
+        from ..issues.json_store import list_issues_json, load_issue_json
+        from ..data import parse_phase_md
+    except ImportError:
+        # If modules aren't available, allow work to proceed
+        return True
+
+    if not repo_root:
+        repo_root = os.getcwd()
+
+    # Get all open blocker issues
+    blocker_issues = list_issues_json(repo_root, severity='blocker', status='open')
+
+    if not blocker_issues:
+        # No blocker issues, allow work
+        return True
+
+    # Check if any blockers have linked in-progress tasks
+    blocking_issues = []
+    for issue in blocker_issues:
+        has_in_progress_task = False
+
+        # Check if issue has linked tasks in progress
+        if issue.linked_tasks:
+            phases_dir = Path("docs/phases")
+            if phases_dir.exists():
+                for phase_file in phases_dir.glob("*.md"):
+                    try:
+                        phase = parse_phase_md(str(phase_file))
+                        for task in phase.get("tasks", []):
+                            task_id = task.get("task_id") or task.get("task_number")
+                            if task_id in issue.linked_tasks:
+                                task_status = task.get("status", "").lower()
+                                if task_status in ["in_progress", "in progress", "active"]:
+                                    has_in_progress_task = True
+                                    break
+                        if has_in_progress_task:
+                            break
+                    except Exception:
+                        continue
+
+        if not has_in_progress_task:
+            blocking_issues.append(issue)
+
+    if not blocking_issues:
+        # All blockers have linked in-progress tasks, allow work
+        return True
+
+    # Print gate message
+    print("╔══════════════════════════════════════════════════════════════════════════╗")
+    print("║ GATE: BLOCKED_BY_ISSUES                                                  ║")
+    print("╚══════════════════════════════════════════════════════════════════════════╝")
+    print()
+    print("The following blocker issues must be addressed before work can proceed:")
+    print()
+
+    for issue in blocking_issues:
+        print(f"  {issue.issue_id}: {issue.message[:60]}{'...' if len(issue.message) > 60 else ''}")
+        print(f"    Severity: {issue.severity}")
+        print(f"    First seen: {issue.first_seen}")
+        print(f"    Last seen: {issue.last_seen}")
+        print(f"    Occurrences: {len(issue.occurrences)}")
+        print()
+
+    print("Recommended actions:")
+    print("  1. Triage and link issues to tasks:")
+    for issue in blocking_issues[:3]:  # Show first 3 as examples
+        print(f"     maestro issues link-task {issue.issue_id} TASK-XXX")
+    print()
+    print("  2. Or mark as resolved if already fixed:")
+    print(f"     maestro issues resolve {blocking_issues[0].issue_id} --reason \"Fixed in commit abc123\"")
+    print()
+    print("  3. Or bypass gates (use with caution):")
+    print("     maestro work --ignore-gates")
+    print()
+    print("For more details:")
+    print(f"  maestro issues list --severity blocker --status open")
+    print(f"  maestro issues show {blocking_issues[0].issue_id}")
+    print()
+
+    return False
 
 
 def load_available_work() -> Dict[str, List[Dict[str, Any]]]:
@@ -287,6 +386,11 @@ async def handle_work_any(args):
     6. Report progress
     7. Complete or pause with status update
     """
+    # Check work gates
+    ignore_gates = getattr(args, 'ignore_gates', False)
+    if not check_work_gates(ignore_gates=ignore_gates):
+        return 1
+
     print("Loading available work items...")
 
     # Step 1: Load all available work items
@@ -364,6 +468,11 @@ async def handle_work_any_pick(args):
     5. Create session for selected item
     6. Execute work
     """
+    # Check work gates
+    ignore_gates = getattr(args, 'ignore_gates', False)
+    if not check_work_gates(ignore_gates=ignore_gates):
+        return 1
+
     print("Loading available work items...")
 
     # Step 1: Load all available work items
@@ -470,6 +579,11 @@ async def handle_work_track(args):
       - User selects from list
       - Execute selected track
     """
+    # Check work gates
+    ignore_gates = getattr(args, 'ignore_gates', False)
+    if not check_work_gates(ignore_gates=ignore_gates):
+        return 1
+
     # If track ID is provided, work on that specific track
     if args.id:
         track_id = args.id
@@ -579,6 +693,11 @@ async def handle_work_phase(args):
       - User selects from list
       - Execute selected phase
     """
+    # Check work gates
+    ignore_gates = getattr(args, 'ignore_gates', False)
+    if not check_work_gates(ignore_gates=ignore_gates):
+        return 1
+
     # If phase ID is provided, work on that specific phase
     if args.id:
         phase_id = args.id
@@ -690,6 +809,11 @@ async def handle_work_issue(args):
       - User selects from list
       - Execute selected issue
     """
+    # Check work gates
+    ignore_gates = getattr(args, 'ignore_gates', False)
+    if not check_work_gates(ignore_gates=ignore_gates):
+        return 1
+
     # If issue ID is provided, work on that specific issue
     if args.id:
         issue_id = args.id
@@ -812,6 +936,11 @@ async def handle_work_task(args):
     """
     Work on a specific task or list tasks for selection.
     """
+    # Check work gates
+    ignore_gates = getattr(args, 'ignore_gates', False)
+    if not check_work_gates(ignore_gates=ignore_gates):
+        return 1
+
     if args.id:
         task_id = args.id
         task_context = find_task_context(task_id)
