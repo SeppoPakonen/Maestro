@@ -168,3 +168,73 @@ Gate semantics:
 - Blocker issues (e.g., build failures) create `BLOCKED_BY_BUILD_ERRORS` gate
 - Gates are surfaced before work starts
 - Override requires explicit flag; no silent bypass
+
+## Legacy Command Kill Switch
+
+### MAESTRO_ENABLE_LEGACY
+
+**Purpose:** Control visibility and availability of deprecated legacy commands.
+
+**Default:** unset (legacy commands disabled)
+
+**Accepted values:**
+- `0`, `false`, `no`, unset → Legacy commands disabled (default)
+- `1`, `true`, `yes` → Legacy commands enabled
+
+### Behavior
+
+**Default Mode (unset or MAESTRO_ENABLE_LEGACY=0):**
+- Legacy commands **NOT** registered in parser
+- `maestro session --help` fails with argparse error (command not found)
+- `maestro --help` does NOT list legacy commands
+- Helpful error message suggests canonical replacement
+
+**Legacy Mode (MAESTRO_ENABLE_LEGACY=1):**
+- Legacy commands registered with `[DEPRECATED]` markers
+- All 5 legacy commands functional (session, understand, resume, rules, root)
+- `maestro --help` lists legacy commands marked as deprecated
+- Deprecation warning banner displayed when command invoked
+
+### Legacy Commands and Replacements
+
+- `maestro session` → `maestro wsession`
+- `maestro understand` → `maestro repo resolve` + `maestro runbook export`
+- `maestro resume` → `maestro discuss resume` / `maestro work resume`
+- `maestro rules` → `maestro repo conventions` / `maestro solutions`
+- `maestro root` → `maestro track` / `maestro phase` / `maestro task`
+
+### Usage Examples
+
+```bash
+# Enable legacy commands (temporary)
+export MAESTRO_ENABLE_LEGACY=1
+maestro session list  # Works with deprecation warning
+
+# Disable legacy commands (default)
+unset MAESTRO_ENABLE_LEGACY
+maestro session list  # Error: command not available
+
+# Explicit disable
+export MAESTRO_ENABLE_LEGACY=0
+maestro session list  # Error: command not available
+```
+
+### Error Message Example
+
+When legacy disabled and user tries to invoke:
+
+```
+Error: 'session' command is not available.
+Use: maestro wsession instead.
+
+To enable legacy commands (for backward compatibility):
+  export MAESTRO_ENABLE_LEGACY=1
+
+See: docs/workflows/v3/cli/CLI_SURFACE_CONTRACT.md
+```
+
+### See Also
+
+- [CLI Surface Contract](./CLI_SURFACE_CONTRACT.md) - Complete contract and migration playbook
+- [Deprecation Policy](./DEPRECATION.md) - Timeline and rationale
+- [Test Contract](../../tests/test_cli_surface_contract.py) - Behavioral tests

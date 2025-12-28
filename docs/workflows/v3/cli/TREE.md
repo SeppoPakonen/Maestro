@@ -3,6 +3,8 @@
 This is the proposed v3 command tree. Verbs are short; keyword namespaces carry specificity.
 Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard gates are listed in `docs/workflows/v3/cli/INVARIANTS.md`.
 
+**Note:** This tree shows v3 canonical commands (`MAESTRO_ENABLE_LEGACY=0`, default mode). Legacy commands (session, understand, resume, rules, root) are hidden by default and require `MAESTRO_ENABLE_LEGACY=1` to enable. See [CLI Surface Contract](./CLI_SURFACE_CONTRACT.md) for details.
+
 ## Top-level
 
 - `maestro init`
@@ -46,13 +48,24 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 
 See also: `docs/workflows/v3/cli/INTEGRATION_SELECT_PLATFORM_REPOCONF.md` for toolchain/caps/repoconf/make/tu integration.
 
-## Legacy/problem commands
+## Legacy/Deprecated Commands (Hidden by Default)
 
-- `understand` -> fold into `repo resolve` + `runbook add` or `runbook discuss`.
-- `rules` -> fold into `solutions` (preferred) or `repo conf` (secondary). Choose `solutions` for policy rules.
-- `resume` -> fold into `work resume` (primary) and `ai resume` (if engine-specific).
-- `session` -> deprecate in favor of `wsession` and `ai`.
-- `root` -> deprecate; use `track/phase/task` hierarchy instead.
+**Kill Switch:** `MAESTRO_ENABLE_LEGACY=1` enables these commands with deprecation warnings.
+
+**Default behavior:** Legacy commands NOT in parser; `maestro session --help` fails with helpful error message.
+
+**Deprecated commands and their replacements:**
+
+- `maestro session` → `maestro wsession` (work sessions with breadcrumbs)
+- `maestro understand` → `maestro repo resolve` + `maestro runbook export` (repository analysis)
+- `maestro resume` → `maestro work resume` / `maestro discuss resume` (explicit context)
+- `maestro rules` → `maestro repo conventions` / `maestro solutions` (policy rules)
+- `maestro root` → `maestro track` / `maestro phase` / `maestro task` (hierarchical structure)
+
+**See:**
+- [CLI Surface Contract](./CLI_SURFACE_CONTRACT.md) - Migration playbook and contract
+- [Deprecation Policy](./DEPRECATION.md) - Kill switch implementation details
+- [CLI Signatures](./SIGNATURES.md) - MAESTRO_ENABLE_LEGACY environment variable
 
 ## Build naming
 

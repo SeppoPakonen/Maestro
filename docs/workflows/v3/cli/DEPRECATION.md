@@ -114,6 +114,99 @@ The following commands are marked as **LEGACY** and should not be used in new wo
 
 ---
 
+## Kill Switch Implementation (P1 Sprint 3.4)
+
+**Implemented:** 2025-12-28
+
+As of P1 Sprint 3.4, legacy commands support a **kill switch** via environment variable `MAESTRO_ENABLE_LEGACY`.
+
+### Overview
+
+Legacy commands (session, understand, resume, rules, root) are now **hidden by default** to:
+- Keep CLI surface clean and focused on canonical v3 commands
+- Prevent accidental usage in new workflows
+- Maintain backward compatibility for existing scripts
+- Enable gradual migration with explicit opt-in
+
+### Implementation Details
+
+**Default behavior (MAESTRO_ENABLE_LEGACY unset or =0):**
+- Legacy commands NOT registered in argument parser
+- `maestro session --help` fails with argparse error
+- `maestro --help` does NOT list legacy commands
+- Helpful error message guides users to canonical replacements
+
+**Legacy mode (MAESTRO_ENABLE_LEGACY=1):**
+- Legacy commands registered normally with `[DEPRECATED]` markers
+- Commands functional but display prominent deprecation warning banner
+- `maestro --help` lists legacy commands with deprecation notices
+- Allows backward compatibility for existing workflows
+
+### Error Message Example
+
+When user tries to invoke a legacy command without enabling it:
+
+```
+$ maestro session list
+Error: 'session' command is not available.
+Use: maestro wsession instead.
+
+To enable legacy commands (for backward compatibility):
+  export MAESTRO_ENABLE_LEGACY=1
+
+See: docs/workflows/v3/cli/CLI_SURFACE_CONTRACT.md
+```
+
+### Warning Banner Example
+
+When user invokes a legacy command with `MAESTRO_ENABLE_LEGACY=1`:
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║  DEPRECATED COMMAND: maestro session                          ║
+╠════════════════════════════════════════════════════════════════╣
+║  This command is deprecated and will be removed in a future   ║
+║  release. Please use the replacement command instead:         ║
+║                                                                ║
+║  → maestro wsession                                           ║
+║                                                                ║
+║  See: docs/workflows/v3/cli/DEPRECATION.md                    ║
+╚════════════════════════════════════════════════════════════════╝
+```
+
+### Migration Support
+
+For existing scripts and workflows that use legacy commands:
+
+1. **Immediate fix:** Add `export MAESTRO_ENABLE_LEGACY=1` at the top of your script
+2. **Long-term fix:** Migrate to canonical commands (see CLI_SURFACE_CONTRACT.md)
+
+### Testing
+
+All kill switch behavior is locked via automated tests:
+
+**File:** `tests/test_cli_surface_contract.py`
+
+**Test coverage:**
+- Legacy commands disabled by default
+- Legacy commands enabled with environment variable
+- Warning banners displayed when enabled
+- Helpful error messages when disabled
+- Canonical commands unaffected in both modes
+
+**Run tests:**
+```bash
+pytest tests/test_cli_surface_contract.py -v
+```
+
+### Related Documents
+
+- [CLI Surface Contract](./CLI_SURFACE_CONTRACT.md) - Command taxonomy and migration playbook
+- [CLI Signatures](./SIGNATURES.md) - MAESTRO_ENABLE_LEGACY environment variable reference
+- [CLI Surface Audit](../reports/cli_surface_audit.md) - Alignment report
+
+---
+
 ## Deprecation Timeline
 
 **Current Status (2025-12-28):**
