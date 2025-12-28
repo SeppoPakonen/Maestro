@@ -38,6 +38,8 @@ def add_issues_parser(subparsers) -> argparse.ArgumentParser:
 
     list_parser = issues_subparsers.add_parser("list", aliases=["ls"], help="List issues")
     list_parser.add_argument("--type", help="Filter by issue type")
+    list_parser.add_argument("--severity", choices=["blocker", "critical", "warning", "info"], help="Filter by severity")
+    list_parser.add_argument("--status", choices=["open", "resolved", "ignored"], help="Filter by status")
 
     show_parser = issues_subparsers.add_parser("show", help="Show issue details")
     show_parser.add_argument("issue_id", help="Issue ID to show")
@@ -75,6 +77,29 @@ def add_issues_parser(subparsers) -> argparse.ArgumentParser:
     fix_parser.add_argument("--complete", action="store_true", help="Mark issue as fixed after session creation")
     fix_parser.add_argument("--external", action="store_true", help="Include external solutions")
 
+    # Observability pipeline commands
+    add_parser = issues_subparsers.add_parser("add", help="Add issue from log scan or manually")
+    add_parser.add_argument("--from-log", dest="from_log", help="Scan ID or path to ingest findings from")
+    add_parser.add_argument("--manual", action="store_true", help="Manually create issue")
+    add_parser.add_argument("--message", help="Error message (for manual creation)")
+    add_parser.add_argument("--severity", choices=["blocker", "critical", "warning", "info"], help="Severity level")
+
+    triage_parser = issues_subparsers.add_parser("triage", help="Triage issues (assign severity, propose tasks)")
+    triage_parser.add_argument("--auto", action="store_true", help="Auto-triage with default rules")
+    triage_parser.add_argument("--severity-first", action="store_true", help="Prioritize by severity")
+
+    link_parser = issues_subparsers.add_parser("link-task", help="Link issue to task")
+    link_parser.add_argument("issue_id", help="Issue ID")
+    link_parser.add_argument("task_id", help="Task ID to link")
+
+    resolve_parser = issues_subparsers.add_parser("resolve", help="Mark issue as resolved")
+    resolve_parser.add_argument("issue_id", help="Issue ID to resolve")
+    resolve_parser.add_argument("--reason", help="Resolution reason")
+
+    ignore_parser = issues_subparsers.add_parser("ignore", help="Ignore issue (won't block work)")
+    ignore_parser.add_argument("issue_id", help="Issue ID to ignore")
+    ignore_parser.add_argument("--reason", help="Reason for ignoring")
+
     issue_type_order = [issue_type for issue_type in ISSUE_TYPE_ORDER if issue_type in ISSUE_TYPES]
     extra_types = sorted(set(ISSUE_TYPES) - set(issue_type_order))
     for issue_type in issue_type_order + extra_types:
@@ -89,9 +114,11 @@ def handle_issues_command(args: argparse.Namespace) -> int:
     subcommand = getattr(args, "issues_subcommand", None)
     if subcommand in (None, "list"):
         issue_type = getattr(args, "type", None)
+        severity = getattr(args, "severity", None)
+        status = getattr(args, "status", None)
         if subcommand is None and hasattr(args, "issue_type"):
             issue_type = args.issue_type
-        return _handle_list(repo_root, issue_type)
+        return _handle_list(repo_root, issue_type, severity, status)
     if subcommand == "show":
         return _handle_show(repo_root, args.issue_id)
     if subcommand == "state":
@@ -119,13 +146,49 @@ def handle_issues_command(args: argparse.Namespace) -> int:
         )
     if subcommand == "fix":
         return _handle_fix(repo_root, args.issue_id, complete=args.complete, include_external=args.external)
+    # Observability pipeline commands
+    if subcommand == "add":
+        return _handle_add_from_log(repo_root, args)
+    if subcommand == "triage":
+        return _handle_triage(repo_root, args)
+    if subcommand == "link-task":
+        return _handle_link_task(repo_root, args.issue_id, args.task_id)
+    if subcommand == "resolve":
+        return _handle_resolve(repo_root, args.issue_id, args.reason)
+    if subcommand == "ignore":
+        return _handle_ignore(repo_root, args.issue_id, args.reason)
     if hasattr(args, "issue_type"):
-        return _handle_list(repo_root, args.issue_type)
+        return _handle_list(repo_root, args.issue_type, None, None)
     print(f"Unknown issues subcommand: {subcommand}")
     return 1
 
 
-def _handle_list(repo_root: str, issue_type: str | None) -> int:
+def _handle_list(repo_root: str, issue_type: str | None, severity: str | None = None, status: str | None = None) -> int:
+    # Try JSON storage first (for observability pipeline issues)
+    from maestro.issues.json_store import list_issues_json
+    json_issues = list_issues_json(repo_root, severity=severity, status=status)
+
+    if json_issues:
+        print(f"Issues ({len(json_issues)} total):\n")
+        for issue in json_issues:
+            location = ""
+            if issue.file:
+                location = f"{issue.file}"
+                if issue.line:
+                    location += f":{issue.line}"
+
+            print(f"  {issue.issue_id} [{issue.severity}] {issue.status}")
+            print(f"    {issue.message}")
+            if location:
+                print(f"    Location: {location}")
+            if issue.tool:
+                print(f"    Tool: {issue.tool}")
+            if issue.linked_tasks:
+                print(f"    Linked tasks: {', '.join(issue.linked_tasks)}")
+            print()
+        return 0
+
+    # Fall back to markdown storage (legacy issues)
     if issue_type and issue_type not in ISSUE_TYPES:
         print(f"Unknown issue type: {issue_type}")
         return 1
@@ -439,6 +502,10 @@ def _find_issue_path(repo_root: str, issue_id: str) -> str | None:
 def _find_repo_root() -> str | None:
     current_dir = os.getcwd()
     while current_dir != "/":
+        # Check for new-style docs/maestro first
+        if os.path.exists(os.path.join(current_dir, "docs", "maestro")):
+            return current_dir
+        # Fall back to old-style .maestro
         if os.path.exists(os.path.join(current_dir, ".maestro")):
             return current_dir
         parent_dir = os.path.dirname(current_dir)
@@ -446,3 +513,174 @@ def _find_repo_root() -> str | None:
             break
         current_dir = parent_dir
     return None
+
+
+# Observability pipeline handlers
+
+def _handle_add_from_log(repo_root: str, args: argparse.Namespace) -> int:
+    """Handle issues add --from-log command."""
+    from maestro.log import load_scan
+    from maestro.issues.json_store import create_or_update_issue
+
+    if not args.from_log:
+        print("Error: --from-log <scan_id> required")
+        return 1
+
+    # Load scan
+    scan_data = load_scan(args.from_log, repo_root)
+    if not scan_data:
+        print(f"Error: Scan not found: {args.from_log}")
+        return 1
+
+    meta = scan_data['meta']
+    findings = scan_data['findings']
+
+    if not findings:
+        print(f"No findings in scan {args.from_log}")
+        return 0
+
+    print(f"Ingesting {len(findings)} findings from scan {args.from_log}...")
+
+    created_count = 0
+    updated_count = 0
+
+    for finding in findings:
+        issue_id, is_new = create_or_update_issue(
+            fingerprint=finding.fingerprint,
+            severity=finding.severity,
+            message=finding.message,
+            scan_id=meta['scan_id'],
+            timestamp=meta['timestamp'],
+            tool=finding.tool,
+            file=finding.file,
+            line=finding.line,
+            kind=finding.kind,
+            repo_root=repo_root,
+        )
+
+        if is_new:
+            created_count += 1
+            print(f"  Created {issue_id}: {finding.message[:60]}...")
+        else:
+            updated_count += 1
+            print(f"  Updated {issue_id}: new occurrence")
+
+    print(f"\nSummary:")
+    print(f"  Created: {created_count} issues")
+    print(f"  Updated: {updated_count} issues")
+
+    # Show blocker issues if any
+    from maestro.issues.json_store import list_issues_json
+    blockers = list_issues_json(repo_root, severity='blocker', status='open')
+    if blockers:
+        print(f"\nWARNING: {len(blockers)} blocker issues will gate work start")
+        print("Next: maestro issues triage --auto")
+
+    return 0
+
+
+def _handle_triage(repo_root: str, args: argparse.Namespace) -> int:
+    """Handle issues triage command."""
+    from maestro.issues.json_store import list_issues_json
+
+    issues = list_issues_json(repo_root, status='open')
+
+    if not issues:
+        print("No open issues to triage.")
+        return 0
+
+    print(f"Triaging {len(issues)} open issues...\n")
+
+    # Group by severity
+    by_severity = {}
+    for issue in issues:
+        severity = issue.severity
+        if severity not in by_severity:
+            by_severity[severity] = []
+        by_severity[severity].append(issue)
+
+    # Show summary
+    for severity in ['blocker', 'critical', 'warning', 'info']:
+        if severity not in by_severity:
+            continue
+
+        count = len(by_severity[severity])
+        print(f"{severity.upper()}: {count} issues")
+
+        for issue in by_severity[severity][:5]:  # Show first 5
+            print(f"  {issue.issue_id}: {issue.message[:60]}...")
+            if issue.linked_tasks:
+                print(f"    → Linked to {', '.join(issue.linked_tasks)}")
+            else:
+                print(f"    → No linked task")
+
+        if count > 5:
+            print(f"  ... and {count - 5} more")
+        print()
+
+    # Suggest actions for blockers without tasks
+    blockers_without_tasks = [
+        issue for issue in by_severity.get('blocker', [])
+        if not issue.linked_tasks
+    ]
+
+    if blockers_without_tasks:
+        print("Recommended actions:")
+        for issue in blockers_without_tasks[:3]:
+            print(f"  maestro task add \"Fix: {issue.message[:50]}...\"")
+            print(f"  maestro issues link-task {issue.issue_id} <TASK-ID>")
+        print()
+
+    return 0
+
+
+def _handle_link_task(repo_root: str, issue_id: str, task_id: str) -> int:
+    """Handle issues link-task command."""
+    from maestro.issues.json_store import link_issue_to_task
+
+    success = link_issue_to_task(issue_id, task_id, repo_root)
+
+    if not success:
+        print(f"Error: Issue not found: {issue_id}")
+        return 1
+
+    print(f"Linked {issue_id} to {task_id}")
+
+    # TODO: Also update task to link back to issue
+    # This requires task JSON storage which may not exist yet
+
+    return 0
+
+
+def _handle_resolve(repo_root: str, issue_id: str, reason: Optional[str]) -> int:
+    """Handle issues resolve command."""
+    from maestro.issues.json_store import resolve_issue
+
+    success = resolve_issue(issue_id, reason, repo_root)
+
+    if not success:
+        print(f"Error: Issue not found: {issue_id}")
+        return 1
+
+    print(f"Resolved {issue_id}")
+    if reason:
+        print(f"Reason: {reason}")
+
+    return 0
+
+
+def _handle_ignore(repo_root: str, issue_id: str, reason: Optional[str]) -> int:
+    """Handle issues ignore command."""
+    from maestro.issues.json_store import ignore_issue
+
+    success = ignore_issue(issue_id, reason, repo_root)
+
+    if not success:
+        print(f"Error: Issue not found: {issue_id}")
+        return 1
+
+    print(f"Ignored {issue_id}")
+    if reason:
+        print(f"Reason: {reason}")
+
+    return 0
