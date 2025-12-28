@@ -227,10 +227,10 @@ def add_convert_parser(subparsers):
     convert_parser = subparsers.add_parser('convert', aliases=['c'], help='Format conversion tools and pipelines')
     convert_subparsers = convert_parser.add_subparsers(dest='convert_subcommand', help='Convert subcommands')
 
-    # convert new
-    new_parser = convert_subparsers.add_parser('new', aliases=['n'], help='Create new conversion pipeline')
-    new_parser.add_argument('pipeline_name', help='Name for the new pipeline', nargs='?')
-    new_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed progress')
+    # convert add (canonical, with 'new' as deprecated alias)
+    add_parser = convert_subparsers.add_parser('add', aliases=['new', 'n'], help='Add new conversion pipeline')
+    add_parser.add_argument('pipeline_name', help='Name for the new pipeline', nargs='?')
+    add_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed progress')
 
     # convert plan
     plan_parser = convert_subparsers.add_parser('plan', aliases=['p'], help='Plan conversion approach')

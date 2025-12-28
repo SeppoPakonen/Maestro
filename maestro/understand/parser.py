@@ -12,7 +12,7 @@ def add_understand_parser(subparsers):
     understand_parser = subparsers.add_parser(
         'understand',
         aliases=['u'],
-        help='Project understanding commands'
+        help='[DEPRECATED] Use repo resolve or runbook instead'
     )
     
     understand_subparsers = understand_parser.add_subparsers(

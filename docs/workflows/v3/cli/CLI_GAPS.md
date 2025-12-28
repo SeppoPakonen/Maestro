@@ -2,6 +2,65 @@
 
 This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 entry maps to a specific invariant.
 
+## P0 — CLI Uniformity Issues (Sprint 3.1)
+
+### Verb Standardization
+
+- Gap ID: UNIF-0001
+  - Invariant ref: Verb standardization — All commands must use canonical verbs
+  - Missing capability: Standardize `convert new` → `convert add` with deprecation warning
+  - Proposed v3 command: `maestro convert add <name>` (canonical)
+  - Evidence: EX-15, EX-17
+  - Status: needs_implementation
+  - Priority: P0
+  - Type: verb_inconsistency
+  - Notes: Add alias mapping and deprecation warning in converter
+
+- Gap ID: UNIF-0002
+  - Invariant ref: Verb standardization — All commands must use canonical verbs
+  - Missing capability: Inconsistent verb usage across commands
+  - Proposed v3 command: Audit all commands for verb compliance
+  - Evidence: See CLI audit report
+  - Status: needs_audit
+  - Priority: P0
+  - Type: verb_inconsistency
+  - Notes: Commands to audit: convert, workflow, runbook, task, solutions, issues
+
+### Legacy Command Visibility
+
+- Gap ID: UNIF-0003
+  - Invariant ref: Legacy command deprecation — Must show deprecation notice
+  - Missing capability: Hide legacy commands from default help or show clear deprecation
+  - Legacy commands: `session`, `resume`, `rules`, `root`, `understand`
+  - Proposed v3 command: Update help filtering to hide or mark deprecated
+  - Evidence: N/A (CLI UX)
+  - Status: needs_implementation
+  - Priority: P0
+  - Type: help_visibility
+  - Notes: Options: (1) Hide from help, (2) Show with [DEPRECATED] tag, (3) Emit warning on use
+
+- Gap ID: UNIF-0004
+  - Invariant ref: Help contract — Bare keywords show extended help and exit 0
+  - Missing capability: Not all keywords implement help contract
+  - Proposed v3 command: Implement help stubs for all keywords
+  - Evidence: Manual testing
+  - Status: needs_audit
+  - Priority: P0
+  - Type: help_contract
+  - Notes: Test each keyword without subcommand to ensure help is shown
+
+### Runbook TODO_CMD Cleanup
+
+- Gap ID: UNIF-0005
+  - Invariant ref: N/A (documentation consistency)
+  - Missing capability: 47 runbooks contain TODO_CMD placeholders
+  - Proposed v3 command: Update all runbooks with canonical CLI commands
+  - Evidence: EX-01 through EX-31 (especially EX-21..EX-28)
+  - Status: needs_bulk_update
+  - Priority: P0
+  - Type: documentation
+  - Notes: Priority runbooks: EX-01, EX-03, EX-07, EX-13, EX-20, EX-31
+
 ## P0 — Blocks Invariants
 
 - Gap ID: SAT-0001

@@ -8,6 +8,16 @@ See also:
 - `docs/workflows/v3/cli/CLI_GAPS.md`
 - `docs/workflows/v3/reports/ledger_convergence.md`
 
+## Help contract
+
+- Bare keywords show extended help and exit 0.
+  - Failure: N/A (informational command).
+  - Examples: `maestro workflow`, `maestro task`, `maestro repo`
+  - Implemented in: CLI parser help behavior.
+- `--help/-h` flags remain supported but are non-canonical in docs.
+  - Canonical form: `maestro <keyword>` or `maestro <keyword> help`
+  - Implemented in: argparse standard behavior.
+
 ## Data stores
 
 - Repo truth lives under `./docs/maestro/**` (JSON only).
@@ -65,3 +75,27 @@ See also:
   - Failure: repo branch changed while work session open.
   - Next: close work session or set guard mode to lenient.
   - Implemented in: work session guard + CLI.
+
+## Verb standardization
+
+- All commands must use canonical verbs: `list`, `show`, `add`, `edit`, `remove` (or `rm` alias).
+  - Failure: non-canonical verb used in implementation.
+  - Next: use approved aliases (`ls` for `list`, `sh` for `show`, `rm` for `remove`).
+  - Canonical: `list`, `show`, `add`, `edit`, `remove`
+  - Approved aliases: `ls`, `sh`, `rm`
+  - Implemented in: CLI parser and documentation.
+- Legacy verb forms must emit deprecation warnings.
+  - Example: `convert new` should warn and suggest `convert add`.
+  - Implemented in: command handlers.
+
+## Legacy command deprecation
+
+- Legacy keywords must not appear in default help or must show deprecation notice.
+  - Legacy commands: `session`, `resume`, `rules`, `root`, `understand`
+  - Replacement paths:
+    - `session` → `wsession` (for work sessions) or `discuss` (for AI sessions)
+    - `resume` → `work resume` or `discuss resume`
+    - `rules` → `solutions` (for policy rules)
+    - `root` → deprecated (use `track`/`phase`/`task` hierarchy)
+    - `understand` → deprecated (fold into `repo resolve` or `runbook`)
+  - Implemented in: CLI parser help filtering and command handlers.

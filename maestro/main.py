@@ -12,9 +12,54 @@ from .modules.dataclasses import *
 from .modules.utils import *
 from .modules.cli_parser import *
 from .modules.command_handlers import *
+from maestro.structure_fix import (
+    apply_fix_plan_operations,
+    check_verification_improvement,
+    create_git_backup,
+    is_git_repo,
+    report_revert_action,
+    restore_from_git,
+)
 
 # Version information
 __version__ = "1.2.1"
+
+# Legacy re-exports for TUI facade imports
+from maestro.repo import (  # noqa: E402
+    scan_upp_repo_v2,
+    AssemblyInfo,
+    RepoScanResult,
+    UnknownPath,
+    InternalPackage,
+)
+from maestro.repo.package import PackageInfo  # noqa: E402
+from maestro.commands.repo import load_repo_index, find_repo_root  # noqa: E402
+from maestro.commands.convert import handle_convert_run, handle_convert_show  # noqa: E402
+from maestro.convert.pipeline_runtime import (  # noqa: E402
+    create_conversion_pipeline,
+    load_conversion_pipeline,
+    save_conversion_pipeline,
+    run_overview_stage,
+    run_core_builds_stage,
+    run_grow_from_main_stage,
+    run_full_tree_check_stage,
+    run_refactor_stage,
+    get_decisions,
+    get_decision_by_id,
+)
+
+
+def init_maestro_dir(target_dir: str, verbose: bool = True) -> str:
+    """Ensure a .maestro directory exists in the target path."""
+    from pathlib import Path
+
+    maestro_dir = Path(target_dir) / ".maestro"
+    maestro_dir.mkdir(parents=True, exist_ok=True)
+
+    if verbose:
+        print(f"Initialized Maestro directory at {maestro_dir}")
+
+    return str(maestro_dir)
 
 def main():
     """Main entry point for the Maestro CLI."""
@@ -227,7 +272,10 @@ def main():
                 )
         else:
             # No subcommand provided - show help
-            parser.print_help()
+            if hasattr(args, "func") and callable(args.func):
+                args.func(args)
+            else:
+                parser.print_help()
             sys.exit(0)
 
     elif args.command == 'rules':
@@ -377,7 +425,11 @@ def main():
     elif args.command == 'convert':
         # Handle different convert subcommands based on the parsed arguments
         if hasattr(args, 'convert_subcommand') and args.convert_subcommand:
-            if args.convert_subcommand == 'new':
+            if args.convert_subcommand == 'add':
+                # Emit deprecation warning if 'new' was used
+                if getattr(args, "_deprecated_convert_new_alias", False):
+                    print("Warning: 'maestro convert new' is deprecated; use 'maestro convert add' instead.")
+
                 if hasattr(args, 'pipeline_name') and args.pipeline_name:
                     exit_code = handle_convert_new(args)
                     if exit_code:

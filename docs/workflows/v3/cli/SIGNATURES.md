@@ -13,6 +13,29 @@ See also:
   - `maestro task`
 - `--help/-h` remain supported but are non-canonical in docs.
 
+## Canonical verbs
+
+All subcommands should use these canonical verbs:
+
+- **list** (alias: `ls`) — List all items
+- **show** (alias: `sh`) — Show details of a single item
+- **add** — Add a new item
+- **edit** — Edit an existing item
+- **remove** (alias: `rm`) — Remove an item
+
+Additional verbs for specific contexts:
+
+- **set** — Set a value or state
+- **start**, **stop**, **pause**, **resume** — Lifecycle operations (work sessions)
+- **validate**, **preview**, **apply** — Operation sequences (ops, plan ops)
+- **export**, **render** — Output transformations (workflows, runbooks)
+
+**Deprecated verb forms:**
+
+- `new` → use `add` (with deprecation warning)
+- `create` → use `add` (exception: `workflow create` is canonical; see TREE.md)
+- `delete` → use `remove` or `rm`
+
 ## Work / wsession / resume identities
 
 - `maestro work start task <TASK_ID>`

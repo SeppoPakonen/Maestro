@@ -230,8 +230,8 @@ def add_core_subparsers(subparsers):
     session_parser = subparsers.add_parser(
         'session',
         aliases=['s'],
-        help='Legacy session management',
-        description="Legacy session management. For work sessions and breadcrumbs use 'maestro wsession ...'."
+        help='[DEPRECATED] Use wsession instead',
+        description="[DEPRECATED] Legacy session management. Use 'maestro wsession' for work sessions and breadcrumbs."
     )
     session_subparsers = session_parser.add_subparsers(dest='session_subcommand', help='Session subcommands')
     session_subparsers.add_parser('new', aliases=['n'], help='Create new session')
@@ -257,13 +257,13 @@ def add_core_subparsers(subparsers):
     # See maestro/commands/plan.py for the current implementation
 
     # Rules subparsers
-    rules_parser = subparsers.add_parser('rules', aliases=['r'], help='Rules management')
+    rules_parser = subparsers.add_parser('rules', aliases=['r'], help='[DEPRECATED] Use solutions instead')
     rules_subparsers = rules_parser.add_subparsers(dest='rules_subcommand', help='Rules subcommands')
     rules_subparsers.add_parser('list', aliases=['ls'], help='List rules')
     rules_subparsers.add_parser('edit', aliases=['e'], help='Edit rules file')
 
     # Root subparsers
-    root_parser = subparsers.add_parser('root', help='Root task management')
+    root_parser = subparsers.add_parser('root', help='[DEPRECATED] Use track/phase/task hierarchy')
     root_subparsers = root_parser.add_subparsers(dest='root_subcommand', help='Root subcommands')
     root_subparsers.add_parser('set', aliases=['s'], help='Set root task')
     root_subparsers.add_parser('get', aliases=['g'], help='Get root task')
@@ -279,7 +279,7 @@ def add_core_subparsers(subparsers):
     log_subparsers.add_parser('list-plan', aliases=['lp'], help='List plan logs')
 
     # Resume command (no subcommands)
-    subparsers.add_parser('resume', aliases=['rs'], help='Resume session')
+    subparsers.add_parser('resume', aliases=['rs'], help='[DEPRECATED] Use work resume or discuss resume')
 
     # Project ops command
     ops_parser = subparsers.add_parser('ops', help='Project operations automation')
@@ -395,8 +395,13 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
             args.root_subcommand = root_subcommand_alias_map.get(args.root_subcommand, args.root_subcommand)
     elif args.command and hasattr(args, 'convert_subcommand') and args.convert_subcommand:
         if args.command == 'convert':
+            # Track if 'new' was used (deprecated)
+            if args.convert_subcommand == 'new':
+                setattr(args, "_deprecated_convert_new_alias", True)
+
             convert_subcommand_alias_map = {
-                'n': 'new',
+                'n': 'add',      # Map short alias to canonical 'add'
+                'new': 'add',    # Map deprecated 'new' to canonical 'add'
                 'p': 'plan',
                 'r': 'run',
                 's': 'status',
