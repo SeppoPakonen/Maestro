@@ -26,6 +26,7 @@ from maestro.ai import (
     PatchOperationType,
 )
 from maestro.ai.manager import AiEngineManager
+from maestro.ai.cache import AiCacheStore
 from maestro.data import parse_config_md
 from maestro.discussion import DiscussionSession, create_discussion_session, resume_discussion
 from maestro.work_session import SessionType, load_session
@@ -125,55 +126,56 @@ def _detect_discuss_context(args) -> DiscussContext:
             contract_type=contract_type
         )
 
-    # Priority 2: Check for active work session
-    try:
-        sessions_dir = Path("docs/sessions")
-        if sessions_dir.exists():
-            # Find most recent running/paused session
-            active_sessions = []
-            for session_dir in sessions_dir.iterdir():
-                if session_dir.is_dir():
-                    session_file = session_dir / "session.json"
-                    if session_file.exists():
-                        try:
-                            with open(session_file, 'r') as f:
-                                session_data = json.load(f)
-                            if session_data.get("status") in ["running", "paused"]:
-                                active_sessions.append(session_data)
-                        except (json.JSONDecodeError, KeyError):
-                            continue
+    # Priority 2: Check for active work session (if allowed)
+    if getattr(args, "allow_active_session", None) is True:
+        try:
+            sessions_dir = Path("docs/sessions")
+            if sessions_dir.exists():
+                # Find most recent running/paused session
+                active_sessions = []
+                for session_dir in sessions_dir.iterdir():
+                    if session_dir.is_dir():
+                        session_file = session_dir / "session.json"
+                        if session_file.exists():
+                            try:
+                                with open(session_file, 'r') as f:
+                                    session_data = json.load(f)
+                                if session_data.get("status") in ["running", "paused"]:
+                                    active_sessions.append(session_data)
+                            except (json.JSONDecodeError, KeyError):
+                                continue
 
-            # Sort by modified timestamp (most recent first)
-            if active_sessions:
-                active_sessions.sort(key=lambda s: s.get("modified", ""), reverse=True)
-                most_recent = active_sessions[0]
-                related = most_recent.get("related_entity", {})
+                # Sort by modified timestamp (most recent first)
+                if active_sessions:
+                    active_sessions.sort(key=lambda s: s.get("modified", ""), reverse=True)
+                    most_recent = active_sessions[0]
+                    related = most_recent.get("related_entity", {})
 
-                # Check what kind of session this is
-                if "task_id" in related:
-                    return DiscussContext(
-                        kind="task",
-                        ref=related["task_id"],
-                        reason=f"Active work session bound to task {related['task_id']}",
-                        contract_type=ContractType.TASK
-                    )
-                elif "phase_id" in related:
-                    return DiscussContext(
-                        kind="phase",
-                        ref=related["phase_id"],
-                        reason=f"Active work session bound to phase {related['phase_id']}",
-                        contract_type=ContractType.PHASE
-                    )
-                elif "track_id" in related:
-                    return DiscussContext(
-                        kind="track",
-                        ref=related["track_id"],
-                        reason=f"Active work session bound to track {related['track_id']}",
-                        contract_type=ContractType.TRACK
-                    )
-    except Exception:
-        # If we can't detect active sessions, fall through to default
-        pass
+                    # Check what kind of session this is
+                    if "task_id" in related:
+                        return DiscussContext(
+                            kind="task",
+                            ref=related["task_id"],
+                            reason=f"Active work session bound to task {related['task_id']}",
+                            contract_type=ContractType.TASK
+                        )
+                    elif "phase_id" in related:
+                        return DiscussContext(
+                            kind="phase",
+                            ref=related["phase_id"],
+                            reason=f"Active work session bound to phase {related['phase_id']}",
+                            contract_type=ContractType.PHASE
+                        )
+                    elif "track_id" in related:
+                        return DiscussContext(
+                            kind="track",
+                            ref=related["track_id"],
+                            reason=f"Active work session bound to track {related['track_id']}",
+                            contract_type=ContractType.TRACK
+                        )
+        except Exception:
+            # If we can't detect active sessions, fall through to default
+            pass
 
     # Priority 3: Fall back to global context
     return DiscussContext(
@@ -646,7 +648,9 @@ def handle_discuss_command(args) -> int:
             initial_prompt=initial_prompt,
             contract_type=contract_type,
             engine=engine,
-            mode=mode
+            mode=mode,
+            context_kind=context.kind,
+            context_ref=context.ref
         )
     except Exception as e:
         # Release lock on error
@@ -758,7 +762,9 @@ def handle_track_discuss(track_id: Optional[str], args) -> int:
             initial_prompt=initial_prompt,
             contract_type=ContractType.TRACK,
             engine=engine,
-            mode=mode
+            mode=mode,
+            context_kind="track",
+            context_ref=track_id
         )
     except Exception as e:
         # Release lock on error
@@ -1038,7 +1044,9 @@ def handle_phase_discuss(phase_id: str, args) -> int:
             initial_prompt=initial_prompt,
             contract_type=ContractType.PHASE,
             engine=engine,
-            mode=mode
+            mode=mode,
+            context_kind="phase",
+            context_ref=phase_id
         )
     except Exception as e:
         # Release lock on error
@@ -1149,7 +1157,9 @@ def handle_task_discuss(task_id: str, args) -> int:
             initial_prompt=initial_prompt,
             contract_type=ContractType.TASK,
             engine=engine,
-            mode=mode
+            mode=mode,
+            context_kind="task",
+            context_ref=task_id
         )
     except Exception as e:
         # Release lock on error
@@ -1242,9 +1252,80 @@ def run_discussion_with_router(
     initial_prompt: str,
     contract_type: ContractType,
     engine: str = "qwen",
-    mode: Optional[str] = None
+    mode: Optional[str] = None,
+    context_kind: str = "global",
+    context_ref: Optional[str] = None,
+    use_cache: bool = True
 ) -> tuple[list[PatchOperation], Optional[str]]:
-    """Run discussion using the new DiscussionRouter with appropriate contract."""
+    """Run discussion using the new DiscussionRouter with appropriate contract.
+
+    Args:
+        initial_prompt: The prompt to send to the AI
+        contract_type: The contract type to use
+        engine: The AI engine to use
+        mode: The discussion mode
+        context_kind: Context kind for cache key
+        context_ref: Context ref for cache key
+        use_cache: Whether to use cache (default True, respects env vars)
+
+    Returns:
+        Tuple of (patch_operations, json_error)
+    """
+    # Initialize cache store
+    cache_store = AiCacheStore()
+
+    # Check if cache is enabled
+    cache_enabled = use_cache and cache_store.get_cache_enabled()
+
+    # Compute prompt hash for cache lookup
+    prompt_hash = None
+    if cache_enabled:
+        # Get model from engine (simplified - in production this would be more sophisticated)
+        model = "default"  # TODO: Get actual model from engine config
+        prompt_hash = cache_store.compute_prompt_hash(
+            prompt=initial_prompt,
+            engine=engine,
+            model=model,
+            context_kind=context_kind
+        )
+
+        # Attempt cache lookup
+        cache_result = cache_store.lookup(prompt_hash)
+        if cache_result:
+            scope, entry_dir = cache_result
+            print(f"[Cache] Found entry in {scope} cache: {prompt_hash[:12]}...")
+
+            # Load cache entry
+            entry_data = cache_store.load_entry(entry_dir)
+
+            # Validate cache entry
+            watch_patterns = cache_store.get_watch_patterns()
+            current_workspace_fp = cache_store.compute_workspace_fingerprint(watch_patterns) if watch_patterns else None
+            is_valid, error_msg = cache_store.validate_entry(entry_data, current_workspace_fp)
+
+            if is_valid:
+                print("[Cache] Cache entry valid, using cached result (CACHE_HIT)")
+
+                # Extract ops from cache
+                ops_data = entry_data.get("ops")
+                if ops_data:
+                    # Reconstruct PatchOperations from cached data
+                    patch_operations = []
+                    for op_dict in ops_data:
+                        op_type = PatchOperationType(op_dict["op_type"])
+                        patch_operations.append(PatchOperation(op_type=op_type, data=op_dict["data"]))
+
+                    return patch_operations, None
+                else:
+                    print("[Cache] Warning: Cache entry has no ops, falling back to AI")
+            else:
+                print(f"[Cache] Cache entry invalid: {error_msg}, falling back to AI")
+                cache_store.mark_stale(entry_dir, error_msg)
+
+    # Cache miss or disabled - run AI normally
+    if cache_enabled:
+        print("[Cache] CACHE_MISS, invoking AI...")
+
     manager = AiEngineManager()
     router = DiscussionRouter(manager)
 
@@ -1265,6 +1346,44 @@ def run_discussion_with_router(
         mode=mode,
         json_contract=json_contract
     )
+
+    # Store result in cache if enabled
+    if cache_enabled and prompt_hash and results:
+        # Determine cache scope
+        cache_scope_pref = cache_store.get_cache_scope()
+        if cache_scope_pref == "repo":
+            cache_scope = "repo"
+        elif cache_scope_pref == "user":
+            cache_scope = "user"
+        else:  # auto
+            # Use repo cache if in a git repo, otherwise user cache
+            cache_scope = "repo" if Path(".git").exists() else "user"
+
+        # Serialize patch operations
+        ops_serialized = [{"op_type": op.op_type.value, "data": op.data} for op in results]
+
+        # Compute workspace fingerprint
+        watch_patterns = cache_store.get_watch_patterns()
+        workspace_fp = cache_store.compute_workspace_fingerprint(watch_patterns) if watch_patterns else None
+
+        # Store cache entry
+        try:
+            cache_store.create_entry(
+                prompt_hash=prompt_hash,
+                scope=cache_scope,
+                engine=engine,
+                model="default",  # TODO: Get actual model
+                prompt=initial_prompt,
+                ops_result=ops_serialized,
+                workspace_fp=workspace_fp,
+                context_kind=context_kind,
+                context_ref=context_ref,
+                contract_type=contract_type.value
+            )
+            print(f"[Cache] Stored result in {cache_scope} cache: {prompt_hash[:12]}...")
+        except Exception as e:
+            print(f"[Cache] Warning: Failed to store cache entry: {e}")
+
     return results, router.last_json_error
 
 
@@ -1307,4 +1426,5 @@ def add_discuss_parser(subparsers):
         "--resume",
         help="Resume previous discussion session (deprecated: use 'discuss resume' subcommand)"
     )
+    discuss_parser.set_defaults(allow_active_session=True)
     return discuss_parser
