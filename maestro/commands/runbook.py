@@ -31,10 +31,13 @@ def add_runbook_parser(subparsers: Any) -> None:
     list_parser.add_argument('--status', choices=['proposed', 'approved', 'deprecated'], help='Filter by status')
     list_parser.add_argument('--scope', choices=['product', 'user', 'manager', 'ui', 'code', 'reverse_engineering'], help='Filter by scope')
     list_parser.add_argument('--tag', help='Filter by tag')
+    list_parser.add_argument('--archived', action='store_true', help='List archived items instead of active')
+    list_parser.add_argument('--type', choices=['markdown', 'json', 'all'], default='all', help='Filter by type (for archived items)')
 
     # Show command
     show_parser = runbook_subparsers.add_parser('show', aliases=['sh'], help='Show a specific runbook')
     show_parser.add_argument('id', help='ID of the runbook to show')
+    show_parser.add_argument('--archived', action='store_true', help='Show archived item')
 
     # Add command
     add_parser = runbook_subparsers.add_parser('add', aliases=['new'], help='Create a new runbook')
@@ -100,6 +103,15 @@ def add_runbook_parser(subparsers: Any) -> None:
     discuss_parser = runbook_subparsers.add_parser('discuss', aliases=['d'], help='Discuss runbook with AI (placeholder)')
     discuss_parser.add_argument('id', help='ID of the runbook to discuss')
 
+    # Archive command
+    archive_parser = runbook_subparsers.add_parser('archive', help='Archive a runbook (markdown or JSON)')
+    archive_parser.add_argument('id_or_path', help='Runbook ID or file path')
+    archive_parser.add_argument('--reason', help='Reason for archiving')
+
+    # Restore command
+    restore_parser = runbook_subparsers.add_parser('restore', help='Restore an archived runbook')
+    restore_parser.add_argument('archive_id', help='Archive ID to restore')
+
     runbook_parser.set_defaults(func=handle_runbook_command)
 
 
@@ -134,6 +146,10 @@ def handle_runbook_command(args: argparse.Namespace) -> None:
         handle_runbook_render(args)
     elif args.runbook_subcommand in ['discuss', 'd']:
         handle_runbook_discuss(args)
+    elif args.runbook_subcommand == 'archive':
+        handle_runbook_archive(args)
+    elif args.runbook_subcommand == 'restore':
+        handle_runbook_restore(args)
     else:
         print(f"Unknown runbook subcommand: {args.runbook_subcommand}")
 
@@ -710,3 +726,75 @@ def handle_runbook_discuss(args: argparse.Namespace) -> None:
     print(f"  maestro runbook step-add {args.id} --actor user --action \"...\" --expected \"...\"")
     print(f"  maestro runbook export {args.id} --format puml")
     print(f"  maestro workflow create --from-runbook {args.id}")
+
+
+def handle_runbook_archive(args: argparse.Namespace) -> None:
+    """Handle the runbook archive command."""
+    from maestro.archive.runbook_archive import (
+        ArchiveError,
+        archive_runbook_json,
+        archive_runbook_markdown,
+    )
+
+    id_or_path = args.id_or_path
+    reason = getattr(args, 'reason', None)
+
+    # Determine if this is a path (markdown) or ID (JSON)
+    path_obj = Path(id_or_path)
+
+    try:
+        if path_obj.exists() and path_obj.is_file():
+            # Archive markdown file
+            entry = archive_runbook_markdown(path_obj, reason=reason)
+            print(f"Archived markdown runbook: {path_obj}")
+            print(f"Archive ID: {entry.archive_id}")
+            print(f"Archived to: {entry.archived_path}")
+        else:
+            # Archive JSON runbook by ID
+            entry = archive_runbook_json(id_or_path, reason=reason)
+            print(f"Archived JSON runbook: {id_or_path}")
+            print(f"Archive ID: {entry.archive_id}")
+            print(f"Archived to: {entry.archived_path}")
+
+        if reason:
+            print(f"Reason: {reason}")
+
+    except ArchiveError as e:
+        print(f"Error: {e}")
+        return
+
+
+def handle_runbook_restore(args: argparse.Namespace) -> None:
+    """Handle the runbook restore command."""
+    from maestro.archive.runbook_archive import (
+        RestoreError,
+        find_archive_entry,
+        restore_runbook_json,
+        restore_runbook_markdown,
+    )
+
+    archive_id = args.archive_id
+
+    try:
+        # Find the entry to determine type
+        entry = find_archive_entry(archive_id)
+        if not entry:
+            print(f"Error: Archive not found: {archive_id}")
+            return
+
+        # Restore based on type
+        if entry.type == "runbook_markdown":
+            restored_path = restore_runbook_markdown(archive_id)
+            print(f"Restored markdown runbook: {restored_path}")
+        elif entry.type == "runbook_json":
+            restored_id = restore_runbook_json(archive_id)
+            print(f"Restored JSON runbook: {restored_id}")
+        else:
+            print(f"Error: Unknown archive type: {entry.type}")
+            return
+
+        print(f"Restored from: {entry.archived_path}")
+
+    except RestoreError as e:
+        print(f"Error: {e}")
+        return

@@ -48,3 +48,39 @@ def get_state_dir() -> Path:
         Path to state directory (docs/state by default)
     """
     return get_docs_root() / "docs" / "state"
+
+
+def get_runbook_archive_index_path() -> Path:
+    """Get the runbook archive index file path.
+
+    Returns:
+        Path to runbook archive index JSON file
+    """
+    return get_docs_root() / "docs" / "maestro" / "runbooks" / "archive_index.json"
+
+
+def get_workflow_archive_index_path() -> Path:
+    """Get the workflow archive index file path.
+
+    Returns:
+        Path to workflow archive index JSON file
+    """
+    return get_docs_root() / "docs" / "maestro" / "workflows" / "archive_index.json"
+
+
+def get_runbook_examples_root() -> Path:
+    """Get the runbook examples root directory.
+
+    Returns:
+        Path to runbook examples directory
+    """
+    return get_docs_root() / "docs" / "workflows" / "v3" / "runbooks" / "examples"
+
+
+def get_workflows_root() -> Path:
+    """Get the workflows root directory.
+
+    Returns:
+        Path to workflows directory
+    """
+    return get_docs_root() / "docs" / "workflows" / "v3" / "workflows"
