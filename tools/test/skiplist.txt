@@ -1,34 +1,24 @@
-# Default skiplist for Maestro test runner
+# Skiplist for Maestro test runner (opt-in mode)
 # Each line is a pattern passed to pytest --ignore
 # Blank lines and lines starting with # are ignored
+#
+# POLICY: This skiplist is now OPT-IN only.
+# Default test runs do NOT use this file.
+# Use --skiplist tools/test/skiplist.txt to enable skipping.
+#
+# The portable test subset is defined by:
+# 1. conftest.py pytest_ignore_collect hook (excludes legacy/ and deleted files)
+# 2. pytest.ini -m "not legacy and not slow" (excludes legacy and slow markers)
+#
+# Status: All previously-skipped tests have been:
+# - FIXED and enabled (test_parse_todo_md_empty, test_repo_keyword_shows_help, etc.)
+# - Marked @pytest.mark.slow (ai_upp tests, async work tests)
+# - Documented in test backlog (work gates blocker tests)
+#
+# See: docs/workflows/v3/reports/skiplist_burndown.md
+# See: docs/workflows/v3/reports/test_backlog_from_skiplist.md
 
-# Legacy test directory
-tests/legacy
-
-# Individual legacy test files (deleted or renamed)
-tests/test_acceptance_criteria.py
-tests/test_comprehensive.py
-tests/test_migration_check.py
-tests/test_run_cli_engine.py
-
-# Tests that depend on external data not in repo (not portable)
-# All ai_upp tests require ~/Dev/ai-upp repository which is not in the test suite
-tests/test_repo_resolve_ai_upp.py::test_scan_upp_repo_v2_integration
-tests/test_repo_resolve_ai_upp.py::test_cli_json_output_integration
-tests/test_repo_resolve_ai_upp.py::test_cli_init_resolve_e2e
-tests/test_repo_workflow_ai_upp_e2e.py::test_repo_workflow_e2e
-
-# Slow tests with async/integration issues that need refactoring
-# These tests timeout due to complex async worker dependencies
-tests/test_work_command.py::TestWorkCommand::test_handle_work_any
-tests/test_work_command.py::TestWorkCommand::test_handle_work_any_pick
-tests/test_work_command.py::TestWorkCommand::test_parse_todo_md_empty
-
-# Tests requiring task metadata parsing features not yet implemented
-# These tests expect task_id and status fields to be parsed from phase markdown
+# Tests expecting unimplemented features (documented in test_backlog_from_skiplist.md)
+# These remain in skiplist until features are implemented
 tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_with_linked_task_allows_work
 tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_with_linked_todo_task_blocks_work
-
-# Tests with subprocess timeouts that need investigation
-tests/test_cli_uniformity.py::TestHelpContract::test_repo_keyword_shows_help
-tests/test_mc2_no_textual.py::test_mc2_runs_without_textual_import

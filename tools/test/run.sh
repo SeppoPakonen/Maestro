@@ -86,7 +86,7 @@ JOBS=""
 PROFILE="${MAESTRO_TEST_PROFILE:-all}"
 RESUME_FROM="${MAESTRO_TEST_RESUME_FROM:-}"
 CHECKPOINT_FILE="${MAESTRO_TEST_CHECKPOINT:-}"
-SKIPLIST="${MAESTRO_TEST_SKIPLIST:-$SCRIPT_DIR/skiplist.txt}"
+SKIPLIST="${MAESTRO_TEST_SKIPLIST:-}"
 TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
 PROFILE_REPORT=0
 SAVE_PROFILE_REPORT=0
@@ -114,8 +114,8 @@ Options:
   --show-profile          Display saved timing report (without running tests)
   --resume-from FILE      Resume from checkpoint, skipping previously PASSED tests
   --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
-  --skiplist FILE         File containing test patterns to skip (default: tools/test/skiplist.txt)
-                          Use --skiplist "" to disable skipping
+  --skiplist FILE         File containing test patterns to skip (default: none)
+                          Skiplist is now opt-in; portable tests run by default
   --skipped               Run ONLY the tests listed in skiplist (inverse of default behavior)
   --timeout SECONDS       Kill tests that run longer than SECONDS (requires pytest-timeout)
 
@@ -570,10 +570,11 @@ if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
   if [[ "$SKIPPED_ONLY" -eq 1 ]]; then
     echo "Skiplist:         $SKIPLIST (running ONLY skipped tests)"
   else
-    echo "Skiplist:         $SKIPLIST"
+    echo "Skiplist:         $SKIPLIST (OPT-IN MODE)"
+    echo "                  ⚠️  Non-portable tests will be skipped"
   fi
 else
-  echo "Skiplist:         disabled"
+  echo "Skiplist:         none (default)"
 fi
 if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]] && [[ "$SAVE_PROFILE_REPORT" -eq 0 ]]; then
   if grep -qE '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)' "$PROFILE_OUTPUT_FILE" 2>/dev/null; then
