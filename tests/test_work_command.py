@@ -7,6 +7,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 import json
+import pytest
 
 from maestro.commands.work import (
     parse_todo_md,
@@ -39,23 +40,25 @@ class TestWorkCommand(unittest.TestCase):
         import shutil
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    @patch('maestro.commands.work.Path.exists')
-    @patch('maestro.commands.work.Path.read_text')
-    def test_parse_todo_md_empty(self, mock_read_text, mock_exists):
+    def test_parse_todo_md_empty(self):
         """Test parsing an empty todo.md file."""
-        mock_exists.return_value = True
-        mock_read_text.return_value = "# Empty todo file"
-        
-        result = parse_todo_md()
+        # Create empty todo.md in temp directory
+        docs_dir = Path(self.test_dir) / "docs"
+        docs_dir.mkdir(exist_ok=True)
+        todo_file = docs_dir / "todo.md"
+        todo_file.write_text("# Empty todo file")
+
+        result = parse_todo_md(str(todo_file))
         self.assertEqual(result["tracks"], [])
         self.assertEqual(result["phases"], [])
 
-    @patch('maestro.commands.work.Path.exists')
-    @patch('maestro.commands.work.Path.read_text')
-    def test_parse_todo_md_with_content(self, mock_read_text, mock_exists):
+    def test_parse_todo_md_with_content(self):
         """Test parsing a todo.md file with tracks and phases."""
-        mock_exists.return_value = True
-        mock_read_text.return_value = """
+        # Create todo.md with content in temp directory
+        docs_dir = Path(self.test_dir) / "docs"
+        docs_dir.mkdir(exist_ok=True)
+        todo_file = docs_dir / "todo.md"
+        todo_file.write_text("""
 ## ws1_Session_Infrastructure
 - [ ] Design session infrastructure
 - [ ] Implement session creation
@@ -72,18 +75,18 @@ class TestWorkCommand(unittest.TestCase):
 ## ws2_Breadcrumb_System
 - [ ] Design breadcrumb system
 - [ ] Implement breadcrumb creation
-"""
-        
-        result = parse_todo_md()
+""")
+
+        result = parse_todo_md(str(todo_file))
         self.assertEqual(len(result["tracks"]), 2)
         self.assertEqual(len(result["phases"]), 2)
-        
+
         # Check first track
         track1 = result["tracks"][0]
         self.assertEqual(track1["id"], "ws1")
         self.assertEqual(track1["name"], "Session_Infrastructure")
         self.assertEqual(track1["type"], "track")
-        
+
         # Check first phase
         phase1 = result["phases"][0]
         self.assertEqual(phase1["id"], "ws1p1")
@@ -217,6 +220,7 @@ class TestWorkCommand(unittest.TestCase):
         self.assertIsInstance(result_top_n, list)
         self.assertEqual(len(result_top_n), 3)
 
+    @pytest.mark.slow
     @patch('maestro.commands.work.load_available_work')
     @patch('maestro.commands.work.ai_select_work_items')
     @patch('maestro.commands.work.create_session')
@@ -261,6 +265,7 @@ class TestWorkCommand(unittest.TestCase):
         mock_ai_select.assert_called_once()
         mock_create_session.assert_called_once()
 
+    @pytest.mark.slow
     @patch('builtins.input', return_value='1')
     @patch('maestro.commands.work.load_available_work')
     @patch('maestro.commands.work.ai_select_work_items')
