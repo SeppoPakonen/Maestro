@@ -12,4 +12,8 @@ tests/test_migration_check.py
 tests/test_run_cli_engine.py
 
 # Tests that depend on external data not in repo (not portable)
+# All ai_upp tests require ~/Dev/ai-upp repository which is not in the test suite
 tests/test_repo_resolve_ai_upp.py::test_scan_upp_repo_v2_integration
+tests/test_repo_resolve_ai_upp.py::test_cli_json_output_integration
+tests/test_repo_resolve_ai_upp.py::test_cli_init_resolve_e2e
+tests/test_repo_workflow_ai_upp_e2e.py::test_repo_workflow_e2e
