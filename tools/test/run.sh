@@ -268,8 +268,10 @@ case "$PROFILE" in
 esac
 
 # Profiling report
+PROFILE_OUTPUT_FILE=""
 if [[ "$PROFILE_REPORT" -eq 1 ]]; then
   PYTEST_BASE_ARGS+=(--durations=25)
+  PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt"
 fi
 
 # ==============================================================================
@@ -335,16 +337,77 @@ START_TIME=$(date +%s)
 
 # Run pytest with plugin
 set +e
-"$VENV_PY" -m pytest \
-  -p tools.test.pytest_checkpoint_plugin \
-  "${PYTEST_BASE_ARGS[@]}" \
-  "${PYTEST_ARGS[@]}"
-EXIT_CODE=$?
+if [[ -n "$PROFILE_OUTPUT_FILE" ]]; then
+  # Capture output for profiling
+  TEMP_OUTPUT=$(mktemp)
+  "$VENV_PY" -m pytest \
+    -p tools.test.pytest_checkpoint_plugin \
+    "${PYTEST_BASE_ARGS[@]}" \
+    "${PYTEST_ARGS[@]}" 2>&1 | tee "$TEMP_OUTPUT"
+  EXIT_CODE=${PIPEFAIL[0]:-$?}
+else
+  # Normal execution
+  "$VENV_PY" -m pytest \
+    -p tools.test.pytest_checkpoint_plugin \
+    "${PYTEST_BASE_ARGS[@]}" \
+    "${PYTEST_ARGS[@]}"
+  EXIT_CODE=$?
+fi
 set -e
 
 # Capture end time
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
+
+# ==============================================================================
+# Process profiling output
+# ==============================================================================
+if [[ -n "$PROFILE_OUTPUT_FILE" ]] && [[ -f "$TEMP_OUTPUT" ]]; then
+  {
+    echo "# Test Timing Report"
+    echo "# Generated: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "# Command: $0 ${BASH_ARGV[@]}"
+    echo "# Duration: ${DURATION}s"
+    echo "# Workers: $JOBS"
+    echo "# Profile: $PROFILE"
+    echo ""
+
+    # Extract slowest durations section and convert to relative paths
+    if grep -q "slowest.*durations" "$TEMP_OUTPUT"; then
+      sed -n '/slowest.*durations/,/^$/p' "$TEMP_OUTPUT" | \
+        sed "s|$REPO_ROOT/||g"
+
+      echo ""
+      echo "# Warnings"
+
+      # Check for slow tests and generate warnings
+      SLOW_COUNT=$(sed -n '/slowest.*durations/,/^$/p' "$TEMP_OUTPUT" | \
+        grep -E '^\s*[0-9]+\.[0-9]+s' | \
+        awk '$1 ~ /^[0-9]+\.[0-9]+s$/ {gsub(/s$/,"",$1); if ($1 > 1.0) print}' | \
+        wc -l)
+
+      if [[ "$SLOW_COUNT" -gt 0 ]]; then
+        echo "WARNING: Found $SLOW_COUNT tests slower than 1.0s"
+        echo ""
+        echo "Slow tests (>1.0s):"
+        sed -n '/slowest.*durations/,/^$/p' "$TEMP_OUTPUT" | \
+          grep -E '^\s*[0-9]+\.[0-9]+s' | \
+          awk '$1 ~ /^[0-9]+\.[0-9]+s$/ {gsub(/s$/,"",$1); if ($1 > 1.0) print}' | \
+          sed "s|$REPO_ROOT/||g" | \
+          sed 's/^/  /'
+      else
+        echo "All tests completed in <1.0s"
+      fi
+    else
+      echo "No timing data found in output"
+    fi
+  } > "$PROFILE_OUTPUT_FILE"
+
+  rm -f "$TEMP_OUTPUT"
+
+  echo ""
+  echo "Profiling report saved to: ${PROFILE_OUTPUT_FILE#$REPO_ROOT/}"
+fi
 
 # ==============================================================================
 # Print summary

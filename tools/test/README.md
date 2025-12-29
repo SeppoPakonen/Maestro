@@ -91,15 +91,23 @@ MAESTRO_TEST_CHECKPOINT=/tmp/my_checkpoint.txt bash tools/test/run.sh
 
 ### 4. Profiling & Performance
 
-Identify slow tests for optimization.
+Identify slow tests for optimization. Profiling reports are automatically saved to `docs/workflows/v3/reports/test_timing_latest.txt` with relative paths and warnings for slow tests.
 
 ```bash
-# Show timing report for slowest 25 tests
+# Show timing report for slowest 25 tests (auto-saves to file)
 bash tools/test/run.sh --profile-report
 
 # Combine with other options
 bash tools/test/run.sh --profile medium --profile-report -j 8
+
+# Check the saved report
+cat docs/workflows/v3/reports/test_timing_latest.txt
 ```
+
+**Report includes:**
+- Slowest 25 test durations with relative paths
+- Warnings for tests slower than 1.0s
+- Test run metadata (timestamp, duration, workers, profile)
 
 ## Common Workflows
 
