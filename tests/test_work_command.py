@@ -220,54 +220,62 @@ class TestWorkCommand(unittest.TestCase):
     @patch('maestro.commands.work.load_available_work')
     @patch('maestro.commands.work.ai_select_work_items')
     @patch('maestro.commands.work.create_session')
-    def test_handle_work_any(self, mock_create_session, mock_ai_select, mock_load_work):
+    @patch('maestro.commands.work._run_ai_interaction_with_breadcrumb')
+    @patch('maestro.commands.work.check_work_gates')
+    def test_handle_work_any(self, mock_gates, mock_ai_interact, mock_create_session, mock_ai_select, mock_load_work):
         """Test the work any command handler."""
+        mock_gates.return_value = True
         mock_load_work.return_value = {
             "tracks": [{"id": "track1", "type": "track", "name": "Test Track"}],
             "phases": [{"id": "phase1", "type": "phase", "name": "Test Phase"}],
             "issues": [{"id": "issue1", "type": "issue", "name": "Test Issue"}]
         }
-        
+
         mock_ai_select.return_value = {
             "id": "track1",
             "type": "track",
             "name": "Test Track",
             "reason": "Selected by AI"
         }
-        
+
         mock_session = Mock(spec=WorkSession)
         mock_create_session.return_value = mock_session
-        
+        mock_ai_interact.return_value = "Mocked AI response"
+
         # Mock args
         class Args:
             pick = None
-        
+            ignore_gates = False
+
         args = Args()
-        
+
         # Test async function
         async def run_test():
             await handle_work_any(args)
-        
-        # Since we can't actually run the worker due to import issues in tests,
-        # just test that the core logic runs without errors
-        try:
-            asyncio.run(run_test())
-        except ImportError:
-            # Expected since workers might not be available in test environment
-            pass
+
+        # Run the test
+        asyncio.run(run_test())
+
+        # Verify the mocks were called
+        mock_load_work.assert_called_once()
+        mock_ai_select.assert_called_once()
+        mock_create_session.assert_called_once()
 
     @patch('builtins.input', return_value='1')
     @patch('maestro.commands.work.load_available_work')
     @patch('maestro.commands.work.ai_select_work_items')
     @patch('maestro.commands.work.create_session')
-    def test_handle_work_any_pick(self, mock_create_session, mock_ai_select, mock_load_work, mock_input):
+    @patch('maestro.commands.work._run_ai_interaction_with_breadcrumb')
+    @patch('maestro.commands.work.check_work_gates')
+    def test_handle_work_any_pick(self, mock_gates, mock_ai_interact, mock_create_session, mock_ai_select, mock_load_work, mock_input):
         """Test the work any pick command handler."""
+        mock_gates.return_value = True
         mock_load_work.return_value = {
             "tracks": [{"id": "track1", "type": "track", "name": "Test Track"}],
             "phases": [{"id": "phase1", "type": "phase", "name": "Test Phase"}],
             "issues": [{"id": "issue1", "type": "issue", "name": "Test Issue"}]
         }
-        
+
         mock_ai_select.return_value = [
             {
                 "id": "track1",
@@ -276,27 +284,30 @@ class TestWorkCommand(unittest.TestCase):
                 "reason": "High priority"
             }
         ]
-        
+
         mock_session = Mock(spec=WorkSession)
         mock_create_session.return_value = mock_session
-        
+        mock_ai_interact.return_value = "Mocked AI response"
+
         # Mock args
         class Args:
-            pick = True  # This is just to check if pick functionality is triggered
-        
+            pick = True
+            ignore_gates = False
+
         args = Args()
-        
+
         # Test async function
         async def run_test():
             await handle_work_any_pick(args)
-        
-        # Since we can't actually run the worker due to import issues in tests,
-        # just test that the core logic runs without errors
-        try:
-            asyncio.run(run_test())
-        except ImportError:
-            # Expected since workers might not be available in test environment
-            pass
+
+        # Run the test
+        asyncio.run(run_test())
+
+        # Verify the mocks were called
+        mock_load_work.assert_called_once()
+        mock_ai_select.assert_called_once()
+        mock_input.assert_called_once()
+        mock_create_session.assert_called_once()
 
 
 class TestWorkCommandIntegration(unittest.TestCase):
