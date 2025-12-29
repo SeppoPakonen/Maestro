@@ -86,6 +86,7 @@ JOBS=""
 PROFILE="${MAESTRO_TEST_PROFILE:-all}"
 RESUME_FROM="${MAESTRO_TEST_RESUME_FROM:-}"
 CHECKPOINT_FILE="${MAESTRO_TEST_CHECKPOINT:-}"
+SKIPLIST="${MAESTRO_TEST_SKIPLIST:-$SCRIPT_DIR/skiplist.txt}"
 PROFILE_REPORT=0
 PYTEST_ARGS=()
 
@@ -106,12 +107,15 @@ Options:
   --profile-report        Show timing report for slowest 25 tests
   --resume-from FILE      Resume from checkpoint, skipping previously PASSED tests
   --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
+  --skiplist FILE         File containing test patterns to skip (default: tools/test/skiplist.txt)
+                          Use --skiplist "" to disable skipping
 
 Environment variables:
   MAESTRO_TEST_JOBS       Default worker count (overridden by -j/--jobs)
   MAESTRO_TEST_PROFILE    Default speed profile (overridden by --profile)
   MAESTRO_TEST_RESUME_FROM Default resume checkpoint file
   MAESTRO_TEST_CHECKPOINT  Default checkpoint file path
+  MAESTRO_TEST_SKIPLIST    Default skiplist file path
 
 Examples:
   # Run tests with default parallelism
@@ -128,6 +132,12 @@ Examples:
 
   # Show profiling report
   $0 --profile-report
+
+  # Use custom skiplist
+  $0 --skiplist my_skiplist.txt
+
+  # Disable skiplist (run all tests including normally-skipped ones)
+  $0 --skiplist ""
 
 All additional arguments are passed directly to pytest.
 EOF
@@ -177,6 +187,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       CHECKPOINT_FILE="$2"
+      shift 2
+      ;;
+    --skiplist)
+      if [[ -z "${2+x}" ]]; then
+        echo "ERROR: --skiplist requires a file path argument (use \"\" to disable)" >&2
+        exit 1
+      fi
+      SKIPLIST="$2"
       shift 2
       ;;
     *)
@@ -252,6 +270,23 @@ esac
 # Profiling report
 if [[ "$PROFILE_REPORT" -eq 1 ]]; then
   PYTEST_BASE_ARGS+=(--durations=25)
+fi
+
+# ==============================================================================
+# Process skiplist file
+# ==============================================================================
+if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip empty lines and comments
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+    # Add --ignore for each pattern
+    PYTEST_BASE_ARGS+=(--ignore="$line")
+  done < "$SKIPLIST"
+elif [[ -n "$SKIPLIST" ]]; then
+  echo "WARNING: Skiplist file not found: $SKIPLIST" >&2
+  echo "Continuing without skiplist..." >&2
 fi
 
 # ==============================================================================

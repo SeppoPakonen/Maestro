@@ -170,12 +170,44 @@ bash tools/test/run.sh -k work_command
 bash tools/test/run.sh -m slow
 ```
 
+## Skiplist Management
+
+The runner supports skipping tests via a skiplist file containing patterns to ignore.
+
+**Default behavior**: Uses `tools/test/skiplist.txt` which skips legacy tests and deprecated test files.
+
+```bash
+# Use default skiplist (tools/test/skiplist.txt)
+bash tools/test/run.sh
+
+# Use custom skiplist
+bash tools/test/run.sh --skiplist my_custom_skiplist.txt
+
+# Disable skiplist (run ALL tests, even legacy)
+bash tools/test/run.sh --skiplist ""
+
+# Set default via environment
+MAESTRO_TEST_SKIPLIST=/path/to/skiplist.txt bash tools/test/run.sh
+```
+
+**Skiplist file format**: One pattern per line (passed to `pytest --ignore`). Lines starting with `#` or empty lines are ignored.
+
+Example `skiplist.txt`:
+```
+# Legacy tests
+tests/legacy
+
+# Deprecated test files
+tests/test_old_feature.py
+```
+
 ## Environment Variables
 
 - `MAESTRO_TEST_JOBS`: Default worker count (default: cpu_count - 1)
 - `MAESTRO_TEST_PROFILE`: Default speed profile (default: all)
 - `MAESTRO_TEST_CHECKPOINT`: Checkpoint file path (default: auto-generated in /tmp)
 - `MAESTRO_TEST_RESUME_FROM`: Resume from this checkpoint file
+- `MAESTRO_TEST_SKIPLIST`: Default skiplist file path (default: tools/test/skiplist.txt)
 - `PYTHON_BIN`: Python binary to use (default: auto-detected python3 or python)
 
 ## Implementation Details

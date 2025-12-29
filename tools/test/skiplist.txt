@@ -1,0 +1,12 @@
+# Default skiplist for Maestro test runner
+# Each line is a pattern passed to pytest --ignore
+# Blank lines and lines starting with # are ignored
+
+# Legacy test directory
+tests/legacy
+
+# Individual legacy test files (deleted or renamed)
+tests/test_acceptance_criteria.py
+tests/test_comprehensive.py
+tests/test_migration_check.py
+tests/test_run_cli_engine.py
