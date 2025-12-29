@@ -1,0 +1,3 @@
+uses "Core";
+description "Memory package";
+file "Memory.h", "Memory.cpp", "Pool.h", "Allocator.h";

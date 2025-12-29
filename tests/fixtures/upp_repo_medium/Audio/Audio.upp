@@ -1,0 +1,3 @@
+uses "Core";
+description "Audio package";
+file "Audio.h", "Audio.cpp", "Sound.h", "Sound.cpp";

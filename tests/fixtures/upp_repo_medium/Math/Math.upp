@@ -1,0 +1,3 @@
+uses "Core";
+description "Math package";
+file "Math.h", "Math.cpp", "Vector.h", "Vector.cpp", "Matrix.h";

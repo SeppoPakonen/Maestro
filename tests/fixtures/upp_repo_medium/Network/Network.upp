@@ -1,0 +1,3 @@
+uses "Core";
+description "Network package";
+file "Network.h", "Network.cpp", "Socket.h", "Socket.cpp", "HTTP.h";

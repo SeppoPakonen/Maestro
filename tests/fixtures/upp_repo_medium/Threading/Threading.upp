@@ -1,0 +1,3 @@
+uses "Core";
+description "Threading package";
+file "Threading.h", "Threading.cpp", "Thread.h", "Mutex.h";

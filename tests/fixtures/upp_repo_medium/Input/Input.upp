@@ -1,0 +1,3 @@
+uses "Core,GUI";
+description "Input package";
+file "Input.h", "Input.cpp", "Keyboard.h", "Mouse.h";

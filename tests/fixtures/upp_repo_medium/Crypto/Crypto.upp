@@ -1,0 +1,3 @@
+uses "Core";
+description "Crypto package";
+file "Crypto.h", "Crypto.cpp", "Hash.h", "Cipher.h";

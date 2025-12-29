@@ -1,0 +1,3 @@
+uses "Core";
+description "GUI package";
+file "GUI.h", "GUI.cpp", "Widget.h", "Widget.cpp", "Button.h";

@@ -1,0 +1,3 @@
+uses "Core";
+description "Database package";
+file "Database.h", "Database.cpp", "Query.h", "Query.cpp";

@@ -1,0 +1,2 @@
+description "Core functionality and utilities";
+file "Core.h", "Core.cpp", "String.h", "String.cpp", "Array.h";

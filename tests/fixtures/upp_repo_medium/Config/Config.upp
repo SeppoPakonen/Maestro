@@ -1,0 +1,3 @@
+uses "Core";
+description "Config package";
+file "Config.h", "Config.cpp", "Settings.h";

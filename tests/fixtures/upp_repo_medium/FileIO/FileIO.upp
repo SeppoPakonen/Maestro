@@ -1,0 +1,3 @@
+uses "Core";
+description "FileIO package";
+file "FileIO.h", "FileIO.cpp", "File.h", "Directory.h";

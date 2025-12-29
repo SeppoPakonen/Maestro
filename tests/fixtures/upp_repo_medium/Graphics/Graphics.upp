@@ -1,0 +1,3 @@
+uses "Core,GUI";
+description "Graphics package";
+file "Graphics.h", "Graphics.cpp", "Canvas.h", "Canvas.cpp";

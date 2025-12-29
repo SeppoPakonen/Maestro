@@ -1,0 +1,3 @@
+uses "Core";
+description "Compression package";
+file "Compression.h", "Compression.cpp", "Zip.h";
