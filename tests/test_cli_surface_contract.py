@@ -441,5 +441,89 @@ class TestContractStability:
         assert result1.returncode != 0
 
 
+class TestConvertDispatchContract:
+    """Test convert plan dispatch patterns: pipeline-first and keyword-first."""
+
+    def test_convert_plan_pipeline_first(self):
+        """Test: convert plan <PIPELINE_ID> doesn't show top-level help."""
+        env = os.environ.copy()
+        env.pop('MAESTRO_ENABLE_LEGACY', None)
+
+        result = subprocess.run(
+            [sys.executable, '-m', 'maestro', 'convert', 'plan', 'demo-pipe'],
+            env=env,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+
+        # Should not show top-level help
+        output = result.stdout + result.stderr
+        assert "maestro [OPTIONS] COMMAND" not in output, \
+            "Pipeline-first dispatch should not show top-level help"
+
+        # Should either succeed or show pipeline-specific error (not argument parsing error)
+        # Acceptable outputs:
+        # - Success (exit 0) with pipeline details
+        # - Pipeline not found error (mentions pipeline)
+        # - Planning conversion message
+        if result.returncode != 0:
+            assert "demo-pipe" in output or "Pipeline" in output or "pipeline" in output, \
+                "Error should be about pipeline, not argument parsing"
+
+    def test_convert_plan_keyword_first(self):
+        """Test: convert plan show <PIPELINE_ID> works (keyword-first dispatch)."""
+        env = os.environ.copy()
+        env.pop('MAESTRO_ENABLE_LEGACY', None)
+
+        result = subprocess.run(
+            [sys.executable, '-m', 'maestro', 'convert', 'plan', 'show', 'demo-pipe'],
+            env=env,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+
+        output = result.stdout + result.stderr
+
+        # Should not show top-level help
+        assert "maestro [OPTIONS] COMMAND" not in output, \
+            "Keyword-first dispatch should not show top-level help"
+
+        # Should handle the show subcommand
+        # Acceptable outcomes:
+        # - Success with pipeline details
+        # - Pipeline not found error
+        # - Valid pipeline-related error message
+        if result.returncode != 0:
+            assert "demo-pipe" in output or "Pipeline" in output or "pipeline" in output, \
+                "Error should be about pipeline, not argument parsing"
+
+    def test_convert_plan_approve_pipeline_first(self):
+        """Test: convert plan approve <PIPELINE_ID> --reason works."""
+        env = os.environ.copy()
+        env.pop('MAESTRO_ENABLE_LEGACY', None)
+
+        result = subprocess.run(
+            [sys.executable, '-m', 'maestro', 'convert', 'plan', 'approve', 'demo-pipe', '--reason', 'test'],
+            env=env,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+
+        output = result.stdout + result.stderr
+
+        # Should not show top-level help
+        assert "maestro [OPTIONS] COMMAND" not in output, \
+            "Approve command should not show top-level help"
+
+        # Should handle the approve action
+        if result.returncode != 0:
+            # Either pipeline not found or other valid error
+            assert "demo-pipe" in output or "Pipeline" in output or "pipeline" in output, \
+                "Error should be about pipeline, not argument parsing"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

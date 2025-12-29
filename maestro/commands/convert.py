@@ -48,7 +48,7 @@ def handle_convert_new(args):
 
 
 def handle_convert_plan(args):
-    """Handle maestro convert plan [SUBCOMMAND]"""
+    """Handle maestro convert plan [PIPELINE_ID] [ACTION] or [ACTION] [PIPELINE_ID]."""
     try:
         from maestro.convert.plan_approval import (
             approve_plan,
@@ -60,15 +60,24 @@ def handle_convert_plan(args):
 
         repo_root = find_repo_root_v3()
         action_or_pipeline = args.action_or_pipeline
-        pipeline_id = args.pipeline_id
+        pipeline_or_action = args.pipeline_id
+        actions = {"show", "approve", "reject", "status", "history"}
         plan_subcommand = None
-        if action_or_pipeline in {"show", "approve", "reject"}:
+        pipeline_id = None
+
+        if action_or_pipeline in actions:
             plan_subcommand = action_or_pipeline
+            pipeline_id = pipeline_or_action
             if not pipeline_id:
                 print("Error: PIPELINE_ID is required for this command.")
                 return 1
         else:
             pipeline_id = action_or_pipeline
+            if pipeline_or_action:
+                if pipeline_or_action not in actions:
+                    print(f"Error: unknown action '{pipeline_or_action}'.")
+                    return 1
+                plan_subcommand = pipeline_or_action
 
         if plan_subcommand == "show":
             meta = load_meta(pipeline_id, repo_root=repo_root)
@@ -78,6 +87,30 @@ def handle_convert_plan(args):
             print(f"Plan path: {Path(repo_root) / 'docs' / 'maestro' / 'convert' / 'pipelines' / pipeline_id / 'plan.json'}")
             steps = plan.get("steps", [])
             print(f"Plan steps: {len(steps)}")
+            return 0
+
+        if plan_subcommand == "status":
+            meta = load_meta(pipeline_id, repo_root=repo_root)
+            print(f"Pipeline ID: {pipeline_id}")
+            print(f"Status: {meta.get('status')}")
+            return 0
+
+        if plan_subcommand == "history":
+            pipeline_dir = Path(repo_root) / "docs" / "maestro" / "convert" / "pipelines" / pipeline_id
+            decision_path = pipeline_dir / "decision.json"
+            runs_dir = pipeline_dir / "runs"
+            print(f"Pipeline ID: {pipeline_id}")
+            if decision_path.exists():
+                print(f"Decision: {decision_path}")
+            else:
+                print("Decision: none")
+            if runs_dir.exists():
+                runs = sorted(p.name for p in runs_dir.iterdir() if p.is_dir())
+            else:
+                runs = []
+            print(f"Runs: {len(runs)}")
+            for run_id in runs:
+                print(f"  - {run_id}")
             return 0
 
         if plan_subcommand == "approve":
@@ -126,24 +159,42 @@ def handle_convert_plan(args):
 def handle_convert_run(args):
     """Handle maestro convert run [PIPELINE_ID]"""
     try:
+        from maestro.convert.plan_approval import run_conversion_pipeline, load_meta
+
         repo_root = find_repo_root_v3()
+        pipeline_id = args.pipeline_id
+        ignore_gates = getattr(args, "ignore_gates", False)
+
+        # Check plan approval gate FIRST before any other gates
+        # This allows user to see "plan not approved" rather than "repoconf missing"
+        if not ignore_gates:
+            try:
+                meta = load_meta(pipeline_id, repo_root)
+                status = meta.get("status", "draft")
+                if status != "approved":
+                    print(f"\n  [Gate] CONVERT_PLAN_NOT_APPROVED")
+                    print(f"  Pipeline '{pipeline_id}' status is '{status}', not 'approved'.")
+                    print(f"  Run 'maestro convert plan approve {pipeline_id} --reason \"...\"' first.\n")
+                    return 1
+            except Exception as e:
+                print(f"Error loading pipeline metadata: {e}")
+                return 1
+
+        # Only check repo/branch requirements if plan is approved (or gates bypassed)
+        # Note: convert pipelines specify target in pipeline metadata, not repoconf
         require_repo_model(repo_root)
-        ensure_repoconf_target(repo_root)
         branch_guard_error = check_branch_guard(repo_root)
         if branch_guard_error:
             print(f"Error: {branch_guard_error}")
             return 1
 
-        from maestro.convert.plan_approval import run_conversion_pipeline
-
-        pipeline_id = args.pipeline_id
         print(f"Running conversion pipeline: {pipeline_id}")
 
         try:
             result = run_conversion_pipeline(
                 pipeline_id,
                 repo_root=repo_root,
-                ignore_gates=getattr(args, "ignore_gates", False),
+                ignore_gates=ignore_gates,
             )
             if result.success:
                 print(f"Successfully ran conversion pipeline: {pipeline_id}")
@@ -302,8 +353,15 @@ def add_convert_parser(subparsers):
 
     # convert plan (show/approve/reject or default planning)
     plan_parser = convert_subparsers.add_parser('plan', aliases=['p'], help='Plan conversion approach')
-    plan_parser.add_argument('action_or_pipeline', help='Action (show/approve/reject) or pipeline ID')
-    plan_parser.add_argument('pipeline_id', nargs='?', help='Pipeline ID when using show/approve/reject')
+    plan_parser.add_argument(
+        'action_or_pipeline',
+        help='ACTION (show/approve/reject/status/history) or PIPELINE_ID'
+    )
+    plan_parser.add_argument(
+        'pipeline_id',
+        nargs='?',
+        help='PIPELINE_ID when ACTION first, or ACTION when PIPELINE_ID first'
+    )
     plan_parser.add_argument('--reason', help='Reason for approval or rejection')
     plan_parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed progress')
 
