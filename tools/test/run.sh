@@ -264,6 +264,9 @@ PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt
 # ==============================================================================
 PYTEST_BASE_ARGS=()
 
+# Enable colored output
+PYTEST_BASE_ARGS+=(--color=yes)
+
 # Verbosity
 if [[ "$VERBOSE" -eq 1 ]]; then
   PYTEST_BASE_ARGS+=(-vv)
@@ -282,8 +285,9 @@ fi
 # Speed profile filtering using timing data
 # ==============================================================================
 # If timing data exists, use actual performance. Otherwise fall back to markers.
+# Don't use timing data when generating a new profile report (--save-profile-report)
 TIMING_BASED_FILTER=0
-if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
+if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]] && [[ "$SAVE_PROFILE_REPORT" -eq 0 ]]; then
   # Parse timing data to build test lists based on actual performance
   FAST_TESTS=$(mktemp)
   MEDIUM_TESTS=$(mktemp)
@@ -390,7 +394,8 @@ if [[ "$TIMING_BASED_FILTER" -eq 0 ]]; then
 
       # If timing data exists and slowest-first is enabled, order all tests by duration
       # Only apply if timing file has actual test data
-      if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
+      # Don't use timing data when generating a new profile report
+      if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]] && [[ "$SAVE_PROFILE_REPORT" -eq 0 ]]; then
         # Check if timing file has actual test timing data
         if grep -qE '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)' "$PROFILE_OUTPUT_FILE" 2>/dev/null; then
           ALL_TESTS_SORTED=$(mktemp)
@@ -539,14 +544,18 @@ if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
 else
   echo "Skiplist:         disabled"
 fi
-if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
+if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]] && [[ "$SAVE_PROFILE_REPORT" -eq 0 ]]; then
   if grep -qE '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)' "$PROFILE_OUTPUT_FILE" 2>/dev/null; then
     echo "Test ordering:    slowest-first (timing data available)"
   else
     echo "Test ordering:    default (no timing data)"
   fi
 else
-  echo "Test ordering:    default"
+  if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
+    echo "Test ordering:    default (generating new profile)"
+  else
+    echo "Test ordering:    default"
+  fi
 fi
 if [[ -n "$TEST_TIMEOUT" ]]; then
   echo "Timeout:          ${TEST_TIMEOUT}s per test"
