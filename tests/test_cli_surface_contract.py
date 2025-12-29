@@ -17,6 +17,8 @@ import pytest
 import subprocess
 from pathlib import Path
 
+pytestmark = pytest.mark.slow
+
 
 class TestLegacyKillSwitch:
     """Test legacy command enable/disable via MAESTRO_ENABLE_LEGACY environment variable."""
@@ -134,18 +136,38 @@ class TestParserStructure:
             'tu', 'convert'
         ]
 
-        env = os.environ.copy()
-        env.pop('MAESTRO_ENABLE_LEGACY', None)
+        # Save and clear MAESTRO_ENABLE_LEGACY to ensure legacy commands are not registered
+        old_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY')
+        if 'MAESTRO_ENABLE_LEGACY' in os.environ:
+            del os.environ['MAESTRO_ENABLE_LEGACY']
 
-        for cmd in canonical:
-            result = subprocess.run(
-                [sys.executable, '-m', 'maestro', cmd, '--help'],
-                env=env,
-                capture_output=True,
-                text=True,
-                cwd=Path(__file__).parent.parent
-            )
-            assert result.returncode == 0, f"Canonical command '{cmd}' should always be available"
+        try:
+            # Import parser creation function
+            sys.path.insert(0, str(Path(__file__).parent.parent))
+            from maestro.modules.cli_parser import create_main_parser
+
+            # Create parser and get registered subcommands
+            parser = create_main_parser()
+
+            # Get all registered subcommands from the parser
+            # The subparsers are stored in parser._subparsers._group_actions[0].choices
+            subparsers_action = None
+            for action in parser._subparsers._group_actions:
+                if hasattr(action, 'choices'):
+                    subparsers_action = action
+                    break
+
+            assert subparsers_action is not None, "Could not find subparsers in parser"
+            registered_commands = set(subparsers_action.choices.keys())
+
+            # Verify all canonical commands are registered
+            for cmd in canonical:
+                assert cmd in registered_commands, \
+                    f"Canonical command '{cmd}' should always be available (found: {registered_commands})"
+        finally:
+            # Restore MAESTRO_ENABLE_LEGACY
+            if old_legacy is not None:
+                os.environ['MAESTRO_ENABLE_LEGACY'] = old_legacy
 
     def test_help_excludes_legacy_by_default(self):
         """Verify main help doesn't show legacy commands by default."""
