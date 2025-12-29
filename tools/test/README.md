@@ -119,6 +119,19 @@ cat docs/workflows/v3/reports/test_timing_latest.txt
 - Test run metadata (timestamp, duration, workers, profile)
 - Used by `--profile fast/medium/slow` to select tests
 
+**Slowest-First Ordering:**
+
+When timing data exists, tests are automatically run in slowest-first order. This helps detect failures in slow tests earlier (fail-fast strategy).
+
+```bash
+# When timing data exists, tests run slowest-first automatically
+bash tools/test/run.sh --profile all
+
+# Output shows: "Ordering: slowest first (N tests)"
+```
+
+This feature is enabled by default when timing data is available. Slowest tests are prioritized to surface failures sooner, saving development time.
+
 ### 5. Test Timeouts
 
 Kill tests that run too long to prevent hanging test suites.
@@ -225,11 +238,14 @@ bash tools/test/run.sh --skiplist my_custom_skiplist.txt
 # Disable skiplist (run ALL tests, even legacy)
 bash tools/test/run.sh --skiplist ""
 
+# Run ONLY the tests in the skiplist (inverse behavior)
+bash tools/test/run.sh --skipped
+
 # Set default via environment
 MAESTRO_TEST_SKIPLIST=/path/to/skiplist.txt bash tools/test/run.sh
 ```
 
-**Skiplist file format**: One pattern per line (passed to `pytest --ignore`). Lines starting with `#` or empty lines are ignored.
+**Skiplist file format**: One pattern per line. Can be file paths, directories, or specific test nodeids. Lines starting with `#` or empty lines are ignored.
 
 Example `skiplist.txt`:
 ```
@@ -238,6 +254,21 @@ tests/legacy
 
 # Deprecated test files
 tests/test_old_feature.py
+
+# Specific tests that depend on external data
+tests/test_integration.py::test_requires_external_data
+```
+
+### Running Skipped Tests Only
+
+Use `--skipped` to run ONLY the tests listed in the skiplist (useful for testing non-portable or slow tests):
+
+```bash
+# Run only the tests normally skipped
+bash tools/test/run.sh --skipped
+
+# Combine with other options
+bash tools/test/run.sh --skipped --timeout 60 -v
 ```
 
 ## Environment Variables

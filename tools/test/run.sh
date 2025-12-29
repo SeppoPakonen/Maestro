@@ -89,6 +89,8 @@ CHECKPOINT_FILE="${MAESTRO_TEST_CHECKPOINT:-}"
 SKIPLIST="${MAESTRO_TEST_SKIPLIST:-$SCRIPT_DIR/skiplist.txt}"
 TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
 PROFILE_REPORT=0
+SKIPPED_ONLY=0
+SLOWEST_FIRST=1
 PYTEST_ARGS=()
 
 show_help() {
@@ -110,6 +112,7 @@ Options:
   --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
   --skiplist FILE         File containing test patterns to skip (default: tools/test/skiplist.txt)
                           Use --skiplist "" to disable skipping
+  --skipped               Run ONLY the tests listed in skiplist (inverse of default behavior)
   --timeout SECONDS       Kill tests that run longer than SECONDS (requires pytest-timeout)
 
 Environment variables:
@@ -203,6 +206,10 @@ while [[ $# -gt 0 ]]; do
       SKIPLIST="$2"
       shift 2
       ;;
+    --skipped)
+      SKIPPED_ONLY=1
+      shift
+      ;;
     --timeout)
       if [[ -z "${2:-}" ]]; then
         echo "ERROR: --timeout requires a number of seconds" >&2
@@ -273,6 +280,7 @@ if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
   FAST_TESTS=$(mktemp)
   MEDIUM_TESTS=$(mktemp)
   SLOW_TESTS=$(mktemp)
+  ALL_TIMED_TESTS=$(mktemp)
 
   # Extract test nodeids and durations from timing file
   # Format: "0.07s call     tests/test_foo.py::TestBar::test_baz"
@@ -280,13 +288,16 @@ if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
     duration=$(echo "$line" | awk '{print $1}' | sed 's/s$//')
     nodeid=$(echo "$line" | awk '{$1=$2=""; print $0}' | sed 's/^ *//')
 
+    # Store duration and nodeid for sorting
+    echo "$duration $nodeid" >> "$ALL_TIMED_TESTS"
+
     # Classify by duration
     if awk "BEGIN {exit !($duration < 0.1)}"; then
-      echo "$nodeid" >> "$FAST_TESTS"
+      echo "$duration $nodeid" >> "$FAST_TESTS"
     elif awk "BEGIN {exit !($duration < 1.0)}"; then
-      echo "$nodeid" >> "$MEDIUM_TESTS"
+      echo "$duration $nodeid" >> "$MEDIUM_TESTS"
     else
-      echo "$nodeid" >> "$SLOW_TESTS"
+      echo "$duration $nodeid" >> "$SLOW_TESTS"
     fi
   done
 
@@ -295,9 +306,17 @@ if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
     fast)
       if [[ -s "$FAST_TESTS" ]]; then
         echo "Using timing data: running $(wc -l < "$FAST_TESTS") fast tests (<0.1s)" >&2
-        while IFS= read -r test; do
-          PYTEST_BASE_ARGS+=("$test")
-        done < "$FAST_TESTS"
+        if [[ "$SLOWEST_FIRST" -eq 1 ]]; then
+          echo "Ordering: slowest first" >&2
+          # Sort by duration descending, extract nodeid
+          sort -rn "$FAST_TESTS" | while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done
+        else
+          while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done < "$FAST_TESTS"
+        fi
         TIMING_BASED_FILTER=1
       fi
       ;;
@@ -307,27 +326,42 @@ if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
         medium_count=$(wc -l < "$MEDIUM_TESTS" 2>/dev/null || echo 0)
         total=$((fast_count + medium_count))
         echo "Using timing data: running $total fast+medium tests (<1.0s)" >&2
-        while IFS= read -r test; do
-          PYTEST_BASE_ARGS+=("$test")
-        done < "$FAST_TESTS"
-        while IFS= read -r test; do
-          PYTEST_BASE_ARGS+=("$test")
-        done < "$MEDIUM_TESTS"
+        if [[ "$SLOWEST_FIRST" -eq 1 ]]; then
+          echo "Ordering: slowest first" >&2
+          # Combine and sort by duration descending
+          cat "$FAST_TESTS" "$MEDIUM_TESTS" | sort -rn | while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done
+        else
+          while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done < "$FAST_TESTS"
+          while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done < "$MEDIUM_TESTS"
+        fi
         TIMING_BASED_FILTER=1
       fi
       ;;
     slow)
       if [[ -s "$SLOW_TESTS" ]]; then
         echo "Using timing data: running $(wc -l < "$SLOW_TESTS") slow tests (>1.0s)" >&2
-        while IFS= read -r test; do
-          PYTEST_BASE_ARGS+=("$test")
-        done < "$SLOW_TESTS"
+        if [[ "$SLOWEST_FIRST" -eq 1 ]]; then
+          echo "Ordering: slowest first" >&2
+          sort -rn "$SLOW_TESTS" | while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done
+        else
+          while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done < "$SLOW_TESTS"
+        fi
         TIMING_BASED_FILTER=1
       fi
       ;;
   esac
 
-  rm -f "$FAST_TESTS" "$MEDIUM_TESTS" "$SLOW_TESTS"
+  rm -f "$FAST_TESTS" "$MEDIUM_TESTS" "$SLOW_TESTS" "$ALL_TIMED_TESTS"
 fi
 
 # Fall back to marker-based filtering if no timing data available
@@ -345,6 +379,23 @@ if [[ "$TIMING_BASED_FILTER" -eq 0 ]]; then
     all)
       # Don't add speed filtering, but still exclude legacy
       PYTEST_BASE_ARGS+=(-m "not legacy")
+
+      # If timing data exists and slowest-first is enabled, order all tests by duration
+      if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
+        ALL_TESTS_SORTED=$(mktemp)
+        # Extract all test nodeids with durations and sort slowest first
+        grep -E '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)\s+' "$PROFILE_OUTPUT_FILE" 2>/dev/null | \
+          awk '{duration=$1; gsub(/s$/,"",duration); $1=$2=""; nodeid=$0; gsub(/^ */,"",nodeid); print duration, nodeid}' | \
+          sort -rn > "$ALL_TESTS_SORTED"
+
+        if [[ -s "$ALL_TESTS_SORTED" ]]; then
+          echo "Ordering: slowest first ($(wc -l < "$ALL_TESTS_SORTED") tests)" >&2
+          while read -r duration nodeid; do
+            PYTEST_BASE_ARGS+=("$nodeid")
+          done < "$ALL_TESTS_SORTED"
+        fi
+        rm -f "$ALL_TESTS_SORTED"
+      fi
       ;;
     *)
       echo "ERROR: Invalid profile '$PROFILE'. Must be: fast, medium, slow, or all" >&2
@@ -353,12 +404,14 @@ if [[ "$TIMING_BASED_FILTER" -eq 0 ]]; then
   esac
 fi
 
-# Always exclude legacy tests
-if [[ "$TIMING_BASED_FILTER" -eq 0 ]] && [[ "$PROFILE" != "all" ]]; then
-  # Marker-based filtering already includes "not legacy"
-  :
-else
-  PYTEST_BASE_ARGS+=(-m "not legacy")
+# Always exclude legacy tests (unless running skipped tests)
+if [[ "$SKIPPED_ONLY" -eq 0 ]]; then
+  if [[ "$TIMING_BASED_FILTER" -eq 0 ]] && [[ "$PROFILE" != "all" ]]; then
+    # Marker-based filtering already includes "not legacy"
+    :
+  else
+    PYTEST_BASE_ARGS+=(-m "not legacy")
+  fi
 fi
 
 # Profiling report - always enabled to track test performance
@@ -374,14 +427,28 @@ fi
 # Process skiplist file
 # ==============================================================================
 if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    # Skip empty lines and comments
-    [[ -z "$line" ]] && continue
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+  if [[ "$SKIPPED_ONLY" -eq 1 ]]; then
+    # --skipped mode: run ONLY the tests in skiplist
+    echo "Running ONLY skipped tests from: $SKIPLIST" >&2
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      # Skip empty lines and comments
+      [[ -z "$line" ]] && continue
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
 
-    # Add --ignore for each pattern
-    PYTEST_BASE_ARGS+=(--ignore="$line")
-  done < "$SKIPLIST"
+      # Add pattern as positional argument to run only these tests
+      PYTEST_BASE_ARGS+=("$line")
+    done < "$SKIPLIST"
+  else
+    # Normal mode: skip tests in skiplist
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      # Skip empty lines and comments
+      [[ -z "$line" ]] && continue
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+      # Add --ignore for each pattern
+      PYTEST_BASE_ARGS+=(--ignore="$line")
+    done < "$SKIPLIST"
+  fi
 elif [[ -n "$SKIPLIST" ]]; then
   echo "WARNING: Skiplist file not found: $SKIPLIST" >&2
   echo "Continuing without skiplist..." >&2

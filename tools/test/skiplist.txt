@@ -10,3 +10,6 @@ tests/test_acceptance_criteria.py
 tests/test_comprehensive.py
 tests/test_migration_check.py
 tests/test_run_cli_engine.py
+
+# Tests that depend on external data not in repo (not portable)
+tests/test_repo_resolve_ai_upp.py::test_scan_upp_repo_v2_integration
