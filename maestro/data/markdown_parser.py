@@ -46,13 +46,13 @@ def _parse_asterisk_wrapped_value(value_str: str) -> Optional[str]:
 
 def parse_quoted_value(line: str) -> Optional[Tuple[str, Any]]:
     """
-    Parse a quoted or asterisk key-value pair from a line.
+    Parse a quoted, asterisk, or plain key-value pair from a line.
 
-    Format: "key": value OR *key*: value
-    - Strings: "key": "value" OR *key*: *value*
-    - Numbers: "key": 123 or "key": 45.67 OR *key*: 123 or *key*: 45.67
-    - Booleans: "key": true or "key": false OR *key*: true or *key*: false
-    - Null: "key": null OR *key*: null
+    Format: "key": value OR *key*: value OR key: value
+    - Strings: "key": "value" OR *key*: *value* OR key: value
+    - Numbers: "key": 123 or "key": 45.67 OR *key*: 123 or *key*: 45.67 OR key: 123
+    - Booleans: "key": true or "key": false OR *key*: true or *key*: false OR key: true
+    - Null: "key": null OR *key*: null OR key: null
 
     Args:
         line: Line of text to parse
@@ -71,9 +71,13 @@ def parse_quoted_value(line: str) -> Optional[Tuple[str, Any]]:
         ('name', 'Test Track')
         >>> parse_quoted_value('*priority*: 1')
         ('priority', 1)
+        >>> parse_quoted_value('task_id: TASK-123')
+        ('task_id', 'TASK-123')
+        >>> parse_quoted_value('status: in_progress')
+        ('status', 'in_progress')
     """
-    # Pattern: "key": value or *key*: value (with flexible whitespace)
-    # Key is in quotes or asterisks, value can be quoted/asterisked string, number, boolean, or null
+    # Pattern: "key": value or *key*: value or key: value (with flexible whitespace)
+    # Key is in quotes, asterisks, or plain text, value can be quoted/asterisked string, number, boolean, or null
     stripped = line.strip()
     quoted_pattern = r'"([^"]+)"\s*:\s*(.+)$'
 
@@ -94,7 +98,14 @@ def parse_quoted_value(line: str) -> Optional[Tuple[str, Any]]:
             return None
         value_str = remainder[1:].strip()
     else:
-        return None
+        # Try plain key: value format (unquoted)
+        plain_pattern = r'^([a-zA-Z_][a-zA-Z0-9_-]*)\s*:\s*(.+)$'
+        match = re.match(plain_pattern, stripped)
+        if match:
+            key = match.group(1)
+            value_str = match.group(2).strip()
+        else:
+            return None
 
     # Parse value based on format
     # Quoted or asterisked string
@@ -308,13 +319,18 @@ def parse_track_heading(line: str) -> Optional[str]:
     if match:
         track_name = match.group(1)
     else:
-        # Format 2: ## Name Track (no colon, extract whole heading)
-        pattern2 = r'^##\s+(.+\s+Track)\s*$'
+        # Format 2: ## Name Track (no colon, extract prefix before "Track")
+        pattern2 = r'^##\s+(.+?)\s+Track\s*$'
         match = re.match(pattern2, line.strip())
         if match:
-            track_name = match.group(1)
+            prefix = match.group(1)
             # Remove status prefixes for format 2
-            track_name = re.sub(r'^(?:[✅🚧📋💡]\s+)?(?:COMPLETED\s+)?(?:TOP PRIORITY\s+)?', '', track_name)
+            prefix = re.sub(r'^(?:[✅🚧📋💡]\s+)?(?:COMPLETED\s+)?(?:TOP PRIORITY\s+)?', '', prefix).strip()
+            tokens = re.findall(r'[A-Za-z0-9][A-Za-z0-9_-]*', prefix)
+            stopwords = {"a", "an", "the", "not", "no"}
+            if not any(token.lower() not in stopwords for token in tokens):
+                return None
+            track_name = f"{prefix} Track".strip()
         else:
             return None
 

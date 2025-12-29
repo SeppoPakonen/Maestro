@@ -255,8 +255,12 @@ def check_work_gates(ignore_gates: bool = False, repo_root: Optional[str] = None
                     try:
                         phase = parse_phase_md(str(phase_file))
                         for task in phase.get("tasks", []):
-                            task_id = task.get("task_id") or task.get("task_number")
-                            if task_id in issue.linked_tasks:
+                            task_id = task.get("task_id")
+                            task_number = task.get("task_number")
+                            # Check if either task_id or task_number matches linked tasks
+                            task_matches = (task_id and task_id in issue.linked_tasks) or \
+                                         (task_number and task_number in issue.linked_tasks)
+                            if task_matches:
                                 task_status = task.get("status", "").lower()
                                 if task_status in ["in_progress", "in progress", "active"]:
                                     has_in_progress_task = True
