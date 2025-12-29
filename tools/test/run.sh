@@ -73,8 +73,8 @@ if [[ -f "$REQ_FILE" ]]; then
   fi
 fi
 
-# Always try to install pytest-xdist (it's in requirements-dev.txt now)
-EXTRA_REQS=("pytest-xdist")
+# Always try to install pytest-xdist and pytest-timeout (in requirements-dev.txt)
+EXTRA_REQS=("pytest-xdist" "pytest-timeout")
 
 PIP_DISABLE_PIP_VERSION_CHECK=1 "$VENV_PY" -m pip install -q "$PYTEST_REQ" "${EXTRA_REQS[@]}"
 
@@ -87,6 +87,7 @@ PROFILE="${MAESTRO_TEST_PROFILE:-all}"
 RESUME_FROM="${MAESTRO_TEST_RESUME_FROM:-}"
 CHECKPOINT_FILE="${MAESTRO_TEST_CHECKPOINT:-}"
 SKIPLIST="${MAESTRO_TEST_SKIPLIST:-$SCRIPT_DIR/skiplist.txt}"
+TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
 PROFILE_REPORT=0
 PYTEST_ARGS=()
 
@@ -109,6 +110,7 @@ Options:
   --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
   --skiplist FILE         File containing test patterns to skip (default: tools/test/skiplist.txt)
                           Use --skiplist "" to disable skipping
+  --timeout SECONDS       Kill tests that run longer than SECONDS (requires pytest-timeout)
 
 Environment variables:
   MAESTRO_TEST_JOBS       Default worker count (overridden by -j/--jobs)
@@ -116,6 +118,7 @@ Environment variables:
   MAESTRO_TEST_RESUME_FROM Default resume checkpoint file
   MAESTRO_TEST_CHECKPOINT  Default checkpoint file path
   MAESTRO_TEST_SKIPLIST    Default skiplist file path
+  MAESTRO_TEST_TIMEOUT     Default test timeout in seconds
 
 Examples:
   # Run tests with default parallelism
@@ -138,6 +141,9 @@ Examples:
 
   # Disable skiplist (run all tests including normally-skipped ones)
   $0 --skiplist ""
+
+  # Kill tests that run longer than 5 seconds
+  $0 --timeout 5
 
 All additional arguments are passed directly to pytest.
 EOF
@@ -195,6 +201,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       SKIPLIST="$2"
+      shift 2
+      ;;
+    --timeout)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --timeout requires a number of seconds" >&2
+        exit 1
+      fi
+      TEST_TIMEOUT="$2"
       shift 2
       ;;
     *)
@@ -371,6 +385,20 @@ if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
 elif [[ -n "$SKIPLIST" ]]; then
   echo "WARNING: Skiplist file not found: $SKIPLIST" >&2
   echo "Continuing without skiplist..." >&2
+fi
+
+# ==============================================================================
+# Apply timeout if specified
+# ==============================================================================
+if [[ -n "$TEST_TIMEOUT" ]]; then
+  # Check if pytest-timeout is available
+  if ! "$VENV_PY" -c "import pytest_timeout" 2>/dev/null; then
+    echo "WARNING: pytest-timeout not installed, timeout will not be enforced" >&2
+    echo "Install with: pip install pytest-timeout" >&2
+  else
+    PYTEST_BASE_ARGS+=(--timeout="$TEST_TIMEOUT")
+    PYTEST_BASE_ARGS+=(--timeout-method=thread)
+  fi
 fi
 
 # ==============================================================================

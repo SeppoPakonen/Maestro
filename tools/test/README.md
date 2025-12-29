@@ -119,6 +119,27 @@ cat docs/workflows/v3/reports/test_timing_latest.txt
 - Test run metadata (timestamp, duration, workers, profile)
 - Used by `--profile fast/medium/slow` to select tests
 
+### 5. Test Timeouts
+
+Kill tests that run too long to prevent hanging test suites.
+
+```bash
+# Kill any test that runs longer than 5 seconds
+bash tools/test/run.sh --timeout 5
+
+# Combine with other options
+bash tools/test/run.sh --timeout 10 --profile slow
+
+# Set default via environment
+MAESTRO_TEST_TIMEOUT=30 bash tools/test/run.sh
+```
+
+**How it works:**
+- Uses `pytest-timeout` to enforce per-test time limits
+- Timed-out tests are marked as FAILED
+- Works with profiling - timeout is recorded in timing report
+- Timeout method: thread-based (safe for most tests)
+
 ## Common Workflows
 
 ### Fail-Fast Development
@@ -226,6 +247,7 @@ tests/test_old_feature.py
 - `MAESTRO_TEST_CHECKPOINT`: Checkpoint file path (default: auto-generated in /tmp)
 - `MAESTRO_TEST_RESUME_FROM`: Resume from this checkpoint file
 - `MAESTRO_TEST_SKIPLIST`: Default skiplist file path (default: tools/test/skiplist.txt)
+- `MAESTRO_TEST_TIMEOUT`: Default test timeout in seconds (default: none)
 - `PYTHON_BIN`: Python binary to use (default: auto-detected python3 or python)
 
 ## Implementation Details
