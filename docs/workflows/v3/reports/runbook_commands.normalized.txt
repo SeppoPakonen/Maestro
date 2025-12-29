@@ -1,0 +1,178 @@
+
+ai claude
+ai codex
+ai gemini
+ai qwen
+ai qwen "Explain how to use argparse"
+ai qwen session-001
+convert
+convert add cpp-to-python
+convert plan cpp-to-python
+convert run cpp-to-python ../my-python-project
+discuss
+discuss gemini
+discuss resume session-20250126-001
+init
+issues
+issues accept issue-001
+issues add "${SCAN_ID}"
+issues add make "Missing include: <string>"
+issues ignore issue-001 "Legacy code header will remain in src/ for backwards compatibility"
+issues link-task "${FIRST_ISSUE}" TASK-123 || true
+issues list
+issues list blocker open
+issues list convention
+issues resolve "${FIRST_ISSUE}" "Fixed in test commit" || true
+issues triage || true
+log list
+log show "${SCAN_ID_2}" | grep fingerprint | sort > /tmp/scan2_fingerprints.txt
+log show "${SCAN_ID}"
+log show "${SCAN_ID}" | grep fingerprint | sort > /tmp/scan1_fingerprints.txt
+make
+make make MyApp
+phase add track-001 "P1: Core Auth"
+phase add track-001 "P1: File Menu Actions"
+phase add track-001 "P1: Implement Core"
+phase add track-001 "P1: Implement Game Loop"
+phase add track-001 "P1: Implement and Build"
+platform caps detect
+platform caps prefer vulkan project
+platform caps require vulkan project
+repo
+repo conventions check
+repo hub find package Core
+repo hub find package CoreLib
+repo hub link package MyApp sha256:def456...
+repo hub link remove sha256:link123...
+repo hub link show
+repo hub list
+repo hub show sha256:abc123...
+repo refresh all
+repo resolve
+repo resolve lite
+repo show packages
+runbook add "C++ Hello Program" product greenfield cpp
+runbook add "GUI Menu: Edit" ui menu
+runbook add "GUI Menu: File" ui menu
+runbook add "GUI Menu: Help" ui menu
+runbook add "Hello CLI Tool" product greenfield
+runbook add "Text Adventure Game Loop" product game greenfield
+runbook archive RB-001 "Superseded by v2"
+runbook archive RB-001 "Testing idempotency"
+runbook archive docs/workflows/v3/runbooks/examples/EX-01_old_example.sh "Outdated approach"
+runbook export c-hello-program md
+runbook export hello-cli-tool md
+runbook export text-adventure-game-loop md
+runbook list
+runbook list json
+runbook restore <ARCHIVE_ID>
+runbook show RB-001
+runbook step-add c-hello-program ai "Write main.cpp with iostream, string" "Code compiles cleanly"
+runbook step-add c-hello-program manager "Define goal: minimal C++ program that prints greeting" "Goal documented"
+runbook step-add c-hello-program system "Detect Makefile, invoke g++ with "Compilation successful"
+runbook step-add c-hello-program user "Run: ./hello" "Prints: Hello from C++!"
+runbook step-add c-hello-program user "Run: make" "Compiles successfully, creates ./hello binary"
+runbook step-add gui-menu-edit user "Click Edit → Copy (or Ctrl+C)" "Selection copied to clipboard"
+runbook step-add gui-menu-edit user "Click Edit → Undo (or Ctrl+Z)" "Last action undone"
+runbook step-add gui-menu-file manager "Define File menu structure" "Menu items documented"
+runbook step-add gui-menu-file user "Click File → Export → Export as PDF" "PDF export dialog opens"
+runbook step-add gui-menu-file user "Click File → New (or Ctrl+N)" "New document created"
+runbook step-add gui-menu-file user "Click File → Open (or Ctrl+O)" "File picker dialog opens"
+runbook step-add gui-menu-file user "Click File → Save (or Ctrl+S)" "Document saved to disk"
+runbook step-add gui-menu-help user "Click Help → About" "About dialog displays app version"
+runbook step-add gui-menu-help user "Click Help → Check for Updates" "Update check runs, reports status"
+runbook step-add hello-cli-tool ai "Implement hello.py with argparse" "Code written and tested"
+runbook step-add hello-cli-tool manager "Define product goal: simple greeting CLI" "Goal documented"
+runbook step-add hello-cli-tool system "Parse CLI args using argparse" "Arguments extracted"
+runbook step-add hello-cli-tool user "Run: hello (no args)" "Prints: Hello, World!"
+runbook step-add hello-cli-tool user "Run: hello Alice" "Prints: Hello, Alice!"
+runbook step-add text-adventure-game-loop ai "Implement adventure.py with rooms dict and command parser" "Game loop functional"
+runbook step-add text-adventure-game-loop manager "Define goal: minimal playable text adventure" "Goal documented"
+runbook step-add text-adventure-game-loop system "Parse user command (look/go/take), edit world state" "Command processed, state updated"
+runbook step-add text-adventure-game-loop user "Run: python adventure.py" "Game starts, shows starting room description"
+runbook step-add text-adventure-game-loop user "Type: go north" "Player moves to forest, add room description shown"
+runbook step-add text-adventure-game-loop user "Type: inventory" "Shows: 'You are carrying: key'"
+runbook step-add text-adventure-game-loop user "Type: look" "Displays room description and available exits"
+runbook step-add text-adventure-game-loop user "Type: take key" "Key added to inventory"
+select toolchain detect
+select toolchain export env ./docs/maestro/toolchain-android.env
+select toolchain export env ./docs/maestro/toolchain.env
+select toolchain set android_ndk_r25 project
+select toolchain set system project
+select toolchain show project
+settings set ai_stacking_mode managed
+solutions
+solutions check
+solutions list
+solutions match
+task add issue-001
+task add phase-001 "Implement File → Export submenu"
+task add phase-001 "Implement File → New action"
+task add phase-001 "Implement File → Open action"
+task add phase-001 "Implement adventure.py with rooms and commands"
+task add phase-001 "Implement hello.py with argparse"
+task add phase-001 "Implement login endpoint"
+task add phase-001 "Write main.cpp and Makefile"
+task complete task-001
+track add "Sprint 1" 2025-01-01
+track add "Sprint 1: C++ Hello" 2025-01-01
+track add "Sprint 1: Hello CLI" 2025-01-01
+track add "Sprint 1: Text Adventure MVP" 2025-01-01
+track add "Sprint 2: Implement File Menu" 2025-02-01
+tu
+tu autocomplete src/main.cpp 6 20
+tu make target-cmake-mathapp
+tu make target-upp-app
+tu query symbol calculateSum
+tu refactor rename symbol-001 computeSum
+tu refactor rename symbol-001 std
+work resume wsession-parent-abc123
+work spawn task-001 "Investigate component Y"
+work task TASK-123 || echo "${YELLOW}⚠ Command failed (may not be fully implemented)${NC}"
+work task task-001
+work task task-002
+workflow accept user-auth-service
+workflow archive docs/workflows/v3/workflows/WF-OLD.md "Legacy workflow"
+workflow edge add hello-cli-workflow interface_001 code_001
+workflow edge add hello-cli-workflow manager_intent_001 user_intent_001
+workflow edge add hello-cli-workflow user_intent_001 interface_001
+workflow init edit-menu-workflow gui-menu-edit
+workflow init file-menu-workflow gui-menu-file
+workflow init game-loop-workflow text-adventure-game-loop
+workflow init hello-cli-workflow hello-cli-tool
+workflow init hello-cpp-workflow c-hello-program
+workflow init user-auth-service
+workflow list
+workflow node add edit-menu-workflow interface "Menu: Edit → Undo/Redo/Cut/Copy/Paste"
+workflow node add file-menu-workflow interface "Menu: File → New/Open/Save/Export"
+workflow node add file-menu-workflow manager_intent "Manager defines File menu structure"
+workflow node add file-menu-workflow user_intent "User wants to create/open/save/export files"
+workflow node add game-loop-workflow code "adventure.py: rooms dict + command parser"
+workflow node add game-loop-workflow interface "Game loop: parse commands, edit world state"
+workflow node add game-loop-workflow manager_intent "Goal: minimal playable adventure"
+workflow node add game-loop-workflow user_intent "Player explores rooms, takes items"
+workflow node add hello-cli-workflow code "hello.py main()"
+workflow node add hello-cli-workflow interface "CLI: argparse parser"
+workflow node add hello-cli-workflow manager_intent "Product goal: greeting CLI"
+workflow node add hello-cli-workflow user_intent "User runs hello X"
+workflow node add hello-cpp-workflow code "main.cpp: iostream + cout"
+workflow node add hello-cpp-workflow interface "Build: Makefile + g++"
+workflow node add hello-cpp-workflow manager_intent "Goal: minimal C++ greeting"
+workflow node add hello-cpp-workflow user_intent "User runs make; then ./hello"
+workflow node add manager-intent "User can log in securely"
+workflow node add user-action "Submit login form"
+workflow render file-menu-workflow puml
+workflow render hello-cli-workflow puml
+workflow render puml
+workflow restore <WORKFLOW_ARCHIVE_ID>
+workflow show docs/workflows/v3/workflows/WF-OLD.md
+workflow validate edit-menu-workflow
+workflow validate file-menu-workflow
+workflow validate game-loop-workflow
+workflow validate hello-cli-workflow
+workflow validate hello-cpp-workflow
+wsession breadcrumb add wsession-parent-abc123 "Implemented feature X using component Y"
+wsession breadcrumb add wsession-subtask-def456 "Found 3 main functions in component Y: validate, sanitize, transform"
+wsession breadcrumb add wsession-subtask-def456 "Implemented feature X"
+wsession breadcrumb task-001 '<cookie>' "Implementing argparse parser"
+wsession log session-20250126-001

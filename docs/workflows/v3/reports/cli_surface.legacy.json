@@ -1,0 +1,8063 @@
+{
+  "commands": [
+    "ai",
+    "ai claude",
+    "ai codex",
+    "ai gemini",
+    "ai qwen",
+    "ai qwen-old",
+    "ai sync",
+    "b an",
+    "b analyze",
+    "b android",
+    "b build",
+    "b cfg",
+    "b cfg detect",
+    "b cfg edit",
+    "b cfg list",
+    "b cfg show",
+    "b clean",
+    "b config",
+    "b config detect",
+    "b config edit",
+    "b config list",
+    "b config show",
+    "b exp",
+    "b export",
+    "b jar",
+    "b methods",
+    "b mth",
+    "b rebuild",
+    "b str",
+    "b str apply",
+    "b str fix",
+    "b str lint",
+    "b str sc",
+    "b str scan",
+    "b str show",
+    "b structure",
+    "b structure apply",
+    "b structure fix",
+    "b structure lint",
+    "b structure sc",
+    "b structure scan",
+    "b structure show",
+    "build",
+    "build an",
+    "build analyze",
+    "build android",
+    "build build",
+    "build cfg",
+    "build cfg detect",
+    "build cfg edit",
+    "build cfg list",
+    "build cfg show",
+    "build clean",
+    "build config",
+    "build config detect",
+    "build config edit",
+    "build config list",
+    "build config show",
+    "build exp",
+    "build export",
+    "build jar",
+    "build methods",
+    "build mth",
+    "build rebuild",
+    "build str",
+    "build str apply",
+    "build str fix",
+    "build str lint",
+    "build str sc",
+    "build str scan",
+    "build str show",
+    "build structure",
+    "build structure apply",
+    "build structure fix",
+    "build structure lint",
+    "build structure sc",
+    "build structure scan",
+    "build structure show",
+    "c add",
+    "c b rep",
+    "c b report",
+    "c b run",
+    "c b show",
+    "c b status",
+    "c batch",
+    "c batch rep",
+    "c batch report",
+    "c batch run",
+    "c batch show",
+    "c batch status",
+    "c new",
+    "c plan",
+    "c reset",
+    "c rst",
+    "c run",
+    "c show",
+    "c status",
+    "cache",
+    "cache prune",
+    "cache show",
+    "cache stats",
+    "cfg",
+    "cfg edit",
+    "cfg get",
+    "cfg list",
+    "cfg pr",
+    "cfg pr get",
+    "cfg pr list",
+    "cfg pr load",
+    "cfg pr save",
+    "cfg pr sd",
+    "cfg pr set-default",
+    "cfg prof",
+    "cfg prof get",
+    "cfg prof list",
+    "cfg prof load",
+    "cfg prof save",
+    "cfg prof sd",
+    "cfg prof set-default",
+    "cfg profile",
+    "cfg profile get",
+    "cfg profile list",
+    "cfg profile load",
+    "cfg profile save",
+    "cfg profile sd",
+    "cfg profile set-default",
+    "cfg reset",
+    "cfg set",
+    "cfg wizard",
+    "config",
+    "config edit",
+    "config get",
+    "config list",
+    "config pr",
+    "config pr get",
+    "config pr list",
+    "config pr load",
+    "config pr save",
+    "config pr sd",
+    "config pr set-default",
+    "config prof",
+    "config prof get",
+    "config prof list",
+    "config prof load",
+    "config prof save",
+    "config prof sd",
+    "config prof set-default",
+    "config profile",
+    "config profile get",
+    "config profile list",
+    "config profile load",
+    "config profile save",
+    "config profile sd",
+    "config profile set-default",
+    "config reset",
+    "config set",
+    "config wizard",
+    "convert",
+    "convert add",
+    "convert b rep",
+    "convert b report",
+    "convert b run",
+    "convert b show",
+    "convert b status",
+    "convert batch",
+    "convert batch rep",
+    "convert batch report",
+    "convert batch run",
+    "convert batch show",
+    "convert batch status",
+    "convert new",
+    "convert plan",
+    "convert reset",
+    "convert rst",
+    "convert run",
+    "convert show",
+    "convert status",
+    "discuss",
+    "discuss replay",
+    "discuss resume",
+    "init",
+    "issues",
+    "issues add",
+    "issues analyze",
+    "issues build",
+    "issues convention",
+    "issues decide",
+    "issues features",
+    "issues fix",
+    "issues hier",
+    "issues ignore",
+    "issues link-task",
+    "issues list",
+    "issues look",
+    "issues product",
+    "issues react",
+    "issues resolve",
+    "issues rollback",
+    "issues runtime",
+    "issues show",
+    "issues state",
+    "issues triage",
+    "issues ux",
+    "log",
+    "log list",
+    "log scan",
+    "log show",
+    "m an",
+    "m analyze",
+    "m android",
+    "m build",
+    "m cfg",
+    "m cfg detect",
+    "m cfg edit",
+    "m cfg list",
+    "m cfg show",
+    "m clean",
+    "m config",
+    "m config detect",
+    "m config edit",
+    "m config list",
+    "m config show",
+    "m exp",
+    "m export",
+    "m jar",
+    "m methods",
+    "m mth",
+    "m rebuild",
+    "m str",
+    "m str apply",
+    "m str fix",
+    "m str lint",
+    "m str sc",
+    "m str scan",
+    "m str show",
+    "m structure",
+    "m structure apply",
+    "m structure fix",
+    "m structure lint",
+    "m structure sc",
+    "m structure scan",
+    "m structure show",
+    "make",
+    "make an",
+    "make analyze",
+    "make android",
+    "make build",
+    "make cfg",
+    "make cfg detect",
+    "make cfg edit",
+    "make cfg list",
+    "make cfg show",
+    "make clean",
+    "make config",
+    "make config detect",
+    "make config edit",
+    "make config list",
+    "make config show",
+    "make exp",
+    "make export",
+    "make jar",
+    "make methods",
+    "make mth",
+    "make rebuild",
+    "make str",
+    "make str apply",
+    "make str fix",
+    "make str lint",
+    "make str sc",
+    "make str scan",
+    "make str show",
+    "make structure",
+    "make structure apply",
+    "make structure fix",
+    "make structure lint",
+    "make structure sc",
+    "make structure scan",
+    "make structure show",
+    "ops",
+    "ops apply",
+    "ops preview",
+    "ops validate",
+    "p add",
+    "p discuss",
+    "p edit",
+    "p list",
+    "p raw",
+    "p remove",
+    "p set",
+    "p set-status",
+    "p set-text",
+    "p setraw",
+    "p show",
+    "p st",
+    "p status",
+    "p text",
+    "ph",
+    "ph add",
+    "ph discuss",
+    "ph edit",
+    "ph list",
+    "ph raw",
+    "ph remove",
+    "ph set",
+    "ph set-status",
+    "ph set-text",
+    "ph setraw",
+    "ph show",
+    "ph st",
+    "ph status",
+    "ph text",
+    "phase",
+    "phase add",
+    "phase discuss",
+    "phase edit",
+    "phase list",
+    "phase raw",
+    "phase remove",
+    "phase set",
+    "phase set-status",
+    "phase set-text",
+    "phase setraw",
+    "phase show",
+    "phase st",
+    "phase status",
+    "phase text",
+    "pl",
+    "pl add",
+    "pl add-item",
+    "pl ai",
+    "pl discuss",
+    "pl explore",
+    "pl list",
+    "pl ops",
+    "pl ops apply",
+    "pl ops preview",
+    "pl ops validate",
+    "pl remove",
+    "pl remove-item",
+    "pl ri",
+    "pl show",
+    "plan",
+    "plan add",
+    "plan add-item",
+    "plan ai",
+    "plan discuss",
+    "plan explore",
+    "plan list",
+    "plan ops",
+    "plan ops apply",
+    "plan ops preview",
+    "plan ops validate",
+    "plan remove",
+    "plan remove-item",
+    "plan ri",
+    "plan show",
+    "r edit",
+    "r list",
+    "rb",
+    "rb add",
+    "rb archive",
+    "rb delete",
+    "rb discuss",
+    "rb edit",
+    "rb exp",
+    "rb export",
+    "rb list",
+    "rb new",
+    "rb remove",
+    "rb render",
+    "rb restore",
+    "rb rnd",
+    "rb sa",
+    "rb se",
+    "rb show",
+    "rb sr",
+    "rb srn",
+    "rb step-add",
+    "rb step-edit",
+    "rb step-renumber",
+    "rb step-rm",
+    "repo",
+    "repo c list",
+    "repo c select-default",
+    "repo c show",
+    "repo conf",
+    "repo conf list",
+    "repo conf select-default",
+    "repo conf show",
+    "repo conventions",
+    "repo conventions detect",
+    "repo conventions show",
+    "repo hier",
+    "repo hier edit",
+    "repo hier show",
+    "repo hub",
+    "repo hub find",
+    "repo hub find package",
+    "repo hub find pkg",
+    "repo hub link",
+    "repo hub link package",
+    "repo hub link pkg",
+    "repo hub link remove",
+    "repo hub link show",
+    "repo hub list",
+    "repo hub scan",
+    "repo hub show",
+    "repo pkg",
+    "repo refresh",
+    "repo refresh all",
+    "repo res",
+    "repo resolve",
+    "repo rules",
+    "repo rules edit",
+    "repo rules inject",
+    "repo rules show",
+    "repo show",
+    "resume",
+    "root",
+    "root discuss",
+    "root get",
+    "root refine",
+    "root set",
+    "root show",
+    "rs",
+    "rules",
+    "rules edit",
+    "rules list",
+    "runba",
+    "runba add",
+    "runba archive",
+    "runba delete",
+    "runba discuss",
+    "runba edit",
+    "runba exp",
+    "runba export",
+    "runba list",
+    "runba new",
+    "runba remove",
+    "runba render",
+    "runba restore",
+    "runba rnd",
+    "runba sa",
+    "runba se",
+    "runba show",
+    "runba sr",
+    "runba srn",
+    "runba step-add",
+    "runba step-edit",
+    "runba step-renumber",
+    "runba step-rm",
+    "runbook",
+    "runbook add",
+    "runbook archive",
+    "runbook delete",
+    "runbook discuss",
+    "runbook edit",
+    "runbook exp",
+    "runbook export",
+    "runbook list",
+    "runbook new",
+    "runbook remove",
+    "runbook render",
+    "runbook restore",
+    "runbook rnd",
+    "runbook sa",
+    "runbook se",
+    "runbook show",
+    "runbook sr",
+    "runbook srn",
+    "runbook step-add",
+    "runbook step-edit",
+    "runbook step-renumber",
+    "runbook step-rm",
+    "s breadcrumbs",
+    "s details",
+    "s get",
+    "s list",
+    "s new",
+    "s remove",
+    "s set",
+    "s st",
+    "s stats",
+    "s timeline",
+    "session",
+    "session breadcrumbs",
+    "session details",
+    "session get",
+    "session list",
+    "session new",
+    "session remove",
+    "session set",
+    "session st",
+    "session stats",
+    "session timeline",
+    "settings",
+    "settings edit",
+    "settings get",
+    "settings list",
+    "settings pr",
+    "settings pr get",
+    "settings pr list",
+    "settings pr load",
+    "settings pr save",
+    "settings pr sd",
+    "settings pr set-default",
+    "settings prof",
+    "settings prof get",
+    "settings prof list",
+    "settings prof load",
+    "settings prof save",
+    "settings prof sd",
+    "settings prof set-default",
+    "settings profile",
+    "settings profile get",
+    "settings profile list",
+    "settings profile load",
+    "settings profile save",
+    "settings profile sd",
+    "settings profile set-default",
+    "settings reset",
+    "settings set",
+    "settings wizard",
+    "solutions",
+    "solutions add",
+    "solutions edit",
+    "solutions list",
+    "solutions remove",
+    "solutions show",
+    "t add",
+    "t details",
+    "t discuss",
+    "t dt",
+    "t edit",
+    "t list",
+    "t raw",
+    "t remove",
+    "t set",
+    "t set-status",
+    "t set-text",
+    "t setraw",
+    "t show",
+    "t st",
+    "t status",
+    "t text",
+    "ta",
+    "ta add",
+    "ta discuss",
+    "ta list",
+    "ta raw",
+    "ta remove",
+    "ta set-status",
+    "ta set-text",
+    "ta setraw",
+    "ta show",
+    "ta status",
+    "ta text",
+    "task",
+    "task add",
+    "task discuss",
+    "task list",
+    "task raw",
+    "task remove",
+    "task set-status",
+    "task set-text",
+    "task setraw",
+    "task show",
+    "task status",
+    "task text",
+    "tr",
+    "tr add",
+    "tr details",
+    "tr discuss",
+    "tr dt",
+    "tr edit",
+    "tr list",
+    "tr raw",
+    "tr remove",
+    "tr set",
+    "tr set-status",
+    "tr set-text",
+    "tr setraw",
+    "tr show",
+    "tr st",
+    "tr status",
+    "tr text",
+    "track",
+    "track add",
+    "track details",
+    "track discuss",
+    "track dt",
+    "track edit",
+    "track list",
+    "track raw",
+    "track remove",
+    "track set",
+    "track set-status",
+    "track set-text",
+    "track setraw",
+    "track show",
+    "track st",
+    "track status",
+    "track text",
+    "tu",
+    "tu build",
+    "tu cache",
+    "tu cache clear",
+    "tu cache stats",
+    "tu complete",
+    "tu draft",
+    "tu info",
+    "tu lsp",
+    "tu print-ast",
+    "tu query",
+    "tu references",
+    "tu transform",
+    "u dump",
+    "understand",
+    "understand dump",
+    "wk",
+    "wk analyze",
+    "wk any",
+    "wk any pick",
+    "wk discuss",
+    "wk fix",
+    "wk issue",
+    "wk phase",
+    "wk resume",
+    "wk task",
+    "wk track",
+    "work",
+    "work analyze",
+    "work any",
+    "work any pick",
+    "work discuss",
+    "work fix",
+    "work issue",
+    "work phase",
+    "work resume",
+    "work task",
+    "work track",
+    "workflow",
+    "workflow archive",
+    "workflow create",
+    "workflow delete",
+    "workflow edit",
+    "workflow list",
+    "workflow new",
+    "workflow restore",
+    "workflow show",
+    "workflow visualize",
+    "workflow viz",
+    "ws",
+    "ws breadcrumb",
+    "ws breadcrumb add",
+    "ws breadcrumbs",
+    "ws close",
+    "ws list",
+    "ws show",
+    "ws stats",
+    "ws timeline",
+    "ws tr",
+    "ws tree",
+    "wsession",
+    "wsession breadcrumb",
+    "wsession breadcrumb add",
+    "wsession breadcrumbs",
+    "wsession close",
+    "wsession list",
+    "wsession show",
+    "wsession stats",
+    "wsession timeline",
+    "wsession tr",
+    "wsession tree"
+  ],
+  "details": [
+    {
+      "command": "ai",
+      "path": [
+        "ai"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ai claude",
+      "path": [
+        "ai",
+        "claude"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ai codex",
+      "path": [
+        "ai",
+        "codex"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ai gemini",
+      "path": [
+        "ai",
+        "gemini"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ai qwen",
+      "path": [
+        "ai",
+        "qwen"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ai qwen-old",
+      "path": [
+        "ai",
+        "qwen-old"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ai sync",
+      "path": [
+        "ai",
+        "sync"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "b an",
+      "path": [
+        "b",
+        "an"
+      ],
+      "help": "",
+      "aliases": [
+        "analyze"
+      ]
+    },
+    {
+      "command": "b analyze",
+      "path": [
+        "b",
+        "analyze"
+      ],
+      "help": "",
+      "aliases": [
+        "an"
+      ]
+    },
+    {
+      "command": "b android",
+      "path": [
+        "b",
+        "android"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "b build",
+      "path": [
+        "b",
+        "build"
+      ],
+      "help": "",
+      "aliases": [
+        "b"
+      ]
+    },
+    {
+      "command": "b cfg",
+      "path": [
+        "b",
+        "cfg"
+      ],
+      "help": "",
+      "aliases": [
+        "config"
+      ]
+    },
+    {
+      "command": "b cfg detect",
+      "path": [
+        "b",
+        "cfg",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "b cfg edit",
+      "path": [
+        "b",
+        "cfg",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "b cfg list",
+      "path": [
+        "b",
+        "cfg",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "b cfg show",
+      "path": [
+        "b",
+        "cfg",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "b clean",
+      "path": [
+        "b",
+        "clean"
+      ],
+      "help": "",
+      "aliases": [
+        "c"
+      ]
+    },
+    {
+      "command": "b config",
+      "path": [
+        "b",
+        "config"
+      ],
+      "help": "",
+      "aliases": [
+        "cfg"
+      ]
+    },
+    {
+      "command": "b config detect",
+      "path": [
+        "b",
+        "config",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "b config edit",
+      "path": [
+        "b",
+        "config",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "b config list",
+      "path": [
+        "b",
+        "config",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "b config show",
+      "path": [
+        "b",
+        "config",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "b exp",
+      "path": [
+        "b",
+        "exp"
+      ],
+      "help": "",
+      "aliases": [
+        "export"
+      ]
+    },
+    {
+      "command": "b export",
+      "path": [
+        "b",
+        "export"
+      ],
+      "help": "",
+      "aliases": [
+        "exp"
+      ]
+    },
+    {
+      "command": "b jar",
+      "path": [
+        "b",
+        "jar"
+      ],
+      "help": "",
+      "aliases": [
+        "j"
+      ]
+    },
+    {
+      "command": "b methods",
+      "path": [
+        "b",
+        "methods"
+      ],
+      "help": "",
+      "aliases": [
+        "mth"
+      ]
+    },
+    {
+      "command": "b mth",
+      "path": [
+        "b",
+        "mth"
+      ],
+      "help": "",
+      "aliases": [
+        "methods"
+      ]
+    },
+    {
+      "command": "b rebuild",
+      "path": [
+        "b",
+        "rebuild"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "b str",
+      "path": [
+        "b",
+        "str"
+      ],
+      "help": "",
+      "aliases": [
+        "structure"
+      ]
+    },
+    {
+      "command": "b str apply",
+      "path": [
+        "b",
+        "str",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "b str fix",
+      "path": [
+        "b",
+        "str",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "b str lint",
+      "path": [
+        "b",
+        "str",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "b str sc",
+      "path": [
+        "b",
+        "str",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "b str scan",
+      "path": [
+        "b",
+        "str",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "b str show",
+      "path": [
+        "b",
+        "str",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "b structure",
+      "path": [
+        "b",
+        "structure"
+      ],
+      "help": "",
+      "aliases": [
+        "str"
+      ]
+    },
+    {
+      "command": "b structure apply",
+      "path": [
+        "b",
+        "structure",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "b structure fix",
+      "path": [
+        "b",
+        "structure",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "b structure lint",
+      "path": [
+        "b",
+        "structure",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "b structure sc",
+      "path": [
+        "b",
+        "structure",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "b structure scan",
+      "path": [
+        "b",
+        "structure",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "b structure show",
+      "path": [
+        "b",
+        "structure",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "build",
+      "path": [
+        "build"
+      ],
+      "help": "",
+      "aliases": [
+        "make",
+        "m",
+        "b"
+      ]
+    },
+    {
+      "command": "build an",
+      "path": [
+        "build",
+        "an"
+      ],
+      "help": "",
+      "aliases": [
+        "analyze"
+      ]
+    },
+    {
+      "command": "build analyze",
+      "path": [
+        "build",
+        "analyze"
+      ],
+      "help": "",
+      "aliases": [
+        "an"
+      ]
+    },
+    {
+      "command": "build android",
+      "path": [
+        "build",
+        "android"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "build build",
+      "path": [
+        "build",
+        "build"
+      ],
+      "help": "",
+      "aliases": [
+        "b"
+      ]
+    },
+    {
+      "command": "build cfg",
+      "path": [
+        "build",
+        "cfg"
+      ],
+      "help": "",
+      "aliases": [
+        "config"
+      ]
+    },
+    {
+      "command": "build cfg detect",
+      "path": [
+        "build",
+        "cfg",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "build cfg edit",
+      "path": [
+        "build",
+        "cfg",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "build cfg list",
+      "path": [
+        "build",
+        "cfg",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "build cfg show",
+      "path": [
+        "build",
+        "cfg",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "build clean",
+      "path": [
+        "build",
+        "clean"
+      ],
+      "help": "",
+      "aliases": [
+        "c"
+      ]
+    },
+    {
+      "command": "build config",
+      "path": [
+        "build",
+        "config"
+      ],
+      "help": "",
+      "aliases": [
+        "cfg"
+      ]
+    },
+    {
+      "command": "build config detect",
+      "path": [
+        "build",
+        "config",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "build config edit",
+      "path": [
+        "build",
+        "config",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "build config list",
+      "path": [
+        "build",
+        "config",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "build config show",
+      "path": [
+        "build",
+        "config",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "build exp",
+      "path": [
+        "build",
+        "exp"
+      ],
+      "help": "",
+      "aliases": [
+        "export"
+      ]
+    },
+    {
+      "command": "build export",
+      "path": [
+        "build",
+        "export"
+      ],
+      "help": "",
+      "aliases": [
+        "exp"
+      ]
+    },
+    {
+      "command": "build jar",
+      "path": [
+        "build",
+        "jar"
+      ],
+      "help": "",
+      "aliases": [
+        "j"
+      ]
+    },
+    {
+      "command": "build methods",
+      "path": [
+        "build",
+        "methods"
+      ],
+      "help": "",
+      "aliases": [
+        "mth"
+      ]
+    },
+    {
+      "command": "build mth",
+      "path": [
+        "build",
+        "mth"
+      ],
+      "help": "",
+      "aliases": [
+        "methods"
+      ]
+    },
+    {
+      "command": "build rebuild",
+      "path": [
+        "build",
+        "rebuild"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "build str",
+      "path": [
+        "build",
+        "str"
+      ],
+      "help": "",
+      "aliases": [
+        "structure"
+      ]
+    },
+    {
+      "command": "build str apply",
+      "path": [
+        "build",
+        "str",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "build str fix",
+      "path": [
+        "build",
+        "str",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "build str lint",
+      "path": [
+        "build",
+        "str",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "build str sc",
+      "path": [
+        "build",
+        "str",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "build str scan",
+      "path": [
+        "build",
+        "str",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "build str show",
+      "path": [
+        "build",
+        "str",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "build structure",
+      "path": [
+        "build",
+        "structure"
+      ],
+      "help": "",
+      "aliases": [
+        "str"
+      ]
+    },
+    {
+      "command": "build structure apply",
+      "path": [
+        "build",
+        "structure",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "build structure fix",
+      "path": [
+        "build",
+        "structure",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "build structure lint",
+      "path": [
+        "build",
+        "structure",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "build structure sc",
+      "path": [
+        "build",
+        "structure",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "build structure scan",
+      "path": [
+        "build",
+        "structure",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "build structure show",
+      "path": [
+        "build",
+        "structure",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "c add",
+      "path": [
+        "c",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "new",
+        "n"
+      ]
+    },
+    {
+      "command": "c b rep",
+      "path": [
+        "c",
+        "b",
+        "rep"
+      ],
+      "help": "",
+      "aliases": [
+        "report"
+      ]
+    },
+    {
+      "command": "c b report",
+      "path": [
+        "c",
+        "b",
+        "report"
+      ],
+      "help": "",
+      "aliases": [
+        "rep"
+      ]
+    },
+    {
+      "command": "c b run",
+      "path": [
+        "c",
+        "b",
+        "run"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "c b show",
+      "path": [
+        "c",
+        "b",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "c b status",
+      "path": [
+        "c",
+        "b",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "c batch",
+      "path": [
+        "c",
+        "batch"
+      ],
+      "help": "",
+      "aliases": [
+        "b"
+      ]
+    },
+    {
+      "command": "c batch rep",
+      "path": [
+        "c",
+        "batch",
+        "rep"
+      ],
+      "help": "",
+      "aliases": [
+        "report"
+      ]
+    },
+    {
+      "command": "c batch report",
+      "path": [
+        "c",
+        "batch",
+        "report"
+      ],
+      "help": "",
+      "aliases": [
+        "rep"
+      ]
+    },
+    {
+      "command": "c batch run",
+      "path": [
+        "c",
+        "batch",
+        "run"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "c batch show",
+      "path": [
+        "c",
+        "batch",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "c batch status",
+      "path": [
+        "c",
+        "batch",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "c new",
+      "path": [
+        "c",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "add",
+        "n"
+      ]
+    },
+    {
+      "command": "c plan",
+      "path": [
+        "c",
+        "plan"
+      ],
+      "help": "",
+      "aliases": [
+        "p"
+      ]
+    },
+    {
+      "command": "c reset",
+      "path": [
+        "c",
+        "reset"
+      ],
+      "help": "",
+      "aliases": [
+        "rst"
+      ]
+    },
+    {
+      "command": "c rst",
+      "path": [
+        "c",
+        "rst"
+      ],
+      "help": "",
+      "aliases": [
+        "reset"
+      ]
+    },
+    {
+      "command": "c run",
+      "path": [
+        "c",
+        "run"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "c show",
+      "path": [
+        "c",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "c status",
+      "path": [
+        "c",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "cache",
+      "path": [
+        "cache"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "cache prune",
+      "path": [
+        "cache",
+        "prune"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "cache show",
+      "path": [
+        "cache",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "cache stats",
+      "path": [
+        "cache",
+        "stats"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "cfg",
+      "path": [
+        "cfg"
+      ],
+      "help": "",
+      "aliases": [
+        "settings",
+        "config"
+      ]
+    },
+    {
+      "command": "cfg edit",
+      "path": [
+        "cfg",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "cfg get",
+      "path": [
+        "cfg",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "cfg list",
+      "path": [
+        "cfg",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "cfg pr",
+      "path": [
+        "cfg",
+        "pr"
+      ],
+      "help": "",
+      "aliases": [
+        "profile",
+        "prof"
+      ]
+    },
+    {
+      "command": "cfg pr get",
+      "path": [
+        "cfg",
+        "pr",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "cfg pr list",
+      "path": [
+        "cfg",
+        "pr",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "cfg pr load",
+      "path": [
+        "cfg",
+        "pr",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "cfg pr save",
+      "path": [
+        "cfg",
+        "pr",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "cfg pr sd",
+      "path": [
+        "cfg",
+        "pr",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "cfg pr set-default",
+      "path": [
+        "cfg",
+        "pr",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "cfg prof",
+      "path": [
+        "cfg",
+        "prof"
+      ],
+      "help": "",
+      "aliases": [
+        "profile",
+        "pr"
+      ]
+    },
+    {
+      "command": "cfg prof get",
+      "path": [
+        "cfg",
+        "prof",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "cfg prof list",
+      "path": [
+        "cfg",
+        "prof",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "cfg prof load",
+      "path": [
+        "cfg",
+        "prof",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "cfg prof save",
+      "path": [
+        "cfg",
+        "prof",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "cfg prof sd",
+      "path": [
+        "cfg",
+        "prof",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "cfg prof set-default",
+      "path": [
+        "cfg",
+        "prof",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "cfg profile",
+      "path": [
+        "cfg",
+        "profile"
+      ],
+      "help": "",
+      "aliases": [
+        "prof",
+        "pr"
+      ]
+    },
+    {
+      "command": "cfg profile get",
+      "path": [
+        "cfg",
+        "profile",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "cfg profile list",
+      "path": [
+        "cfg",
+        "profile",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "cfg profile load",
+      "path": [
+        "cfg",
+        "profile",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "cfg profile save",
+      "path": [
+        "cfg",
+        "profile",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "cfg profile sd",
+      "path": [
+        "cfg",
+        "profile",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "cfg profile set-default",
+      "path": [
+        "cfg",
+        "profile",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "cfg reset",
+      "path": [
+        "cfg",
+        "reset"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "cfg set",
+      "path": [
+        "cfg",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "cfg wizard",
+      "path": [
+        "cfg",
+        "wizard"
+      ],
+      "help": "",
+      "aliases": [
+        "w"
+      ]
+    },
+    {
+      "command": "config",
+      "path": [
+        "config"
+      ],
+      "help": "",
+      "aliases": [
+        "settings",
+        "cfg"
+      ]
+    },
+    {
+      "command": "config edit",
+      "path": [
+        "config",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "config get",
+      "path": [
+        "config",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "config list",
+      "path": [
+        "config",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "config pr",
+      "path": [
+        "config",
+        "pr"
+      ],
+      "help": "",
+      "aliases": [
+        "profile",
+        "prof"
+      ]
+    },
+    {
+      "command": "config pr get",
+      "path": [
+        "config",
+        "pr",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "config pr list",
+      "path": [
+        "config",
+        "pr",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "config pr load",
+      "path": [
+        "config",
+        "pr",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "config pr save",
+      "path": [
+        "config",
+        "pr",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "config pr sd",
+      "path": [
+        "config",
+        "pr",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "config pr set-default",
+      "path": [
+        "config",
+        "pr",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "config prof",
+      "path": [
+        "config",
+        "prof"
+      ],
+      "help": "",
+      "aliases": [
+        "profile",
+        "pr"
+      ]
+    },
+    {
+      "command": "config prof get",
+      "path": [
+        "config",
+        "prof",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "config prof list",
+      "path": [
+        "config",
+        "prof",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "config prof load",
+      "path": [
+        "config",
+        "prof",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "config prof save",
+      "path": [
+        "config",
+        "prof",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "config prof sd",
+      "path": [
+        "config",
+        "prof",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "config prof set-default",
+      "path": [
+        "config",
+        "prof",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "config profile",
+      "path": [
+        "config",
+        "profile"
+      ],
+      "help": "",
+      "aliases": [
+        "prof",
+        "pr"
+      ]
+    },
+    {
+      "command": "config profile get",
+      "path": [
+        "config",
+        "profile",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "config profile list",
+      "path": [
+        "config",
+        "profile",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "config profile load",
+      "path": [
+        "config",
+        "profile",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "config profile save",
+      "path": [
+        "config",
+        "profile",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "config profile sd",
+      "path": [
+        "config",
+        "profile",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "config profile set-default",
+      "path": [
+        "config",
+        "profile",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "config reset",
+      "path": [
+        "config",
+        "reset"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "config set",
+      "path": [
+        "config",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "config wizard",
+      "path": [
+        "config",
+        "wizard"
+      ],
+      "help": "",
+      "aliases": [
+        "w"
+      ]
+    },
+    {
+      "command": "convert",
+      "path": [
+        "convert"
+      ],
+      "help": "",
+      "aliases": [
+        "c"
+      ]
+    },
+    {
+      "command": "convert add",
+      "path": [
+        "convert",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "new",
+        "n"
+      ]
+    },
+    {
+      "command": "convert b rep",
+      "path": [
+        "convert",
+        "b",
+        "rep"
+      ],
+      "help": "",
+      "aliases": [
+        "report"
+      ]
+    },
+    {
+      "command": "convert b report",
+      "path": [
+        "convert",
+        "b",
+        "report"
+      ],
+      "help": "",
+      "aliases": [
+        "rep"
+      ]
+    },
+    {
+      "command": "convert b run",
+      "path": [
+        "convert",
+        "b",
+        "run"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "convert b show",
+      "path": [
+        "convert",
+        "b",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "convert b status",
+      "path": [
+        "convert",
+        "b",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "convert batch",
+      "path": [
+        "convert",
+        "batch"
+      ],
+      "help": "",
+      "aliases": [
+        "b"
+      ]
+    },
+    {
+      "command": "convert batch rep",
+      "path": [
+        "convert",
+        "batch",
+        "rep"
+      ],
+      "help": "",
+      "aliases": [
+        "report"
+      ]
+    },
+    {
+      "command": "convert batch report",
+      "path": [
+        "convert",
+        "batch",
+        "report"
+      ],
+      "help": "",
+      "aliases": [
+        "rep"
+      ]
+    },
+    {
+      "command": "convert batch run",
+      "path": [
+        "convert",
+        "batch",
+        "run"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "convert batch show",
+      "path": [
+        "convert",
+        "batch",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "convert batch status",
+      "path": [
+        "convert",
+        "batch",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "convert new",
+      "path": [
+        "convert",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "add",
+        "n"
+      ]
+    },
+    {
+      "command": "convert plan",
+      "path": [
+        "convert",
+        "plan"
+      ],
+      "help": "",
+      "aliases": [
+        "p"
+      ]
+    },
+    {
+      "command": "convert reset",
+      "path": [
+        "convert",
+        "reset"
+      ],
+      "help": "",
+      "aliases": [
+        "rst"
+      ]
+    },
+    {
+      "command": "convert rst",
+      "path": [
+        "convert",
+        "rst"
+      ],
+      "help": "",
+      "aliases": [
+        "reset"
+      ]
+    },
+    {
+      "command": "convert run",
+      "path": [
+        "convert",
+        "run"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "convert show",
+      "path": [
+        "convert",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "convert status",
+      "path": [
+        "convert",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "discuss",
+      "path": [
+        "discuss"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "discuss replay",
+      "path": [
+        "discuss",
+        "replay"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "discuss resume",
+      "path": [
+        "discuss",
+        "resume"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "init",
+      "path": [
+        "init"
+      ],
+      "help": "Initialize a Maestro project with required directories and configuration files.",
+      "aliases": []
+    },
+    {
+      "command": "issues",
+      "path": [
+        "issues"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues add",
+      "path": [
+        "issues",
+        "add"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues analyze",
+      "path": [
+        "issues",
+        "analyze"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues build",
+      "path": [
+        "issues",
+        "build"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues convention",
+      "path": [
+        "issues",
+        "convention"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues decide",
+      "path": [
+        "issues",
+        "decide"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues features",
+      "path": [
+        "issues",
+        "features"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues fix",
+      "path": [
+        "issues",
+        "fix"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues hier",
+      "path": [
+        "issues",
+        "hier"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues ignore",
+      "path": [
+        "issues",
+        "ignore"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues link-task",
+      "path": [
+        "issues",
+        "link-task"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues list",
+      "path": [
+        "issues",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "issues look",
+      "path": [
+        "issues",
+        "look"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues product",
+      "path": [
+        "issues",
+        "product"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues react",
+      "path": [
+        "issues",
+        "react"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues resolve",
+      "path": [
+        "issues",
+        "resolve"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues rollback",
+      "path": [
+        "issues",
+        "rollback"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues runtime",
+      "path": [
+        "issues",
+        "runtime"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues show",
+      "path": [
+        "issues",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues state",
+      "path": [
+        "issues",
+        "state"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues triage",
+      "path": [
+        "issues",
+        "triage"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "issues ux",
+      "path": [
+        "issues",
+        "ux"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "log",
+      "path": [
+        "log"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "log list",
+      "path": [
+        "log",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "log scan",
+      "path": [
+        "log",
+        "scan"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "log show",
+      "path": [
+        "log",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "m an",
+      "path": [
+        "m",
+        "an"
+      ],
+      "help": "",
+      "aliases": [
+        "analyze"
+      ]
+    },
+    {
+      "command": "m analyze",
+      "path": [
+        "m",
+        "analyze"
+      ],
+      "help": "",
+      "aliases": [
+        "an"
+      ]
+    },
+    {
+      "command": "m android",
+      "path": [
+        "m",
+        "android"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "m build",
+      "path": [
+        "m",
+        "build"
+      ],
+      "help": "",
+      "aliases": [
+        "b"
+      ]
+    },
+    {
+      "command": "m cfg",
+      "path": [
+        "m",
+        "cfg"
+      ],
+      "help": "",
+      "aliases": [
+        "config"
+      ]
+    },
+    {
+      "command": "m cfg detect",
+      "path": [
+        "m",
+        "cfg",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "m cfg edit",
+      "path": [
+        "m",
+        "cfg",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "m cfg list",
+      "path": [
+        "m",
+        "cfg",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "m cfg show",
+      "path": [
+        "m",
+        "cfg",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "m clean",
+      "path": [
+        "m",
+        "clean"
+      ],
+      "help": "",
+      "aliases": [
+        "c"
+      ]
+    },
+    {
+      "command": "m config",
+      "path": [
+        "m",
+        "config"
+      ],
+      "help": "",
+      "aliases": [
+        "cfg"
+      ]
+    },
+    {
+      "command": "m config detect",
+      "path": [
+        "m",
+        "config",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "m config edit",
+      "path": [
+        "m",
+        "config",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "m config list",
+      "path": [
+        "m",
+        "config",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "m config show",
+      "path": [
+        "m",
+        "config",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "m exp",
+      "path": [
+        "m",
+        "exp"
+      ],
+      "help": "",
+      "aliases": [
+        "export"
+      ]
+    },
+    {
+      "command": "m export",
+      "path": [
+        "m",
+        "export"
+      ],
+      "help": "",
+      "aliases": [
+        "exp"
+      ]
+    },
+    {
+      "command": "m jar",
+      "path": [
+        "m",
+        "jar"
+      ],
+      "help": "",
+      "aliases": [
+        "j"
+      ]
+    },
+    {
+      "command": "m methods",
+      "path": [
+        "m",
+        "methods"
+      ],
+      "help": "",
+      "aliases": [
+        "mth"
+      ]
+    },
+    {
+      "command": "m mth",
+      "path": [
+        "m",
+        "mth"
+      ],
+      "help": "",
+      "aliases": [
+        "methods"
+      ]
+    },
+    {
+      "command": "m rebuild",
+      "path": [
+        "m",
+        "rebuild"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "m str",
+      "path": [
+        "m",
+        "str"
+      ],
+      "help": "",
+      "aliases": [
+        "structure"
+      ]
+    },
+    {
+      "command": "m str apply",
+      "path": [
+        "m",
+        "str",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "m str fix",
+      "path": [
+        "m",
+        "str",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "m str lint",
+      "path": [
+        "m",
+        "str",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "m str sc",
+      "path": [
+        "m",
+        "str",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "m str scan",
+      "path": [
+        "m",
+        "str",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "m str show",
+      "path": [
+        "m",
+        "str",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "m structure",
+      "path": [
+        "m",
+        "structure"
+      ],
+      "help": "",
+      "aliases": [
+        "str"
+      ]
+    },
+    {
+      "command": "m structure apply",
+      "path": [
+        "m",
+        "structure",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "m structure fix",
+      "path": [
+        "m",
+        "structure",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "m structure lint",
+      "path": [
+        "m",
+        "structure",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "m structure sc",
+      "path": [
+        "m",
+        "structure",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "m structure scan",
+      "path": [
+        "m",
+        "structure",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "m structure show",
+      "path": [
+        "m",
+        "structure",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "make",
+      "path": [
+        "make"
+      ],
+      "help": "",
+      "aliases": [
+        "m",
+        "build",
+        "b"
+      ]
+    },
+    {
+      "command": "make an",
+      "path": [
+        "make",
+        "an"
+      ],
+      "help": "",
+      "aliases": [
+        "analyze"
+      ]
+    },
+    {
+      "command": "make analyze",
+      "path": [
+        "make",
+        "analyze"
+      ],
+      "help": "",
+      "aliases": [
+        "an"
+      ]
+    },
+    {
+      "command": "make android",
+      "path": [
+        "make",
+        "android"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "make build",
+      "path": [
+        "make",
+        "build"
+      ],
+      "help": "",
+      "aliases": [
+        "b"
+      ]
+    },
+    {
+      "command": "make cfg",
+      "path": [
+        "make",
+        "cfg"
+      ],
+      "help": "",
+      "aliases": [
+        "config"
+      ]
+    },
+    {
+      "command": "make cfg detect",
+      "path": [
+        "make",
+        "cfg",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "make cfg edit",
+      "path": [
+        "make",
+        "cfg",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "make cfg list",
+      "path": [
+        "make",
+        "cfg",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "make cfg show",
+      "path": [
+        "make",
+        "cfg",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "make clean",
+      "path": [
+        "make",
+        "clean"
+      ],
+      "help": "",
+      "aliases": [
+        "c"
+      ]
+    },
+    {
+      "command": "make config",
+      "path": [
+        "make",
+        "config"
+      ],
+      "help": "",
+      "aliases": [
+        "cfg"
+      ]
+    },
+    {
+      "command": "make config detect",
+      "path": [
+        "make",
+        "config",
+        "detect"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "make config edit",
+      "path": [
+        "make",
+        "config",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "make config list",
+      "path": [
+        "make",
+        "config",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "make config show",
+      "path": [
+        "make",
+        "config",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh",
+        "s"
+      ]
+    },
+    {
+      "command": "make exp",
+      "path": [
+        "make",
+        "exp"
+      ],
+      "help": "",
+      "aliases": [
+        "export"
+      ]
+    },
+    {
+      "command": "make export",
+      "path": [
+        "make",
+        "export"
+      ],
+      "help": "",
+      "aliases": [
+        "exp"
+      ]
+    },
+    {
+      "command": "make jar",
+      "path": [
+        "make",
+        "jar"
+      ],
+      "help": "",
+      "aliases": [
+        "j"
+      ]
+    },
+    {
+      "command": "make methods",
+      "path": [
+        "make",
+        "methods"
+      ],
+      "help": "",
+      "aliases": [
+        "mth"
+      ]
+    },
+    {
+      "command": "make mth",
+      "path": [
+        "make",
+        "mth"
+      ],
+      "help": "",
+      "aliases": [
+        "methods"
+      ]
+    },
+    {
+      "command": "make rebuild",
+      "path": [
+        "make",
+        "rebuild"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "make str",
+      "path": [
+        "make",
+        "str"
+      ],
+      "help": "",
+      "aliases": [
+        "structure"
+      ]
+    },
+    {
+      "command": "make str apply",
+      "path": [
+        "make",
+        "str",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "make str fix",
+      "path": [
+        "make",
+        "str",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "make str lint",
+      "path": [
+        "make",
+        "str",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "make str sc",
+      "path": [
+        "make",
+        "str",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "make str scan",
+      "path": [
+        "make",
+        "str",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "make str show",
+      "path": [
+        "make",
+        "str",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "make structure",
+      "path": [
+        "make",
+        "structure"
+      ],
+      "help": "",
+      "aliases": [
+        "str"
+      ]
+    },
+    {
+      "command": "make structure apply",
+      "path": [
+        "make",
+        "structure",
+        "apply"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "make structure fix",
+      "path": [
+        "make",
+        "structure",
+        "fix"
+      ],
+      "help": "",
+      "aliases": [
+        "f"
+      ]
+    },
+    {
+      "command": "make structure lint",
+      "path": [
+        "make",
+        "structure",
+        "lint"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "make structure sc",
+      "path": [
+        "make",
+        "structure",
+        "sc"
+      ],
+      "help": "",
+      "aliases": [
+        "scan"
+      ]
+    },
+    {
+      "command": "make structure scan",
+      "path": [
+        "make",
+        "structure",
+        "scan"
+      ],
+      "help": "",
+      "aliases": [
+        "sc"
+      ]
+    },
+    {
+      "command": "make structure show",
+      "path": [
+        "make",
+        "structure",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "ops",
+      "path": [
+        "ops"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ops apply",
+      "path": [
+        "ops",
+        "apply"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ops preview",
+      "path": [
+        "ops",
+        "preview"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ops validate",
+      "path": [
+        "ops",
+        "validate"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "p add",
+      "path": [
+        "p",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "p discuss",
+      "path": [
+        "p",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "p edit",
+      "path": [
+        "p",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "p list",
+      "path": [
+        "p",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "p raw",
+      "path": [
+        "p",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "p remove",
+      "path": [
+        "p",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "p set",
+      "path": [
+        "p",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "p set-status",
+      "path": [
+        "p",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "p set-text",
+      "path": [
+        "p",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "p setraw",
+      "path": [
+        "p",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "p show",
+      "path": [
+        "p",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "p st",
+      "path": [
+        "p",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "p status",
+      "path": [
+        "p",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "p text",
+      "path": [
+        "p",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "ph",
+      "path": [
+        "ph"
+      ],
+      "help": "",
+      "aliases": [
+        "phase",
+        "p"
+      ]
+    },
+    {
+      "command": "ph add",
+      "path": [
+        "ph",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "ph discuss",
+      "path": [
+        "ph",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "ph edit",
+      "path": [
+        "ph",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "ph list",
+      "path": [
+        "ph",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "ph raw",
+      "path": [
+        "ph",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "ph remove",
+      "path": [
+        "ph",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "ph set",
+      "path": [
+        "ph",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "ph set-status",
+      "path": [
+        "ph",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "ph set-text",
+      "path": [
+        "ph",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "ph setraw",
+      "path": [
+        "ph",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "ph show",
+      "path": [
+        "ph",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "ph st",
+      "path": [
+        "ph",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "ph status",
+      "path": [
+        "ph",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "ph text",
+      "path": [
+        "ph",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "phase",
+      "path": [
+        "phase"
+      ],
+      "help": "",
+      "aliases": [
+        "ph",
+        "p"
+      ]
+    },
+    {
+      "command": "phase add",
+      "path": [
+        "phase",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "phase discuss",
+      "path": [
+        "phase",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "phase edit",
+      "path": [
+        "phase",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "phase list",
+      "path": [
+        "phase",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "phase raw",
+      "path": [
+        "phase",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "phase remove",
+      "path": [
+        "phase",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "phase set",
+      "path": [
+        "phase",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "phase set-status",
+      "path": [
+        "phase",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "phase set-text",
+      "path": [
+        "phase",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "phase setraw",
+      "path": [
+        "phase",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "phase show",
+      "path": [
+        "phase",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "phase st",
+      "path": [
+        "phase",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "phase status",
+      "path": [
+        "phase",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "phase text",
+      "path": [
+        "phase",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "pl",
+      "path": [
+        "pl"
+      ],
+      "help": "",
+      "aliases": [
+        "plan"
+      ]
+    },
+    {
+      "command": "pl add",
+      "path": [
+        "pl",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "pl add-item",
+      "path": [
+        "pl",
+        "add-item"
+      ],
+      "help": "",
+      "aliases": [
+        "ai"
+      ]
+    },
+    {
+      "command": "pl ai",
+      "path": [
+        "pl",
+        "ai"
+      ],
+      "help": "",
+      "aliases": [
+        "add-item"
+      ]
+    },
+    {
+      "command": "pl discuss",
+      "path": [
+        "pl",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "pl explore",
+      "path": [
+        "pl",
+        "explore"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "pl list",
+      "path": [
+        "pl",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "pl ops",
+      "path": [
+        "pl",
+        "ops"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "pl ops apply",
+      "path": [
+        "pl",
+        "ops",
+        "apply"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "pl ops preview",
+      "path": [
+        "pl",
+        "ops",
+        "preview"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "pl ops validate",
+      "path": [
+        "pl",
+        "ops",
+        "validate"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "pl remove",
+      "path": [
+        "pl",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm"
+      ]
+    },
+    {
+      "command": "pl remove-item",
+      "path": [
+        "pl",
+        "remove-item"
+      ],
+      "help": "",
+      "aliases": [
+        "ri"
+      ]
+    },
+    {
+      "command": "pl ri",
+      "path": [
+        "pl",
+        "ri"
+      ],
+      "help": "",
+      "aliases": [
+        "remove-item"
+      ]
+    },
+    {
+      "command": "pl show",
+      "path": [
+        "pl",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "plan",
+      "path": [
+        "plan"
+      ],
+      "help": "",
+      "aliases": [
+        "pl"
+      ]
+    },
+    {
+      "command": "plan add",
+      "path": [
+        "plan",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "plan add-item",
+      "path": [
+        "plan",
+        "add-item"
+      ],
+      "help": "",
+      "aliases": [
+        "ai"
+      ]
+    },
+    {
+      "command": "plan ai",
+      "path": [
+        "plan",
+        "ai"
+      ],
+      "help": "",
+      "aliases": [
+        "add-item"
+      ]
+    },
+    {
+      "command": "plan discuss",
+      "path": [
+        "plan",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "plan explore",
+      "path": [
+        "plan",
+        "explore"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "plan list",
+      "path": [
+        "plan",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "plan ops",
+      "path": [
+        "plan",
+        "ops"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "plan ops apply",
+      "path": [
+        "plan",
+        "ops",
+        "apply"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "plan ops preview",
+      "path": [
+        "plan",
+        "ops",
+        "preview"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "plan ops validate",
+      "path": [
+        "plan",
+        "ops",
+        "validate"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "plan remove",
+      "path": [
+        "plan",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm"
+      ]
+    },
+    {
+      "command": "plan remove-item",
+      "path": [
+        "plan",
+        "remove-item"
+      ],
+      "help": "",
+      "aliases": [
+        "ri"
+      ]
+    },
+    {
+      "command": "plan ri",
+      "path": [
+        "plan",
+        "ri"
+      ],
+      "help": "",
+      "aliases": [
+        "remove-item"
+      ]
+    },
+    {
+      "command": "plan show",
+      "path": [
+        "plan",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "r edit",
+      "path": [
+        "r",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "r list",
+      "path": [
+        "r",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "rb",
+      "path": [
+        "rb"
+      ],
+      "help": "Manage runbook entries as first-class project assets. Runbooks provide a narrative-first modeling layer before formalization.",
+      "aliases": [
+        "runbook",
+        "runba"
+      ]
+    },
+    {
+      "command": "rb add",
+      "path": [
+        "rb",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "new"
+      ]
+    },
+    {
+      "command": "rb archive",
+      "path": [
+        "rb",
+        "archive"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "rb delete",
+      "path": [
+        "rb",
+        "delete"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "remove"
+      ]
+    },
+    {
+      "command": "rb discuss",
+      "path": [
+        "rb",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "rb edit",
+      "path": [
+        "rb",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "rb exp",
+      "path": [
+        "rb",
+        "exp"
+      ],
+      "help": "",
+      "aliases": [
+        "export"
+      ]
+    },
+    {
+      "command": "rb export",
+      "path": [
+        "rb",
+        "export"
+      ],
+      "help": "",
+      "aliases": [
+        "exp"
+      ]
+    },
+    {
+      "command": "rb list",
+      "path": [
+        "rb",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "rb new",
+      "path": [
+        "rb",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "add"
+      ]
+    },
+    {
+      "command": "rb remove",
+      "path": [
+        "rb",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "delete"
+      ]
+    },
+    {
+      "command": "rb render",
+      "path": [
+        "rb",
+        "render"
+      ],
+      "help": "",
+      "aliases": [
+        "rnd"
+      ]
+    },
+    {
+      "command": "rb restore",
+      "path": [
+        "rb",
+        "restore"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "rb rnd",
+      "path": [
+        "rb",
+        "rnd"
+      ],
+      "help": "",
+      "aliases": [
+        "render"
+      ]
+    },
+    {
+      "command": "rb sa",
+      "path": [
+        "rb",
+        "sa"
+      ],
+      "help": "",
+      "aliases": [
+        "step-add"
+      ]
+    },
+    {
+      "command": "rb se",
+      "path": [
+        "rb",
+        "se"
+      ],
+      "help": "",
+      "aliases": [
+        "step-edit"
+      ]
+    },
+    {
+      "command": "rb show",
+      "path": [
+        "rb",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "rb sr",
+      "path": [
+        "rb",
+        "sr"
+      ],
+      "help": "",
+      "aliases": [
+        "step-rm"
+      ]
+    },
+    {
+      "command": "rb srn",
+      "path": [
+        "rb",
+        "srn"
+      ],
+      "help": "",
+      "aliases": [
+        "step-renumber"
+      ]
+    },
+    {
+      "command": "rb step-add",
+      "path": [
+        "rb",
+        "step-add"
+      ],
+      "help": "",
+      "aliases": [
+        "sa"
+      ]
+    },
+    {
+      "command": "rb step-edit",
+      "path": [
+        "rb",
+        "step-edit"
+      ],
+      "help": "",
+      "aliases": [
+        "se"
+      ]
+    },
+    {
+      "command": "rb step-renumber",
+      "path": [
+        "rb",
+        "step-renumber"
+      ],
+      "help": "",
+      "aliases": [
+        "srn"
+      ]
+    },
+    {
+      "command": "rb step-rm",
+      "path": [
+        "rb",
+        "step-rm"
+      ],
+      "help": "",
+      "aliases": [
+        "sr"
+      ]
+    },
+    {
+      "command": "repo",
+      "path": [
+        "repo"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo c list",
+      "path": [
+        "repo",
+        "c",
+        "list"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo c select-default",
+      "path": [
+        "repo",
+        "c",
+        "select-default"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo c show",
+      "path": [
+        "repo",
+        "c",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo conf",
+      "path": [
+        "repo",
+        "conf"
+      ],
+      "help": "",
+      "aliases": [
+        "c"
+      ]
+    },
+    {
+      "command": "repo conf list",
+      "path": [
+        "repo",
+        "conf",
+        "list"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo conf select-default",
+      "path": [
+        "repo",
+        "conf",
+        "select-default"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo conf show",
+      "path": [
+        "repo",
+        "conf",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo conventions",
+      "path": [
+        "repo",
+        "conventions"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo conventions detect",
+      "path": [
+        "repo",
+        "conventions",
+        "detect"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo conventions show",
+      "path": [
+        "repo",
+        "conventions",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hier",
+      "path": [
+        "repo",
+        "hier"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hier edit",
+      "path": [
+        "repo",
+        "hier",
+        "edit"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hier show",
+      "path": [
+        "repo",
+        "hier",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hub",
+      "path": [
+        "repo",
+        "hub"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hub find",
+      "path": [
+        "repo",
+        "hub",
+        "find"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hub find package",
+      "path": [
+        "repo",
+        "hub",
+        "find",
+        "package"
+      ],
+      "help": "",
+      "aliases": [
+        "pkg",
+        "p"
+      ]
+    },
+    {
+      "command": "repo hub find pkg",
+      "path": [
+        "repo",
+        "hub",
+        "find",
+        "pkg"
+      ],
+      "help": "",
+      "aliases": [
+        "package",
+        "p"
+      ]
+    },
+    {
+      "command": "repo hub link",
+      "path": [
+        "repo",
+        "hub",
+        "link"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hub link package",
+      "path": [
+        "repo",
+        "hub",
+        "link",
+        "package"
+      ],
+      "help": "",
+      "aliases": [
+        "pkg",
+        "p"
+      ]
+    },
+    {
+      "command": "repo hub link pkg",
+      "path": [
+        "repo",
+        "hub",
+        "link",
+        "pkg"
+      ],
+      "help": "",
+      "aliases": [
+        "package",
+        "p"
+      ]
+    },
+    {
+      "command": "repo hub link remove",
+      "path": [
+        "repo",
+        "hub",
+        "link",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm"
+      ]
+    },
+    {
+      "command": "repo hub link show",
+      "path": [
+        "repo",
+        "hub",
+        "link",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hub list",
+      "path": [
+        "repo",
+        "hub",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "repo hub scan",
+      "path": [
+        "repo",
+        "hub",
+        "scan"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo hub show",
+      "path": [
+        "repo",
+        "hub",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo pkg",
+      "path": [
+        "repo",
+        "pkg"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo refresh",
+      "path": [
+        "repo",
+        "refresh"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo refresh all",
+      "path": [
+        "repo",
+        "refresh",
+        "all"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo res",
+      "path": [
+        "repo",
+        "res"
+      ],
+      "help": "",
+      "aliases": [
+        "resolve"
+      ]
+    },
+    {
+      "command": "repo resolve",
+      "path": [
+        "repo",
+        "resolve"
+      ],
+      "help": "",
+      "aliases": [
+        "res"
+      ]
+    },
+    {
+      "command": "repo rules",
+      "path": [
+        "repo",
+        "rules"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo rules edit",
+      "path": [
+        "repo",
+        "rules",
+        "edit"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo rules inject",
+      "path": [
+        "repo",
+        "rules",
+        "inject"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo rules show",
+      "path": [
+        "repo",
+        "rules",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "repo show",
+      "path": [
+        "repo",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "resume",
+      "path": [
+        "resume"
+      ],
+      "help": "",
+      "aliases": [
+        "rs"
+      ]
+    },
+    {
+      "command": "root",
+      "path": [
+        "root"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "root discuss",
+      "path": [
+        "root",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "root get",
+      "path": [
+        "root",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "root refine",
+      "path": [
+        "root",
+        "refine"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "root set",
+      "path": [
+        "root",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "root show",
+      "path": [
+        "root",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "rs",
+      "path": [
+        "rs"
+      ],
+      "help": "",
+      "aliases": [
+        "resume"
+      ]
+    },
+    {
+      "command": "rules",
+      "path": [
+        "rules"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "rules edit",
+      "path": [
+        "rules",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "rules list",
+      "path": [
+        "rules",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "runba",
+      "path": [
+        "runba"
+      ],
+      "help": "Manage runbook entries as first-class project assets. Runbooks provide a narrative-first modeling layer before formalization.",
+      "aliases": [
+        "runbook",
+        "rb"
+      ]
+    },
+    {
+      "command": "runba add",
+      "path": [
+        "runba",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "new"
+      ]
+    },
+    {
+      "command": "runba archive",
+      "path": [
+        "runba",
+        "archive"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "runba delete",
+      "path": [
+        "runba",
+        "delete"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "remove"
+      ]
+    },
+    {
+      "command": "runba discuss",
+      "path": [
+        "runba",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "runba edit",
+      "path": [
+        "runba",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "runba exp",
+      "path": [
+        "runba",
+        "exp"
+      ],
+      "help": "",
+      "aliases": [
+        "export"
+      ]
+    },
+    {
+      "command": "runba export",
+      "path": [
+        "runba",
+        "export"
+      ],
+      "help": "",
+      "aliases": [
+        "exp"
+      ]
+    },
+    {
+      "command": "runba list",
+      "path": [
+        "runba",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "runba new",
+      "path": [
+        "runba",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "add"
+      ]
+    },
+    {
+      "command": "runba remove",
+      "path": [
+        "runba",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "delete"
+      ]
+    },
+    {
+      "command": "runba render",
+      "path": [
+        "runba",
+        "render"
+      ],
+      "help": "",
+      "aliases": [
+        "rnd"
+      ]
+    },
+    {
+      "command": "runba restore",
+      "path": [
+        "runba",
+        "restore"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "runba rnd",
+      "path": [
+        "runba",
+        "rnd"
+      ],
+      "help": "",
+      "aliases": [
+        "render"
+      ]
+    },
+    {
+      "command": "runba sa",
+      "path": [
+        "runba",
+        "sa"
+      ],
+      "help": "",
+      "aliases": [
+        "step-add"
+      ]
+    },
+    {
+      "command": "runba se",
+      "path": [
+        "runba",
+        "se"
+      ],
+      "help": "",
+      "aliases": [
+        "step-edit"
+      ]
+    },
+    {
+      "command": "runba show",
+      "path": [
+        "runba",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "runba sr",
+      "path": [
+        "runba",
+        "sr"
+      ],
+      "help": "",
+      "aliases": [
+        "step-rm"
+      ]
+    },
+    {
+      "command": "runba srn",
+      "path": [
+        "runba",
+        "srn"
+      ],
+      "help": "",
+      "aliases": [
+        "step-renumber"
+      ]
+    },
+    {
+      "command": "runba step-add",
+      "path": [
+        "runba",
+        "step-add"
+      ],
+      "help": "",
+      "aliases": [
+        "sa"
+      ]
+    },
+    {
+      "command": "runba step-edit",
+      "path": [
+        "runba",
+        "step-edit"
+      ],
+      "help": "",
+      "aliases": [
+        "se"
+      ]
+    },
+    {
+      "command": "runba step-renumber",
+      "path": [
+        "runba",
+        "step-renumber"
+      ],
+      "help": "",
+      "aliases": [
+        "srn"
+      ]
+    },
+    {
+      "command": "runba step-rm",
+      "path": [
+        "runba",
+        "step-rm"
+      ],
+      "help": "",
+      "aliases": [
+        "sr"
+      ]
+    },
+    {
+      "command": "runbook",
+      "path": [
+        "runbook"
+      ],
+      "help": "Manage runbook entries as first-class project assets. Runbooks provide a narrative-first modeling layer before formalization.",
+      "aliases": [
+        "runba",
+        "rb"
+      ]
+    },
+    {
+      "command": "runbook add",
+      "path": [
+        "runbook",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "new"
+      ]
+    },
+    {
+      "command": "runbook archive",
+      "path": [
+        "runbook",
+        "archive"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "runbook delete",
+      "path": [
+        "runbook",
+        "delete"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "remove"
+      ]
+    },
+    {
+      "command": "runbook discuss",
+      "path": [
+        "runbook",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "runbook edit",
+      "path": [
+        "runbook",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "runbook exp",
+      "path": [
+        "runbook",
+        "exp"
+      ],
+      "help": "",
+      "aliases": [
+        "export"
+      ]
+    },
+    {
+      "command": "runbook export",
+      "path": [
+        "runbook",
+        "export"
+      ],
+      "help": "",
+      "aliases": [
+        "exp"
+      ]
+    },
+    {
+      "command": "runbook list",
+      "path": [
+        "runbook",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "runbook new",
+      "path": [
+        "runbook",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "add"
+      ]
+    },
+    {
+      "command": "runbook remove",
+      "path": [
+        "runbook",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "delete"
+      ]
+    },
+    {
+      "command": "runbook render",
+      "path": [
+        "runbook",
+        "render"
+      ],
+      "help": "",
+      "aliases": [
+        "rnd"
+      ]
+    },
+    {
+      "command": "runbook restore",
+      "path": [
+        "runbook",
+        "restore"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "runbook rnd",
+      "path": [
+        "runbook",
+        "rnd"
+      ],
+      "help": "",
+      "aliases": [
+        "render"
+      ]
+    },
+    {
+      "command": "runbook sa",
+      "path": [
+        "runbook",
+        "sa"
+      ],
+      "help": "",
+      "aliases": [
+        "step-add"
+      ]
+    },
+    {
+      "command": "runbook se",
+      "path": [
+        "runbook",
+        "se"
+      ],
+      "help": "",
+      "aliases": [
+        "step-edit"
+      ]
+    },
+    {
+      "command": "runbook show",
+      "path": [
+        "runbook",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "runbook sr",
+      "path": [
+        "runbook",
+        "sr"
+      ],
+      "help": "",
+      "aliases": [
+        "step-rm"
+      ]
+    },
+    {
+      "command": "runbook srn",
+      "path": [
+        "runbook",
+        "srn"
+      ],
+      "help": "",
+      "aliases": [
+        "step-renumber"
+      ]
+    },
+    {
+      "command": "runbook step-add",
+      "path": [
+        "runbook",
+        "step-add"
+      ],
+      "help": "",
+      "aliases": [
+        "sa"
+      ]
+    },
+    {
+      "command": "runbook step-edit",
+      "path": [
+        "runbook",
+        "step-edit"
+      ],
+      "help": "",
+      "aliases": [
+        "se"
+      ]
+    },
+    {
+      "command": "runbook step-renumber",
+      "path": [
+        "runbook",
+        "step-renumber"
+      ],
+      "help": "",
+      "aliases": [
+        "srn"
+      ]
+    },
+    {
+      "command": "runbook step-rm",
+      "path": [
+        "runbook",
+        "step-rm"
+      ],
+      "help": "",
+      "aliases": [
+        "sr"
+      ]
+    },
+    {
+      "command": "s breadcrumbs",
+      "path": [
+        "s",
+        "breadcrumbs"
+      ],
+      "help": "",
+      "aliases": [
+        "bc"
+      ]
+    },
+    {
+      "command": "s details",
+      "path": [
+        "s",
+        "details"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "s get",
+      "path": [
+        "s",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "s list",
+      "path": [
+        "s",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "s new",
+      "path": [
+        "s",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "n"
+      ]
+    },
+    {
+      "command": "s remove",
+      "path": [
+        "s",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm"
+      ]
+    },
+    {
+      "command": "s set",
+      "path": [
+        "s",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "s st",
+      "path": [
+        "s",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "s stats",
+      "path": [
+        "s",
+        "stats"
+      ],
+      "help": "",
+      "aliases": [
+        "stt"
+      ]
+    },
+    {
+      "command": "s timeline",
+      "path": [
+        "s",
+        "timeline"
+      ],
+      "help": "",
+      "aliases": [
+        "tl"
+      ]
+    },
+    {
+      "command": "session",
+      "path": [
+        "session"
+      ],
+      "help": "[DEPRECATED] Legacy session management. Use 'maestro wsession' for work sessions and breadcrumbs.",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "session breadcrumbs",
+      "path": [
+        "session",
+        "breadcrumbs"
+      ],
+      "help": "",
+      "aliases": [
+        "bc"
+      ]
+    },
+    {
+      "command": "session details",
+      "path": [
+        "session",
+        "details"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "session get",
+      "path": [
+        "session",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "session list",
+      "path": [
+        "session",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "session new",
+      "path": [
+        "session",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "n"
+      ]
+    },
+    {
+      "command": "session remove",
+      "path": [
+        "session",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm"
+      ]
+    },
+    {
+      "command": "session set",
+      "path": [
+        "session",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "session st",
+      "path": [
+        "session",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "session stats",
+      "path": [
+        "session",
+        "stats"
+      ],
+      "help": "",
+      "aliases": [
+        "stt"
+      ]
+    },
+    {
+      "command": "session timeline",
+      "path": [
+        "session",
+        "timeline"
+      ],
+      "help": "",
+      "aliases": [
+        "tl"
+      ]
+    },
+    {
+      "command": "settings",
+      "path": [
+        "settings"
+      ],
+      "help": "",
+      "aliases": [
+        "config",
+        "cfg"
+      ]
+    },
+    {
+      "command": "settings edit",
+      "path": [
+        "settings",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "settings get",
+      "path": [
+        "settings",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "settings list",
+      "path": [
+        "settings",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "settings pr",
+      "path": [
+        "settings",
+        "pr"
+      ],
+      "help": "",
+      "aliases": [
+        "profile",
+        "prof"
+      ]
+    },
+    {
+      "command": "settings pr get",
+      "path": [
+        "settings",
+        "pr",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "settings pr list",
+      "path": [
+        "settings",
+        "pr",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "settings pr load",
+      "path": [
+        "settings",
+        "pr",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "settings pr save",
+      "path": [
+        "settings",
+        "pr",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "settings pr sd",
+      "path": [
+        "settings",
+        "pr",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "settings pr set-default",
+      "path": [
+        "settings",
+        "pr",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "settings prof",
+      "path": [
+        "settings",
+        "prof"
+      ],
+      "help": "",
+      "aliases": [
+        "profile",
+        "pr"
+      ]
+    },
+    {
+      "command": "settings prof get",
+      "path": [
+        "settings",
+        "prof",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "settings prof list",
+      "path": [
+        "settings",
+        "prof",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "settings prof load",
+      "path": [
+        "settings",
+        "prof",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "settings prof save",
+      "path": [
+        "settings",
+        "prof",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "settings prof sd",
+      "path": [
+        "settings",
+        "prof",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "settings prof set-default",
+      "path": [
+        "settings",
+        "prof",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "settings profile",
+      "path": [
+        "settings",
+        "profile"
+      ],
+      "help": "",
+      "aliases": [
+        "prof",
+        "pr"
+      ]
+    },
+    {
+      "command": "settings profile get",
+      "path": [
+        "settings",
+        "profile",
+        "get"
+      ],
+      "help": "",
+      "aliases": [
+        "g"
+      ]
+    },
+    {
+      "command": "settings profile list",
+      "path": [
+        "settings",
+        "profile",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "settings profile load",
+      "path": [
+        "settings",
+        "profile",
+        "load"
+      ],
+      "help": "",
+      "aliases": [
+        "l"
+      ]
+    },
+    {
+      "command": "settings profile save",
+      "path": [
+        "settings",
+        "profile",
+        "save"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "settings profile sd",
+      "path": [
+        "settings",
+        "profile",
+        "sd"
+      ],
+      "help": "",
+      "aliases": [
+        "set-default"
+      ]
+    },
+    {
+      "command": "settings profile set-default",
+      "path": [
+        "settings",
+        "profile",
+        "set-default"
+      ],
+      "help": "",
+      "aliases": [
+        "sd"
+      ]
+    },
+    {
+      "command": "settings reset",
+      "path": [
+        "settings",
+        "reset"
+      ],
+      "help": "",
+      "aliases": [
+        "r"
+      ]
+    },
+    {
+      "command": "settings set",
+      "path": [
+        "settings",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "s"
+      ]
+    },
+    {
+      "command": "settings wizard",
+      "path": [
+        "settings",
+        "wizard"
+      ],
+      "help": "",
+      "aliases": [
+        "w"
+      ]
+    },
+    {
+      "command": "solutions",
+      "path": [
+        "solutions"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "solutions add",
+      "path": [
+        "solutions",
+        "add"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "solutions edit",
+      "path": [
+        "solutions",
+        "edit"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "solutions list",
+      "path": [
+        "solutions",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "solutions remove",
+      "path": [
+        "solutions",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm"
+      ]
+    },
+    {
+      "command": "solutions show",
+      "path": [
+        "solutions",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "t add",
+      "path": [
+        "t",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "t details",
+      "path": [
+        "t",
+        "details"
+      ],
+      "help": "",
+      "aliases": [
+        "dt"
+      ]
+    },
+    {
+      "command": "t discuss",
+      "path": [
+        "t",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "t dt",
+      "path": [
+        "t",
+        "dt"
+      ],
+      "help": "",
+      "aliases": [
+        "details"
+      ]
+    },
+    {
+      "command": "t edit",
+      "path": [
+        "t",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "t list",
+      "path": [
+        "t",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "t raw",
+      "path": [
+        "t",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "t remove",
+      "path": [
+        "t",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "t set",
+      "path": [
+        "t",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "t set-status",
+      "path": [
+        "t",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "t set-text",
+      "path": [
+        "t",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "t setraw",
+      "path": [
+        "t",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "t show",
+      "path": [
+        "t",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "s",
+        "sh"
+      ]
+    },
+    {
+      "command": "t st",
+      "path": [
+        "t",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "t status",
+      "path": [
+        "t",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "t text",
+      "path": [
+        "t",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "ta",
+      "path": [
+        "ta"
+      ],
+      "help": "",
+      "aliases": [
+        "task"
+      ]
+    },
+    {
+      "command": "ta add",
+      "path": [
+        "ta",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "ta discuss",
+      "path": [
+        "ta",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "ta list",
+      "path": [
+        "ta",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "ta raw",
+      "path": [
+        "ta",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "ta remove",
+      "path": [
+        "ta",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "ta set-status",
+      "path": [
+        "ta",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "ta set-text",
+      "path": [
+        "ta",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "ta setraw",
+      "path": [
+        "ta",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "ta show",
+      "path": [
+        "ta",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "ta status",
+      "path": [
+        "ta",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "ta text",
+      "path": [
+        "ta",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "task",
+      "path": [
+        "task"
+      ],
+      "help": "",
+      "aliases": [
+        "ta"
+      ]
+    },
+    {
+      "command": "task add",
+      "path": [
+        "task",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "task discuss",
+      "path": [
+        "task",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "task list",
+      "path": [
+        "task",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "task raw",
+      "path": [
+        "task",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "task remove",
+      "path": [
+        "task",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "task set-status",
+      "path": [
+        "task",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "task set-text",
+      "path": [
+        "task",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "task setraw",
+      "path": [
+        "task",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "task show",
+      "path": [
+        "task",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "task status",
+      "path": [
+        "task",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "task text",
+      "path": [
+        "task",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "tr",
+      "path": [
+        "tr"
+      ],
+      "help": "",
+      "aliases": [
+        "track",
+        "t"
+      ]
+    },
+    {
+      "command": "tr add",
+      "path": [
+        "tr",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "tr details",
+      "path": [
+        "tr",
+        "details"
+      ],
+      "help": "",
+      "aliases": [
+        "dt"
+      ]
+    },
+    {
+      "command": "tr discuss",
+      "path": [
+        "tr",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "tr dt",
+      "path": [
+        "tr",
+        "dt"
+      ],
+      "help": "",
+      "aliases": [
+        "details"
+      ]
+    },
+    {
+      "command": "tr edit",
+      "path": [
+        "tr",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "tr list",
+      "path": [
+        "tr",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "tr raw",
+      "path": [
+        "tr",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "tr remove",
+      "path": [
+        "tr",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "tr set",
+      "path": [
+        "tr",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "tr set-status",
+      "path": [
+        "tr",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "tr set-text",
+      "path": [
+        "tr",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "tr setraw",
+      "path": [
+        "tr",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "tr show",
+      "path": [
+        "tr",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "s",
+        "sh"
+      ]
+    },
+    {
+      "command": "tr st",
+      "path": [
+        "tr",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "tr status",
+      "path": [
+        "tr",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "tr text",
+      "path": [
+        "tr",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "track",
+      "path": [
+        "track"
+      ],
+      "help": "",
+      "aliases": [
+        "tr",
+        "t"
+      ]
+    },
+    {
+      "command": "track add",
+      "path": [
+        "track",
+        "add"
+      ],
+      "help": "",
+      "aliases": [
+        "a"
+      ]
+    },
+    {
+      "command": "track details",
+      "path": [
+        "track",
+        "details"
+      ],
+      "help": "",
+      "aliases": [
+        "dt"
+      ]
+    },
+    {
+      "command": "track discuss",
+      "path": [
+        "track",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "track dt",
+      "path": [
+        "track",
+        "dt"
+      ],
+      "help": "",
+      "aliases": [
+        "details"
+      ]
+    },
+    {
+      "command": "track edit",
+      "path": [
+        "track",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "track list",
+      "path": [
+        "track",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "track raw",
+      "path": [
+        "track",
+        "raw"
+      ],
+      "help": "",
+      "aliases": [
+        "text"
+      ]
+    },
+    {
+      "command": "track remove",
+      "path": [
+        "track",
+        "remove"
+      ],
+      "help": "",
+      "aliases": [
+        "rm",
+        "r"
+      ]
+    },
+    {
+      "command": "track set",
+      "path": [
+        "track",
+        "set"
+      ],
+      "help": "",
+      "aliases": [
+        "st"
+      ]
+    },
+    {
+      "command": "track set-status",
+      "path": [
+        "track",
+        "set-status"
+      ],
+      "help": "",
+      "aliases": [
+        "status"
+      ]
+    },
+    {
+      "command": "track set-text",
+      "path": [
+        "track",
+        "set-text"
+      ],
+      "help": "",
+      "aliases": [
+        "setraw"
+      ]
+    },
+    {
+      "command": "track setraw",
+      "path": [
+        "track",
+        "setraw"
+      ],
+      "help": "",
+      "aliases": [
+        "set-text"
+      ]
+    },
+    {
+      "command": "track show",
+      "path": [
+        "track",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "s",
+        "sh"
+      ]
+    },
+    {
+      "command": "track st",
+      "path": [
+        "track",
+        "st"
+      ],
+      "help": "",
+      "aliases": [
+        "set"
+      ]
+    },
+    {
+      "command": "track status",
+      "path": [
+        "track",
+        "status"
+      ],
+      "help": "",
+      "aliases": [
+        "set-status"
+      ]
+    },
+    {
+      "command": "track text",
+      "path": [
+        "track",
+        "text"
+      ],
+      "help": "",
+      "aliases": [
+        "raw"
+      ]
+    },
+    {
+      "command": "tu",
+      "path": [
+        "tu"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu build",
+      "path": [
+        "tu",
+        "build"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu cache",
+      "path": [
+        "tu",
+        "cache"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu cache clear",
+      "path": [
+        "tu",
+        "cache",
+        "clear"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu cache stats",
+      "path": [
+        "tu",
+        "cache",
+        "stats"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu complete",
+      "path": [
+        "tu",
+        "complete"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu draft",
+      "path": [
+        "tu",
+        "draft"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu info",
+      "path": [
+        "tu",
+        "info"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu lsp",
+      "path": [
+        "tu",
+        "lsp"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu print-ast",
+      "path": [
+        "tu",
+        "print-ast"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu query",
+      "path": [
+        "tu",
+        "query"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu references",
+      "path": [
+        "tu",
+        "references"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "tu transform",
+      "path": [
+        "tu",
+        "transform"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "u dump",
+      "path": [
+        "u",
+        "dump"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "understand",
+      "path": [
+        "understand"
+      ],
+      "help": "[DEPRECATED] Use repo resolve or runbook instead",
+      "aliases": [
+        "u"
+      ]
+    },
+    {
+      "command": "understand dump",
+      "path": [
+        "understand",
+        "dump"
+      ],
+      "help": "",
+      "aliases": [
+        "d"
+      ]
+    },
+    {
+      "command": "wk",
+      "path": [
+        "wk"
+      ],
+      "help": "",
+      "aliases": [
+        "work"
+      ]
+    },
+    {
+      "command": "wk analyze",
+      "path": [
+        "wk",
+        "analyze"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk any",
+      "path": [
+        "wk",
+        "any"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk any pick",
+      "path": [
+        "wk",
+        "any",
+        "pick"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk discuss",
+      "path": [
+        "wk",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk fix",
+      "path": [
+        "wk",
+        "fix"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk issue",
+      "path": [
+        "wk",
+        "issue"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk phase",
+      "path": [
+        "wk",
+        "phase"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk resume",
+      "path": [
+        "wk",
+        "resume"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk task",
+      "path": [
+        "wk",
+        "task"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk track",
+      "path": [
+        "wk",
+        "track"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work",
+      "path": [
+        "work"
+      ],
+      "help": "",
+      "aliases": [
+        "wk"
+      ]
+    },
+    {
+      "command": "work analyze",
+      "path": [
+        "work",
+        "analyze"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work any",
+      "path": [
+        "work",
+        "any"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work any pick",
+      "path": [
+        "work",
+        "any",
+        "pick"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work discuss",
+      "path": [
+        "work",
+        "discuss"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work fix",
+      "path": [
+        "work",
+        "fix"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work issue",
+      "path": [
+        "work",
+        "issue"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work phase",
+      "path": [
+        "work",
+        "phase"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work resume",
+      "path": [
+        "work",
+        "resume"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work task",
+      "path": [
+        "work",
+        "task"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work track",
+      "path": [
+        "work",
+        "track"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "workflow",
+      "path": [
+        "workflow"
+      ],
+      "help": "Manage workflow diagrams and state machines for the maestro instance.",
+      "aliases": []
+    },
+    {
+      "command": "workflow archive",
+      "path": [
+        "workflow",
+        "archive"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "workflow create",
+      "path": [
+        "workflow",
+        "create"
+      ],
+      "help": "",
+      "aliases": [
+        "new"
+      ]
+    },
+    {
+      "command": "workflow delete",
+      "path": [
+        "workflow",
+        "delete"
+      ],
+      "help": "",
+      "aliases": [
+        "rm"
+      ]
+    },
+    {
+      "command": "workflow edit",
+      "path": [
+        "workflow",
+        "edit"
+      ],
+      "help": "",
+      "aliases": [
+        "e"
+      ]
+    },
+    {
+      "command": "workflow list",
+      "path": [
+        "workflow",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "workflow new",
+      "path": [
+        "workflow",
+        "new"
+      ],
+      "help": "",
+      "aliases": [
+        "create"
+      ]
+    },
+    {
+      "command": "workflow restore",
+      "path": [
+        "workflow",
+        "restore"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "workflow show",
+      "path": [
+        "workflow",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "workflow visualize",
+      "path": [
+        "workflow",
+        "visualize"
+      ],
+      "help": "",
+      "aliases": [
+        "viz"
+      ]
+    },
+    {
+      "command": "workflow viz",
+      "path": [
+        "workflow",
+        "viz"
+      ],
+      "help": "",
+      "aliases": [
+        "visualize"
+      ]
+    },
+    {
+      "command": "ws",
+      "path": [
+        "ws"
+      ],
+      "help": "",
+      "aliases": [
+        "wsession"
+      ]
+    },
+    {
+      "command": "ws breadcrumb",
+      "path": [
+        "ws",
+        "breadcrumb"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ws breadcrumb add",
+      "path": [
+        "ws",
+        "breadcrumb",
+        "add"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ws breadcrumbs",
+      "path": [
+        "ws",
+        "breadcrumbs"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ws close",
+      "path": [
+        "ws",
+        "close"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ws list",
+      "path": [
+        "ws",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "ws show",
+      "path": [
+        "ws",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "ws stats",
+      "path": [
+        "ws",
+        "stats"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ws timeline",
+      "path": [
+        "ws",
+        "timeline"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "ws tr",
+      "path": [
+        "ws",
+        "tr"
+      ],
+      "help": "",
+      "aliases": [
+        "tree"
+      ]
+    },
+    {
+      "command": "ws tree",
+      "path": [
+        "ws",
+        "tree"
+      ],
+      "help": "",
+      "aliases": [
+        "tr"
+      ]
+    },
+    {
+      "command": "wsession",
+      "path": [
+        "wsession"
+      ],
+      "help": "",
+      "aliases": [
+        "ws"
+      ]
+    },
+    {
+      "command": "wsession breadcrumb",
+      "path": [
+        "wsession",
+        "breadcrumb"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wsession breadcrumb add",
+      "path": [
+        "wsession",
+        "breadcrumb",
+        "add"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wsession breadcrumbs",
+      "path": [
+        "wsession",
+        "breadcrumbs"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wsession close",
+      "path": [
+        "wsession",
+        "close"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wsession list",
+      "path": [
+        "wsession",
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls",
+        "l"
+      ]
+    },
+    {
+      "command": "wsession show",
+      "path": [
+        "wsession",
+        "show"
+      ],
+      "help": "",
+      "aliases": [
+        "sh"
+      ]
+    },
+    {
+      "command": "wsession stats",
+      "path": [
+        "wsession",
+        "stats"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wsession timeline",
+      "path": [
+        "wsession",
+        "timeline"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wsession tr",
+      "path": [
+        "wsession",
+        "tr"
+      ],
+      "help": "",
+      "aliases": [
+        "tree"
+      ]
+    },
+    {
+      "command": "wsession tree",
+      "path": [
+        "wsession",
+        "tree"
+      ],
+      "help": "",
+      "aliases": [
+        "tr"
+      ]
+    }
+  ],
+  "count": 674
+}

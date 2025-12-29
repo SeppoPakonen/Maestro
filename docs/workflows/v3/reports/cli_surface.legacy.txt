@@ -1,0 +1,674 @@
+ai
+ai claude
+ai codex
+ai gemini
+ai qwen
+ai qwen-old
+ai sync
+b an
+b analyze
+b android
+b build
+b cfg
+b cfg detect
+b cfg edit
+b cfg list
+b cfg show
+b clean
+b config
+b config detect
+b config edit
+b config list
+b config show
+b exp
+b export
+b jar
+b methods
+b mth
+b rebuild
+b str
+b str apply
+b str fix
+b str lint
+b str sc
+b str scan
+b str show
+b structure
+b structure apply
+b structure fix
+b structure lint
+b structure sc
+b structure scan
+b structure show
+build
+build an
+build analyze
+build android
+build build
+build cfg
+build cfg detect
+build cfg edit
+build cfg list
+build cfg show
+build clean
+build config
+build config detect
+build config edit
+build config list
+build config show
+build exp
+build export
+build jar
+build methods
+build mth
+build rebuild
+build str
+build str apply
+build str fix
+build str lint
+build str sc
+build str scan
+build str show
+build structure
+build structure apply
+build structure fix
+build structure lint
+build structure sc
+build structure scan
+build structure show
+c add
+c b rep
+c b report
+c b run
+c b show
+c b status
+c batch
+c batch rep
+c batch report
+c batch run
+c batch show
+c batch status
+c new
+c plan
+c reset
+c rst
+c run
+c show
+c status
+cache
+cache prune
+cache show
+cache stats
+cfg
+cfg edit
+cfg get
+cfg list
+cfg pr
+cfg pr get
+cfg pr list
+cfg pr load
+cfg pr save
+cfg pr sd
+cfg pr set-default
+cfg prof
+cfg prof get
+cfg prof list
+cfg prof load
+cfg prof save
+cfg prof sd
+cfg prof set-default
+cfg profile
+cfg profile get
+cfg profile list
+cfg profile load
+cfg profile save
+cfg profile sd
+cfg profile set-default
+cfg reset
+cfg set
+cfg wizard
+config
+config edit
+config get
+config list
+config pr
+config pr get
+config pr list
+config pr load
+config pr save
+config pr sd
+config pr set-default
+config prof
+config prof get
+config prof list
+config prof load
+config prof save
+config prof sd
+config prof set-default
+config profile
+config profile get
+config profile list
+config profile load
+config profile save
+config profile sd
+config profile set-default
+config reset
+config set
+config wizard
+convert
+convert add
+convert b rep
+convert b report
+convert b run
+convert b show
+convert b status
+convert batch
+convert batch rep
+convert batch report
+convert batch run
+convert batch show
+convert batch status
+convert new
+convert plan
+convert reset
+convert rst
+convert run
+convert show
+convert status
+discuss
+discuss replay
+discuss resume
+init
+issues
+issues add
+issues analyze
+issues build
+issues convention
+issues decide
+issues features
+issues fix
+issues hier
+issues ignore
+issues link-task
+issues list
+issues look
+issues product
+issues react
+issues resolve
+issues rollback
+issues runtime
+issues show
+issues state
+issues triage
+issues ux
+log
+log list
+log scan
+log show
+m an
+m analyze
+m android
+m build
+m cfg
+m cfg detect
+m cfg edit
+m cfg list
+m cfg show
+m clean
+m config
+m config detect
+m config edit
+m config list
+m config show
+m exp
+m export
+m jar
+m methods
+m mth
+m rebuild
+m str
+m str apply
+m str fix
+m str lint
+m str sc
+m str scan
+m str show
+m structure
+m structure apply
+m structure fix
+m structure lint
+m structure sc
+m structure scan
+m structure show
+make
+make an
+make analyze
+make android
+make build
+make cfg
+make cfg detect
+make cfg edit
+make cfg list
+make cfg show
+make clean
+make config
+make config detect
+make config edit
+make config list
+make config show
+make exp
+make export
+make jar
+make methods
+make mth
+make rebuild
+make str
+make str apply
+make str fix
+make str lint
+make str sc
+make str scan
+make str show
+make structure
+make structure apply
+make structure fix
+make structure lint
+make structure sc
+make structure scan
+make structure show
+ops
+ops apply
+ops preview
+ops validate
+p add
+p discuss
+p edit
+p list
+p raw
+p remove
+p set
+p set-status
+p set-text
+p setraw
+p show
+p st
+p status
+p text
+ph
+ph add
+ph discuss
+ph edit
+ph list
+ph raw
+ph remove
+ph set
+ph set-status
+ph set-text
+ph setraw
+ph show
+ph st
+ph status
+ph text
+phase
+phase add
+phase discuss
+phase edit
+phase list
+phase raw
+phase remove
+phase set
+phase set-status
+phase set-text
+phase setraw
+phase show
+phase st
+phase status
+phase text
+pl
+pl add
+pl add-item
+pl ai
+pl discuss
+pl explore
+pl list
+pl ops
+pl ops apply
+pl ops preview
+pl ops validate
+pl remove
+pl remove-item
+pl ri
+pl show
+plan
+plan add
+plan add-item
+plan ai
+plan discuss
+plan explore
+plan list
+plan ops
+plan ops apply
+plan ops preview
+plan ops validate
+plan remove
+plan remove-item
+plan ri
+plan show
+r edit
+r list
+rb
+rb add
+rb archive
+rb delete
+rb discuss
+rb edit
+rb exp
+rb export
+rb list
+rb new
+rb remove
+rb render
+rb restore
+rb rnd
+rb sa
+rb se
+rb show
+rb sr
+rb srn
+rb step-add
+rb step-edit
+rb step-renumber
+rb step-rm
+repo
+repo c list
+repo c select-default
+repo c show
+repo conf
+repo conf list
+repo conf select-default
+repo conf show
+repo conventions
+repo conventions detect
+repo conventions show
+repo hier
+repo hier edit
+repo hier show
+repo hub
+repo hub find
+repo hub find package
+repo hub find pkg
+repo hub link
+repo hub link package
+repo hub link pkg
+repo hub link remove
+repo hub link show
+repo hub list
+repo hub scan
+repo hub show
+repo pkg
+repo refresh
+repo refresh all
+repo res
+repo resolve
+repo rules
+repo rules edit
+repo rules inject
+repo rules show
+repo show
+resume
+root
+root discuss
+root get
+root refine
+root set
+root show
+rs
+rules
+rules edit
+rules list
+runba
+runba add
+runba archive
+runba delete
+runba discuss
+runba edit
+runba exp
+runba export
+runba list
+runba new
+runba remove
+runba render
+runba restore
+runba rnd
+runba sa
+runba se
+runba show
+runba sr
+runba srn
+runba step-add
+runba step-edit
+runba step-renumber
+runba step-rm
+runbook
+runbook add
+runbook archive
+runbook delete
+runbook discuss
+runbook edit
+runbook exp
+runbook export
+runbook list
+runbook new
+runbook remove
+runbook render
+runbook restore
+runbook rnd
+runbook sa
+runbook se
+runbook show
+runbook sr
+runbook srn
+runbook step-add
+runbook step-edit
+runbook step-renumber
+runbook step-rm
+s breadcrumbs
+s details
+s get
+s list
+s new
+s remove
+s set
+s st
+s stats
+s timeline
+session
+session breadcrumbs
+session details
+session get
+session list
+session new
+session remove
+session set
+session st
+session stats
+session timeline
+settings
+settings edit
+settings get
+settings list
+settings pr
+settings pr get
+settings pr list
+settings pr load
+settings pr save
+settings pr sd
+settings pr set-default
+settings prof
+settings prof get
+settings prof list
+settings prof load
+settings prof save
+settings prof sd
+settings prof set-default
+settings profile
+settings profile get
+settings profile list
+settings profile load
+settings profile save
+settings profile sd
+settings profile set-default
+settings reset
+settings set
+settings wizard
+solutions
+solutions add
+solutions edit
+solutions list
+solutions remove
+solutions show
+t add
+t details
+t discuss
+t dt
+t edit
+t list
+t raw
+t remove
+t set
+t set-status
+t set-text
+t setraw
+t show
+t st
+t status
+t text
+ta
+ta add
+ta discuss
+ta list
+ta raw
+ta remove
+ta set-status
+ta set-text
+ta setraw
+ta show
+ta status
+ta text
+task
+task add
+task discuss
+task list
+task raw
+task remove
+task set-status
+task set-text
+task setraw
+task show
+task status
+task text
+tr
+tr add
+tr details
+tr discuss
+tr dt
+tr edit
+tr list
+tr raw
+tr remove
+tr set
+tr set-status
+tr set-text
+tr setraw
+tr show
+tr st
+tr status
+tr text
+track
+track add
+track details
+track discuss
+track dt
+track edit
+track list
+track raw
+track remove
+track set
+track set-status
+track set-text
+track setraw
+track show
+track st
+track status
+track text
+tu
+tu build
+tu cache
+tu cache clear
+tu cache stats
+tu complete
+tu draft
+tu info
+tu lsp
+tu print-ast
+tu query
+tu references
+tu transform
+u dump
+understand
+understand dump
+wk
+wk analyze
+wk any
+wk any pick
+wk discuss
+wk fix
+wk issue
+wk phase
+wk resume
+wk task
+wk track
+work
+work analyze
+work any
+work any pick
+work discuss
+work fix
+work issue
+work phase
+work resume
+work task
+work track
+workflow
+workflow archive
+workflow create
+workflow delete
+workflow edit
+workflow list
+workflow new
+workflow restore
+workflow show
+workflow visualize
+workflow viz
+ws
+ws breadcrumb
+ws breadcrumb add
+ws breadcrumbs
+ws close
+ws list
+ws show
+ws stats
+ws timeline
+ws tr
+ws tree
+wsession
+wsession breadcrumb
+wsession breadcrumb add
+wsession breadcrumbs
+wsession close
+wsession list
+wsession show
+wsession stats
+wsession timeline
+wsession tr
+wsession tree

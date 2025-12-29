@@ -1,0 +1,179 @@
+command,count
+init,15
+make,11
+repo resolve lite,7
+work task task-001,5
+repo resolve,5
+task complete task-001,3
+runbook list,3
+workflow list,3
+repo refresh all,2
+discuss,2
+ai qwen,2
+convert run cpp-to-python ../my-python-project,2
+solutions check,2
+work resume wsession-parent-abc123,2
+workflow init user-auth-service,1
+"workflow node add manager-intent ""User can log in securely""",1
+"workflow node add user-action ""Submit login form""",1
+workflow render puml,1
+workflow accept user-auth-service,1
+"track add ""Sprint 1"" 2025-01-01",1
+"phase add track-001 ""P1: Core Auth""",1
+"task add phase-001 ""Implement login endpoint""",1
+repo show packages,1
+repo conventions check,1
+issues list convention,1
+issues accept issue-001,1
+"ai qwen ""Explain how to use argparse""",1
+ai qwen session-001,1
+ai gemini,1
+ai claude,1
+ai codex,1
+discuss resume session-20250126-001,1
+discuss gemini,1
+wsession log session-20250126-001,1
+"runbook add ""Hello CLI Tool"" product greenfield",1
+"runbook step-add hello-cli-tool manager ""Define product goal: simple greeting CLI"" ""Goal documented""",1
+"runbook step-add hello-cli-tool user ""Run: hello Alice"" ""Prints: Hello, Alice!""",1
+"runbook step-add hello-cli-tool user ""Run: hello (no args)"" ""Prints: Hello, World!""",1
+"runbook step-add hello-cli-tool system ""Parse CLI args using argparse"" ""Arguments extracted""",1
+"runbook step-add hello-cli-tool ai ""Implement hello.py with argparse"" ""Code written and tested""",1
+runbook export hello-cli-tool md,1
+workflow init hello-cli-workflow hello-cli-tool,1
+"workflow node add hello-cli-workflow manager_intent ""Product goal: greeting CLI""",1
+"workflow node add hello-cli-workflow user_intent ""User runs hello X""",1
+"workflow node add hello-cli-workflow interface ""CLI: argparse parser""",1
+"workflow node add hello-cli-workflow code ""hello.py main()""",1
+workflow edge add hello-cli-workflow manager_intent_001 user_intent_001,1
+workflow edge add hello-cli-workflow user_intent_001 interface_001,1
+workflow edge add hello-cli-workflow interface_001 code_001,1
+workflow validate hello-cli-workflow,1
+workflow render hello-cli-workflow puml,1
+"track add ""Sprint 1: Hello CLI"" 2025-01-01",1
+"phase add track-001 ""P1: Implement Core""",1
+"task add phase-001 ""Implement hello.py with argparse""",1
+"wsession breadcrumb task-001 '<cookie>' ""Implementing argparse parser""",1
+"runbook add ""C++ Hello Program"" product greenfield cpp",1
+"runbook step-add c-hello-program manager ""Define goal: minimal C++ program that prints greeting"" ""Goal documented""",1
+"runbook step-add c-hello-program user ""Run: make"" ""Compiles successfully, creates ./hello binary""",1
+"runbook step-add c-hello-program user ""Run: ./hello"" ""Prints: Hello from C++!""",1
+"runbook step-add c-hello-program system ""Detect Makefile, invoke g++ with ""Compilation successful""",1
+"runbook step-add c-hello-program ai ""Write main.cpp with iostream, string"" ""Code compiles cleanly""",1
+runbook export c-hello-program md,1
+workflow init hello-cpp-workflow c-hello-program,1
+"workflow node add hello-cpp-workflow manager_intent ""Goal: minimal C++ greeting""",1
+"workflow node add hello-cpp-workflow user_intent ""User runs make; then ./hello""",1
+"workflow node add hello-cpp-workflow interface ""Build: Makefile + g++""",1
+"workflow node add hello-cpp-workflow code ""main.cpp: iostream + cout""",1
+workflow validate hello-cpp-workflow,1
+"track add ""Sprint 1: C++ Hello"" 2025-01-01",1
+"phase add track-001 ""P1: Implement and Build""",1
+"task add phase-001 ""Write main.cpp and Makefile""",1
+solutions match,1
+"issues add make ""Missing include: <string>""",1
+"runbook add ""GUI Menu: File"" ui menu",1
+"runbook step-add gui-menu-file manager ""Define File menu structure"" ""Menu items documented""",1
+"runbook step-add gui-menu-file user ""Click File → New (or Ctrl+N)"" ""New document created""",1
+"runbook step-add gui-menu-file user ""Click File → Open (or Ctrl+O)"" ""File picker dialog opens""",1
+"runbook step-add gui-menu-file user ""Click File → Save (or Ctrl+S)"" ""Document saved to disk""",1
+"runbook step-add gui-menu-file user ""Click File → Export → Export as PDF"" ""PDF export dialog opens""",1
+"runbook add ""GUI Menu: Edit"" ui menu",1
+"runbook step-add gui-menu-edit user ""Click Edit → Undo (or Ctrl+Z)"" ""Last action undone""",1
+"runbook step-add gui-menu-edit user ""Click Edit → Copy (or Ctrl+C)"" ""Selection copied to clipboard""",1
+"runbook add ""GUI Menu: Help"" ui menu",1
+"runbook step-add gui-menu-help user ""Click Help → About"" ""About dialog displays app version""",1
+"runbook step-add gui-menu-help user ""Click Help → Check for Updates"" ""Update check runs, reports status""",1
+workflow init file-menu-workflow gui-menu-file,1
+"workflow node add file-menu-workflow manager_intent ""Manager defines File menu structure""",1
+"workflow node add file-menu-workflow user_intent ""User wants to create/open/save/export files""",1
+"workflow node add file-menu-workflow interface ""Menu: File → New/Open/Save/Export""",1
+workflow init edit-menu-workflow gui-menu-edit,1
+"workflow node add edit-menu-workflow interface ""Menu: Edit → Undo/Redo/Cut/Copy/Paste""",1
+workflow validate file-menu-workflow,1
+workflow validate edit-menu-workflow,1
+workflow render file-menu-workflow puml,1
+"track add ""Sprint 2: Implement File Menu"" 2025-02-01",1
+"phase add track-001 ""P1: File Menu Actions""",1
+"task add phase-001 ""Implement File → New action""",1
+"task add phase-001 ""Implement File → Open action""",1
+"task add phase-001 ""Implement File → Export submenu""",1
+"runbook add ""Text Adventure Game Loop"" product game greenfield",1
+"runbook step-add text-adventure-game-loop manager ""Define goal: minimal playable text adventure"" ""Goal documented""",1
+"runbook step-add text-adventure-game-loop user ""Run: python adventure.py"" ""Game starts, shows starting room description""",1
+"runbook step-add text-adventure-game-loop user ""Type: look"" ""Displays room description and available exits""",1
+"runbook step-add text-adventure-game-loop user ""Type: go north"" ""Player moves to forest, add room description shown""",1
+"runbook step-add text-adventure-game-loop user ""Type: take key"" ""Key added to inventory""",1
+"runbook step-add text-adventure-game-loop user ""Type: inventory"" ""Shows: 'You are carrying: key'""",1
+"runbook step-add text-adventure-game-loop system ""Parse user command (look/go/take), edit world state"" ""Command processed, state updated""",1
+"runbook step-add text-adventure-game-loop ai ""Implement adventure.py with rooms dict and command parser"" ""Game loop functional""",1
+runbook export text-adventure-game-loop md,1
+workflow init game-loop-workflow text-adventure-game-loop,1
+"workflow node add game-loop-workflow manager_intent ""Goal: minimal playable adventure""",1
+"workflow node add game-loop-workflow user_intent ""Player explores rooms, takes items""",1
+"workflow node add game-loop-workflow interface ""Game loop: parse commands, edit world state""",1
+"workflow node add game-loop-workflow code ""adventure.py: rooms dict + command parser""",1
+workflow validate game-loop-workflow,1
+"track add ""Sprint 1: Text Adventure MVP"" 2025-01-01",1
+"phase add track-001 ""P1: Implement Game Loop""",1
+"task add phase-001 ""Implement adventure.py with rooms and commands""",1
+tu make target-cmake-mathapp,1
+tu query symbol calculateSum,1
+tu refactor rename symbol-001 computeSum,1
+tu autocomplete src/main.cpp 6 20,1
+tu refactor rename symbol-001 std,1
+convert add cpp-to-python,1
+convert plan cpp-to-python,1
+work task task-002,1
+issues list,1
+solutions list,1
+"issues ignore issue-001 ""Legacy code header will remain in src/ for backwards compatibility""",1
+task add issue-001,1
+,1
+repo,1
+tu,1
+convert,1
+issues,1
+solutions,1
+repo hub find package Core,1
+tu make target-upp-app,1
+settings set ai_stacking_mode managed,1
+"work spawn task-001 ""Investigate component Y""",1
+"wsession breadcrumb add wsession-subtask-def456 ""Found 3 main functions in component Y: validate, sanitize, transform""",1
+"wsession breadcrumb add wsession-subtask-def456 ""Implemented feature X""",1
+"wsession breadcrumb add wsession-parent-abc123 ""Implemented feature X using component Y""",1
+select toolchain set system project,1
+select toolchain show project,1
+select toolchain export env ./docs/maestro/toolchain.env,1
+select toolchain set android_ndk_r25 project,1
+select toolchain export env ./docs/maestro/toolchain-android.env,1
+select toolchain detect,1
+platform caps detect,1
+platform caps prefer vulkan project,1
+platform caps require vulkan project,1
+log list,1
+"log show ""${SCAN_ID}""",1
+"issues add ""${SCAN_ID}""",1
+issues list blocker open,1
+issues triage || true,1
+"issues link-task ""${FIRST_ISSUE}"" TASK-123 || true",1
+"issues resolve ""${FIRST_ISSUE}"" ""Fixed in test commit"" || true",1
+"work task TASK-123 || echo ""${YELLOW}⚠ Command failed (may not be fully implemented)${NC}""",1
+"log show ""${SCAN_ID}"" | grep fingerprint | sort > /tmp/scan1_fingerprints.txt",1
+"log show ""${SCAN_ID_2}"" | grep fingerprint | sort > /tmp/scan2_fingerprints.txt",1
+repo hub list,1
+repo hub find package CoreLib,1
+repo hub link package MyApp sha256:def456...,1
+repo hub link show,1
+make make MyApp,1
+repo hub show sha256:abc123...,1
+repo hub link remove sha256:link123...,1
+"runbook archive RB-001 ""Superseded by v2""",1
+"runbook archive docs/workflows/v3/runbooks/examples/EX-01_old_example.sh ""Outdated approach""",1
+runbook list json,1
+runbook show RB-001,1
+"runbook archive RB-001 ""Testing idempotency""",1
+runbook restore <ARCHIVE_ID>,1
+"workflow archive docs/workflows/v3/workflows/WF-OLD.md ""Legacy workflow""",1
+workflow show docs/workflows/v3/workflows/WF-OLD.md,1
+workflow restore <WORKFLOW_ARCHIVE_ID>,1
