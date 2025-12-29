@@ -432,7 +432,10 @@ if [[ "$SKIPPED_ONLY" -eq 0 ]]; then
 fi
 
 # Profiling report - always enabled to track test performance
-if [[ "$PROFILE_REPORT" -eq 1 ]]; then
+if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
+  # When saving profile report, get ALL test durations for complete timing database
+  PYTEST_BASE_ARGS+=(--durations=0)
+elif [[ "$PROFILE_REPORT" -eq 1 ]]; then
   # Show more durations when explicitly requested
   PYTEST_BASE_ARGS+=(--durations=25)
 else
@@ -613,16 +616,17 @@ if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]] && [[ -f "$TEMP_OUTPUT" ]]; then
     echo "# Profile: $PROFILE"
     echo ""
 
-    # Extract slowest durations section and convert to relative paths
-    if grep -q "slowest.*durations" "$TEMP_OUTPUT"; then
-      sed -n '/slowest.*durations/,/^$/p' "$TEMP_OUTPUT" | \
+    # Extract all durations section and convert to relative paths
+    if grep -q "slowest.*durations\|=.* durations =.*" "$TEMP_OUTPUT"; then
+      # Extract the durations section (works for both "slowest N durations" and "= durations =")
+      sed -n '/slowest.*durations\|=.* durations =.*/,/^$/p' "$TEMP_OUTPUT" | \
         sed "s|$REPO_ROOT/||g"
 
       echo ""
       echo "# Warnings"
 
       # Check for slow tests and generate warnings
-      SLOW_COUNT=$(sed -n '/slowest.*durations/,/^$/p' "$TEMP_OUTPUT" | \
+      SLOW_COUNT=$(sed -n '/slowest.*durations\|=.* durations =.*/,/^$/p' "$TEMP_OUTPUT" | \
         grep -E '^\s*[0-9]+\.[0-9]+s' | \
         awk '$1 ~ /^[0-9]+\.[0-9]+s$/ {gsub(/s$/,"",$1); if ($1 > 1.0) print}' | \
         wc -l)
@@ -631,7 +635,7 @@ if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]] && [[ -f "$TEMP_OUTPUT" ]]; then
         echo "WARNING: Found $SLOW_COUNT tests slower than 1.0s"
         echo ""
         echo "Slow tests (>1.0s):"
-        sed -n '/slowest.*durations/,/^$/p' "$TEMP_OUTPUT" | \
+        sed -n '/slowest.*durations\|=.* durations =.*/,/^$/p' "$TEMP_OUTPUT" | \
           grep -E '^\s*[0-9]+\.[0-9]+s' | \
           awk '$1 ~ /^[0-9]+\.[0-9]+s$/ {gsub(/s$/,"",$1); if ($1 > 1.0) print}' | \
           sed "s|$REPO_ROOT/||g" | \
