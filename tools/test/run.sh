@@ -89,6 +89,7 @@ CHECKPOINT_FILE="${MAESTRO_TEST_CHECKPOINT:-}"
 SKIPLIST="${MAESTRO_TEST_SKIPLIST:-$SCRIPT_DIR/skiplist.txt}"
 TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
 PROFILE_REPORT=0
+SAVE_PROFILE_REPORT=0
 SKIPPED_ONLY=0
 SLOWEST_FIRST=1
 PYTEST_ARGS=()
@@ -107,7 +108,8 @@ Options:
                           - medium: fast + medium-marked tests
                           - slow: only slow-marked tests
                           - all: no speed filtering (still excludes legacy by default)
-  --profile-report        Show timing report for slowest 25 tests
+  --profile-report        Show timing report for slowest 25 tests (default: 10)
+  --save-profile-report   Save timing report to docs/workflows/v3/reports/test_timing_latest.txt
   --resume-from FILE      Resume from checkpoint, skipping previously PASSED tests
   --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
   --skiplist FILE         File containing test patterns to skip (default: tools/test/skiplist.txt)
@@ -182,6 +184,10 @@ while [[ $# -gt 0 ]]; do
       PROFILE_REPORT=1
       shift
       ;;
+    --save-profile-report)
+      SAVE_PROFILE_REPORT=1
+      shift
+      ;;
     --resume-from)
       if [[ -z "${2:-}" ]]; then
         echo "ERROR: --resume-from requires a file path argument" >&2
@@ -249,6 +255,8 @@ fi
 # ==============================================================================
 # Setup profiling output file location
 # ==============================================================================
+# Always set the path for reading timing data (for slowest-first ordering)
+# Only write to it if --save-profile-report is used
 PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt"
 
 # ==============================================================================
@@ -381,20 +389,24 @@ if [[ "$TIMING_BASED_FILTER" -eq 0 ]]; then
       PYTEST_BASE_ARGS+=(-m "not legacy")
 
       # If timing data exists and slowest-first is enabled, order all tests by duration
+      # Only apply if timing file has actual test data
       if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
-        ALL_TESTS_SORTED=$(mktemp)
-        # Extract all test nodeids with durations and sort slowest first
-        grep -E '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)\s+' "$PROFILE_OUTPUT_FILE" 2>/dev/null | \
-          awk '{duration=$1; gsub(/s$/,"",duration); $1=$2=""; nodeid=$0; gsub(/^ */,"",nodeid); print duration, nodeid}' | \
-          sort -rn > "$ALL_TESTS_SORTED"
+        # Check if timing file has actual test timing data
+        if grep -qE '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)' "$PROFILE_OUTPUT_FILE" 2>/dev/null; then
+          ALL_TESTS_SORTED=$(mktemp)
+          # Extract all test nodeids with durations and sort slowest first
+          grep -E '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)\s+' "$PROFILE_OUTPUT_FILE" 2>/dev/null | \
+            awk '{duration=$1; gsub(/s$/,"",duration); $1=$2=""; nodeid=$0; gsub(/^ */,"",nodeid); print duration, nodeid}' | \
+            sort -rn > "$ALL_TESTS_SORTED"
 
-        if [[ -s "$ALL_TESTS_SORTED" ]]; then
-          echo "Ordering: slowest first ($(wc -l < "$ALL_TESTS_SORTED") tests)" >&2
-          while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done < "$ALL_TESTS_SORTED"
+          if [[ -s "$ALL_TESTS_SORTED" ]]; then
+            echo "Ordering: slowest first ($(wc -l < "$ALL_TESTS_SORTED") tests)" >&2
+            while read -r duration nodeid; do
+              PYTEST_BASE_ARGS+=("$nodeid")
+            done < "$ALL_TESTS_SORTED"
+          fi
+          rm -f "$ALL_TESTS_SORTED"
         fi
-        rm -f "$ALL_TESTS_SORTED"
       fi
       ;;
     *)
@@ -509,12 +521,55 @@ export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
 cd "$REPO_ROOT"
 
+# ==============================================================================
+# Print test run configuration
+# ==============================================================================
+echo "============================================================="
+echo "Maestro Test Runner Configuration"
+echo "============================================================="
+echo "Profile:          $PROFILE"
+echo "Workers:          $JOBS"
+echo "Verbose:          $([ "$VERBOSE" -eq 1 ] && echo "yes" || echo "no")"
+if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
+  if [[ "$SKIPPED_ONLY" -eq 1 ]]; then
+    echo "Skiplist:         $SKIPLIST (running ONLY skipped tests)"
+  else
+    echo "Skiplist:         $SKIPLIST"
+  fi
+else
+  echo "Skiplist:         disabled"
+fi
+if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
+  if grep -qE '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)' "$PROFILE_OUTPUT_FILE" 2>/dev/null; then
+    echo "Test ordering:    slowest-first (timing data available)"
+  else
+    echo "Test ordering:    default (no timing data)"
+  fi
+else
+  echo "Test ordering:    default"
+fi
+if [[ -n "$TEST_TIMEOUT" ]]; then
+  echo "Timeout:          ${TEST_TIMEOUT}s per test"
+fi
+if [[ -n "$RESUME_FROM" ]]; then
+  echo "Resume mode:      enabled (from $RESUME_FROM)"
+fi
+if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
+  echo "Save profile:     yes (to ${PROFILE_OUTPUT_FILE#$REPO_ROOT/})"
+elif [[ "$PROFILE_REPORT" -eq 1 ]]; then
+  echo "Profile report:   yes (25 slowest tests)"
+else
+  echo "Profile report:   default (10 slowest tests)"
+fi
+echo "============================================================="
+echo ""
+
 # Capture start time
 START_TIME=$(date +%s)
 
 # Run pytest with plugin
 set +e
-if [[ -n "$PROFILE_OUTPUT_FILE" ]]; then
+if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
   # Capture output for profiling
   TEMP_OUTPUT=$(mktemp)
   "$VENV_PY" -m pytest \
@@ -539,7 +594,7 @@ DURATION=$((END_TIME - START_TIME))
 # ==============================================================================
 # Process profiling output
 # ==============================================================================
-if [[ -n "$PROFILE_OUTPUT_FILE" ]] && [[ -f "$TEMP_OUTPUT" ]]; then
+if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]] && [[ -f "$TEMP_OUTPUT" ]]; then
   {
     echo "# Test Timing Report"
     echo "# Generated: $(date '+%Y-%m-%d %H:%M:%S')"

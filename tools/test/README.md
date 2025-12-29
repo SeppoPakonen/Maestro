@@ -21,6 +21,30 @@ bash tools/test/run.sh --help
 
 ## Features
 
+### 0. Configuration Display
+
+**Before running tests, the runner displays the configuration being used:**
+
+```bash
+bash tools/test/run.sh
+```
+
+Example output:
+```
+=============================================================
+Maestro Test Runner Configuration
+=============================================================
+Profile:          all
+Workers:          15
+Verbose:          no
+Skiplist:         /path/to/skiplist.txt
+Test ordering:    slowest-first (timing data available)
+Profile report:   default (10 slowest tests)
+=============================================================
+```
+
+This helps you understand what defaults are being applied and verify your configuration.
+
 ### 1. Parallel Execution
 
 By default, tests run in parallel using `pytest-xdist` with `cpu_count - 1` workers.
@@ -97,17 +121,20 @@ MAESTRO_TEST_CHECKPOINT=/tmp/my_checkpoint.txt bash tools/test/run.sh
 
 ### 4. Profiling & Performance
 
-**Timing data is automatically saved on every test run** to `docs/workflows/v3/reports/test_timing_latest.txt`. This enables timing-based speed profiles and performance tracking.
+**Timing data can be saved** to `docs/workflows/v3/reports/test_timing_latest.txt` for performance tracking and slowest-first test ordering.
 
 ```bash
-# Every run saves timing data (default: top 10 slowest)
+# Show top 10 slowest tests (default)
 bash tools/test/run.sh
 
-# Show more detail: top 25 slowest tests
+# Show top 25 slowest tests
 bash tools/test/run.sh --profile-report
 
-# Combine with other options
-bash tools/test/run.sh --profile medium --profile-report -j 8
+# Save timing report to file (for slowest-first ordering and tracking)
+bash tools/test/run.sh --save-profile-report
+
+# Combine options
+bash tools/test/run.sh --profile medium --profile-report --save-profile-report -j 8
 
 # Check the saved report
 cat docs/workflows/v3/reports/test_timing_latest.txt
@@ -117,7 +144,7 @@ cat docs/workflows/v3/reports/test_timing_latest.txt
 - Slowest test durations with relative paths (10 by default, 25 with --profile-report)
 - Warnings for tests slower than 1.0s
 - Test run metadata (timestamp, duration, workers, profile)
-- Used by `--profile fast/medium/slow` to select tests
+- Used by slowest-first ordering and `--profile fast/medium/slow` timing-based selection
 
 **Slowest-First Ordering:**
 
