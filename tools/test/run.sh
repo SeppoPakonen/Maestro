@@ -108,8 +108,8 @@ Options:
                           - medium: fast + medium-marked tests
                           - slow: only slow-marked tests
                           - all: no speed filtering (still excludes legacy by default)
-  --profile-report        Show timing report for slowest 25 tests (default: 10)
-  --save-profile-report   Save timing report to docs/workflows/v3/reports/test_timing_latest.txt
+  --profile-report        Run tests and show top 25 slowest (default: 10)
+  --save-profile-report   Run tests and save ALL timings to docs/workflows/v3/reports/test_timing_latest.txt
   --resume-from FILE      Resume from checkpoint, skipping previously PASSED tests
   --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
   --skiplist FILE         File containing test patterns to skip (default: tools/test/skiplist.txt)
@@ -138,8 +138,11 @@ Examples:
   # Resume from a previous checkpoint
   $0 --resume-from /tmp/maestro_pytest_checkpoint_20231215_120000_12345.txt
 
-  # Show profiling report
+  # Run tests and show top 25 slowest (instead of default 10)
   $0 --profile-report
+
+  # View saved timing report (without running tests)
+  cat docs/workflows/v3/reports/test_timing_latest.txt
 
   # Use custom skiplist
   $0 --skiplist my_skiplist.txt
