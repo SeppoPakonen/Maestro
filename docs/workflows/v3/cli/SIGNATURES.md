@@ -90,6 +90,16 @@ Replay accepts:
 - `maestro runbook export <ID> --format {md|puml} [--out <PATH>]`
 - `maestro runbook render <ID> [--out <PATH>]`
 
+## Runbook lifecycle (archive/restore)
+
+- `maestro runbook list [--archived] [--type {markdown|json|all}]`
+- `maestro runbook show <ID_OR_PATH> [--archived]`
+- `maestro runbook archive <ID_OR_PATH> [--reason <TEXT>]`
+- `maestro runbook restore <ARCHIVE_ID>`
+
+Archive operations support both JSON runbooks (CLI-managed) and markdown example files.
+Archived items are moved (not copied) to timestamped folders and excluded from default listings.
+
 ## Workflow authoring primitives
 
 - `maestro workflow list`
@@ -98,6 +108,15 @@ Replay accepts:
 - `maestro workflow edit <NAME>`
 - `maestro workflow delete <NAME>`
 - `maestro workflow visualize <NAME> --format {plantuml|mermaid|graphviz}`
+
+## Workflow lifecycle (archive/restore)
+
+- `maestro workflow list [--archived]`
+- `maestro workflow show <PATH> [--archived]`
+- `maestro workflow archive <PATH> [--reason <TEXT>]`
+- `maestro workflow restore <ARCHIVE_ID>`
+
+Archived workflows are moved to timestamped folders and excluded from default listings.
 
 ## Repo resolve/conf + make/build naming
 
@@ -283,6 +302,9 @@ Cache behavior:
 
 ## Convert plan approval
 
+- `maestro convert plan <PIPELINE_ID>`
+- `maestro convert plan <PIPELINE_ID> {show|approve|reject|status|history}`
+- `maestro convert plan {show|approve|reject|status|history} <PIPELINE_ID>`
 - `maestro convert plan show <PIPELINE_ID>`
 - `maestro convert plan approve <PIPELINE_ID> [--reason <TEXT>]`
 - `maestro convert plan reject <PIPELINE_ID> [--reason <TEXT>]`

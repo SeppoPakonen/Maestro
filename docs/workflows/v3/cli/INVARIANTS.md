@@ -164,6 +164,40 @@ See also:
   - Next: create new cache entry with different prompt hash.
   - Implemented in: cache storage layer (no update methods).
 
+## Archive lifecycle (runbooks and workflows)
+
+- Archive operations move items (not copy); item is active OR archived, never both.
+  - Failure: item exists in both active and archived locations.
+  - Next: verify archive implementation uses move/rename, not copy.
+  - Implemented in: `maestro.archive.runbook_archive` and `maestro.archive.workflow_archive` using `shutil.move()`.
+- Archive uses timestamped folders (YYYYMMDD) to mirror original path structure.
+  - Format: `archived/YYYYMMDD/<original_relative_path>`
+  - Failure: archived items not in timestamped folders.
+  - Next: verify archive path generation logic.
+  - Implemented in: `maestro.archive.storage.get_timestamp_folder()`.
+- Archiving is idempotent: archiving the same item twice fails with clear error.
+  - Failure: attempt to archive already-archived item.
+  - Next: check archive index to verify item not already archived.
+  - Implemented in: archive functions check index before archiving.
+- Archive metadata is stored in separate index files (archive_index.json).
+  - Runbook archive index: `docs/maestro/runbooks/archive_index.json`
+  - Workflow archive index: `docs/maestro/workflows/archive_index.json`
+  - Failure: index file missing or corrupted.
+  - Next: index automatically created on first archive operation.
+  - Implemented in: `maestro.archive.storage.load_archive_index()` and `save_archive_index()`.
+- Default listings exclude archived items; `--archived` flag required to view archive.
+  - Failure: archived items appear in default list output.
+  - Next: verify list implementation filters out archived directories.
+  - Implemented in: list handlers check `args.archived` flag and use separate functions.
+- Restore operations check original path is unoccupied before restoring.
+  - Failure: attempt to restore when original path exists.
+  - Next: move or rename existing file at original path first.
+  - Implemented in: restore functions validate original path before moving file back.
+- Archive IDs are globally unique (UUID4); no collision risk.
+  - Failure: archive ID collision.
+  - Next: verify UUID generation is random (not sequential).
+  - Implemented in: `maestro.archive.storage.generate_archive_id()` using `uuid.uuid4()`.
+
 ## Work gates and blockers
 
 - Blocker issues (build errors, critical failures) gate work start.
