@@ -226,6 +226,11 @@ if "$VENV_PY" -c "import xdist" 2>/dev/null; then
 fi
 
 # ==============================================================================
+# Setup profiling output file location
+# ==============================================================================
+PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt"
+
+# ==============================================================================
 # Determine pytest base arguments
 # ==============================================================================
 PYTEST_BASE_ARGS=()
@@ -244,34 +249,111 @@ elif [[ "$JOBS" -gt 1 ]] && [[ "$XDIST_AVAILABLE" -eq 0 ]]; then
   echo "Note: xdist not available; running serial" >&2
 fi
 
-# Speed profile filtering
-# Note: pytest.ini already has default addopts with "-m 'not legacy and not slow'"
-# We need to override this for different profiles
-case "$PROFILE" in
-  fast)
-    PYTEST_BASE_ARGS+=(-m "fast and not legacy")
-    ;;
-  medium)
-    PYTEST_BASE_ARGS+=(-m "(fast or medium) and not legacy")
-    ;;
-  slow)
-    PYTEST_BASE_ARGS+=(-m "slow and not legacy")
-    ;;
-  all)
-    # Don't add speed filtering, but still exclude legacy
-    PYTEST_BASE_ARGS+=(-m "not legacy")
-    ;;
-  *)
-    echo "ERROR: Invalid profile '$PROFILE'. Must be: fast, medium, slow, or all" >&2
-    exit 1
-    ;;
-esac
+# ==============================================================================
+# Speed profile filtering using timing data
+# ==============================================================================
+# If timing data exists, use actual performance. Otherwise fall back to markers.
+TIMING_BASED_FILTER=0
+if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]]; then
+  # Parse timing data to build test lists based on actual performance
+  FAST_TESTS=$(mktemp)
+  MEDIUM_TESTS=$(mktemp)
+  SLOW_TESTS=$(mktemp)
 
-# Profiling report
-PROFILE_OUTPUT_FILE=""
+  # Extract test nodeids and durations from timing file
+  # Format: "0.07s call     tests/test_foo.py::TestBar::test_baz"
+  grep -E '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)\s+' "$PROFILE_OUTPUT_FILE" 2>/dev/null | while read -r line; do
+    duration=$(echo "$line" | awk '{print $1}' | sed 's/s$//')
+    nodeid=$(echo "$line" | awk '{$1=$2=""; print $0}' | sed 's/^ *//')
+
+    # Classify by duration
+    if awk "BEGIN {exit !($duration < 0.1)}"; then
+      echo "$nodeid" >> "$FAST_TESTS"
+    elif awk "BEGIN {exit !($duration < 1.0)}"; then
+      echo "$nodeid" >> "$MEDIUM_TESTS"
+    else
+      echo "$nodeid" >> "$SLOW_TESTS"
+    fi
+  done
+
+  # Apply profile filter based on timing data
+  case "$PROFILE" in
+    fast)
+      if [[ -s "$FAST_TESTS" ]]; then
+        echo "Using timing data: running $(wc -l < "$FAST_TESTS") fast tests (<0.1s)" >&2
+        while IFS= read -r test; do
+          PYTEST_BASE_ARGS+=("$test")
+        done < "$FAST_TESTS"
+        TIMING_BASED_FILTER=1
+      fi
+      ;;
+    medium)
+      if [[ -s "$FAST_TESTS" ]] || [[ -s "$MEDIUM_TESTS" ]]; then
+        fast_count=$(wc -l < "$FAST_TESTS" 2>/dev/null || echo 0)
+        medium_count=$(wc -l < "$MEDIUM_TESTS" 2>/dev/null || echo 0)
+        total=$((fast_count + medium_count))
+        echo "Using timing data: running $total fast+medium tests (<1.0s)" >&2
+        while IFS= read -r test; do
+          PYTEST_BASE_ARGS+=("$test")
+        done < "$FAST_TESTS"
+        while IFS= read -r test; do
+          PYTEST_BASE_ARGS+=("$test")
+        done < "$MEDIUM_TESTS"
+        TIMING_BASED_FILTER=1
+      fi
+      ;;
+    slow)
+      if [[ -s "$SLOW_TESTS" ]]; then
+        echo "Using timing data: running $(wc -l < "$SLOW_TESTS") slow tests (>1.0s)" >&2
+        while IFS= read -r test; do
+          PYTEST_BASE_ARGS+=("$test")
+        done < "$SLOW_TESTS"
+        TIMING_BASED_FILTER=1
+      fi
+      ;;
+  esac
+
+  rm -f "$FAST_TESTS" "$MEDIUM_TESTS" "$SLOW_TESTS"
+fi
+
+# Fall back to marker-based filtering if no timing data available
+if [[ "$TIMING_BASED_FILTER" -eq 0 ]]; then
+  case "$PROFILE" in
+    fast)
+      PYTEST_BASE_ARGS+=(-m "fast and not legacy")
+      ;;
+    medium)
+      PYTEST_BASE_ARGS+=(-m "(fast or medium) and not legacy")
+      ;;
+    slow)
+      PYTEST_BASE_ARGS+=(-m "slow and not legacy")
+      ;;
+    all)
+      # Don't add speed filtering, but still exclude legacy
+      PYTEST_BASE_ARGS+=(-m "not legacy")
+      ;;
+    *)
+      echo "ERROR: Invalid profile '$PROFILE'. Must be: fast, medium, slow, or all" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+# Always exclude legacy tests
+if [[ "$TIMING_BASED_FILTER" -eq 0 ]] && [[ "$PROFILE" != "all" ]]; then
+  # Marker-based filtering already includes "not legacy"
+  :
+else
+  PYTEST_BASE_ARGS+=(-m "not legacy")
+fi
+
+# Profiling report - always enabled to track test performance
 if [[ "$PROFILE_REPORT" -eq 1 ]]; then
+  # Show more durations when explicitly requested
   PYTEST_BASE_ARGS+=(--durations=25)
-  PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt"
+else
+  # Default: show top 10 to keep output clean but still track performance
+  PYTEST_BASE_ARGS+=(--durations=10)
 fi
 
 # ==============================================================================

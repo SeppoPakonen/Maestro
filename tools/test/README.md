@@ -39,18 +39,18 @@ bash tools/test/run.sh -j 1
 MAESTRO_TEST_JOBS=8 bash tools/test/run.sh
 ```
 
-### 2. Speed Profiles
+### 2. Speed Profiles (Timing-Based)
 
-Filter tests by execution speed to enable fast iteration or comprehensive testing.
+Filter tests by execution speed using **actual timing data** from previous runs. The runner automatically saves timing data and uses it to classify tests.
 
 ```bash
-# Run only fast tests (quick unit tests, minimal I/O)
+# Run only fast tests (<0.1s based on last run)
 bash tools/test/run.sh --profile fast
 
-# Run fast + medium tests
+# Run fast + medium tests (<1.0s based on last run)
 bash tools/test/run.sh --profile medium
 
-# Run only slow tests (integration tests, heavy I/O)
+# Run only slow tests (>1.0s based on last run)
 bash tools/test/run.sh --profile slow
 
 # Run all tests (default, still excludes legacy)
@@ -60,13 +60,19 @@ bash tools/test/run.sh --profile all
 MAESTRO_TEST_PROFILE=fast bash tools/test/run.sh
 ```
 
-**Marker definitions:**
-- `@pytest.mark.fast`: Quick unit tests, minimal I/O (< 0.1s typical)
-- `@pytest.mark.medium`: Reasonable runtime, not fast but not slow (< 1s typical)
-- `@pytest.mark.slow`: Integration tests, heavy I/O, subprocess calls (> 1s typical)
-- Unmarked tests: Run in all profiles except when profile=fast or profile=slow
+**How it works:**
+1. Every test run automatically saves timing data to `docs/workflows/v3/reports/test_timing_latest.txt`
+2. Speed profiles use **actual measured performance** from the timing file:
+   - `fast`: Tests that ran in <0.1s
+   - `medium`: Tests that ran in 0.1s-1.0s
+   - `slow`: Tests that ran in >1.0s
+3. If no timing data exists yet, falls back to pytest markers (`@pytest.mark.fast`, etc.)
 
-**Note:** Not all tests are currently marked. Contributors should add markers to new tests. See `pytest.ini` for marker definitions.
+**Benefits:**
+- No manual test marking required
+- Automatically adapts to actual performance
+- Tests are reclassified as code changes affect performance
+- Timing data committed to git tracks performance trends
 
 ### 3. Checkpoint & Resume
 
@@ -91,10 +97,13 @@ MAESTRO_TEST_CHECKPOINT=/tmp/my_checkpoint.txt bash tools/test/run.sh
 
 ### 4. Profiling & Performance
 
-Identify slow tests for optimization. Profiling reports are automatically saved to `docs/workflows/v3/reports/test_timing_latest.txt` with relative paths and warnings for slow tests.
+**Timing data is automatically saved on every test run** to `docs/workflows/v3/reports/test_timing_latest.txt`. This enables timing-based speed profiles and performance tracking.
 
 ```bash
-# Show timing report for slowest 25 tests (auto-saves to file)
+# Every run saves timing data (default: top 10 slowest)
+bash tools/test/run.sh
+
+# Show more detail: top 25 slowest tests
 bash tools/test/run.sh --profile-report
 
 # Combine with other options
@@ -105,9 +114,10 @@ cat docs/workflows/v3/reports/test_timing_latest.txt
 ```
 
 **Report includes:**
-- Slowest 25 test durations with relative paths
+- Slowest test durations with relative paths (10 by default, 25 with --profile-report)
 - Warnings for tests slower than 1.0s
 - Test run metadata (timestamp, duration, workers, profile)
+- Used by `--profile fast/medium/slow` to select tests
 
 ## Common Workflows
 
