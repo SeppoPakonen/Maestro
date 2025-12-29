@@ -19,6 +19,5 @@
 # See: docs/workflows/v3/reports/test_backlog_from_skiplist.md
 
 # Tests expecting unimplemented features (documented in test_backlog_from_skiplist.md)
-# These remain in skiplist until features are implemented
-tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_with_linked_task_allows_work
-tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_with_linked_todo_task_blocks_work
+# All previously skipped tests have been implemented and are now enabled
+# This skiplist is now opt-in only and empty by default
