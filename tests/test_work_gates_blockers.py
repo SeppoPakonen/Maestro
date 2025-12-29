@@ -97,25 +97,23 @@ class TestWorkGates:
         # Link issue to a task
         from maestro.issues.json_store import link_issue_to_task
 
-        link_issue_to_task(issue_id, "TASK-123", repo_root=temp_repo)
+        link_issue_to_task(issue_id, "123", repo_root=temp_repo)
 
         # Create a mock phase with the linked task in in_progress status
         phases_dir = Path(temp_repo) / "docs" / "phases"
         phases_dir.mkdir(parents=True, exist_ok=True)
 
-        phase_content = """# Phase: Test Phase
+        phase_content = """# Phase test1: Test Phase
 
 ## Metadata
-- phase_id: test-phase
-- track_id: test-track
+- track_id: testtrack
 - status: in_progress
 
 ## Tasks
 
-### Task 123
+### Task 123: Fix segfault
 - task_id: TASK-123
 - status: in_progress
-- description: Fix the segfault issue
 """
         phase_file = phases_dir / "test_phase.md"
         phase_file.write_text(phase_content)
@@ -141,25 +139,23 @@ class TestWorkGates:
         # Link issue to a task
         from maestro.issues.json_store import link_issue_to_task
 
-        link_issue_to_task(issue_id, "TASK-124", repo_root=temp_repo)
+        link_issue_to_task(issue_id, "124", repo_root=temp_repo)
 
         # Create a mock phase with the linked task in todo status
         phases_dir = Path(temp_repo) / "docs" / "phases"
         phases_dir.mkdir(parents=True, exist_ok=True)
 
-        phase_content = """# Phase: Test Phase
+        phase_content = """# Phase test2: Test Phase
 
 ## Metadata
-- phase_id: test-phase
-- track_id: test-track
+- track_id: testtrack
 - status: todo
 
 ## Tasks
 
-### Task 124
+### Task 124: Fix memory leak
 - task_id: TASK-124
 - status: todo
-- description: Fix the memory leak
 """
         phase_file = phases_dir / "test_phase.md"
         phase_file.write_text(phase_content)

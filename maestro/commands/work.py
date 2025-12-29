@@ -32,7 +32,7 @@ from ..breadcrumb import (
     capture_tool_call,
     track_file_modification
 )
-from ..data import parse_phase_md, parse_todo_md
+from ..data import parse_phase_md, parse_todo_md as data_parse_todo_md
 from ..engines import get_engine, EngineError
 
 
@@ -71,6 +71,9 @@ def add_work_parser(subparsers):
     fix_parser.add_argument("--issue", help="Issue ID to fix")
     fix_parser.add_argument("--simulate", action="store_true", help="Print the prompt without executing work")
 
+    resume_parser = work_subparsers.add_parser("resume", help="Resume a work session")
+    resume_parser.add_argument("session_id", help="Work session ID")
+
     return work_parser
 
 def _normalize_work_status(value: Optional[str]) -> str:
@@ -80,6 +83,99 @@ def _normalize_work_status(value: Optional[str]) -> str:
     if normalized in {"done", "completed", "complete", "closed"}:
         return "done"
     return "todo"
+
+
+def _split_legacy_heading(heading: str) -> Optional[Dict[str, str]]:
+    if "_" not in heading:
+        return None
+    prefix, remainder = heading.split("_", 1)
+    prefix = prefix.strip()
+    remainder = remainder.strip()
+    if not prefix or not remainder:
+        return None
+    return {"id": prefix, "name": remainder}
+
+
+def _looks_like_legacy_todo(lines: List[str]) -> bool:
+    legacy_heading = re.compile(r'^[A-Za-z]+\d+_[A-Za-z0-9_]+$')
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            heading = stripped[3:].strip()
+            if legacy_heading.match(heading):
+                return True
+        if stripped.startswith("### "):
+            heading = stripped[4:].strip()
+            if legacy_heading.match(heading):
+                return True
+    return False
+
+
+def parse_todo_md(path: str = "docs/todo.md") -> Dict[str, Any]:
+    """
+    Parse docs/todo.md into tracks and phases for work selection.
+
+    Supports a legacy "ID_Name" heading format and the modern track/phase format.
+    """
+    path_obj = Path(path)
+    if not path_obj.exists():
+        return {"tracks": [], "phases": []}
+
+    content = path_obj.read_text(encoding="utf-8")
+    lines = content.splitlines()
+
+    if _looks_like_legacy_todo(lines):
+        tracks: List[Dict[str, Any]] = []
+        phases: List[Dict[str, Any]] = []
+        current_track_id: Optional[str] = None
+
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("## "):
+                heading = stripped[3:].strip()
+                parsed = _split_legacy_heading(heading)
+                if not parsed:
+                    continue
+                current_track_id = parsed["id"]
+                tracks.append({
+                    "id": parsed["id"],
+                    "name": parsed["name"],
+                    "type": "track",
+                    "status": "todo",
+                    "description": [],
+                })
+                continue
+
+            if stripped.startswith("### "):
+                heading = stripped[4:].strip()
+                parsed = _split_legacy_heading(heading)
+                if not parsed:
+                    continue
+                phases.append({
+                    "id": parsed["id"],
+                    "name": parsed["name"],
+                    "type": "phase",
+                    "track": current_track_id,
+                    "status": "todo",
+                    "description": [],
+                })
+                continue
+
+        return {"tracks": tracks, "phases": phases}
+
+    data = data_parse_todo_md(path)
+    phases: List[Dict[str, Any]] = []
+    for track in data.get("tracks", []):
+        track.setdefault("type", "track")
+        track_id = track.get("track_id") or track.get("id")
+        for phase in track.get("phases", []):
+            phase_entry = dict(phase)
+            phase_entry.setdefault("track", track_id)
+            phase_entry.setdefault("type", "phase")
+            phases.append(phase_entry)
+
+    data["phases"] = phases
+    return data
 
 
 def load_issues() -> List[Dict[str, Any]]:
@@ -153,7 +249,7 @@ def check_work_gates(ignore_gates: bool = False, repo_root: Optional[str] = None
 
         # Check if issue has linked tasks in progress
         if issue.linked_tasks:
-            phases_dir = Path("docs/phases")
+            phases_dir = Path(repo_root) / "docs" / "phases"
             if phases_dir.exists():
                 for phase_file in phases_dir.glob("*.md"):
                     try:
@@ -230,9 +326,10 @@ def load_available_work() -> Dict[str, List[Dict[str, Any]]]:
 
     tracks: List[Dict[str, Any]] = []
     phases: List[Dict[str, Any]] = []
+    seen_phases = set()
 
     for track in todo_data.get("tracks", []):
-        track_id = track.get("track_id")
+        track_id = track.get("track_id") or track.get("id")
         if not track_id:
             continue
         track_status = _normalize_work_status(track.get("status"))
@@ -249,6 +346,9 @@ def load_available_work() -> Dict[str, List[Dict[str, Any]]]:
             phase_id = phase.get("phase_id")
             if not phase_id:
                 continue
+            phase_key = (phase_id, track_id)
+            if phase_key in seen_phases:
+                continue
             phase_status = _normalize_work_status(phase.get("status"))
             phases.append({
                 "id": phase_id,
@@ -258,6 +358,26 @@ def load_available_work() -> Dict[str, List[Dict[str, Any]]]:
                 "status": phase_status,
                 "description": "\n".join(phase.get("description", [])),
             })
+            seen_phases.add(phase_key)
+
+    for phase in todo_data.get("phases", []):
+        phase_id = phase.get("phase_id") or phase.get("id")
+        if not phase_id:
+            continue
+        phase_track = phase.get("track") or phase.get("track_id")
+        phase_key = (phase_id, phase_track)
+        if phase_key in seen_phases:
+            continue
+        phase_status = _normalize_work_status(phase.get("status"))
+        phases.append({
+            "id": phase_id,
+            "name": phase.get("name", "Unnamed Phase"),
+            "type": "phase",
+            "track": phase_track,
+            "status": phase_status,
+            "description": "\n".join(phase.get("description", [])),
+        })
+        seen_phases.add(phase_key)
 
     return {
         "tracks": [t for t in tracks if t["status"] == "todo"],

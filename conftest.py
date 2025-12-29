@@ -85,6 +85,19 @@ def pytest_ignore_collect(collection_path, config):
     # Get just the filename
     filename = collection_path.name
 
+    # Skip entire tests/legacy directory
+    if "tests/legacy" in path_str:
+        return True
+
+    # Skip deleted/removed test files that may still exist
+    if filename in {
+        "test_acceptance_criteria.py",
+        "test_comprehensive.py",
+        "test_migration_check.py",
+        "test_run_cli_engine.py",
+    }:
+        return True
+
     # Skip pexpect tests if pexpect not available
     if not HAS_PEXPECT:
         # Skip all codex tests

@@ -6,6 +6,8 @@ Canonical test runner for the Maestro project with support for parallel executio
 
 Maestro uses a repo-local `.venv/` so `pytest -q` does not depend on system Python packages. The canonical entrypoint is `tools/test/run.sh`, which creates the venv if needed, installs the minimal test dependencies, and runs pytest.
 
+**Pytest direct invocation**: Running `pytest -q` directly should behave identically to the runner for the default portable subset. Both exclude legacy tests and non-portable tests via `conftest.py` hooks and `pytest.ini` configuration. Use `bash tools/test/verify_portable_subset.sh` to verify alignment.
+
 ## Quick Start
 
 ```bash
@@ -332,6 +334,26 @@ Speed profiles are implemented using pytest markers and the `-m` marker expressi
 - `--profile all`: `-m "not legacy"`
 
 The default `pytest.ini` configuration excludes legacy and slow tests by default. The runner overrides this for different profiles.
+
+## Verifying Test Selection Alignment
+
+A verification script ensures that `pytest -q` and `tools/test/run.sh` select the same portable test subset:
+
+```bash
+bash tools/test/verify_portable_subset.sh
+```
+
+**What it checks:**
+- Pytest excludes `tests/legacy/` directory (via `conftest.py`)
+- Pytest excludes deleted test files (via `conftest.py`)
+- Both tools collect reasonable test counts (pytest >= runner due to skiplist node IDs)
+
+**Run this after:**
+- Modifying `pytest.ini`
+- Updating `conftest.py` collection hooks
+- Adding tests to `tools/test/skiplist.txt`
+
+If verification fails, check `conftest.py` `pytest_ignore_collect` hook and `pytest.ini` marker filters.
 
 ## Troubleshooting
 
