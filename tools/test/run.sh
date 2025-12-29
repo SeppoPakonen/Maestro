@@ -90,6 +90,7 @@ SKIPLIST="${MAESTRO_TEST_SKIPLIST:-$SCRIPT_DIR/skiplist.txt}"
 TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
 PROFILE_REPORT=0
 SAVE_PROFILE_REPORT=0
+SHOW_PROFILE=0
 SKIPPED_ONLY=0
 SLOWEST_FIRST=1
 PYTEST_ARGS=()
@@ -110,6 +111,7 @@ Options:
                           - all: no speed filtering (still excludes legacy by default)
   --profile-report        Run tests and show top 25 slowest (default: 10)
   --save-profile-report   Run tests and save ALL timings to docs/workflows/v3/reports/test_timing_latest.txt
+  --show-profile          Display saved timing report (without running tests)
   --resume-from FILE      Resume from checkpoint, skipping previously PASSED tests
   --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
   --skiplist FILE         File containing test patterns to skip (default: tools/test/skiplist.txt)
@@ -142,7 +144,7 @@ Examples:
   $0 --profile-report
 
   # View saved timing report (without running tests)
-  cat docs/workflows/v3/reports/test_timing_latest.txt
+  $0 --show-profile
 
   # Use custom skiplist
   $0 --skiplist my_skiplist.txt
@@ -191,6 +193,10 @@ while [[ $# -gt 0 ]]; do
       SAVE_PROFILE_REPORT=1
       shift
       ;;
+    --show-profile)
+      SHOW_PROFILE=1
+      shift
+      ;;
     --resume-from)
       if [[ -z "${2:-}" ]]; then
         echo "ERROR: --resume-from requires a file path argument" >&2
@@ -235,6 +241,26 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ==============================================================================
+# Configuration paths
+# ==============================================================================
+PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt"
+
+# ==============================================================================
+# Handle --show-profile mode (display saved report and exit)
+# ==============================================================================
+if [[ "$SHOW_PROFILE" -eq 1 ]]; then
+  if [[ ! -f "$PROFILE_OUTPUT_FILE" ]]; then
+    echo "ERROR: No timing report found at $PROFILE_OUTPUT_FILE" >&2
+    echo "" >&2
+    echo "Generate one with: bash tools/test/run.sh --save-profile-report" >&2
+    exit 1
+  fi
+
+  cat "$PROFILE_OUTPUT_FILE"
+  exit 0
+fi
+
+# ==============================================================================
 # Determine worker count for parallelism
 # ==============================================================================
 if [[ -z "$JOBS" ]]; then
@@ -258,9 +284,8 @@ fi
 # ==============================================================================
 # Setup profiling output file location
 # ==============================================================================
-# Always set the path for reading timing data (for slowest-first ordering)
-# Only write to it if --save-profile-report is used
-PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt"
+# Path was set earlier (line 246) for reading timing data (slowest-first ordering)
+# and for --show-profile mode. Only write to it if --save-profile-report is used.
 
 # ==============================================================================
 # Determine pytest base arguments
