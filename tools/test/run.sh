@@ -4,14 +4,14 @@ set -euo pipefail
 # ==============================================================================
 # Maestro Test Runner
 # ==============================================================================
-# Current behavior (as of this version):
+# Features:
 # - Creates/uses a Python virtual environment at REPO_ROOT/.venv
-# - Installs pytest and pytest-xdist from requirements-dev.txt
-# - Supports parallelism via pytest-xdist with configurable worker count
+# - Installs pytest and pytest-xdist (optional) from requirements-dev.txt
 # - Supports speed profiles: fast, medium, slow, all
+# - Supports parallelism via pytest-xdist with configurable worker count
 # - Writes checkpoint files to /tmp containing PASSED test nodeids
 # - Supports resume mode to skip previously PASSED tests
-# - Provides profiling output for slow tests
+# - Provides profiling output and slow-test shortlist via --profile
 # - Passes through additional pytest arguments
 # ==============================================================================
 
@@ -19,14 +19,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 VENV_DIR="$REPO_ROOT/.venv"
 
+CHECKPOINT_DELIM="--- PASSED NODEIDS ---"
+
+IGNORE_GIT_LOCK=0
+for arg in "$@"; do
+  if [[ "$arg" == "--ignore-git-lock" ]]; then
+    IGNORE_GIT_LOCK=1
+    break
+  fi
+done
+
 # ==============================================================================
 # Git lock check
 # ==============================================================================
-if [[ -f "$REPO_ROOT/.git/index.lock" ]]; then
+if [[ "$IGNORE_GIT_LOCK" -eq 0 ]] && [[ -f "$REPO_ROOT/.git/index.lock" ]]; then
   echo "ERROR: Git index lock detected at $REPO_ROOT/.git/index.lock" >&2
-  echo "Resolve any active git process, then remove the lock manually." >&2
+  echo "" >&2
+  echo "Lock details:" >&2
+  ls -l "$REPO_ROOT/.git/index.lock" >&2 || true
+  echo "" >&2
+  echo "Active git processes (top 20):" >&2
+  ps aux | grep -E '[g]it' | head -20 >&2 || true
+  echo "" >&2
+  echo "If no git process is running, remove stale lock: rm -f .git/index.lock" >&2
   exit 2
 fi
+
+export GIT_OPTIONAL_LOCKS=0
 
 # ==============================================================================
 # Python detection
@@ -73,100 +92,135 @@ if [[ -f "$REQ_FILE" ]]; then
   fi
 fi
 
-# Always try to install pytest-xdist and pytest-timeout (in requirements-dev.txt)
-EXTRA_REQS=("pytest-xdist" "pytest-timeout")
+# Always try to install pytest-xdist if available
+EXTRA_REQS=("pytest-xdist")
 
 PIP_DISABLE_PIP_VERSION_CHECK=1 "$VENV_PY" -m pip install -q "$PYTEST_REQ" "${EXTRA_REQS[@]}"
 
 # ==============================================================================
-# Parse command-line arguments
+# Argument parsing
 # ==============================================================================
-VERBOSE=0
-JOBS=""
-PROFILE="${MAESTRO_TEST_PROFILE:-all}"
+PROFILE_MODE=""
+PROFILE_SET=0
+PROFILE_OUTPUT=0
+WORKERS=""
 RESUME_FROM="${MAESTRO_TEST_RESUME_FROM:-}"
-CHECKPOINT_FILE="${MAESTRO_TEST_CHECKPOINT:-}"
+CHECKPOINT_ENABLED=1
 SKIPLIST="${MAESTRO_TEST_SKIPLIST:-}"
-TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
-PROFILE_REPORT=0
-SAVE_PROFILE_REPORT=0
-SHOW_PROFILE=0
 SKIPPED_ONLY=0
-SLOWEST_FIRST=1
+TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
+GIT_CHECK=0
+PRINT_PYTEST_CMD=0
+WORKERS_SET=0
+
+RUNNER_OPTS=()
 PYTEST_ARGS=()
+PASS_THROUGH=0
 
 show_help() {
   cat <<EOF
 Usage: $0 [OPTIONS] [PYTEST_ARGS...]
 
-Options:
+Runner Options:
   -h, --help              Show this help message
-  -v, --verbose           Enable verbose pytest output (-vv)
-  -j, --jobs N            Number of parallel workers (default: cpu_count-1)
-                          Set to 1 to disable parallelism
-  --profile PROFILE       Speed profile: fast, medium, slow, all (default: all)
-                          - fast: only fast-marked tests
-                          - medium: fast + medium-marked tests
-                          - slow: only slow-marked tests
-                          - all: no speed filtering (still excludes legacy by default)
-  --profile-report        Run tests and show top 25 slowest (default: 10)
-  --save-profile-report   Run tests and save ALL timings to docs/workflows/v3/reports/test_timing_latest.txt
-  --show-profile          Display saved timing report (without running tests)
+  --workers N             Number of parallel workers (default: cpu_count-1)
+  -j, --jobs N            Alias for --workers
+  --ignore-git-lock       Skip git index lock preflight check
+  --git-check             Enable git metadata checks in runner output
+  --fast                  Speed profile: fast (not slow, not legacy, not tui, not integration)
+  --medium                Speed profile: medium (not legacy, not tui) [default]
+  --slow                  Speed profile: slow (slow, not legacy, not tui)
+  --all                   Speed profile: all (not legacy)
+  --profile               Capture slow-test profile output and reports
+  --print-pytest-cmd       Print the resolved pytest command and exit
   --resume-from FILE      Resume from checkpoint, skipping previously PASSED tests
-  --checkpoint FILE       Override checkpoint file path (default: auto-generated in /tmp)
+  --checkpoint            Enable checkpoint writing (default)
+  --no-checkpoint         Disable checkpoint writing
   --skiplist FILE         File containing test patterns to skip (default: none)
-                          Skiplist is now opt-in; portable tests run by default
-  --skipped               Run ONLY the tests listed in skiplist (inverse of default behavior)
+  --skipped               Run ONLY the tests listed in skiplist
   --timeout SECONDS       Kill tests that run longer than SECONDS (requires pytest-timeout)
 
 Environment variables:
-  MAESTRO_TEST_JOBS       Default worker count (overridden by -j/--jobs)
-  MAESTRO_TEST_PROFILE    Default speed profile (overridden by --profile)
+  MAESTRO_TEST_PROFILE     Default speed profile (fast|medium|slow|all)
+  MAESTRO_TEST_WORKERS     Default worker count (overridden by --workers)
+  MAESTRO_TEST_JOBS        Alias for MAESTRO_TEST_WORKERS
   MAESTRO_TEST_RESUME_FROM Default resume checkpoint file
-  MAESTRO_TEST_CHECKPOINT  Default checkpoint file path
   MAESTRO_TEST_SKIPLIST    Default skiplist file path
   MAESTRO_TEST_TIMEOUT     Default test timeout in seconds
+  MAESTRO_TEST_ALLOW_GIT   Enable tests that perform git operations
 
 Examples:
   # Run tests with default parallelism
   $0
 
   # Run only fast tests with 4 workers
-  $0 --profile fast -j 4
+  $0 --fast --workers 4
 
   # Run tests, fail fast on first error
   $0 -x --maxfail=1
 
+  # Run a specific test file
+  $0 tests/test_subwork_stack.py
+
   # Resume from a previous checkpoint
-  $0 --resume-from /tmp/maestro_pytest_checkpoint_20231215_120000_12345.txt
+  $0 --resume-from /tmp/maestro_pytest_checkpoint_20231215_120000.txt
 
-  # Run tests and show top 25 slowest (instead of default 10)
-  $0 --profile-report
-
-  # View saved timing report (without running tests)
-  $0 --show-profile
+  # Profile slow tests and generate reports
+  $0 --profile tests/test_subwork_stack.py
 
   # Use custom skiplist
-  $0 --skiplist my_skiplist.txt
+  $0 --skiplist tools/test/skiplist.txt
 
-  # Disable skiplist (run all tests including normally-skipped ones)
-  $0 --skiplist ""
-
-  # Kill tests that run longer than 5 seconds
-  $0 --timeout 5
-
-All additional arguments are passed directly to pytest.
+All additional arguments are passed directly to pytest. Use "--" to
+separate runner options from pytest options if needed.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
+  if [[ "$PASS_THROUGH" -eq 1 ]]; then
+    PYTEST_ARGS+=("$1")
+    shift
+    continue
+  fi
+
   case "$1" in
+    --)
+      PASS_THROUGH=1
+      shift
+      ;;
     -h|--help)
       show_help
       exit 0
       ;;
-    -v|--verbose)
-      VERBOSE=1
+    --ignore-git-lock)
+      IGNORE_GIT_LOCK=1
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
+    --git-check)
+      GIT_CHECK=1
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
+    --print-pytest-cmd)
+      PRINT_PYTEST_CMD=1
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
+    --workers)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --workers requires a number argument" >&2
+        exit 1
+      fi
+      WORKERS="$2"
+      WORKERS_SET=1
+      RUNNER_OPTS+=("$1" "$2")
+      shift 2
+      ;;
+    --workers=*)
+      WORKERS="${1#*=}"
+      WORKERS_SET=1
+      RUNNER_OPTS+=("$1")
       shift
       ;;
     -j|--jobs)
@@ -174,27 +228,24 @@ while [[ $# -gt 0 ]]; do
         echo "ERROR: --jobs requires a number argument" >&2
         exit 1
       fi
-      JOBS="$2"
+      WORKERS="$2"
+      WORKERS_SET=1
+      RUNNER_OPTS+=("$1" "$2")
       shift 2
       ;;
-    --profile)
-      if [[ -z "${2:-}" ]]; then
-        echo "ERROR: --profile requires an argument (fast|medium|slow|all)" >&2
+    --fast|--medium|--slow|--all)
+      if [[ "$PROFILE_SET" -eq 1 ]]; then
+        echo "ERROR: Multiple speed profiles specified" >&2
         exit 1
       fi
-      PROFILE="$2"
-      shift 2
-      ;;
-    --profile-report)
-      PROFILE_REPORT=1
+      PROFILE_SET=1
+      PROFILE_MODE="${1#--}"
+      RUNNER_OPTS+=("$1")
       shift
       ;;
-    --save-profile-report)
-      SAVE_PROFILE_REPORT=1
-      shift
-      ;;
-    --show-profile)
-      SHOW_PROFILE=1
+    --profile)
+      PROFILE_OUTPUT=1
+      RUNNER_OPTS+=("$1")
       shift
       ;;
     --resume-from)
@@ -203,15 +254,23 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       RESUME_FROM="$2"
+      RUNNER_OPTS+=("$1" "$2")
       shift 2
       ;;
+    --resume-from=*)
+      RESUME_FROM="${1#*=}"
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
     --checkpoint)
-      if [[ -z "${2:-}" ]]; then
-        echo "ERROR: --checkpoint requires a file path argument" >&2
-        exit 1
-      fi
-      CHECKPOINT_FILE="$2"
-      shift 2
+      CHECKPOINT_ENABLED=1
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
+    --no-checkpoint)
+      CHECKPOINT_ENABLED=0
+      RUNNER_OPTS+=("$1")
+      shift
       ;;
     --skiplist)
       if [[ -z "${2+x}" ]]; then
@@ -219,10 +278,12 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       SKIPLIST="$2"
+      RUNNER_OPTS+=("$1" "$2")
       shift 2
       ;;
     --skipped)
       SKIPPED_ONLY=1
+      RUNNER_OPTS+=("$1")
       shift
       ;;
     --timeout)
@@ -231,6 +292,7 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       TEST_TIMEOUT="$2"
+      RUNNER_OPTS+=("$1" "$2")
       shift 2
       ;;
     *)
@@ -241,35 +303,41 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ==============================================================================
-# Configuration paths
+# Speed profile selection
 # ==============================================================================
-PROFILE_OUTPUT_FILE="$REPO_ROOT/docs/workflows/v3/reports/test_timing_latest.txt"
-
-# ==============================================================================
-# Handle --show-profile mode (display saved report and exit)
-# ==============================================================================
-if [[ "$SHOW_PROFILE" -eq 1 ]]; then
-  if [[ ! -f "$PROFILE_OUTPUT_FILE" ]]; then
-    echo "ERROR: No timing report found at $PROFILE_OUTPUT_FILE" >&2
-    echo "" >&2
-    echo "Generate one with: bash tools/test/run.sh --save-profile-report" >&2
-    exit 1
-  fi
-
-  cat "$PROFILE_OUTPUT_FILE"
-  exit 0
+PROFILE_SOURCE="default"
+if [[ -n "${MAESTRO_TEST_PROFILE:-}" ]]; then
+  PROFILE_SOURCE="env"
+fi
+if [[ "$PROFILE_SET" -eq 1 ]]; then
+  PROFILE_SOURCE="flag"
+fi
+if [[ -z "$PROFILE_MODE" ]]; then
+  PROFILE_MODE="${MAESTRO_TEST_PROFILE:-medium}"
 fi
 
+case "$PROFILE_MODE" in
+  fast|medium|slow|all)
+    ;;
+  *)
+    echo "ERROR: Invalid profile '$PROFILE_MODE'. Must be: fast, medium, slow, or all" >&2
+    exit 1
+    ;;
+esac
+
 # ==============================================================================
-# Determine worker count for parallelism
+# Worker count setup
 # ==============================================================================
-if [[ -z "$JOBS" ]]; then
-  if [[ -n "${MAESTRO_TEST_JOBS:-}" ]]; then
-    JOBS="$MAESTRO_TEST_JOBS"
+if [[ -z "$WORKERS" ]]; then
+  if [[ -n "${MAESTRO_TEST_WORKERS:-}" ]]; then
+    WORKERS="$MAESTRO_TEST_WORKERS"
+    WORKERS_SET=1
+  elif [[ -n "${MAESTRO_TEST_JOBS:-}" ]]; then
+    WORKERS="$MAESTRO_TEST_JOBS"
+    WORKERS_SET=1
   else
-    # Compute default: max(1, cpu_count - 1)
     CPU_COUNT=$("$VENV_PY" -c 'import os; print(os.cpu_count() or 1)' 2>/dev/null || echo "1")
-    JOBS=$((CPU_COUNT > 1 ? CPU_COUNT - 1 : 1))
+    WORKERS=$((CPU_COUNT > 1 ? CPU_COUNT - 1 : 1))
   fi
 fi
 
@@ -282,193 +350,155 @@ if "$VENV_PY" -c "import xdist" 2>/dev/null; then
 fi
 
 # ==============================================================================
-# Setup profiling output file location
+# Detect user-provided xdist args and strip if unavailable
 # ==============================================================================
-# Path was set earlier (line 246) for reading timing data (slowest-first ordering)
-# and for --show-profile mode. Only write to it if --save-profile-report is used.
+USER_XDIST=0
+USER_WORKERS=""
+PYTEST_ARGS_FILTERED=()
+SKIP_NEXT=0
+for ((i=0; i<${#PYTEST_ARGS[@]}; i++)); do
+  arg="${PYTEST_ARGS[$i]}"
+  if [[ "$SKIP_NEXT" -eq 1 ]]; then
+    SKIP_NEXT=0
+    continue
+  fi
+  case "$arg" in
+    -n|--numprocesses)
+      USER_XDIST=1
+      if (( i + 1 < ${#PYTEST_ARGS[@]} )); then
+        USER_WORKERS="${PYTEST_ARGS[$((i + 1))]}"
+        SKIP_NEXT=1
+      fi
+      if [[ "$XDIST_AVAILABLE" -eq 0 ]]; then
+        echo "Note: xdist not available; ignoring $arg ${USER_WORKERS:-}" >&2
+        continue
+      fi
+      PYTEST_ARGS_FILTERED+=("$arg")
+      if [[ -n "${USER_WORKERS:-}" ]]; then
+        PYTEST_ARGS_FILTERED+=("$USER_WORKERS")
+      fi
+      ;;
+    -n=*|--numprocesses=*)
+      USER_XDIST=1
+      USER_WORKERS="${arg#*=}"
+      if [[ "$XDIST_AVAILABLE" -eq 0 ]]; then
+        echo "Note: xdist not available; ignoring $arg" >&2
+        continue
+      fi
+      PYTEST_ARGS_FILTERED+=("$arg")
+      ;;
+    *)
+      PYTEST_ARGS_FILTERED+=("$arg")
+      ;;
+  esac
+done
+PYTEST_ARGS=("${PYTEST_ARGS_FILTERED[@]}")
 
-# ==============================================================================
-# Determine pytest base arguments
-# ==============================================================================
-PYTEST_BASE_ARGS=()
-
-# Enable colored output
-PYTEST_BASE_ARGS+=(--color=yes)
-
-# Verbosity
-if [[ "$VERBOSE" -eq 1 ]]; then
-  PYTEST_BASE_ARGS+=(-vv)
-else
-  PYTEST_BASE_ARGS+=(-q)
+USE_XDIST=0
+if [[ "$USER_XDIST" -eq 1 ]]; then
+  USE_XDIST=0
+elif [[ "$XDIST_AVAILABLE" -eq 1 ]] && [[ "$WORKERS" -gt 1 ]]; then
+  USE_XDIST=1
 fi
 
-# Parallelism (only if xdist available and jobs > 1)
-if [[ "$XDIST_AVAILABLE" -eq 1 ]] && [[ "$JOBS" -gt 1 ]]; then
-  PYTEST_BASE_ARGS+=(-n "$JOBS")
-elif [[ "$JOBS" -gt 1 ]] && [[ "$XDIST_AVAILABLE" -eq 0 ]]; then
+XDIST_ACTIVE=0
+WORKERS_EFFECTIVE=1
+if [[ "$USER_XDIST" -eq 1 ]] && [[ "$XDIST_AVAILABLE" -eq 1 ]]; then
+  XDIST_ACTIVE=1
+  WORKERS_EFFECTIVE="${USER_WORKERS:-auto}"
+elif [[ "$USE_XDIST" -eq 1 ]]; then
+  XDIST_ACTIVE=1
+  WORKERS_EFFECTIVE="$WORKERS"
+fi
+
+if [[ "$XDIST_AVAILABLE" -eq 0 ]] && ([[ "$USER_XDIST" -eq 1 ]] || [[ "$WORKERS" -gt 1 ]]); then
   echo "Note: xdist not available; running serial" >&2
 fi
 
 # ==============================================================================
-# Speed profile filtering using timing data
+# Determine explicit selectors
 # ==============================================================================
-# If timing data exists, use actual performance. Otherwise fall back to markers.
-# Don't use timing data when generating a new profile report (--save-profile-report)
-TIMING_BASED_FILTER=0
-if [[ "$PROFILE" != "all" ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]] && [[ "$SAVE_PROFILE_REPORT" -eq 0 ]]; then
-  # Parse timing data to build test lists based on actual performance
-  FAST_TESTS=$(mktemp)
-  MEDIUM_TESTS=$(mktemp)
-  SLOW_TESTS=$(mktemp)
-  ALL_TIMED_TESTS=$(mktemp)
+is_explicit_selector() {
+  local arg="$1"
 
-  # Extract test nodeids and durations from timing file
-  # Format: "0.07s call     tests/test_foo.py::TestBar::test_baz"
-  grep -E '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)\s+' "$PROFILE_OUTPUT_FILE" 2>/dev/null | while read -r line; do
-    duration=$(echo "$line" | awk '{print $1}' | sed 's/s$//')
-    nodeid=$(echo "$line" | awk '{$1=$2=""; print $0}' | sed 's/^ *//')
-
-    # Store duration and nodeid for sorting
-    echo "$duration $nodeid" >> "$ALL_TIMED_TESTS"
-
-    # Classify by duration
-    if awk "BEGIN {exit !($duration < 0.1)}"; then
-      echo "$duration $nodeid" >> "$FAST_TESTS"
-    elif awk "BEGIN {exit !($duration < 1.0)}"; then
-      echo "$duration $nodeid" >> "$MEDIUM_TESTS"
-    else
-      echo "$duration $nodeid" >> "$SLOW_TESTS"
-    fi
-  done
-
-  # Apply profile filter based on timing data
-  case "$PROFILE" in
-    fast)
-      if [[ -s "$FAST_TESTS" ]]; then
-        echo "Using timing data: running $(wc -l < "$FAST_TESTS") fast tests (<0.1s)" >&2
-        if [[ "$SLOWEST_FIRST" -eq 1 ]]; then
-          echo "Ordering: slowest first" >&2
-          # Sort by duration descending, extract nodeid
-          sort -rn "$FAST_TESTS" | while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done
-        else
-          while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done < "$FAST_TESTS"
-        fi
-        TIMING_BASED_FILTER=1
-      fi
-      ;;
-    medium)
-      if [[ -s "$FAST_TESTS" ]] || [[ -s "$MEDIUM_TESTS" ]]; then
-        fast_count=$(wc -l < "$FAST_TESTS" 2>/dev/null || echo 0)
-        medium_count=$(wc -l < "$MEDIUM_TESTS" 2>/dev/null || echo 0)
-        total=$((fast_count + medium_count))
-        echo "Using timing data: running $total fast+medium tests (<1.0s)" >&2
-        if [[ "$SLOWEST_FIRST" -eq 1 ]]; then
-          echo "Ordering: slowest first" >&2
-          # Combine and sort by duration descending
-          cat "$FAST_TESTS" "$MEDIUM_TESTS" | sort -rn | while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done
-        else
-          while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done < "$FAST_TESTS"
-          while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done < "$MEDIUM_TESTS"
-        fi
-        TIMING_BASED_FILTER=1
-      fi
-      ;;
-    slow)
-      if [[ -s "$SLOW_TESTS" ]]; then
-        echo "Using timing data: running $(wc -l < "$SLOW_TESTS") slow tests (>1.0s)" >&2
-        if [[ "$SLOWEST_FIRST" -eq 1 ]]; then
-          echo "Ordering: slowest first" >&2
-          sort -rn "$SLOW_TESTS" | while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done
-        else
-          while read -r duration nodeid; do
-            PYTEST_BASE_ARGS+=("$nodeid")
-          done < "$SLOW_TESTS"
-        fi
-        TIMING_BASED_FILTER=1
-      fi
-      ;;
-  esac
-
-  rm -f "$FAST_TESTS" "$MEDIUM_TESTS" "$SLOW_TESTS" "$ALL_TIMED_TESTS"
-fi
-
-# Fall back to marker-based filtering if no timing data available
-if [[ "$TIMING_BASED_FILTER" -eq 0 ]]; then
-  case "$PROFILE" in
-    fast)
-      PYTEST_BASE_ARGS+=(-m "fast and not legacy")
-      ;;
-    medium)
-      PYTEST_BASE_ARGS+=(-m "(fast or medium) and not legacy")
-      ;;
-    slow)
-      PYTEST_BASE_ARGS+=(-m "slow and not legacy")
-      ;;
-    all)
-      # Don't add speed filtering, but still exclude legacy
-      PYTEST_BASE_ARGS+=(-m "not legacy")
-
-      # If timing data exists and slowest-first is enabled, order all tests by duration
-      # Only apply if timing file has actual test data
-      # Don't use timing data when generating a new profile report
-      if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]] && [[ "$SAVE_PROFILE_REPORT" -eq 0 ]]; then
-        # Check if timing file has actual test timing data
-        if grep -qE '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)' "$PROFILE_OUTPUT_FILE" 2>/dev/null; then
-          ALL_TESTS_SORTED=$(mktemp)
-          # Extract all test nodeids with durations and sort slowest first
-          grep -E '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)\s+' "$PROFILE_OUTPUT_FILE" 2>/dev/null | \
-            awk '{duration=$1; gsub(/s$/,"",duration); $1=$2=""; nodeid=$0; gsub(/^ */,"",nodeid); print duration, nodeid}' | \
-            sort -rn > "$ALL_TESTS_SORTED"
-
-          if [[ -s "$ALL_TESTS_SORTED" ]]; then
-            echo "Ordering: slowest first ($(wc -l < "$ALL_TESTS_SORTED") tests)" >&2
-            while read -r duration nodeid; do
-              PYTEST_BASE_ARGS+=("$nodeid")
-            done < "$ALL_TESTS_SORTED"
-          fi
-          rm -f "$ALL_TESTS_SORTED"
-        fi
-      fi
-      ;;
-    *)
-      echo "ERROR: Invalid profile '$PROFILE'. Must be: fast, medium, slow, or all" >&2
-      exit 1
-      ;;
-  esac
-fi
-
-# Always exclude legacy tests (unless running skipped tests)
-if [[ "$SKIPPED_ONLY" -eq 0 ]]; then
-  if [[ "$TIMING_BASED_FILTER" -eq 0 ]] && [[ "$PROFILE" != "all" ]]; then
-    # Marker-based filtering already includes "not legacy"
-    :
-  else
-    PYTEST_BASE_ARGS+=(-m "not legacy")
+  if [[ "$arg" == -* ]]; then
+    return 1
   fi
+  if [[ "$arg" == *"::"* ]]; then
+    return 0
+  fi
+  if [[ "$arg" == tests || "$arg" == tests/* || "$arg" == ./tests/* ]]; then
+    return 0
+  fi
+  if [[ "$arg" == *.py ]]; then
+    return 0
+  fi
+  if [[ "$arg" == /* && -e "$arg" ]]; then
+    return 0
+  fi
+  if [[ "$arg" == *"/"* && -e "$arg" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+EXPLICIT_SELECTORS=()
+PYTEST_NON_SELECTOR_ARGS=()
+EXPECTS_VALUE=0
+
+for arg in "${PYTEST_ARGS[@]}"; do
+  if [[ "$EXPECTS_VALUE" -eq 1 ]]; then
+    PYTEST_NON_SELECTOR_ARGS+=("$arg")
+    EXPECTS_VALUE=0
+    continue
+  fi
+
+  case "$arg" in
+    -k|-m|-n|--maxfail|--timeout|--numprocesses)
+      EXPECTS_VALUE=1
+      PYTEST_NON_SELECTOR_ARGS+=("$arg")
+      continue
+      ;;
+  esac
+
+  if is_explicit_selector "$arg"; then
+    EXPLICIT_SELECTORS+=("$arg")
+  else
+    PYTEST_NON_SELECTOR_ARGS+=("$arg")
+  fi
+done
+
+if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
+  SELECTION_MODE="explicit"
+elif [[ "$PROFILE_SOURCE" != "default" ]]; then
+  SELECTION_MODE="profile"
+else
+  SELECTION_MODE="default"
 fi
 
-# Profiling report - always enabled to track test performance
-if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
-  # When saving profile report, get ALL test durations for complete timing database
-  PYTEST_BASE_ARGS+=(--durations=0)
-elif [[ "$PROFILE_REPORT" -eq 1 ]]; then
-  # Show more durations when explicitly requested
-  PYTEST_BASE_ARGS+=(--durations=25)
-else
-  # Default: show top 10 to keep output clean but still track performance
-  PYTEST_BASE_ARGS+=(--durations=10)
+# ==============================================================================
+# Base pytest args (markers, skiplist, timeout)
+# ==============================================================================
+PYTEST_BASE_ARGS=()
+MARKER_EXPR=""
+
+case "$PROFILE_MODE" in
+  fast)
+    MARKER_EXPR="not slow and not legacy and not tui and not integration"
+    ;;
+  medium)
+    MARKER_EXPR="not legacy and not tui"
+    ;;
+  slow)
+    MARKER_EXPR="slow and not legacy and not tui"
+    ;;
+  all)
+    MARKER_EXPR="not legacy"
+    ;;
+esac
+
+if [[ -n "$MARKER_EXPR" ]]; then
+  PYTEST_BASE_ARGS+=(-m "$MARKER_EXPR")
 fi
 
 # ==============================================================================
@@ -476,24 +506,16 @@ fi
 # ==============================================================================
 if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
   if [[ "$SKIPPED_ONLY" -eq 1 ]]; then
-    # --skipped mode: run ONLY the tests in skiplist
     echo "Running ONLY skipped tests from: $SKIPLIST" >&2
     while IFS= read -r line || [[ -n "$line" ]]; do
-      # Skip empty lines and comments
       [[ -z "$line" ]] && continue
       [[ "$line" =~ ^[[:space:]]*# ]] && continue
-
-      # Add pattern as positional argument to run only these tests
       PYTEST_BASE_ARGS+=("$line")
     done < "$SKIPLIST"
   else
-    # Normal mode: skip tests in skiplist
     while IFS= read -r line || [[ -n "$line" ]]; do
-      # Skip empty lines and comments
       [[ -z "$line" ]] && continue
       [[ "$line" =~ ^[[:space:]]*# ]] && continue
-
-      # Add --ignore for each pattern
       PYTEST_BASE_ARGS+=(--ignore="$line")
     done < "$SKIPLIST"
   fi
@@ -506,7 +528,6 @@ fi
 # Apply timeout if specified
 # ==============================================================================
 if [[ -n "$TEST_TIMEOUT" ]]; then
-  # Check if pytest-timeout is available
   if ! "$VENV_PY" -c "import pytest_timeout" 2>/dev/null; then
     echo "WARNING: pytest-timeout not installed, timeout will not be enforced" >&2
     echo "Install with: pip install pytest-timeout" >&2
@@ -517,170 +538,411 @@ if [[ -n "$TEST_TIMEOUT" ]]; then
 fi
 
 # ==============================================================================
-# Setup checkpoint file
+# Checkpoint setup
 # ==============================================================================
-if [[ -z "$CHECKPOINT_FILE" ]]; then
-  # Auto-generate checkpoint filename
-  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-  PID=$$
-  CHECKPOINT_FILE="/tmp/maestro_pytest_checkpoint_${TIMESTAMP}_${PID}.txt"
+CHECKPOINT_FILE=""
+if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+  if [[ -n "${MAESTRO_TEST_CHECKPOINT:-}" ]]; then
+    CHECKPOINT_FILE="$MAESTRO_TEST_CHECKPOINT"
+  else
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    CHECKPOINT_FILE="/tmp/maestro_pytest_checkpoint_${TIMESTAMP}.txt"
+  fi
 fi
 
 # ==============================================================================
-# Setup resume mode
+# Resume mode: collect nodeids and filter out passed tests
 # ==============================================================================
+RESUME_NODEIDS=()
 if [[ -n "$RESUME_FROM" ]]; then
   if [[ ! -f "$RESUME_FROM" ]]; then
     echo "ERROR: Resume checkpoint file not found: $RESUME_FROM" >&2
     exit 1
   fi
-  echo "Resume enabled: using checkpoint $RESUME_FROM"
-  export MAESTRO_TEST_RESUME_FROM="$RESUME_FROM"
+
+  COLLECT_NON_SELECTOR_ARGS=()
+  SKIP_NEXT_COLLECT=0
+  for arg in "${PYTEST_NON_SELECTOR_ARGS[@]}"; do
+    if [[ "$SKIP_NEXT_COLLECT" -eq 1 ]]; then
+      SKIP_NEXT_COLLECT=0
+      continue
+    fi
+    case "$arg" in
+      -q|--quiet)
+        continue
+        ;;
+      -n|--numprocesses)
+        SKIP_NEXT_COLLECT=1
+        continue
+        ;;
+      -n=*|--numprocesses=*)
+        continue
+        ;;
+      *)
+        COLLECT_NON_SELECTOR_ARGS+=("$arg")
+        ;;
+    esac
+  done
+
+  COLLECT_ARGS=(-o addopts= --collect-only)
+  COLLECT_ARGS+=("${PYTEST_BASE_ARGS[@]}")
+  COLLECT_ARGS+=("${COLLECT_NON_SELECTOR_ARGS[@]}")
+  if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
+    COLLECT_ARGS+=("${EXPLICIT_SELECTORS[@]}")
+  fi
+
+  set +e
+  COLLECTED_NODEIDS=$("$VENV_PY" - "${COLLECT_ARGS[@]}" <<'PY'
+import contextlib
+import io
+import sys
+
+import pytest
+
+nodeids = []
+
+
+class Collector:
+    def pytest_collection_finish(self, session):
+        nodeids.extend(item.nodeid for item in session.items)
+
+
+def main():
+    args = sys.argv[1:]
+    if "--collect-only" not in args:
+        args.append("--collect-only")
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        rc = pytest.main(args, plugins=[Collector()])
+
+    if rc != 0:
+        sys.stderr.write(buf.getvalue())
+        sys.exit(rc)
+
+    if nodeids:
+        sys.stdout.write("\n".join(nodeids))
+
+
+if __name__ == "__main__":
+    main()
+PY
+  )
+  COLLECT_EXIT=$?
+  set -e
+
+  if [[ "$COLLECT_EXIT" -ne 0 ]]; then
+    echo "ERROR: pytest collection failed during resume selection" >&2
+    exit "$COLLECT_EXIT"
+  fi
+
+  if [[ -z "$COLLECTED_NODEIDS" ]]; then
+    echo "ERROR: No tests collected for resume selection" >&2
+    exit 1
+  fi
+
+  PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
+    BEGIN { in_list=0; found=0 }
+    $0 == delim { in_list=1; found=1; next }
+    in_list == 1 { if (NF > 0) print; next }
+    found == 0 {
+      if (NF > 0 && $0 !~ /^#/) print
+    }
+  ' "$RESUME_FROM")
+
+  if [[ -n "$PASSED_NODEIDS" ]]; then
+    REMAINING_NODEIDS=$(comm -23 \
+      <(printf "%s\n" "$COLLECTED_NODEIDS" | sort) \
+      <(printf "%s\n" "$PASSED_NODEIDS" | sort))
+  else
+    REMAINING_NODEIDS="$COLLECTED_NODEIDS"
+  fi
+
+  if [[ -z "$REMAINING_NODEIDS" ]]; then
+    echo "Resume: all selected tests already passed; nothing to run."
+    exit 0
+  fi
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    RESUME_NODEIDS+=("$line")
+  done <<< "$REMAINING_NODEIDS"
 fi
 
 # ==============================================================================
 # Export checkpoint path for plugin
 # ==============================================================================
-export MAESTRO_TEST_CHECKPOINT="$CHECKPOINT_FILE"
-
-# ==============================================================================
-# Load checkpoint plugin and run pytest
-# ==============================================================================
-PLUGIN_PATH="$SCRIPT_DIR/pytest_checkpoint_plugin.py"
-if [[ ! -f "$PLUGIN_PATH" ]]; then
-  echo "ERROR: Checkpoint plugin not found at $PLUGIN_PATH" >&2
-  exit 1
+unset MAESTRO_TEST_RESUME_FROM
+if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+  export MAESTRO_TEST_CHECKPOINT="$CHECKPOINT_FILE"
+else
+  unset MAESTRO_TEST_CHECKPOINT
 fi
 
-# Add plugin to PYTHONPATH and load it
-export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
+# ==============================================================================
+# Build pytest arguments
+# ==============================================================================
+PYTEST_RUN_FIXED_ARGS=("${PYTEST_BASE_ARGS[@]}")
 
-cd "$REPO_ROOT"
+if [[ "$USE_XDIST" -eq 1 ]]; then
+  PYTEST_RUN_FIXED_ARGS+=(-n "$WORKERS")
+fi
+
+if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
+  PYTEST_RUN_FIXED_ARGS+=(--durations=50 --color=no)
+fi
+
+PYTEST_RUN_ARGS=("${PYTEST_RUN_FIXED_ARGS[@]}")
+if [[ "${#RESUME_NODEIDS[@]}" -gt 0 ]]; then
+  PYTEST_RUN_ARGS+=("${PYTEST_NON_SELECTOR_ARGS[@]}")
+  PYTEST_RUN_ARGS+=("${RESUME_NODEIDS[@]}")
+else
+  PYTEST_RUN_ARGS+=("${PYTEST_ARGS[@]}")
+fi
+
+CHUNK_SIZE=200
+CHUNKED_RUN=0
+if [[ "${#RESUME_NODEIDS[@]}" -gt "$CHUNK_SIZE" ]]; then
+  CHUNKED_RUN=1
+fi
+
+PYTEST_RUN_ARGS_STR=$(printf '%q ' "${PYTEST_RUN_ARGS[@]}")
 
 # ==============================================================================
 # Print test run configuration
 # ==============================================================================
+PYTEST_CMD="$VENV_PY -m pytest"
+PYTEST_VERSION=$("$VENV_PY" -c 'import pytest; print(pytest.__version__)' 2>/dev/null || echo "unknown")
+GIT_SHA="(disabled)"
+if [[ "$GIT_CHECK" -eq 1 ]]; then
+  GIT_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "unknown")
+fi
+
+if [[ "$PRINT_PYTEST_CMD" -eq 1 ]]; then
+  printf '%q ' "$VENV_PY" -m pytest -p tools.test.pytest_checkpoint_plugin "${PYTEST_RUN_ARGS[@]}"
+  echo ""
+  exit 0
+fi
+
 echo "============================================================="
 echo "Maestro Test Runner Configuration"
 echo "============================================================="
-echo "Profile:          $PROFILE"
-echo "Workers:          $JOBS"
-echo "Verbose:          $([ "$VERBOSE" -eq 1 ] && echo "yes" || echo "no")"
-if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
-  if [[ "$SKIPPED_ONLY" -eq 1 ]]; then
-    echo "Skiplist:         $SKIPLIST (running ONLY skipped tests)"
-  else
-    echo "Skiplist:         $SKIPLIST (OPT-IN MODE)"
-    echo "                  ⚠️  Non-portable tests will be skipped"
-  fi
+echo "Python:           $VENV_PY"
+echo "Pytest:           $PYTEST_CMD (pytest $PYTEST_VERSION)"
+echo "Git SHA:          $GIT_SHA"
+echo "Selection mode:   $SELECTION_MODE"
+echo "Profile:          $PROFILE_MODE"
+if [[ -n "$MARKER_EXPR" ]]; then
+  echo "Markers:          $MARKER_EXPR"
 else
-  echo "Skiplist:         none (default)"
+  echo "Markers:          (pytest.ini default)"
 fi
-if [[ "$SLOWEST_FIRST" -eq 1 ]] && [[ -f "$PROFILE_OUTPUT_FILE" ]] && [[ "$SAVE_PROFILE_REPORT" -eq 0 ]]; then
-  if grep -qE '^\s*[0-9]+\.[0-9]+s\s+(call|setup|teardown)' "$PROFILE_OUTPUT_FILE" 2>/dev/null; then
-    echo "Test ordering:    slowest-first (timing data available)"
-  else
-    echo "Test ordering:    default (no timing data)"
-  fi
+if [[ "$XDIST_ACTIVE" -eq 1 ]]; then
+  echo "Workers:          $WORKERS_EFFECTIVE (xdist: yes)"
 else
-  if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
-    echo "Test ordering:    default (generating new profile)"
-  else
-    echo "Test ordering:    default"
-  fi
-fi
-if [[ -n "$TEST_TIMEOUT" ]]; then
-  echo "Timeout:          ${TEST_TIMEOUT}s per test"
+  echo "Workers:          $WORKERS_EFFECTIVE (xdist: no)"
 fi
 if [[ -n "$RESUME_FROM" ]]; then
   echo "Resume mode:      enabled (from $RESUME_FROM)"
 fi
-if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
-  echo "Save profile:     yes (to ${PROFILE_OUTPUT_FILE#$REPO_ROOT/})"
-elif [[ "$PROFILE_REPORT" -eq 1 ]]; then
-  echo "Profile report:   yes (25 slowest tests)"
+if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
+  echo "Profile output:   enabled"
+fi
+if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+  echo "Checkpoint:       $CHECKPOINT_FILE"
 else
-  echo "Profile report:   default (10 slowest tests)"
+  echo "Checkpoint:       disabled"
+fi
+if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
+  if [[ "$SKIPPED_ONLY" -eq 1 ]]; then
+    echo "Skiplist:         $SKIPLIST (running ONLY skipped tests)"
+  else
+    echo "Skiplist:         $SKIPLIST (opt-in)"
+  fi
+else
+  echo "Skiplist:         none"
 fi
 echo "============================================================="
 echo ""
 
-# Capture start time
-START_TIME=$(date +%s)
+# ==============================================================================
+# Run pytest
+# ==============================================================================
+cd "$REPO_ROOT"
 
-# Run pytest with plugin
+START_TIME=$(date +%s)
+RUN_STARTED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
 set +e
-if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]]; then
-  # Capture output for profiling
-  TEMP_OUTPUT=$(mktemp)
-  "$VENV_PY" -m pytest \
-    -p tools.test.pytest_checkpoint_plugin \
-    "${PYTEST_BASE_ARGS[@]}" \
-    "${PYTEST_ARGS[@]}" 2>&1 | tee "$TEMP_OUTPUT"
-  EXIT_CODE=${PIPEFAIL[0]:-$?}
+EXIT_CODE=0
+if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
+  PROFILE_TEMP=$(mktemp)
+fi
+
+if [[ "$CHUNKED_RUN" -eq 1 ]]; then
+  AGG_PASSED_FILE=""
+  AGG_FAILED_COUNT=0
+  if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+    AGG_PASSED_FILE=$(mktemp)
+  fi
+  for ((i=0; i<${#RESUME_NODEIDS[@]}; i+=CHUNK_SIZE)); do
+    chunk=("${RESUME_NODEIDS[@]:i:CHUNK_SIZE}")
+    CHUNK_CHECKPOINT=""
+    if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+      CHUNK_CHECKPOINT=$(mktemp)
+    fi
+    if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
+      MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
+        -p tools.test.pytest_checkpoint_plugin \
+        "${PYTEST_RUN_FIXED_ARGS[@]}" \
+        "${PYTEST_NON_SELECTOR_ARGS[@]}" \
+        "${chunk[@]}" 2>&1 | tee -a "$PROFILE_TEMP"
+      EXIT_CODE=${PIPESTATUS[0]}
+    else
+      MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
+        -p tools.test.pytest_checkpoint_plugin \
+        "${PYTEST_RUN_FIXED_ARGS[@]}" \
+        "${PYTEST_NON_SELECTOR_ARGS[@]}" \
+        "${chunk[@]}"
+      EXIT_CODE=$?
+    fi
+
+    if [[ "$CHECKPOINT_ENABLED" -eq 1 ]] && [[ -f "$CHUNK_CHECKPOINT" ]]; then
+      awk -v delim="$CHECKPOINT_DELIM" '
+        BEGIN { in_list=0; found=0 }
+        $0 == delim { in_list=1; found=1; next }
+        in_list == 1 { if (NF > 0) print; next }
+        found == 0 {
+          if (NF > 0 && $0 !~ /^#/) print
+        }
+      ' "$CHUNK_CHECKPOINT" >> "$AGG_PASSED_FILE"
+
+      chunk_failed=$(awk -F': *' '/^# failed_tests_count:/ {print $2}' "$CHUNK_CHECKPOINT" | tail -1)
+      if [[ -n "$chunk_failed" ]]; then
+        AGG_FAILED_COUNT=$((AGG_FAILED_COUNT + chunk_failed))
+      fi
+    fi
+
+    if [[ -n "$CHUNK_CHECKPOINT" ]]; then
+      rm -f "$CHUNK_CHECKPOINT"
+    fi
+
+    if [[ "$EXIT_CODE" -ne 0 ]]; then
+      break
+    fi
+  done
 else
-  # Normal execution
-  "$VENV_PY" -m pytest \
-    -p tools.test.pytest_checkpoint_plugin \
-    "${PYTEST_BASE_ARGS[@]}" \
-    "${PYTEST_ARGS[@]}"
-  EXIT_CODE=$?
+  if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
+    "$VENV_PY" -m pytest \
+      -p tools.test.pytest_checkpoint_plugin \
+      "${PYTEST_RUN_ARGS[@]}" 2>&1 | tee "$PROFILE_TEMP"
+    EXIT_CODE=${PIPESTATUS[0]}
+  else
+    "$VENV_PY" -m pytest \
+      -p tools.test.pytest_checkpoint_plugin \
+      "${PYTEST_RUN_ARGS[@]}"
+    EXIT_CODE=$?
+  fi
 fi
 set -e
 
-# Capture end time
 END_TIME=$(date +%s)
+RUN_FINISHED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 DURATION=$((END_TIME - START_TIME))
 
 # ==============================================================================
-# Process profiling output
+# Aggregate checkpoint for chunked resume
 # ==============================================================================
-if [[ "$SAVE_PROFILE_REPORT" -eq 1 ]] && [[ -f "$TEMP_OUTPUT" ]]; then
+if [[ "$CHUNKED_RUN" -eq 1 ]] && [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+  SORTED_PASSED=$(mktemp)
+  if [[ -f "$AGG_PASSED_FILE" ]]; then
+    sort -u "$AGG_PASSED_FILE" > "$SORTED_PASSED"
+  else
+    : > "$SORTED_PASSED"
+  fi
+
+  PASSED_COUNT=$(wc -l < "$SORTED_PASSED" | tr -d ' ')
   {
-    echo "# Test Timing Report"
-    echo "# Generated: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "# Command: $0 ${BASH_ARGV[@]}"
-    echo "# Duration: ${DURATION}s"
-    echo "# Workers: $JOBS"
-    echo "# Profile: $PROFILE"
+    echo "# Maestro pytest checkpoint"
+    echo "# started_at: $RUN_STARTED_AT"
+    echo "# finished_at: $RUN_FINISHED_AT"
+    echo "# pytest_args: $PYTEST_RUN_ARGS_STR"
+    echo "# passed_tests_count: $PASSED_COUNT"
+    echo "# failed_tests_count: $AGG_FAILED_COUNT"
+    echo "$CHECKPOINT_DELIM"
+    cat "$SORTED_PASSED"
+  } > "$CHECKPOINT_FILE"
+
+  rm -f "$SORTED_PASSED" "$AGG_PASSED_FILE"
+fi
+
+# ==============================================================================
+# Profiling output (reports)
+# ==============================================================================
+if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
+  PROFILE_TXT="$REPO_ROOT/docs/workflows/v3/reports/test_durations_latest.txt"
+  SLOW_CANDIDATES="$REPO_ROOT/docs/workflows/v3/reports/test_slow_candidates.md"
+  mkdir -p "$(dirname "$PROFILE_TXT")"
+
+  cp "$PROFILE_TEMP" "$PROFILE_TXT"
+
+  DURATIONS_CSV=$(mktemp)
+  awk -v root="$REPO_ROOT/" '
+    /^[[:space:]]*[0-9]+(\.[0-9]+)?s[[:space:]]/ {
+      duration=$1
+      sub(/s$/,"",duration)
+      $1=$2=""
+      nodeid=$0
+      sub(/^[[:space:]]+/,"",nodeid)
+      if (root != "") gsub(root, "", nodeid)
+      print nodeid "," duration
+    }
+  ' "$PROFILE_TXT" > "$DURATIONS_CSV"
+
+  {
+    echo "# Slow Test Candidates"
+    echo "Generated: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Source: docs/workflows/v3/reports/test_durations_latest.txt"
     echo ""
+    if [[ -s "$DURATIONS_CSV" ]]; then
+      SUGGESTIONS=(
+        "Mock external subprocesses to avoid real exec."
+        "Use tmp_path fixtures and avoid copying full repos."
+        "Reduce fixture scope or reuse session-scoped fixtures."
+        "Stub filesystem scans; limit to small fixture dirs."
+        "Cache expensive setup across tests."
+        "Avoid network calls; use local fixtures."
+        "Skip PlantUML rendering; mock or gate behind marker."
+        "Short-circuit large logs; use smaller fixtures."
+        "Use in-memory data instead of writing to disk."
+        "Reduce parametrization combinations."
+      )
 
-    # Extract all durations section and convert to relative paths
-    if grep -q "slowest.*durations\|=.* durations =.*" "$TEMP_OUTPUT"; then
-      # Extract the durations section (works for both "slowest N durations" and "= durations =")
-      sed -n '/slowest.*durations\|=.* durations =.*/,/^$/p' "$TEMP_OUTPUT" | \
-        sed "s|$REPO_ROOT/||g"
+      mapfile -t SLOW_LINES < <(
+        sort -t',' -k2 -nr "$DURATIONS_CSV" | head -20
+      )
 
-      echo ""
-      echo "# Warnings"
-
-      # Check for slow tests and generate warnings
-      SLOW_COUNT=$(sed -n '/slowest.*durations\|=.* durations =.*/,/^$/p' "$TEMP_OUTPUT" | \
-        grep -E '^\s*[0-9]+\.[0-9]+s' | \
-        awk '$1 ~ /^[0-9]+\.[0-9]+s$/ {gsub(/s$/,"",$1); if ($1 > 1.0) print}' | \
-        wc -l)
-
-      if [[ "$SLOW_COUNT" -gt 0 ]]; then
-        echo "WARNING: Found $SLOW_COUNT tests slower than 1.0s"
-        echo ""
-        echo "Slow tests (>1.0s):"
-        sed -n '/slowest.*durations\|=.* durations =.*/,/^$/p' "$TEMP_OUTPUT" | \
-          grep -E '^\s*[0-9]+\.[0-9]+s' | \
-          awk '$1 ~ /^[0-9]+\.[0-9]+s$/ {gsub(/s$/,"",$1); if ($1 > 1.0) print}' | \
-          sed "s|$REPO_ROOT/||g" | \
-          sed 's/^/  /'
-      else
-        echo "All tests completed in <1.0s"
-      fi
+      echo "Top 20 slowest tests:"
+      idx=0
+      suggestion_count=${#SUGGESTIONS[@]}
+      for line in "${SLOW_LINES[@]}"; do
+        nodeid="${line%%,*}"
+        seconds="${line##*,}"
+        suggestion="${SUGGESTIONS[$((idx % suggestion_count))]}"
+        idx=$((idx + 1))
+        echo "- ${nodeid} (${seconds}s) - Mitigation: ${suggestion}"
+      done
     else
-      echo "No timing data found in output"
+      echo "No duration data captured."
     fi
-  } > "$PROFILE_OUTPUT_FILE"
+  } > "$SLOW_CANDIDATES"
 
-  rm -f "$TEMP_OUTPUT"
+  rm -f "$PROFILE_TEMP" "$DURATIONS_CSV"
 
   echo ""
-  echo "Profiling report saved to: ${PROFILE_OUTPUT_FILE#$REPO_ROOT/}"
+  echo "Profile reports saved to:"
+  echo "  ${PROFILE_TXT#$REPO_ROOT/}"
+  echo "  ${SLOW_CANDIDATES#$REPO_ROOT/}"
 fi
 
 # ==============================================================================
@@ -691,12 +953,18 @@ echo "============================================================="
 echo "Test Run Summary"
 echo "============================================================="
 echo "Duration:         ${DURATION}s"
-echo "Workers:          $JOBS"
-echo "Profile:          $PROFILE"
-echo "Checkpoint:       $CHECKPOINT_FILE"
+echo "Workers:          $WORKERS_EFFECTIVE"
+echo "Profile:          $PROFILE_MODE"
+if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+  echo "Checkpoint:       $CHECKPOINT_FILE"
+else
+  echo "Checkpoint:       disabled"
+fi
 echo "============================================================="
 echo ""
-echo "Tip: Re-run with --resume-from $CHECKPOINT_FILE to skip PASSED tests."
+if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+  echo "Tip: rerun with --resume-from $CHECKPOINT_FILE to skip already PASSED tests."
+fi
 echo ""
 
-exit $EXIT_CODE
+exit "$EXIT_CODE"

@@ -13,21 +13,49 @@ Usage:
     MAESTRO_TEST_RESUME_FROM=/tmp/checkpoint.txt pytest
 """
 import os
+import shlex
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Set
 
 
 # Global state for collecting passed test nodeids
 _passed_nodeids: Set[str] = set()
+_failed_count = 0
+_started_at = None
+_pytest_args_str = ""
+CHECKPOINT_DELIM = "--- PASSED NODEIDS ---"
+
+
+def _load_checkpoint_nodeids(path: Path) -> Set[str]:
+    lines = path.read_text().splitlines()
+    if CHECKPOINT_DELIM in lines:
+        index = lines.index(CHECKPOINT_DELIM)
+        return {line.strip() for line in lines[index + 1 :] if line.strip()}
+    return {
+        line.strip()
+        for line in lines
+        if line.strip() and not line.lstrip().startswith("#")
+    }
 
 
 def pytest_configure(config):
     """Register plugin markers and setup."""
+    global _pytest_args_str
+    args = getattr(config, "invocation_params", None)
+    if args is not None and hasattr(args, "args"):
+        _pytest_args_str = " ".join(shlex.quote(arg) for arg in args.args)
     config.addinivalue_line(
         "markers",
         "checkpoint: internal marker for checkpoint/resume plugin"
     )
+
+
+def pytest_sessionstart(session):
+    """Capture test start time for checkpoint metadata."""
+    global _started_at
+    _started_at = datetime.now(timezone.utc)
 
 
 def pytest_collection_modifyitems(session, config, items):
@@ -46,8 +74,7 @@ def pytest_collection_modifyitems(session, config, items):
 
     # Load previously passed test nodeids
     try:
-        with open(resume_path, "r") as f:
-            passed_set = {line.strip() for line in f if line.strip()}
+        passed_set = _load_checkpoint_nodeids(resume_path)
     except Exception as e:
         print(f"ERROR: Failed to read resume checkpoint: {e}", file=sys.stderr)
         sys.exit(1)
@@ -67,8 +94,12 @@ def pytest_runtest_logreport(report):
     Collect nodeids of tests that passed.
     """
     # Only record on 'call' phase and if outcome is 'passed'
-    if report.when == "call" and report.outcome == "passed":
-        _passed_nodeids.add(report.nodeid)
+    global _failed_count
+    if report.when == "call":
+        if report.outcome == "passed":
+            _passed_nodeids.add(report.nodeid)
+        elif report.outcome == "failed":
+            _failed_count += 1
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -86,7 +117,17 @@ def pytest_sessionfinish(session, exitstatus):
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
+        started_at = _started_at or datetime.now(timezone.utc)
+        finished_at = datetime.now(timezone.utc)
+        passed_count = len(_passed_nodeids)
         with open(checkpoint_path, "w") as f:
+            f.write("# Maestro pytest checkpoint\n")
+            f.write(f"# started_at: {started_at.isoformat()}\n")
+            f.write(f"# finished_at: {finished_at.isoformat()}\n")
+            f.write(f"# pytest_args: {_pytest_args_str}\n")
+            f.write(f"# passed_tests_count: {passed_count}\n")
+            f.write(f"# failed_tests_count: {_failed_count}\n")
+            f.write(f"{CHECKPOINT_DELIM}\n")
             for nodeid in sorted(_passed_nodeids):
                 f.write(f"{nodeid}\n")
 

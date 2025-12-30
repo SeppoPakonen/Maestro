@@ -6,12 +6,12 @@ Canonical test runner for the Maestro project with support for parallel executio
 
 Maestro uses a repo-local `.venv/` so `pytest -q` does not depend on system Python packages. The canonical entrypoint is `tools/test/run.sh`, which creates the venv if needed, installs the minimal test dependencies, and runs pytest.
 
-**Pytest direct invocation**: Running `pytest -q` directly should behave identically to the runner for the default portable subset. Both exclude legacy tests and non-portable tests via `conftest.py` hooks and `pytest.ini` configuration. Use `bash tools/test/verify_portable_subset.sh` to verify alignment.
+**Pytest direct invocation**: Running `pytest -q` directly should behave similarly to the runner for the default portable subset. Both exclude legacy and non-portable tests via `conftest.py` hooks and `pytest.ini` configuration. Use `bash tools/test/verify_portable_subset.sh` to verify alignment.
 
 ## Quick Start
 
 ```bash
-# Run all tests with default settings (parallel, excludes legacy)
+# Run tests with default settings (parallel, excludes legacy/tui)
 bash tools/test/run.sh
 
 # Run with verbose output
@@ -23,33 +23,18 @@ bash tools/test/run.sh --help
 
 ## Features
 
-### 0. Configuration Display
+### 1. Configuration Display
 
-**Before running tests, the runner displays the configuration being used:**
+The runner prints a summary before running tests (Python, pytest, selection mode, profile, markers, workers, and checkpoint path). This makes it easy to verify defaults and selection logic.
+
+To print the resolved pytest command without running tests:
 
 ```bash
-bash tools/test/run.sh
+bash tools/test/run.sh --print-pytest-cmd --fast tests/test_subwork_stack.py
 ```
+### 2. Parallel Execution
 
-Example output:
-```
-=============================================================
-Maestro Test Runner Configuration
-=============================================================
-Profile:          all
-Workers:          15
-Verbose:          no
-Skiplist:         /path/to/skiplist.txt
-Test ordering:    slowest-first (timing data available)
-Profile report:   default (10 slowest tests)
-=============================================================
-```
-
-This helps you understand what defaults are being applied and verify your configuration.
-
-### 1. Parallel Execution
-
-By default, tests run in parallel using `pytest-xdist` with `cpu_count - 1` workers.
+By default, tests run in parallel using `pytest-xdist` with `cpu_count - 1` workers when available.
 
 ```bash
 # Use default parallelism (cpu_count - 1)
@@ -60,173 +45,76 @@ bash tools/test/run.sh -j 4
 
 # Disable parallelism (run serial)
 bash tools/test/run.sh -j 1
-
-# Set default via environment
-MAESTRO_TEST_JOBS=8 bash tools/test/run.sh
 ```
 
-### 2. Speed Profiles (Timing-Based)
+### 3. Speed Profiles (Marker-Based)
 
-Filter tests by execution speed using **actual timing data** from previous runs. The runner automatically saves timing data and uses it to classify tests.
+Speed profiles are marker expressions applied via `-m`:
+
+- `--fast`: `not slow and not legacy and not tui and not integration`
+- `--medium`: `not legacy and not tui` (default)
+- `--slow`: `slow and not legacy and not tui`
+- `--all`: `not legacy`
 
 ```bash
-# Run only fast tests (<0.1s based on last run)
-bash tools/test/run.sh --profile fast
+# Run only fast tests
+bash tools/test/run.sh --fast
 
-# Run fast + medium tests (<1.0s based on last run)
-bash tools/test/run.sh --profile medium
+# Run medium (default) profile
+bash tools/test/run.sh --medium
 
-# Run only slow tests (>1.0s based on last run)
-bash tools/test/run.sh --profile slow
+# Run only slow tests
+bash tools/test/run.sh --slow
 
-# Run all tests (default, still excludes legacy)
-bash tools/test/run.sh --profile all
-
-# Set default via environment
-MAESTRO_TEST_PROFILE=fast bash tools/test/run.sh
+# Run all non-legacy tests
+bash tools/test/run.sh --all
 ```
 
-**How it works:**
-1. Every test run automatically saves timing data to `docs/workflows/v3/reports/test_timing_latest.txt`
-2. Speed profiles use **actual measured performance** from the timing file:
-   - `fast`: Tests that ran in <0.1s
-   - `medium`: Tests that ran in 0.1s-1.0s
-   - `slow`: Tests that ran in >1.0s
-3. If no timing data exists yet, falls back to pytest markers (`@pytest.mark.fast`, etc.)
+### 4. Checkpoint & Resume
 
-**Benefits:**
-- No manual test marking required
-- Automatically adapts to actual performance
-- Tests are reclassified as code changes affect performance
-- Timing data committed to git tracks performance trends
-
-### 3. Checkpoint & Resume
-
-The runner automatically writes a checkpoint file after each run containing all PASSED test nodeids. Use resume mode to skip previously passed tests when iterating on failures.
+The runner writes a checkpoint file after each run containing PASSED test nodeids and metadata. Use `--resume-from` to skip already-passed tests.
 
 ```bash
-# First run: tests fail, checkpoint written
+# First run
 bash tools/test/run.sh -x --maxfail=1
-# Output: Checkpoint written: /tmp/maestro_pytest_checkpoint_20231215_120000_12345.txt
+# Output: Checkpoint written: /tmp/maestro_pytest_checkpoint_YYYYMMDD_HHMMSS.txt
 
-# Fix the failing test, then resume (skips already-passed tests)
-bash tools/test/run.sh --resume-from /tmp/maestro_pytest_checkpoint_20231215_120000_12345.txt -x --maxfail=1
-
-# Custom checkpoint location
-bash tools/test/run.sh --checkpoint /tmp/my_checkpoint.txt
-
-# Set via environment
-MAESTRO_TEST_CHECKPOINT=/tmp/my_checkpoint.txt bash tools/test/run.sh
+# Resume (skips previously passed tests)
+bash tools/test/run.sh --resume-from /tmp/maestro_pytest_checkpoint_YYYYMMDD_HHMMSS.txt -x --maxfail=1
 ```
 
-**Use case:** Long test suites where you're iterating on a small number of failing tests. Resume mode skips the already-passing tests, saving significant time.
+### 5. Profiling & Slow-Test Report
 
-### 4. Profiling & Performance
+Use `--profile` to capture pytest duration output and write reports:
 
-**Timing data can be saved** to `docs/workflows/v3/reports/test_timing_latest.txt` for performance tracking and slowest-first test ordering.
+- `docs/workflows/v3/reports/test_durations_latest.txt`
+- `docs/workflows/v3/reports/test_slow_candidates.md`
 
 ```bash
-# Show top 10 slowest tests (default)
-bash tools/test/run.sh
-
-# Show top 25 slowest tests
-bash tools/test/run.sh --profile-report
-
-# Save timing report to file (for slowest-first ordering and tracking)
-bash tools/test/run.sh --save-profile-report
-
-# Combine options
-bash tools/test/run.sh --profile medium --profile-report --save-profile-report -j 8
-
-# Check the saved report
-cat docs/workflows/v3/reports/test_timing_latest.txt
+bash tools/test/run.sh --profile tests/test_subwork_stack.py
 ```
 
-**Report includes:**
-- Slowest test durations with relative paths (10 by default, 25 with --profile-report)
-- Warnings for tests slower than 1.0s
-- Test run metadata (timestamp, duration, workers, profile)
-- Used by slowest-first ordering and `--profile fast/medium/slow` timing-based selection
+### 6. Git Lock Preflight
 
-**Slowest-First Ordering:**
-
-When timing data exists, tests are automatically run in slowest-first order. This helps detect failures in slow tests earlier (fail-fast strategy).
+The runner checks for `.git/index.lock` and exits with diagnostics if present. Override only if you know what you are doing:
 
 ```bash
-# When timing data exists, tests run slowest-first automatically
-bash tools/test/run.sh --profile all
-
-# Output shows: "Ordering: slowest first (N tests)"
+bash tools/test/run.sh --ignore-git-lock
 ```
 
-This feature is enabled by default when timing data is available. Slowest tests are prioritized to surface failures sooner, saving development time.
+Use `--git-check` to include git metadata in the runner configuration output.
 
-### 5. Test Timeouts
+### 7. Git-Dependent Tests
 
-Kill tests that run too long to prevent hanging test suites.
-
-```bash
-# Kill any test that runs longer than 5 seconds
-bash tools/test/run.sh --timeout 5
-
-# Combine with other options
-bash tools/test/run.sh --timeout 10 --profile slow
-
-# Set default via environment
-MAESTRO_TEST_TIMEOUT=30 bash tools/test/run.sh
-```
-
-**How it works:**
-- Uses `pytest-timeout` to enforce per-test time limits
-- Timed-out tests are marked as FAILED
-- Works with profiling - timeout is recorded in timing report
-- Timeout method: thread-based (safe for most tests)
-
-## Common Workflows
-
-### Fail-Fast Development
-
-Run tests, stop on first failure, resume after fixing:
+Tests that execute git commands are opt-in. Enable them with:
 
 ```bash
-# Initial run
-bash tools/test/run.sh -x --maxfail=1
-
-# After fixing, resume from checkpoint shown in output
-bash tools/test/run.sh --resume-from /tmp/maestro_pytest_checkpoint_YYYYMMDD_HHMMSS_PID.txt -x --maxfail=1
-```
-
-### Fast Iteration
-
-Run only fast tests during active development:
-
-```bash
-bash tools/test/run.sh --profile fast -j 4
-```
-
-### Pre-Commit / CI
-
-Run all tests with profiling report:
-
-```bash
-bash tools/test/run.sh --profile all --profile-report
-```
-
-### Debugging Slow Tests
-
-Find and investigate slow tests:
-
-```bash
-# Get timing report
-bash tools/test/run.sh --profile-report > timing_report.txt
-
-# Run only slow tests to investigate
-bash tools/test/run.sh --profile slow -v
+MAESTRO_TEST_ALLOW_GIT=1 bash tools/test/run.sh
 ```
 
 ## Pass-Through Arguments
 
-All unrecognized arguments are passed directly to pytest:
+Unrecognized arguments are passed directly to pytest:
 
 ```bash
 # Stop on first failure
@@ -238,122 +126,41 @@ bash tools/test/run.sh tests/test_ai_cache.py
 # Run specific test function
 bash tools/test/run.sh tests/test_ai_cache.py::test_function_name
 
-# Capture output (disable output capture)
-bash tools/test/run.sh -s
-
-# Show local variables on failure
-bash tools/test/run.sh -l
-
 # Run tests matching keyword
 bash tools/test/run.sh -k work_command
+```
 
-# Run tests with explicit markers
-bash tools/test/run.sh -m slow
+Use `--` to separate runner options from pytest options if needed:
+
+```bash
+bash tools/test/run.sh --fast -- -k work_command
 ```
 
 ## Skiplist Management
 
 The runner supports skipping tests via a skiplist file containing patterns to ignore.
 
-**Default behavior**: Uses `tools/test/skiplist.txt` which skips legacy tests and deprecated test files.
-
 ```bash
-# Use default skiplist (tools/test/skiplist.txt)
-bash tools/test/run.sh
-
 # Use custom skiplist
 bash tools/test/run.sh --skiplist my_custom_skiplist.txt
 
-# Disable skiplist (run ALL tests, even legacy)
+# Disable skiplist (run all tests except legacy/tui)
 bash tools/test/run.sh --skiplist ""
 
-# Run ONLY the tests in the skiplist (inverse behavior)
+# Run only the tests listed in the skiplist
 bash tools/test/run.sh --skipped
-
-# Set default via environment
-MAESTRO_TEST_SKIPLIST=/path/to/skiplist.txt bash tools/test/run.sh
-```
-
-**Skiplist file format**: One pattern per line. Can be file paths, directories, or specific test nodeids. Lines starting with `#` or empty lines are ignored.
-
-Example `skiplist.txt`:
-```
-# Legacy tests
-tests/legacy
-
-# Deprecated test files
-tests/test_old_feature.py
-
-# Specific tests that depend on external data
-tests/test_integration.py::test_requires_external_data
-```
-
-### Running Skipped Tests Only
-
-Use `--skipped` to run ONLY the tests listed in the skiplist (useful for testing non-portable or slow tests):
-
-```bash
-# Run only the tests normally skipped
-bash tools/test/run.sh --skipped
-
-# Combine with other options
-bash tools/test/run.sh --skipped --timeout 60 -v
 ```
 
 ## Environment Variables
 
-- `MAESTRO_TEST_JOBS`: Default worker count (default: cpu_count - 1)
-- `MAESTRO_TEST_PROFILE`: Default speed profile (default: all)
+- `MAESTRO_TEST_JOBS`: Default worker count
+- `MAESTRO_TEST_PROFILE`: Default speed profile (fast|medium|slow|all, default: medium)
 - `MAESTRO_TEST_CHECKPOINT`: Checkpoint file path (default: auto-generated in /tmp)
 - `MAESTRO_TEST_RESUME_FROM`: Resume from this checkpoint file
-- `MAESTRO_TEST_SKIPLIST`: Default skiplist file path (default: tools/test/skiplist.txt)
-- `MAESTRO_TEST_TIMEOUT`: Default test timeout in seconds (default: none)
+- `MAESTRO_TEST_SKIPLIST`: Default skiplist file path
+- `MAESTRO_TEST_TIMEOUT`: Default test timeout in seconds
+- `MAESTRO_TEST_ALLOW_GIT`: Enable tests that perform git operations
 - `PYTHON_BIN`: Python binary to use (default: auto-detected python3 or python)
-
-## Implementation Details
-
-### Virtual Environment
-
-The runner creates/uses a virtual environment at `.venv/` in the repo root. Dependencies are installed from `requirements-dev.txt`.
-
-### Checkpoint Plugin
-
-Checkpoint/resume functionality is implemented via a pytest plugin at `tools/test/pytest_checkpoint_plugin.py`. The plugin:
-
-1. Collects PASSED test nodeids during execution
-2. Writes them to the checkpoint file in `pytest_sessionfinish` hook
-3. Filters test collection based on resume checkpoint in `pytest_collection_modifyitems` hook
-
-### Speed Profile Implementation
-
-Speed profiles are implemented using pytest markers and the `-m` marker expression flag:
-
-- `--profile fast`: `-m "fast and not legacy"`
-- `--profile medium`: `-m "(fast or medium) and not legacy"`
-- `--profile slow`: `-m "slow and not legacy"`
-- `--profile all`: `-m "not legacy"`
-
-The default `pytest.ini` configuration excludes legacy and slow tests by default. The runner overrides this for different profiles.
-
-## Verifying Test Selection Alignment
-
-A verification script ensures that `pytest -q` and `tools/test/run.sh` select the same portable test subset:
-
-```bash
-bash tools/test/verify_portable_subset.sh
-```
-
-**What it checks:**
-- Pytest excludes `tests/legacy/` directory (via `conftest.py`)
-- Pytest excludes deleted test files (via `conftest.py`)
-- Both tools collect reasonable test counts (pytest >= runner due to skiplist node IDs)
-
-**Run this after:**
-- Modifying `pytest.ini`
-- Updating `conftest.py` collection hooks
-- Adding tests to `tools/test/skiplist.txt`
-
-If verification fails, check `conftest.py` `pytest_ignore_collect` hook and `pytest.ini` marker filters.
 
 ## Troubleshooting
 
@@ -365,33 +172,9 @@ If you see "Note: xdist not available; running serial", ensure `pytest-xdist` is
 .venv/bin/python -m pip install pytest-xdist
 ```
 
-It should be installed automatically from `requirements-dev.txt`.
-
-### No tests collected for fast/slow profile
-
-If a profile collects no tests, it means no tests have that marker. This is expected if tests aren't marked yet. Add markers to tests:
-
-```python
-import pytest
-
-@pytest.mark.fast
-def test_quick_unit_test():
-    assert 1 + 1 == 2
-
-@pytest.mark.slow
-def test_integration_with_filesystem():
-    # ... heavy I/O test
-    pass
-```
-
-### Checkpoint file not found
+### Resume file not found
 
 If resuming fails with "Resume checkpoint file not found", ensure the path is correct. The checkpoint path is printed in the test summary after each run.
-
-## Upgrading pinned deps
-
-1. Update the pytest pin in `requirements-dev.txt` (the runner reads it when present).
-2. Re-run the tests. If you need a clean reinstall, delete `.venv/` and run `bash tools/test/run.sh` again.
 
 ## Contributing
 
@@ -399,7 +182,5 @@ When adding new tests:
 
 1. Mark tests with appropriate speed markers (`@pytest.mark.fast`, `@pytest.mark.medium`, `@pytest.mark.slow`)
 2. Use `@pytest.mark.legacy` for deprecated code paths
-3. Ensure tests pass in parallel (avoid shared state, use fixtures for isolation)
-4. Run with `--profile-report` periodically to identify slow tests
-
-See `docs/workflows/v3/reports/test_policy.md` for full test policy guidance.
+3. Use `@pytest.mark.tui` for TUI-heavy tests
+4. Avoid shared state; use fixtures for isolation
