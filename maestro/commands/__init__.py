@@ -21,6 +21,7 @@ from .runbook import add_runbook_parser, handle_runbook_command
 from .workflow import add_workflow_parser, handle_workflow_command
 from .convert import add_convert_parser
 from .make import add_make_parser, handle_make_command
+from .ops import add_ops_parser, handle_ops_command
 
 __all__ = [
     'add_track_parser',
@@ -63,4 +64,6 @@ __all__ = [
     'add_convert_parser',
     'add_make_parser',
     'handle_make_command',
+    'add_ops_parser',
+    'handle_ops_command',
 ]

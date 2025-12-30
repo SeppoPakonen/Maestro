@@ -370,14 +370,10 @@ def main():
             raise SystemExit(exit_code)
 
     elif args.command == 'ops':
-        if hasattr(args, 'ops_subcommand') and args.ops_subcommand:
-            from maestro.project_ops.commands import handle_project_ops_validate, handle_project_ops_preview, handle_project_ops_apply
-            if args.ops_subcommand == 'validate':
-                handle_project_ops_validate(args.json_file, args.session, args.verbose)
-            elif args.ops_subcommand == 'preview':
-                handle_project_ops_preview(args.json_file, args.session, args.verbose)
-            elif args.ops_subcommand == 'apply':
-                handle_project_ops_apply(args.json_file, args.session, args.verbose)
+        from maestro.commands.ops import handle_ops_command
+        exit_code = handle_ops_command(args)
+        if exit_code:
+            raise SystemExit(exit_code)
 
     elif args.command == 'resume':
         _print_legacy_warning('resume', 'maestro discuss resume / maestro work resume')

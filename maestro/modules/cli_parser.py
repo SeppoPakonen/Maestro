@@ -194,6 +194,7 @@ def create_main_parser() -> argparse.ArgumentParser:
         add_runbook_parser,
         add_workflow_parser,
         add_make_parser,
+        add_ops_parser,
     )
     from ..commands.convert import add_convert_parser
     from ..commands.log import add_log_parser
@@ -208,6 +209,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     add_make_parser(subparsers)  # Add make parser near repo/build commands
     add_log_parser(subparsers)  # Add log parser for observability pipeline
     add_cache_parser(subparsers)  # Add cache parser for AI cache management
+    add_ops_parser(subparsers)  # Add ops parser for operations automation
     add_track_parser(subparsers)
     add_phase_parser(subparsers)
     add_task_parser(subparsers)
@@ -304,16 +306,6 @@ def add_core_subparsers(subparsers):
 
     # Resume command (no subcommands)
     subparsers.add_parser('resume', aliases=['rs'], help='[DEPRECATED] Use work resume or discuss resume')
-
-    # Project ops command
-    ops_parser = subparsers.add_parser('ops', help='Project operations automation')
-    ops_subparsers = ops_parser.add_subparsers(dest='ops_subcommand', help='Project ops subcommands')
-    validate_parser = ops_subparsers.add_parser('validate', help='Validate project operations JSON file')
-    validate_parser.add_argument('json_file', help='JSON file containing project operations')
-    preview_parser = ops_subparsers.add_parser('preview', help='Preview changes from project operations')
-    preview_parser.add_argument('json_file', help='JSON file containing project operations')
-    apply_parser = ops_subparsers.add_parser('apply', help='Apply project operations')
-    apply_parser.add_argument('json_file', help='JSON file containing project operations')
 
     # Work command is registered in maestro.commands.work
 
