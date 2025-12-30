@@ -233,3 +233,17 @@ run maestro ops run /tmp/example_plan.yaml --dry-run
 run maestro ops run /tmp/example_plan.yaml
 run maestro ops list
 run maestro ops show "$RUN_ID"
+run maestro work task "<TASK_ID>" --simulate || true
+run maestro wsession list
+run maestro work subwork start "<PARENT_ID>" --purpose "Diagnose failing tests" --context "task:<TASK_ID>"
+run maestro work subwork list "<PARENT_ID>"
+run maestro work subwork close "<CHILD_ID>" --summary "Tests fail in module X; missing fixture in test data." --status ok
+run maestro wsession show "<PARENT_ID>"
+run maestro wsession tree
+run maestro wsession breadcrumbs "<PARENT_ID>" --summary
+run maestro work task "<TASK_ID>" --simulate || true
+run maestro wsession list
+run maestro work subwork start "<PARENT_ID>" --purpose "Investigate build failure" --context "task:<TASK_ID>"
+run maestro ops doctor
+run maestro work subwork close "<CHILD_ID>" --summary "Build fails in target X; fix Makefile include path." --status ok
+run maestro ops doctor

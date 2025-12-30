@@ -362,6 +362,16 @@ This index aligns v3 gaps to the hard invariants and runbook evidence. Each P0 e
   - Type: missing_command
   - Notes: Distinct from close; must preserve resume token.
 
+- Gap ID: GAP-0042
+  - Invariant ref: Work session stacking (managed mode)
+  - Missing capability: Subwork stacking commands + parent handoff breadcrumbs.
+  - Proposed v3 command: `maestro work subwork start|list|show|close|resume-parent`
+  - Evidence: EX-37, EX-38
+  - Status: implemented
+  - Priority: P1
+  - Type: managed_mode
+  - Notes: Parent pause/resume plus ops doctor awareness.
+
 - Gap ID: GAP-0036
   - Invariant ref: N/A (not tied to a hard invariant)
   - Missing capability: Toolchain profile selection.

@@ -590,6 +590,12 @@ wk fix
 wk issue
 wk phase
 wk resume
+wk subwork
+wk subwork close
+wk subwork list
+wk subwork resume-parent
+wk subwork show
+wk subwork start
 wk task
 wk track
 work
@@ -601,6 +607,12 @@ work fix
 work issue
 work phase
 work resume
+work subwork
+work subwork close
+work subwork list
+work subwork resume-parent
+work subwork show
+work subwork start
 work task
 work track
 workflow

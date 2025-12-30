@@ -40,6 +40,11 @@ Additional verbs for specific contexts:
 
 - `maestro work start task <TASK_ID>`
 - `maestro work resume <WORK_ID>`
+- `maestro work subwork start <PARENT_WSESSION_ID> --purpose "<text>" [--context <kind:ref>] [--no-pause-parent]`
+- `maestro work subwork list <PARENT_WSESSION_ID>`
+- `maestro work subwork show <CHILD_WSESSION_ID>`
+- `maestro work subwork close <CHILD_WSESSION_ID> --summary "<text>" [--status {ok|failed|partial}] [--no-resume-parent]`
+- `maestro work subwork resume-parent <CHILD_WSESSION_ID>`
 - `maestro wsession list`
 - `maestro wsession show <WSESSION_ID>`
 - `maestro wsession breadcrumb add --cookie <COOKIE> --json <FILE|STDIN>`
@@ -54,6 +59,7 @@ Rule: breadcrumb ops require a cookie; missing cookie is a hard error.
 - `maestro discuss --task <TASK_ID>` (explicit task context)
 - `maestro discuss --phase <PHASE_ID>` (explicit phase context)
 - `maestro discuss --track <TRACK_ID>` (explicit track context)
+- `maestro discuss --wsession <WSESSION_ID>` (attach discuss metadata to a work session)
 - `maestro discuss resume <SESSION_ID>` (resume previous discussion)
 - `maestro discuss replay <PATH> [--dry-run] [--allow-cross-context]` (replay transcript)
 - `maestro task discuss <TASK_ID>` (direct context-specific entry)
@@ -64,8 +70,9 @@ Rule: breadcrumb ops require a cookie; missing cookie is a hard error.
 
 Router behavior:
 - Priority 1: Explicit flags (--task, --phase, --track, --context)
-- Priority 2: Active work session (most recent running/paused)
-- Priority 3: Fall back to global context
+- Priority 2: Explicit --wsession (inherit context when no explicit context)
+- Priority 3: Active work session (most recent running/paused)
+- Priority 4: Fall back to global context
 
 Context metadata stored in session:
 - `context.kind` (e.g., "task", "phase", "track")

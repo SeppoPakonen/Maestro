@@ -7,6 +7,7 @@ repo resolve,5
 task complete task-001,3
 runbook list,3
 workflow list,3
+ops doctor,3
 repo refresh all,2
 discuss,2
 ai qwen,2
@@ -14,6 +15,8 @@ convert run cpp-to-python ../my-python-project,2
 solutions check,2
 work resume wsession-parent-abc123,2
 ops run /tmp/example_plan.yaml,2
+"work task ""<TASK_ID>"" || true",2
+wsession list,2
 workflow init user-auth-service,1
 "workflow node add manager-intent ""User can log in securely""",1
 "workflow node add user-action ""Submit login form""",1
@@ -178,8 +181,15 @@ runbook restore <ARCHIVE_ID>,1
 "workflow archive docs/workflows/v3/workflows/WF-OLD.md ""Legacy workflow""",1
 workflow show docs/workflows/v3/workflows/WF-OLD.md,1
 workflow restore <WORKFLOW_ARCHIVE_ID>,1
-ops doctor,1
 ops doctor json,1
 "ops doctor || echo ""Exit code: $?""",1
 ops list,1
 "ops show ""$RUN_ID""",1
+"work subwork start ""<PARENT_ID>"" ""Diagnose failing tests"" ""task:<TASK_ID>""",1
+"work subwork list ""<PARENT_ID>""",1
+"work subwork close ""<CHILD_ID>"" ""Tests fail in module X; missing fixture in test data."" ok",1
+"wsession show ""<PARENT_ID>""",1
+wsession tree,1
+"wsession breadcrumbs ""<PARENT_ID>""",1
+"work subwork start ""<PARENT_ID>"" ""Investigate make failure"" ""task:<TASK_ID>""",1
+"work subwork close ""<CHILD_ID>"" ""Build fails in target X; fix Makefile include path."" ok",1

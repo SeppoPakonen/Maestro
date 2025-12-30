@@ -629,6 +629,12 @@
     "wk issue",
     "wk phase",
     "wk resume",
+    "wk subwork",
+    "wk subwork close",
+    "wk subwork list",
+    "wk subwork resume-parent",
+    "wk subwork show",
+    "wk subwork start",
     "wk task",
     "wk track",
     "work",
@@ -640,6 +646,12 @@
     "work issue",
     "work phase",
     "work resume",
+    "work subwork",
+    "work subwork close",
+    "work subwork list",
+    "work subwork resume-parent",
+    "work subwork show",
+    "work subwork start",
     "work task",
     "work track",
     "workflow",
@@ -7620,6 +7632,65 @@
       "aliases": []
     },
     {
+      "command": "wk subwork",
+      "path": [
+        "wk",
+        "subwork"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk subwork close",
+      "path": [
+        "wk",
+        "subwork",
+        "close"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk subwork list",
+      "path": [
+        "wk",
+        "subwork",
+        "list"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk subwork resume-parent",
+      "path": [
+        "wk",
+        "subwork",
+        "resume-parent"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk subwork show",
+      "path": [
+        "wk",
+        "subwork",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "wk subwork start",
+      "path": [
+        "wk",
+        "subwork",
+        "start"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
       "command": "wk task",
       "path": [
         "wk",
@@ -7716,6 +7787,65 @@
       "path": [
         "work",
         "resume"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work subwork",
+      "path": [
+        "work",
+        "subwork"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work subwork close",
+      "path": [
+        "work",
+        "subwork",
+        "close"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work subwork list",
+      "path": [
+        "work",
+        "subwork",
+        "list"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work subwork resume-parent",
+      "path": [
+        "work",
+        "subwork",
+        "resume-parent"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work subwork show",
+      "path": [
+        "work",
+        "subwork",
+        "show"
+      ],
+      "help": "",
+      "aliases": []
+    },
+    {
+      "command": "work subwork start",
+      "path": [
+        "work",
+        "subwork",
+        "start"
       ],
       "help": "",
       "aliases": []
@@ -8073,5 +8203,5 @@
       ]
     }
   ],
-  "count": 675
+  "count": 687
 }

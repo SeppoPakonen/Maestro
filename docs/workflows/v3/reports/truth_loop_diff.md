@@ -8,11 +8,11 @@ Comparison of runbook command usage vs CLI surface.
 
 ## Summary
 
-- ✅ **Both OK**: 26 commands aligned
+- ✅ **Both OK**: 28 commands aligned
 - ⚠️ **Runbook Only**: 79 commands in runbooks but not CLI
-- 📖 **CLI Only**: 612 commands in CLI but no runbook examples
+- 📖 **CLI Only**: 622 commands in CLI but no runbook examples
 - 🔄 **Needs Alias**: 0 commands using legacy forms
-- 📝 **Needs Docs**: 559 commands missing runbook examples
+- 📝 **Needs Docs**: 569 commands missing runbook examples
 - 🔧 **Needs Runbook Fix**: 0 deprecated command usage
 
 ---
@@ -769,6 +769,12 @@ wk fix
 wk issue
 wk phase
 wk resume
+wk subwork
+wk subwork close
+wk subwork list
+wk subwork resume-parent
+wk subwork show
+wk subwork start
 wk task
 wk track
 ```
@@ -785,6 +791,12 @@ work fix
 work issue
 work phase
 work resume
+work subwork
+work subwork close
+work subwork list
+work subwork resume-parent
+work subwork show
+work subwork start
 work task
 work track
 ```
@@ -827,12 +839,10 @@ wsession
 wsession breadcrumb
 wsession breadcrumbs
 wsession close
-wsession list
 wsession show
 wsession stats
 wsession timeline
 wsession tr
-wsession tree
 ```
 
 **Action:** Create runbook examples for these commands.
@@ -861,7 +871,7 @@ Runbook commands using deprecated forms.
 
 ## ✅ Aligned Commands
 
-26 commands are properly aligned between runbooks and CLI.
+28 commands are properly aligned between runbooks and CLI.
 
 </details>
 

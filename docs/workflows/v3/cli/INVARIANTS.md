@@ -62,6 +62,24 @@ See also:
   - Next: start a new discuss/work session.
   - Implemented in: session store.
 
+## Work session stacking (managed mode)
+
+- Parent cannot be closed while any child is running or paused.
+  - Failure: attempted to close parent with open subwork.
+  - Next: `maestro work subwork list <PARENT_WSESSION_ID>` then close children.
+  - Implemented in: `maestro wsession close`.
+- Child sessions must include `parent_wsession_id`.
+  - Failure: orphan child session detected.
+  - Next: recreate via `maestro work subwork start` or close orphan.
+  - Implemented in: session store + ops doctor.
+- Closing a child emits a `result` breadcrumb into the parent (unless parent missing).
+  - Failure: missing parent breadcrumb for subwork completion.
+  - Next: re-run `maestro work subwork close` or add breadcrumb manually.
+  - Implemented in: `maestro work subwork close`.
+- Session operations are idempotent where reasonable.
+  - Failure: duplicate result breadcrumbs or state flips on re-run.
+  - Next: ensure handlers are safe to re-invoke with same IDs.
+
 ## Discuss contract
 
 - `/done` must return a single valid JSON object.

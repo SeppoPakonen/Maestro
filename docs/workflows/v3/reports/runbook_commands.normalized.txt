@@ -134,6 +134,12 @@ tu refactor rename symbol-001 computeSum
 tu refactor rename symbol-001 std
 work resume wsession-parent-abc123
 work spawn task-001 "Investigate component Y"
+work subwork close "<CHILD_ID>" "Build fails in target X; fix Makefile include path." ok
+work subwork close "<CHILD_ID>" "Tests fail in module X; missing fixture in test data." ok
+work subwork list "<PARENT_ID>"
+work subwork start "<PARENT_ID>" "Diagnose failing tests" "task:<TASK_ID>"
+work subwork start "<PARENT_ID>" "Investigate make failure" "task:<TASK_ID>"
+work task "<TASK_ID>" || true
 work task TASK-123 || echo "${YELLOW}⚠ Command failed (may not be fully implemented)${NC}"
 work task task-001
 work task task-002
@@ -181,4 +187,8 @@ wsession breadcrumb add wsession-parent-abc123 "Implemented feature X using comp
 wsession breadcrumb add wsession-subtask-def456 "Found 3 main functions in component Y: validate, sanitize, transform"
 wsession breadcrumb add wsession-subtask-def456 "Implemented feature X"
 wsession breadcrumb task-001 '<cookie>' "Implementing argparse parser"
+wsession breadcrumbs "<PARENT_ID>"
+wsession list
 wsession log session-20250126-001
+wsession show "<PARENT_ID>"
+wsession tree
