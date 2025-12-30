@@ -2,9 +2,10 @@
 CLI argument parsing for Maestro.
 """
 import argparse
+import importlib
 import sys
 import os
-from typing import Any
+from typing import Any, Iterable, Optional, Sequence
 from .utils import _filter_suppressed_help, Colors, styled_print, print_subheader
 from .. import __version__
 
@@ -145,7 +146,56 @@ def _reorder_subparser_actions(subparsers, preferred_order):
     subparsers.choices = new_map
 
 
-def create_main_parser() -> argparse.ArgumentParser:
+_COMMAND_SPECS = (
+    ("init", "maestro.commands.init", "add_init_parser", False),
+    ("runbook", "maestro.commands.runbook", "add_runbook_parser", False),
+    ("workflow", "maestro.commands.workflow", "add_workflow_parser", False),
+    ("repo", "maestro.commands.repo", "add_repo_parser", False),
+    ("plan", "maestro.commands.plan", "add_plan_parser", False),
+    ("make", "maestro.commands.make", "add_make_parser", False),
+    ("log", "maestro.commands.log", "add_log_parser", False),
+    ("cache", "maestro.commands.cache", "add_cache_parser", False),
+    ("ops", "maestro.commands.ops", "add_ops_parser", False),
+    ("track", "maestro.commands.track", "add_track_parsers", False),
+    ("phase", "maestro.commands.phase", "add_phase_parser", False),
+    ("task", "maestro.commands.task", "add_task_parser", False),
+    ("discuss", "maestro.commands.discuss", "add_discuss_parser", False),
+    ("settings", "maestro.commands.settings", "add_settings_parser", False),
+    ("issues", "maestro.commands.issues", "add_issues_parser", False),
+    ("solutions", "maestro.commands.solutions", "add_solutions_parser", False),
+    ("ai", "maestro.commands.ai", "add_ai_parser", False),
+    ("work", "maestro.commands.work", "add_work_parser", False),
+    ("wsession", "maestro.commands.work_session", "add_wsession_parser", False),
+    ("understand", "maestro.commands.understand", "add_understand_parser", True),
+    ("tu", "maestro.commands.tu", "add_tu_parser", False),
+    ("convert", "maestro.commands.convert", "add_convert_parser", False),
+)
+
+
+def _register_command_parsers(
+    subparsers: argparse._SubParsersAction,
+    commands_to_load: Optional[Iterable[str]],
+    include_legacy: bool,
+) -> None:
+    if commands_to_load is not None:
+        commands = set(commands_to_load)
+    else:
+        commands = None
+
+    for command, module_path, func_name, needs_legacy in _COMMAND_SPECS:
+        if commands is not None and command not in commands:
+            continue
+        if needs_legacy and not include_legacy:
+            continue
+        module = importlib.import_module(module_path)
+        getattr(module, func_name)(subparsers)
+
+
+def create_main_parser(
+    *,
+    commands_to_load: Optional[Sequence[str]] = None,
+    include_legacy: Optional[bool] = None,
+) -> argparse.ArgumentParser:
     """Create the main argument parser for Maestro."""
     from .. import __version__
 
@@ -174,69 +224,21 @@ def create_main_parser() -> argparse.ArgumentParser:
     # Add the help command first to ensure it's always available
     subparsers.add_parser('help', aliases=['h'], help='Show help for all commands')
 
-    # Import and register all command parsers
-    from ..commands import (
-        add_track_parser,
-        add_phase_parser,
-        add_task_parser,
-        add_discuss_parser,
-        add_settings_parser,
-        add_issues_parser,
-        add_solutions_parser,
-        add_ai_parser,
-        add_work_parser,
-        add_wsession_parser,
-        add_init_parser,
-        add_plan_parser,
-        add_understand_parser,
-        add_tu_parser,
-        add_repo_parser,
-        add_runbook_parser,
-        add_workflow_parser,
-        add_make_parser,
-        add_ops_parser,
-    )
-    from ..commands.convert import add_convert_parser
-    from ..commands.log import add_log_parser
-    from ..commands.cache import add_cache_parser
+    # Legacy command gate: understand/core commands only when MAESTRO_ENABLE_LEGACY=1
+    if include_legacy is None:
+        include_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
 
-    # Register all available command parsers
-    add_init_parser(subparsers)
-    add_runbook_parser(subparsers)  # Add runbook parser between init and workflow
-    add_workflow_parser(subparsers)  # Add workflow parser between runbook and repo
-    add_repo_parser(subparsers)  # Add repo parser after workflow
-    add_plan_parser(subparsers)  # Add plan parser to position between repo and track
-    add_make_parser(subparsers)  # Add make parser near repo/build commands
-    add_log_parser(subparsers)  # Add log parser for observability pipeline
-    add_cache_parser(subparsers)  # Add cache parser for AI cache management
-    add_ops_parser(subparsers)  # Add ops parser for operations automation
-    add_track_parser(subparsers)
-    add_phase_parser(subparsers)
-    add_task_parser(subparsers)
-    add_discuss_parser(subparsers)
-    add_settings_parser(subparsers)
-    add_issues_parser(subparsers)
-    add_solutions_parser(subparsers)
-    add_ai_parser(subparsers)
-    add_work_parser(subparsers)
-    add_wsession_parser(subparsers)
+    # Register requested command parsers
+    _register_command_parsers(subparsers, commands_to_load, include_legacy)
 
-    # Legacy command gate: understand is only available when MAESTRO_ENABLE_LEGACY=1
-    import os
-    enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
-    if enable_legacy:
-        add_understand_parser(subparsers)
-
-    add_tu_parser(subparsers)
-    add_convert_parser(subparsers)  # Add convert parser after tu parser
-
-    # Also add the original core commands (gated by MAESTRO_ENABLE_LEGACY)
-    add_core_subparsers(subparsers)
+    # Also add the original core commands (gated by legacy enablement)
+    if include_legacy:
+        add_core_subparsers(subparsers, include_legacy=include_legacy)
 
     return parser
 
 
-def add_core_subparsers(subparsers):
+def add_core_subparsers(subparsers, *, include_legacy: Optional[bool] = None):
     """Add the original core subparsers that were handled in main.py.
 
     Legacy commands (session, rules, root, resume) are only registered when
@@ -249,9 +251,10 @@ def add_core_subparsers(subparsers):
     import os
 
     # Check if legacy commands are enabled
-    enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
+    if include_legacy is None:
+        include_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
 
-    if not enable_legacy:
+    if not include_legacy:
         # Legacy commands are disabled; don't register them
         return
 

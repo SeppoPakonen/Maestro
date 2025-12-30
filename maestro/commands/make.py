@@ -7,28 +7,19 @@ import sys
 import os
 import shutil
 import subprocess
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from pathlib import Path
 
-# Import builders and configuration system from maestro
-from maestro.builders.config import MethodManager, MethodConfig
-from maestro.builders import (
-    UppBuilder, GccBuilder, MsvcBuilder, CMakeBuilder,
-    AutotoolsBuilder, MsBuildBuilder, MavenBuilder, AndroidBuilder, JavaBuilder
-)
-from maestro.repo.storage import (
-    find_repo_root as find_repo_root_v3,
-    load_repo_model,
-    require_repo_model,
-    ensure_repoconf_target,
-)
-from maestro.git_guard import check_branch_guard
+if TYPE_CHECKING:
+    from maestro.builders.config import MethodConfig
 
 
 class MakeCommand:
     """Main make command controller for universal build orchestration."""
     
     def __init__(self):
+        from maestro.builders.config import MethodManager
+
         self.method_manager = MethodManager()
         
     def execute(self, args: argparse.Namespace) -> int:
@@ -61,6 +52,8 @@ class MakeCommand:
         from maestro.issues.parsers import parse_build_logs
         from maestro.issues.issue_store import write_issue
         from maestro.repo.storage import require_repo_model
+        from maestro.repo.storage import load_repo_model, ensure_repoconf_target
+        from maestro.git_guard import check_branch_guard
 
         repo_root = self._find_repo_root()
         require_repo_model(repo_root)
@@ -476,6 +469,8 @@ class MakeCommand:
     
     def build_android(self, args: argparse.Namespace) -> int:
         """Build Android APK."""
+        from maestro.builders import AndroidBuilder
+
         # Auto-detect method if not specified
         method_name = args.method
         if not method_name:
@@ -588,6 +583,8 @@ class MakeCommand:
 
     def build_jar(self, args: argparse.Namespace) -> int:
         """Build Java JAR."""
+        from maestro.builders import JavaBuilder
+
         # Auto-detect method if not specified
         method_name = args.method
         if not method_name:
@@ -711,6 +708,8 @@ class MakeCommand:
 
     def _find_repo_root(self) -> str:
         """Find the repository root by looking for docs/maestro."""
+        from maestro.repo.storage import find_repo_root as find_repo_root_v3
+
         return find_repo_root_v3()
 
     def _apply_group_filter(self, package_info: Dict[str, Any], group_name: str) -> Optional[Dict[str, Any]]:
@@ -851,7 +850,7 @@ class MakeCommand:
                 return os.path.dirname(path)
         return None
     
-    def _create_builder_for_package(self, package_info: Dict, method_config: MethodConfig):
+    def _create_builder_for_package(self, package_info: Dict, method_config: "MethodConfig"):
         """Create appropriate builder for the package type."""
         # Use the builder selector to determine the appropriate builder
         from maestro.builders import select_builder

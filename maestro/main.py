@@ -108,15 +108,77 @@ def _print_legacy_warning(command_name: str, replacement: str):
     print(warning_text, file=sys.stderr)
 
 
+def _has_help_flag(argv):
+    return "-h" in argv or "--help" in argv
+
+
+def _resolve_help_command(argv):
+    if not argv:
+        return None
+    raw = argv[0]
+    if raw.startswith("-"):
+        return None
+    alias_map = {
+        "b": "make",
+        "build": "make",
+        "m": "make",
+        "s": "session",
+        "u": "understand",
+        "r": "rules",
+        "p": "phase",
+        "t": "track",
+        "l": "log",
+        "c": "convert",
+        "wk": "work",
+        "ws": "wsession",
+        "runba": "runbook",
+        "rb": "runbook",
+    }
+    return alias_map.get(raw, raw)
+
+
 def main():
     """Main entry point for the Maestro CLI."""
+    import os
+    if os.environ.get("MAESTRO_DEBUG_HANG") == "1":
+        import faulthandler
+
+        faulthandler.dump_traceback_later(4, repeat=True, file=sys.stderr)
+
+    argv = sys.argv[1:]
+    if _has_help_flag(argv):
+        raw_command = argv[0] if argv else None
+        help_command = _resolve_help_command(argv)
+        include_legacy = None
+        legacy_commands = {"session", "resume", "rules", "root", "understand"}
+        if help_command in legacy_commands:
+            include_legacy = True
+
+        help_argv = list(argv)
+        if raw_command in ("build", "b"):
+            print(
+                "Warning: 'maestro build' is deprecated; use 'maestro make' instead. "
+                "This alias will be removed after two minor releases.",
+                file=sys.stderr,
+            )
+            if help_argv:
+                help_argv[0] = "make"
+            help_command = "make"
+
+        commands_to_load = [help_command] if help_command else None
+        parser = create_main_parser(
+            commands_to_load=commands_to_load,
+            include_legacy=include_legacy,
+        )
+        parser.parse_args(help_argv)
+        return
+
     # Create the main parser
     parser = create_main_parser()
 
     # Parse arguments
     raw_command = sys.argv[1] if len(sys.argv) > 1 else None
     raw_command_orig = raw_command
-    import os
     enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
     legacy_aliases = {'s': 'session', 'u': 'understand'}
     legacy_command = legacy_aliases.get(raw_command, raw_command)

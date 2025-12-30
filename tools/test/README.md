@@ -160,6 +160,7 @@ bash tools/test/run.sh --skipped
 - `MAESTRO_TEST_SKIPLIST`: Default skiplist file path
 - `MAESTRO_TEST_TIMEOUT`: Default test timeout in seconds
 - `MAESTRO_TEST_ALLOW_GIT`: Enable tests that perform git operations
+- `MAESTRO_DEBUG_HANG`: Dump Python stack traces if CLI subprocesses hang (prints to stderr)
 - `PYTHON_BIN`: Python binary to use (default: auto-detected python3 or python)
 
 ## Troubleshooting

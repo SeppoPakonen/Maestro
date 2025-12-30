@@ -479,7 +479,7 @@ fi
 # ==============================================================================
 # Base pytest args (markers, skiplist, timeout)
 # ==============================================================================
-PYTEST_BASE_ARGS=()
+PYTEST_BASE_ARGS=(-c pytest.ini)
 MARKER_EXPR=""
 
 case "$PROFILE_MODE" in
