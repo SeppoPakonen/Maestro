@@ -279,9 +279,10 @@
     "make structure scan",
     "make structure show",
     "ops",
-    "ops apply",
-    "ops preview",
-    "ops validate",
+    "ops doctor",
+    "ops list",
+    "ops run",
+    "ops show",
     "p add",
     "p discuss",
     "p edit",
@@ -3826,31 +3827,44 @@
       "aliases": []
     },
     {
-      "command": "ops apply",
+      "command": "ops doctor",
       "path": [
         "ops",
-        "apply"
+        "doctor"
       ],
       "help": "",
       "aliases": []
     },
     {
-      "command": "ops preview",
+      "command": "ops list",
       "path": [
         "ops",
-        "preview"
+        "list"
+      ],
+      "help": "",
+      "aliases": [
+        "ls"
+      ]
+    },
+    {
+      "command": "ops run",
+      "path": [
+        "ops",
+        "run"
       ],
       "help": "",
       "aliases": []
     },
     {
-      "command": "ops validate",
+      "command": "ops show",
       "path": [
         "ops",
-        "validate"
+        "show"
       ],
       "help": "",
-      "aliases": []
+      "aliases": [
+        "sh"
+      ]
     },
     {
       "command": "p add",
@@ -8059,5 +8073,5 @@
       ]
     }
   ],
-  "count": 674
+  "count": 675
 }

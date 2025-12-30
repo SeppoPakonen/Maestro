@@ -300,6 +300,78 @@ Cache behavior:
 - Supports both user-level ($HOME/.maestro/cache/ai/) and repo-level (docs/maestro/cache/ai/) caching
 - Repo cache has priority for lookup; useful for deterministic test runs
 
+## Ops automation (doctor + run)
+
+### maestro ops doctor
+
+Run health checks and report gates/blockers with recommended commands.
+
+```
+maestro ops doctor
+  [--format {text|json}]
+  [--strict]
+  [--ignore-gates]
+```
+
+Arguments:
+- `--format {text|json}`: Output format (default: text)
+- `--strict`: Treat warnings as errors (non-zero exit code)
+- `--ignore-gates`: Report gates but do not enforce them
+
+Exit codes:
+- `0`: No fatal findings
+- `2`: Fatal findings present (blockers, locked repo)
+- `3`: Internal error
+
+### maestro ops run
+
+Execute a deterministic ops plan (YAML runbook).
+
+```
+maestro ops run <PLAN>
+  [--dry-run]
+  [--format {text|json}]
+  [--continue-on-error]
+```
+
+Arguments:
+- `PLAN`: Path to ops plan YAML file
+- `--dry-run`: Show what would be executed without running
+- `--format {text|json}`: Output format (default: text)
+- `--continue-on-error`: Continue executing steps even if one fails
+
+Behavior:
+- Only `maestro:` command steps allowed (no arbitrary shell)
+- Creates run record under `docs/maestro/ops/runs/<RUN_ID>/`
+- Run ID is deterministic (timestamp + kind)
+- Dry-run creates run record but skips execution
+
+### maestro ops list
+
+List ops run records.
+
+```
+maestro ops list
+```
+
+Aliases: `ls`
+
+### maestro ops show
+
+Show ops run details.
+
+```
+maestro ops show <RUN_ID>
+```
+
+Aliases: `sh`
+
+Arguments:
+- `RUN_ID`: Run ID from `ops list`
+
+See also:
+- `docs/workflows/v3/cli/OPS_RUN_FORMAT.md` - Ops plan YAML format specification
+
 ## Convert plan approval
 
 - `maestro convert plan <PIPELINE_ID>`

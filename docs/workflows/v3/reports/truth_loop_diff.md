@@ -8,9 +8,9 @@ Comparison of runbook command usage vs CLI surface.
 
 ## Summary
 
-- ✅ **Both OK**: 24 commands aligned
-- ⚠️ **Runbook Only**: 76 commands in runbooks but not CLI
-- 📖 **CLI Only**: 609 commands in CLI but no runbook examples
+- ✅ **Both OK**: 26 commands aligned
+- ⚠️ **Runbook Only**: 79 commands in runbooks but not CLI
+- 📖 **CLI Only**: 612 commands in CLI but no runbook examples
 - 🔄 **Needs Alias**: 0 commands using legacy forms
 - 📝 **Needs Docs**: 559 commands missing runbook examples
 - 🔧 **Needs Runbook Fix**: 0 deprecated command usage
@@ -34,6 +34,9 @@ issues ignore issue-001
 issues list blocker
 issues list convention
 make make MyApp
+ops doctor json
+ops run /tmp/example_plan.yaml
+ops show "$RUN_ID"
 phase add track-001
 platform caps detect
 platform caps prefer
@@ -858,7 +861,7 @@ Runbook commands using deprecated forms.
 
 ## ✅ Aligned Commands
 
-24 commands are properly aligned between runbooks and CLI.
+26 commands are properly aligned between runbooks and CLI.
 
 </details>
 

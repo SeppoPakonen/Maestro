@@ -1,13 +1,706 @@
 # Test Timing Report
-# Generated: 2025-12-29 11:29:48
+# Generated: 2025-12-29 13:28:28
 # Command: tools/test/run.sh 
-# Duration: 6s
-# Workers: 1
-# Profile: fast
+# Duration: 881s
+# Workers: 15
+# Profile: all
 
-============================= slowest 10 durations =============================
-0.08s call     tests/test_deterministic_filesystem.py::TestNoRealUserSettingsDependency::test_manager_uses_injected_settings
+============================== slowest durations ===============================
+620.08s call     tests/test_repo_resolve_ai_upp.py::test_scan_upp_repo_v2_integration
+114.21s call     tests/test_repo_workflow_ai_upp_e2e.py::test_repo_workflow_e2e
+100.21s call     tests/test_work_command.py::TestWorkCommand::test_handle_work_any
+76.92s call     tests/test_repo_resolve_ai_upp.py::test_cli_init_resolve_e2e
+63.38s call     tests/test_repo_resolve_ai_upp.py::test_cli_json_output_integration
+59.38s call     tests/legacy/test_session_visualization.py::TestExportFunctionality::test_export_session_json
+54.87s call     tests/test_work_command.py::TestWorkCommand::test_handle_work_any_pick
+54.30s call     tests/test_repo_conf_cli.py::test_repo_conf_select_default_persists
+53.57s call     tests/test_discuss_golden_replays.py::test_discuss_golden_replays
+45.14s call     tests/test_cli_surface_contract.py::TestLegacyWarnings::test_session_command_warning
+30.20s call     tests/test_repo_resolve_portable.py::test_repo_workflow_e2e_portable
+26.90s call     tests/test_plan_cli_fix.py::test_plan_cli_fix
+25.56s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_all_legacy_commands_gated
+25.25s call     tests/test_structure_integration.py::test_command_aliases
+24.62s call     tests/test_ai_cli_smoke.py::test_ai_print_cmd_flags
+23.44s call     tests/test_playbook_integration.py::test_playbook_integration
+20.10s call     tests/test_ai_cli_smoke.py::test_command_building_with_options
+17.98s call     tests/test_structure_integration.py::test_regression_scenario_2
+17.82s call     tests/test_structure_integration.py::test_structure_fix_and_apply
+16.58s call     tests/test_repo_resolve_portable.py::test_cli_init_resolve_e2e_portable
+13.03s call     tests/test_expanded_tui_smoke.py::test_all_screen_navigations
+12.69s call     tests/test_reactive_fix_loop.py::test_complex_error_scenario
+11.54s call     tests/test_reactive_fix_loop.py::test_easy_fix_scenario
+11.33s call     tests/test_cli_surface_contract.py::TestContractStability::test_default_mode_is_repeatable
+10.55s call     tests/test_structure_integration.py::test_regression_scenario_1
+10.11s call     tests/test_cli_surface_contract.py::TestContractStability::test_legacy_mode_is_repeatable
+9.72s call     tests/test_plan_cli_fix.py::test_discuss_add_rejection
+6.43s call     tests/test_cli_surface_contract.py::TestParserStructure::test_help_excludes_legacy_by_default
+6.27s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_enabled_with_1
+6.23s call     tests/test_ai_cli_smoke.py::test_ai_help_commands
+5.76s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_explicit_0
+5.76s call     tests/test_structure_integration.py::test_structure_scan
+5.61s call     tests/test_structure_integration.py::test_structure_lint
+5.57s call     tests/test_structure_integration.py::test_structure_show
+5.42s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_by_default
+5.42s call     tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_repo_resolve_works_with_legacy_disabled
+5.40s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_enabled_with_true
+5.32s call     tests/test_mc2_functionality.py::test_mc2_flag_exists
+5.29s call     tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_discuss_works_with_legacy_disabled
+5.21s call     tests/test_cli_surface_contract.py::TestErrorMessages::test_understand_disabled_error_message
+5.05s call     tests/test_tui_smoke_alt.py::test_tui_smoke_mode_alternative
+5.03s call     tests/test_mc2_no_textual.py::test_mc2_runs_without_textual_import
+5.02s call     tests/test_mc2_smoke.py::test_mc2_smoke_with_file
+5.02s call     tests/test_mc2_render_loop.py::test_render_with_session_data
+5.02s call     tests/test_cli_uniformity.py::TestAliasMapping::test_convert_add_is_canonical
+5.02s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_resume_shows_deprecated_marker
+5.02s call     tests/test_tui_smoke_legacy.py::test_tui_smoke_mode
+5.02s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_root_shows_deprecated_marker
+5.02s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_session_shows_deprecated_marker
+5.02s call     tests/test_final_smoke.py::test_tui_smoke_mode_with_file
+5.02s call     tests/test_cli_uniformity.py::TestHelpContract::test_repo_keyword_shows_help
+5.02s call     tests/test_mc2_render_loop.py::test_render_loop
+5.02s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_understand_shows_deprecated_marker
+5.02s call     tests/test_mc2_smoke.py::test_mc2_smoke
+5.02s call     tests/test_cli_uniformity.py::TestCanonicalVerbs::test_repo_conf_show_exists
+5.02s call     tests/test_cli_uniformity.py::TestHelpContract::test_workflow_keyword_shows_help
+5.01s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_rules_shows_deprecated_marker
+5.01s call     tests/test_tui_smoke_legacy.py::test_tui_smoke_mode_shorter
+5.00s call     tests/test_tui_smoke_alt.py::test_tui_smoke_mode
+4.97s call     tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_track_works_with_legacy_disabled
+4.96s call     tests/test_cli_uniformity.py::TestAliasMapping::test_build_alias_warns_and_maps_to_make
+4.86s call     tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_work_resume_works_with_legacy_disabled
+4.71s call     tests/test_root_workflow.py::test_root_workflow
+4.60s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_enabled_with_yes
+4.54s call     tests/test_cli_uniformity.py::TestCanonicalVerbs::test_make_is_canonical
+4.52s call     tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_wsession_works_with_legacy_disabled
+4.41s call     tests/test_expanded_tui_smoke.py::test_mutation_triggers
+4.07s call     tests/test_repo_resolve_portable.py::test_cli_json_output_portable
+4.00s call     tests/test_expanded_tui_smoke.py::test_stability_under_load
+3.78s call     tests/test_expanded_tui_smoke.py::test_modal_open_close
+3.61s call     tests/legacy/test_mc_shell_screen.py::test_mc_shell_focus_and_navigation
+3.52s call     tests/test_cli_uniformity.py::TestHelpContract::test_task_keyword_shows_help
+3.48s call     tests/legacy/test_mc_shell_screen.py::test_sessions_menu_refresh_and_disabled_items
+3.45s call     tests/test_repo_resolve_portable.py::test_scan_portable_repo_v2
+3.19s call     tests/legacy/test_mc_shell_screen.py::test_refresh_error_handling
+3.03s call     tests/test_cli_surface_contract.py::TestAliasNormalization::test_session_alias_s_enabled
+3.01s call     tests/test_final_smoke.py::test_tui_smoke_mode_simple
+2.94s call     tests/test_cli_surface_contract.py::TestErrorMessages::test_session_disabled_error_message
+2.93s call     tests/test_cli_surface_contract.py::TestAliasNormalization::test_session_alias_s_disabled
+2.89s call     tests/test_cli_surface_contract.py::TestLegacyWarnings::test_understand_command_warning
+2.72s call     tests/legacy/test_mc_shell_screen.py::test_menubar_navigation_menu_updates_content
+2.30s call     tests/legacy/test_mc_shell_screen.py::test_f5_refreshes_view
+2.20s call     tests/legacy/test_mc_shell_screen.py::test_f7_creates_session
+2.01s call     tests/legacy/test_mc_shell_screen.py::test_f8_deletes_session
+1.97s call     tests/test_sessions_pane.py::test_sessions_pane_mounts_and_refreshes
+1.46s call     tests/test_work_session.py::TestWorkSession::test_session_hierarchy
+1.39s call     tests/test_tui_status_line.py::test_menubar_reliable_open_close
+1.34s call     tests/test_tui_status_line.py::test_menubar_navigation_when_active
+1.28s call     tests/legacy/test_mc_sections_menu.py::test_sections_menu_switches_pane
+1.15s call     tests/legacy/test_mc_menubar_layout.py::test_dropdown_does_not_consume_permanent_layout_rows
+1.11s call     tests/test_work_session.py::TestWorkSession::test_list_sessions
+1.04s call     tests/legacy/test_mc_menubar_layout.py::test_menubar_height_is_exactly_one
+1.03s call     tests/legacy/test_mc_shell_screen.py::test_arrow_key_navigation_in_left_pane
+1.02s call     tests/legacy/test_mc_menubar_layout.py::test_dropdowns_are_per_menu
+0.96s call     tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_with_linked_task_allows_work
+0.86s call     tests/legacy/test_mc_shell_screen.py::test_right_pane_arrow_navigation
+0.84s call     tests/test_final_validation.py::test_app_config
+0.81s call     tests/test_tui_status_line.py::test_status_line_single_line_functionality
+0.81s call     tests/legacy/test_mc_menubar_mouse.py::test_clicking_outside_closes_dropdown
+0.78s call     tests/legacy/test_mc_shell_screen.py::test_unsupported_fkey_shows_message
+0.78s call     tests/test_tui_status_line.py::test_status_line_exists_and_height
+0.76s call     tests/test_mc2_functionality.py::test_sessions_pane
+0.72s call     tests/legacy/test_mc_menubar_mouse.py::test_dropdown_selection_with_mouse
+0.72s call     tests/legacy/test_mc_shell_screen.py::test_f9_opens_menu
+0.70s call     tests/legacy/test_mc_shell_screen.py::test_focus_ring_tab_navigation
+0.69s call     tests/test_work_session.py::TestWorkSession::test_create_nested_session
+0.69s call     tests/legacy/test_mc_shell_screen.py::test_shift_tab_navigation
+0.69s call     tests/test_discussion_migration.py::test_discussion_session_summary
+0.69s call     tests/legacy/test_mc_menubar_mouse.py::test_menubar_mouse_click_activates_menu
+0.66s call     tests/test_help_system.py::test_help_panel_action_method_exists
+0.65s call     tests/legacy/test_mc_mouse_menubar.py::test_menubar_keyboard_activation
+0.64s call     tests/test_arbitration.py::TestArbitration::test_arbitration_no_target_writes_before_selection
+0.61s call     tests/legacy/test_mc_mouse_menubar.py::test_menubar_view_menu_items
+0.60s call     tests/test_discussion_migration.py::test_resume_discussion
+0.58s call     tests/legacy/test_mc_mouse_menubar.py::test_menubar_mouse_activation
+0.58s call     tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_with_linked_todo_task_blocks_work
+0.56s call     tests/test_mc2_functionality.py::test_mc2_without_smoke_parameter
+0.54s call     tests/test_plan_explore.py::test_plan_explore_auto_apply_mode
+0.53s call     tests/test_tui_status_line.py::test_status_line_updates_for_menubar_state
+0.53s call     tests/test_discussion_migration.py::test_discussion_session_breadcrumb_creation
+0.52s call     tests/test_arbitration.py::test_arbitration_cli
+0.49s call     tests/test_discussion_migration.py::test_discussion_session_generate_actions
+0.48s call     tests/legacy/test_mc_mouse_menubar.py::test_menubar_creation
+0.48s call     tests/test_plan_explore.py::test_plan_explore_stop_after_apply
+0.47s call     tests/test_discussion_migration.py::test_discussion_session_terminal_mode
+0.46s call     tests/test_plan_explore.py::test_plan_explore_stop_condition_empty_actions
+0.46s call     tests/legacy/test_mc_shell_screen.py::test_f10_quits_app
+0.44s call     tests/legacy/test_mc_shell_screen.py::test_modal_navigation
+0.44s call     tests/test_discussion_migration.py::test_discussion_session_process_command_history
+0.43s call     tests/test_plan_explore.py::test_plan_explore_session_start_interrupt_resume
+0.43s call     tests/test_discussion_migration.py::test_discussion_session_editor_mode
+0.41s call     tests/legacy/test_mc_mouse_menubar.py::test_menubar_contains_correct_sections
+0.41s call     tests/test_tui_status_line.py::test_layout_has_two_main_panes
+0.41s call     tests/test_discussion_migration.py::test_discussion_session_process_command_other
+0.40s call     tests/legacy/test_mc_mouse_menubar.py::test_menu_item_activation
+0.40s call     tests/test_plan_explore.py::test_plan_explore_invalid_json_retry
+0.39s call     tests/legacy/test_mc_sections_menu.py::test_sections_menu_in_menubar
+0.38s call     tests/test_work_session.py::TestWorkSession::test_create_session
+0.38s call     tests/test_discussion_migration.py::test_discussion_session_process_command_quit
+0.37s call     tests/test_plan_explore.py::test_plan_explore_single_plan_valid_json
+0.37s call     tests/test_discussion_migration.py::test_create_discussion_session
+0.37s call     tests/test_plan_explore.py::test_plan_explore_all_plans_valid_json
+0.34s call     tests/test_discussion_migration.py::test_track_discuss_integration
+0.33s call     tests/legacy/test_mc_sections_menu.py::test_sections_menu_content_from_registry
+0.33s call     tests/test_json_parsing_error_handling.py::test_plan_explore_json_parse_error
+0.31s call     tests/test_discussion_migration.py::test_phase_discuss_integration
+0.30s call     tests/test_discussion_migration.py::test_create_discussion_session_general
+0.28s call     tests/test_discussion_migration.py::test_discussion_session_process_command_done
+0.28s call     tests/test_discussion_migration.py::test_task_discuss_integration
+0.27s call     tests/test_work_session.py::TestWorkSession::test_session_lifecycle
+0.23s call     tests/test_vault.py::test_vault_export
+0.23s call     tests/test_work_session.py::TestWorkSession::test_save_and_load_session
+0.22s call     tests/test_work_session.py::TestWorkSession::test_save_session_atomic_write
+0.21s call     tests/test_ai_chat.py::TestAiEngineManager::test_run_once_with_session_extraction
+0.20s call     tests/test_deterministic_filesystem.py::TestNoRealUserSettingsDependency::test_manager_uses_injected_settings
+0.20s call     tests/test_ai_manager_fake_runner.py::TestSessionPersistence::test_session_written_after_first_call
+0.20s call     tests/test_vault.py::test_vault_find_related
+0.18s call     tests/test_tu_lsp.py::test_reload_documents
+0.17s call     tests/test_cli_surface_contract.py::TestParserStructure::test_canonical_commands_exist
+0.16s call     tests/test_vault.py::test_vault_item_details
+0.16s call     tests/test_tu_lsp.py::test_get_completions
+0.16s call     tests/test_plan_help.py::test_plan_help_shows_subcommands
+0.15s call     tests/test_vault.py::test_vault_filters
+0.15s call     tests/test_ai_discuss_router.py::test_discussion_router_json_contract
+0.15s call     tests/test_tu_lsp.py::test_get_definition_and_references
+0.13s call     tests/test_discuss_replay.py::TestDiscussReplay::test_replay_dry_run_no_mutation
+0.13s call     tests/test_timeline_pane.py::TestTimelinePane::test_get_related_vault_items
+0.12s call     tests/test_convert_approval_gates.py::test_run_blocks_when_not_approved
+0.11s call     tests/test_ai_engine_cmds.py::TestEngineDangerMode::test_claude_danger_mode_on_off
+0.11s call     tests/test_plan_help.py::test_plan_help_contains_all_subcommands
+0.10s call     tests/test_arbitration.py::TestArbitration::test_arbitration_semantic_disqualification
+0.10s call     tests/test_ai_chat.py::TestClaudeStdinWorkaround::test_claude_stdin_workaround
+0.10s call     tests/test_config_system.py::test_config_system
+0.10s call     tests/test_repo_conf_cli.py::test_repo_conf_list_json_includes_selected_target
+0.10s call     tests/test_breadcrumb.py::TestBreadcrumb::test_get_breadcrumb_summary
+0.09s call     tests/test_tu_ast.py::test_clang_parser_availability
+0.09s call     tests/test_vault.py::test_vault_list_items
+0.09s call     tests/commands/test_settings_command.py::TestSettingsCommand::test_reset_setting
+0.09s call     tests/commands/test_settings_command.py::TestSettingsCommand::test_reset_all_with_force
+0.08s call     tests/test_discuss_replay.py::TestDiscussReplay::test_load_canonical_session
+0.08s call     tests/commands/test_settings_command.py::TestSettingsCommand::test_set_setting
+0.08s call     tests/test_safe_apply_revert.py::test_safe_apply_revert_functionality
+0.08s call     tests/test_ai_chat.py::TestAiEngineManager::test_resume_with_latest_session
+0.08s call     tests/test_discuss_replay.py::TestDiscussReplay::test_invalid_op_type_in_final_json
+0.07s call     tests/test_tu_symbols.py::test_symbol_index_basic_functionality
+0.07s call     tests/test_markdown_integration.py::test_markdown_integration
+0.07s call     tests/test_discuss_replay.py::TestDiscussReplay::test_extract_final_json_from_session
+0.06s call     tests/test_autotools_builder.py::TestAutotoolsBuilder::test_out_of_source_build
+0.06s call     tests/test_convert_approval_gates.py::test_ignore_gates_bypass_logs_warning
+0.06s call     tests/test_convert_approval_gates.py::test_reject_blocks_run
+0.06s call     tests/test_hub_find_link.py::TestLinkRetrieval::test_get_all_linked_package_roots
+0.06s call     tests/test_tu_cli.py::test_tu_build_command_java
+0.06s call     tests/test_tu_cli.py::test_tu_build_command_kotlin
+0.06s call     tests/test_qwen_session_continuation.py::test_qwen_session_continuation_with_mocked_chat
+0.06s call     tests/test_tu6_transformation.py::test_end_to_end_transformation
+0.05s call     tests/commands/test_settings_command.py::TestSettingsCommand::test_reset_all_without_force
+0.05s call     tests/test_tu_java.py::test_java_parser_simple_class
+0.05s call     tests/test_tu_symbols.py::test_build_with_symbols_and_index
+0.05s call     tests/test_tu_kotlin.py::test_kotlin_parser_serialization
+0.05s call     tests/test_convert_approval_gates.py::test_approve_enables_run
+0.05s call     tests/test_tu_java.py::test_java_parser_serialization
+0.05s call     tests/test_tu_kotlin.py::test_kotlin_parser_simple_class
+0.05s call     tests/test_convert_cross_repo_writes.py::test_cross_repo_outputs_written_to_target
+0.05s call     tests/test_tu_lsp.py::test_lsp_server_initialization
+0.05s call     tests/test_ai_manager_fake_runner.py::TestStreamingAndCapture::test_manager_iterates_fake_stdout_stream
+0.05s call     tests/test_discuss_lock.py::TestDiscussLockIntegration::test_save_discussion_artifacts_with_pregenerated_session_id
+0.04s call     tests/test_safe_apply_revert.py::test_safe_apply_with_improvement
+0.04s call     tests/test_tu_symbols.py::test_symbol_index_rebuild
+0.04s call     tests/test_discuss_replay.py::TestDiscussReplay::test_load_legacy_artifact
+0.04s setup    tests/test_discuss_router.py::TestDiscussRouter::test_detect_context_fallback_to_global
+0.04s call     tests/test_tool_detection.py::test_detect_tool_usage
+0.04s call     tests/test_hub_integration.py::TestEndToEndWorkflow::test_ambiguous_package_resolution
+0.04s call     tests/test_timeline_pane.py::TestTimelinePane::test_replay_from_event_apply
+0.04s call     tests/test_hub_integration.py::TestEndToEndWorkflow::test_rescan_updates_index
+0.04s call     tests/test_json_parsing_error_handling.py::test_plan_discuss_json_parse_error
+0.04s call     tests/test_timeline_pane.py::TestTimelineFacade::test_create_timeline_evidence
+0.04s call     tests/test_hub_integration.py::TestEndToEndWorkflow::test_scan_and_find_workflow
+0.03s call     tests/test_timeline_pane.py::TestTimelinePane::test_replay_from_event_dry_run
+0.03s call     tests/test_make_gates.py::test_make_requires_repo_model
+0.03s call     tests/test_log_scan.py::TestLogScan::test_create_scan_from_file
+0.03s call     tests/test_hub_integration.py::TestEndToEndWorkflow::test_multiple_links_in_same_repo
+0.03s call     tests/test_verbose_diagnostics.py::test_plan_discuss_verbose_diagnostics
+0.03s call     tests/test_plan_discuss.py::test_plan_discuss_invalid_schema_retry
+0.03s call     tests/test_timeline_pane.py::TestTimelinePane::test_mark_event_explained
+0.03s setup    tests/data/test_markdown_parser.py::TestParseQuotedValue::test_parse_string_value
+0.03s call     tests/test_timeline_pane.py::TestTimelinePaneIntegration::test_refresh_data
+0.03s call     tests/test_plan_discuss.py::test_plan_discuss_valid_json
+0.03s call     tests/test_hub_find_link.py::TestLinkCreation::test_create_link_updates_existing
+0.03s call     tests/test_timeline_pane.py::TestTimelinePane::test_branch_from_event
+0.03s call     tests/test_hub_integration.py::TestLinkPersistence::test_links_survive_resolver_restart
+0.03s setup    tests/config/test_settings.py::TestSettings::test_create_default_config
+0.02s call     tests/test_hub_determinism.py::TestPackageSorting::test_packages_sorted_by_name_then_path
+0.02s call     tests/test_hub_find_link.py::TestLinkRetrieval::test_resolve_package_path
+0.02s setup    tests/commands/test_ai_qwen_command.py::test_ai_qwen_prompt_passed_to_tui
+0.02s call     tests/test_ai_chat.py::TestRunOptsHandling::test_no_danger_flag_override
+0.02s call     tests/test_timeline_pane.py::TestTimelinePaneIntegration::test_selected_event_reactivity
+0.02s call     tests/test_truth_gate.py::test_plan_ops_invalid_fixture
+0.02s call     tests/test_truth_gate.py::test_project_ops_invalid_fixture
+0.02s call     tests/test_hub_find_link.py::TestPackageFinding::test_find_package_case_sensitive
+0.02s call     tests/test_ai_discuss_router.py::test_qwen_stdio_tcp_transport_raises_not_implemented
+0.02s call     tests/test_truth_gate.py::test_project_ops_decoder_with_valid_fixture
+0.02s call     tests/test_convert_decision_idempotent.py::test_approve_is_idempotent
+0.02s call     tests/test_truth_gate.py::test_project_ops_valid_fixture
+0.02s call     tests/test_truth_gate.py::test_plan_ops_decoder_with_valid_fixture
+0.02s call     tests/test_confidence_system.py::TestConfidenceScorer::test_save_confidence_report
+0.02s call     tests/test_arbitration.py::TestArbitration::test_arbitration_with_clean_vs_placeholder_output
+0.02s call     tests/test_arbitration.py::TestArbitration::test_arbitration_with_judge_selection
+0.02s call     tests/test_hub_find_link.py::TestLinkCreation::test_create_link_success
+0.02s call     tests/test_truth_gate.py::test_plan_ops_valid_fixture
+0.02s call     tests/test_repo_conf_cli.py::test_repo_conf_help_lists_subcommands
+0.02s call     tests/test_cmake_builder.py::TestCMakeBuilder::test_get_available_targets
+0.02s call     tests/commands/test_context_command.py::TestContextCommand::test_show_context_with_track
+0.02s setup    tests/test_safe_apply_revert.py::test_revert_report_functionality
+0.02s call     tests/test_hub_determinism.py::TestIndexStability::test_package_index_updated_on_rescan
+0.02s setup    tests/data/test_markdown_parser.py::TestParseTaskHeading::test_parse_checked_task
+0.02s call     tests/test_hub_find_link.py::TestPackageFinding::test_find_package_ambiguous
+0.02s call     tests/test_hub_find_link.py::TestLinkRemoval::test_remove_link_success
+0.02s setup    tests/test_plan_discuss.py::test_plan_discuss_valid_json
+0.02s setup    tests/data/test_markdown_parser.py::TestParseCompletion::test_parse_simple_percentage
+0.02s setup    tests/data/test_markdown_parser.py::TestParseHeading::test_parse_h6
+0.02s call     tests/test_phase2_comprehensive.py::test_basic_functionality
+0.02s setup    tests/data/test_markdown_parser.py::TestParseQuotedValue::test_parse_boolean_true
+0.02s setup    tests/test_ai_cache.py::TestAiCacheStore::test_get_cache_enabled
+0.02s setup    tests/test_status_indicators.py::test_emoji_support
+0.01s call     tests/test_ai_manager_fake_runner.py::TestStreamingAndCapture::test_manager_handles_quiet_mode
+0.01s call     tests/commands/test_ai_qwen_command.py::test_ai_qwen_prompt_passed_to_tui
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_create_entry_full
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_prune_old_entries
+0.01s call     tests/test_ai_manager_fake_runner.py::TestChatLoopCallsManagerRepeatedly::test_chat_loop_multiple_calls_with_resume
+0.01s call     tests/test_ai_manager_fake_runner.py::TestStreamingAndCapture::test_raw_output_captured_to_log_locations
+0.01s setup    tests/test_safe_apply_revert.py::test_safe_apply_with_improvement
+0.01s call     tests/test_confidence_system.py::TestConfidenceScorer::test_compute_score_with_no_issues
+0.01s call     tests/test_hub_find_link.py::TestPackageFinding::test_find_package_single_match
+0.01s call     tests/test_ai_manager_fake_runner.py::TestChatLoopCallsManagerRepeatedly::test_chat_loop_transcript_updates
+0.01s call     tests/test_tu_builder.py::test_tu_builder_incremental_behavior
+0.01s call     tests/test_plan_explore.py::test_plan_explore_user_declines_apply
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_compute_prompt_hash_stability
+0.01s call     tests/test_phase2_comprehensive.py::test_workspace_resolution
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_lookup_repo_priority
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_apply_patch_dry_run
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_create_entry_minimal
+0.01s call     tests/test_ai_manager_fake_runner.py::TestSessionPersistence::test_second_call_uses_stored_session_id
+0.01s call     tests/test_project_ops.py::test_executor_with_all_operation_types
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_validate_entry_lenient_git
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_compute_workspace_fingerprint_minimal
+0.01s call     tests/qwen/test_tui_prompt_mode.py::test_run_tui_exit_after_prompt_waits_for_assistant
+0.01s call     tests/test_breadcrumb.py::TestBreadcrumb::test_list_breadcrumbs
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_compute_workspace_fingerprint_with_patterns
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineStdinMode::test_codex_stdin_mode
+0.01s setup    tests/test_plan_cli_fix.py::test_discuss_add_rejection
+0.01s call     tests/test_settings_profiles.py::test_has_unsaved_changes
+0.01s setup    tests/test_discuss_lock.py::TestDiscussLockIntegration::test_lock_file_removed_on_status_applied
+0.01s setup    tests/test_help_system.py::test_screen_specific_help_data
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_get_watch_patterns
+0.01s call     tests/test_confidence_system.py::TestConfidenceScorer::test_compute_score_with_checkpoints
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_lookup_fallback_to_user
+0.01s setup    tests/test_hub_integration.py::TestEndToEndWorkflow::test_scan_and_find_workflow
+0.01s call     tests/test_ai_command_building.py::test_stdin_for_claude
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_validate_entry_file_hash_mismatch
+0.01s call     tests/test_runbook.py::test_step_rm
+0.01s call     tests/commands/test_context_command.py::TestContextCommand::test_clear_context
+0.01s call     tests/test_plan_discuss.py::test_plan_discuss_max_retries_fail
+0.01s call     tests/test_project_ops.py::test_idempotency_expectations
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_session_hierarchy
+0.01s call     tests/test_runbook.py::test_step_renumber
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_load_entry
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_validate_entry_valid
+0.01s call     tests/test_hub_determinism.py::TestLinkStoreStability::test_updating_link_preserves_id
+0.01s call     tests/test_hub_functionality.py::test_hub_with_mock_repo
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_get_cache_scope
+0.01s call     tests/test_hub_find_link.py::TestPackageFinding::test_find_package_not_found
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_compute_prompt_hash_uniqueness
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_lookup_miss
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_list_entries
+0.01s call     tests/test_ai_manager_fake_runner.py::TestSessionPersistence::test_session_file_content_structure
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_create_nested_session
+0.01s call     tests/test_wsession_breadcrumbs.py::test_breadcrumb_add_rejects_closed_session
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_reset_setting
+0.01s call     tests/test_tu_gates.py::test_tu_requires_repoconf
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_validate_entry_git_mismatch
+0.01s call     tests/test_log_scan.py::TestLogScan::test_list_scans
+0.01s call     tests/test_autotools_builder.py::TestAutotoolsBuilder::test_build_package
+0.01s call     tests/test_ai_cache.py::TestAiCacheStore::test_compute_workspace_fingerprint_with_patterns
+0.01s call     tests/test_hub_find_link.py::TestLinkRetrieval::test_get_link_for_package
+0.01s setup    tests/data/test_markdown_parser.py::TestParsePhaseHeading::test_parse_numeric_phase
+0.01s call     tests/test_project_ops.py::test_apply_ops
+0.01s call     tests/test_confidence_system.py::TestConfidenceScorer::test_compute_score_with_semantic_low_penalty
+0.01s setup    tests/test_tui_status_line.py::test_menubar_navigation_when_active
+0.01s call     tests/test_discuss_replay.py::TestDiscussReplay::test_session_not_found
+0.01s call     tests/test_work_gates_blockers.py::TestWorkGates::test_multiple_blockers_shows_all
+0.01s call     tests/test_ai_command_building.py::test_claude_command_building
+0.01s call     tests/test_make_gates.py::test_make_requires_repoconf_target
+0.01s setup    tests/test_help_system.py::test_expandable_section_toggle
+0.01s setup    tests/test_ai_settings.py::test_settings_get_set_dot_notation
+0.01s call     tests/test_ai_cache.py::TestAiCacheStore::test_create_entry_full
+0.01s call     tests/test_repo_storage_invariants.py::test_write_repo_artifacts_creates_repo_model
+0.01s call     tests/test_deterministic_filesystem.py::TestMaestroArtifactsInTempDir::test_log_files_created_in_temp_location
+0.01s call     tests/test_qwen_session_continuation.py::test_qwen_session_continuation_in_interactive_chat
+0.01s setup    tests/test_hub_determinism.py::TestRepoIDStability::test_repo_id_same_for_same_path
+0.01s setup    tests/test_ai_command_building.py::test_explain_command
+0.01s call     tests/test_hub_determinism.py::TestPackageIDStability::test_different_build_systems_different_ids
+0.01s call     tests/test_hub_find_link.py::TestLinkCreation::test_create_link_package_not_found
+0.01s call     tests/test_log_scan.py::TestLogScan::test_create_scan_from_text
+0.01s call     tests/test_project_ops.py::test_preview_ops
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineDangerMode::test_gemini_danger_mode_on_off
+0.01s setup    tests/test_runbook.py::test_step_rm
+0.01s setup    tests/config/test_settings.py::TestSettings::test_set_section
+0.01s call     tests/test_tu_symbols.py::test_build_with_symbols_integration
+0.01s call     tests/test_ai_discuss_router.py::test_extract_json_from_response
+0.01s call     tests/test_ai_command_building.py::test_qwen_command_building
+0.01s setup    tests/config/test_settings.py::TestSettings::test_validation
+0.01s call     tests/test_hub_find_link.py::TestLinkRetrieval::test_resolve_package_path_no_link
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineDangerMode::test_qwen_danger_mode_on_off
+0.01s call     tests/test_hub_determinism.py::TestLinkStoreStability::test_link_round_trip_preserves_data
+0.01s setup    tests/test_ai_cache.py::TestAiCacheStore::test_mark_stale
+0.01s call     tests/test_runbook.py::test_export_puml
+0.01s call     tests/test_runbook.py::test_step_add
+0.01s setup    tests/test_cli_uniformity.py::TestDeprecatedCommands::test_session_shows_deprecated_marker
+0.01s call     tests/test_hub_determinism.py::TestLinkIDStability::test_different_from_different_ids
+0.01s call     tests/test_deterministic_filesystem.py::TestClaudeTempFileCleanup::test_temp_file_created_and_removed_for_claude_stdin
+0.01s call     tests/test_ai_cache.py::TestAiCacheStore::test_lookup_repo_priority
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_list_settings_section
+0.01s call     tests/test_ai_cache.py::TestAiCacheStore::test_prune_old_entries
+0.01s call     tests/test_ai_discuss_router.py::test_patch_operation_conversion
+0.01s call     tests/test_ai_discuss_router.py::test_qwen_cmdline_transport
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineStdinMode::test_claude_stdin_workaround
+0.01s setup    tests/test_hub_determinism.py::TestPackageSorting::test_packages_sorted_by_name_then_path
+0.01s setup    tests/commands/test_context_command.py::TestContextCommand::test_show_context_empty
+0.01s setup    tests/test_confidence_system.py::TestConfidenceScorer::test_load_model
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineStdinMode::test_claude_stdin_mode
+0.01s setup    tests/test_discussion_migration.py::test_create_discussion_session
+0.01s call     tests/test_project_ops.py::test_apply_ops_dry_run
+0.01s setup    tests/test_timeline_pane.py::TestTimelinePane::test_get_event_not_found
+0.01s setup    tests/test_cmake_builder.py::TestCMakeBuilder::test_clean_package
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineResumeSession::test_claude_resume_vs_new
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_work_session_defaults
+0.01s setup    tests/test_hub_determinism.py::TestLinkIDStability::test_link_id_same_for_same_link
+0.01s call     tests/test_confidence_system.py::TestConfidenceScorer::test_load_model
+0.01s call     tests/test_hub_determinism.py::TestIndexStability::test_index_round_trip_preserves_data
+0.01s call     tests/test_ai_command_building.py::test_explain_command
+0.01s setup    tests/test_work_gates_blockers.py::TestWorkGates::test_multiple_blockers_shows_all
+0.01s call     tests/test_settings_profiles.py::test_profile_list
+0.01s setup    tests/test_help_system.py::test_help_panel_action_method_exists
+0.01s setup    tests/test_settings_migration.py::test_settings_migration_from_old_schema
+0.01s call     tests/test_breadcrumb.py::TestBreadcrumb::test_reconstruct_session_timeline
+0.01s call     tests/test_runbook.py::test_runbook_edit
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_save_session_atomic_write
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_list_sessions
+0.01s setup    tests/test_plan_ops.py::test_create_selector_invalid
+0.01s call     tests/test_work_command.py::TestWorkCommandIntegration::test_full_workflow_integration
+0.01s call     tests/test_breadcrumb.py::TestBreadcrumb::test_write_and_load_breadcrumb
+0.01s call     tests/test_cmake_builder.py::TestCMakeBuilder::test_install_package
+0.01s setup    tests/test_timeline_pane.py::TestTimelinePane::test_mark_event_explained
+0.01s setup    tests/test_make_gates.py::test_make_requires_repoconf_target
+0.01s setup    tests/legacy/test_session_visualization.py::TestSessionVisualization::test_session_detail_formatter_with_breadcrumbs
+0.01s call     tests/test_ai_command_building.py::test_codex_command_building
+0.01s setup    tests/legacy/test_mc_menubar_mouse.py::test_clicking_outside_closes_dropdown
+0.01s setup    tests/test_plans.py::TestPlanStore::test_parse_and_format_content
+0.01s call     tests/test_runbook.py::test_runbook_show
+0.01s call     tests/test_runbook.py::test_export_markdown
+0.01s call     tests/test_confidence_system.py::TestBatchConfidenceAggregator::test_aggregate_min_method
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineResumeSession::test_codex_resume_vs_new
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_create_session
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_get_setting_raw
+0.01s setup    tests/test_log_scan.py::TestFingerprinting::test_same_message_same_fingerprint
+0.01s call     tests/test_runbook.py::test_step_edit
+0.01s setup    tests/legacy/test_mc_menubar_layout.py::test_dropdown_does_not_consume_permanent_layout_rows
+0.01s setup    tests/test_tu_symbols.py::test_build_with_symbols_and_index
+0.01s setup    tests/test_tu_completion.py::test_completion_provider_basic
+0.01s setup    tests/test_ai_command_building.py::test_stdin_for_claude
+0.01s setup    tests/test_qwen_extractor.py::test_extract_qwen_assistant_text_invalid_json
+0.01s setup    tests/test_discuss_router.py::TestDiscussRouter::test_detect_context_explicit_track_flag
+0.01s setup    tests/test_cli_uniformity.py::TestHelpContract::test_repo_keyword_shows_help
+0.01s call     tests/test_runbook.py::test_export_command_puml
+0.01s setup    tests/test_confidence_system.py::TestConfidenceScorer::test_save_confidence_report
+0.01s call     tests/test_plan_discuss.py::test_plan_discuss_no_argument_single_plan
+0.01s call     tests/test_qwen_session_continuation.py::test_missing_session_id_handling
+0.01s setup    tests/test_ai_manager_fake_runner.py::TestSessionPersistence::test_second_call_uses_stored_session_id
+0.01s setup    tests/test_hub_find_link.py::TestLinkRetrieval::test_get_link_for_package
+0.01s setup    tests/test_qwen_deduplication.py::test_extractor_multiple_result_events_uses_last
+0.01s setup    tests/test_discuss_lock.py::TestDiscussLockIntegration::test_save_discussion_artifacts_with_pregenerated_session_id
+0.01s call     tests/test_ai_command_building.py::test_gemini_command_building
+0.01s setup    tests/test_discuss_lock.py::TestRepoLock::test_concurrent_lock_check
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_build_package_failure
+0.01s call     tests/test_deterministic_filesystem.py::TestClaudeTempFileCleanup::test_temp_file_removed_on_exception
+0.01s setup    tests/test_repo_storage_invariants.py::test_write_repo_artifacts_creates_repo_model
+0.01s setup    tests/test_ai_settings.py::test_ai_stacking_mode_validation
+0.01s setup    tests/legacy/test_session_visualization.py::TestSessionVisualization::test_session_tree_renderer_with_max_depth
+0.01s setup    tests/test_config_system.py::test_builder_methods
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_pause_session_for_user_input_stub
+0.01s call     tests/legacy/test_session_visualization.py::TestSessionVisualization::test_session_table_formatter
+0.01s setup    tests/test_settings_migration.py::test_settings_default_values
+0.01s setup    tests/test_work_gates_blockers.py::TestWorkGates::test_resolved_blocker_does_not_block
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_extract_solution_projects_with_one_project
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_list_settings
+0.01s call     tests/test_settings_profiles.py::test_profile_by_name_and_number
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineDangerMode::test_codex_danger_mode_on_off
+0.01s setup    tests/test_repo_conf_cli.py::test_repo_conf_help_lists_subcommands
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_reset_all_with_force
+0.01s setup    tests/test_reactive_fix_loop.py::test_easy_fix_scenario
+0.01s call     tests/test_settings_profiles.py::test_profile_save_and_load
+0.01s call     tests/test_ai_engine_cmds.py::TestEngineResumeSession::test_qwen_resume_vs_new
+0.01s setup    tests/test_runbook.py::test_step_renumber
+0.01s setup    tests/test_ai_settings.py::test_qwen_transport_settings_validation
+0.01s setup    tests/test_ai_discuss_router.py::test_patch_operation_conversion
+0.01s setup    tests/test_tu_cli.py::test_tu_build_command_java
+0.01s setup    tests/test_cmake_builder.py::TestCMakeBuilder::test_get_target_ext
+0.01s setup    tests/test_runbook.py::test_step_edit
+0.01s setup    tests/test_project_ops.py::test_decode_project_ops_json_invalid
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_reset_all_without_force
+0.01s setup    tests/test_plans.py::TestPlanStore::test_remove_item_from_plan
+0.01s setup    tests/test_discuss_replay.py::TestDiscussReplay::test_extract_final_json_from_session
+0.01s setup    tests/test_arbitration_functionality.py::test_arbitration_status_enum
+0.01s setup    tests/legacy/test_session_id_extraction.py::TestSessionIdExtraction::test_extract_claude_session_id
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_get_configuration_from_build_type_minsizerel
+0.01s setup    tests/test_qwen_integration.py::test_qwen_filter_verbose_mode_with_error
+0.01s setup    tests/test_cli_surface_contract.py::TestLegacyWarnings::test_session_command_warning
+0.01s setup    tests/test_discuss_router.py::TestDiscussRouter::test_detect_context_explicit_phase_flag
+0.01s call     tests/test_autotools_builder.py::TestAutotoolsBuilder::test_distclean_package
+0.01s setup    tests/test_ai_settings.py::test_stacking_mode_enforcement
+0.01s setup    tests/test_confidence_system.py::TestConfidenceScorer::test_compute_score_with_no_issues
+0.01s setup    tests/test_cli_surface_contract.py::TestContractStability::test_legacy_mode_is_repeatable
+0.01s setup    tests/legacy/test_session_id_extraction.py::TestSessionIdExtraction::test_extract_gemini_session_id
+0.01s setup    tests/test_ai_discussion.py::test_choose_mode_precedence
+0.01s setup    tests/test_discuss_ops_gating.py::TestDiscussOpsGating::test_global_context_allows_everything
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_set_setting
+0.01s setup    tests/test_work_command.py::TestWorkCommand::test_parse_todo_md_empty
+0.01s setup    tests/test_config_system.py::test_config_system
+0.01s setup    tests/test_qwen_extractor.py::test_extract_qwen_assistant_text_from_result
+0.01s setup    tests/legacy/test_session_id_extraction.py::TestSessionIdExtraction::test_extract_session_id_none_events
+0.01s setup    tests/data/test_markdown_parser.py::TestParseTrack::test_parse_simple_track
+0.01s setup    tests/test_tu_java.py::test_java_parser_simple_class
+0.01s call     tests/test_ai_cache.py::TestAiCacheStore::test_list_entries
+0.01s setup    tests/commands/test_settings_command.py::TestSettingsCommand::test_list_settings_json
+0.01s setup    tests/test_ai_discuss_router.py::test_discussion_router_json_contract
+0.01s setup    tests/test_interrupt_fix.py::test_summary_file_creation_on_interrupt
+0.01s setup    tests/test_work_gates_blockers.py::TestWorkGates::test_ignore_gates_bypasses_check
+0.01s call     tests/test_plan_discuss.py::test_plan_discuss_user_declines_apply
+0.01s call     tests/test_branch_guard.py::test_branch_guard_detects_mismatch
+0.01s setup    tests/test_convert_approval_gates.py::test_reject_blocks_run
+0.01s setup    tests/test_ai_settings.py::test_eligible_engines_selection
+0.01s setup    tests/test_runbook.py::test_runbook_list
+0.01s setup    tests/test_playbook_integration.py::test_playbook_integration
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_session_lifecycle
+0.01s setup    tests/test_hub_determinism.py::TestPackageIDStability::test_package_id_format
+0.01s setup    tests/test_structure_integration.py::test_structure_scan
+0.01s setup    tests/test_final_smoke.py::test_tui_smoke_mode_with_file
+0.01s setup    tests/test_timeline_pane.py::TestTimelinePane::test_branch_from_event
+0.01s setup    tests/data/test_markdown_parser.py::TestParseStatusBadge::test_parse_in_progress_status
+0.01s call     tests/test_settings_profiles.py::test_profile_update
+0.01s call     tests/test_plan_discuss.py::test_plan_discuss_invalid_json_retry
+0.01s setup    tests/data/test_markdown_parser.py::TestParseCheckbox::test_parse_unchecked_checkbox
+0.01s setup    tests/test_confidence_system.py::TestConfidenceScorer::test_compute_score_with_semantic_low_penalty
+0.01s setup    tests/legacy/test_mc_menubar_layout.py::test_menubar_height_is_exactly_one
+0.01s setup    tests/test_confidence_system.py::TestBatchConfidenceAggregator::test_aggregate_mean_method
+0.01s setup    tests/test_log_scan.py::TestFingerprinting::test_normalize_message_removes_timestamps
+0.01s setup    tests/test_tu_gates.py::test_tu_requires_repo_model
+0.01s setup    tests/test_deterministic_filesystem.py::TestMaestroArtifactsInTempDir::test_maestro_state_created_in_temp_location
+0.01s call     tests/test_settings_profiles.py::test_profile_creation
+0.01s setup    tests/test_cmake_builder.py::TestCMakeBuilder::test_parse_makefile_targets
+0.01s setup    tests/test_arbitration_functionality.py::test_get_candidate_not_found
+0.01s setup    tests/test_ai_manager_fake_runner.py::TestStreamingAndCapture::test_raw_output_captured_to_log_locations
+0.01s setup    tests/test_replay_functionality.py::test_set_baseline_invalid_id
+0.01s call     tests/test_runbook.py::test_runbook_list
+0.01s setup    tests/data/test_markdown_parser.py::TestParseStatusBadge::test_parse_no_match
+0.01s setup    tests/test_plan_ops.py::test_decode_plan_ops_json_invalid
+0.01s setup    tests/config/test_settings.py::TestSettings::test_get_section
+0.01s setup    tests/test_ai_engine_cmds.py::TestEngineDangerMode::test_codex_danger_mode_on_off
+0.01s setup    tests/test_plan_ops.py::test_decode_plan_ops_json_missing_fields
+0.01s call     tests/test_settings_profiles.py::test_active_and_default_profiles
+0.01s setup    tests/config/test_settings.py::TestSettings::test_set_setting
+0.01s setup    tests/test_discuss_lock.py::TestDiscussLockIntegration::test_lock_file_removed_on_status_cancelled
+0.01s setup    tests/test_arbitration_functionality.py::test_semantic_equivalence_enum
+0.01s call     tests/test_hub_determinism.py::TestLinkIDStability::test_link_id_format
+0.01s setup    tests/test_qwen_extractor.py::test_extract_qwen_assistant_text_from_assistant
+0.01s setup    tests/test_tu_gates.py::test_tu_requires_repoconf
+0.01s setup    tests/test_phase2_comprehensive.py::test_imports
+0.01s setup    tests/test_vault.py::test_vault_find_related
+0.01s setup    tests/test_truth_gate.py::test_plan_ops_valid_fixture
+0.01s call     tests/test_settings_profiles.py::test_profile_delete
+0.01s setup    tests/test_help_system.py::test_onboarding_flow_completion
+0.01s call     tests/test_runbook.py::test_runbook_add
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_work_session_dataclass_creation
+0.01s setup    tests/test_hub_find_link.py::TestLinkRetrieval::test_get_all_linked_package_roots
+0.01s call     tests/test_hub_determinism.py::TestPackageIDStability::test_package_id_same_for_same_package
+0.01s setup    tests/test_cmake_builder.py::TestCMakeBuilder::test_get_available_targets
+0.01s setup    tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_with_linked_todo_task_blocks_work
+0.01s setup    tests/test_work_command.py::TestWorkCommand::test_load_issues_with_content
+0.01s setup    tests/test_hub_find_link.py::TestPackageFinding::test_find_package_case_sensitive
+0.01s setup    tests/test_tui_confidence.py::TestConfidenceIntegration::test_consistency_between_functions
+0.01s setup    tests/legacy/test_mc_shell_screen.py::test_right_pane_arrow_navigation
+0.01s call     tests/test_hub_determinism.py::TestLinkIDStability::test_different_to_different_ids
+0.01s setup    tests/test_runbook.py::test_step_add
+0.01s setup    tests/test_arbitration_functionality.py::test_choose_winner_basic
+0.01s setup    tests/config/test_settings.py::TestSettings::test_context_management
+0.01s setup    tests/test_ai_chat.py::TestAiEngineManager::test_resume_with_latest_session
+0.01s setup    tests/test_log_scan.py::TestLogScan::test_create_scan_from_file
+0.01s call     tests/test_ai_discussion.py::test_build_track_context
+0.01s setup    tests/test_convert_approval_gates.py::test_run_blocks_when_not_approved
+0.01s setup    tests/test_breadcrumb.py::TestAutoBreadcrumbWrapper::test_auto_breadcrumb_wrapper_with_exception
+0.01s setup    tests/test_arbitration.py::test_arbitration_cli
+0.01s setup    tests/test_discuss_router.py::TestDiscussRouter::test_detect_context_explicit_task_flag
+0.01s setup    tests/test_work_gates_blockers.py::TestWorkGates::test_ignored_blocker_does_not_block
+0.01s setup    tests/test_ai_manager_fake_runner.py::TestChatLoopCallsManagerRepeatedly::test_chat_loop_transcript_updates
+0.01s setup    tests/data/test_markdown_parser.py::TestParseQuotedValue::test_parse_empty_string
+0.01s setup    tests/test_hub_integration.py::TestEndToEndWorkflow::test_ambiguous_package_resolution
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_find_msbuild_with_msbuild_in_path
+0.01s setup    tests/test_plan_ops.py::test_validate_plan_ops_result_invalid
+0.01s setup    tests/test_cmake_builder.py::TestCMakeBuilder::test_get_cmake_build_type
+0.01s setup    tests/test_discuss_ops_gating.py::TestDiscussOpsGating::test_task_context_allows_task_ops
+0.01s setup    tests/test_cli_uniformity.py::TestDeprecatedCommands::test_root_shows_deprecated_marker
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_find_project_file_with_sln_file
+0.01s setup    tests/test_ai_engine_cmds.py::TestEngineStdinMode::test_claude_stdin_mode
+0.01s setup    tests/test_tui_status_line.py::test_status_line_single_line_functionality
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_configure_method_no_project_file
+0.01s setup    tests/test_settings_profiles.py::test_profile_creation
+0.01s setup    tests/legacy/test_mc_sections_menu.py::test_sections_menu_content_from_registry
+0.01s setup    tests/test_truth_gate.py::test_plan_ops_decoder_with_valid_fixture
+0.01s setup    tests/test_tu_completion.py::test_prefix_derivation
+0.01s setup    tests/data/test_markdown_parser.py::TestParseMetadataBlock::test_parse_stops_at_non_metadata
+0.01s setup    tests/test_discuss_ops_gating.py::TestDiscussOpsGating::test_allow_cross_context_bypasses_gating
+0.01s setup    tests/test_hub_find_link.py::TestLinkCreation::test_link_requires_repo_root
+0.01s setup    tests/test_tu_lsp.py::test_reload_documents
+0.01s setup    tests/test_ai_manager_fake_runner.py::TestSessionPersistence::test_session_written_after_first_call
+0.01s setup    tests/test_work_session.py::TestWorkSession::test_save_and_load_session
+0.01s setup    tests/test_hub_functionality.py::test_hub_with_mock_repo
+0.01s setup    tests/test_help_system.py::test_help_panel_initially_collapsed
+0.01s setup    tests/test_work_gates_blockers.py::TestWorkGates::test_blocker_issue_blocks_work
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_get_platform_from_config_arm_to_arm
+0.01s setup    tests/test_replay_functionality.py::test_diff_runs_invalid_ids
+0.01s setup    tests/test_arbitration.py::TestArbitration::test_arbitration_with_judge_selection
+0.01s setup    tests/data/test_markdown_parser.py::TestParseCheckbox::test_parse_indented_checkbox
+0.01s setup    tests/test_plan_ops.py::test_decode_plan_ops_json_invalid_actions
+0.01s call     tests/test_msbuild_builder.py::TestMsBuildBuilder::test_extract_solution_projects_empty_solution
+0.01s call     tests/test_deterministic_filesystem.py::TestClaudeTempFileCleanup::test_temp_file_removed_even_if_command_fails
+0.01s setup    tests/test_qwen_session_continuation.py::test_qwen_session_continuation_in_interactive_chat
+0.01s setup    tests/legacy/test_session_id_extraction.py::TestSessionIdExtraction::test_extract_session_id_missing_id
+0.01s setup    tests/test_tu6_transformation.py::test_upp_convention_transformer
+0.01s setup    tests/test_timeline_pane.py::TestTimelinePaneIntegration::test_pane_attributes
+0.01s setup    tests/test_deterministic_filesystem.py::TestClaudeTempFileCleanup::test_temp_file_created_and_removed_for_claude_stdin
+0.01s setup    tests/data/test_markdown_parser.py::TestParseTaskHeading::test_parse_complex_number
+0.01s setup    tests/test_breadcrumb.py::TestBreadcrumb::test_track_file_modification
+0.01s call     tests/test_ai_cache.py::TestAiCacheStore::test_compute_workspace_fingerprint_minimal
+0.01s setup    tests/test_qwen_extractor.py::test_filter_qwen_events_for_verbose_mode
+0.01s call     tests/test_ai_cache.py::TestAiCacheStore::test_apply_patch_dry_run
+0.01s setup    tests/test_deterministic_filesystem.py::TestClaudeTempFileCleanup::test_temp_file_removed_on_exception
+0.01s call     tests/test_autotools_builder.py::TestAutotoolsBuilder::test_build_package_with_target
+0.01s setup    tests/test_tu_builder.py::test_file_hasher_persist_round_trip
+0.01s setup    tests/test_msbuild_builder.py::TestMsBuildBuilder::test_get_configuration_from_build_type_relwithdebinfo
+0.01s setup    tests/test_vault.py::test_vault_filters
+0.01s call     tests/test_msbuild_builder.py::TestMsBuildBuilder::test_find_project_file_with_vcxproj_file
+0.01s setup    tests/test_cli_uniformity.py::TestDeprecatedCommands::test_understand_shows_deprecated_marker
+0.01s setup    tests/test_structure_integration.py::test_command_aliases
+0.01s setup    tests/test_breadcrumb.py::TestBreadcrumb::test_breadcrumb_creation
+0.01s setup    tests/legacy/test_mc_shell_screen.py::test_mc_shell_focus_and_navigation
+0.01s setup    tests/test_arbitration_functionality.py::test_get_arbitration_basic
+0.01s setup    tests/test_hub_determinism.py::TestRepoIDStability::test_repo_id_format
+0.01s setup    tests/test_plan_ops.py::test_validate_plan_ops_result_actions_valid
 
 
 # Warnings
-All tests completed in <1.0s
+WARNING: Found 94 tests slower than 1.0s
+
+Slow tests (>1.0s):
+  620.08 call tests/test_repo_resolve_ai_upp.py::test_scan_upp_repo_v2_integration
+  114.21 call tests/test_repo_workflow_ai_upp_e2e.py::test_repo_workflow_e2e
+  100.21 call tests/test_work_command.py::TestWorkCommand::test_handle_work_any
+  76.92 call tests/test_repo_resolve_ai_upp.py::test_cli_init_resolve_e2e
+  63.38 call tests/test_repo_resolve_ai_upp.py::test_cli_json_output_integration
+  59.38 call tests/legacy/test_session_visualization.py::TestExportFunctionality::test_export_session_json
+  54.87 call tests/test_work_command.py::TestWorkCommand::test_handle_work_any_pick
+  54.30 call tests/test_repo_conf_cli.py::test_repo_conf_select_default_persists
+  53.57 call tests/test_discuss_golden_replays.py::test_discuss_golden_replays
+  45.14 call tests/test_cli_surface_contract.py::TestLegacyWarnings::test_session_command_warning
+  30.20 call tests/test_repo_resolve_portable.py::test_repo_workflow_e2e_portable
+  26.90 call tests/test_plan_cli_fix.py::test_plan_cli_fix
+  25.56 call tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_all_legacy_commands_gated
+  25.25 call tests/test_structure_integration.py::test_command_aliases
+  24.62 call tests/test_ai_cli_smoke.py::test_ai_print_cmd_flags
+  23.44 call tests/test_playbook_integration.py::test_playbook_integration
+  20.10 call tests/test_ai_cli_smoke.py::test_command_building_with_options
+  17.98 call tests/test_structure_integration.py::test_regression_scenario_2
+  17.82 call tests/test_structure_integration.py::test_structure_fix_and_apply
+  16.58 call tests/test_repo_resolve_portable.py::test_cli_init_resolve_e2e_portable
+  13.03 call tests/test_expanded_tui_smoke.py::test_all_screen_navigations
+  12.69 call tests/test_reactive_fix_loop.py::test_complex_error_scenario
+  11.54 call tests/test_reactive_fix_loop.py::test_easy_fix_scenario
+  11.33 call tests/test_cli_surface_contract.py::TestContractStability::test_default_mode_is_repeatable
+  10.55 call tests/test_structure_integration.py::test_regression_scenario_1
+  10.11 call tests/test_cli_surface_contract.py::TestContractStability::test_legacy_mode_is_repeatable
+  9.72 call tests/test_plan_cli_fix.py::test_discuss_add_rejection
+  6.43 call tests/test_cli_surface_contract.py::TestParserStructure::test_help_excludes_legacy_by_default
+  6.27 call tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_enabled_with_1
+  6.23 call tests/test_ai_cli_smoke.py::test_ai_help_commands
+  5.76 call tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_explicit_0
+  5.76 call tests/test_structure_integration.py::test_structure_scan
+  5.61 call tests/test_structure_integration.py::test_structure_lint
+  5.57 call tests/test_structure_integration.py::test_structure_show
+  5.42 call tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_by_default
+  5.42 call tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_repo_resolve_works_with_legacy_disabled
+  5.40 call tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_enabled_with_true
+  5.32 call tests/test_mc2_functionality.py::test_mc2_flag_exists
+  5.29 call tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_discuss_works_with_legacy_disabled
+  5.21 call tests/test_cli_surface_contract.py::TestErrorMessages::test_understand_disabled_error_message
+  5.05 call tests/test_tui_smoke_alt.py::test_tui_smoke_mode_alternative
+  5.03 call tests/test_mc2_no_textual.py::test_mc2_runs_without_textual_import
+  5.02 call tests/test_mc2_smoke.py::test_mc2_smoke_with_file
+  5.02 call tests/test_mc2_render_loop.py::test_render_with_session_data
+  5.02 call tests/test_cli_uniformity.py::TestAliasMapping::test_convert_add_is_canonical
+  5.02 call tests/test_cli_uniformity.py::TestDeprecatedCommands::test_resume_shows_deprecated_marker
+  5.02 call tests/test_tui_smoke_legacy.py::test_tui_smoke_mode
+  5.02 call tests/test_cli_uniformity.py::TestDeprecatedCommands::test_root_shows_deprecated_marker
+  5.02 call tests/test_cli_uniformity.py::TestDeprecatedCommands::test_session_shows_deprecated_marker
+  5.02 call tests/test_final_smoke.py::test_tui_smoke_mode_with_file
+  5.02 call tests/test_cli_uniformity.py::TestHelpContract::test_repo_keyword_shows_help
+  5.02 call tests/test_mc2_render_loop.py::test_render_loop
+  5.02 call tests/test_cli_uniformity.py::TestDeprecatedCommands::test_understand_shows_deprecated_marker
+  5.02 call tests/test_mc2_smoke.py::test_mc2_smoke
+  5.02 call tests/test_cli_uniformity.py::TestCanonicalVerbs::test_repo_conf_show_exists
+  5.02 call tests/test_cli_uniformity.py::TestHelpContract::test_workflow_keyword_shows_help
+  5.01 call tests/test_cli_uniformity.py::TestDeprecatedCommands::test_rules_shows_deprecated_marker
+  5.01 call tests/test_tui_smoke_legacy.py::test_tui_smoke_mode_shorter
+  5.00 call tests/test_tui_smoke_alt.py::test_tui_smoke_mode
+  4.97 call tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_track_works_with_legacy_disabled
+  4.96 call tests/test_cli_uniformity.py::TestAliasMapping::test_build_alias_warns_and_maps_to_make
+  4.86 call tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_work_resume_works_with_legacy_disabled
+  4.71 call tests/test_root_workflow.py::test_root_workflow
+  4.60 call tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_enabled_with_yes
+  4.54 call tests/test_cli_uniformity.py::TestCanonicalVerbs::test_make_is_canonical
+  4.52 call tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_wsession_works_with_legacy_disabled
+  4.41 call tests/test_expanded_tui_smoke.py::test_mutation_triggers
+  4.07 call tests/test_repo_resolve_portable.py::test_cli_json_output_portable
+  4.00 call tests/test_expanded_tui_smoke.py::test_stability_under_load
+  3.78 call tests/test_expanded_tui_smoke.py::test_modal_open_close
+  3.61 call tests/legacy/test_mc_shell_screen.py::test_mc_shell_focus_and_navigation
+  3.52 call tests/test_cli_uniformity.py::TestHelpContract::test_task_keyword_shows_help
+  3.48 call tests/legacy/test_mc_shell_screen.py::test_sessions_menu_refresh_and_disabled_items
+  3.45 call tests/test_repo_resolve_portable.py::test_scan_portable_repo_v2
+  3.19 call tests/legacy/test_mc_shell_screen.py::test_refresh_error_handling
+  3.03 call tests/test_cli_surface_contract.py::TestAliasNormalization::test_session_alias_s_enabled
+  3.01 call tests/test_final_smoke.py::test_tui_smoke_mode_simple
+  2.94 call tests/test_cli_surface_contract.py::TestErrorMessages::test_session_disabled_error_message
+  2.93 call tests/test_cli_surface_contract.py::TestAliasNormalization::test_session_alias_s_disabled
+  2.89 call tests/test_cli_surface_contract.py::TestLegacyWarnings::test_understand_command_warning
+  2.72 call tests/legacy/test_mc_shell_screen.py::test_menubar_navigation_menu_updates_content
+  2.30 call tests/legacy/test_mc_shell_screen.py::test_f5_refreshes_view
+  2.20 call tests/legacy/test_mc_shell_screen.py::test_f7_creates_session
+  2.01 call tests/legacy/test_mc_shell_screen.py::test_f8_deletes_session
+  1.97 call tests/test_sessions_pane.py::test_sessions_pane_mounts_and_refreshes
+  1.46 call tests/test_work_session.py::TestWorkSession::test_session_hierarchy
+  1.39 call tests/test_tui_status_line.py::test_menubar_reliable_open_close
+  1.34 call tests/test_tui_status_line.py::test_menubar_navigation_when_active
+  1.28 call tests/legacy/test_mc_sections_menu.py::test_sections_menu_switches_pane
+  1.15 call tests/legacy/test_mc_menubar_layout.py::test_dropdown_does_not_consume_permanent_layout_rows
+  1.11 call tests/test_work_session.py::TestWorkSession::test_list_sessions
+  1.04 call tests/legacy/test_mc_menubar_layout.py::test_menubar_height_is_exactly_one
+  1.03 call tests/legacy/test_mc_shell_screen.py::test_arrow_key_navigation_in_left_pane
+  1.02 call tests/legacy/test_mc_menubar_layout.py::test_dropdowns_are_per_menu

@@ -30,6 +30,12 @@ log show "${SCAN_ID}"
 log show "${SCAN_ID}" | grep fingerprint | sort > /tmp/scan1_fingerprints.txt
 make
 make make MyApp
+ops doctor
+ops doctor json
+ops doctor || echo "Exit code: $?"
+ops list
+ops run /tmp/example_plan.yaml
+ops show "$RUN_ID"
 phase add track-001 "P1: Core Auth"
 phase add track-001 "P1: File Menu Actions"
 phase add track-001 "P1: Implement Core"

@@ -276,6 +276,11 @@ make structure lint
 make structure sc
 make structure scan
 make structure show
+ops
+ops doctor
+ops list
+ops run
+ops show
 p add
 p discuss
 p edit

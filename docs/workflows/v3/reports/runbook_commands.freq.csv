@@ -13,6 +13,7 @@ ai qwen,2
 convert run cpp-to-python ../my-python-project,2
 solutions check,2
 work resume wsession-parent-abc123,2
+ops run /tmp/example_plan.yaml,2
 workflow init user-auth-service,1
 "workflow node add manager-intent ""User can log in securely""",1
 "workflow node add user-action ""Submit login form""",1
@@ -177,3 +178,8 @@ runbook restore <ARCHIVE_ID>,1
 "workflow archive docs/workflows/v3/workflows/WF-OLD.md ""Legacy workflow""",1
 workflow show docs/workflows/v3/workflows/WF-OLD.md,1
 workflow restore <WORKFLOW_ARCHIVE_ID>,1
+ops doctor,1
+ops doctor json,1
+"ops doctor || echo ""Exit code: $?""",1
+ops list,1
+"ops show ""$RUN_ID""",1

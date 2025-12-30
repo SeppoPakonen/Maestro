@@ -226,3 +226,10 @@ run maestro workflow list --archived
 run maestro workflow show docs/workflows/v3/workflows/WF-OLD.md --archived
 run maestro workflow restore <WORKFLOW_ARCHIVE_ID>
 run maestro workflow list
+run maestro ops doctor
+run maestro ops doctor --format json
+maestro ops doctor --strict || echo "Exit code: $?"
+run maestro ops run /tmp/example_plan.yaml --dry-run
+run maestro ops run /tmp/example_plan.yaml
+run maestro ops list
+run maestro ops show "$RUN_ID"

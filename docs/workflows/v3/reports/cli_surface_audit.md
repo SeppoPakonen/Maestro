@@ -1,6 +1,6 @@
 # CLI Surface Audit Report
 
-**Generated:** 2025-12-28 12:51:09 UTC
+**Generated:** 2025-12-28 12:56:37 UTC
 
 **Purpose:** Compare actual CLI command surface (from code parser) against canonical runbook-extracted command list.
 

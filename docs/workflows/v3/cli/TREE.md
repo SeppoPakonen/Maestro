@@ -21,7 +21,7 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 - `maestro discuss` (router)
 - `maestro ai {list|use|run|resume}`
 - `maestro settings {list|show|set|reset}`
-- `maestro ops {list|run|doctor|commit}`
+- `maestro ops {doctor|run|list|show}`
 - `maestro tu {build|query|refactor}`
 - `maestro convert {list|show|add|edit|rm|plan|run}`
 - `maestro select {toolchain}`
@@ -42,7 +42,6 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 - `maestro task set {status|dependency}`
 - `maestro issues link {task|solution}`
 - `maestro wsession breadcrumb {add|list}`
-- `maestro ops commit {suggest|create}`
 - `maestro select toolchain {list|show|set|unset|detect|export}`
 - `maestro platform caps {detect|list|show|prefer|require|unprefer|unrequire|export}`
 - `maestro convert plan {show|approve|reject}`
