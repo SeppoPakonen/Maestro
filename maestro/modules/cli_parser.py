@@ -195,6 +195,7 @@ def create_main_parser(
     *,
     commands_to_load: Optional[Sequence[str]] = None,
     include_legacy: Optional[bool] = None,
+    show_banner: bool = True,
 ) -> argparse.ArgumentParser:
     """Create the main argument parser for Maestro."""
     from .. import __version__
@@ -205,7 +206,7 @@ def create_main_parser(
                     "Examples: 'maestro b p' (build plan), 'maestro s l' (session list),\n"
                     "          'maestro p tr' (plan tree), 'maestro t l' (track list)",
         formatter_class=argparse.RawTextHelpFormatter,
-        show_banner=True,
+        show_banner=show_banner,
         allow_abbrev=False
     )
     parser.add_argument('--version', action='version',
