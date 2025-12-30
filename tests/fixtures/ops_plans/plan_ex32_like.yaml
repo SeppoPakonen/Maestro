@@ -1,0 +1,5 @@
+kind: ops_run
+name: EX-32 pipeline sanity
+steps:
+  - maestro: "ops doctor --format json"
+  - maestro: "ops list"
