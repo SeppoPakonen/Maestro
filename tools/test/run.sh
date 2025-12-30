@@ -22,10 +22,12 @@ VENV_DIR="$REPO_ROOT/.venv"
 CHECKPOINT_DELIM="--- PASSED NODEIDS ---"
 
 IGNORE_GIT_LOCK=0
+GIT_LOCK_DETECT=1
 for arg in "$@"; do
   if [[ "$arg" == "--ignore-git-lock" ]]; then
     IGNORE_GIT_LOCK=1
-    break
+  elif [[ "$arg" == "--no-git-lock-detect" ]]; then
+    GIT_LOCK_DETECT=0
   fi
 done
 
@@ -46,6 +48,7 @@ if [[ "$IGNORE_GIT_LOCK" -eq 0 ]] && [[ -f "$REPO_ROOT/.git/index.lock" ]]; then
 fi
 
 export GIT_OPTIONAL_LOCKS=0
+export MAESTRO_REPO_ROOT="$REPO_ROOT"
 
 # ==============================================================================
 # Python detection
@@ -126,6 +129,7 @@ Runner Options:
   --workers N             Number of parallel workers (default: cpu_count-1)
   -j, --jobs N            Alias for --workers
   --ignore-git-lock       Skip git index lock preflight check
+  --no-git-lock-detect    Disable git index.lock detection during tests
   --git-check             Enable git metadata checks in runner output
   --fast                  Speed profile: fast (not slow, not legacy, not tui, not integration)
   --medium                Speed profile: medium (not legacy, not tui) [default]
@@ -194,6 +198,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ignore-git-lock)
       IGNORE_GIT_LOCK=1
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
+    --no-git-lock-detect)
+      GIT_LOCK_DETECT=0
       RUNNER_OPTS+=("$1")
       shift
       ;;
@@ -682,6 +691,11 @@ fi
 # ==============================================================================
 # Build pytest arguments
 # ==============================================================================
+PYTEST_PLUGINS=(-p tools.test.pytest_checkpoint_plugin)
+if [[ "$GIT_LOCK_DETECT" -eq 1 ]]; then
+  PYTEST_PLUGINS+=(-p tools.test.pytest_git_lock_plugin)
+fi
+
 PYTEST_RUN_FIXED_ARGS=("${PYTEST_BASE_ARGS[@]}")
 
 if [[ "$USE_XDIST" -eq 1 ]]; then
@@ -719,7 +733,7 @@ if [[ "$GIT_CHECK" -eq 1 ]]; then
 fi
 
 if [[ "$PRINT_PYTEST_CMD" -eq 1 ]]; then
-  printf '%q ' "$VENV_PY" -m pytest -p tools.test.pytest_checkpoint_plugin "${PYTEST_RUN_ARGS[@]}"
+  printf '%q ' "$VENV_PY" -m pytest "${PYTEST_PLUGINS[@]}" "${PYTEST_RUN_ARGS[@]}"
   echo ""
   exit 0
 fi
@@ -730,6 +744,11 @@ echo "============================================================="
 echo "Python:           $VENV_PY"
 echo "Pytest:           $PYTEST_CMD (pytest $PYTEST_VERSION)"
 echo "Git SHA:          $GIT_SHA"
+if [[ "$GIT_LOCK_DETECT" -eq 1 ]]; then
+  echo "Git lock detect:  enabled"
+else
+  echo "Git lock detect:  disabled"
+fi
 echo "Selection mode:   $SELECTION_MODE"
 echo "Profile:          $PROFILE_MODE"
 if [[ -n "$MARKER_EXPR" ]]; then
@@ -793,14 +812,14 @@ if [[ "$CHUNKED_RUN" -eq 1 ]]; then
     fi
     if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
       MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
-        -p tools.test.pytest_checkpoint_plugin \
+        "${PYTEST_PLUGINS[@]}" \
         "${PYTEST_RUN_FIXED_ARGS[@]}" \
         "${PYTEST_NON_SELECTOR_ARGS[@]}" \
         "${chunk[@]}" 2>&1 | tee -a "$PROFILE_TEMP"
       EXIT_CODE=${PIPESTATUS[0]}
     else
       MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
-        -p tools.test.pytest_checkpoint_plugin \
+        "${PYTEST_PLUGINS[@]}" \
         "${PYTEST_RUN_FIXED_ARGS[@]}" \
         "${PYTEST_NON_SELECTOR_ARGS[@]}" \
         "${chunk[@]}"
@@ -834,12 +853,12 @@ if [[ "$CHUNKED_RUN" -eq 1 ]]; then
 else
   if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
     "$VENV_PY" -m pytest \
-      -p tools.test.pytest_checkpoint_plugin \
+      "${PYTEST_PLUGINS[@]}" \
       "${PYTEST_RUN_ARGS[@]}" 2>&1 | tee "$PROFILE_TEMP"
     EXIT_CODE=${PIPESTATUS[0]}
   else
     "$VENV_PY" -m pytest \
-      -p tools.test.pytest_checkpoint_plugin \
+      "${PYTEST_PLUGINS[@]}" \
       "${PYTEST_RUN_ARGS[@]}"
     EXIT_CODE=$?
   fi

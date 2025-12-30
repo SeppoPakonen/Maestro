@@ -103,6 +103,11 @@ bash tools/test/run.sh --ignore-git-lock
 ```
 
 Use `--git-check` to include git metadata in the runner configuration output.
+During test execution, the runner also detects newly created git index locks and reports the offending test. Disable with:
+
+```bash
+bash tools/test/run.sh --no-git-lock-detect
+```
 
 ### 7. Git-Dependent Tests
 

@@ -14,6 +14,10 @@ import subprocess
 import json
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.git
+
 
 def create_test_project_with_trivial_error():
     """Create a test C++ project with a trivial compile error for the easy fix scenario."""

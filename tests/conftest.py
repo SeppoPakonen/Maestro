@@ -36,3 +36,12 @@ def isolate_docs_root(tmp_path):
         os.environ['MAESTRO_DOCS_ROOT'] = old_value
     else:
         os.environ.pop('MAESTRO_DOCS_ROOT', None)
+
+
+@pytest.fixture(autouse=True)
+def skip_git_tests(request):
+    """Skip tests that perform git operations unless explicitly enabled."""
+    if os.environ.get("MAESTRO_TEST_ALLOW_GIT") == "1":
+        return
+    if request.node.get_closest_marker("git"):
+        pytest.skip("requires MAESTRO_TEST_ALLOW_GIT=1")

@@ -13,6 +13,10 @@ import subprocess
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
+import pytest
+
+pytestmark = pytest.mark.git
+
 def test_safe_apply_revert_functionality():
     """Test that changes are reverted when build gets worse after applying fixes."""
     print("Testing Task S5: Safe apply with automatic revert functionality...")
