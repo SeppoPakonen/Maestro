@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any
 from maestro.repo_lock import RepoLock
 from maestro.git_guard import get_current_branch, check_branch_guard
 from maestro.config.paths import get_docs_root
+from maestro.work_session import list_sessions
 
 
 @dataclass
@@ -401,6 +402,99 @@ def check_blocker_issues(docs_root: Optional[Path] = None) -> Finding:
     )
 
 
+def _load_sessions_for_doctor(docs_root: Optional[Path]) -> List[Any]:
+    if not docs_root:
+        docs_root = get_docs_root()
+    base_path = Path(docs_root) / "docs" / "sessions"
+    return list_sessions(base_path=base_path)
+
+
+def check_subwork_orphans(docs_root: Optional[Path] = None) -> Finding:
+    """Check for subwork sessions whose parent is missing."""
+    sessions = _load_sessions_for_doctor(docs_root)
+    if not sessions:
+        return Finding(
+            id="SUBWORK_ORPHANS",
+            severity="ok",
+            message="No subwork sessions found"
+        )
+
+    session_ids = {session.session_id for session in sessions}
+    orphans = []
+    for session in sessions:
+        parent_id = session.parent_wsession_id or session.parent_session_id
+        if parent_id and parent_id not in session_ids:
+            orphans.append(session)
+
+    if not orphans:
+        return Finding(
+            id="SUBWORK_ORPHANS",
+            severity="ok",
+            message="No orphan subwork sessions detected"
+        )
+
+    orphan_ids = sorted(session.session_id for session in orphans)
+    details = ", ".join(orphan_ids[:5])
+    if len(orphan_ids) > 5:
+        details += f" (+{len(orphan_ids) - 5} more)"
+
+    return Finding(
+        id="SUBWORK_ORPHANS",
+        severity="warning",
+        message=f"{len(orphan_ids)} orphan subwork session(s) detected",
+        details=f"Orphans: {details}",
+        recommended_commands=[
+            "maestro wsession tree",
+            "maestro work subwork show <CHILD_WSESSION_ID>",
+            "maestro work subwork close <CHILD_WSESSION_ID> --summary \"<summary>\"",
+        ],
+    )
+
+
+def check_subwork_open_children(docs_root: Optional[Path] = None) -> Finding:
+    """Check for parent sessions with open subwork children."""
+    sessions = _load_sessions_for_doctor(docs_root)
+    if not sessions:
+        return Finding(
+            id="SUBWORK_OPEN_CHILDREN",
+            severity="ok",
+            message="No subwork sessions found"
+        )
+
+    open_children = {}
+    for session in sessions:
+        parent_id = session.parent_wsession_id or session.parent_session_id
+        if not parent_id:
+            continue
+        if session.state in {"running", "paused"}:
+            open_children.setdefault(parent_id, []).append(session.session_id)
+
+    if not open_children:
+        return Finding(
+            id="SUBWORK_OPEN_CHILDREN",
+            severity="ok",
+            message="No open subwork sessions detected"
+        )
+
+    detail_parts = []
+    for parent_id in sorted(open_children):
+        children = sorted(open_children[parent_id])
+        detail_parts.append(f"{parent_id}: {', '.join(children)}")
+    details = "; ".join(detail_parts)
+
+    return Finding(
+        id="SUBWORK_OPEN_CHILDREN",
+        severity="warning",
+        message="Parent sessions have open subwork children",
+        details=details,
+        recommended_commands=[
+            "maestro wsession tree",
+            "maestro work subwork list <PARENT_WSESSION_ID>",
+            "maestro work subwork close <CHILD_WSESSION_ID> --summary \"<summary>\"",
+        ],
+    )
+
+
 def run_doctor(strict: bool = False, ignore_gates: bool = False, docs_root: Optional[Path] = None) -> DoctorResult:
     """Run all doctor checks.
 
@@ -421,6 +515,8 @@ def run_doctor(strict: bool = False, ignore_gates: bool = False, docs_root: Opti
     findings.append(check_repo_truth(docs_root))
     findings.append(check_repo_conf(docs_root))
     findings.append(check_blocker_issues(docs_root))
+    findings.append(check_subwork_orphans(docs_root))
+    findings.append(check_subwork_open_children(docs_root))
 
     # If ignore_gates, downgrade blockers to warnings
     if ignore_gates:
