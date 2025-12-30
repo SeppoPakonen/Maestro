@@ -266,6 +266,7 @@ class TestWorkCommand(unittest.TestCase):
         mock_create_session.assert_called_once()
 
     @pytest.mark.slow
+    @patch.dict(os.environ, {"MAESTRO_INTERACTIVE": "1"})
     @patch('builtins.input', return_value='1')
     @patch('maestro.commands.work.load_available_work')
     @patch('maestro.commands.work.ai_select_work_items')

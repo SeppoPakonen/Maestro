@@ -21,6 +21,14 @@ bash tools/test/run.sh -v
 bash tools/test/run.sh --help
 ```
 
+## Help Smoke Check
+
+The CLI help smoke test ensures `--help` and bare keywords stay fast and non-interactive:
+
+```bash
+bash tools/smoke/help_fast_smoke.sh
+```
+
 ## Features
 
 ### 1. Configuration Display

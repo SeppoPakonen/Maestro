@@ -8,16 +8,6 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from maestro.archive.workflow_archive import (
-    ArchiveError,
-    RestoreError,
-    archive_workflow,
-    find_archive_entry,
-    list_active_workflows,
-    list_archived_workflows,
-    restore_workflow,
-)
-
 
 def add_workflow_parser(subparsers: Any) -> None:
     """Add workflow command parser."""
@@ -96,6 +86,8 @@ def handle_workflow_command(args: argparse.Namespace) -> None:
 
 def handle_workflow_list(args: argparse.Namespace) -> None:
     """Handle the workflow list command."""
+    from maestro.archive.workflow_archive import list_archived_workflows, list_active_workflows
+
     if args.archived:
         # List archived workflows
         archived = list_archived_workflows()
@@ -123,6 +115,8 @@ def handle_workflow_list(args: argparse.Namespace) -> None:
 
 def handle_workflow_show(args: argparse.Namespace) -> None:
     """Handle the workflow show command."""
+    from maestro.archive.workflow_archive import find_archive_entry
+
     if args.archived:
         # Show archived workflow - treat path as archive ID or original path
         entry = find_archive_entry(args.path)
@@ -181,6 +175,8 @@ def handle_workflow_visualize(args: argparse.Namespace) -> None:
 def handle_workflow_archive(args: argparse.Namespace) -> None:
     """Handle the workflow archive command."""
     try:
+        from maestro.archive.workflow_archive import ArchiveError, archive_workflow
+
         workflow_path = Path(args.path)
         reason = args.reason if hasattr(args, 'reason') else None
 
@@ -199,6 +195,8 @@ def handle_workflow_archive(args: argparse.Namespace) -> None:
 def handle_workflow_restore(args: argparse.Namespace) -> None:
     """Handle the workflow restore command."""
     try:
+        from maestro.archive.workflow_archive import RestoreError, restore_workflow
+
         restored_path = restore_workflow(args.archive_id)
 
         print(f"Successfully restored workflow to: {restored_path}")

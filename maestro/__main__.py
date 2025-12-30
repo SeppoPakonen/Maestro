@@ -41,6 +41,16 @@ def _legacy_enabled():
     return value in ("1", "true", "yes")
 
 
+def _should_show_bare_help(argv):
+    if not argv:
+        return False
+    if len(argv) > 1:
+        return False
+    if argv[0].startswith("-"):
+        return False
+    return True
+
+
 def _print_legacy_disabled(command_name, replacement):
     print(f"[DEPRECATED] '{command_name}' command is not available.", file=sys.stderr)
     print(f"Use: maestro {replacement} instead.", file=sys.stderr)
@@ -53,6 +63,52 @@ def _print_legacy_disabled(command_name, replacement):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
+    if _should_show_bare_help(argv):
+        from maestro.modules.cli_parser import create_main_parser
+
+        raw_command = argv[0] if argv else None
+        help_command = _resolve_help_command(argv)
+        include_legacy = None
+        legacy_commands = {"session", "resume", "rules", "root", "understand"}
+        if help_command in legacy_commands:
+            if not _legacy_enabled():
+                legacy_map = {
+                    "session": "wsession",
+                    "understand": "repo resolve / runbook export",
+                    "resume": "discuss resume / work resume",
+                    "rules": "repo conventions / solutions",
+                    "root": "track / phase / task",
+                }
+                replacement = legacy_map.get(help_command, "canonical commands")
+                _print_legacy_disabled(help_command, replacement)
+                sys.exit(1)
+            include_legacy = True
+
+        bare_help_commands = {"make", "workflow", "repo", "task"}
+        if help_command in bare_help_commands:
+            help_argv = [help_command, "--help"]
+        else:
+            help_argv = list(argv)
+
+        if raw_command in ("build", "b"):
+            print(
+                "Warning: 'maestro build' is deprecated; use 'maestro make' instead. "
+                "This alias will be removed after two minor releases.",
+                file=sys.stderr,
+            )
+            if help_argv:
+                help_argv[0] = "make"
+            help_command = "make"
+
+        if help_command in bare_help_commands:
+            parser = create_main_parser(
+                commands_to_load=[help_command],
+                include_legacy=include_legacy,
+                show_banner=False,
+            )
+            parser.parse_args(help_argv)
+            sys.exit(0)
+
     if _has_help_flag(argv):
         from maestro.modules.cli_parser import create_main_parser
 

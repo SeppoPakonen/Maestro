@@ -43,6 +43,7 @@ from ..breadcrumb import (
 )
 from ..data import parse_phase_md, parse_todo_md as data_parse_todo_md
 from ..engines import get_engine, EngineError
+from ..cli.interactive import is_interactive_allowed
 
 
 def add_work_parser(subparsers):
@@ -668,6 +669,11 @@ async def handle_work_any_pick(args):
         print(f"   Reason: {reason}")
         print(f"   Difficulty: {difficulty.title()} | Priority: {priority.title()}\n")
 
+    if not is_interactive_allowed():
+        print("Error: interactive selection requires MAESTRO_INTERACTIVE=1 and a TTY.")
+        print("Use: maestro work any (without pick) for non-interactive mode.")
+        return 2
+
     # Step 4: Prompt user to select (1, 2, or 3) or quit
     while True:
         choice = input("Select option (1-3) or 'q' to quit: ").strip().lower()
@@ -793,6 +799,11 @@ async def handle_work_track(args):
         if len(tracks) == 1:
             selected_track = tracks[0]
         else:
+            if not is_interactive_allowed():
+                print("Error: interactive selection requires MAESTRO_INTERACTIVE=1 and a TTY.")
+                print("Use: maestro work track <id> for non-interactive mode.")
+                return 2
+
             # Use AI to sort by recommendation
             recommended = ai_select_work_items(tracks, mode="top_n")
             print("\nAI recommended order:")
@@ -908,6 +919,11 @@ async def handle_work_phase(args):
         if len(phases) == 1:
             selected_phase = phases[0]
         else:
+            if not is_interactive_allowed():
+                print("Error: interactive selection requires MAESTRO_INTERACTIVE=1 and a TTY.")
+                print("Use: maestro work phase <id> for non-interactive mode.")
+                return 2
+
             # Use AI to sort by recommendation
             recommended = ai_select_work_items(phases, mode="top_n")
             print("\nAI recommended order:")
@@ -1023,6 +1039,11 @@ async def handle_work_issue(args):
         if len(issues) == 1:
             selected_issue = issues[0]
         else:
+            if not is_interactive_allowed():
+                print("Error: interactive selection requires MAESTRO_INTERACTIVE=1 and a TTY.")
+                print("Use: maestro work issue <id> for non-interactive mode.")
+                return 2
+
             # Use AI to sort by recommendation
             recommended = ai_select_work_items(issues, mode="top_n")
             print("\nAI recommended order:")
@@ -1143,6 +1164,11 @@ async def handle_work_task(args):
     if len(tasks) == 1:
         selected_task = tasks[0]
     else:
+        if not is_interactive_allowed():
+            print("Error: interactive selection requires MAESTRO_INTERACTIVE=1 and a TTY.")
+            print("Use: maestro work task <id> for non-interactive mode.")
+            return 2
+
         while True:
             try:
                 choice = int(input(f"\nSelect task (1-{len(tasks)}): "))

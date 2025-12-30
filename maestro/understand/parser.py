@@ -2,7 +2,6 @@
 Parser for the understand dump command.
 """
 import argparse
-from .command import handle_understand_dump
 
 
 def add_understand_parser(subparsers):
@@ -12,7 +11,8 @@ def add_understand_parser(subparsers):
     understand_parser = subparsers.add_parser(
         'understand',
         aliases=['u'],
-        help='[DEPRECATED] Use repo resolve or runbook instead'
+        help='[DEPRECATED] Use repo resolve or runbook instead',
+        description='[DEPRECATED] Use repo resolve or runbook instead'
     )
     
     understand_subparsers = understand_parser.add_subparsers(
