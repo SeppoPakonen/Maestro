@@ -81,10 +81,11 @@ class TestDiscussRouter:
         args.phase_id = None
         args.track_id = None
         args.context = None
+        args._wsession = None
 
         context = _detect_discuss_context(args)
 
         assert context.kind == "global"
         assert context.ref is None
-        assert "No explicit context" in context.reason
+        assert "No explicit context or active work session" in context.reason
         assert context.contract_type == ContractType.GLOBAL

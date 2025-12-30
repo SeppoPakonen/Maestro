@@ -14,14 +14,29 @@ import tempfile
 import shutil
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
+def _reset_missing_upp_fixture():
+    missing_upp_path = Path("test_upp_fixtures") / "assemblyB" / "missingupp" / "missingupp.upp"
+    if missing_upp_path.exists():
+        missing_upp_path.unlink()
+
 def run_maestro_command(cmd, cwd=None):
     """Run a maestro command and return the result."""
-    # Use the full path to maestro.py from the project root
-    full_cmd = ["python", os.path.join(os.path.dirname(__file__), "maestro.py")] + cmd
+    repo_root = Path(__file__).resolve().parents[1]
+    full_cmd = [sys.executable, str(repo_root / "maestro.py")] + cmd
     print(f"Running: {' '.join(full_cmd)}")
 
+    working_dir = repo_root
+    if cwd:
+        working_dir = Path(cwd)
+        if not working_dir.is_absolute():
+            working_dir = repo_root / working_dir
+
     result = subprocess.run(full_cmd,
-                           cwd=cwd or os.getcwd(),
+                           cwd=working_dir,
                            capture_output=True,
                            text=True)
 
@@ -37,6 +52,7 @@ def run_maestro_command(cmd, cwd=None):
 def test_structure_scan():
     """Test structure scan functionality."""
     print("\n=== Testing structure scan ===")
+    _reset_missing_upp_fixture()
     
     # Create a temporary session file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
@@ -88,6 +104,7 @@ def test_structure_scan():
         # Clean up
         if os.path.exists(session_path):
             os.unlink(session_path)
+        _reset_missing_upp_fixture()
 
 
 def test_structure_show():
@@ -313,6 +330,7 @@ def test_command_aliases():
 def test_regression_scenario_1():
     """Test regression scenario 1: Missing .upp scenario."""
     print("\n=== Testing regression scenario 1: Missing .upp scenario ===")
+    _reset_missing_upp_fixture()
     
     # Create a temporary session file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:

@@ -5,11 +5,13 @@ Provides backward compatibility with CLI3 while using the new work session infra
 """
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from maestro.ai import (
+    AIClient,
     DiscussionMode,
     EditorDiscussion,
     ExternalCommandClient,
@@ -27,6 +29,17 @@ from maestro.templates.discussion import (
 )
 
 
+class _UnavailableAIClient(AIClient):
+    def __init__(self, reason: str):
+        self.reason = reason
+
+    def send_message(self, messages: List[Dict[str, str]], context: str) -> str:
+        raise RuntimeError(self.reason)
+
+    def stream_message(self, messages: List[Dict[str, str]], context: str):
+        raise RuntimeError(self.reason)
+
+
 class DiscussionSession:
     """
     Wrapper around WorkSession for discussion mode.
@@ -34,11 +47,11 @@ class DiscussionSession:
     Maintains CLI3 compatibility while using WS infrastructure.
     """
 
-    def __init__(self, work_session: WorkSession, mode: str = "editor"):
+    def __init__(self, work_session: WorkSession, mode: str = "editor", ai_client: Optional[AIClient] = None):
         self.work_session = work_session
         self.mode = mode  # "editor" or "terminal"
         self.history = []  # Conversation history
-        self.ai_client = ExternalCommandClient()
+        self.ai_client = ai_client
 
     def run_editor_mode(self):
         """
@@ -60,7 +73,7 @@ class DiscussionSession:
         context = self._get_context_for_session()
         
         # Create a temporary discussion instance to leverage existing editor functionality
-        temp_discussion = EditorDiscussion(context, DiscussionMode.EDITOR, self.ai_client)
+        temp_discussion = EditorDiscussion(context, DiscussionMode.EDITOR, self._get_ai_client())
         
         # Override the start method to capture breadcrumbs
         original_start = temp_discussion.start
@@ -86,7 +99,7 @@ class DiscussionSession:
         context = self._get_context_for_session()
         
         # Create a temporary discussion instance to leverage existing terminal functionality
-        temp_discussion = TerminalDiscussion(context, DiscussionMode.TERMINAL, self.ai_client)
+        temp_discussion = TerminalDiscussion(context, DiscussionMode.TERMINAL, self._get_ai_client())
         
         # Override the start method to capture breadcrumbs
         original_start = temp_discussion.start
@@ -183,6 +196,50 @@ class DiscussionSession:
             return result
         return wrapper
 
+    def _get_ai_client(self) -> AIClient:
+        if self.ai_client is None:
+            try:
+                self.ai_client = ExternalCommandClient()
+            except RuntimeError as exc:
+                self.ai_client = _UnavailableAIClient(str(exc))
+        return self.ai_client
+
+    def _extract_actions_from_text(self, text: str) -> List[Dict[str, Any]]:
+        from maestro.ai.actions import extract_json_actions
+
+        if not text:
+            return []
+        actions = extract_json_actions(text)
+        if actions:
+            return actions
+        candidates = [text.strip()]
+        if not (text.strip().startswith("{") or text.strip().startswith("[")):
+            candidates = re.findall(r"\{.*?\}|\[.*?\]", text, re.DOTALL)
+        extracted: List[Dict[str, Any]] = []
+        for candidate in candidates:
+            try:
+                payload = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                if isinstance(payload.get("actions"), list):
+                    for action in payload["actions"]:
+                        if isinstance(action, dict):
+                            extracted.append(action)
+                else:
+                    extracted.append(payload)
+            elif isinstance(payload, list):
+                for action in payload:
+                    if isinstance(action, dict):
+                        extracted.append(action)
+        return extracted
+
+    def _extract_actions_from_breadcrumbs(self, breadcrumbs: List[Any]) -> List[Dict[str, Any]]:
+        extracted: List[Dict[str, Any]] = []
+        for breadcrumb in breadcrumbs:
+            extracted.extend(self._extract_actions_from_text(getattr(breadcrumb, "response", "")))
+        return extracted
+
     def process_command(self, command: str) -> bool:
         """
         Process special commands.
@@ -257,7 +314,10 @@ class DiscussionSession:
             {"role": "user", "content": f"Please extract any JSON-formatted actions from this conversation: {conversation_history}"}
         ]
         
-        response = self.ai_client.send_message(messages, system_prompt)
+        try:
+            response = self._get_ai_client().send_message(messages, system_prompt)
+        except RuntimeError:
+            return self._extract_actions_from_breadcrumbs(breadcrumbs)
         
         # Extract JSON actions from the response
         import re
@@ -313,10 +373,10 @@ def resume_discussion(session_id: str) -> DiscussionSession:
     4. Continue discussion
     5. Create new breadcrumbs
     """
-    from maestro.work_session import load_session
+    from maestro.work_session import get_sessions_base_path, load_session
     
     # Find and load the session
-    session_path = Path("docs/sessions") / session_id / "session.json"
+    session_path = get_sessions_base_path() / session_id / "session.json"
     work_session = load_session(session_path)
     
     # Show history

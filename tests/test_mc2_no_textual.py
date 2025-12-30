@@ -8,6 +8,10 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.tui
+
 
 def test_mc2_runs_without_textual_import():
     repo_root = Path(__file__).resolve().parents[1]

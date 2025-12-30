@@ -51,7 +51,7 @@ class TestParseQuotedValue:
         assert result == ('name', 'Value')
 
     def test_parse_invalid_format(self):
-        result = parse_quoted_value('name: "value"')  # Missing quotes on key
+        result = parse_quoted_value('name "value"')  # Missing colon
         assert result is None
 
     def test_parse_empty_string(self):

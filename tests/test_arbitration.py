@@ -132,10 +132,18 @@ class TestArbitration(unittest.TestCase):
         # Remove test directory
         shutil.rmtree(self.test_dir)
 
-        # Clean up any maestro files created during testing in original directory
-        maestro_path = os.path.join(self.original_cwd, '.maestro')
-        if os.path.exists(maestro_path):
-            shutil.rmtree(maestro_path)
+        # Clean up arbitration artifacts if they leaked into the original cwd
+        maestro_path = Path(self.original_cwd) / ".maestro"
+        if maestro_path.exists():
+            arbitration_dir = maestro_path / "convert" / "arbitration" / self.test_task["task_id"]
+            inputs_dir = maestro_path / "convert" / "inputs"
+            shutil.rmtree(arbitration_dir, ignore_errors=True)
+            if inputs_dir.exists():
+                for input_file in inputs_dir.glob(f"task_{self.test_task['task_id']}_*.txt"):
+                    try:
+                        input_file.unlink()
+                    except FileNotFoundError:
+                        pass
     
     def test_arbitration_with_clean_vs_placeholder_output(self):
         """Test that clean output wins over output with TODO placeholders."""
