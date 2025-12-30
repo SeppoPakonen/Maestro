@@ -20,6 +20,27 @@ from maestro.structure_fix import (
     report_revert_action,
     restore_from_git,
 )
+from maestro.structure_tools import (
+    apply_structure_fix_rules,
+    execute_structure_fix_action,
+    fix_header_guards,
+    get_fix_rulebooks_dir,
+    get_registry_file_path,
+    handle_structure_apply,
+    handle_structure_fix,
+    handle_structure_lint,
+    handle_structure_scan,
+    handle_structure_show,
+    load_registry,
+    load_rulebook,
+    normalize_cpp_includes,
+    reduce_secondary_header_includes,
+    resolve_upp_dependencies,
+    run_structure_fixes_from_rulebooks,
+    save_rulebook,
+    scan_upp_repo,
+    ensure_main_header_content,
+)
 
 # Version information
 __version__ = "1.2.1"
@@ -94,6 +115,33 @@ def main():
 
     # Parse arguments
     raw_command = sys.argv[1] if len(sys.argv) > 1 else None
+    raw_command_orig = raw_command
+    import os
+    enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
+    legacy_aliases = {'s': 'session', 'u': 'understand'}
+    legacy_command = legacy_aliases.get(raw_command, raw_command)
+    if legacy_command in ('session', 'understand', 'resume', 'rules', 'root'):
+        if not enable_legacy:
+            legacy_map = {
+                'session': 'wsession',
+                'understand': 'repo resolve / runbook export',
+                'resume': 'discuss resume / work resume',
+                'rules': 'repo conventions / solutions',
+                'root': 'track / phase / task'
+            }
+            replacement = legacy_map.get(legacy_command, 'canonical commands')
+            print(f"[DEPRECATED] '{legacy_command}' command is not available.", file=sys.stderr)
+            print(f"Use: maestro {replacement} instead.", file=sys.stderr)
+            print(f"", file=sys.stderr)
+            print(f"To enable legacy commands (for backward compatibility):", file=sys.stderr)
+            print(f"  export MAESTRO_ENABLE_LEGACY=1", file=sys.stderr)
+            print(f"", file=sys.stderr)
+            print(f"See: docs/workflows/v3/cli/CLI_SURFACE_CONTRACT.md", file=sys.stderr)
+            sys.exit(1)
+        if legacy_command == 'session' and raw_command in ('session', 's'):
+            print("Warning: 'session' is deprecated; use 'wsession' instead.")
+            sys.argv[1] = 'wsession'
+
     args = parser.parse_args()
 
     # Handle help command first
@@ -103,12 +151,11 @@ def main():
 
     # Normalize command aliases to main command names
     args = normalize_command_aliases(args)
-    if raw_command in ("build", "b"):
+    if raw_command_orig in ("build", "b"):
         setattr(args, "_deprecated_build_alias", True)
 
     # Check if user tried to invoke a disabled legacy command
     # Legacy commands (session, understand, resume, rules, root) require MAESTRO_ENABLE_LEGACY=1
-    import os
     enable_legacy = os.environ.get('MAESTRO_ENABLE_LEGACY', '0').lower() in ('1', 'true', 'yes')
     if not enable_legacy and hasattr(args, 'command') and args.command in ('session', 'understand', 'resume', 'rules', 'root'):
         legacy_map = {
@@ -171,6 +218,11 @@ def main():
         handle_work_discuss,
         handle_work_analyze,
         handle_work_fix,
+        handle_work_subwork_start,
+        handle_work_subwork_list,
+        handle_work_subwork_show,
+        handle_work_subwork_close,
+        handle_work_subwork_resume_parent,
     )
     from maestro.commands.work_session import (
         handle_wsession_list,
@@ -409,6 +461,23 @@ def main():
             asyncio.run(handle_work_analyze(args))
         elif work_subcommand == 'fix':
             asyncio.run(handle_work_fix(args))
+        elif work_subcommand == 'subwork':
+            subcommand = getattr(args, 'subwork_subcommand', None)
+            if subcommand == 'start':
+                exit_code = handle_work_subwork_start(args)
+            elif subcommand == 'list':
+                exit_code = handle_work_subwork_list(args)
+            elif subcommand == 'show':
+                exit_code = handle_work_subwork_show(args)
+            elif subcommand == 'close':
+                exit_code = handle_work_subwork_close(args)
+            elif subcommand == 'resume-parent':
+                exit_code = handle_work_subwork_resume_parent(args)
+            else:
+                parser.print_help()
+                return
+            if exit_code:
+                raise SystemExit(exit_code)
         else:
             parser.print_help()
 
@@ -489,7 +558,7 @@ def main():
                     parser.print_help()
                     sys.exit(1)
             elif args.convert_subcommand == 'plan':
-                if hasattr(args, 'pipeline_id') and args.pipeline_id:
+                if getattr(args, "action_or_pipeline", None):
                     exit_code = handle_convert_plan(args)
                     if exit_code:
                         raise SystemExit(exit_code)

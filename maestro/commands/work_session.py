@@ -19,6 +19,9 @@ try:
         save_session,
         get_session_cookie,
         is_session_closed,
+        get_sessions_base_path,
+        find_session_by_id,
+        get_open_child_sessions,
     )
     from ..breadcrumb import (
         list_breadcrumbs,
@@ -44,6 +47,9 @@ except ImportError:
         save_session,
         get_session_cookie,
         is_session_closed,
+        get_sessions_base_path,
+        find_session_by_id,
+        get_open_child_sessions,
     )
     from breadcrumb import (
         list_breadcrumbs,
@@ -133,26 +139,14 @@ def _resolve_session_id(session_id: str) -> Optional[str]:
 
 
 def _load_session_by_id(session_id: str) -> Optional[tuple[WorkSession, Path]]:
-    base_path = Path("docs") / "sessions"
-    if not base_path.exists():
-        return None
-
-    for session_dir in base_path.iterdir():
-        if session_dir.is_dir() and session_id.startswith(session_dir.name):
-            session_file = session_dir / "session.json"
-            if session_file.exists():
-                return load_session(session_file), session_file
-        if session_dir.is_dir():
-            for nested_dir in session_dir.iterdir():
-                if nested_dir.is_dir() and session_id.startswith(nested_dir.name):
-                    session_file = nested_dir / "session.json"
-                    if session_file.exists():
-                        return load_session(session_file), session_file
+    result = find_session_by_id(session_id)
+    if result:
+        return result
     return None
 
 
 def _load_session_by_cookie(cookie: str) -> Optional[tuple[WorkSession, Path]]:
-    base_path = Path("docs") / "sessions"
+    base_path = get_sessions_base_path()
     if not base_path.exists():
         return None
 
@@ -220,7 +214,7 @@ def handle_wsession_show(args) -> None:
             return
 
         # First try to find the session in the standard location
-        base_path = Path("docs") / "sessions"
+        base_path = get_sessions_base_path()
         session_found = False
         session = None
 
@@ -325,6 +319,17 @@ def handle_wsession_close(args) -> None:
     if is_session_closed(session):
         print(f"Session '{session.session_id}' is already closed.")
         return
+    if session.state not in {"running", "paused"}:
+        print(f"Session '{session.session_id}' is not open (state: {session.state}).")
+        return
+
+    open_children = get_open_child_sessions(session.session_id, base_path=get_sessions_base_path())
+    if open_children:
+        print(f"Cannot close session '{session.session_id}': open child sessions exist.")
+        for child in open_children:
+            print(f"  - {child.session_id} ({child.status})")
+        print("Next: maestro work subwork list <PARENT_WSESSION_ID>")
+        return
 
     session = complete_session(session)
     save_session(session, session_file)
@@ -421,7 +426,7 @@ def handle_wsession_breadcrumbs(args) -> None:
             return
 
         # Find the session directory
-        base_path = Path("docs") / "sessions"
+        base_path = get_sessions_base_path()
         session_dir = None
 
         # Look for the session directory
@@ -496,7 +501,7 @@ def handle_wsession_timeline(args) -> None:
             return
 
         # Find the session directory
-        base_path = Path("docs") / "sessions"
+        base_path = get_sessions_base_path()
         session_dir = None
 
         # Look for the session directory
@@ -680,36 +685,11 @@ def handle_wsession_stats(args) -> None:
 
         if session_id:
             # Show stats for specific session
-            base_path = Path("docs") / "sessions"
-            session_found = False
-            session = None
-
-            # Find the session
-            for session_dir in base_path.iterdir():
-                if session_dir.is_dir() and session_id.startswith(session_dir.name):
-                    session_file = session_dir / "session.json"
-                    if session_file.exists():
-                        session = load_session(session_file)
-                        session_found = True
-                        break
-
-            # Check nested directories
-            if not session_found:
-                for session_dir in base_path.iterdir():
-                    if session_dir.is_dir():
-                        for nested_dir in session_dir.iterdir():
-                            if nested_dir.is_dir() and session_id.startswith(nested_dir.name):
-                                session_file = nested_dir / "session.json"
-                                if session_file.exists():
-                                    session = load_session(session_file)
-                                    session_found = True
-                                    break
-                    if session_found:
-                        break
-
-            if not session_found:
+            result = _load_session_by_id(session_id)
+            if not result:
                 print(f"Session '{session_id}' not found.")
                 return
+            session, _session_path = result
 
             # Calculate and display stats
             from ..stats.session_stats import calculate_session_stats, calculate_tree_stats

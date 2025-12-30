@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 from maestro.commands.work_session import handle_wsession_breadcrumb_add
-from maestro.work_session import create_session, complete_session, save_session, get_session_cookie
+from maestro.work_session import create_session, complete_session, save_session, get_session_cookie, get_sessions_base_path
 
 
 def test_breadcrumb_add_requires_cookie(capsys) -> None:
@@ -20,7 +20,7 @@ def test_breadcrumb_add_rejects_closed_session(tmp_path: Path, monkeypatch, caps
 
     session = create_session("work_task")
     session = complete_session(session)
-    session_file = Path("docs") / "sessions" / session.session_id / "session.json"
+    session_file = get_sessions_base_path() / session.session_id / "session.json"
     save_session(session, session_file)
 
     args = SimpleNamespace(

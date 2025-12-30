@@ -2,7 +2,7 @@
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -10,6 +10,7 @@ import uuid
 import tempfile
 import logging
 
+from maestro.config.paths import get_docs_root
 
 @dataclass
 class Breadcrumb:
@@ -33,6 +34,9 @@ class Breadcrumb:
     token_count: Dict[str, int]  # {input: N, output: M}
     cost: Optional[float]  # Estimated cost in USD
     error: Optional[str]  # Error message if operation failed
+    kind: str = "note"  # note, decision, result, handoff, gate, etc.
+    tags: List[str] = field(default_factory=list)
+    payload: Optional[Dict[str, Any]] = None
 
 
 def generate_timestamp() -> str:
@@ -56,7 +60,10 @@ def create_breadcrumb(
     model_used: str,
     token_count: Dict[str, int],
     cost: Optional[float] = None,
-    error: Optional[str] = None
+    error: Optional[str] = None,
+    kind: str = "note",
+    tags: Optional[List[str]] = None,
+    payload: Optional[Dict[str, Any]] = None
 ) -> Breadcrumb:
     """
     Create a new breadcrumb with auto-generated timestamp and ID.
@@ -91,11 +98,20 @@ def create_breadcrumb(
         model_used=model_used,
         token_count=token_count,
         cost=cost,
-        error=error
+        error=error,
+        kind=kind,
+        tags=tags or [],
+        payload=payload
     )
 
 
-def write_breadcrumb(breadcrumb: Breadcrumb, session_id: str, sessions_dir: str = "docs/sessions") -> str:
+def _resolve_sessions_dir(sessions_dir: Optional[str]) -> Path:
+    if sessions_dir:
+        return Path(sessions_dir)
+    return get_docs_root() / "docs" / "sessions"
+
+
+def write_breadcrumb(breadcrumb: Breadcrumb, session_id: str, sessions_dir: Optional[str] = None) -> str:
     """
     Write breadcrumb to disk.
     
@@ -108,7 +124,7 @@ def write_breadcrumb(breadcrumb: Breadcrumb, session_id: str, sessions_dir: str 
         Path to written file
     """
     # Create session breadcrumbs directory structure
-    session_dir = Path(sessions_dir) / session_id
+    session_dir = _resolve_sessions_dir(sessions_dir) / session_id
     breadcrumbs_dir = session_dir / "breadcrumbs" / str(breadcrumb.depth_level)
     breadcrumbs_dir.mkdir(parents=True, exist_ok=True)
     
@@ -154,7 +170,7 @@ def load_breadcrumb(filepath: str) -> Breadcrumb:
 
 def list_breadcrumbs(
     session_id: str,
-    sessions_dir: str = "docs/sessions",
+    sessions_dir: Optional[str] = None,
     depth: Optional[int] = None,
     date_range: Optional[tuple] = None
 ) -> List[Breadcrumb]:
@@ -170,7 +186,7 @@ def list_breadcrumbs(
     Returns:
         Sorted list of Breadcrumb objects (by timestamp)
     """
-    session_dir = Path(sessions_dir) / session_id
+    session_dir = _resolve_sessions_dir(sessions_dir) / session_id
     breadcrumbs_dir = session_dir / "breadcrumbs"
     
     if not breadcrumbs_dir.exists():
@@ -209,7 +225,7 @@ def list_breadcrumbs(
     return breadcrumbs
 
 
-def reconstruct_session_timeline(session_id: str, sessions_dir: str = "docs/sessions") -> List[Breadcrumb]:
+def reconstruct_session_timeline(session_id: str, sessions_dir: Optional[str] = None) -> List[Breadcrumb]:
     """
     Build full session history by loading all breadcrumbs for a session.
     
@@ -225,7 +241,7 @@ def reconstruct_session_timeline(session_id: str, sessions_dir: str = "docs/sess
     return breadcrumbs
 
 
-def get_breadcrumb_summary(session_id: str, sessions_dir: str = "docs/sessions") -> Dict[str, Any]:
+def get_breadcrumb_summary(session_id: str, sessions_dir: Optional[str] = None) -> Dict[str, Any]:
     """
     Summarize breadcrumbs for a session.
     

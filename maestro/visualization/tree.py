@@ -57,7 +57,22 @@ class SessionTreeRenderer:
         status_emoji = self.status_emoji.get(session.status, "?")
         
         # Build the main node line
-        node_info = f"{status_emoji} {session.session_id} ({session.session_type}: {session.related_entity.get('name', 'unnamed')}) [{session.status}]"
+        entity_label = session.related_entity.get('name') if session.related_entity else None
+        if not entity_label and session.related_entity:
+            for key in ("task_id", "phase_id", "track_id", "issue_id"):
+                if session.related_entity.get(key):
+                    entity_label = f"{key}={session.related_entity.get(key)}"
+                    break
+        label = session.purpose or entity_label or "unnamed"
+        context_label = ""
+        if session.context:
+            kind = session.context.get("kind")
+            ref = session.context.get("ref")
+            if kind and ref:
+                context_label = f" [{kind}:{ref}]"
+            elif kind:
+                context_label = f" [{kind}]"
+        node_info = f"{status_emoji} {session.session_id} ({session.session_type}: {label}){context_label} [{session.status}]"
         
         # Start the line with prefix and connector
         line = f"{prefix}{connector}{node_info}"

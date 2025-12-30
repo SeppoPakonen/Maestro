@@ -12,6 +12,8 @@ from typing import Dict, Any, List, Optional, Union
 from enum import Enum
 import yaml
 
+from maestro.config.paths import get_docs_root
+
 
 class SessionStatus(Enum):
     """Possible session statuses."""
@@ -39,9 +41,16 @@ class WorkSession:
     session_id: str  # UUID or timestamp-based ID
     session_type: str  # work_track, work_phase, work_issue, discussion, analyze, fix
     parent_session_id: Optional[str] = None  # Link to parent if this is a sub-worker
+    parent_wsession_id: Optional[str] = None  # Canonical parent reference for subwork
+    children_wsession_ids: List[str] = field(default_factory=list)
     status: str = SessionStatus.RUNNING.value  # running, paused, completed, interrupted, failed
+    state: str = "running"  # running, paused, closed
+    purpose: Optional[str] = None  # human label for the session
+    context: Dict[str, Any] = field(default_factory=dict)  # {kind, ref}
     created: str = field(default_factory=lambda: datetime.now().isoformat())  # ISO 8601 timestamp
     modified: str = field(default_factory=lambda: datetime.now().isoformat())  # ISO 8601 timestamp
+    created_at: Optional[str] = None  # ISO 8601 timestamp (alias for created)
+    closed_at: Optional[str] = None  # ISO 8601 timestamp
     related_entity: Dict[str, Any] = field(default_factory=dict)  # {track_id: ..., phase_id: ..., issue_id: ..., etc.}
     breadcrumbs_dir: str = ""  # Path to breadcrumbs subdirectory
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional flexible metadata
@@ -52,13 +61,44 @@ def _ensure_dir_exists(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def get_sessions_base_path(base_path: Optional[Path] = None) -> Path:
+    """Resolve the base path for work sessions."""
+    if base_path is not None:
+        return Path(base_path)
+    return get_docs_root() / "docs" / "sessions"
+
+
+def _derive_state_from_status(status: str) -> str:
+    if status == SessionStatus.PAUSED.value:
+        return "paused"
+    if status in {
+        SessionStatus.COMPLETED.value,
+        SessionStatus.INTERRUPTED.value,
+        SessionStatus.FAILED.value,
+    }:
+        return "closed"
+    return "running"
+
+
+def _normalize_state(state: Optional[str], status: str) -> str:
+    derived = _derive_state_from_status(status)
+    if state in {"running", "paused", "closed"}:
+        if state != derived:
+            return derived
+        return state
+    return derived
+
+
 def create_session(
     session_type: str,
     parent_session_id: Optional[str] = None,
+    parent_wsession_id: Optional[str] = None,
     related_entity: Optional[Dict[str, Any]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     base_path: Optional[Path] = None,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    purpose: Optional[str] = None,
+    context: Optional[Dict[str, Any]] = None
 ) -> WorkSession:
     """
     Create new session.
@@ -78,13 +118,13 @@ def create_session(
     timestamp = datetime.now().isoformat()
 
     # Determine base path
-    if base_path is None:
-        base_path = Path("docs") / "sessions"
+    base_path = get_sessions_base_path(base_path)
+    parent_id = parent_wsession_id or parent_session_id
 
     # Create session directory structure
-    if parent_session_id:
+    if parent_id:
         # Nested session: docs/sessions/<parent-id>/<child-id>/
-        session_dir = base_path / parent_session_id / session_id
+        session_dir = base_path / parent_id / session_id
     else:
         # Top-level session: docs/sessions/<session-id>/
         session_dir = base_path / session_id
@@ -96,13 +136,20 @@ def create_session(
     _ensure_dir_exists(breadcrumbs_dir)
 
     # Create WorkSession instance
+    status_value = status or SessionStatus.RUNNING.value
     session = WorkSession(
         session_id=session_id,
         session_type=session_type,
-        parent_session_id=parent_session_id,
-        status=status or SessionStatus.RUNNING.value,
+        parent_session_id=parent_id,
+        parent_wsession_id=parent_id,
+        status=status_value,
+        state=_normalize_state(None, status_value),
+        purpose=purpose,
+        context=context or {},
         created=timestamp,
         modified=timestamp,
+        created_at=timestamp,
+        closed_at=None,
         related_entity=related_entity or {},
         breadcrumbs_dir=str(breadcrumbs_dir),
         metadata=metadata or {}
@@ -120,6 +167,9 @@ def create_session(
     # Save initial session.json
     session_path = session_dir / "session.json"
     save_session(session, session_path)
+
+    if parent_id:
+        _register_child_session(base_path, parent_id, session_id)
 
     logging.info(f"Created new work session: {session_id}")
     return session
@@ -148,13 +198,24 @@ def load_session(session_path: Union[str, Path]) -> WorkSession:
         data = json.load(f)
     
     # Create WorkSession instance from dictionary data
+    status = data.get("status", SessionStatus.RUNNING.value)
+    parent_wsession_id = data.get("parent_wsession_id") or data.get("parent_session_id")
+    parent_session_id = data.get("parent_session_id") or parent_wsession_id
+    created = data.get("created", datetime.now().isoformat())
     session = WorkSession(
         session_id=data["session_id"],
         session_type=data["session_type"],
-        parent_session_id=data.get("parent_session_id"),
-        status=data.get("status", SessionStatus.RUNNING.value),
-        created=data.get("created", datetime.now().isoformat()),
+        parent_session_id=parent_session_id,
+        parent_wsession_id=parent_wsession_id,
+        children_wsession_ids=list(data.get("children_wsession_ids", [])),
+        status=status,
+        state=_normalize_state(data.get("state"), status),
+        purpose=data.get("purpose"),
+        context=data.get("context", {}),
+        created=created,
         modified=data.get("modified", datetime.now().isoformat()),
+        created_at=data.get("created_at") or created,
+        closed_at=data.get("closed_at"),
         related_entity=data.get("related_entity", {}),
         breadcrumbs_dir=data.get("breadcrumbs_dir", ""),
         metadata=data.get("metadata", {})
@@ -176,7 +237,10 @@ def save_session(session: WorkSession, session_path: Union[str, Path]) -> None:
     
     # Update modified timestamp
     session.modified = datetime.now().isoformat()
-    
+    session.state = _normalize_state(session.state, session.status)
+    if not session.created_at:
+        session.created_at = session.created
+
     # Prepare temporary file path for atomic write
     temp_path = path.with_suffix('.tmp')
     
@@ -195,9 +259,16 @@ def _work_session_to_dict(session: WorkSession) -> Dict[str, Any]:
         "session_id": session.session_id,
         "session_type": session.session_type,
         "parent_session_id": session.parent_session_id,
+        "parent_wsession_id": session.parent_wsession_id,
+        "children_wsession_ids": session.children_wsession_ids,
         "status": session.status,
+        "state": session.state,
+        "purpose": session.purpose,
+        "context": session.context,
         "created": session.created,
         "modified": session.modified,
+        "created_at": session.created_at,
+        "closed_at": session.closed_at,
         "related_entity": session.related_entity,
         "breadcrumbs_dir": session.breadcrumbs_dir,
         "metadata": session.metadata
@@ -217,8 +288,7 @@ def list_sessions(base_path: Optional[Path] = None, session_type: Optional[str] 
     Returns:
         List of WorkSession objects
     """
-    if base_path is None:
-        base_path = Path("docs") / "sessions"
+    base_path = get_sessions_base_path(base_path)
     
     sessions = []
     
@@ -271,8 +341,7 @@ def get_session_hierarchy(base_path: Optional[Path] = None) -> Dict[str, Any]:
     Returns:
         Hierarchical representation of sessions as a tree
     """
-    if base_path is None:
-        base_path = Path("docs") / "sessions"
+    base_path = get_sessions_base_path(base_path)
 
     # Load all sessions first
     all_sessions = list_sessions(base_path)
@@ -325,7 +394,9 @@ def interrupt_session(session: WorkSession, reason: Optional[str] = None) -> Wor
         Updated WorkSession object
     """
     session.status = SessionStatus.INTERRUPTED.value
+    session.state = _normalize_state(session.state, session.status)
     session.modified = datetime.now().isoformat()
+    session.closed_at = datetime.now().isoformat()
     
     # Add interruption reason to metadata if provided
     if reason:
@@ -345,11 +416,13 @@ def resume_session(session: WorkSession) -> WorkSession:
     Returns:
         Updated WorkSession object with new context for continuation
     """
-    if session.status == SessionStatus.COMPLETED.value:
+    if session.status in {SessionStatus.COMPLETED.value, SessionStatus.FAILED.value}:
         raise ValueError("Session is closed and cannot be resumed.")
 
     session.status = SessionStatus.RUNNING.value
+    session.state = _normalize_state(session.state, session.status)
     session.modified = datetime.now().isoformat()
+    session.closed_at = None
     
     logging.info(f"Resumed work session: {session.session_id}")
     return session
@@ -366,7 +439,9 @@ def complete_session(session: WorkSession) -> WorkSession:
         Updated WorkSession object
     """
     session.status = SessionStatus.COMPLETED.value
+    session.state = _normalize_state(session.state, session.status)
     session.modified = datetime.now().isoformat()
+    session.closed_at = datetime.now().isoformat()
     
     # Add completion timestamp to metadata
     session.metadata["completion_time"] = datetime.now().isoformat()
@@ -400,6 +475,67 @@ def is_session_closed(session: WorkSession) -> bool:
         SessionStatus.INTERRUPTED.value,
         SessionStatus.FAILED.value,
     }
+
+
+def pause_session(session: WorkSession) -> WorkSession:
+    """Pause a running session."""
+    session.status = SessionStatus.PAUSED.value
+    session.state = _normalize_state(session.state, session.status)
+    session.modified = datetime.now().isoformat()
+    return session
+
+
+def get_child_sessions(parent_session_id: str, base_path: Optional[Path] = None) -> List[WorkSession]:
+    """Get direct child sessions for a parent session."""
+    sessions = list_sessions(base_path=base_path)
+    return [
+        session for session in sessions
+        if (session.parent_wsession_id or session.parent_session_id) == parent_session_id
+    ]
+
+
+def get_open_child_sessions(parent_session_id: str, base_path: Optional[Path] = None) -> List[WorkSession]:
+    """Get child sessions that are not closed."""
+    return [
+        session for session in get_child_sessions(parent_session_id, base_path=base_path)
+        if session.state in {"running", "paused"}
+    ]
+
+
+def find_session_by_id(session_id: str, base_path: Optional[Path] = None) -> Optional[tuple[WorkSession, Path]]:
+    """Find a session by full ID or prefix."""
+    base_path = get_sessions_base_path(base_path)
+    if not base_path.exists():
+        return None
+
+    for session_dir in base_path.iterdir():
+        if session_dir.is_dir() and session_id.startswith(session_dir.name):
+            session_file = session_dir / "session.json"
+            if session_file.exists():
+                return load_session(session_file), session_file
+        if session_dir.is_dir():
+            for nested_dir in session_dir.iterdir():
+                if nested_dir.is_dir() and session_id.startswith(nested_dir.name):
+                    session_file = nested_dir / "session.json"
+                    if session_file.exists():
+                        return load_session(session_file), session_file
+    return None
+
+
+def _register_child_session(base_path: Path, parent_session_id: str, child_session_id: str) -> None:
+    """Register a child session ID on the parent session if possible."""
+    parent_path = base_path / parent_session_id / "session.json"
+    if not parent_path.exists():
+        return
+    try:
+        parent_session = load_session(parent_path)
+    except Exception as exc:
+        logging.warning("Failed to load parent session %s: %s", parent_session_id, exc)
+        return
+
+    if child_session_id not in parent_session.children_wsession_ids:
+        parent_session.children_wsession_ids.append(child_session_id)
+        save_session(parent_session, parent_path)
 
 
 def load_breadcrumb_settings(settings_path: str = "docs/Settings.md") -> Dict[str, Any]:

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from maestro import git_guard
 from maestro.git_guard import check_branch_guard
-from maestro.work_session import create_session, save_session
+from maestro.work_session import create_session, save_session, get_sessions_base_path
 
 
 def test_branch_guard_detects_mismatch(tmp_path: Path, monkeypatch) -> None:
@@ -16,7 +16,7 @@ def test_branch_guard_detects_mismatch(tmp_path: Path, monkeypatch) -> None:
     session = create_session("work_task")
     session.metadata["git_branch"] = "nonexistent-branch"
     session.metadata["git_root"] = str(repo_root)
-    session_file = Path("docs") / "sessions" / session.session_id / "session.json"
+    session_file = get_sessions_base_path() / session.session_id / "session.json"
     save_session(session, session_file)
 
     error = check_branch_guard(str(repo_root))

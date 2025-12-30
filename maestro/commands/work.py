@@ -5,17 +5,26 @@ import json
 import logging
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Union
 import yaml
 
 from ..work_session import (
     WorkSession,
+    SessionStatus,
     create_session,
     is_breadcrumb_enabled,
     load_breadcrumb_settings,
     complete_session,
-    save_session
+    save_session,
+    pause_session,
+    resume_session,
+    is_session_closed,
+    find_session_by_id,
+    get_child_sessions,
+    get_open_child_sessions,
+    get_sessions_base_path,
 )
 from ..ai.task_sync import (
     build_task_prompt,
@@ -70,6 +79,30 @@ def add_work_parser(subparsers):
     fix_parser.add_argument("target", nargs="?", help="Target to fix (file, directory, or ID)")
     fix_parser.add_argument("--issue", help="Issue ID to fix")
     fix_parser.add_argument("--simulate", action="store_true", help="Print the prompt without executing work")
+
+    subwork_parser = work_subparsers.add_parser("subwork", help="Manage subwork sessions")
+    subwork_subparsers = subwork_parser.add_subparsers(dest="subwork_subcommand", help="Subwork subcommands")
+
+    subwork_start = subwork_subparsers.add_parser("start", help="Start a subwork session")
+    subwork_start.add_argument("parent_wsession_id", help="Parent work session ID (or prefix)")
+    subwork_start.add_argument("--purpose", required=True, help="Short label for this subwork session")
+    subwork_start.add_argument("--context", help="Context in kind:ref format")
+    subwork_start.add_argument("--no-pause-parent", action="store_true", help="Do not pause the parent session")
+
+    subwork_list = subwork_subparsers.add_parser("list", help="List subwork sessions for a parent")
+    subwork_list.add_argument("parent_wsession_id", help="Parent work session ID (or prefix)")
+
+    subwork_show = subwork_subparsers.add_parser("show", help="Show a subwork session")
+    subwork_show.add_argument("child_wsession_id", help="Child work session ID (or prefix)")
+
+    subwork_close = subwork_subparsers.add_parser("close", help="Close a subwork session")
+    subwork_close.add_argument("child_wsession_id", help="Child work session ID (or prefix)")
+    subwork_close.add_argument("--summary", required=True, help="Summary of the subwork result")
+    subwork_close.add_argument("--status", choices=["ok", "failed", "partial"], default="ok", help="Result status")
+    subwork_close.add_argument("--no-resume-parent", action="store_true", help="Do not resume the parent session")
+
+    subwork_resume = subwork_subparsers.add_parser("resume-parent", help="Resume a subwork parent session")
+    subwork_resume.add_argument("child_wsession_id", help="Child work session ID (or prefix)")
 
     resume_parser = work_subparsers.add_parser("resume", help="Resume a work session")
     resume_parser.add_argument("session_id", help="Work session ID")
@@ -1732,3 +1765,242 @@ Your analysis plan:"""
         session.status = "failed"
         session.metadata["error"] = str(e)
         save_session(session, Path(session.breadcrumbs_dir).parent / "session.json")
+
+
+def _parse_subwork_context(raw: Optional[str]) -> Optional[Dict[str, str]]:
+    if not raw:
+        return None
+    if ":" not in raw:
+        raise ValueError("Context must be in kind:ref format")
+    kind, ref = raw.split(":", 1)
+    kind = kind.strip()
+    ref = ref.strip()
+    if not kind or not ref:
+        raise ValueError("Context must include both kind and ref")
+    return {"kind": kind, "ref": ref}
+
+
+def _derive_context_from_session(session: WorkSession) -> Dict[str, str]:
+    if session.context:
+        return dict(session.context)
+    related = session.related_entity or {}
+    if related.get("task_id"):
+        return {"kind": "task", "ref": related["task_id"]}
+    if related.get("phase_id"):
+        return {"kind": "phase", "ref": related["phase_id"]}
+    if related.get("track_id"):
+        return {"kind": "track", "ref": related["track_id"]}
+    if related.get("issue_id"):
+        return {"kind": "issue", "ref": related["issue_id"]}
+    return {}
+
+
+def _print_subwork_details(session: WorkSession) -> None:
+    print(f"Subwork Session: {session.session_id}")
+    print(f"  Parent:  {session.parent_wsession_id or session.parent_session_id or 'none'}")
+    print(f"  Status:  {session.status}")
+    print(f"  State:   {session.state}")
+    if session.purpose:
+        print(f"  Purpose: {session.purpose}")
+    if session.context:
+        print(f"  Context: {session.context.get('kind')}:{session.context.get('ref')}")
+    if session.related_entity:
+        print(f"  Related: {session.related_entity}")
+    if session.created_at:
+        print(f"  Created: {session.created_at}")
+    if session.closed_at:
+        print(f"  Closed:  {session.closed_at}")
+
+
+def handle_work_subwork_start(args) -> int:
+    result = find_session_by_id(args.parent_wsession_id)
+    if not result:
+        print(f"Parent session '{args.parent_wsession_id}' not found.")
+        return 1
+
+    parent_session, parent_path = result
+    if is_session_closed(parent_session) or parent_session.state == "closed":
+        print(f"Parent session '{parent_session.session_id}' is closed.")
+        return 1
+
+    try:
+        context = _parse_subwork_context(getattr(args, "context", None))
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
+    if not context:
+        context = _derive_context_from_session(parent_session)
+
+    child_session = create_session(
+        session_type="work_subwork",
+        parent_wsession_id=parent_session.session_id,
+        related_entity=dict(parent_session.related_entity),
+        purpose=args.purpose,
+        context=context,
+    )
+
+    if not getattr(args, "no_pause_parent", False):
+        if parent_session.status != SessionStatus.PAUSED.value:
+            pause_session(parent_session)
+            save_session(parent_session, parent_path)
+        print(f"Parent session paused: {parent_session.session_id}")
+
+    print(f"Subwork session created: {child_session.session_id}")
+    return 0
+
+
+def handle_work_subwork_list(args) -> int:
+    result = find_session_by_id(args.parent_wsession_id)
+    if not result:
+        print(f"Parent session '{args.parent_wsession_id}' not found.")
+        return 1
+
+    parent_session, _parent_path = result
+    children = get_child_sessions(parent_session.session_id, base_path=get_sessions_base_path())
+    if not children:
+        print(f"No subwork sessions found for {parent_session.session_id}.")
+        return 0
+
+    children.sort(key=lambda s: s.created)
+    print(f"Subwork sessions for {parent_session.session_id}:")
+    for child in children:
+        purpose = f" - {child.purpose}" if child.purpose else ""
+        print(f"  {child.session_id} [{child.status}]{purpose}")
+    return 0
+
+
+def handle_work_subwork_show(args) -> int:
+    result = find_session_by_id(args.child_wsession_id)
+    if not result:
+        print(f"Subwork session '{args.child_wsession_id}' not found.")
+        return 1
+
+    child_session, _child_path = result
+    _print_subwork_details(child_session)
+    return 0
+
+
+def _close_child_session(child_session: WorkSession, result_status: str) -> None:
+    if result_status == "ok":
+        complete_session(child_session)
+        return
+    if result_status == "failed":
+        child_session.status = SessionStatus.FAILED.value
+    else:
+        child_session.status = SessionStatus.INTERRUPTED.value
+    child_session.state = "closed"
+    child_session.closed_at = datetime.now().isoformat()
+    child_session.modified = datetime.now().isoformat()
+
+
+def handle_work_subwork_close(args) -> int:
+    result = find_session_by_id(args.child_wsession_id)
+    if not result:
+        print(f"Subwork session '{args.child_wsession_id}' not found.")
+        return 1
+
+    child_session, child_path = result
+    if not (child_session.parent_wsession_id or child_session.parent_session_id):
+        print(f"Error: subwork session '{child_session.session_id}' is missing parent_wsession_id.")
+        return 1
+
+    parent_id = child_session.parent_wsession_id or child_session.parent_session_id
+    parent_result = find_session_by_id(parent_id)
+    parent_session = None
+    parent_path = None
+    if parent_result:
+        parent_session, parent_path = parent_result
+    else:
+        print(f"Warning: parent session '{parent_id}' not found; closing child only.")
+
+    summary = args.summary.strip()
+    result_status = getattr(args, "status", "ok")
+
+    child_session.metadata["result_summary"] = summary
+    child_session.metadata["result_status"] = result_status
+
+    breadcrumb_written = False
+    if parent_session:
+        existing_id = child_session.metadata.get("parent_result_breadcrumb_id")
+        if not existing_id:
+            prompt = f"Subwork {child_session.session_id} closed ({result_status})"
+            breadcrumb = create_breadcrumb(
+                prompt=prompt,
+                response=summary,
+                tools_called=[],
+                files_modified=[],
+                parent_session_id=parent_session.session_id,
+                depth_level=0,
+                model_used="manual",
+                token_count={"input": len(prompt), "output": len(summary)},
+                kind="result",
+                tags=["subwork", "handoff"],
+                payload={
+                    "child_wsession_id": child_session.session_id,
+                    "status": result_status,
+                    "summary": summary,
+                    "purpose": child_session.purpose,
+                    "context": child_session.context,
+                },
+            )
+            write_breadcrumb(breadcrumb, parent_session.session_id)
+            child_session.metadata["parent_result_breadcrumb_id"] = breadcrumb.breadcrumb_id
+            breadcrumb_written = True
+        else:
+            breadcrumb_written = True
+
+    _close_child_session(child_session, result_status)
+    save_session(child_session, child_path)
+
+    if parent_session and not getattr(args, "no_resume_parent", False):
+        if parent_session.state == "paused":
+            open_children = [
+                child for child in get_open_child_sessions(parent_session.session_id, base_path=get_sessions_base_path())
+                if child.session_id != child_session.session_id
+            ]
+            if open_children:
+                print("Parent session has other open subwork sessions; leaving paused.")
+            else:
+                resume_session(parent_session)
+                save_session(parent_session, parent_path)
+                print(f"Parent session resumed: {parent_session.session_id}")
+
+    print(f"Subwork session closed: {child_session.session_id}")
+    if parent_session and breadcrumb_written:
+        print(f"Result recorded in parent session: {parent_session.session_id}")
+    return 0
+
+
+def handle_work_subwork_resume_parent(args) -> int:
+    result = find_session_by_id(args.child_wsession_id)
+    if not result:
+        print(f"Subwork session '{args.child_wsession_id}' not found.")
+        return 1
+
+    child_session, _child_path = result
+    parent_id = child_session.parent_wsession_id or child_session.parent_session_id
+    if not parent_id:
+        print(f"Error: subwork session '{child_session.session_id}' is missing parent_wsession_id.")
+        return 1
+
+    parent_result = find_session_by_id(parent_id)
+    if not parent_result:
+        print(f"Parent session '{parent_id}' not found.")
+        return 1
+
+    parent_session, parent_path = parent_result
+    if parent_session.state == "closed":
+        print(f"Parent session '{parent_session.session_id}' is closed.")
+        return 1
+
+    if parent_session.state == "paused":
+        resume_session(parent_session)
+        save_session(parent_session, parent_path)
+        print(f"Parent session resumed: {parent_session.session_id}")
+    else:
+        print(f"Parent session already running: {parent_session.session_id}")
+
+    print("Next commands:")
+    print(f"  maestro wsession show {parent_session.session_id}")
+    print("  maestro wsession tree")
+    return 0

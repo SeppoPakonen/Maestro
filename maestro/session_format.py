@@ -30,6 +30,7 @@ class SessionMeta:
     engine: str
     model: str
     initial_prompt: str
+    wsession_id: Optional[str] = None
     # Cache-readiness fields (P1 Sprint 2.1)
     cache_policy: Optional[Dict[str, Any]] = None
     prompt_hash: Optional[str] = None
@@ -70,7 +71,8 @@ def create_session(
     contract_type: ContractType,
     engine: str,
     model: str,
-    initial_prompt: str
+    initial_prompt: str,
+    wsession_id: Optional[str] = None
 ) -> DiscussSession:
     """Create a new discuss session with canonical format."""
     session_id = create_session_id()
@@ -90,7 +92,8 @@ def create_session(
         final_json_present=False,
         engine=engine,
         model=model,
-        initial_prompt=initial_prompt
+        initial_prompt=initial_prompt,
+        wsession_id=wsession_id
     )
 
     session_dir = get_session_path(session_id)
@@ -117,7 +120,8 @@ def write_session(session: DiscussSession) -> None:
         "final_json_present": session.meta.final_json_present,
         "engine": session.meta.engine,
         "model": session.meta.model,
-        "initial_prompt": session.meta.initial_prompt
+        "initial_prompt": session.meta.initial_prompt,
+        "wsession_id": session.meta.wsession_id
     }
     # Add cache-readiness fields if present
     if session.meta.cache_policy is not None:
@@ -231,6 +235,8 @@ def _load_canonical_session(session_dir: Path) -> DiscussSession:
         meta_dict["diff_anchor"] = None
     if "workspace_fingerprint" not in meta_dict:
         meta_dict["workspace_fingerprint"] = None
+    if "wsession_id" not in meta_dict:
+        meta_dict["wsession_id"] = None
 
     meta = SessionMeta(**meta_dict)
 

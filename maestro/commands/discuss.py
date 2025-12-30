@@ -29,7 +29,14 @@ from maestro.ai.manager import AiEngineManager
 from maestro.ai.cache import AiCacheStore
 from maestro.data import parse_config_md
 from maestro.discussion import DiscussionSession, create_discussion_session, resume_discussion
-from maestro.work_session import SessionType, load_session
+from maestro.work_session import (
+    SessionType,
+    load_session,
+    save_session,
+    find_session_by_id,
+    list_sessions,
+    is_session_closed,
+)
 from maestro.breadcrumb import list_breadcrumbs, get_breadcrumb_summary
 from maestro.session_format import (
     create_session,
@@ -67,6 +74,59 @@ def choose_mode(mode_arg: Optional[str]) -> DiscussionMode:
     if os.environ.get("VISUAL") or os.environ.get("EDITOR"):
         return DiscussionMode.EDITOR
     return DiscussionMode.TERMINAL
+
+
+def _context_kind_to_contract(kind: Optional[str]) -> ContractType:
+    context_map = {
+        "task": ContractType.TASK,
+        "phase": ContractType.PHASE,
+        "track": ContractType.TRACK,
+        "repo": ContractType.GLOBAL,
+        "issues": ContractType.GLOBAL,
+        "runbook": ContractType.GLOBAL,
+        "workflow": ContractType.GLOBAL,
+        "solutions": ContractType.GLOBAL,
+        "global": ContractType.GLOBAL,
+    }
+    return context_map.get(kind or "global", ContractType.GLOBAL)
+
+
+def _context_from_work_session(session, reason: str) -> DiscussContext:
+    kind = None
+    ref = None
+    if session.context:
+        kind = session.context.get("kind")
+        ref = session.context.get("ref")
+    if not kind:
+        related = session.related_entity or {}
+        if related.get("task_id"):
+            kind = "task"
+            ref = related.get("task_id")
+        elif related.get("phase_id"):
+            kind = "phase"
+            ref = related.get("phase_id")
+        elif related.get("track_id"):
+            kind = "track"
+            ref = related.get("track_id")
+    if not kind:
+        kind = "global"
+    return DiscussContext(
+        kind=kind,
+        ref=ref,
+        reason=reason,
+        contract_type=_context_kind_to_contract(kind),
+    )
+
+
+def _resolve_explicit_wsession(args) -> tuple[Optional[tuple], Optional[str]]:
+    if not getattr(args, "wsession", None):
+        return None, None
+    wsession_result = find_session_by_id(args.wsession)
+    if not wsession_result:
+        return None, f"Work session '{args.wsession}' not found."
+    if is_session_closed(wsession_result[0]):
+        return None, f"Work session '{wsession_result[0].session_id}' is closed."
+    return wsession_result, None
 
 
 def _detect_discuss_context(args) -> DiscussContext:
@@ -107,18 +167,7 @@ def _detect_discuss_context(args) -> DiscussContext:
         )
 
     if hasattr(args, 'context') and args.context:
-        context_map = {
-            "task": ContractType.TASK,
-            "phase": ContractType.PHASE,
-            "track": ContractType.TRACK,
-            "repo": ContractType.GLOBAL,
-            "issues": ContractType.GLOBAL,
-            "runbook": ContractType.GLOBAL,
-            "workflow": ContractType.GLOBAL,
-            "solutions": ContractType.GLOBAL,
-            "global": ContractType.GLOBAL,
-        }
-        contract_type = context_map.get(args.context, ContractType.GLOBAL)
+        contract_type = _context_kind_to_contract(args.context)
         return DiscussContext(
             kind=args.context,
             ref=None,
@@ -126,53 +175,28 @@ def _detect_discuss_context(args) -> DiscussContext:
             contract_type=contract_type
         )
 
+    # Priority 2: Explicit work session binding
+    if getattr(args, "_wsession", None) is not None:
+        return _context_from_work_session(
+            args._wsession,
+            reason=f"Explicit --wsession: {args._wsession.session_id}"
+        )
+
     # Priority 2: Check for active work session (if allowed)
     if getattr(args, "allow_active_session", None) is True:
         try:
-            sessions_dir = Path("docs/sessions")
-            if sessions_dir.exists():
-                # Find most recent running/paused session
-                active_sessions = []
-                for session_dir in sessions_dir.iterdir():
-                    if session_dir.is_dir():
-                        session_file = session_dir / "session.json"
-                        if session_file.exists():
-                            try:
-                                with open(session_file, 'r') as f:
-                                    session_data = json.load(f)
-                                if session_data.get("status") in ["running", "paused"]:
-                                    active_sessions.append(session_data)
-                            except (json.JSONDecodeError, KeyError):
-                                continue
-
-                # Sort by modified timestamp (most recent first)
-                if active_sessions:
-                    active_sessions.sort(key=lambda s: s.get("modified", ""), reverse=True)
-                    most_recent = active_sessions[0]
-                    related = most_recent.get("related_entity", {})
-
-                    # Check what kind of session this is
-                    if "task_id" in related:
-                        return DiscussContext(
-                            kind="task",
-                            ref=related["task_id"],
-                            reason=f"Active work session bound to task {related['task_id']}",
-                            contract_type=ContractType.TASK
-                        )
-                    elif "phase_id" in related:
-                        return DiscussContext(
-                            kind="phase",
-                            ref=related["phase_id"],
-                            reason=f"Active work session bound to phase {related['phase_id']}",
-                            contract_type=ContractType.PHASE
-                        )
-                    elif "track_id" in related:
-                        return DiscussContext(
-                            kind="track",
-                            ref=related["track_id"],
-                            reason=f"Active work session bound to track {related['track_id']}",
-                            contract_type=ContractType.TRACK
-                        )
+            active_sessions = [
+                session for session in list_sessions()
+                if session.status in ["running", "paused"]
+            ]
+            if active_sessions:
+                active_sessions.sort(key=lambda s: s.modified, reverse=True)
+                most_recent = active_sessions[0]
+                setattr(args, "_active_wsession_id", most_recent.session_id)
+                return _context_from_work_session(
+                    most_recent,
+                    reason=f"Active work session {most_recent.session_id}",
+                )
         except Exception:
             # If we can't detect active sessions, fall through to default
             pass
@@ -427,7 +451,8 @@ def save_discussion_artifacts(
     model_name: str,
     contract_type: ContractType,
     context: Optional[DiscussContext] = None,
-    session_id: Optional[str] = None
+    session_id: Optional[str] = None,
+    wsession_id: Optional[str] = None
 ) -> str:
     """Save discussion artifacts using canonical session format.
 
@@ -442,7 +467,8 @@ def save_discussion_artifacts(
         contract_type=contract_type,
         engine=engine_name,
         model=model_name,
-        initial_prompt=initial_prompt
+        initial_prompt=initial_prompt,
+        wsession_id=wsession_id
     )
 
     # Override session_id if pre-generated (for lock integration)
@@ -609,6 +635,18 @@ def handle_discuss_command(args) -> int:
             print(f"Error resuming session {session_id}: {e}")
             return 1
 
+    wsession_link = None
+    if getattr(args, "wsession", None):
+        wsession_result = find_session_by_id(args.wsession)
+        if not wsession_result:
+            print(f"Work session '{args.wsession}' not found.")
+            return 1
+        args._wsession, args._wsession_path = wsession_result
+        if is_session_closed(args._wsession):
+            print(f"Work session '{args._wsession.session_id}' is closed.")
+            return 1
+        wsession_link = wsession_result
+
     # Use router to detect context
     context = _detect_discuss_context(args)
     print(f"[Router] Context selected: {context.kind}")
@@ -626,6 +664,11 @@ def handle_discuss_command(args) -> int:
 
     # Otherwise, run discussion with detected contract type
     contract_type = context.contract_type
+
+    if not wsession_link and getattr(args, "_active_wsession_id", None):
+        wsession_result = find_session_by_id(args._active_wsession_id)
+        if wsession_result:
+            wsession_link = wsession_result
 
     # Generate session ID and acquire lock before starting discussion
     session_id = create_session_id()
@@ -665,10 +708,15 @@ def handle_discuss_command(args) -> int:
         model_name=model,
         contract_type=contract_type,
         context=context,
-        session_id=session_id
+        session_id=session_id,
+        wsession_id=wsession_link[0].session_id if wsession_link else None
     )
 
     print(f"Discussion session ID: {session_id}")
+    if wsession_link:
+        wsession_session, wsession_path = wsession_link
+        wsession_session.metadata["last_discuss_session_id"] = session_id_returned
+        save_session(wsession_session, wsession_path)
 
     if json_error:
         print(f"Error: {json_error}")
@@ -741,6 +789,11 @@ def handle_discuss_command(args) -> int:
 
 
 def handle_track_discuss(track_id: Optional[str], args) -> int:
+    wsession_link, wsession_error = _resolve_explicit_wsession(args)
+    if wsession_error:
+        print(wsession_error)
+        return 1
+
     # Generate session ID and acquire lock before starting discussion
     session_id = create_session_id()
     lock = RepoLock()
@@ -778,10 +831,15 @@ def handle_track_discuss(track_id: Optional[str], args) -> int:
         engine_name=engine,
         model_name=model,
         contract_type=ContractType.TRACK,
-        session_id=session_id
+        session_id=session_id,
+        wsession_id=wsession_link[0].session_id if wsession_link else None
     )
 
     print(f"Discussion session ID for track {track_id}: {session_id}")
+    if wsession_link:
+        wsession_session, wsession_path = wsession_link
+        wsession_session.metadata["last_discuss_session_id"] = session_id_returned
+        save_session(wsession_session, wsession_path)
 
     if json_error:
         print(f"Error: {json_error}")
@@ -1023,6 +1081,11 @@ def handle_discuss_replay(args) -> int:
 
 
 def handle_phase_discuss(phase_id: str, args) -> int:
+    wsession_link, wsession_error = _resolve_explicit_wsession(args)
+    if wsession_error:
+        print(wsession_error)
+        return 1
+
     # Generate session ID and acquire lock before starting discussion
     session_id = create_session_id()
     lock = RepoLock()
@@ -1060,10 +1123,15 @@ def handle_phase_discuss(phase_id: str, args) -> int:
         engine_name=engine,
         model_name=model,
         contract_type=ContractType.PHASE,
-        session_id=session_id
+        session_id=session_id,
+        wsession_id=wsession_link[0].session_id if wsession_link else None
     )
 
     print(f"Discussion session ID for phase {phase_id}: {session_id}")
+    if wsession_link:
+        wsession_session, wsession_path = wsession_link
+        wsession_session.metadata["last_discuss_session_id"] = session_id_returned
+        save_session(wsession_session, wsession_path)
 
     if json_error:
         print(f"Error: {json_error}")
@@ -1136,6 +1204,11 @@ def handle_phase_discuss(phase_id: str, args) -> int:
 
 
 def handle_task_discuss(task_id: str, args) -> int:
+    wsession_link, wsession_error = _resolve_explicit_wsession(args)
+    if wsession_error:
+        print(wsession_error)
+        return 1
+
     # Generate session ID and acquire lock before starting discussion
     session_id = create_session_id()
     lock = RepoLock()
@@ -1173,10 +1246,15 @@ def handle_task_discuss(task_id: str, args) -> int:
         engine_name=engine,
         model_name=model,
         contract_type=ContractType.TASK,
-        session_id=session_id
+        session_id=session_id,
+        wsession_id=wsession_link[0].session_id if wsession_link else None
     )
 
     print(f"Discussion session ID for task {task_id}: {session_id}")
+    if wsession_link:
+        wsession_session, wsession_path = wsession_link
+        wsession_session.metadata["last_discuss_session_id"] = session_id_returned
+        save_session(wsession_session, wsession_path)
 
     if json_error:
         print(f"Error: {json_error}")
@@ -1416,6 +1494,10 @@ def add_discuss_parser(subparsers):
         "--mode",
         choices=["editor", "terminal"],
         help="Discussion mode (editor or terminal)",
+    )
+    discuss_parser.add_argument(
+        "--wsession",
+        help="Attach this discussion to a work session ID",
     )
     discuss_parser.add_argument(
         "--dry-run",
