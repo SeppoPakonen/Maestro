@@ -120,7 +120,7 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 continue
             if root_relpath == '.':
                 root_relpath = '.'
-            assembly_id = _stable_id(f"assembly:{asm.name}:{root_relpath}")
+            assembly_id = _stable_id(f"assembly:{asm.name}:{root_relpath}:{getattr(asm, 'assembly_type', 'upp')}")
             entry = {
                 "assembly_id": assembly_id,
                 "name": asm.name,
@@ -287,11 +287,25 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 package_entries_by_assembly[assembly["assembly_id"]],
                 key=lambda p: p["package_relpath"],
             )
-            assembly["package_ids"] = [pkg["package_id"] for pkg in pkg_entries]
-            packages.extend(pkg_entries)
+            # Remove duplicates while preserving order
+            seen_ids = set()
+            unique_pkg_entries = []
+            for pkg in pkg_entries:
+                if pkg["package_id"] not in seen_ids:
+                    unique_pkg_entries.append(pkg)
+                    seen_ids.add(pkg["package_id"])
+            assembly["package_ids"] = [pkg["package_id"] for pkg in unique_pkg_entries]
+            packages.extend(unique_pkg_entries)
 
         if unassigned_packages:
-            packages.extend(sorted(unassigned_packages, key=lambda p: p["dir_relpath"]))
+            # Also deduplicate unassigned packages
+            seen_ids = set()
+            unique_unassigned = []
+            for pkg in sorted(unassigned_packages, key=lambda p: p["dir_relpath"]):
+                if pkg["package_id"] not in seen_ids:
+                    unique_unassigned.append(pkg)
+                    seen_ids.add(pkg["package_id"])
+            packages.extend(unique_unassigned)
 
         assemblies = sorted(assemblies, key=lambda a: a["root_relpath"])
         return assemblies, packages
