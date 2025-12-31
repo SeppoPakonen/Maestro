@@ -460,11 +460,7 @@ def scan_upp_repo_v2(
         if verbose:
             print(f"[maestro] Warning: Failed to scan build systems: {e}")
 
-    # Keep packages_detected focused on U++ packages to match scan invariants.
-    build_system_packages = [
-        pkg for pkg in build_system_packages
-        if pkg.build_system == 'upp' and pkg.upp_path
-    ]
+    # Include all build system packages, not just U++ packages
     all_packages = discovered_packages + build_system_packages
 
     # Identify U++ assemblies based on package layout
@@ -505,7 +501,69 @@ def scan_upp_repo_v2(
             if verbose:
                 print(f"[maestro] Warning: Failed to read user assemblies: {e}")
 
-    final_assemblies = assembly_infos
+    # Add virtual assemblies for docs, tests, and scripts if they exist
+    virtual_assemblies = create_virtual_assemblies(root_dir, verbose=verbose)
+    all_assemblies = assembly_infos + virtual_assemblies
+
+    # Create a root assembly if there are packages in the root directory that aren't part of other assemblies
+    root_packages = []
+    for pkg in all_packages:
+        pkg_dir = Path(pkg.dir).resolve()
+        root_dir_resolved = Path(root_dir).resolve()
+        # Check if the package is directly in the root directory
+        try:
+            relative_path = pkg_dir.relative_to(root_dir_resolved)
+            # If the relative path is empty or '.', the package is in the root
+            if str(relative_path) in ('.', ''):
+                root_packages.append(pkg)
+        except ValueError:
+            # pkg_dir is not under root_dir_resolved
+            continue
+
+    # Check if any root packages are not already part of an assembly
+    root_packages_not_in_assemblies = []
+    for pkg in root_packages:
+        pkg_parent = Path(pkg.dir).resolve().parent
+        is_in_assembly = False
+        for asm in all_assemblies:
+            asm_path = Path(asm.root_path).resolve()
+            if pkg_parent == asm_path:
+                is_in_assembly = True
+                break
+        if not is_in_assembly:
+            root_packages_not_in_assemblies.append(pkg)
+
+    # Create a root assembly if there are packages in root not in other assemblies
+    root_assembly = None
+    if root_packages_not_in_assemblies:
+        # Create a root assembly containing packages in the root directory
+        root_assembly = AssemblyInfo(
+            name=os.path.basename(root_dir),
+            root_path=root_dir,
+            package_folders=[pkg.dir for pkg in root_packages_not_in_assemblies],
+            evidence_refs=['root assembly for packages in root directory'],
+            assembly_type='root',
+            packages=[pkg.name for pkg in root_packages_not_in_assemblies],
+            package_dirs=[pkg.dir for pkg in root_packages_not_in_assemblies],
+            build_systems=list({pkg.build_system for pkg in root_packages_not_in_assemblies}),
+            metadata={'package_count': len(root_packages_not_in_assemblies)}
+        )
+        all_assemblies.append(root_assembly)
+
+        # Update the packages to reference this assembly
+        for pkg in root_packages_not_in_assemblies:
+            # Find the corresponding package in the all_packages list and update its assembly reference
+            for i, all_pkg in enumerate(all_packages):
+                if all_pkg.dir == pkg.dir and all_pkg.name == pkg.name:
+                    # This is the same package - update its assembly reference
+                    # Note: We can't directly modify the package object here because it might be immutable
+                    # So we'll rely on the assembly_commands.py to make the association later
+                    break
+
+        if verbose:
+            print(f"[maestro] root assembly: {root_assembly.name} ({len(root_packages_not_in_assemblies)} packages)")
+
+    final_assemblies = all_assemblies
 
     # Infer internal packages from unknown paths
     internal_packages = infer_internal_packages(unknown_paths, root_dir)
@@ -636,6 +694,99 @@ def infer_internal_packages(unknown_paths: List[UnknownPath], repo_root: str) ->
     return internal_packages
 
 
+def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> List[AssemblyInfo]:
+    """
+    Create virtual assemblies for common directories: docs, tests, scripts.
+
+    Args:
+        repo_root: Path to repository root
+        verbose: If True, print verbose information
+
+    Returns:
+        List of AssemblyInfo objects for virtual assemblies
+    """
+    virtual_assemblies = []
+
+    # Check for docs directory
+    docs_path = os.path.join(repo_root, 'docs')
+    if os.path.exists(docs_path) and os.path.isdir(docs_path):
+        # Count files in docs directory (recursively)
+        docs_files = []
+        for root, dirs, files in os.walk(docs_path):
+            for file in files:
+                docs_files.append(os.path.relpath(os.path.join(root, file), repo_root))
+
+        assembly = AssemblyInfo(
+            name='docs',
+            root_path=docs_path,
+            package_folders=[],
+            evidence_refs=['detected docs directory'],
+            assembly_type='docs',
+            packages=[],
+            package_dirs=[],
+            build_systems=[],
+            metadata={'file_count': len(docs_files)}
+        )
+        virtual_assemblies.append(assembly)
+
+        if verbose:
+            print(f"[maestro] virtual assembly: docs ({len(docs_files)} files)")
+
+    # Check for tests directory
+    tests_path = os.path.join(repo_root, 'tests')
+    if os.path.exists(tests_path) and os.path.isdir(tests_path):
+        # Count files in tests directory (recursively)
+        tests_files = []
+        for root, dirs, files in os.walk(tests_path):
+            for file in files:
+                tests_files.append(os.path.relpath(os.path.join(root, file), repo_root))
+
+        assembly = AssemblyInfo(
+            name='tests',
+            root_path=tests_path,
+            package_folders=[],
+            evidence_refs=['detected tests directory'],
+            assembly_type='tests',
+            packages=[],
+            package_dirs=[],
+            build_systems=[],
+            metadata={'file_count': len(tests_files)}
+        )
+        virtual_assemblies.append(assembly)
+
+        if verbose:
+            print(f"[maestro] virtual assembly: tests ({len(tests_files)} files)")
+
+    # Check for script files in root directory
+    script_extensions = {'.sh', '.bat', '.cmd', '.ps1', '.py', '.pl', '.rb', '.js', '.ts'}
+    root_scripts = []
+    for file in os.listdir(repo_root):
+        file_path = os.path.join(repo_root, file)
+        if os.path.isfile(file_path):
+            _, ext = os.path.splitext(file)
+            if ext.lower() in script_extensions:
+                root_scripts.append(file)
+
+    if root_scripts:
+        assembly = AssemblyInfo(
+            name='scripts',
+            root_path=repo_root,
+            package_folders=[],
+            evidence_refs=['detected script files in root'],
+            assembly_type='scripts',
+            packages=[],
+            package_dirs=[],
+            build_systems=[],
+            metadata={'script_count': len(root_scripts), 'scripts': root_scripts}
+        )
+        virtual_assemblies.append(assembly)
+
+        if verbose:
+            print(f"[maestro] virtual assembly: scripts ({len(root_scripts)} scripts)")
+
+    return virtual_assemblies
+
+
 __all__ = [
     'AssemblyInfo',
     'UnknownPath',
@@ -644,4 +795,5 @@ __all__ = [
     'scan_upp_repo_v2',
     'guess_path_kind',
     'infer_internal_packages',
+    'create_virtual_assemblies',
 ]

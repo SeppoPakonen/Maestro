@@ -7,6 +7,10 @@ import os
 from pathlib import Path
 from datetime import datetime
 
+import pytest
+
+pytestmark = pytest.mark.slow
+
 from maestro.work_session import WorkSession, SessionStatus, SessionType
 from maestro.visualization.tree import SessionTreeRenderer
 from maestro.visualization.table import SessionTableFormatter

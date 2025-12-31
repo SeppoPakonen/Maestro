@@ -119,7 +119,8 @@ def scan_cmake_packages(repo_root: str, verbose: bool = False) -> List[BuildSyst
                 content = f.read()
 
             # Extract targets: add_executable(name ...) or add_library(name ...)
-            target_pattern = r'\b(?:add_executable|add_library)\s*\(\s*(\w+)'
+            # Updated to handle more complex target names (with hyphens, etc.)
+            target_pattern = r'\b(?:add_executable|add_library)\s*\(\s*([^\s\)]+)'
             targets = re.findall(target_pattern, content)
 
             # Extract source files from set() variables and target definitions
@@ -140,8 +141,11 @@ def scan_cmake_packages(repo_root: str, verbose: bool = False) -> List[BuildSyst
             # Create packages for each target found
             if targets:
                 for target in targets:
+                    # Clean target name by removing quotes and extra whitespace
+                    target_clean = target.strip().strip('"\'')
+
                     pkg = BuildSystemPackage(
-                        name=target,
+                        name=target_clean,
                         build_system='cmake',
                         dir=cmake_dir,
                         files=source_files[:],  # Copy source files list
@@ -153,15 +157,18 @@ def scan_cmake_packages(repo_root: str, verbose: bool = False) -> List[BuildSyst
                     packages.append(pkg)
 
                     if verbose:
-                        print(f"[cmake] found target '{target}' in {rel_dir}")
+                        print(f"[cmake] found target '{target_clean}' in {rel_dir}")
 
             # If no targets found but CMakeLists.txt exists, create a generic package
             elif cmake_dir == repo_root:
                 # Root CMakeLists.txt without clear targets - create project-level package
-                project_pattern = r'\bproject\s*\(\s*(\w+)'
+                project_pattern = r'\bproject\s*\(\s*([^\s\)]+)'
                 projects = re.findall(project_pattern, content)
 
-                pkg_name = projects[0] if projects else os.path.basename(repo_root)
+                if projects:
+                    pkg_name = projects[0].strip().strip('"\'')
+                else:
+                    pkg_name = os.path.basename(repo_root)
 
                 pkg = BuildSystemPackage(
                     name=pkg_name,

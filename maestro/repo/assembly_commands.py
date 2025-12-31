@@ -59,7 +59,9 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
         root_path = asm.get("root_path", "")
         if not root_path:
             continue
-        root_relpath = os.path.relpath(root_path, repo_root)
+        # Normalize the root path to match how package directories will be stored
+        norm_root_path = os.path.normpath(root_path)
+        root_relpath = os.path.relpath(norm_root_path, repo_root)
         assembly_id = _stable_id(f"assembly:{root_relpath}")
         entry = {
             "assembly_id": assembly_id,
@@ -69,7 +71,7 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
             "package_ids": [],
         }
         derived_assemblies.append(entry)
-        assemblies_by_root[os.path.normpath(root_path)] = entry
+        assemblies_by_root[norm_root_path] = entry
 
     packages_by_assembly: Dict[str, List[Dict[str, Any]]] = {a["assembly_id"]: [] for a in derived_assemblies}
     derived_packages: List[Dict[str, Any]] = []
@@ -78,10 +80,43 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
         pkg_dir = pkg.get("dir")
         if not pkg_dir:
             continue
+        pkg_dir_norm = os.path.normpath(pkg_dir)
         parent_dir = os.path.normpath(os.path.dirname(pkg_dir))
-        assembly_entry = assemblies_by_root.get(parent_dir)
-        assembly_id = assembly_entry["assembly_id"] if assembly_entry else None
-        package_relpath = os.path.relpath(pkg_dir, parent_dir) if assembly_entry else os.path.relpath(pkg_dir, repo_root)
+
+        # Look for assembly that contains this package
+        assembly_found = None
+
+        # First check if there's an exact match for the package directory
+        if pkg_dir_norm in assemblies_by_root:
+            assembly_found = assemblies_by_root[pkg_dir_norm]
+        # If not found, check parent directory (for subdirectory packages)
+        elif parent_dir in assemblies_by_root:
+            assembly_found = assemblies_by_root[parent_dir]
+        # If still not found, check if this is a root package that should go into root assembly
+        else:
+            # Look for root assembly that should contain this package
+            for asm_path, asm_entry in assemblies_by_root.items():
+                asm_name = asm_entry.get("name", "")
+                repo_basename = os.path.basename(repo_root)
+                # Check if this is a root assembly that should contain packages from the repo root
+                if asm_name == repo_basename and asm_entry.get("kind") == "root":
+                    # Check if the package directory is within the assembly path
+                    try:
+                        # If the assembly path is the same as the package directory (root package case)
+                        if asm_path == pkg_dir_norm:
+                            assembly_found = asm_entry
+                            break
+                        # Or if the package is under the assembly directory
+                        rel_path = os.path.relpath(pkg_dir_norm, asm_path)
+                        if not rel_path.startswith('../') and rel_path != os.path.pardir:
+                            assembly_found = asm_entry
+                            break
+                    except ValueError:
+                        # If paths are on different drives (Windows), skip
+                        continue
+
+        assembly_id = assembly_found["assembly_id"] if assembly_found else None
+        package_relpath = os.path.relpath(pkg_dir, parent_dir) if assembly_found else os.path.relpath(pkg_dir, repo_root)
         package_id = _stable_id(f"package:{assembly_id}:{package_relpath}")
         entry = {
             "package_id": package_id,
@@ -91,7 +126,7 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
             "assembly_id": assembly_id,
             "build_system": pkg.get("build_system", "upp"),
         }
-        if assembly_entry:
+        if assembly_found and assembly_id:
             packages_by_assembly[assembly_id].append(entry)
         derived_packages.append(entry)
 

@@ -1,0 +1,11 @@
+{
+  "last_resolved_at": "2025-12-31T20:00:36.213859",
+  "repo_root": "/e/active/sblo/Dev/Maestro/test_batchscriptshell",
+  "repo_model_path": "/e/active/sblo/Dev/Maestro/test_batchscriptshell/docs/maestro/repo_model.json",
+  "packages_count": 1,
+  "assemblies_count": 2,
+  "user_assemblies_count": 0,
+  "internal_packages_count": 2,
+  "unknown_count": 7,
+  "scanner_version": "0.9.0"
+}

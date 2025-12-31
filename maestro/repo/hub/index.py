@@ -14,6 +14,7 @@ import hashlib
 import subprocess
 import tempfile
 import os
+import sys
 from datetime import datetime
 
 
@@ -82,10 +83,25 @@ class HubIndexManager:
         if not self.index_file.exists():
             return LocalHubIndex()
 
-        with open(self.index_file, 'r') as f:
-            data = json.load(f)
+        try:
+            with open(self.index_file, 'r') as f:
+                data = json.load(f)
 
-        return LocalHubIndex(**data)
+            return LocalHubIndex(**data)
+        except json.JSONDecodeError as e:
+            # Quarantine the corrupt file with a timestamped name
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            corrupt_path = self.index_file.with_name(f"index.corrupt.{timestamp}.json")
+
+            # Move the corrupt file to quarantine
+            self.index_file.rename(corrupt_path)
+
+            # Log the issue
+            print(f"Warning: Hub index was corrupted and moved to {corrupt_path}. Starting with clean index.", file=sys.stderr)
+
+            # Return a fresh index
+            return LocalHubIndex()
 
     def save_index(self, index: LocalHubIndex):
         """Save hub index to disk (atomic write)."""
@@ -93,18 +109,26 @@ class HubIndexManager:
 
         # Write to temp file first
         temp_file = self.index_file.with_suffix('.tmp')
-        with open(temp_file, 'w') as f:
-            json.dump({
-                'version': index.version,
-                'updated_at': index.updated_at,
-                'repos': index.repos,
-                'packages_index': index.packages_index
-            }, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
+        try:
+            with open(temp_file, 'w') as f:
+                json.dump({
+                    'version': index.version,
+                    'updated_at': index.updated_at,
+                    'repos': index.repos,
+                    'packages_index': index.packages_index
+                }, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
 
-        # Atomic rename
-        temp_file.replace(self.index_file)
+            # Atomic rename
+            temp_file.replace(self.index_file)
+        except Exception as e:
+            # Clean up temp file if something goes wrong
+            if temp_file.exists():
+                temp_file.unlink()
+            # Log the error but don't crash the operation
+            print(f"Warning: Failed to save hub index: {e}", file=sys.stderr)
+            raise
 
     def compute_repo_id(self, repo_path: str) -> str:
         """
@@ -155,64 +179,70 @@ class HubIndexManager:
         Args:
             repo_record: Repository record to add/update
         """
-        index = self.load_index()
+        try:
+            index = self.load_index()
 
-        # Update main index
-        index.repos[repo_record.repo_id] = {
-            'path': repo_record.path,
-            'git_head': repo_record.git_head,
-            'last_scanned': repo_record.scan_timestamp,
-            'packages_count': len(repo_record.packages),
-            'link': f"./repos/{repo_record.repo_id}.json"
-        }
-
-        # Update package index (for fast lookup by name)
-        for pkg in repo_record.packages:
-            if pkg.name not in index.packages_index:
-                index.packages_index[pkg.name] = []
-
-            # Remove old entries for this repo
-            index.packages_index[pkg.name] = [
-                entry for entry in index.packages_index[pkg.name]
-                if entry['repo_id'] != repo_record.repo_id
-            ]
-
-            # Add new entry
-            index.packages_index[pkg.name].append({
-                'repo_id': repo_record.repo_id,
-                'pkg_id': pkg.pkg_id
-            })
-
-            # Sort for determinism
-            index.packages_index[pkg.name].sort(key=lambda x: (x['repo_id'], x['pkg_id']))
-
-        # Save full repo record to separate file
-        repo_file = self.repos_dir / f"{repo_record.repo_id}.json"
-        temp_file = repo_file.with_suffix('.tmp')
-
-        with open(temp_file, 'w') as f:
-            json.dump({
-                'repo_id': repo_record.repo_id,
+            # Update main index
+            index.repos[repo_record.repo_id] = {
                 'path': repo_record.path,
                 'git_head': repo_record.git_head,
-                'scan_timestamp': repo_record.scan_timestamp,
-                'packages': [
-                    {
-                        'pkg_id': pkg.pkg_id,
-                        'name': pkg.name,
-                        'build_system': pkg.build_system,
-                        'dir': pkg.dir,
-                        'dependencies': pkg.dependencies,
-                        'metadata': pkg.metadata
-                    } for pkg in repo_record.packages
+                'last_scanned': repo_record.scan_timestamp,
+                'packages_count': len(repo_record.packages),
+                'link': f"./repos/{repo_record.repo_id}.json"
+            }
+
+            # Update package index (for fast lookup by name)
+            for pkg in repo_record.packages:
+                if pkg.name not in index.packages_index:
+                    index.packages_index[pkg.name] = []
+
+                # Remove old entries for this repo
+                index.packages_index[pkg.name] = [
+                    entry for entry in index.packages_index[pkg.name]
+                    if entry['repo_id'] != repo_record.repo_id
                 ]
-            }, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
 
-        temp_file.replace(repo_file)
+                # Add new entry
+                index.packages_index[pkg.name].append({
+                    'repo_id': repo_record.repo_id,
+                    'pkg_id': pkg.pkg_id
+                })
 
-        self.save_index(index)
+                # Sort for determinism
+                index.packages_index[pkg.name].sort(key=lambda x: (x['repo_id'], x['pkg_id']))
+
+            # Save full repo record to separate file
+            repo_file = self.repos_dir / f"{repo_record.repo_id}.json"
+            temp_file = repo_file.with_suffix('.tmp')
+
+            with open(temp_file, 'w') as f:
+                json.dump({
+                    'repo_id': repo_record.repo_id,
+                    'path': repo_record.path,
+                    'git_head': repo_record.git_head,
+                    'scan_timestamp': repo_record.scan_timestamp,
+                    'packages': [
+                        {
+                            'pkg_id': pkg.pkg_id,
+                            'name': pkg.name,
+                            'build_system': pkg.build_system,
+                            'dir': pkg.dir,
+                            'dependencies': pkg.dependencies,
+                            'metadata': pkg.metadata
+                        } for pkg in repo_record.packages
+                    ]
+                }, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+
+            temp_file.replace(repo_file)
+
+            self.save_index(index)
+        except Exception as e:
+            # Log the error but don't crash the operation
+            print(f"Warning: Failed to update hub index for repo {repo_record.path}: {e}", file=sys.stderr)
+            # Re-raise the exception to be handled by the caller
+            raise
 
     def find_packages_by_name(self, name: str) -> List[PackageRecord]:
         """

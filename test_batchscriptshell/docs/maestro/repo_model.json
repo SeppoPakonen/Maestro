@@ -1,0 +1,205 @@
+{
+  "repo_root": "/e/active/sblo/Dev/Maestro/test_batchscriptshell",
+  "scan_timestamp": "2025-12-31T20:00:36.203621",
+  "assemblies": [
+    {
+      "assembly_id": "10c944eb66acb26b",
+      "name": "test_batchscriptshell",
+      "root_relpath": ".",
+      "kind": "root",
+      "package_ids": []
+    },
+    {
+      "assembly_id": "b6eb3f85fcb8ecf0",
+      "name": "docs",
+      "root_relpath": "docs",
+      "kind": "docs",
+      "package_ids": []
+    }
+  ],
+  "packages": [
+    {
+      "package_id": "548d6dcc3c367c40",
+      "name": "bss",
+      "dir_relpath": ".",
+      "package_relpath": ".",
+      "assembly_id": null,
+      "build_system": "cmake"
+    }
+  ],
+  "assemblies_detected": [
+    {
+      "name": "docs",
+      "root_path": "./test_batchscriptshell/docs",
+      "package_folders": [],
+      "evidence_refs": [
+        "detected docs directory"
+      ],
+      "assembly_type": "docs",
+      "packages": [],
+      "package_dirs": [],
+      "build_systems": [],
+      "metadata": {
+        "file_count": 2
+      }
+    },
+    {
+      "name": "test_batchscriptshell",
+      "root_path": "./test_batchscriptshell",
+      "package_folders": [
+        "./test_batchscriptshell"
+      ],
+      "evidence_refs": [
+        "root assembly for packages in root directory"
+      ],
+      "assembly_type": "root",
+      "packages": [
+        "bss"
+      ],
+      "package_dirs": [
+        "./test_batchscriptshell"
+      ],
+      "build_systems": [
+        "cmake"
+      ],
+      "metadata": {
+        "package_count": 1
+      }
+    }
+  ],
+  "packages_detected": [
+    {
+      "name": "bss",
+      "dir": "./test_batchscriptshell",
+      "upp_path": "CMakeLists.txt",
+      "files": [
+        "redirection_function.c",
+        "shell.c"
+      ],
+      "upp": null,
+      "build_system": "cmake",
+      "dependencies": [],
+      "groups": [
+        {
+          "name": "C/C++",
+          "files": [
+            "redirection_function.c",
+            "shell.c"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    }
+  ],
+  "unknown_paths": [
+    {
+      "path": "CMakeLists.txt",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "docs",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/repo_model.json",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/repo_state.json",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "redirection_function.c",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "shell.c",
+      "type": "file",
+      "guessed_kind": "unknown"
+    }
+  ],
+  "user_assemblies": [],
+  "internal_packages": [
+    {
+      "name": "docs",
+      "root_path": "test_batchscriptshell/docs",
+      "guessed_type": "docs",
+      "members": [
+        "docs/maestro",
+        "docs/maestro/repo_model.json",
+        "docs/maestro/repo_state.json"
+      ],
+      "groups": [
+        {
+          "name": "Configuration",
+          "files": [
+            "docs/maestro/repo_model.json",
+            "docs/maestro/repo_state.json"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Other",
+          "files": [
+            "docs/maestro"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    },
+    {
+      "name": "root_misc",
+      "root_path": "./test_batchscriptshell",
+      "guessed_type": "misc",
+      "members": [
+        "CMakeLists.txt",
+        "docs",
+        "redirection_function.c",
+        "shell.c"
+      ],
+      "groups": [
+        {
+          "name": "C/C++",
+          "files": [
+            "redirection_function.c",
+            "shell.c"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Documentation",
+          "files": [
+            "CMakeLists.txt"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Other",
+          "files": [
+            "docs"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    }
+  ]
+}

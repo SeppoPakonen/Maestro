@@ -1765,8 +1765,7 @@ def handle_repo_command(args):
                         scanner.update_hub_index(repo_record, verbose=getattr(args, 'verbose', False))
                     except Exception as e:
                         # Hub update is non-critical, don't fail the whole operation
-                        if getattr(args, 'verbose', False):
-                            print_warning(f"Hub index update failed: {e}", 2)
+                        print_warning(f"Hub index update failed: {e}", 2)
 
             # Output format varies based on the flag
             if getattr(args, 'json', False):
