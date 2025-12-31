@@ -32,6 +32,11 @@ for arg in "$@"; do
 done
 
 # ==============================================================================
+# Timestamp setup (needed for bisect and checkpoint)
+# ==============================================================================
+RUN_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# ==============================================================================
 # Git lock check
 # ==============================================================================
 if [[ "$IGNORE_GIT_LOCK" -eq 0 ]] && [[ -f "$REPO_ROOT/.git/index.lock" ]]; then
@@ -49,6 +54,60 @@ fi
 
 export GIT_OPTIONAL_LOCKS=0
 export MAESTRO_REPO_ROOT="$REPO_ROOT"
+
+# ==============================================================================
+# Git index lock detection
+# ==============================================================================
+check_git_index_lock_or_die() {
+  local context="${1:-unknown}"
+  local maybe_nodeid="${2:-unknown}"
+
+  if [[ -f "$REPO_ROOT/.git/index.lock" ]]; then
+    echo "============================================================="
+    echo "GIT INDEX LOCK DETECTED"
+    echo "============================================================="
+    echo "Repo root: $REPO_ROOT"
+    echo "Lock path: $REPO_ROOT/.git/index.lock"
+    echo "Lock details:"
+    ls -l "$REPO_ROOT/.git/index.lock" >&2 || true
+    echo "Context: $context"
+    echo "NodeID: $maybe_nodeid"
+    echo "============================================================="
+
+    # Write incident record to temp file
+    local incident_file="/tmp/maestro_git_lock_incident_$(date +%Y%m%d_%H%M%S).txt"
+    {
+      echo "GIT INDEX LOCK INCIDENT"
+      echo "Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+      echo "Repo root: $REPO_ROOT"
+      echo "Lock path: $REPO_ROOT/.git/index.lock"
+      echo "Context: $context"
+      echo "NodeID: $maybe_nodeid"
+      echo "Lock details:"
+      ls -l "$REPO_ROOT/.git/index.lock" 2>&1 || echo "Could not list lock file"
+    } > "$incident_file"
+
+    # If we have a specific nodeid that caused the lock, write culprit record
+    if [[ "$maybe_nodeid" != "unknown" ]]; then
+      local culprit_file="/tmp/maestro_git_lock_culprit_$(date +%Y%m%d_%H%M%S).txt"
+      {
+        echo "GIT INDEX LOCK CULPRIT"
+        echo "Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        echo "Culprit NodeID: $maybe_nodeid"
+        echo "Context: $context"
+        echo "Repo root: $REPO_ROOT"
+        echo "Lock path: $REPO_ROOT/.git/index.lock"
+      } > "$culprit_file"
+
+      echo "CULPRIT NODEID: $maybe_nodeid"
+      echo "Culprit record written to: $culprit_file"
+    fi
+
+    echo "Incident record written to: $incident_file"
+    echo "Use --bisect-git-lock to find culprit nodeid."
+    exit 89
+  fi
+}
 
 # ==============================================================================
 # Python detection
@@ -115,6 +174,14 @@ TEST_TIMEOUT="${MAESTRO_TEST_TIMEOUT:-}"
 GIT_CHECK=0
 PRINT_PYTEST_CMD=0
 WORKERS_SET=0
+USER_REPORT=0
+USER_MAXFAIL=0
+USER_DURATIONS=0
+USER_DISABLE_WARNINGS=0
+USER_COLOR=0
+BISECT_GIT_LOCK=0
+BISECT_CHECKPOINT_FILE=""
+BISECT_LIMIT=""
 
 RUNNER_OPTS=()
 PYTEST_ARGS=()
@@ -143,6 +210,9 @@ Runner Options:
   --skiplist FILE         File containing test patterns to skip (default: none)
   --skipped               Run ONLY the tests listed in skiplist
   --timeout SECONDS       Kill tests that run longer than SECONDS (requires pytest-timeout)
+  --bisect-git-lock       Run in bisect mode to find git index lock culprit
+  --from-checkpoint FILE  Start bisect from checkpoint file (skip passed tests)
+  --limit N               Limit bisect to first N tests
 
 Environment variables:
   MAESTRO_TEST_PROFILE     Default speed profile (fast|medium|slow|all)
@@ -174,6 +244,9 @@ Examples:
 
   # Use custom skiplist
   $0 --skiplist tools/test/skiplist.txt
+
+  # Bisect to find git index lock culprit
+  $0 --bisect-git-lock --medium
 
 All additional arguments are passed directly to pytest. Use "--" to
 separate runner options from pytest options if needed.
@@ -280,6 +353,29 @@ while [[ $# -gt 0 ]]; do
       CHECKPOINT_ENABLED=0
       RUNNER_OPTS+=("$1")
       shift
+      ;;
+    --bisect-git-lock)
+      BISECT_GIT_LOCK=1
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
+    --from-checkpoint)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --from-checkpoint requires a file path argument" >&2
+        exit 1
+      fi
+      BISECT_CHECKPOINT_FILE="$2"
+      RUNNER_OPTS+=("$1" "$2")
+      shift 2
+      ;;
+    --limit)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --limit requires a number argument" >&2
+        exit 1
+      fi
+      BISECT_LIMIT="$2"
+      RUNNER_OPTS+=("$1" "$2")
+      shift 2
       ;;
     --skiplist)
       if [[ -z "${2+x}" ]]; then
@@ -403,6 +499,51 @@ for ((i=0; i<${#PYTEST_ARGS[@]}; i++)); do
 done
 PYTEST_ARGS=("${PYTEST_ARGS_FILTERED[@]}")
 
+EXPECTS_VALUE=0
+for ((i=0; i<${#PYTEST_ARGS[@]}; i++)); do
+  arg="${PYTEST_ARGS[$i]}"
+  if [[ "$EXPECTS_VALUE" -eq 1 ]]; then
+    EXPECTS_VALUE=0
+    continue
+  fi
+  case "$arg" in
+    -r)
+      USER_REPORT=1
+      EXPECTS_VALUE=1
+      ;;
+    -r*)
+      USER_REPORT=1
+      ;;
+    --maxfail)
+      USER_MAXFAIL=1
+      EXPECTS_VALUE=1
+      ;;
+    --maxfail=*)
+      USER_MAXFAIL=1
+      ;;
+    -x|--exitfirst)
+      USER_MAXFAIL=1
+      ;;
+    --durations)
+      USER_DURATIONS=1
+      EXPECTS_VALUE=1
+      ;;
+    --durations=*)
+      USER_DURATIONS=1
+      ;;
+    --disable-warnings)
+      USER_DISABLE_WARNINGS=1
+      ;;
+    --color)
+      USER_COLOR=1
+      EXPECTS_VALUE=1
+      ;;
+    --color=*)
+      USER_COLOR=1
+      ;;
+  esac
+done
+
 USE_XDIST=0
 if [[ "$USER_XDIST" -eq 1 ]]; then
   USE_XDIST=0
@@ -479,10 +620,10 @@ done
 
 if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
   SELECTION_MODE="explicit"
-elif [[ "$PROFILE_SOURCE" != "default" ]]; then
-  SELECTION_MODE="profile"
+elif [[ "$PROFILE_MODE" == "all" ]]; then
+  SELECTION_MODE="full"
 else
-  SELECTION_MODE="default"
+  SELECTION_MODE="profile"
 fi
 
 # ==============================================================================
@@ -508,6 +649,29 @@ esac
 
 if [[ -n "$MARKER_EXPR" ]]; then
   PYTEST_BASE_ARGS+=(-m "$MARKER_EXPR")
+fi
+
+PYTEST_RUN_DEFAULT_ARGS=()
+if [[ "$USER_REPORT" -eq 0 ]]; then
+  PYTEST_RUN_DEFAULT_ARGS+=(-r fE)
+fi
+if [[ "$USER_MAXFAIL" -eq 0 ]]; then
+  PYTEST_RUN_DEFAULT_ARGS+=(--maxfail=0)
+fi
+if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
+  if [[ "$USER_DURATIONS" -eq 0 ]]; then
+    PYTEST_RUN_DEFAULT_ARGS+=(--durations=50)
+  fi
+  if [[ "$USER_COLOR" -eq 0 ]]; then
+    PYTEST_RUN_DEFAULT_ARGS+=(--color=no)
+  fi
+else
+  if [[ "$USER_DURATIONS" -eq 0 ]]; then
+    PYTEST_RUN_DEFAULT_ARGS+=(--durations=25)
+  fi
+fi
+if [[ "$USER_DISABLE_WARNINGS" -eq 0 ]]; then
+  PYTEST_RUN_DEFAULT_ARGS+=(--disable-warnings)
 fi
 
 # ==============================================================================
@@ -547,15 +711,210 @@ if [[ -n "$TEST_TIMEOUT" ]]; then
 fi
 
 # ==============================================================================
+# Bisect git lock mode
+# ==============================================================================
+if [[ "$BISECT_GIT_LOCK" -eq 1 ]]; then
+  echo "Running in bisect-git-lock mode to find culprit test..."
+
+  # Collect nodeids
+  NODEIDS_FILE="/tmp/maestro_pytest_nodeids_${RUN_TIMESTAMP}.txt"
+  echo "Collecting test nodeids..."
+
+  # Build collection args similar to the main run
+  COLLECT_ARGS=(-o addopts= --collect-only -q)
+  COLLECT_ARGS+=("${PYTEST_BASE_ARGS[@]}")
+  COLLECT_ARGS+=("${PYTEST_NON_SELECTOR_ARGS[@]}")
+  if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
+    COLLECT_ARGS+=("${EXPLICIT_SELECTORS[@]}")
+  fi
+
+  set +e
+  "$VENV_PY" -m pytest "${COLLECT_ARGS[@]}" 2>/dev/null | grep -E '^[[:space:]]*[^[:space:]]' > "$NODEIDS_FILE"
+  COLLECT_EXIT=$?
+  set -e
+
+  if [[ "$COLLECT_EXIT" -ne 0 ]]; then
+    echo "ERROR: pytest collection failed" >&2
+    exit "$COLLECT_EXIT"
+  fi
+
+  # Read nodeids into array
+  mapfile -t ALL_NODEIDS < "$NODEIDS_FILE"
+
+  # Filter nodeids if checkpoint provided
+  if [[ -n "$BISECT_CHECKPOINT_FILE" ]] && [[ -f "$BISECT_CHECKPOINT_FILE" ]]; then
+    echo "Using checkpoint file to skip passed tests: $BISECT_CHECKPOINT_FILE"
+    # Load passed tests from checkpoint
+    PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
+      BEGIN { in_list=0; found=0 }
+      $0 == delim { in_list=1; found=1; next }
+      in_list == 1 { if (NF > 0) print; next }
+      found == 0 {
+        if (NF > 0 && $0 !~ /^#/) print
+      }
+    ' "$BISECT_CHECKPOINT_FILE")
+
+    # Filter out passed nodeids
+    FILTERED_NODEIDS=()
+    for nodeid in "${ALL_NODEIDS[@]}"; do
+      if ! echo "$PASSED_NODEIDS" | grep -Fxq "$nodeid"; then
+        FILTERED_NODEIDS+=("$nodeid")
+      fi
+    done
+    ALL_NODEIDS=("${FILTERED_NODEIDS[@]}")
+  fi
+
+  # Limit nodeids if specified
+  if [[ -n "$BISECT_LIMIT" ]] && [[ "$BISECT_LIMIT" =~ ^[0-9]+$ ]]; then
+    echo "Limiting to first $BISECT_LIMIT tests"
+    if [[ ${#ALL_NODEIDS[@]} -gt $BISECT_LIMIT ]]; then
+      ALL_NODEIDS=("${ALL_NODEIDS[@]:0:$BISECT_LIMIT}")
+    fi
+  fi
+
+  echo "Testing ${#ALL_NODEIDS[@]} tests for git index lock..."
+
+  # Run each test individually to find the culprit
+  for i in "${!ALL_NODEIDS[@]}"; do
+    nodeid="${ALL_NODEIDS[$i]}"
+    echo "Testing ($((i+1))/${#ALL_NODEIDS[@]}): $nodeid"
+
+    # Check for git index lock before running test
+    check_git_index_lock_or_die "pre-test" "$nodeid"
+
+    # Run the individual test
+    set +e
+    "$VENV_PY" -m pytest -q "$nodeid"
+    exit_code=$?
+    set -e
+
+    # Check for git index lock immediately after test
+    check_git_index_lock_or_die "post-test" "$nodeid"
+
+    # Small delay to allow any background git processes to finish
+    sleep 0.2
+
+    # Check again after delay
+    check_git_index_lock_or_die "post-test-delayed" "$nodeid"
+
+    if [[ $exit_code -ne 0 ]]; then
+      echo "Test $nodeid failed with exit code $exit_code, continuing..."
+    fi
+  done
+
+  echo "Bisect completed. No git index lock detected during testing."
+  exit 0
+fi
+
+# ==============================================================================
+# Bisect git lock mode
+# ==============================================================================
+if [[ "$BISECT_GIT_LOCK" -eq 1 ]]; then
+  echo "Running in bisect-git-lock mode to find culprit test..."
+
+  # Collect nodeids
+  NODEIDS_FILE="/tmp/maestro_pytest_nodeids_${RUN_TIMESTAMP}.txt"
+  echo "Collecting test nodeids..."
+
+  # Build collection args similar to the main run
+  COLLECT_ARGS=(-o addopts= --collect-only -q)
+  COLLECT_ARGS+=("${PYTEST_BASE_ARGS[@]}")
+  COLLECT_ARGS+=("${PYTEST_NON_SELECTOR_ARGS[@]}")
+  if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
+    COLLECT_ARGS+=("${EXPLICIT_SELECTORS[@]}")
+  fi
+
+  set +e
+  "$VENV_PY" -m pytest "${COLLECT_ARGS[@]}" 2>/dev/null | grep -E '^[[:space:]]*[^[:space:]]' > "$NODEIDS_FILE"
+  COLLECT_EXIT=$?
+  set -e
+
+  if [[ "$COLLECT_EXIT" -ne 0 ]]; then
+    echo "ERROR: pytest collection failed" >&2
+    exit "$COLLECT_EXIT"
+  fi
+
+  # Read nodeids into array
+  mapfile -t ALL_NODEIDS < "$NODEIDS_FILE"
+
+  # Filter nodeids if checkpoint provided
+  if [[ -n "$BISECT_CHECKPOINT_FILE" ]] && [[ -f "$BISECT_CHECKPOINT_FILE" ]]; then
+    echo "Using checkpoint file to skip passed tests: $BISECT_CHECKPOINT_FILE"
+    # Load passed tests from checkpoint
+    PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
+      BEGIN { in_list=0; found=0 }
+      $0 == delim { in_list=1; found=1; next }
+      in_list == 1 { if (NF > 0) print; next }
+      found == 0 {
+        if (NF > 0 && $0 !~ /^#/) print
+      }
+    ' "$BISECT_CHECKPOINT_FILE")
+
+    # Filter out passed nodeids
+    FILTERED_NODEIDS=()
+    for nodeid in "${ALL_NODEIDS[@]}"; do
+      if ! echo "$PASSED_NODEIDS" | grep -Fxq "$nodeid"; then
+        FILTERED_NODEIDS+=("$nodeid")
+      fi
+    done
+    ALL_NODEIDS=("${FILTERED_NODEIDS[@]}")
+  fi
+
+  # Limit nodeids if specified
+  if [[ -n "$BISECT_LIMIT" ]] && [[ "$BISECT_LIMIT" =~ ^[0-9]+$ ]]; then
+    echo "Limiting to first $BISECT_LIMIT tests"
+    if [[ ${#ALL_NODEIDS[@]} -gt $BISECT_LIMIT ]]; then
+      ALL_NODEIDS=("${ALL_NODEIDS[@]:0:$BISECT_LIMIT}")
+    fi
+  fi
+
+  echo "Testing ${#ALL_NODEIDS[@]} tests for git index lock..."
+
+  # Run each test individually to find the culprit
+  for i in "${!ALL_NODEIDS[@]}"; do
+    nodeid="${ALL_NODEIDS[$i]}"
+    echo "Testing ($((i+1))/${#ALL_NODEIDS[@]}): $nodeid"
+
+    # Check for git index lock before running test
+    check_git_index_lock_or_die "pre-test" "$nodeid"
+
+    # Run the individual test
+    set +e
+    "$VENV_PY" -m pytest -q "$nodeid"
+    exit_code=$?
+    set -e
+
+    # Check for git index lock immediately after test
+    check_git_index_lock_or_die "post-test" "$nodeid"
+
+    # Small delay to allow any background git processes to finish
+    sleep 0.2
+
+    # Check again after delay
+    check_git_index_lock_or_die "post-test-delayed" "$nodeid"
+
+    if [[ $exit_code -ne 0 ]]; then
+      echo "Test $nodeid failed with exit code $exit_code, continuing..."
+    fi
+  done
+
+  echo "Bisect completed. No git index lock detected during testing."
+  exit 0
+fi
+
+# ==============================================================================
 # Checkpoint setup
 # ==============================================================================
+RUN_ID="maestro_pytest_${RUN_TIMESTAMP}"
+RUN_LOG_FILE="/tmp/maestro_pytest_run_${RUN_TIMESTAMP}.log"
+FAILURES_FILE="/tmp/maestro_pytest_failures_${RUN_TIMESTAMP}.txt"
+
 CHECKPOINT_FILE=""
 if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
   if [[ -n "${MAESTRO_TEST_CHECKPOINT:-}" ]]; then
     CHECKPOINT_FILE="$MAESTRO_TEST_CHECKPOINT"
   else
-    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    CHECKPOINT_FILE="/tmp/maestro_pytest_checkpoint_${TIMESTAMP}.txt"
+    CHECKPOINT_FILE="/tmp/maestro_pytest_checkpoint_${RUN_TIMESTAMP}.txt"
   fi
 fi
 
@@ -687,6 +1046,10 @@ if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
 else
   unset MAESTRO_TEST_CHECKPOINT
 fi
+export MAESTRO_TEST_RUN_ID="$RUN_ID"
+export MAESTRO_TEST_PROFILE_EFFECTIVE="$PROFILE_MODE"
+export MAESTRO_TEST_FAILURES_FILE="$FAILURES_FILE"
+export MAESTRO_TEST_RUN_LOG="$RUN_LOG_FILE"
 
 # ==============================================================================
 # Build pytest arguments
@@ -696,14 +1059,10 @@ if [[ "$GIT_LOCK_DETECT" -eq 1 ]]; then
   PYTEST_PLUGINS+=(-p tools.test.pytest_git_lock_plugin)
 fi
 
-PYTEST_RUN_FIXED_ARGS=("${PYTEST_BASE_ARGS[@]}")
+PYTEST_RUN_FIXED_ARGS=("${PYTEST_BASE_ARGS[@]}" "${PYTEST_RUN_DEFAULT_ARGS[@]}")
 
 if [[ "$USE_XDIST" -eq 1 ]]; then
   PYTEST_RUN_FIXED_ARGS+=(-n "$WORKERS")
-fi
-
-if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
-  PYTEST_RUN_FIXED_ARGS+=(--durations=50 --color=no)
 fi
 
 PYTEST_RUN_ARGS=("${PYTEST_RUN_FIXED_ARGS[@]}")
@@ -750,6 +1109,11 @@ else
   echo "Git lock detect:  disabled"
 fi
 echo "Selection mode:   $SELECTION_MODE"
+if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
+  echo "Collected selectors: ${EXPLICIT_SELECTORS[*]}"
+else
+  echo "Collected selectors: (none)"
+fi
 echo "Profile:          $PROFILE_MODE"
 if [[ -n "$MARKER_EXPR" ]]; then
   echo "Markers:          $MARKER_EXPR"
@@ -772,6 +1136,7 @@ if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
 else
   echo "Checkpoint:       disabled"
 fi
+echo "Run log:          $RUN_LOG_FILE"
 if [[ -n "$SKIPLIST" ]] && [[ -f "$SKIPLIST" ]]; then
   if [[ "$SKIPPED_ONLY" -eq 1 ]]; then
     echo "Skiplist:         $SKIPLIST (running ONLY skipped tests)"
@@ -789,14 +1154,15 @@ echo ""
 # ==============================================================================
 cd "$REPO_ROOT"
 
+# Check for git index lock before running pytest
+check_git_index_lock_or_die "pre-run" "unknown"
+
 START_TIME=$(date +%s)
 RUN_STARTED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 set +e
 EXIT_CODE=0
-if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
-  PROFILE_TEMP=$(mktemp)
-fi
+: > "$RUN_LOG_FILE"
 
 if [[ "$CHUNKED_RUN" -eq 1 ]]; then
   AGG_PASSED_FILE=""
@@ -810,21 +1176,15 @@ if [[ "$CHUNKED_RUN" -eq 1 ]]; then
     if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
       CHUNK_CHECKPOINT=$(mktemp)
     fi
-    if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
-      MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
-        "${PYTEST_PLUGINS[@]}" \
-        "${PYTEST_RUN_FIXED_ARGS[@]}" \
-        "${PYTEST_NON_SELECTOR_ARGS[@]}" \
-        "${chunk[@]}" 2>&1 | tee -a "$PROFILE_TEMP"
-      EXIT_CODE=${PIPESTATUS[0]}
-    else
-      MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
-        "${PYTEST_PLUGINS[@]}" \
-        "${PYTEST_RUN_FIXED_ARGS[@]}" \
-        "${PYTEST_NON_SELECTOR_ARGS[@]}" \
-        "${chunk[@]}"
-      EXIT_CODE=$?
-    fi
+    MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
+      "${PYTEST_PLUGINS[@]}" \
+      "${PYTEST_RUN_FIXED_ARGS[@]}" \
+      "${PYTEST_NON_SELECTOR_ARGS[@]}" \
+      "${chunk[@]}" 2>&1 | tee -a "$RUN_LOG_FILE"
+    EXIT_CODE=${PIPESTATUS[0]}
+
+    # Check for git index lock after running each chunk
+    check_git_index_lock_or_die "post-run" "unknown"
 
     if [[ "$CHECKPOINT_ENABLED" -eq 1 ]] && [[ -f "$CHUNK_CHECKPOINT" ]]; then
       awk -v delim="$CHECKPOINT_DELIM" '
@@ -851,23 +1211,64 @@ if [[ "$CHUNKED_RUN" -eq 1 ]]; then
     fi
   done
 else
-  if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
-    "$VENV_PY" -m pytest \
-      "${PYTEST_PLUGINS[@]}" \
-      "${PYTEST_RUN_ARGS[@]}" 2>&1 | tee "$PROFILE_TEMP"
-    EXIT_CODE=${PIPESTATUS[0]}
-  else
-    "$VENV_PY" -m pytest \
-      "${PYTEST_PLUGINS[@]}" \
-      "${PYTEST_RUN_ARGS[@]}"
-    EXIT_CODE=$?
-  fi
+  "$VENV_PY" -m pytest \
+    "${PYTEST_PLUGINS[@]}" \
+    "${PYTEST_RUN_ARGS[@]}" 2>&1 | tee "$RUN_LOG_FILE"
+  EXIT_CODE=${PIPESTATUS[0]}
+
+  # Check for git index lock after running pytest
+  check_git_index_lock_or_die "post-run" "unknown"
 fi
 set -e
 
 END_TIME=$(date +%s)
 RUN_FINISHED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 DURATION=$((END_TIME - START_TIME))
+
+# ==============================================================================
+# Failure list extraction
+# ==============================================================================
+"$VENV_PY" - "$RUN_LOG_FILE" "$FAILURES_FILE" <<'PY'
+import re
+import sys
+
+log_path = sys.argv[1]
+out_path = sys.argv[2]
+
+patterns = [
+    re.compile(r"(?:^|\s)FAILED\s+\[[^\]]+\]\s+([^\s]+)"),
+    re.compile(r"(?:^|\s)FAILED\s+([^\s]+)"),
+    re.compile(r"(?:^|\s)ERROR\s+\[[^\]]+\]\s+([^\s]+)"),
+    re.compile(r"(?:^|\s)ERROR\s+(?:at\s+[^\s]+\s+of\s+)?([^\s]+)"),
+]
+
+
+def looks_like_nodeid(text: str) -> bool:
+    return "::" in text or text.endswith(".py") or text.startswith("tests/") or "/" in text
+
+
+nodeids = set()
+try:
+    with open(log_path, "r", errors="replace") as handle:
+        for line in handle:
+            for pattern in patterns:
+                match = pattern.search(line)
+                if match:
+                    nodeid = match.group(1).strip()
+                    if looks_like_nodeid(nodeid):
+                        nodeids.add(nodeid)
+except FileNotFoundError:
+    nodeids = set()
+
+with open(out_path, "w") as handle:
+    for nodeid in sorted(nodeids):
+        handle.write(f"{nodeid}\n")
+PY
+
+FAILURES_COUNT=0
+if [[ -f "$FAILURES_FILE" ]]; then
+  FAILURES_COUNT=$(wc -l < "$FAILURES_FILE" | tr -d ' ')
+fi
 
 # ==============================================================================
 # Aggregate checkpoint for chunked resume
@@ -883,6 +1284,10 @@ if [[ "$CHUNKED_RUN" -eq 1 ]] && [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
   PASSED_COUNT=$(wc -l < "$SORTED_PASSED" | tr -d ' ')
   {
     echo "# Maestro pytest checkpoint"
+    echo "# run_id: $RUN_ID"
+    echo "# profile: $PROFILE_MODE"
+    echo "# run_log: $RUN_LOG_FILE"
+    echo "# failures_file: $FAILURES_FILE"
     echo "# started_at: $RUN_STARTED_AT"
     echo "# finished_at: $RUN_FINISHED_AT"
     echo "# pytest_args: $PYTEST_RUN_ARGS_STR"
@@ -903,7 +1308,7 @@ if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
   SLOW_CANDIDATES="$REPO_ROOT/docs/workflows/v3/reports/test_slow_candidates.md"
   mkdir -p "$(dirname "$PROFILE_TXT")"
 
-  cp "$PROFILE_TEMP" "$PROFILE_TXT"
+  cp "$RUN_LOG_FILE" "$PROFILE_TXT"
 
   DURATIONS_CSV=$(mktemp)
   awk -v root="$REPO_ROOT/" '
@@ -956,7 +1361,7 @@ if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
     fi
   } > "$SLOW_CANDIDATES"
 
-  rm -f "$PROFILE_TEMP" "$DURATIONS_CSV"
+  rm -f "$DURATIONS_CSV"
 
   echo ""
   echo "Profile reports saved to:"
@@ -979,10 +1384,32 @@ if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
 else
   echo "Checkpoint:       disabled"
 fi
+if [[ "$FAILURES_COUNT" -gt 0 ]]; then
+  echo "Failures list:    $FAILURES_FILE (${FAILURES_COUNT})"
+else
+  echo "Failures list:    $FAILURES_FILE (none)"
+fi
+echo "Run log:          $RUN_LOG_FILE"
 echo "============================================================="
 echo ""
 if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
   echo "Tip: rerun with --resume-from $CHECKPOINT_FILE to skip already PASSED tests."
+fi
+if [[ "$FAILURES_COUNT" -gt 0 ]]; then
+  printf 'Tip: rerun only failures with: bash tools/test/run.sh -q $(cat %s)\n' "$FAILURES_FILE"
+fi
+if [[ "$EXIT_CODE" -eq 124 ]]; then
+  echo ""
+  echo "Timeout detected (exit 124)."
+  if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+    echo "Checkpoint: $CHECKPOINT_FILE"
+  fi
+  echo "Failures list: $FAILURES_FILE"
+  if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+    printf 'Retry: bash tools/test/run.sh -q --resume-from %s $(cat %s)\n' "$CHECKPOINT_FILE" "$FAILURES_FILE"
+  else
+    printf 'Retry: bash tools/test/run.sh -q $(cat %s)\n' "$FAILURES_FILE"
+  fi
 fi
 echo ""
 
