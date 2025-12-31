@@ -62,3 +62,25 @@ external/
 *.avi
 *.mov
 
+
+# Maestro runtime state (repo-local)
+docs/maestro/
+
+# AI logs/state
+/docs/logs/ai/
+/docs/state/ai_sessions.json
+
+# Test checkpoints
+/tmp/maestro_pytest_checkpoint_*
+
+# Local venv
+.venv/
+venv/
+
+# Scratch/dev scripts
+/tools/dev/
+/tools/scratch/
+
+# OS/editor
+*.swp
+.DS_Store
