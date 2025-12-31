@@ -4,7 +4,7 @@ Canonical test runner for the Maestro project with support for parallel executio
 
 ## Why this exists
 
-Maestro uses a repo-local `.venv/` so `pytest -q` does not depend on system Python packages. The canonical entrypoint is `tools/test/run.sh`, which creates the venv if needed, installs the minimal test dependencies, and runs pytest.
+Maestro uses a global `~/venv/` so `pytest -q` does not depend on system Python packages. The canonical entrypoint is `tools/test/run.sh`, which creates the venv if needed, installs the minimal test dependencies, and runs pytest.
 
 **Pytest direct invocation**: Running `pytest -q` directly should behave similarly to the runner for the default portable subset. Both exclude legacy and non-portable tests via `conftest.py` hooks and `pytest.ini` configuration. Use `bash tools/test/verify_portable_subset.sh` to verify alignment.
 

@@ -1,10 +1,336 @@
 bringing up nodes...
 bringing up nodes...
 
-.                                                                        [100%]
-Checkpoint written: /tmp/maestro_pytest_checkpoint_20251230_145454.txt (1 passed tests)
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 26%]
+........................................................................ [ 34%]
+......................s...........................s.ss..s.ssssssssss.s.s [ 43%]
+........................................................................ [ 52%]
+....................................s.s................................. [ 60%]
+.........................................................sss............ [ 69%]
+.........FF.....FF..................F................................... [ 78%]
+................s..sss.sss........ssss.................................. [ 86%]
+............................................F.F...................F..... [ 95%]
+............................F.........                                   [100%]
+Checkpoint written: /tmp/maestro_pytest_checkpoint_20251230_182301.txt (788 passed tests)
 
+=================================== FAILURES ===================================
+_____________ TestLegacyKillSwitch.test_legacy_disabled_by_default _____________
+[gw4] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_surface_contract.py:41: in test_legacy_disabled_by_default
+    assert result.returncode != 0, "session command should not be available by default"
+E   AssertionError: session command should not be available by default
+E   assert 0 != 0
+E    +  where 0 = CompletedProcess(args=['/home/sblo/venv/bin/python', '-m', 'maestro', 'session', '--help'], returncode=0,...rk session stats\x1b[0m\noptions:\x1b[0m\n  -h, --help            show this help message and exit\x1b[0m\n", stderr='').returncode
+__________ TestDeprecatedCommands.test_resume_shows_deprecated_marker __________
+[gw3] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_uniformity.py:90: in test_resume_shows_deprecated_marker
+    assert "DEPRECATED" in output or "deprecated" in output, \
+E   AssertionError: resume command should show deprecation notice
+E   assert ('DEPRECATED' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n' or 'deprecated' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n')
+__________ TestDeprecatedCommands.test_rules_shows_deprecated_marker ___________
+[gw3] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_uniformity.py:97: in test_rules_shows_deprecated_marker
+    assert "DEPRECATED" in output or "deprecated" in output, \
+E   AssertionError: rules command should show deprecation notice
+E   assert ('DEPRECATED' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n' or 'deprecated' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n')
+_____________ TestLegacyKillSwitch.test_legacy_disabled_explicit_0 _____________
+[gw4] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_surface_contract.py:59: in test_legacy_disabled_explicit_0
+    assert result.returncode != 0, "session command should not be available when explicitly disabled"
+E   AssertionError: session command should not be available when explicitly disabled
+E   assert 0 != 0
+E    +  where 0 = CompletedProcess(args=['/home/sblo/venv/bin/python', '-m', 'maestro', 'session', '--help'], returncode=0,...rk session stats\x1b[0m\noptions:\x1b[0m\n  -h, --help            show this help message and exit\x1b[0m\n", stderr='').returncode
+___________ TestDeprecatedCommands.test_root_shows_deprecated_marker ___________
+[gw3] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_uniformity.py:104: in test_root_shows_deprecated_marker
+    assert "DEPRECATED" in output or "deprecated" in output, \
+E   AssertionError: root command should show deprecation notice
+E   assert ('DEPRECATED' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n' or 'deprecated' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n')
+________ TestDeprecatedCommands.test_understand_shows_deprecated_marker ________
+[gw3] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_uniformity.py:111: in test_understand_shows_deprecated_marker
+    assert "DEPRECATED" in output or "deprecated" in output, \
+E   AssertionError: understand command should show deprecation notice
+E   assert ('DEPRECATED' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n' or 'deprecated' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n')
+____________ TestContractStability.test_default_mode_is_repeatable _____________
+[gw5] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_surface_contract.py:441: in test_default_mode_is_repeatable
+    assert result1.returncode != 0
+E   assert 0 != 0
+E    +  where 0 = CompletedProcess(args=['/home/sblo/venv/bin/python', '-m', 'maestro', 'session', '--help'], returncode=0,...rk session stats\x1b[0m\noptions:\x1b[0m\n  -h, --help            show this help message and exit\x1b[0m\n", stderr='').returncode
+_____________ TestLegacyKillSwitch.test_all_legacy_commands_gated ______________
+[gw4] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_surface_contract.py:124: in test_all_legacy_commands_gated
+    assert result.returncode != 0, f"{cmd} should not be available by default"
+E   AssertionError: session should not be available by default
+E   assert 0 != 0
+E    +  where 0 = CompletedProcess(args=['/home/sblo/venv/bin/python', '-m', 'maestro', 'session', '--help'], returncode=0,...rk session stats\x1b[0m\noptions:\x1b[0m\n  -h, --help            show this help message and exit\x1b[0m\n", stderr='').returncode
+_________ TestDeprecatedCommands.test_session_shows_deprecated_marker __________
+[gw5] linux -- Python 3.13.11 /home/sblo/venv/bin/python
+tests/test_cli_uniformity.py:83: in test_session_shows_deprecated_marker
+    assert "DEPRECATED" in output or "deprecated" in output, \
+E   AssertionError: session command should show deprecation notice
+E   assert ('DEPRECATED' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n' or 'deprecated' in 'Traceback (most recent call last):\n  File "/e/active/sblo/Dev/Maestro/maestro.py", line 62, in <module>\n    if help...NABLE_LEGACY", "0").lower()\n            ^^\nNameError: name \'os\' is not defined. Did you forget to import \'os\'?\n')
+=============================== warnings summary ===============================
+tests/test_convert_approval_gates.py: 32 warnings
+tests/test_convert_cross_repo_writes.py: 11 warnings
+tests/test_convert_decision_idempotent.py: 7 warnings
+  /e/active/sblo/Dev/Maestro/maestro/convert/plan_approval.py:49: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow().isoformat() + "Z"
+
+tests/test_hub_functionality.py::test_hub_with_mock_repo
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_hub_functionality.py::test_hub_with_mock_repo returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_convert_approval_gates.py::test_approve_enables_run
+tests/test_convert_approval_gates.py::test_ignore_gates_bypass_logs_warning
+tests/test_convert_cross_repo_writes.py::test_cross_repo_outputs_written_to_target
+  /e/active/sblo/Dev/Maestro/maestro/convert/plan_approval.py:341: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+
+tests/test_hub_functionality.py::test_hub_basic_functionality
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_hub_functionality.py::test_hub_basic_functionality returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_interrupt_fix.py::test_summary_file_creation_on_interrupt
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_interrupt_fix.py::test_summary_file_creation_on_interrupt returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_markdown_integration.py::test_markdown_integration
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_markdown_integration.py::test_markdown_integration returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_known_issues.py::test_upp_known_issue
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_known_issues.py::test_upp_known_issue returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2.py::test_upp_package_parsing
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2.py::test_upp_package_parsing returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2.py::test_workspace_dependency_resolution
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2.py::test_workspace_dependency_resolution returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_mc2_functionality.py::test_mc2_without_smoke_parameter
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_mc2_functionality.py::test_mc2_without_smoke_parameter returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2.py::test_build_cache
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2.py::test_build_cache returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2.py::test_ppinfo_tracking
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2.py::test_ppinfo_tracking returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_mc2_functionality.py::test_sessions_pane
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_mc2_functionality.py::test_sessions_pane returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2.py::test_export_functionality
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2.py::test_export_functionality returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2_comprehensive.py::test_imports
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2_comprehensive.py::test_imports returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2_comprehensive.py::test_basic_functionality
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2_comprehensive.py::test_basic_functionality returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_phase2_comprehensive.py::test_workspace_resolution
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_phase2_comprehensive.py::test_workspace_resolution returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_mc2_render_loop.py::test_render_loop
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_mc2_render_loop.py::test_render_loop returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_expanded_tui_smoke.py::test_all_screen_navigations
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_expanded_tui_smoke.py::test_all_screen_navigations returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_mc2_render_loop.py::test_render_with_session_data
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_mc2_render_loop.py::test_render_with_session_data returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_stress_scenarios.py::test_scenario_1_interrupt_mid_stream
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_stress_scenarios.py::test_scenario_1_interrupt_mid_stream returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_stress_scenarios.py::test_scenario_2_stop_after_n
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_stress_scenarios.py::test_scenario_2_stop_after_n returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_expanded_tui_smoke.py::test_modal_open_close
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_expanded_tui_smoke.py::test_modal_open_close returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_mc2_smoke.py::test_mc2_smoke
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_mc2_smoke.py::test_mc2_smoke returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_expanded_tui_smoke.py::test_mutation_triggers
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_expanded_tui_smoke.py::test_mutation_triggers returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_expanded_tui_smoke.py::test_stability_under_load
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_expanded_tui_smoke.py::test_stability_under_load returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_playbook_integration.py::test_playbook_integration
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_playbook_integration.py::test_playbook_integration returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_mc2_smoke.py::test_mc2_smoke_with_file
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_mc2_smoke.py::test_mc2_smoke_with_file returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_tool_detection.py::test_detect_tool_usage
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_tool_detection.py::test_detect_tool_usage returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_tu6_cli.py::test_cli_integration
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_tu6_cli.py::test_cli_integration returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_final_smoke.py::test_tui_smoke_mode_with_file
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_final_smoke.py::test_tui_smoke_mode_with_file returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_final_smoke.py::test_tui_smoke_mode_simple
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_final_smoke.py::test_tui_smoke_mode_simple returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_root_workflow.py::test_root_workflow
+  /home/sblo/venv/lib/python3.13/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_root_workflow.py::test_root_workflow returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 ============================= slowest 50 durations =============================
-0.50s call     tests/test_subwork_stack.py::test_subwork_stack_flow
-
-(2 durations < 0.005s hidden.  Use -vv to show these durations.)
+708.29s call     tests/test_repo_resolve_ai_upp.py::test_scan_upp_repo_v2_integration
+97.15s call     tests/test_repo_workflow_ai_upp_e2e.py::test_repo_workflow_e2e
+78.67s call     tests/test_repo_resolve_ai_upp.py::test_cli_init_resolve_e2e
+77.68s call     tests/test_repo_resolve_ai_upp.py::test_cli_json_output_integration
+35.44s call     tests/test_discuss_golden_replays.py::test_discuss_golden_replays
+21.49s call     tests/test_plan_cli_fix.py::test_plan_cli_fix
+20.52s call     tests/test_ai_cli_smoke.py::test_ai_print_cmd_flags
+18.66s call     tests/test_playbook_integration.py::test_playbook_integration
+15.34s call     tests/test_ai_cli_smoke.py::test_command_building_with_options
+14.49s call     tests/test_structure_integration.py::test_command_aliases
+14.45s call     tests/test_repo_resolve_portable.py::test_repo_workflow_e2e_portable
+13.41s call     tests/test_structure_integration.py::test_regression_scenario_1
+12.83s call     tests/test_repo_resolve_portable.py::test_scan_portable_repo_v2
+11.10s call     tests/test_repo_resolve_portable.py::test_cli_init_resolve_e2e_portable
+10.63s call     tests/test_repo_resolve_portable.py::test_cli_json_output_portable
+10.40s call     tests/test_structure_integration.py::test_regression_scenario_2
+10.35s call     tests/test_expanded_tui_smoke.py::test_all_screen_navigations
+9.76s call     tests/test_structure_integration.py::test_structure_fix_and_apply
+8.02s call     tests/test_cli_surface_contract.py::TestContractStability::test_legacy_mode_is_repeatable
+7.31s call     tests/test_cli_surface_contract.py::TestContractStability::test_default_mode_is_repeatable
+7.09s call     tests/test_structure_integration.py::test_structure_scan
+6.07s call     tests/test_plan_cli_fix.py::test_discuss_add_rejection
+5.55s call     tests/test_structure_integration.py::test_structure_show
+5.20s call     tests/test_cli_surface_contract.py::TestErrorMessages::test_session_disabled_error_message
+5.13s call     tests/test_cli_surface_contract.py::TestAliasNormalization::test_session_alias_s_disabled
+5.02s call     tests/test_mc2_smoke.py::test_mc2_smoke_with_file
+5.02s call     tests/test_mc2_render_loop.py::test_render_with_session_data
+5.02s call     tests/test_mc2_render_loop.py::test_render_loop
+5.01s call     tests/test_final_smoke.py::test_tui_smoke_mode_with_file
+4.94s call     tests/test_structure_integration.py::test_structure_lint
+4.85s call     tests/test_mc2_smoke.py::test_mc2_smoke
+4.75s call     tests/test_cli_surface_contract.py::TestLegacyWarnings::test_session_command_warning
+4.54s call     tests/test_cli_surface_contract.py::TestLegacyWarnings::test_understand_command_warning
+4.18s call     tests/test_cli_surface_contract.py::TestErrorMessages::test_understand_disabled_error_message
+4.18s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_understand_shows_deprecated_marker
+4.16s call     tests/test_ops_run.py::test_execute_step_success
+4.14s call     tests/test_mc2_functionality.py::test_mc2_flag_exists
+4.10s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_enabled_with_true
+4.04s call     tests/test_cli_surface_contract.py::TestConvertDispatchContract::test_convert_plan_pipeline_first
+4.02s call     tests/test_cli_surface_contract.py::TestAliasNormalization::test_session_alias_s_enabled
+3.92s call     tests/test_ai_cli_smoke.py::test_ai_help_commands
+3.83s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_explicit_0
+3.76s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_resume_shows_deprecated_marker
+3.76s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_rules_shows_deprecated_marker
+3.75s call     tests/test_root_workflow.py::test_root_workflow
+3.70s call     tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_by_default
+3.51s call     tests/test_cli_surface_contract.py::TestConvertDispatchContract::test_convert_plan_keyword_first
+3.48s call     tests/test_cli_uniformity.py::TestCanonicalVerbs::test_repo_conf_show_exists
+3.42s call     tests/test_cli_surface_contract.py::TestCanonicalCommandsContinueToWork::test_wsession_works_with_legacy_disabled
+3.40s call     tests/test_cli_uniformity.py::TestDeprecatedCommands::test_root_shows_deprecated_marker
+=========================== short test summary info ============================
+FAILED tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_by_default
+FAILED tests/test_cli_uniformity.py::TestDeprecatedCommands::test_resume_shows_deprecated_marker
+FAILED tests/test_cli_uniformity.py::TestDeprecatedCommands::test_rules_shows_deprecated_marker
+FAILED tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_legacy_disabled_explicit_0
+FAILED tests/test_cli_uniformity.py::TestDeprecatedCommands::test_root_shows_deprecated_marker
+FAILED tests/test_cli_uniformity.py::TestDeprecatedCommands::test_understand_shows_deprecated_marker
+FAILED tests/test_cli_surface_contract.py::TestContractStability::test_default_mode_is_repeatable
+FAILED tests/test_cli_surface_contract.py::TestLegacyKillSwitch::test_all_legacy_commands_gated
+FAILED tests/test_cli_uniformity.py::TestDeprecatedCommands::test_session_shows_deprecated_marker

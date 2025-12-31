@@ -168,7 +168,7 @@ git status --porcelain | grep -E "docs/maestro/locks|docs/logs/ai"
 ### MAESTRO_BIN
 - **Purpose:** Override maestro command for smoke tests
 - **Default:** Tries `./maestro.py`, then `python -m maestro`
-- **Example:** `MAESTRO_BIN="./venv/bin/python -m maestro"`
+- **Example:** `MAESTRO_BIN="~/venv/bin/python -m maestro"`
 
 ## Files Changed
 

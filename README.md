@@ -226,8 +226,8 @@ pip install -e .
 For running the full test/TU suite and GUI completion helper, install dev extras in your virtualenv:
 
 ```bash
-python -m venv venv
-./venv/bin/pip install -r requirements-dev.txt
+python -m venv ~/venv
+~/venv/bin/pip install -r requirements-dev.txt
 ```
 
 If libclang is not discovered automatically, point to it (e.g. on clang 21):

@@ -22,6 +22,7 @@ tests/fixtures/**/.maestro/
 test_sample.*
 
 # Python virtual environment
+~/venv/
 venv/
 env/
 ENV/
@@ -40,4 +41,24 @@ lib64
 
 # Discuss session locks (P1 Sprint 2.1)
 docs/maestro/locks/*.lock
+
+docs/logs/ai/
+external/
+*.so
+*.bin
+*.exe
+*.dll
+*.pack
+*.pak
+*.zip
+*.tar
+*.gz
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.avi
+*.mov
 

@@ -46,10 +46,10 @@ These tests were skipped due to "subprocess timeouts" but now pass reliably.
 
 **Evidence**:
 ```bash
-$ .venv/bin/python -m pytest tests/test_cli_uniformity.py::TestHelpContract::test_repo_keyword_shows_help -v
+$ ~/venv/bin/python -m pytest tests/test_cli_uniformity.py::TestHelpContract::test_repo_keyword_shows_help -v
 tests/test_cli_uniformity.py::TestHelpContract::test_repo_keyword_shows_help PASSED
 
-$ .venv/bin/python -m pytest tests/test_mc2_no_textual.py::test_mc2_runs_without_textual_import -v
+$ ~/venv/bin/python -m pytest tests/test_mc2_no_textual.py::test_mc2_runs_without_textual_import -v
 tests/test_mc2_no_textual.py::test_mc2_runs_without_textual_import PASSED
 ```
 

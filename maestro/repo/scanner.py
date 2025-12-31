@@ -99,7 +99,7 @@ def scan_upp_repo_v2(
     # Directories to skip during scanning (common non-U++ directories)
     skip_dirs = {
         'node_modules', '.git', '.svn', '.hg', '__pycache__', '.pytest_cache',
-        '.tox', '.venv', 'venv', 'env', '.env', 'build', 'dist', '.maestro',
+        '.tox', '.venv', 'venv', 'env', '.env', 'build', 'dist', '.maestro', '*/venv',
         '.idea', '.vscode', '.vs', 'CMakeFiles', '.mypy_cache', '.coverage',
         'bin', 'obj', 'out', 'target', 'Debug', 'Release', 'x64', 'x86',
         '.cache', 'cache', 'tmp', 'temp', '.tmp', '.temp'

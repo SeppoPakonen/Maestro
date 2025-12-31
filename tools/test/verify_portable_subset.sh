@@ -36,7 +36,7 @@ echo
 
 # Collect tests from pytest directly (sum up test counts)
 echo "2. Collecting tests via pytest -q..."
-if .venv/bin/python -m pytest --collect-only -q 2>/dev/null | grep -E '^tests/' > "$PYTEST_COLLECT"; then
+if ~/venv/bin/python -m pytest --collect-only -q 2>/dev/null | grep -E '^tests/' > "$PYTEST_COLLECT"; then
     # Sum up the counts (format is "file.py: count")
     PYTEST_COUNT=$(awk '{sum+=$NF} END {print sum}' "$PYTEST_COLLECT")
     PYTEST_FILES=$(wc -l < "$PYTEST_COLLECT")

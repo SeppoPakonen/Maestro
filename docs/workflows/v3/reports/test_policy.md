@@ -6,7 +6,7 @@ Make `pytest -q` reliable and green by default on a normal dev machine without e
 ## Test Execution Contract
 
 All automated test runs must go through `tools/test/run.sh`. The runner creates
-the repo-local `.venv/`, installs the minimal pytest dependencies, and executes
+the global `~/venv/`, installs the minimal pytest dependencies, and executes
 `python -m pytest -q` with any provided arguments.
 
 ## Changes Made

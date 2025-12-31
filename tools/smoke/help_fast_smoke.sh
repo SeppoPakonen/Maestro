@@ -9,8 +9,8 @@ if [[ -n "${MAESTRO_BIN:-}" ]]; then
   MAESTRO_CMD=("$MAESTRO_BIN")
 elif [[ -x "$REPO_ROOT/maestro.py" ]]; then
   MAESTRO_CMD=("$REPO_ROOT/maestro.py")
-elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
-  MAESTRO_CMD=("$REPO_ROOT/.venv/bin/python" "-m" "maestro")
+elif [[ -x "$HOME/venv/bin/python" ]]; then
+  MAESTRO_CMD=("$HOME/venv/bin/python" "-m" "maestro")
 else
   echo "ERROR: Could not resolve MAESTRO_BIN or ./maestro.py" >&2
   exit 1
