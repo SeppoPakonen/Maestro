@@ -238,6 +238,37 @@ export LIBCLANG_PATH=/usr/lib/llvm/21/lib64/libclang.so
 
 Legacy root smoke/semantic integrity harnesses are kept as `_legacy.py` to avoid pytest duplicate-module clashes; run the maintained suites under `tests/`.
 
+### Running Tests
+
+Maestro tests are organized into two main categories:
+
+1. **Main-line tests**: These tests run in parallel and do not require special permissions.
+2. **Serial-line tests**: These tests must run sequentially and often require git operations.
+
+Serial-line tests are marked with the `serial` marker and often also have the `git` marker. To run tests that include serial-line tests, you need to set the `MAESTRO_TEST_ALLOW_GIT` environment variable:
+
+```bash
+# Run all tests including serial tests
+MAESTRO_TEST_ALLOW_GIT=1 bash tools/test/run.sh --all
+
+# Run only serial tests
+MAESTRO_TEST_ALLOW_GIT=1 bash tools/test/run.sh -m "serial" -v
+
+# Run tests with specific markers
+MAESTRO_TEST_ALLOW_GIT=1 bash tools/test/run.sh -m "not legacy and serial" -v
+```
+
+### Test Runner Options
+
+The test runner supports various options:
+
+- `--fast`: Run only fast tests (not slow, not legacy, not tui, not integration)
+- `--medium`: Run medium-speed tests (not legacy, not tui) - default
+- `--slow`: Run slow tests (slow, not legacy, not tui)
+- `--all`: Run all tests (not legacy)
+- `-m MARKEXPR`: Run tests matching the marker expression
+- `--workers N`: Specify number of parallel workers
+
 ---
 
 ## Usage
