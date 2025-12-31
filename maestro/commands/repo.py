@@ -110,7 +110,8 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
     def _build_assemblies_and_packages() -> tuple[list[dict], list[dict]]:
         repo_root_path = Path(repo_root).resolve()
         assemblies: list[dict] = []
-        assembly_by_root: dict[str, dict] = {}
+        assembly_by_root: dict[str, list[dict]] = {}  # Map from root path to list of assemblies
+        assembly_by_kind: dict[str, dict] = {}  # Map from kind to assembly for virtual package routing
         for asm in scan_result.assemblies_detected:
             root_path = Path(asm.root_path).resolve()
             try:
@@ -128,7 +129,17 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 "package_ids": [],
             }
             assemblies.append(entry)
-            assembly_by_root[os.path.normpath(str(root_path))] = entry
+
+            # Add to path-based lookup (multiple assemblies can have same path)
+            root_path_key = os.path.normpath(str(root_path))
+            if root_path_key not in assembly_by_root:
+                assembly_by_root[root_path_key] = []
+            assembly_by_root[root_path_key].append(entry)
+
+            # Add to kind-based lookup (for virtual package routing)
+            kind = entry["kind"]
+            if kind:
+                assembly_by_kind[kind] = entry
 
         package_entries_by_assembly: dict[str, list[dict]] = {a["assembly_id"]: [] for a in assemblies}
         unassigned_packages: list[dict] = []
@@ -138,32 +149,82 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
             pkg_dir_rel = os.path.relpath(pkg_path, repo_root_path)
 
             # Find the best matching assembly for this package
-            # A package belongs to an assembly if the package root path is inside the assembly root path
-            # Priority: more specific paths first (longest match)
+            # Priority order:
+            # 1. If package is virtual, prefer assembly with matching kind
+            # 2. Otherwise, use best path match (longest path prefix match)
             best_assembly_entry = None
-            best_match_length = -1
 
-            for asm_path, asm_entry in assembly_by_root.items():
-                asm_path_obj = Path(asm_path).resolve()
-                # Check if the package directory is under the assembly directory
-                try:
-                    # If the package path is the same as assembly path, it belongs to that assembly
-                    if pkg_path == asm_path_obj:
-                        # Exact match, this is the best possible match
-                        best_assembly_entry = asm_entry
-                        best_match_length = len(str(asm_path_obj))
+            # Check if this is a virtual package with a specific type
+            is_virtual = getattr(pkg, 'is_virtual', False)
+            virtual_type = getattr(pkg, 'virtual_type', None)
+
+            if is_virtual and virtual_type:
+                # First, try to find an assembly with matching kind
+                if virtual_type in assembly_by_kind:
+                    kind_matching_asm = assembly_by_kind[virtual_type]
+                    # Convert the relative root path to an absolute path
+                    asm_path_obj = (repo_root_path / kind_matching_asm["root_relpath"]).resolve()
+                    try:
+                        # If the package path is the same as assembly path, it belongs to that assembly
+                        if pkg_path == asm_path_obj:
+                            best_assembly_entry = kind_matching_asm
+                        # If the package path is under the assembly path, it belongs to that assembly
+                        rel_path = pkg_path.relative_to(asm_path_obj)
+                        if not str(rel_path).startswith('..'):
+                            best_assembly_entry = kind_matching_asm
+                    except ValueError:
+                        # pkg_path is not under asm_path_obj, don't assign to this assembly
+                        pass
+
+            # If no kind-matching assembly found or package is not virtual, use path matching
+            if best_assembly_entry is None:
+                best_match_length = -1
+                best_assembly_entry = None
+                # Look for assemblies that contain this package path
+                pkg_path_norm = os.path.normpath(str(pkg_path))
+                assemblies_to_check = []
+
+                # Check if there are assemblies with the exact same path
+                if pkg_path_norm in assembly_by_root:
+                    assemblies_to_check.extend(assembly_by_root[pkg_path_norm])
+
+                # Also check parent directories for assemblies
+                current_path = pkg_path.parent
+                while current_path != repo_root_path.parent:  # Stop at filesystem root
+                    current_path_norm = os.path.normpath(str(current_path))
+                    if current_path_norm in assembly_by_root:
+                        assemblies_to_check.extend(assembly_by_root[current_path_norm])
+                    if current_path == current_path.parent:  # Reached filesystem root
                         break
-                    # If the package path is under the assembly path, it belongs to that assembly
-                    rel_path = pkg_path.relative_to(asm_path_obj)
-                    if not str(rel_path).startswith('..'):
-                        # This assembly contains the package, check if it's a better match than previous
-                        current_match_length = len(str(asm_path_obj))
-                        if current_match_length > best_match_length:
-                            best_assembly_entry = asm_entry
-                            best_match_length = current_match_length
-                except ValueError:
-                    # pkg_path is not under asm_path_obj, continue to next assembly
-                    continue
+                    current_path = current_path.parent
+
+                # For non-virtual packages, prefer root assemblies when multiple assemblies exist for same path
+                root_assemblies = [asm for asm in assemblies_to_check if asm["kind"] == "root"]
+                if not is_virtual and root_assemblies:
+                    # Assign non-virtual packages to root assembly
+                    best_assembly_entry = root_assemblies[0]  # Pick the first root assembly
+                elif assemblies_to_check:
+                    # For virtual packages or if no root assembly exists, use path matching logic
+                    for asm_entry in assemblies_to_check:
+                        asm_path_obj = Path(asm_entry["root_relpath"]).resolve()
+                        try:
+                            # If the package path is the same as assembly path, it belongs to that assembly
+                            if pkg_path == asm_path_obj:
+                                # Exact match, this is the best possible match
+                                best_assembly_entry = asm_entry
+                                best_match_length = len(str(asm_path_obj))
+                                break
+                            # If the package path is under the assembly path, it belongs to that assembly
+                            rel_path = pkg_path.relative_to(asm_path_obj)
+                            if not str(rel_path).startswith('..'):
+                                # This assembly contains the package, check if it's a better match than previous
+                                current_match_length = len(str(asm_path_obj))
+                                if current_match_length > best_match_length:
+                                    best_assembly_entry = asm_entry
+                                    best_match_length = current_match_length
+                        except ValueError:
+                            # pkg_path is not under asm_path_obj, continue to next assembly
+                            continue
 
             assembly_id = best_assembly_entry["assembly_id"] if best_assembly_entry else None
             package_relpath = os.path.relpath(pkg_path, best_assembly_entry["root_relpath"]) if best_assembly_entry else pkg_dir_rel
