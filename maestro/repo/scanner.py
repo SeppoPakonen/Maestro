@@ -77,6 +77,19 @@ def _is_ignored_path(path: Path, repo_root: Path, skip_dirs: set[str]) -> bool:
     return False
 
 
+def is_upp_package_root(path: Path) -> bool:
+    """Return True if a directory contains any .upp file directly within it."""
+    if not path.is_dir():
+        return False
+    try:
+        for entry in path.iterdir():
+            if entry.is_file() and entry.suffix == ".upp":
+                return True
+    except OSError:
+        return False
+    return False
+
+
 def detect_upp_assemblies(
     repo_root: str,
     packages: List[PackageInfo],
@@ -109,6 +122,11 @@ def detect_upp_assemblies(
     for asm_root in sorted(assemblies_by_root.keys(), key=lambda p: str(p)):
         packages_in_dir = assemblies_by_root[asm_root]
         if len(packages_in_dir) < min_packages:
+            continue
+        if is_upp_package_root(asm_root):
+            if verbose:
+                rel_root = os.path.relpath(str(asm_root), str(repo_root_resolved))
+                print(f"[maestro] skip assembly (pkg root): {rel_root}")
             continue
         packages_sorted = sorted(
             packages_in_dir,
