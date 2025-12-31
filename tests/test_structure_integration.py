@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.git]
+pytestmark = [pytest.mark.integration, pytest.mark.git, pytest.mark.serial]
 
 def _reset_missing_upp_fixture():
     missing_upp_path = Path("test_upp_fixtures") / "assemblyB" / "missingupp" / "missingupp.upp"

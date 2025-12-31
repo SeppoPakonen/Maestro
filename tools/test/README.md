@@ -55,7 +55,17 @@ bash tools/test/run.sh -j 4
 bash tools/test/run.sh -j 1
 ```
 
-### 3. Speed Profiles (Marker-Based)
+### 3. Serial-only Tests (No Concurrency)
+
+Tests marked with `@pytest.mark.serial` must run after the main lane and are forced to run with `-n0`:
+
+```python
+@pytest.mark.serial
+def test_some_global_state():
+    ...
+```
+
+### 4. Speed Profiles (Marker-Based)
 
 Speed profiles are marker expressions applied via `-m`:
 
@@ -78,7 +88,7 @@ bash tools/test/run.sh --slow
 bash tools/test/run.sh --all
 ```
 
-### 4. Checkpoint & Resume
+### 5. Checkpoint & Resume
 
 The runner writes a checkpoint file after each run containing PASSED test nodeids and metadata. Use `--resume-from` to skip already-passed tests.
 
@@ -91,7 +101,20 @@ bash tools/test/run.sh -x --maxfail=1
 bash tools/test/run.sh --resume-from /tmp/maestro_pytest_checkpoint_YYYYMMDD_HHMMSS.txt -x --maxfail=1
 ```
 
-### 5. Profiling & Slow-Test Report
+Each run also saves a full pytest log and a failures list under `/tmp`:
+
+- `/tmp/maestro_pytest_run_YYYYMMDD_HHMMSS.log`
+- `/tmp/maestro_pytest_failures_YYYYMMDD_HHMMSS.txt`
+
+Use the failures list to rerun just the failed tests:
+
+```bash
+bash tools/test/run.sh -q $(cat /tmp/maestro_pytest_failures_YYYYMMDD_HHMMSS.txt)
+```
+
+To self-check failure extraction, run a known failing nodeid and confirm it appears in the failures file.
+
+### 6. Profiling & Slow-Test Report
 
 Use `--profile` to capture pytest duration output and write reports:
 
@@ -102,7 +125,7 @@ Use `--profile` to capture pytest duration output and write reports:
 bash tools/test/run.sh --profile tests/test_subwork_stack.py
 ```
 
-### 6. Git Lock Preflight
+### 7. Git Lock Preflight
 
 The runner checks for `.git/index.lock` and exits with diagnostics if present. Override only if you know what you are doing:
 
@@ -117,7 +140,7 @@ During test execution, the runner also detects newly created git index locks and
 bash tools/test/run.sh --no-git-lock-detect
 ```
 
-### 7. Git-Dependent Tests
+### 8. Git-Dependent Tests
 
 Tests that execute git commands are opt-in. Enable them with:
 

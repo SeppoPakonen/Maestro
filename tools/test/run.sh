@@ -182,6 +182,10 @@ USER_COLOR=0
 BISECT_GIT_LOCK=0
 BISECT_CHECKPOINT_FILE=""
 BISECT_LIMIT=""
+RUN_SERIAL_EVEN_IF_MAIN_FAILS=0
+RESUME_MAIN_FROM=""
+RESUME_SERIAL_FROM=""
+USER_MARKER_EXPR=""
 
 RUNNER_OPTS=()
 PYTEST_ARGS=()
@@ -205,8 +209,12 @@ Runner Options:
   --profile               Capture slow-test profile output and reports
   --print-pytest-cmd       Print the resolved pytest command and exit
   --resume-from FILE      Resume from checkpoint, skipping previously PASSED tests
+  --resume-main-from FILE Resume main lane from checkpoint, skipping PASSED tests
+  --resume-serial-from FILE Resume serial lane from checkpoint, skipping PASSED tests
   --checkpoint            Enable checkpoint writing (default)
   --no-checkpoint         Disable checkpoint writing
+  --run-serial-even-if-main-fails
+                         Run serial lane even if main lane fails
   --skiplist FILE         File containing test patterns to skip (default: none)
   --skipped               Run ONLY the tests listed in skiplist
   --timeout SECONDS       Kill tests that run longer than SECONDS (requires pytest-timeout)
@@ -344,6 +352,34 @@ while [[ $# -gt 0 ]]; do
       RUNNER_OPTS+=("$1")
       shift
       ;;
+    --resume-main-from)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --resume-main-from requires a file path argument" >&2
+        exit 1
+      fi
+      RESUME_MAIN_FROM="$2"
+      RUNNER_OPTS+=("$1" "$2")
+      shift 2
+      ;;
+    --resume-main-from=*)
+      RESUME_MAIN_FROM="${1#*=}"
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
+    --resume-serial-from)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --resume-serial-from requires a file path argument" >&2
+        exit 1
+      fi
+      RESUME_SERIAL_FROM="$2"
+      RUNNER_OPTS+=("$1" "$2")
+      shift 2
+      ;;
+    --resume-serial-from=*)
+      RESUME_SERIAL_FROM="${1#*=}"
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
     --checkpoint)
       CHECKPOINT_ENABLED=1
       RUNNER_OPTS+=("$1")
@@ -400,12 +436,22 @@ while [[ $# -gt 0 ]]; do
       RUNNER_OPTS+=("$1" "$2")
       shift 2
       ;;
+    --run-serial-even-if-main-fails)
+      RUN_SERIAL_EVEN_IF_MAIN_FAILS=1
+      RUNNER_OPTS+=("$1")
+      shift
+      ;;
     *)
       PYTEST_ARGS+=("$1")
       shift
       ;;
   esac
 done
+
+if [[ -n "$RESUME_FROM" ]] && ([[ -n "$RESUME_MAIN_FROM" ]] || [[ -n "$RESUME_SERIAL_FROM" ]]); then
+  echo "ERROR: Use --resume-from or --resume-main-from/--resume-serial-from, not both." >&2
+  exit 1
+fi
 
 # ==============================================================================
 # Speed profile selection
@@ -499,6 +545,31 @@ for ((i=0; i<${#PYTEST_ARGS[@]}; i++)); do
 done
 PYTEST_ARGS=("${PYTEST_ARGS_FILTERED[@]}")
 
+PYTEST_ARGS_NO_MARKER=()
+SKIP_NEXT=0
+for ((i=0; i<${#PYTEST_ARGS[@]}; i++)); do
+  arg="${PYTEST_ARGS[$i]}"
+  if [[ "$SKIP_NEXT" -eq 1 ]]; then
+    SKIP_NEXT=0
+    continue
+  fi
+  case "$arg" in
+    -m)
+      if (( i + 1 < ${#PYTEST_ARGS[@]} )); then
+        USER_MARKER_EXPR="${PYTEST_ARGS[$((i + 1))]}"
+        SKIP_NEXT=1
+      fi
+      ;;
+    -m=*)
+      USER_MARKER_EXPR="${arg#*=}"
+      ;;
+    *)
+      PYTEST_ARGS_NO_MARKER+=("$arg")
+      ;;
+  esac
+done
+PYTEST_ARGS=("${PYTEST_ARGS_NO_MARKER[@]}")
+
 EXPECTS_VALUE=0
 for ((i=0; i<${#PYTEST_ARGS[@]}; i++)); do
   arg="${PYTEST_ARGS[$i]}"
@@ -559,6 +630,11 @@ if [[ "$USER_XDIST" -eq 1 ]] && [[ "$XDIST_AVAILABLE" -eq 1 ]]; then
 elif [[ "$USE_XDIST" -eq 1 ]]; then
   XDIST_ACTIVE=1
   WORKERS_EFFECTIVE="$WORKERS"
+fi
+
+SERIAL_WORKERS_EFFECTIVE=1
+if [[ "$XDIST_AVAILABLE" -eq 1 ]]; then
+  SERIAL_WORKERS_EFFECTIVE=0
 fi
 
 if [[ "$XDIST_AVAILABLE" -eq 0 ]] && ([[ "$USER_XDIST" -eq 1 ]] || [[ "$WORKERS" -gt 1 ]]); then
@@ -626,30 +702,74 @@ else
   SELECTION_MODE="profile"
 fi
 
+strip_xdist_args() {
+  local -n input_array="$1"
+  local -n output_array="$2"
+  local skip_next=0
+  output_array=()
+  for arg in "${input_array[@]}"; do
+    if [[ "$skip_next" -eq 1 ]]; then
+      skip_next=0
+      continue
+    fi
+    case "$arg" in
+      -n|--numprocesses)
+        skip_next=1
+        continue
+        ;;
+      -n=*|--numprocesses=*)
+        continue
+        ;;
+      *)
+        output_array+=("$arg")
+        ;;
+    esac
+  done
+}
+
+PYTEST_NON_SELECTOR_ARGS_NO_XDIST=()
+PYTEST_ARGS_NO_XDIST=()
+strip_xdist_args PYTEST_NON_SELECTOR_ARGS PYTEST_NON_SELECTOR_ARGS_NO_XDIST
+strip_xdist_args PYTEST_ARGS PYTEST_ARGS_NO_XDIST
+
 # ==============================================================================
 # Base pytest args (markers, skiplist, timeout)
 # ==============================================================================
 PYTEST_BASE_ARGS=(-c pytest.ini)
-MARKER_EXPR=""
+PROFILE_MARKER_EXPR=""
 
 case "$PROFILE_MODE" in
   fast)
-    MARKER_EXPR="not slow and not legacy and not tui and not integration"
+    PROFILE_MARKER_EXPR="not slow and not legacy and not tui and not integration"
     ;;
   medium)
-    MARKER_EXPR="not legacy and not tui"
+    PROFILE_MARKER_EXPR="not legacy and not tui"
     ;;
   slow)
-    MARKER_EXPR="slow and not legacy and not tui"
+    PROFILE_MARKER_EXPR="slow and not legacy and not tui"
     ;;
   all)
-    MARKER_EXPR="not legacy"
+    PROFILE_MARKER_EXPR="not legacy"
     ;;
 esac
 
-if [[ -n "$MARKER_EXPR" ]]; then
-  PYTEST_BASE_ARGS+=(-m "$MARKER_EXPR")
+EFFECTIVE_MARKER_EXPR="$PROFILE_MARKER_EXPR"
+if [[ -n "$USER_MARKER_EXPR" ]]; then
+  EFFECTIVE_MARKER_EXPR="$USER_MARKER_EXPR"
 fi
+
+combine_markers() {
+  local base_expr="$1"
+  local lane_expr="$2"
+  if [[ -z "$base_expr" ]]; then
+    echo "$lane_expr"
+  else
+    echo "(${base_expr}) and (${lane_expr})"
+  fi
+}
+
+MAIN_MARKER_EXPR=$(combine_markers "$EFFECTIVE_MARKER_EXPR" "not serial")
+SERIAL_MARKER_EXPR=$(combine_markers "$EFFECTIVE_MARKER_EXPR" "serial")
 
 PYTEST_RUN_DEFAULT_ARGS=()
 if [[ "$USER_REPORT" -eq 0 ]]; then
@@ -745,14 +865,14 @@ if [[ "$BISECT_GIT_LOCK" -eq 1 ]]; then
   if [[ -n "$BISECT_CHECKPOINT_FILE" ]] && [[ -f "$BISECT_CHECKPOINT_FILE" ]]; then
     echo "Using checkpoint file to skip passed tests: $BISECT_CHECKPOINT_FILE"
     # Load passed tests from checkpoint
-    PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
-      BEGIN { in_list=0; found=0 }
-      $0 == delim { in_list=1; found=1; next }
-      in_list == 1 { if (NF > 0) print; next }
-      found == 0 {
-        if (NF > 0 && $0 !~ /^#/) print
-      }
-    ' "$BISECT_CHECKPOINT_FILE")
+    if grep -Fxq "$CHECKPOINT_DELIM" "$BISECT_CHECKPOINT_FILE"; then
+      PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
+        $0 == delim { in_list=1; next }
+        in_list == 1 { if (NF > 0) print }
+      ' "$BISECT_CHECKPOINT_FILE")
+    else
+      PASSED_NODEIDS=$(awk 'NF > 0 && $0 !~ /^#/ && $0 !~ /^LANE=/' "$BISECT_CHECKPOINT_FILE")
+    fi
 
     # Filter out passed nodeids
     FILTERED_NODEIDS=()
@@ -841,14 +961,14 @@ if [[ "$BISECT_GIT_LOCK" -eq 1 ]]; then
   if [[ -n "$BISECT_CHECKPOINT_FILE" ]] && [[ -f "$BISECT_CHECKPOINT_FILE" ]]; then
     echo "Using checkpoint file to skip passed tests: $BISECT_CHECKPOINT_FILE"
     # Load passed tests from checkpoint
-    PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
-      BEGIN { in_list=0; found=0 }
-      $0 == delim { in_list=1; found=1; next }
-      in_list == 1 { if (NF > 0) print; next }
-      found == 0 {
-        if (NF > 0 && $0 !~ /^#/) print
-      }
-    ' "$BISECT_CHECKPOINT_FILE")
+    if grep -Fxq "$CHECKPOINT_DELIM" "$BISECT_CHECKPOINT_FILE"; then
+      PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
+        $0 == delim { in_list=1; next }
+        in_list == 1 { if (NF > 0) print }
+      ' "$BISECT_CHECKPOINT_FILE")
+    else
+      PASSED_NODEIDS=$(awk 'NF > 0 && $0 !~ /^#/ && $0 !~ /^LANE=/' "$BISECT_CHECKPOINT_FILE")
+    fi
 
     # Filter out passed nodeids
     FILTERED_NODEIDS=()
@@ -905,45 +1025,66 @@ fi
 # ==============================================================================
 # Checkpoint setup
 # ==============================================================================
-RUN_ID="maestro_pytest_${RUN_TIMESTAMP}"
+RUN_ID_MAIN="maestro_pytest_main_${RUN_TIMESTAMP}"
+RUN_ID_SERIAL="maestro_pytest_serial_${RUN_TIMESTAMP}"
 RUN_LOG_FILE="/tmp/maestro_pytest_run_${RUN_TIMESTAMP}.log"
 FAILURES_FILE="/tmp/maestro_pytest_failures_${RUN_TIMESTAMP}.txt"
 
-CHECKPOINT_FILE=""
+CHECKPOINT_FILE_MAIN=""
+CHECKPOINT_FILE_SERIAL=""
 if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
   if [[ -n "${MAESTRO_TEST_CHECKPOINT:-}" ]]; then
-    CHECKPOINT_FILE="$MAESTRO_TEST_CHECKPOINT"
+    CHECKPOINT_FILE_MAIN="$MAESTRO_TEST_CHECKPOINT"
   else
-    CHECKPOINT_FILE="/tmp/maestro_pytest_checkpoint_${RUN_TIMESTAMP}.txt"
+    CHECKPOINT_FILE_MAIN="/tmp/maestro_pytest_checkpoint_main_${RUN_TIMESTAMP}.txt"
   fi
+  CHECKPOINT_FILE_SERIAL="/tmp/maestro_pytest_checkpoint_serial_${RUN_TIMESTAMP}.txt"
 fi
 
 # ==============================================================================
 # Resume mode: collect nodeids and filter out passed tests
 # ==============================================================================
-RESUME_NODEIDS=()
-if [[ -n "$RESUME_FROM" ]]; then
-  if [[ ! -f "$RESUME_FROM" ]]; then
-    echo "ERROR: Resume checkpoint file not found: $RESUME_FROM" >&2
+read_checkpoint_lane() {
+  local checkpoint_path="$1"
+  awk -F'=' '/^LANE=/{print $2; exit}' "$checkpoint_path"
+}
+
+checkpoint_passed_nodeids() {
+  local checkpoint_path="$1"
+  if grep -Fxq "$CHECKPOINT_DELIM" "$checkpoint_path"; then
+    awk -v delim="$CHECKPOINT_DELIM" '
+      $0 == delim { in_list=1; next }
+      in_list == 1 { if (NF > 0) print }
+    ' "$checkpoint_path"
+  else
+    awk 'NF > 0 && $0 !~ /^#/ && $0 !~ /^LANE=/' "$checkpoint_path"
+  fi
+}
+
+build_resume_nodeids() {
+  local resume_file="$1"
+  local marker_expr="$2"
+  local -n out_nodeids="$3"
+  out_nodeids=()
+
+  if [[ -z "$resume_file" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "$resume_file" ]]; then
+    echo "ERROR: Resume checkpoint file not found: $resume_file" >&2
     exit 1
   fi
 
   COLLECT_NON_SELECTOR_ARGS=()
   SKIP_NEXT_COLLECT=0
-  for arg in "${PYTEST_NON_SELECTOR_ARGS[@]}"; do
+  for arg in "${PYTEST_NON_SELECTOR_ARGS_NO_XDIST[@]}"; do
     if [[ "$SKIP_NEXT_COLLECT" -eq 1 ]]; then
       SKIP_NEXT_COLLECT=0
       continue
     fi
     case "$arg" in
       -q|--quiet)
-        continue
-        ;;
-      -n|--numprocesses)
-        SKIP_NEXT_COLLECT=1
-        continue
-        ;;
-      -n=*|--numprocesses=*)
         continue
         ;;
       *)
@@ -954,6 +1095,7 @@ if [[ -n "$RESUME_FROM" ]]; then
 
   COLLECT_ARGS=(-o addopts= --collect-only)
   COLLECT_ARGS+=("${PYTEST_BASE_ARGS[@]}")
+  COLLECT_ARGS+=(-m "$marker_expr")
   COLLECT_ARGS+=("${COLLECT_NON_SELECTOR_ARGS[@]}")
   if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
     COLLECT_ARGS+=("${EXPLICIT_SELECTORS[@]}")
@@ -999,6 +1141,9 @@ PY
   COLLECT_EXIT=$?
   set -e
 
+  if [[ "$COLLECT_EXIT" -eq 5 ]]; then
+    return 0
+  fi
   if [[ "$COLLECT_EXIT" -ne 0 ]]; then
     echo "ERROR: pytest collection failed during resume selection" >&2
     exit "$COLLECT_EXIT"
@@ -1009,14 +1154,7 @@ PY
     exit 1
   fi
 
-  PASSED_NODEIDS=$(awk -v delim="$CHECKPOINT_DELIM" '
-    BEGIN { in_list=0; found=0 }
-    $0 == delim { in_list=1; found=1; next }
-    in_list == 1 { if (NF > 0) print; next }
-    found == 0 {
-      if (NF > 0 && $0 !~ /^#/) print
-    }
-  ' "$RESUME_FROM")
+  PASSED_NODEIDS=$(checkpoint_passed_nodeids "$resume_file")
 
   if [[ -n "$PASSED_NODEIDS" ]]; then
     REMAINING_NODEIDS=$(comm -23 \
@@ -1028,25 +1166,56 @@ PY
 
   if [[ -z "$REMAINING_NODEIDS" ]]; then
     echo "Resume: all selected tests already passed; nothing to run."
-    exit 0
+    return 2
   fi
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" ]] && continue
-    RESUME_NODEIDS+=("$line")
+    out_nodeids+=("$line")
   done <<< "$REMAINING_NODEIDS"
+}
+
+if [[ -n "$RESUME_FROM" ]]; then
+  if [[ ! -f "$RESUME_FROM" ]]; then
+    echo "ERROR: Resume checkpoint file not found: $RESUME_FROM" >&2
+    exit 1
+  fi
+  RESUME_LANE=$(read_checkpoint_lane "$RESUME_FROM")
+  if [[ "$RESUME_LANE" == "serial" ]]; then
+    RESUME_SERIAL_FROM="$RESUME_FROM"
+  else
+    RESUME_MAIN_FROM="$RESUME_FROM"
+  fi
+fi
+
+RESUME_NODEIDS_MAIN=()
+RESUME_NODEIDS_SERIAL=()
+RESUME_MAIN_ALL_PASSED=0
+RESUME_SERIAL_ALL_PASSED=0
+if ! build_resume_nodeids "$RESUME_MAIN_FROM" "$MAIN_MARKER_EXPR" RESUME_NODEIDS_MAIN; then
+  RESUME_STATUS=$?
+  if [[ "$RESUME_STATUS" -eq 2 ]]; then
+    RESUME_MAIN_ALL_PASSED=1
+  else
+    exit "$RESUME_STATUS"
+  fi
+fi
+if ! build_resume_nodeids "$RESUME_SERIAL_FROM" "$SERIAL_MARKER_EXPR" RESUME_NODEIDS_SERIAL; then
+  RESUME_STATUS=$?
+  if [[ "$RESUME_STATUS" -eq 2 ]]; then
+    RESUME_SERIAL_ALL_PASSED=1
+  else
+    exit "$RESUME_STATUS"
+  fi
 fi
 
 # ==============================================================================
 # Export checkpoint path for plugin
 # ==============================================================================
 unset MAESTRO_TEST_RESUME_FROM
-if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-  export MAESTRO_TEST_CHECKPOINT="$CHECKPOINT_FILE"
-else
-  unset MAESTRO_TEST_CHECKPOINT
-fi
-export MAESTRO_TEST_RUN_ID="$RUN_ID"
+unset MAESTRO_TEST_CHECKPOINT
+unset MAESTRO_TEST_LANE
+unset MAESTRO_TEST_RUN_ID
 export MAESTRO_TEST_PROFILE_EFFECTIVE="$PROFILE_MODE"
 export MAESTRO_TEST_FAILURES_FILE="$FAILURES_FILE"
 export MAESTRO_TEST_RUN_LOG="$RUN_LOG_FILE"
@@ -1061,25 +1230,50 @@ fi
 
 PYTEST_RUN_FIXED_ARGS=("${PYTEST_BASE_ARGS[@]}" "${PYTEST_RUN_DEFAULT_ARGS[@]}")
 
+MAIN_RUN_FIXED_ARGS=("${PYTEST_RUN_FIXED_ARGS[@]}" -m "$MAIN_MARKER_EXPR")
+SERIAL_RUN_FIXED_ARGS=("${PYTEST_RUN_FIXED_ARGS[@]}" -m "$SERIAL_MARKER_EXPR")
+
+MAIN_XDIST_ARGS=()
 if [[ "$USE_XDIST" -eq 1 ]]; then
-  PYTEST_RUN_FIXED_ARGS+=(-n "$WORKERS")
+  MAIN_XDIST_ARGS=(-n "$WORKERS")
 fi
 
-PYTEST_RUN_ARGS=("${PYTEST_RUN_FIXED_ARGS[@]}")
-if [[ "${#RESUME_NODEIDS[@]}" -gt 0 ]]; then
-  PYTEST_RUN_ARGS+=("${PYTEST_NON_SELECTOR_ARGS[@]}")
-  PYTEST_RUN_ARGS+=("${RESUME_NODEIDS[@]}")
+SERIAL_XDIST_ARGS=()
+if [[ "$XDIST_AVAILABLE" -eq 1 ]]; then
+  SERIAL_XDIST_ARGS=(-n 0)
+fi
+
+MAIN_FIXED_ARGS_WITH_XDIST=("${MAIN_RUN_FIXED_ARGS[@]}" "${MAIN_XDIST_ARGS[@]}")
+SERIAL_FIXED_ARGS_WITH_XDIST=("${SERIAL_RUN_FIXED_ARGS[@]}" "${SERIAL_XDIST_ARGS[@]}")
+
+MAIN_RUN_ARGS=("${MAIN_FIXED_ARGS_WITH_XDIST[@]}")
+if [[ "${#RESUME_NODEIDS_MAIN[@]}" -gt 0 ]]; then
+  MAIN_RUN_ARGS+=("${PYTEST_NON_SELECTOR_ARGS[@]}")
+  MAIN_RUN_ARGS+=("${RESUME_NODEIDS_MAIN[@]}")
 else
-  PYTEST_RUN_ARGS+=("${PYTEST_ARGS[@]}")
+  MAIN_RUN_ARGS+=("${PYTEST_ARGS[@]}")
+fi
+
+SERIAL_RUN_ARGS=("${SERIAL_FIXED_ARGS_WITH_XDIST[@]}")
+if [[ "${#RESUME_NODEIDS_SERIAL[@]}" -gt 0 ]]; then
+  SERIAL_RUN_ARGS+=("${PYTEST_NON_SELECTOR_ARGS_NO_XDIST[@]}")
+  SERIAL_RUN_ARGS+=("${RESUME_NODEIDS_SERIAL[@]}")
+else
+  SERIAL_RUN_ARGS+=("${PYTEST_ARGS_NO_XDIST[@]}")
 fi
 
 CHUNK_SIZE=200
-CHUNKED_RUN=0
-if [[ "${#RESUME_NODEIDS[@]}" -gt "$CHUNK_SIZE" ]]; then
-  CHUNKED_RUN=1
+MAIN_CHUNKED_RUN=0
+SERIAL_CHUNKED_RUN=0
+if [[ "${#RESUME_NODEIDS_MAIN[@]}" -gt "$CHUNK_SIZE" ]]; then
+  MAIN_CHUNKED_RUN=1
+fi
+if [[ "${#RESUME_NODEIDS_SERIAL[@]}" -gt "$CHUNK_SIZE" ]]; then
+  SERIAL_CHUNKED_RUN=1
 fi
 
-PYTEST_RUN_ARGS_STR=$(printf '%q ' "${PYTEST_RUN_ARGS[@]}")
+MAIN_RUN_ARGS_STR=$(printf '%q ' "${MAIN_RUN_ARGS[@]}")
+SERIAL_RUN_ARGS_STR=$(printf '%q ' "${SERIAL_RUN_ARGS[@]}")
 
 # ==============================================================================
 # Print test run configuration
@@ -1092,7 +1286,11 @@ if [[ "$GIT_CHECK" -eq 1 ]]; then
 fi
 
 if [[ "$PRINT_PYTEST_CMD" -eq 1 ]]; then
-  printf '%q ' "$VENV_PY" -m pytest "${PYTEST_PLUGINS[@]}" "${PYTEST_RUN_ARGS[@]}"
+  echo "Main lane pytest command:"
+  printf '%q ' "$VENV_PY" -m pytest "${PYTEST_PLUGINS[@]}" "${MAIN_RUN_ARGS[@]}"
+  echo ""
+  echo "Serial lane pytest command:"
+  printf '%q ' "$VENV_PY" -m pytest "${PYTEST_PLUGINS[@]}" "${SERIAL_RUN_ARGS[@]}"
   echo ""
   exit 0
 fi
@@ -1115,24 +1313,35 @@ else
   echo "Collected selectors: (none)"
 fi
 echo "Profile:          $PROFILE_MODE"
-if [[ -n "$MARKER_EXPR" ]]; then
-  echo "Markers:          $MARKER_EXPR"
+if [[ -n "$EFFECTIVE_MARKER_EXPR" ]]; then
+  echo "Markers:          $EFFECTIVE_MARKER_EXPR"
 else
   echo "Markers:          (pytest.ini default)"
 fi
+echo "Main markers:     $MAIN_MARKER_EXPR"
+echo "Serial markers:   $SERIAL_MARKER_EXPR"
 if [[ "$XDIST_ACTIVE" -eq 1 ]]; then
-  echo "Workers:          $WORKERS_EFFECTIVE (xdist: yes)"
+  echo "Main workers:     $WORKERS_EFFECTIVE (xdist: yes)"
 else
-  echo "Workers:          $WORKERS_EFFECTIVE (xdist: no)"
+  echo "Main workers:     $WORKERS_EFFECTIVE (xdist: no)"
 fi
-if [[ -n "$RESUME_FROM" ]]; then
-  echo "Resume mode:      enabled (from $RESUME_FROM)"
+if [[ "$XDIST_AVAILABLE" -eq 1 ]]; then
+  echo "Serial workers:   $SERIAL_WORKERS_EFFECTIVE (xdist: no)"
+else
+  echo "Serial workers:   $SERIAL_WORKERS_EFFECTIVE (xdist: unavailable)"
+fi
+if [[ -n "$RESUME_MAIN_FROM" ]]; then
+  echo "Resume main:      enabled (from $RESUME_MAIN_FROM)"
+fi
+if [[ -n "$RESUME_SERIAL_FROM" ]]; then
+  echo "Resume serial:    enabled (from $RESUME_SERIAL_FROM)"
 fi
 if [[ "$PROFILE_OUTPUT" -eq 1 ]]; then
   echo "Profile output:   enabled"
 fi
 if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-  echo "Checkpoint:       $CHECKPOINT_FILE"
+  echo "Checkpoint main:  $CHECKPOINT_FILE_MAIN"
+  echo "Checkpoint serial:$CHECKPOINT_FILE_SERIAL"
 else
   echo "Checkpoint:       disabled"
 fi
@@ -1154,6 +1363,55 @@ echo ""
 # ==============================================================================
 cd "$REPO_ROOT"
 
+# Collect nodeids for both lanes
+collect_lane_nodeids() {
+  local lane_name="$1"
+  local marker_expr="$2"
+  local output_file="$3"
+
+  COLLECT_ARGS=(-o addopts= --collect-only -q)
+  COLLECT_ARGS+=("${PYTEST_BASE_ARGS[@]}")
+  COLLECT_ARGS+=(-m "$marker_expr")
+  COLLECT_ARGS+=("${PYTEST_NON_SELECTOR_ARGS_NO_XDIST[@]}")
+  if [[ "${#EXPLICIT_SELECTORS[@]}" -gt 0 ]]; then
+    COLLECT_ARGS+=("${EXPLICIT_SELECTORS[@]}")
+  fi
+
+  set +e
+  "$VENV_PY" -m pytest "${COLLECT_ARGS[@]}" 2>/dev/null | grep -E '^[[:space:]]*[^[:space:]]' > "$output_file"
+  PIPESTATUS_VALUES=("${PIPESTATUS[@]}")
+  PYTEST_COLLECT_EXIT="${PIPESTATUS_VALUES[0]:-0}"
+  GREP_EXIT="${PIPESTATUS_VALUES[1]:-0}"
+  set -e
+
+  if [[ "$PYTEST_COLLECT_EXIT" -eq 5 ]]; then
+    : > "$output_file"
+    return 0
+  fi
+  if [[ "$PYTEST_COLLECT_EXIT" -ne 0 ]]; then
+    echo "ERROR: pytest collection failed for ${lane_name} lane" >&2
+    exit "$PYTEST_COLLECT_EXIT"
+  fi
+  if [[ "$GREP_EXIT" -ne 0 ]] && [[ "$GREP_EXIT" -ne 1 ]]; then
+    echo "ERROR: failed to parse nodeids for ${lane_name} lane" >&2
+    exit "$GREP_EXIT"
+  fi
+}
+
+MAIN_NODEIDS_FILE="/tmp/maestro_nodeids_main_${RUN_TIMESTAMP}.txt"
+SERIAL_NODEIDS_FILE="/tmp/maestro_nodeids_serial_${RUN_TIMESTAMP}.txt"
+collect_lane_nodeids "main" "$MAIN_MARKER_EXPR" "$MAIN_NODEIDS_FILE"
+collect_lane_nodeids "serial" "$SERIAL_MARKER_EXPR" "$SERIAL_NODEIDS_FILE"
+
+MAIN_NODEIDS_COUNT=0
+SERIAL_NODEIDS_COUNT=0
+if [[ -f "$MAIN_NODEIDS_FILE" ]]; then
+  MAIN_NODEIDS_COUNT=$(wc -l < "$MAIN_NODEIDS_FILE" | tr -d ' ')
+fi
+if [[ -f "$SERIAL_NODEIDS_FILE" ]]; then
+  SERIAL_NODEIDS_COUNT=$(wc -l < "$SERIAL_NODEIDS_FILE" | tr -d ' ')
+fi
+
 # Check for git index lock before running pytest
 check_git_index_lock_or_die "pre-run" "unknown"
 
@@ -1161,65 +1419,191 @@ START_TIME=$(date +%s)
 RUN_STARTED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 set +e
-EXIT_CODE=0
+MAIN_EXIT_CODE=0
+SERIAL_EXIT_CODE=0
+MAIN_STATUS="PASS"
+SERIAL_STATUS="PASS"
+MAIN_STATUS_NOTE=""
+SERIAL_STATUS_NOTE=""
+SERIAL_RAN=0
 : > "$RUN_LOG_FILE"
 
-if [[ "$CHUNKED_RUN" -eq 1 ]]; then
-  AGG_PASSED_FILE=""
-  AGG_FAILED_COUNT=0
-  if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-    AGG_PASSED_FILE=$(mktemp)
+run_lane() {
+  local lane_name="$1"
+  local nodeids_count="$2"
+  local resume_all_passed="$3"
+  local chunked_run="$4"
+  local -n run_args_ref="$5"
+  local -n fixed_args_ref="$6"
+  local -n non_selector_args_ref="$7"
+  local -n resume_nodeids_ref="$8"
+  local checkpoint_file="$9"
+  local run_id="${10}"
+  local lane_started_at
+  local lane_finished_at
+  lane_started_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+  if [[ "$nodeids_count" -eq 0 ]]; then
+    echo "Lane ${lane_name}: no tests collected; skipping."
+    return 0
   fi
-  for ((i=0; i<${#RESUME_NODEIDS[@]}; i+=CHUNK_SIZE)); do
-    chunk=("${RESUME_NODEIDS[@]:i:CHUNK_SIZE}")
-    CHUNK_CHECKPOINT=""
+
+  if [[ "$resume_all_passed" -eq 1 ]]; then
+    echo "Lane ${lane_name}: resume indicates all tests already passed; skipping."
+    return 0
+  fi
+
+  if [[ "$chunked_run" -eq 1 ]]; then
+    AGG_PASSED_FILE=""
+    AGG_FAILED_COUNT=0
     if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-      CHUNK_CHECKPOINT=$(mktemp)
+      AGG_PASSED_FILE=$(mktemp)
     fi
-    MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" "$VENV_PY" -m pytest \
-      "${PYTEST_PLUGINS[@]}" \
-      "${PYTEST_RUN_FIXED_ARGS[@]}" \
-      "${PYTEST_NON_SELECTOR_ARGS[@]}" \
-      "${chunk[@]}" 2>&1 | tee -a "$RUN_LOG_FILE"
-    EXIT_CODE=${PIPESTATUS[0]}
-
-    # Check for git index lock after running each chunk
-    check_git_index_lock_or_die "post-run" "unknown"
-
-    if [[ "$CHECKPOINT_ENABLED" -eq 1 ]] && [[ -f "$CHUNK_CHECKPOINT" ]]; then
-      awk -v delim="$CHECKPOINT_DELIM" '
-        BEGIN { in_list=0; found=0 }
-        $0 == delim { in_list=1; found=1; next }
-        in_list == 1 { if (NF > 0) print; next }
-        found == 0 {
-          if (NF > 0 && $0 !~ /^#/) print
-        }
-      ' "$CHUNK_CHECKPOINT" >> "$AGG_PASSED_FILE"
-
-      chunk_failed=$(awk -F': *' '/^# failed_tests_count:/ {print $2}' "$CHUNK_CHECKPOINT" | tail -1)
-      if [[ -n "$chunk_failed" ]]; then
-        AGG_FAILED_COUNT=$((AGG_FAILED_COUNT + chunk_failed))
+    for ((i=0; i<${#resume_nodeids_ref[@]}; i+=CHUNK_SIZE)); do
+      chunk=("${resume_nodeids_ref[@]:i:CHUNK_SIZE}")
+      CHUNK_CHECKPOINT=""
+      if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+        CHUNK_CHECKPOINT=$(mktemp)
       fi
+      MAESTRO_TEST_CHECKPOINT="$CHUNK_CHECKPOINT" \
+      MAESTRO_TEST_RUN_ID="$run_id" \
+      MAESTRO_TEST_LANE="$lane_name" \
+      "$VENV_PY" -m pytest \
+        "${PYTEST_PLUGINS[@]}" \
+        "${fixed_args_ref[@]}" \
+        "${non_selector_args_ref[@]}" \
+        "${chunk[@]}" 2>&1 | tee -a "$RUN_LOG_FILE"
+      local lane_exit_code=${PIPESTATUS[0]}
+
+      check_git_index_lock_or_die "post-run-${lane_name}" "unknown"
+
+      if [[ "$CHECKPOINT_ENABLED" -eq 1 ]] && [[ -f "$CHUNK_CHECKPOINT" ]]; then
+        if grep -Fxq "$CHECKPOINT_DELIM" "$CHUNK_CHECKPOINT"; then
+          awk -v delim="$CHECKPOINT_DELIM" '
+            $0 == delim { in_list=1; next }
+            in_list == 1 { if (NF > 0) print }
+          ' "$CHUNK_CHECKPOINT" >> "$AGG_PASSED_FILE"
+        else
+          awk 'NF > 0 && $0 !~ /^#/ && $0 !~ /^LANE=/' "$CHUNK_CHECKPOINT" >> "$AGG_PASSED_FILE"
+        fi
+
+        chunk_failed=$(awk -F': *' '/^# failed_tests_count:/ {print $2}' "$CHUNK_CHECKPOINT" | tail -1)
+        if [[ -n "$chunk_failed" ]]; then
+          AGG_FAILED_COUNT=$((AGG_FAILED_COUNT + chunk_failed))
+        fi
+      fi
+
+      if [[ -n "$CHUNK_CHECKPOINT" ]]; then
+        rm -f "$CHUNK_CHECKPOINT"
+      fi
+
+      if [[ "$lane_exit_code" -ne 0 ]]; then
+        break
+      fi
+    done
+
+    if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+      lane_finished_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+      SORTED_PASSED=$(mktemp)
+      if [[ -f "$AGG_PASSED_FILE" ]]; then
+        sort -u "$AGG_PASSED_FILE" > "$SORTED_PASSED"
+      else
+        : > "$SORTED_PASSED"
+      fi
+
+      PASSED_COUNT=$(wc -l < "$SORTED_PASSED" | tr -d ' ')
+      {
+        echo "# Maestro pytest checkpoint"
+        echo "LANE=${lane_name}"
+        echo "# run_id: $run_id"
+        echo "# profile: $PROFILE_MODE"
+        echo "# run_log: $RUN_LOG_FILE"
+        echo "# failures_file: $FAILURES_FILE"
+        echo "# started_at: $lane_started_at"
+        echo "# finished_at: $lane_finished_at"
+        echo "# pytest_args: ${fixed_args_ref[*]} ${non_selector_args_ref[*]}"
+        echo "# passed_tests_count: $PASSED_COUNT"
+        echo "# failed_tests_count: $AGG_FAILED_COUNT"
+        echo "$CHECKPOINT_DELIM"
+        cat "$SORTED_PASSED"
+      } > "$checkpoint_file"
+
+      rm -f "$SORTED_PASSED" "$AGG_PASSED_FILE"
     fi
 
-    if [[ -n "$CHUNK_CHECKPOINT" ]]; then
-      rm -f "$CHUNK_CHECKPOINT"
-    fi
+    return "$lane_exit_code"
+  fi
 
-    if [[ "$EXIT_CODE" -ne 0 ]]; then
-      break
-    fi
-  done
+  if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
+    MAESTRO_TEST_CHECKPOINT="$checkpoint_file" \
+    MAESTRO_TEST_RUN_ID="$run_id" \
+    MAESTRO_TEST_LANE="$lane_name" \
+    "$VENV_PY" -m pytest \
+      "${PYTEST_PLUGINS[@]}" \
+      "${run_args_ref[@]}" 2>&1 | tee -a "$RUN_LOG_FILE"
+  else
+    MAESTRO_TEST_RUN_ID="$run_id" \
+    MAESTRO_TEST_LANE="$lane_name" \
+    "$VENV_PY" -m pytest \
+      "${PYTEST_PLUGINS[@]}" \
+      "${run_args_ref[@]}" 2>&1 | tee -a "$RUN_LOG_FILE"
+  fi
+  local lane_exit_code=${PIPESTATUS[0]}
+
+  check_git_index_lock_or_die "post-run-${lane_name}" "unknown"
+
+  return "$lane_exit_code"
+}
+
+if [[ "$MAIN_NODEIDS_COUNT" -gt 0 ]]; then
+  run_lane "main" "$MAIN_NODEIDS_COUNT" "$RESUME_MAIN_ALL_PASSED" "$MAIN_CHUNKED_RUN" \
+    MAIN_RUN_ARGS MAIN_FIXED_ARGS_WITH_XDIST PYTEST_NON_SELECTOR_ARGS \
+    RESUME_NODEIDS_MAIN "$CHECKPOINT_FILE_MAIN" "$RUN_ID_MAIN"
+  MAIN_EXIT_CODE=$?
 else
-  "$VENV_PY" -m pytest \
-    "${PYTEST_PLUGINS[@]}" \
-    "${PYTEST_RUN_ARGS[@]}" 2>&1 | tee "$RUN_LOG_FILE"
-  EXIT_CODE=${PIPESTATUS[0]}
+  MAIN_STATUS_NOTE="(no tests collected)"
+fi
+if [[ "$RESUME_MAIN_ALL_PASSED" -eq 1 ]]; then
+  MAIN_STATUS_NOTE="(resume: all tests already passed)"
+fi
 
-  # Check for git index lock after running pytest
-  check_git_index_lock_or_die "post-run" "unknown"
+if [[ "$MAIN_EXIT_CODE" -ne 0 ]] && [[ "$RUN_SERIAL_EVEN_IF_MAIN_FAILS" -eq 0 ]]; then
+  MAIN_STATUS="FAIL"
+  SERIAL_STATUS="PASS"
+  SERIAL_STATUS_NOTE="(skipped; main failed, use --run-serial-even-if-main-fails)"
+else
+  if [[ "$MAIN_EXIT_CODE" -ne 0 ]]; then
+    MAIN_STATUS="FAIL"
+  fi
+  if [[ "$SERIAL_NODEIDS_COUNT" -gt 0 ]]; then
+    if [[ "$RESUME_SERIAL_ALL_PASSED" -eq 0 ]]; then
+      SERIAL_RAN=1
+    fi
+    run_lane "serial" "$SERIAL_NODEIDS_COUNT" "$RESUME_SERIAL_ALL_PASSED" "$SERIAL_CHUNKED_RUN" \
+      SERIAL_RUN_ARGS SERIAL_FIXED_ARGS_WITH_XDIST PYTEST_NON_SELECTOR_ARGS_NO_XDIST \
+      RESUME_NODEIDS_SERIAL "$CHECKPOINT_FILE_SERIAL" "$RUN_ID_SERIAL"
+    SERIAL_EXIT_CODE=$?
+    if [[ "$SERIAL_EXIT_CODE" -ne 0 ]]; then
+      SERIAL_STATUS="FAIL"
+    fi
+  else
+    SERIAL_STATUS_NOTE="(no tests collected)"
+  fi
+fi
+if [[ "$RESUME_SERIAL_ALL_PASSED" -eq 1 ]] && [[ -z "$SERIAL_STATUS_NOTE" ]]; then
+  SERIAL_STATUS_NOTE="(resume: all tests already passed)"
 fi
 set -e
+
+FINAL_EXIT_CODE=0
+if [[ "$MAIN_EXIT_CODE" -ne 0 ]] && [[ "$SERIAL_RAN" -eq 1 ]]; then
+  FINAL_EXIT_CODE=1
+  echo "Main lane failed (exit ${MAIN_EXIT_CODE}); serial lane exit ${SERIAL_EXIT_CODE}. Returning ${FINAL_EXIT_CODE} because both lanes ran."
+elif [[ "$MAIN_EXIT_CODE" -ne 0 ]]; then
+  FINAL_EXIT_CODE="$MAIN_EXIT_CODE"
+elif [[ "$SERIAL_EXIT_CODE" -ne 0 ]]; then
+  FINAL_EXIT_CODE="$SERIAL_EXIT_CODE"
+fi
 
 END_TIME=$(date +%s)
 RUN_FINISHED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -1268,36 +1652,6 @@ PY
 FAILURES_COUNT=0
 if [[ -f "$FAILURES_FILE" ]]; then
   FAILURES_COUNT=$(wc -l < "$FAILURES_FILE" | tr -d ' ')
-fi
-
-# ==============================================================================
-# Aggregate checkpoint for chunked resume
-# ==============================================================================
-if [[ "$CHUNKED_RUN" -eq 1 ]] && [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-  SORTED_PASSED=$(mktemp)
-  if [[ -f "$AGG_PASSED_FILE" ]]; then
-    sort -u "$AGG_PASSED_FILE" > "$SORTED_PASSED"
-  else
-    : > "$SORTED_PASSED"
-  fi
-
-  PASSED_COUNT=$(wc -l < "$SORTED_PASSED" | tr -d ' ')
-  {
-    echo "# Maestro pytest checkpoint"
-    echo "# run_id: $RUN_ID"
-    echo "# profile: $PROFILE_MODE"
-    echo "# run_log: $RUN_LOG_FILE"
-    echo "# failures_file: $FAILURES_FILE"
-    echo "# started_at: $RUN_STARTED_AT"
-    echo "# finished_at: $RUN_FINISHED_AT"
-    echo "# pytest_args: $PYTEST_RUN_ARGS_STR"
-    echo "# passed_tests_count: $PASSED_COUNT"
-    echo "# failed_tests_count: $AGG_FAILED_COUNT"
-    echo "$CHECKPOINT_DELIM"
-    cat "$SORTED_PASSED"
-  } > "$CHECKPOINT_FILE"
-
-  rm -f "$SORTED_PASSED" "$AGG_PASSED_FILE"
 fi
 
 # ==============================================================================
@@ -1377,10 +1731,14 @@ echo "============================================================="
 echo "Test Run Summary"
 echo "============================================================="
 echo "Duration:         ${DURATION}s"
-echo "Workers:          $WORKERS_EFFECTIVE"
+echo "Main workers:     $WORKERS_EFFECTIVE"
+echo "Serial workers:   $SERIAL_WORKERS_EFFECTIVE"
 echo "Profile:          $PROFILE_MODE"
+echo "Main lane:        ${MAIN_STATUS} ${MAIN_STATUS_NOTE}"
+echo "Serial lane:      ${SERIAL_STATUS} ${SERIAL_STATUS_NOTE}"
 if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-  echo "Checkpoint:       $CHECKPOINT_FILE"
+  echo "Checkpoint main:  $CHECKPOINT_FILE_MAIN"
+  echo "Checkpoint serial:$CHECKPOINT_FILE_SERIAL"
 else
   echo "Checkpoint:       disabled"
 fi
@@ -1393,24 +1751,27 @@ echo "Run log:          $RUN_LOG_FILE"
 echo "============================================================="
 echo ""
 if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-  echo "Tip: rerun with --resume-from $CHECKPOINT_FILE to skip already PASSED tests."
+  echo "Tip: rerun main with --resume-main-from $CHECKPOINT_FILE_MAIN to skip already PASSED tests."
+  echo "Tip: rerun serial with --resume-serial-from $CHECKPOINT_FILE_SERIAL to skip already PASSED tests."
 fi
 if [[ "$FAILURES_COUNT" -gt 0 ]]; then
   printf 'Tip: rerun only failures with: bash tools/test/run.sh -q $(cat %s)\n' "$FAILURES_FILE"
 fi
-if [[ "$EXIT_CODE" -eq 124 ]]; then
+if [[ "$FINAL_EXIT_CODE" -eq 124 ]]; then
   echo ""
   echo "Timeout detected (exit 124)."
   if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-    echo "Checkpoint: $CHECKPOINT_FILE"
+    echo "Checkpoint main: $CHECKPOINT_FILE_MAIN"
+    echo "Checkpoint serial: $CHECKPOINT_FILE_SERIAL"
   fi
   echo "Failures list: $FAILURES_FILE"
   if [[ "$CHECKPOINT_ENABLED" -eq 1 ]]; then
-    printf 'Retry: bash tools/test/run.sh -q --resume-from %s $(cat %s)\n' "$CHECKPOINT_FILE" "$FAILURES_FILE"
+    printf 'Retry main: bash tools/test/run.sh -q --resume-main-from %s $(cat %s)\n' "$CHECKPOINT_FILE_MAIN" "$FAILURES_FILE"
+    printf 'Retry serial: bash tools/test/run.sh -q --resume-serial-from %s $(cat %s)\n' "$CHECKPOINT_FILE_SERIAL" "$FAILURES_FILE"
   else
     printf 'Retry: bash tools/test/run.sh -q $(cat %s)\n' "$FAILURES_FILE"
   fi
 fi
 echo ""
 
-exit "$EXIT_CODE"
+exit "$FINAL_EXIT_CODE"

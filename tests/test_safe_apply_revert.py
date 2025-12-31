@@ -15,7 +15,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-pytestmark = pytest.mark.git
+pytestmark = [pytest.mark.git, pytest.mark.serial]
 
 def test_safe_apply_revert_functionality():
     """Test that changes are reverted when build gets worse after applying fixes."""

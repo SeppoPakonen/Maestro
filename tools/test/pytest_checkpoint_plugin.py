@@ -25,6 +25,11 @@ _passed_nodeids: Set[str] = set()
 _failed_count = 0
 _started_at = None
 _pytest_args_str = ""
+_run_id = ""
+_profile = ""
+_lane = ""
+_failures_file = ""
+_run_log = ""
 CHECKPOINT_DELIM = "--- PASSED NODEIDS ---"
 
 
@@ -36,16 +41,23 @@ def _load_checkpoint_nodeids(path: Path) -> Set[str]:
     return {
         line.strip()
         for line in lines
-        if line.strip() and not line.lstrip().startswith("#")
+        if line.strip()
+        and not line.lstrip().startswith("#")
+        and not line.lstrip().startswith("LANE=")
     }
 
 
 def pytest_configure(config):
     """Register plugin markers and setup."""
-    global _pytest_args_str
+    global _pytest_args_str, _run_id, _profile, _failures_file, _run_log, _lane
     args = getattr(config, "invocation_params", None)
     if args is not None and hasattr(args, "args"):
         _pytest_args_str = " ".join(shlex.quote(arg) for arg in args.args)
+    _run_id = os.environ.get("MAESTRO_TEST_RUN_ID", "")
+    _profile = os.environ.get("MAESTRO_TEST_PROFILE_EFFECTIVE", "")
+    _failures_file = os.environ.get("MAESTRO_TEST_FAILURES_FILE", "")
+    _run_log = os.environ.get("MAESTRO_TEST_RUN_LOG", "")
+    _lane = os.environ.get("MAESTRO_TEST_LANE", "")
     config.addinivalue_line(
         "markers",
         "checkpoint: internal marker for checkpoint/resume plugin"
@@ -122,6 +134,16 @@ def pytest_sessionfinish(session, exitstatus):
         passed_count = len(_passed_nodeids)
         with open(checkpoint_path, "w") as f:
             f.write("# Maestro pytest checkpoint\n")
+            if _lane:
+                f.write(f"LANE={_lane}\n")
+            if _run_id:
+                f.write(f"# run_id: {_run_id}\n")
+            if _profile:
+                f.write(f"# profile: {_profile}\n")
+            if _run_log:
+                f.write(f"# run_log: {_run_log}\n")
+            if _failures_file:
+                f.write(f"# failures_file: {_failures_file}\n")
             f.write(f"# started_at: {started_at.isoformat()}\n")
             f.write(f"# finished_at: {finished_at.isoformat()}\n")
             f.write(f"# pytest_args: {_pytest_args_str}\n")

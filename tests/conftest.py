@@ -45,3 +45,21 @@ def skip_git_tests(request):
         return
     if request.node.get_closest_marker("git"):
         pytest.skip("requires MAESTRO_TEST_ALLOW_GIT=1")
+
+
+def _xdist_enabled(config: pytest.Config) -> bool:
+    num = getattr(config.option, "numprocesses", None)
+    if num in (None, 0, "0"):
+        return False
+    return True
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if hasattr(config, "workerinput"):
+        return
+    if not _xdist_enabled(config):
+        return
+    if any(item.get_closest_marker("serial") for item in items):
+        raise pytest.UsageError(
+            "serial tests must be run with `-n0` (use tools/test/run.sh; it runs them in a separate lane)."
+        )

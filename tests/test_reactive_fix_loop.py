@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.git
+pytestmark = [pytest.mark.git, pytest.mark.serial]
 
 
 def create_test_project_with_trivial_error():
