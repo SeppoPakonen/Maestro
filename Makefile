@@ -8,7 +8,7 @@ help:
 	@echo "  truth-gate  - Run the CI Truth Gate (docs are truth + rule-assertive contracts)"
 
 test:
-	python -m pytest tests/ -v
+	bash tools/test/run.sh
 
 truth-gate:
 	bash scripts/truth_gate.sh
