@@ -200,6 +200,14 @@ See also: `docs/workflows/v3/cli/CLI_GAPS.md` for the P0 gap list mapped to inva
   Notes: Gate should be consistent with `repo conf select-default target`.
 
 - ID: LED-0025
+  Title: Restore repo assemblies layer (U++ aware)
+  Rationale: U++ workflows need assembly roots to preserve package structure and enable hub linking.
+  Status: implemented
+  Priority: P0
+  Acceptance criteria: repo scan writes assemblies with deterministic IDs, packages reference assembly IDs, and `maestro repo asm` shows assemblies/packages.
+  Notes: Includes U++ fixture and CLI tests.
+
+- ID: LED-0025
   Title: Enforce TU readiness gate
   Rationale: Required by `docs/workflows/v3/cli/INVARIANTS.md` and `docs/workflows/v3/runbooks/examples/proposed/EX-31_toolchain_plus_caps_into_repoconf_make_tu.md`.
   Status: proposed

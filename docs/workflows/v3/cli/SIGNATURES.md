@@ -134,6 +134,11 @@ Archived workflows are moved to timestamped folders and excluded from default li
 - `maestro make ...` (v3 canonical)
 - `maestro build ...` (legacy alias)
 
+## Repo assemblies
+
+- `maestro repo asm list [--json]`
+- `maestro repo asm show <ASSEMBLY_ID|NAME> [--json]`
+
 ## Repo hub (cross-repo package discovery and linking)
 
 ### maestro repo hub scan

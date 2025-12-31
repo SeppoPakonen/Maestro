@@ -82,6 +82,10 @@ The hub system explicitly handles ambiguous package references:
 - **Multiple Matches:** Requires explicit `--to <PKG_ID>` selection
 - **Clear Errors:** Guides user through disambiguation process
 
+### Assemblies
+
+Packages may be referenced with their assembly context (e.g., `uppsrc/Core`) to disambiguate U++ packages that share names across repos.
+
 ## Storage Schema
 
 ### Global Index: `$HOME/.maestro/hub/index.json`
