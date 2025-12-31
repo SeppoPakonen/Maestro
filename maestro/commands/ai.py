@@ -54,8 +54,11 @@ def add_ai_parser(subparsers):
     qwen_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     qwen_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
     qwen_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
+    qwen_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
     qwen_parser.add_argument("--model", help="Specify model to use")
     qwen_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    qwen_parser.add_argument("--stream-json", action="store_true", default=None, help="Enable JSON stream output")
+    qwen_parser.add_argument("--print-cmd", nargs="?", const="", help="Print the engine command and exit (optional prompt)")
     qwen_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
     qwen_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
@@ -63,8 +66,11 @@ def add_ai_parser(subparsers):
     gemini_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     gemini_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
     gemini_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
+    gemini_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
     gemini_parser.add_argument("--model", help="Specify model to use")
     gemini_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    gemini_parser.add_argument("--stream-json", action="store_true", default=None, help="Enable JSON stream output")
+    gemini_parser.add_argument("--print-cmd", nargs="?", const="", help="Print the engine command and exit (optional prompt)")
     gemini_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
     gemini_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
@@ -72,8 +78,11 @@ def add_ai_parser(subparsers):
     codex_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     codex_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
     codex_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
+    codex_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
     codex_parser.add_argument("--model", help="Specify model to use")
     codex_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    codex_parser.add_argument("--stream-json", action="store_true", default=None, help="Enable JSON stream output")
+    codex_parser.add_argument("--print-cmd", nargs="?", const="", help="Print the engine command and exit (optional prompt)")
     codex_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
     codex_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
@@ -81,8 +90,11 @@ def add_ai_parser(subparsers):
     claude_parser.add_argument("--one-shot", help="Run once with the provided text and exit")
     claude_parser.add_argument("--stdin", action="store_true", help="Read prompt from stdin")
     claude_parser.add_argument("--resume", help="Resume with specific session ID or 'latest'")
+    claude_parser.add_argument("--continue-latest", action="store_true", help="Continue the most recent session")
     claude_parser.add_argument("--model", help="Specify model to use")
     claude_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress streaming output")
+    claude_parser.add_argument("--stream-json", action="store_true", default=None, help="Enable JSON stream output")
+    claude_parser.add_argument("--print-cmd", nargs="?", const="", help="Print the engine command and exit (optional prompt)")
     claude_parser.add_argument("--no-danger", action="store_true", help="Override global ai_dangerously_skip_permissions for this invocation")
     claude_parser.add_argument("--verbose", "-v", action="store_true", help="Show parsed stream event JSON")
 
@@ -120,6 +132,27 @@ def add_ai_parser(subparsers):
 
     ai_subparsers.add_parser("help", aliases=["h"], help="Show help for AI commands")
     return ai_parser
+
+
+def _build_print_prompt_ref(args, prompt_value: Optional[str]):
+    from maestro.ai.types import PromptRef
+
+    if getattr(args, "stdin", False):
+        return PromptRef(source="", is_stdin=True)
+    if prompt_value:
+        return PromptRef(source=prompt_value, is_stdin=False)
+    one_shot = getattr(args, "one_shot", None)
+    if one_shot:
+        return PromptRef(source=one_shot, is_stdin=False)
+    return PromptRef(source="", is_stdin=True)
+
+
+def _print_engine_cmd(manager, engine: str, prompt_ref, opts) -> None:
+    try:
+        cmd = manager.build_command(engine, prompt_ref, opts)
+        print(" ".join(cmd))
+    except NotImplementedError:
+        print(manager.explain_command(engine, prompt_ref, opts))
 
 
 def handle_ai_sync(args) -> int:
@@ -235,21 +268,33 @@ def handle_ai_qwen(args) -> int:
             dangerously_skip_permissions = False
 
         # Handle resume flag - if it's 'latest', we'll handle it specially
-        resume_id = getattr(args, 'resume', None)
-        continue_latest = False
-        if resume_id == 'latest':
+        continue_latest = getattr(args, "continue_latest", False)
+        resume_id = getattr(args, "resume", None)
+        if resume_id == "latest":
             continue_latest = True
             resume_id = None
+        if continue_latest:
+            resume_id = None
+
+        stream_json = getattr(args, "stream_json", None)
+        if stream_json is None:
+            stream_json = True
 
         opts = RunOpts(
             dangerously_skip_permissions=dangerously_skip_permissions,
             continue_latest=continue_latest,
             resume_id=resume_id,
-            stream_json=True,  # Enable stream_json by default for session ID extraction
+            stream_json=stream_json,  # Enable stream_json by default for session ID extraction
             quiet=getattr(args, 'quiet', False),
             model=getattr(args, 'model', None),
             verbose=getattr(args, 'verbose', False)
         )
+
+        print_cmd = getattr(args, "print_cmd", None)
+        if print_cmd is not None:
+            prompt_ref = _build_print_prompt_ref(args, print_cmd)
+            _print_engine_cmd(manager, "qwen", prompt_ref, opts)
+            return 0
 
         # Determine if reading from stdin
         if getattr(args, 'stdin', False):
@@ -288,21 +333,33 @@ def handle_ai_gemini(args) -> int:
         dangerously_skip_permissions = False
 
     # Handle resume flag - if it's 'latest', we'll handle it specially
-    resume_id = getattr(args, 'resume', None)
-    continue_latest = False
-    if resume_id == 'latest':
+    continue_latest = getattr(args, "continue_latest", False)
+    resume_id = getattr(args, "resume", None)
+    if resume_id == "latest":
         continue_latest = True
         resume_id = None
+    if continue_latest:
+        resume_id = None
+
+    stream_json = getattr(args, "stream_json", None)
+    if stream_json is None:
+        stream_json = True
 
     opts = RunOpts(
         dangerously_skip_permissions=dangerously_skip_permissions,
         continue_latest=continue_latest,
         resume_id=resume_id,
-        stream_json=True,  # Enable stream_json by default for session ID extraction
+        stream_json=stream_json,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
         model=getattr(args, 'model', None),
         verbose=getattr(args, 'verbose', False)
     )
+
+    print_cmd = getattr(args, "print_cmd", None)
+    if print_cmd is not None:
+        prompt_ref = _build_print_prompt_ref(args, print_cmd)
+        _print_engine_cmd(manager, "gemini", prompt_ref, opts)
+        return 0
 
     # Determine if reading from stdin
     if getattr(args, 'stdin', False):
@@ -341,21 +398,33 @@ def handle_ai_codex(args) -> int:
         dangerously_skip_permissions = False
 
     # Handle resume flag - if it's 'latest', we'll handle it specially
-    resume_id = getattr(args, 'resume', None)
-    continue_latest = False
-    if resume_id == 'latest':
+    continue_latest = getattr(args, "continue_latest", False)
+    resume_id = getattr(args, "resume", None)
+    if resume_id == "latest":
         continue_latest = True
         resume_id = None
+    if continue_latest:
+        resume_id = None
+
+    stream_json = getattr(args, "stream_json", None)
+    if stream_json is None:
+        stream_json = True
 
     opts = RunOpts(
         dangerously_skip_permissions=dangerously_skip_permissions,
         continue_latest=continue_latest,
         resume_id=resume_id,
-        stream_json=True,  # Enable stream_json by default for session ID extraction
+        stream_json=stream_json,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
         model=getattr(args, 'model', None),
         verbose=getattr(args, 'verbose', False)
     )
+
+    print_cmd = getattr(args, "print_cmd", None)
+    if print_cmd is not None:
+        prompt_ref = _build_print_prompt_ref(args, print_cmd)
+        _print_engine_cmd(manager, "codex", prompt_ref, opts)
+        return 0
 
     # Determine if reading from stdin
     if getattr(args, 'stdin', False):
@@ -394,21 +463,33 @@ def handle_ai_claude(args) -> int:
         dangerously_skip_permissions = False
 
     # Handle resume flag - if it's 'latest', we'll handle it specially
-    resume_id = getattr(args, 'resume', None)
-    continue_latest = False
-    if resume_id == 'latest':
+    continue_latest = getattr(args, "continue_latest", False)
+    resume_id = getattr(args, "resume", None)
+    if resume_id == "latest":
         continue_latest = True
         resume_id = None
+    if continue_latest:
+        resume_id = None
+
+    stream_json = getattr(args, "stream_json", None)
+    if stream_json is None:
+        stream_json = True
 
     opts = RunOpts(
         dangerously_skip_permissions=dangerously_skip_permissions,
         continue_latest=continue_latest,
         resume_id=resume_id,
-        stream_json=True,  # Enable stream_json by default for session ID extraction
+        stream_json=stream_json,  # Enable stream_json by default for session ID extraction
         quiet=getattr(args, 'quiet', False),
         model=getattr(args, 'model', None),
         verbose=getattr(args, 'verbose', False)
     )
+
+    print_cmd = getattr(args, "print_cmd", None)
+    if print_cmd is not None:
+        prompt_ref = _build_print_prompt_ref(args, print_cmd)
+        _print_engine_cmd(manager, "claude", prompt_ref, opts)
+        return 0
 
     # Determine if reading from stdin
     if getattr(args, 'stdin', False):

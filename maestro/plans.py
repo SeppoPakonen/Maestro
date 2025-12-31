@@ -35,7 +35,13 @@ class PlanStore:
     """Handles loading, saving, and validating plans in canonical Markdown format."""
     
     def __init__(self, file_path: str = "docs/plans.md"):
-        self.file_path = Path(file_path)
+        path = Path(file_path)
+        if not path.is_absolute():
+            try:
+                path = (Path.cwd() / path).resolve()
+            except FileNotFoundError:
+                path = (Path(__file__).resolve().parents[1] / path).resolve()
+        self.file_path = path
         # Ensure the docs directory exists
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
     

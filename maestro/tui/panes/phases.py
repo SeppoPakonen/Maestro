@@ -10,6 +10,7 @@ from typing import List, Optional
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, ListItem, ListView, Static
+from textual.css.query import NoMatches
 
 from maestro.tui.panes.base import PaneView
 from maestro.tui.menubar.model import Menu, MenuItem
@@ -127,7 +128,10 @@ class PhasesPane(PaneView):
 
     def _render_list(self) -> None:
         """Render the ListView from phase data."""
-        list_view = self.query_one("#phases-list", ListView)
+        try:
+            list_view = self.query_one("#phases-list", ListView)
+        except NoMatches:
+            return
         list_view.clear()
         for phase in self.phases:
             list_view.append(ListItem(Label(phase)))
@@ -145,7 +149,10 @@ class PhasesPane(PaneView):
 
     async def _load_details_for_selection(self) -> None:
         """Load details for the currently selected phase."""
-        detail_widget = self.query_one("#phase-detail", Static)
+        try:
+            detail_widget = self.query_one("#phase-detail", Static)
+        except NoMatches:
+            return
         if not self.selected_phase_id:
             detail_widget.update("No phase selected.")
             return
@@ -160,19 +167,28 @@ class PhasesPane(PaneView):
 
     async def action_cursor_up(self) -> None:
         """Move selection up in the list."""
-        list_view = self.query_one("#phases-list", ListView)
+        try:
+            list_view = self.query_one("#phases-list", ListView)
+        except NoMatches:
+            return
         list_view.action_cursor_up()
         await self._sync_selection_from_list()
 
     async def action_cursor_down(self) -> None:
         """Move selection down in the list."""
-        list_view = self.query_one("#phases-list", ListView)
+        try:
+            list_view = self.query_one("#phases-list", ListView)
+        except NoMatches:
+            return
         list_view.action_cursor_down()
         await self._sync_selection_from_list()
 
     async def _sync_selection_from_list(self) -> None:
         """Update selected_phase_id from ListView and refresh details."""
-        list_view = self.query_one("#phases-list", ListView)
+        try:
+            list_view = self.query_one("#phases-list", ListView)
+        except NoMatches:
+            return
         if list_view.index is None or not self.phases:
             return
         idx = max(0, min(list_view.index, len(self.phases) - 1))

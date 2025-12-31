@@ -257,12 +257,12 @@ if [[ ${#existing_tests[@]} -eq 0 ]]; then
   echo "FAIL: no convert-focused tests found"
   fail=1
 else
-  if ! python -m pytest --version >/dev/null 2>&1; then
-    echo "WARN: pytest not available; skipping pytest run"
-    warn=1
+  if [[ ! -x "$root/tools/test/run.sh" ]]; then
+    echo "FAIL: missing tools/test/run.sh"
+    fail=1
   else
-    echo "Running: python -m pytest -q ${existing_tests[*]}"
-    if ! python -m pytest -q "${existing_tests[@]}"; then
+    echo "Running: bash tools/test/run.sh ${existing_tests[*]}"
+    if ! bash tools/test/run.sh "${existing_tests[@]}"; then
       fail=1
     fi
   fi

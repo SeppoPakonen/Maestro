@@ -6,8 +6,12 @@ import json
 import subprocess
 import sys
 import time
+import os
+import shutil
 from threading import Thread
 from queue import Queue
+
+import pytest
 
 
 def run_qwen_session_with_injection():
@@ -106,6 +110,9 @@ def test_direct_input_injection():
     Test direct input injection using qwen's server mode capabilities.
     This method uses qwen in server mode which allows external input injection.
     """
+    if os.environ.get("MAESTRO_RUN_QWEN_TESTS") != "1" or not shutil.which("qwen"):
+        pytest.skip("qwen integration test disabled or qwen binary not available")
+
     print("\nTesting direct input injection via server mode...")
     
     # Run qwen in server mode with stdin communication

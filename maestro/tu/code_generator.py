@@ -3,13 +3,15 @@ Code generator for draft classes and functions.
 """
 from typing import Optional
 
+from maestro.tu.ast_nodes import ASTNode
+
 
 class CodeGenerator:
     """A simple code generator for creating draft classes and functions."""
     
-    def __init__(self, lang: str):
+    def __init__(self, lang: str = "cpp"):
         """Initialize with the target language."""
-        self.lang = lang.lower()
+        self.lang = (lang or "cpp").lower()
         
     def generate_class(self, class_name: str, prompt: Optional[str] = None) -> str:
         """Generate a draft class in the specified language."""
@@ -36,6 +38,45 @@ class CodeGenerator:
             return self._generate_python_function(func_name, prompt)
         else:
             return f"// Draft function {func_name} in unsupported language: {self.lang}"
+
+    def generate_declaration(self, node: ASTNode) -> str:
+        """Generate a declaration for the given AST node."""
+        kind = (node.kind or "").lower()
+        if self.lang in ['cpp', 'c++', 'cxx', 'cc']:
+            return self._generate_cpp_declaration(node, kind)
+        if kind in ("class_decl", "struct_decl"):
+            return self.generate_class(node.name)
+        if kind in ("function_decl", "method_decl"):
+            return self.generate_function(node.name)
+        return f"// Unsupported declaration: {node.name} ({node.kind})"
+
+    def _generate_cpp_declaration(self, node: ASTNode, kind: str) -> str:
+        """Generate a C++ declaration for a class/struct/function node."""
+        if kind in ("class_decl", "struct_decl"):
+            keyword = "struct" if kind == "struct_decl" else "class"
+            lines = [f"{keyword} {node.name} {{", "public:"]
+            fields = []
+            methods = []
+            for child in node.children or []:
+                child_kind = (child.kind or "").lower()
+                if child_kind == "field_decl":
+                    field_type = child.type or "int"
+                    fields.append(f"    {field_type} {child.name};")
+                elif child_kind in ("function_decl", "method_decl"):
+                    return_type = child.type or "void"
+                    methods.append(f"    {return_type} {child.name}();")
+            if fields:
+                lines.append("    // Fields")
+                lines.extend(fields)
+            if methods:
+                lines.append("    // Methods")
+                lines.extend(methods)
+            lines.append("};")
+            return "\n".join(lines)
+        if kind in ("function_decl", "method_decl"):
+            return_type = node.type or "void"
+            return f"{return_type} {node.name}();"
+        return f"// Unsupported C++ declaration: {node.name} ({node.kind})"
     
     def _generate_cpp_class(self, class_name: str, prompt: Optional[str] = None) -> str:
         """Generate a draft C++ class."""

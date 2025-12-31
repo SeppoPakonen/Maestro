@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from .base import Builder, Package
-from .config import MethodConfig
+from .config import MethodConfig, BuildConfig
 
 
 class MsBuildBuilder(Builder):
@@ -149,7 +149,7 @@ class MsBuildBuilder(Builder):
         }
         return mapping.get(build_type.lower(), 'Debug')
 
-    def _get_platform_from_config(self) -> str:
+    def _get_platform_from_config(self, config: Optional["BuildConfig"] = None) -> str:
         """Get platform from build config, with defaults."""
         platform_map = {
             'x86': 'Win32',
@@ -158,17 +158,22 @@ class MsBuildBuilder(Builder):
             'arm64': 'ARM64'
         }
 
-        # Check if platform is specified in config custom properties
-        platform = self.config.custom.get('platform', 'x64')
+        platform = None
+        if config and getattr(config, "flags", None):
+            platform = config.flags.get('platform')
 
-        # Check if platform is in platform config
-        if hasattr(self.config.platform, 'arch') and self.config.platform.arch:
-            platform = self.config.platform.arch
+        if platform is None:
+            # Check if platform is specified in config custom properties
+            platform = self.config.custom.get('platform', 'x64')
+
+            # Check if platform is in platform config
+            if hasattr(self.config.platform, 'arch') and self.config.platform.arch:
+                platform = self.config.platform.arch
 
         # Return mapped platform or platform as-is if not in map
         return platform_map.get(platform.lower(), platform)
 
-    def configure(self, package: Package) -> bool:
+    def configure(self, package: Package, config: Optional["BuildConfig"] = None) -> bool:
         """
         Configure the MSBuild project.
         Creates or updates project settings based on config.
@@ -184,7 +189,7 @@ class MsBuildBuilder(Builder):
         package.metadata['project_file'] = project_file
         return True
 
-    def build_package(self, package: Package) -> bool:
+    def build_package(self, package: Package, config: Optional["BuildConfig"] = None) -> bool:
         """
         Build the Visual Studio project using MSBuild.
 
@@ -205,14 +210,22 @@ class MsBuildBuilder(Builder):
             return False
 
         # Determine configuration and platform
-        build_config = self._get_configuration_from_build_type(self.config.config.build_type.value)
-        platform = self._get_platform_from_config()
+        build_type = config.build_type if config else self.config.config.build_type
+        build_type_value = build_type.value if hasattr(build_type, "value") else str(build_type)
+        build_config = self._get_configuration_from_build_type(build_type_value)
+        platform = self._get_platform_from_config(config)
 
         # Handle solution files specially (for multi-project builds)
         is_solution = project_file.lower().endswith('.sln')
 
         # Build command arguments
-        jobs = self.config.config.jobs if self.config.config.jobs > 0 else os.cpu_count() or 4
+        jobs = 0
+        if config and getattr(config, "jobs", 0) > 0:
+            jobs = config.jobs
+        elif self.config.config.jobs > 0:
+            jobs = self.config.config.jobs
+        else:
+            jobs = os.cpu_count() or 4
         msbuild_args = [
             self.msbuild_cmd,
             project_file,
@@ -351,7 +364,7 @@ class MsBuildBuilder(Builder):
         print("[msbuild] Linking is handled during build process")
         return True
 
-    def clean_package(self, package: Package) -> bool:
+    def clean_package(self, package: Package, config: Optional["BuildConfig"] = None) -> bool:
         """
         Clean package build artifacts using MSBuild.
 
@@ -372,8 +385,10 @@ class MsBuildBuilder(Builder):
             return False
 
         # Determine configuration and platform
-        build_config = 'Debug'  # Use Debug as default for cleaning
-        platform = self._get_platform_from_config(BuildConfig())  # Use empty config for default platform
+        build_type = config.build_type if config else BuildConfig().build_type
+        build_type_value = build_type.value if hasattr(build_type, "value") else str(build_type)
+        build_config = self._get_configuration_from_build_type(build_type_value)
+        platform = self._get_platform_from_config(config or BuildConfig())
 
         # Clean command arguments
         msbuild_args = [
@@ -414,7 +429,7 @@ class MsBuildBuilder(Builder):
         # For simplicity, return .exe as the primary executable extension
         return ".exe"
 
-    def install(self, package: Package) -> bool:
+    def install(self, package: Package, config: Optional["BuildConfig"] = None) -> bool:
         """
         Install the built package by copying output files to destination.
         For MSBuild projects, this typically involves copying built binaries
@@ -437,8 +452,10 @@ class MsBuildBuilder(Builder):
             return False
 
         # Determine configuration and platform for output path
-        build_config = self._get_configuration_from_build_type(self.config.config.build_type.value)
-        platform = self._get_platform_from_config()
+        build_type = config.build_type if config else self.config.config.build_type
+        build_type_value = build_type.value if hasattr(build_type, "value") else str(build_type)
+        build_config = self._get_configuration_from_build_type(build_type_value)
+        platform = self._get_platform_from_config(config)
 
         # Determine the output directory based on project type and config
         project_dir = Path(project_file).parent
@@ -459,7 +476,7 @@ class MsBuildBuilder(Builder):
         if not output_dir:
             print(f"[msbuild] Output directory not found for {package.name}, attempting to build first...")
             # Try to run a build to generate the outputs
-            if not self.build_package(package):
+            if not self.build_package(package, config):
                 print(f"[msbuild] Build failed, cannot proceed with install for {package.name}")
                 return False
             # Re-check for output directory after build
@@ -472,7 +489,8 @@ class MsBuildBuilder(Builder):
                 return False
 
         # Destination directory
-        install_dir = Path(self.config.config.install_prefix) / package.name
+        install_prefix = config.install_prefix if config else self.config.config.install_prefix
+        install_dir = Path(install_prefix) / package.name
         install_dir.mkdir(parents=True, exist_ok=True)
 
         # Copy built files to install location
@@ -492,7 +510,7 @@ class MsBuildBuilder(Builder):
         print(f"[msbuild] Install completed for {package.name}")
         return True
 
-    def rebuild_package(self, package: Package) -> bool:
+    def rebuild_package(self, package: Package, config: Optional["BuildConfig"] = None) -> bool:
         """
         Rebuild the package (clean + build).
 
@@ -503,7 +521,7 @@ class MsBuildBuilder(Builder):
             True if rebuild succeeded, False otherwise
         """
         print(f"[msbuild] Rebuilding {package.name}...")
-        if not self.clean_package(package):
+        if not self.clean_package(package, config):
             print(f"[msbuild] Clean failed during rebuild for {package.name}")
             return False
-        return self.build_package(package)
+        return self.build_package(package, config)

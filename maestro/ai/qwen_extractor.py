@@ -22,30 +22,9 @@ def extract_qwen_assistant_text(stream_lines: List[str]) -> str:
     Returns:
         The extracted assistant text, or empty string if no assistant text found
     """
-    # First, check for 'result' type events (preferred)
     result_texts = []
-    for line in stream_lines:
-        line = line.strip()
-        if not line:
-            continue
-
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            # Skip invalid JSON lines
-            continue
-
-        # Check for 'result' type events (preferred)
-        if event.get('type') == 'result' and 'result' in event:
-            result_texts.append(event['result'])
-
-    # If we found result events, return them (preferably just the last one if multiple exist)
-    if result_texts:
-        # Return the last result text (most complete/final answer)
-        return _normalize_text(result_texts[-1])
-
-    # If no result events, fall back to 'assistant' type events
     assistant_texts = []
+    has_final_result = False
     for line in stream_lines:
         line = line.strip()
         if not line:
@@ -57,18 +36,33 @@ def extract_qwen_assistant_text(stream_lines: List[str]) -> str:
             # Skip invalid JSON lines
             continue
 
-        # Check for 'assistant' type events (fallback)
-        if event.get('type') == 'assistant' and 'message' in event:
+        event_type = event.get('type')
+        if event_type == 'final_result':
+            has_final_result = True
+
+        if event_type == 'result' and 'result' in event:
+            result_texts.append(event['result'])
+            continue
+
+        # Collect assistant content for optional use
+        if event_type == 'assistant' and 'message' in event:
             message = event['message']
             if 'content' in message and isinstance(message['content'], list):
                 for content_item in message['content']:
                     if content_item.get('type') == 'text' and 'text' in content_item:
                         assistant_texts.append(content_item['text'])
 
-    # Join assistant texts with newlines and normalize
+    if result_texts:
+        result_text = _normalize_text(result_texts[-1])
+        if assistant_texts and has_final_result:
+            assistant_text = _normalize_text('\n\n'.join(assistant_texts))
+            if assistant_text == result_text or assistant_text in result_text:
+                return result_text
+            return _normalize_text(f"{assistant_text}\n\n{result_text}")
+        return result_text
+
     if assistant_texts:
-        combined_text = '\n\n'.join(assistant_texts)
-        return _normalize_text(combined_text)
+        return _normalize_text('\n\n'.join(assistant_texts))
 
     return ""
 

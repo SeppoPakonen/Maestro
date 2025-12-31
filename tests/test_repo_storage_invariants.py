@@ -23,7 +23,6 @@ def test_write_repo_artifacts_creates_repo_model(tmp_path: Path) -> None:
 
 def test_repo_truth_rejects_dot_maestro(tmp_path: Path) -> None:
     repo_root = tmp_path
-    (repo_root / "docs" / "maestro").mkdir(parents=True)
     (repo_root / ".maestro").mkdir()
 
     with pytest.raises(SystemExit):

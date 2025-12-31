@@ -37,7 +37,13 @@ class ProjectOpsExecutor:
     """Executor for project operations with dry-run and apply functionality."""
 
     def __init__(self, todo_path: str = "docs/todo.md"):
-        self.todo_path = Path(todo_path)
+        path = Path(todo_path)
+        if not path.is_absolute():
+            try:
+                path = (Path.cwd() / path).resolve()
+            except FileNotFoundError:
+                path = (Path(__file__).resolve().parents[2] / path).resolve()
+        self.todo_path = path
         # Ensure the docs directory exists
         self.todo_path.parent.mkdir(parents=True, exist_ok=True)
         # Create the file if it doesn't exist

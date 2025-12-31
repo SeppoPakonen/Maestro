@@ -161,7 +161,17 @@ def test_end_to_end_transformation():
         print(f"Created test file: {source_file}")
         
         # Create TU builder and parse the file
-        parser = ClangParser()
+        try:
+            parser = ClangParser()
+        except Exception as exc:
+            try:
+                import pytest
+            except ImportError:
+                raise
+            from maestro.tu.errors import ParserUnavailableError
+            if isinstance(exc, ParserUnavailableError):
+                pytest.skip("clang.cindex not available for TU6 end-to-end test")
+            raise
         builder = TUBuilder(parser, cache_dir=temp_path / "cache")
         results = builder.build([str(source_file)], compile_flags=["-std=c++11"])
         

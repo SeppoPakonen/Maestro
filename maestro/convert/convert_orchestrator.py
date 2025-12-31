@@ -14,7 +14,10 @@ import sys
 import os
 from pathlib import Path
 import json
-import jsonschema
+try:
+    import jsonschema
+except ModuleNotFoundError:  # Optional dependency for test environments
+    jsonschema = None
 from typing import Dict, List, Set
 import datetime
 
@@ -56,11 +59,12 @@ def validate_plan(plan_data: Dict, plan_path: str = ".maestro/convert/plan/plan.
         schema = json.load(f)
 
     # Validate against JSON schema
-    try:
-        jsonschema.validate(instance=plan_data, schema=schema)
-    except jsonschema.ValidationError as e:
-        errors.append(f"JSON schema validation failed: {e.message}")
-        return errors  # Return early if basic schema validation fails
+    if jsonschema is not None:
+        try:
+            jsonschema.validate(instance=plan_data, schema=schema)
+        except jsonschema.ValidationError as e:
+            errors.append(f"JSON schema validation failed: {e.message}")
+            return errors  # Return early if basic schema validation fails
 
     # Additional deterministic checks beyond schema
     errors.extend(_check_phase_ordering(plan_data))

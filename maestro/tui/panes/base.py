@@ -104,7 +104,27 @@ class PaneView(Widget):
 
         # Also trigger data refresh for protocol compliance
         # But do this as a deferred call to avoid blocking UI refresh
-        self.call_after_refresh(self.refresh_data)
+        def _safe_refresh_data() -> None:
+            try:
+                result = self.refresh_data()
+            except Exception as exc:
+                try:
+                    self.notify_status(f"Error refreshing pane: {exc}")
+                except Exception:
+                    pass
+                return
+            if asyncio.iscoroutine(result):
+                async def _await_refresh() -> None:
+                    try:
+                        await result
+                    except Exception as exc:
+                        try:
+                            self.notify_status(f"Error refreshing pane: {exc}")
+                        except Exception:
+                            pass
+                asyncio.create_task(_await_refresh())
+
+        self.call_after_refresh(_safe_refresh_data)
 
     def refresh_data(self) -> None:
         """Refresh pane's data. Override this in subclasses to trigger data reload."""

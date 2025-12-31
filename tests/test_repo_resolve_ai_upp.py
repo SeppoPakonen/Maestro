@@ -6,11 +6,25 @@ Ultimate++-style repo checkout without hardcoding exact counts.
 """
 
 import os
+import shlex
 import tempfile
 import pytest
 import subprocess
 import sys
 from pathlib import Path
+
+CLI_TIMEOUT = int(os.environ.get("MAESTRO_CLI_TIMEOUT", "300"))
+CLI_INIT_TIMEOUT = int(os.environ.get("MAESTRO_CLI_INIT_TIMEOUT", "60"))
+
+pytestmark = pytest.mark.slow
+
+
+def _maestro_cmd() -> list[str]:
+    maestro_bin = os.environ.get("MAESTRO_BIN")
+    if maestro_bin:
+        return shlex.split(maestro_bin)
+    repo_root = Path(__file__).resolve().parents[1]
+    return [sys.executable, str(repo_root / "maestro.py")]
 
 
 def test_scan_upp_repo_v2_integration():
@@ -151,13 +165,13 @@ def test_cli_json_output_integration():
         pytest.skip(f"Repository path does not exist: {repo_path}")
 
     # Invoke the CLI command in --json mode and parse the JSON
-    cmd = [
-        'maestro', 'repo', 'resolve',
-        '--path', repo_path,
-        '--json'
+    cmd = _maestro_cmd() + [
+        "repo", "resolve",
+        "--path", repo_path,
+        "--json",
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=CLI_TIMEOUT)
 
     # Check that the command succeeded
     assert result.returncode == 0, f"CLI command failed: {result.stderr}"
@@ -185,7 +199,7 @@ def test_cli_init_resolve_e2e():
     End-to-end test: maestro init → maestro repo resolve workflow.
 
     Tests the full CLI workflow on a real Ultimate++ repo:
-    1. Run `maestro init` to create .maestro directory
+    1. Run `maestro init` to create docs/maestro directory
     2. Run `maestro repo resolve --json` to scan the repo
     3. Validate the output
     4. Clean up .maestro directory
@@ -196,34 +210,34 @@ def test_cli_init_resolve_e2e():
     if not os.path.exists(repo_path):
         pytest.skip(f"Repository path does not exist: {repo_path}")
 
-    maestro_dir = os.path.join(repo_path, '.maestro')
-    marker_file = os.path.join(maestro_dir, '.test_marker')
+    repo_truth_dir = Path(repo_path) / 'docs' / 'maestro'
+    marker_file = repo_truth_dir / '.test_marker'
 
-    # Track if we created .maestro directory (for cleanup)
-    created_maestro = False
+    # Track if we created repo truth directory (for cleanup)
+    created_repo_truth = False
 
     try:
         # Step 1: Run maestro init
-        init_cmd = ['python', '-m', 'maestro', 'init', '--dir', repo_path]
-        init_result = subprocess.run(init_cmd, capture_output=True, text=True, timeout=30)
+        init_cmd = _maestro_cmd() + ["init", "--dir", repo_path]
+        init_result = subprocess.run(init_cmd, capture_output=True, text=True, timeout=CLI_INIT_TIMEOUT)
 
         assert init_result.returncode == 0, f"maestro init failed: {init_result.stderr}"
 
-        # Check that .maestro directory was created
-        assert os.path.exists(maestro_dir), f".maestro directory was not created at {maestro_dir}"
+        # Check that docs/maestro directory was created
+        assert repo_truth_dir.exists(), f"docs/maestro directory was not created at {repo_truth_dir}"
 
         # Create marker file to indicate this was created by test
-        with open(marker_file, 'w') as f:
+        with open(marker_file, 'w', encoding='utf-8') as f:
             f.write('created-by-test')
-        created_maestro = True
+        created_repo_truth = True
 
         # Step 2: Run maestro repo resolve --json
-        resolve_cmd = [
-            'python', '-m', 'maestro', 'repo', 'resolve',
-            '--path', repo_path,
-            '--json'
+        resolve_cmd = _maestro_cmd() + [
+            "repo", "resolve",
+            "--path", repo_path,
+            "--json",
         ]
-        resolve_result = subprocess.run(resolve_cmd, capture_output=True, text=True, timeout=60)
+        resolve_result = subprocess.run(resolve_cmd, capture_output=True, text=True, timeout=CLI_TIMEOUT)
 
         assert resolve_result.returncode == 0, f"maestro repo resolve failed: {resolve_result.stderr}"
 
@@ -266,12 +280,12 @@ def test_cli_init_resolve_e2e():
         assert package_names == sorted(package_names) or True, "Packages should be in consistent order"
 
     finally:
-        # Step 4: Cleanup - remove .maestro directory if we created it
-        if created_maestro and os.path.exists(marker_file):
+        # Step 4: Cleanup - remove docs/maestro directory if we created it
+        if created_repo_truth and marker_file.exists():
             # Only delete if marker file exists (indicating we created it)
             import shutil
             try:
-                shutil.rmtree(maestro_dir)
+                shutil.rmtree(repo_truth_dir)
             except Exception as e:
                 # Best effort cleanup - don't fail the test if cleanup fails
-                print(f"Warning: Failed to clean up .maestro directory: {e}")
+                print(f"Warning: Failed to clean up docs/maestro directory: {e}")

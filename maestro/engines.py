@@ -6,6 +6,7 @@ This module defines the interface and dummy implementations for various LLM engi
 used in the orchestrator system.
 """
 from dataclasses import dataclass
+import re
 import json
 import os
 import subprocess
@@ -19,6 +20,24 @@ CODEX_PLANNER = "codex_planner"
 CLAUDE_PLANNER = "claude_planner"
 QWEN_WORKER = "qwen_worker"
 GEMINI_WORKER = "gemini_worker"
+
+
+_TOOL_USAGE_PATTERNS = [
+    r"\$ [^\n]+",  # Lines starting with $ (terminal commands)
+    r"# [^\n]+",  # Comment lines
+    r"\b(ls|cd|pwd|mkdir|rm|cp|mv|cat|echo|grep|find|ps|kill|git|npm|yarn|python|pip|conda|docker|kubectl|make|bash|sh)\b",
+    r"(&&|\\|\\||;)",  # Command chaining operators
+    r"`[^`]+`",  # Inline code (markdown)
+    r"^\s*(export|set|alias|source|chmod|chown|tar|zip|unzip|which|whereis|man|help)\b",  # More commands
+]
+
+
+def detect_tool_usage(line: str) -> bool:
+    """Return True when a line looks like a tool or shell command."""
+    for pattern in _TOOL_USAGE_PATTERNS:
+        if re.search(pattern, line, re.IGNORECASE):
+            return True
+    return False
 
 
 @dataclass

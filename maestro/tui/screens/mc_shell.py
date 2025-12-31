@@ -120,8 +120,7 @@ class MainShellScreen(Screen):
         self.section_id_map = {name.title(): name for name in registry_sections}
         registry_sections = list(self.section_id_map.keys())
         # Add some default sections that may not be in the registry yet
-        self.sections: List[str] = registry_sections + [
-            "Home",
+        self.sections: List[str] = ["Home"] + registry_sections + [
             "Phases",
             "Tasks",
             "Build",
@@ -168,7 +167,8 @@ class MainShellScreen(Screen):
 
             with Vertical(id="right-pane", classes="pane"):
                 yield Label(self.current_section, id="content-title")
-                with Vertical(id="content-host"):
+                with Vertical(id="content-host") as content_host:
+                    content_host.can_focus = True
                     placeholder = Static(self._content_placeholder(self.current_section), id="content-placeholder")
                     placeholder.can_focus = True
                     yield placeholder
@@ -289,6 +289,12 @@ class MainShellScreen(Screen):
         view, error = create_pane_safe(pane_id)
 
         if error:
+            if isinstance(error, ValueError) and "No pane registered" in str(error):
+                content_title.update(title_text)
+                self._show_placeholder(host, self.current_section)
+                self.current_view = None
+                self._refresh_menu_bar(self._placeholder_menu(self.current_section))
+                return
             content_title.update(title_text)
             self._handle_pane_error(error, f"loading {self.current_section}")
             # Show pane error widget instead of crashing
@@ -316,7 +322,9 @@ class MainShellScreen(Screen):
         host.mount(view)
         if hasattr(view, 'on_mount') and callable(view.on_mount):
             try:
-                view.on_mount()
+                result = view.on_mount()
+                if asyncio.iscoroutine(result):
+                    asyncio.create_task(result)
             except Exception as mount_error:
                 self._handle_pane_error(mount_error, f"mounting {self.current_section}")
                 # Replace with error widget
@@ -365,9 +373,15 @@ class MainShellScreen(Screen):
 
     def _show_placeholder(self, host: Vertical, section: str) -> None:
         """Render placeholder content into the host."""
-        self._placeholder_counter += 1
-        placeholder_id = f"content-placeholder-{self._placeholder_counter}"
-        placeholder = Static(self._content_placeholder(section), id=placeholder_id)
+        try:
+            existing = host.query_one("#content-placeholder", Static)
+            existing.update(self._content_placeholder(section))
+            existing.can_focus = True
+            return
+        except Exception:
+            pass
+
+        placeholder = Static(self._content_placeholder(section), id="content-placeholder")
         placeholder.can_focus = True
         host.mount(placeholder)
 
@@ -517,6 +531,9 @@ class MainShellScreen(Screen):
         if self.focus_pane == "left":
             section_list = self.query_one("#section-list", ListView)
             section_list.action_cursor_up()
+            selected = self._selected_section_name()
+            if selected:
+                self.current_section = selected
             self._update_status("Moved up in sections")
         elif self.current_view:
             # Let the current view handle the up arrow
@@ -531,6 +548,9 @@ class MainShellScreen(Screen):
         if self.focus_pane == "left":
             section_list = self.query_one("#section-list", ListView)
             section_list.action_cursor_down()
+            selected = self._selected_section_name()
+            if selected:
+                self.current_section = selected
             self._update_status("Moved down in sections")
         elif self.current_view:
             # Let the current view handle the down arrow
@@ -589,6 +609,25 @@ class MainShellScreen(Screen):
         self._open_current_selection()
         self._update_focus("right")
         self._update_status(f"Opened {selected}")
+
+    def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        """Keep current section in sync with highlighted item."""
+        if event.list_view.id != "section-list":
+            return
+        if self._suppress_select_open:
+            self._suppress_select_open = False
+            return
+        selected = self._selected_section_name()
+        if not selected:
+            return
+        self.current_section = selected
+        if not self.current_view:
+            try:
+                self.query_one("#content-title", Label).update(selected)
+                host = self.query_one("#content-host", Vertical)
+                self._show_placeholder(host, selected)
+            except Exception:
+                pass
 
     def action_soft_back(self) -> None:
         """Esc to cancel/back hint."""
@@ -929,8 +968,11 @@ class MainShellScreen(Screen):
         # Mount the error widget
         host.mount(error_widget)
 
-        # Set up event handler for retries
-        self.bind(PaneRetryRequest, self._on_pane_retry, selector="*")
+        # Set up event handler for retries (Screen may not expose bind in all Textual versions)
+        if hasattr(self, "bind"):
+            self.bind(PaneRetryRequest, self._on_pane_retry, selector="*")
+        elif hasattr(self.app, "bind"):
+            self.app.bind(PaneRetryRequest, self._on_pane_retry, selector="*")
 
     def _on_pane_retry(self, event: PaneRetryRequest) -> None:
         """Handle pane retry requests."""
@@ -1045,6 +1087,21 @@ class MainShellScreen(Screen):
         # F10 -> quit
         if key == "f10":
             self.action_quit_app()
+            event.stop()
+            return
+
+        if key == "enter" and self.focus_pane == "left":
+            self.action_open_selection()
+            event.stop()
+            return
+
+        if key == "right" and self.focus_pane == "left":
+            self.action_move_right()
+            event.stop()
+            return
+
+        if key == "left" and self.focus_pane == "right":
+            self.action_move_left()
             event.stop()
             return
 

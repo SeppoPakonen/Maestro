@@ -106,7 +106,7 @@ class TestEndToEndWorkflow:
             # Step 5: Resolve package roots for build
             roots = resolver.get_all_linked_package_roots()
             assert len(roots) == 1
-            assert CoreLib in roots[0] or 'CoreLib' in roots[0]
+            assert "CoreLib" in roots[0]
 
     def test_ambiguous_package_resolution(self):
         """Test handling of ambiguous package names."""

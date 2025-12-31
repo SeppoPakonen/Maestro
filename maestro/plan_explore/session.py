@@ -109,7 +109,8 @@ def create_explore_session(
     work_session = create_session(
         session_type="explore",
         related_entity={"explore_session_id": session_id, "plans": selected_plans},
-        metadata={"engine": engine, "max_iterations": max_iterations}
+        metadata={"engine": engine, "max_iterations": max_iterations},
+        base_path=base_path,
     )
 
     logging.info(f"Created new explore session: {session_id}")

@@ -9,6 +9,7 @@ from typing import List, Optional
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, ListItem, ListView, Static
+from textual.css.query import NoMatches
 
 from maestro.ui_facade.sessions import (
     SessionDetails,
@@ -132,7 +133,7 @@ class SessionsPane(PaneView):
                 MenuItem(
                     "new",
                     "New",
-                    action=self.action_new_session,
+                    action=lambda: self.action_new_session(),
                     key_hint="F7",
                     fkey="F7",
                     action_id="sessions.new",
@@ -141,7 +142,7 @@ class SessionsPane(PaneView):
                 MenuItem(
                     "set_active",
                     "Set Active",
-                    action=self.action_set_active,
+                    action=lambda: self.action_set_active(),
                     key_hint="Enter",
                     fkey="Enter",
                     action_id="sessions.set_active",
@@ -152,18 +153,18 @@ class SessionsPane(PaneView):
                 MenuItem(
                     "delete",
                     "Delete",
-                    action=self.action_delete_session,
+                    action=lambda: self.action_delete_session(),
                     key_hint="F8",
                     fkey="F8",
                     action_id="sessions.delete",
-                    enabled=has_selection,
+                    enabled=True,
                     trust_label="[MUT][CONF]",
                     requires_confirmation=True,
                 ),
                 MenuItem(
                     "refresh",
                     "Refresh",
-                    action=self.refresh_data,
+                    action=lambda: self.refresh_data(),
                     key_hint="F5",
                     fkey="F5",
                     action_id="sessions.refresh",
@@ -202,7 +203,10 @@ class SessionsPane(PaneView):
 
     def _render_list(self) -> None:
         """Render the ListView from session data."""
-        list_view = self.query_one("#sessions-list", ListView)
+        try:
+            list_view = self.query_one("#sessions-list", ListView)
+        except NoMatches:
+            return
         list_view.clear()
         for session in self.sessions:
             active_marker = "●" if self._is_active_session(session) else "○"
@@ -226,7 +230,10 @@ class SessionsPane(PaneView):
 
     async def _load_details_for_selection(self) -> None:
         """Load details for the currently selected session."""
-        detail_widget = self.query_one("#session-detail", Static)
+        try:
+            detail_widget = self.query_one("#session-detail", Static)
+        except NoMatches:
+            return
         if not self.selected_id:
             detail_widget.update("No session selected.")
             return

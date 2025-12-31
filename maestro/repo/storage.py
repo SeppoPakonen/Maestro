@@ -37,15 +37,20 @@ def find_repo_root(start_path: Optional[str] = None) -> str:
     raise SystemExit(1)
 
 
-def ensure_repo_truth_dir(repo_root: Optional[str] = None) -> Path:
+def ensure_repo_truth_dir(repo_root: Optional[str] = None, create: bool = False) -> Path:
     """Ensure repo truth directory exists and .maestro is not used."""
     root = Path(repo_root or os.getcwd()).resolve()
-    _reject_dot_maestro(root)
     repo_truth = root / REPO_TRUTH_REL
+    if not create:
+        if not repo_truth.exists():
+            _reject_dot_maestro(root)
     if not repo_truth.exists():
-        print_error("Repo truth missing: docs/maestro/ not found.", 2)
-        print_error("Run 'maestro init' to create repo truth.", 2)
-        raise SystemExit(1)
+        if create:
+            repo_truth.mkdir(parents=True, exist_ok=True)
+        else:
+            print_error("Repo truth missing: docs/maestro/ not found.", 2)
+            print_error("Run 'maestro init' to create repo truth.", 2)
+            raise SystemExit(1)
     return repo_truth
 
 
@@ -73,7 +78,7 @@ def repoconf_path(repo_root: Optional[str] = None, require: bool = False) -> Pat
 
 def write_repo_model(repo_root: str, model_data: Dict[str, Any]) -> Path:
     """Write repo model data to repo_model.json (atomic)."""
-    repo_truth = ensure_repo_truth_dir(repo_root)
+    repo_truth = ensure_repo_truth_dir(repo_root, create=True)
     path = repo_truth / REPO_MODEL_FILENAME
     _atomic_write_json(path, model_data)
     return path
@@ -81,7 +86,7 @@ def write_repo_model(repo_root: str, model_data: Dict[str, Any]) -> Path:
 
 def write_repo_state(repo_root: str, state_data: Dict[str, Any]) -> Path:
     """Write repo state metadata to repo_state.json (atomic)."""
-    repo_truth = ensure_repo_truth_dir(repo_root)
+    repo_truth = ensure_repo_truth_dir(repo_root, create=True)
     path = repo_truth / REPO_STATE_FILENAME
     _atomic_write_json(path, state_data)
     return path

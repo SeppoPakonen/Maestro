@@ -68,10 +68,31 @@ def _run_textual(args):
 
 def main(argv=None):
     """Main function called from entrypoints."""
+    if argv is None:
+        argv = sys.argv[1:]
+        if len(argv) >= 2 and argv[0] == "-m" and argv[1].startswith("maestro.tui"):
+            argv = argv[2:]
+        elif argv and argv[0].startswith("maestro.tui"):
+            argv = argv[1:]
+
     args = parse_args(argv)
 
     if args.smoke_out:
         os.environ["MAESTRO_SMOKE_SUCCESS_FILE"] = args.smoke_out
+
+    if args.smoke and not sys.stdout.isatty() and not args.mc and not args.mc2:
+        from maestro.tui_mc2.app import main as mc2_main
+
+        status = mc2_main(
+            smoke_mode=True,
+            smoke_seconds=args.smoke_seconds,
+            smoke_out=args.smoke_out,
+            mc2_mode=True,
+            render_debug=args.render_debug,
+        )
+        if isinstance(status, int) and status != 0:
+            raise SystemExit(status)
+        return
 
     if args.mc2:
         from maestro.tui_mc2.app import main as mc2_main

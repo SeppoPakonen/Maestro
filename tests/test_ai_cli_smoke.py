@@ -4,6 +4,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.slow
+
 
 def test_ai_print_cmd_flags():
     """Test that --print-cmd flag works for all engines."""

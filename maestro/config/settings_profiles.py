@@ -309,12 +309,14 @@ class SettingsProfileManager:
     
     def save_current_settings(self, profile_id: str, notes: Optional[str] = None) -> bool:
         """Save the current active settings to a profile."""
-        current_settings = get_settings()
+        config_path = self.base_dir / "docs" / "config.md"
+        current_settings = Settings.load(config_path)
         return self.update_profile(profile_id, current_settings, notes)
     
     def get_settings_hash(self) -> str:
         """Get the hash of the current active settings."""
-        current_settings = get_settings()
+        config_path = self.base_dir / "docs" / "config.md"
+        current_settings = Settings.load(config_path)
         return self._hash_settings(current_settings)
     
     def get_profile_hash(self, profile_id: str) -> Optional[str]:

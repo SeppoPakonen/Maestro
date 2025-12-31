@@ -415,10 +415,11 @@ class TestAiCacheStore:
             success, error = cache_store.apply_patch(patch_content, dry_run=True)
             # Don't assert success as it depends on git availability
 
-    def test_compute_workspace_fingerprint_minimal(self, cache_store):
+    def test_compute_workspace_fingerprint_minimal(self, cache_store, temp_cache_dir):
         """Test computing minimal workspace fingerprint."""
         # Without watch patterns
-        fp = cache_store.compute_workspace_fingerprint()
+        with patch.dict(os.environ, {"PWD": temp_cache_dir}):
+            fp = cache_store.compute_workspace_fingerprint()
 
         # Should have git info (if in a git repo)
         assert isinstance(fp.git_dirty, bool)

@@ -184,8 +184,9 @@ class TestMaestroArtifactsInTempDir:
                     runner=runner
                 )
                 
-                # Verify logs were created in the temporary directory
-                log_dir = Path("docs/logs/ai/qwen")
+                # Verify logs were created under MAESTRO_DOCS_ROOT
+                docs_root = Path(os.environ["MAESTRO_DOCS_ROOT"])
+                log_dir = docs_root / "docs" / "logs" / "ai" / "qwen"
                 assert log_dir.exists()
                 
                 # Check that log files exist
@@ -200,8 +201,8 @@ class TestMaestroArtifactsInTempDir:
                 # Verify all files are within the temp directory
                 for file_list in [stdout_files, stderr_files, events_files]:
                     for file_path in file_list:
-                        # The file should be under the temp directory
-                        assert str(file_path.resolve()).startswith(tmp_dir)
+                        # The file should be under the docs root directory
+                        assert str(file_path.resolve()).startswith(str(docs_root))
                         
             finally:
                 os.chdir(original_cwd)

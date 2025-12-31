@@ -42,6 +42,8 @@ class MakeCommand:
             return self.build_android(args)
         elif args.make_subcommand == 'jar':
             return self.build_jar(args)
+        elif args.make_subcommand == 'structure':
+            return self.structure(args)
         else:
             print(f"Error: Unknown make subcommand: {args.make_subcommand}")
             return 1
@@ -185,6 +187,47 @@ class MakeCommand:
                 return 1
 
         return 0
+
+    def structure(self, args: argparse.Namespace) -> int:
+        from maestro.structure_tools import (
+            handle_structure_apply,
+            handle_structure_fix,
+            handle_structure_lint,
+            handle_structure_scan,
+            handle_structure_show,
+        )
+
+        subcommand = args.structure_subcommand
+        if subcommand == "scan":
+            handle_structure_scan(args.session, verbose=args.verbose, target=args.target)
+            return 0
+        if subcommand == "show":
+            handle_structure_show(args.session, verbose=args.verbose, target=args.target)
+            return 0
+        if subcommand == "fix":
+            handle_structure_fix(
+                args.session,
+                verbose=args.verbose,
+                apply_directly=False,
+                dry_run=args.dry_run,
+                limit=args.limit,
+                target=args.target,
+                only_rules=args.only,
+                skip_rules=args.skip,
+            )
+            return 0
+        if subcommand == "apply":
+            return handle_structure_apply(
+                args.session,
+                verbose=args.verbose,
+                limit=args.limit,
+                target=args.target,
+                dry_run=args.dry_run,
+            )
+        if subcommand == "lint":
+            return handle_structure_lint(args.session, verbose=args.verbose, target=args.target)
+        print(f"Error: Unknown structure subcommand: {subcommand}")
+        return 1
     
     def clean(self, args: argparse.Namespace) -> int:
         """Clean build artifacts for package(s)."""
@@ -868,7 +911,7 @@ def handle_make_command(args: argparse.Namespace) -> int:
 
 def add_make_parser(subparsers):
     """Add make command parsers to the main parser."""
-    make_parser = subparsers.add_parser('make', aliases=['m', 'build'], help='Universal build orchestration')
+    make_parser = subparsers.add_parser('make', aliases=['m', 'build', 'b'], help='Universal build orchestration')
     
     # Create subparsers for make command
     make_subparsers = make_parser.add_subparsers(dest='make_subcommand', help='Make subcommands')
@@ -951,5 +994,39 @@ def add_make_parser(subparsers):
     jar_parser.add_argument('--manifest', help='Custom manifest file')
     jar_parser.add_argument('--sign', action='store_true', help='Sign JAR with jarsigner')
     jar_parser.add_argument('--method', '-m', help='Build method to use (default: auto)')
-    
+
+    structure_parser = make_subparsers.add_parser('structure', aliases=['str'], help='U++ structure fixer')
+    structure_subparsers = structure_parser.add_subparsers(dest='structure_subcommand', help='Structure subcommands')
+
+    scan_parser = structure_subparsers.add_parser('scan', aliases=['sc'], help='Scan structure issues')
+    scan_parser.add_argument('--session', required=True, help='Session file path')
+    scan_parser.add_argument('--target', help='Target repo root (default: cwd)')
+    scan_parser.add_argument('--verbose', action='store_true', help='Verbose output')
+
+    show_parser = structure_subparsers.add_parser('show', aliases=['sh'], help='Show structure scan results')
+    show_parser.add_argument('--session', required=True, help='Session file path')
+    show_parser.add_argument('--target', help='Target repo root (default: cwd)')
+    show_parser.add_argument('--verbose', action='store_true', help='Verbose output')
+
+    lint_parser = structure_subparsers.add_parser('lint', aliases=['l'], help='Lint structure issues')
+    lint_parser.add_argument('--session', required=True, help='Session file path')
+    lint_parser.add_argument('--target', help='Target repo root (default: cwd)')
+    lint_parser.add_argument('--verbose', action='store_true', help='Verbose output')
+
+    fix_parser = structure_subparsers.add_parser('fix', aliases=['f'], help='Generate structure fix plan')
+    fix_parser.add_argument('--session', required=True, help='Session file path')
+    fix_parser.add_argument('--target', help='Target repo root (default: cwd)')
+    fix_parser.add_argument('--limit', type=int, help='Limit number of operations')
+    fix_parser.add_argument('--dry-run', action='store_true', help='Do not apply operations')
+    fix_parser.add_argument('--only', help='Comma-separated rules to run')
+    fix_parser.add_argument('--skip', help='Comma-separated rules to skip')
+    fix_parser.add_argument('--verbose', action='store_true', help='Verbose output')
+
+    apply_parser = structure_subparsers.add_parser('apply', aliases=['a'], help='Apply structure fix plan')
+    apply_parser.add_argument('--session', required=True, help='Session file path')
+    apply_parser.add_argument('--target', help='Target repo root (default: cwd)')
+    apply_parser.add_argument('--limit', type=int, help='Limit number of operations')
+    apply_parser.add_argument('--dry-run', action='store_true', help='Do not apply operations')
+    apply_parser.add_argument('--verbose', action='store_true', help='Verbose output')
+
     return make_parser

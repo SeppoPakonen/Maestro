@@ -50,6 +50,8 @@ class LocalHubIndex:
 class HubIndexManager:
     """Manages the global hub index at ~/.maestro/hub/."""
 
+    _default_hub_dir: Optional[Path] = None
+
     def __init__(self, hub_dir: Optional[Path] = None):
         """
         Initialize the hub index manager.
@@ -58,9 +60,13 @@ class HubIndexManager:
             hub_dir: Hub directory path (default: ~/.maestro/hub)
         """
         if hub_dir is None:
-            self.hub_dir = Path.home() / ".maestro" / "hub"
+            if self.__class__._default_hub_dir is not None:
+                self.hub_dir = self.__class__._default_hub_dir
+            else:
+                self.hub_dir = Path.home() / ".maestro" / "hub"
         else:
             self.hub_dir = Path(hub_dir)
+            self.__class__._default_hub_dir = self.hub_dir
 
         self.index_file = self.hub_dir / "index.json"
         self.repos_dir = self.hub_dir / "repos"

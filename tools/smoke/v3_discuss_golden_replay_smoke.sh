@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAESTRO_BIN=${MAESTRO_BIN:-maestro.py}
+if [[ -n "${MAESTRO_BIN:-}" ]]; then
+  read -r -a MAESTRO_CMD <<<"$MAESTRO_BIN"
+elif [[ -x "./maestro.py" ]]; then
+  MAESTRO_CMD=("./maestro.py")
+else
+  MAESTRO_CMD=(python -m maestro)
+fi
 
 status=0
 
@@ -23,12 +29,17 @@ PY
     extra_flags+=(--allow-cross-context)
   fi
 
-  if "$MAESTRO_BIN" discuss replay "$fixture_dir" --dry-run "${extra_flags[@]}"; then
+  tmp_dir=$(mktemp -d)
+  cp -a "$fixture_dir" "$tmp_dir/"
+  temp_fixture="$tmp_dir/$(basename "$fixture_dir")"
+
+  if "${MAESTRO_CMD[@]}" discuss replay "$temp_fixture" --dry-run "${extra_flags[@]}"; then
     echo "PASS ${fixture_dir}"
   else
     echo "FAIL ${fixture_dir}"
     status=1
   fi
+  rm -rf "$tmp_dir"
   echo ""
 done
 

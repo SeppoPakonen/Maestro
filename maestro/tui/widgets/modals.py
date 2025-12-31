@@ -2,6 +2,7 @@
 Reusable Modal Widgets for Maestro TUI
 """
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import Label, Button, Input, TextArea
 from textual.containers import Vertical, Horizontal
@@ -12,12 +13,12 @@ class ConfirmDialog(ModalScreen[bool]):
     """A confirmation dialog modal."""
 
     BINDINGS = [
-        ("escape", "cancel", "Cancel"),
-        ("enter", "confirm", "Confirm"),
-        ("left", "focus_prev_button", "Prev button"),
-        ("right", "focus_next_button", "Next button"),
-        ("tab", "focus_next_button", "Next button"),
-        ("shift+tab", "focus_prev_button", "Prev button"),
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "confirm", "Confirm"),
+        Binding("left", "focus_prev_button", "Prev button"),
+        Binding("right", "focus_next_button", "Next button"),
+        Binding("tab", "focus_next_button", "Next button"),
+        Binding("shift+tab", "focus_prev_button", "Prev button"),
     ]
 
     def __init__(self, message: str = "Are you sure?", title: str = "Confirmation"):

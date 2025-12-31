@@ -109,14 +109,22 @@ class AiCacheStore:
         """
         fingerprint = WorkspaceFingerprint()
 
+        cwd = os.getenv("PWD") or os.getcwd()
+        if cwd and not os.path.isdir(cwd):
+            cwd = os.getcwd()
+        env = os.environ.copy()
+        env.setdefault("GIT_OPTIONAL_LOCKS", "0")
+
         # Get git HEAD
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
+                ["git", "--no-optional-locks", "rev-parse", "HEAD"],
                 capture_output=True,
                 text=True,
-                timeout=5,
-                check=False
+                timeout=20,
+                check=False,
+                cwd=cwd,
+                env=env,
             )
             if result.returncode == 0:
                 fingerprint.git_head = result.stdout.strip()
@@ -126,11 +134,13 @@ class AiCacheStore:
         # Check if working directory is dirty
         try:
             result = subprocess.run(
-                ["git", "status", "--porcelain"],
+                ["git", "--no-optional-locks", "status", "--porcelain"],
                 capture_output=True,
                 text=True,
-                timeout=5,
-                check=False
+                timeout=20,
+                check=False,
+                cwd=cwd,
+                env=env,
             )
             if result.returncode == 0:
                 fingerprint.git_dirty = bool(result.stdout.strip())
@@ -140,14 +150,18 @@ class AiCacheStore:
         # Compute file hashes for watched paths
         if watched_paths:
             from glob import glob
+            base_dir = Path(os.environ.get("PWD", str(Path.cwd())))
             for pattern in watched_paths:
                 for file_path_str in glob(pattern, recursive=True):
                     file_path = Path(file_path_str)
                     if file_path.is_file():
                         file_hash = self._compute_file_hash(file_path)
                         if file_hash:
-                            # Use relative path from current dir
-                            rel_path = str(file_path.relative_to(Path.cwd()))
+                            # Use relative path from current dir when possible.
+                            try:
+                                rel_path = str(file_path.relative_to(base_dir))
+                            except ValueError:
+                                rel_path = str(file_path)
                             fingerprint.watched_files[rel_path] = file_hash
 
         return fingerprint
@@ -562,13 +576,20 @@ class AiCacheStore:
         Returns:
             Git diff output as string, or None if git not available
         """
+        cwd = os.getenv("PWD") or os.getcwd()
+        if cwd and not os.path.isdir(cwd):
+            cwd = os.getcwd()
+        env = os.environ.copy()
+        env.setdefault("GIT_OPTIONAL_LOCKS", "0")
         try:
             result = subprocess.run(
                 ["git", "diff", "HEAD"],
                 capture_output=True,
                 text=True,
                 timeout=10,
-                check=False
+                check=False,
+                cwd=cwd,
+                env=env,
             )
             if result.returncode == 0:
                 return result.stdout
@@ -592,6 +613,11 @@ class AiCacheStore:
             f.write(patch_diff)
             patch_file = f.name
 
+        cwd = os.getenv("PWD") or os.getcwd()
+        if cwd and not os.path.isdir(cwd):
+            cwd = os.getcwd()
+        env = os.environ.copy()
+        env.setdefault("GIT_OPTIONAL_LOCKS", "0")
         try:
             # Prepare git apply command
             cmd = ["git", "apply"]
@@ -604,7 +630,9 @@ class AiCacheStore:
                 capture_output=True,
                 text=True,
                 timeout=10,
-                check=False
+                check=False,
+                cwd=cwd,
+                env=env,
             )
 
             if result.returncode == 0:

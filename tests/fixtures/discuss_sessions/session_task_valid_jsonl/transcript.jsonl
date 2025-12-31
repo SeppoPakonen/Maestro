@@ -1,4 +1,2 @@
 {"ts": "2025-12-27T10:00:00.000000", "type": "user_message", "payload": {"content": "Test task discussion"}}
 {"ts": "2025-12-27T10:05:00.000000", "type": "final_json", "payload": {"patch_operations": [{"op_type": "add_task", "data": {"task_name": "Test Task", "task_id": "test-123", "phase_id": "test-phase"}}]}}
-{"ts": "2025-12-27T14:40:55.407523", "type": "replay_run", "payload": {"dry_run": true, "result": "REPLAY_OK", "ops_count": 1}}
-{"ts": "2025-12-27T14:41:03.124672", "type": "replay_run", "payload": {"dry_run": true, "result": "REPLAY_OK", "ops_count": 1}}

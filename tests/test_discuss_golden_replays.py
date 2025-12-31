@@ -6,6 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.slow
+
 
 def _run_replay(session_dir: Path, allow_cross_context: bool) -> subprocess.CompletedProcess:
     repo_root = Path(__file__).resolve().parent.parent

@@ -1,6 +1,7 @@
 """Tests for deterministic discuss replay functionality."""
 
 import json
+import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -85,13 +86,16 @@ class TestDiscussReplay:
             PatchOperationType(patch_ops[0]["op_type"])
 
     @patch('maestro.commands.discuss.apply_patch_operations')
-    def test_replay_dry_run_no_mutation(self, mock_apply):
+    def test_replay_dry_run_no_mutation(self, mock_apply, tmp_path):
         """Test that dry-run replay doesn't call apply_patch_operations."""
         from maestro.commands.discuss import handle_discuss_replay
         from unittest.mock import Mock
 
         args = Mock()
-        args.path = "tests/fixtures/discuss_sessions/session_task_valid_jsonl"
+        fixture_path = Path("tests/fixtures/discuss_sessions/session_task_valid_jsonl")
+        temp_fixture = tmp_path / fixture_path.name
+        shutil.copytree(fixture_path, temp_fixture)
+        args.path = str(temp_fixture)
         args.dry_run = True
         args.allow_cross_context = False
 

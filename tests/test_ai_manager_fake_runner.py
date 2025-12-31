@@ -110,8 +110,9 @@ class TestStreamingAndCapture:
             try:
                 result = manager.run_once("qwen", prompt, opts)
                 
-                # Verify that log files were created
-                log_dir = Path("docs/logs/ai/qwen")
+                # Verify that log files were created under MAESTRO_DOCS_ROOT
+                docs_root = Path(os.environ["MAESTRO_DOCS_ROOT"])
+                log_dir = docs_root / "docs" / "logs" / "ai" / "qwen"
                 assert log_dir.exists()
                 
                 # Find the log files (they have timestamped names)
@@ -351,7 +352,8 @@ class TestChatLoopCallsManagerRepeatedly:
                 result2 = manager.run_once("qwen", prompt2, opts2)
                 
                 # Verify that log files were created for the calls
-                log_dir = Path("docs/logs/ai/qwen")
+                docs_root = Path(os.environ["MAESTRO_DOCS_ROOT"])
+                log_dir = docs_root / "docs" / "logs" / "ai" / "qwen"
                 assert log_dir.exists()
 
                 log_files = list(log_dir.glob("*.txt"))

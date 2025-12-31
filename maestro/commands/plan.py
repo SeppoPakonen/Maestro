@@ -192,8 +192,8 @@ def handle_plan_discuss(title_or_number: Optional[str] = None, session_path: Opt
         # Use the AI manager
         manager = AiEngineManager()
 
-        # If no prompt was provided, enter interactive chat mode
-        if prompt is None:
+        # If no prompt was provided, enter interactive chat mode (only on TTY)
+        if prompt is None and sys.stdin.isatty():
             print("\nStarting interactive AI discussion...")
             print("You can discuss the plan freely with the AI.")
             print("Note: In interactive mode, changes are not automatically applied.")
@@ -234,7 +234,9 @@ I'd like to discuss this plan with you. Can you help me review it, suggest impro
             # Exit after interactive session ends
             return
 
-        # One-shot mode (when prompt is provided)
+        # One-shot mode (when prompt is provided or stdin is not interactive)
+        if prompt is None:
+            prompt = ""
         print("\nStarting AI discussion to edit this plan (one-shot mode)...")
 
         # Append the custom prompt to the base prompt
@@ -275,8 +277,17 @@ I'd like to discuss this plan with you. Can you help me review it, suggest impro
                 # Create prompt reference
                 prompt_ref = PromptRef(source=ai_prompt)
 
+                if verbose:
+                    from ..modules import utils as _utils
+                    _utils.print_info("AI Engine: qwen", 2)
+                    _utils.print_info("Starting engine execution", 2)
+
                 # Run the AI engine and get response
                 result = manager.run_once("qwen", prompt_ref, opts)
+
+                if verbose:
+                    from ..modules import utils as _utils
+                    _utils.print_info("Engine execution completed", 2)
 
                 # Check if the engine execution was successful
                 if result.exit_code != 0:
@@ -289,7 +300,8 @@ I'd like to discuss this plan with you. Can you help me review it, suggest impro
                                     error_msg += f". Stderr excerpt: {stderr_content[:200]}..."
                         except:
                             pass  # Ignore errors reading stderr
-                    print_error(error_msg, 2)
+                    from ..modules import utils as _utils
+                    _utils.print_error(error_msg, 2)
                     if attempt == max_retries:
                         sys.exit(1)
                     continue
@@ -299,15 +311,16 @@ I'd like to discuss this plan with you. Can you help me review it, suggest impro
                     with open(result.stdout_path, 'r', encoding='utf-8') as f:
                         ai_response = f.read().strip()
                 else:
-                    print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
+                    from ..modules import utils as _utils
+                    _utils.print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
                     if verbose:
-                        print_info(f"Engine exit code: {result.exit_code}", 2)
+                        _utils.print_info(f"Engine exit code: {result.exit_code}", 2)
                         if result.stderr_path:
                             try:
                                 with open(result.stderr_path, 'r', encoding='utf-8') as f:
                                     stderr_content = f.read()
                                     if stderr_content:
-                                        print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                                        _utils.print_info(f"Stderr content: {stderr_content[:500]}", 2)
                             except:
                                 pass  # Ignore errors reading stderr
                     if attempt == max_retries:
@@ -316,15 +329,16 @@ I'd like to discuss this plan with you. Can you help me review it, suggest impro
 
                 # Check if the response is empty before attempting JSON parsing
                 if not ai_response:
-                    print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
+                    from ..modules import utils as _utils
+                    _utils.print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
                     if verbose:
-                        print_info(f"Engine exit code: {result.exit_code}", 2)
+                        _utils.print_info(f"Engine exit code: {result.exit_code}", 2)
                         if result.stderr_path:
                             try:
                                 with open(result.stderr_path, 'r', encoding='utf-8') as f:
                                     stderr_content = f.read()
                                     if stderr_content:
-                                        print_info(f"Stderr content: {stderr_content[:500]}", 2)
+                                        _utils.print_info(f"Stderr content: {stderr_content[:500]}", 2)
                             except:
                                 pass  # Ignore errors reading stderr
                     if attempt == max_retries:
@@ -332,7 +346,8 @@ I'd like to discuss this plan with you. Can you help me review it, suggest impro
                     continue
 
                 if verbose:
-                    print_info(f"AI Response: {ai_response}", 2)
+                    from ..modules import utils as _utils
+                    _utils.print_info(f"AI Response: {ai_response}", 2)
 
                 # Strip markdown code block wrapper if present
                 cleaned_response = ai_response.strip()
@@ -450,11 +465,31 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
     from ..project_ops.executor import ProjectOpsExecutor
     from ..data.markdown_parser import parse_todo_md
 
+    def _is_session_id(value: Optional[str]) -> bool:
+        return bool(value and len(value) > 10 and "-" in value and not value.endswith(".md"))
+
+    def _resolve_session_base_path(value: Optional[str], is_session_id: bool) -> Path:
+        if value and not is_session_id:
+            try:
+                plan_path = Path(value)
+                if not plan_path.is_absolute():
+                    plan_path = plan_path.resolve()
+                return plan_path.parent / "docs" / "sessions"
+            except FileNotFoundError:
+                pass
+        try:
+            return Path.cwd() / "docs" / "sessions"
+        except FileNotFoundError:
+            return Path(__file__).resolve().parents[2] / "docs" / "sessions"
+
+    is_session_id = _is_session_id(session_path)
+    session_base_path = _resolve_session_base_path(session_path, is_session_id)
+
     # Handle Ctrl+C interruption
     def signal_handler(signum, frame):
         if 'current_session' in locals() or 'current_session' in globals():
             try:
-                session_path = Path("docs") / "sessions" / "explore" / current_session.session_id / "explore_session.json"
+                session_path = session_base_path / "explore" / current_session.session_id / "explore_session.json"
                 interrupt_explore_session(current_session, "Interrupted by user (Ctrl+C)")
                 save_explore_session(current_session, session_path)
                 print_info(f"\nSession {current_session.session_id} has been interrupted and saved.", 2)
@@ -471,11 +506,10 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
         # If session_path looks like a UUID (has dashes in the middle), treat as session ID to resume
         # Otherwise, treat as file path for PlanStore
         current_session = None
-        is_session_id = session_path and len(session_path) > 10 and '-' in session_path and not session_path.endswith('.md')
 
         if is_session_id:  # This is the session ID to resume
             try:
-                current_session = resume_explore_session(session_path)
+                current_session = resume_explore_session(session_path, base_path=session_base_path)
                 print_info(f"Resuming explore session: {current_session.session_id}", 2)
 
                 # Reload plans based on session's selected plans
@@ -507,13 +541,13 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                         selected_plans = [plans[number - 1]]
                     else:
                         print_error(f"Invalid plan number: {number}", 2)
-                        sys.exit(1)
+                        return
                 except ValueError:
                     # Not a number, treat as title
                     plan = store.get_plan(title_or_number)
                     if plan is None:
                         print_error(f"Plan not found: {title_or_number}", 2)
-                        sys.exit(1)
+                        return
                     selected_plans = [plan]
             else:
                 # Explore all plans
@@ -528,7 +562,8 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
             current_session = create_explore_session(
                 selected_plans=plan_titles,
                 engine=engine,
-                max_iterations=max_iterations
+                max_iterations=max_iterations,
+                base_path=session_base_path
             )
 
             print_info(f"Created new explore session: {current_session.session_id}", 2)
@@ -622,9 +657,13 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                     # Run the AI engine and get response
                     result = manager.run_once(engine, prompt_ref, opts)
 
+                    exit_code = getattr(result, "exit_code", 0)
+                    if not isinstance(exit_code, int):
+                        exit_code = 0
+
                     # Check if the engine execution was successful
-                    if result.exit_code != 0:
-                        error_msg = f"AI engine failed with exit code {result.exit_code}"
+                    if exit_code != 0:
+                        error_msg = f"AI engine failed with exit code {exit_code}"
                         if verbose and result.stderr_path:
                             try:
                                 with open(result.stderr_path, 'r', encoding='utf-8') as f:
@@ -645,7 +684,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                     else:
                         print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
                         if verbose:
-                            print_info(f"Engine exit code: {result.exit_code}", 2)
+                            print_info(f"Engine exit code: {exit_code}", 2)
                             if result.stderr_path:
                                 try:
                                     with open(result.stderr_path, 'r', encoding='utf-8') as f:
@@ -662,7 +701,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                     if not ai_response:
                         print_error("AI returned empty response (engine error or extraction failure). Enable -v to see engine command and stderr.", 2)
                         if verbose:
-                            print_info(f"Engine exit code: {result.exit_code}", 2)
+                            print_info(f"Engine exit code: {exit_code}", 2)
                             if result.stderr_path:
                                 try:
                                     with open(result.stderr_path, 'r', encoding='utf-8') as f:
@@ -744,7 +783,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                 print_error("Failed to get valid response from AI after retries. Stopping exploration.", 2)
                 # Add iteration to session with error info
                 current_session = add_iteration_to_session(current_session, iteration)
-                session_path = Path("docs") / "sessions" / "explore" / current_session.session_id / "explore_session.json"
+                session_path = session_base_path / "explore" / current_session.session_id / "explore_session.json"
                 save_explore_session(current_session, session_path)
                 break
 
@@ -769,7 +808,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
                 # If no changes, we can stop early
                 print_info("No meaningful changes to apply. Stopping exploration.", 2)
                 current_session = add_iteration_to_session(current_session, iteration)
-                session_path = Path("docs") / "sessions" / "explore" / current_session.session_id / "explore_session.json"
+                session_path = session_base_path / "explore" / current_session.session_id / "explore_session.json"
                 save_explore_session(current_session, session_path)
                 break
 
@@ -821,7 +860,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
             current_session = add_iteration_to_session(current_session, iteration)
 
             # Save session state after each iteration
-            session_path = Path("docs") / "sessions" / "explore" / current_session.session_id / "explore_session.json"
+            session_path = session_base_path / "explore" / current_session.session_id / "explore_session.json"
             save_explore_session(current_session, session_path)
 
             iteration_count += 1
@@ -834,7 +873,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
         # Complete the session if all iterations are done
         if iteration_count >= max_iterations or current_session.status == "completed":
             current_session = complete_explore_session(current_session)
-            session_path = Path("docs") / "sessions" / "explore" / current_session.session_id / "explore_session.json"
+            session_path = session_base_path / "explore" / current_session.session_id / "explore_session.json"
             save_explore_session(current_session, session_path)
             print_info(f"Exploration completed after {iteration_count} iterations. Session saved: {current_session.session_id}", 2)
         else:
@@ -846,7 +885,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
         if 'current_session' in locals() and current_session:
             try:
                 current_session = interrupt_explore_session(current_session, str(e))
-                session_path = Path("docs") / "sessions" / "explore" / current_session.session_id / "explore_session.json"
+                session_path = session_base_path / "explore" / current_session.session_id / "explore_session.json"
                 save_explore_session(current_session, session_path)
                 print_info(f"Session {current_session.session_id} has been interrupted and saved.", 2)
                 print_info(f"Resume with: maestro plan explore --session {current_session.session_id}", 2)
@@ -927,15 +966,12 @@ def add_plan_parser(subparsers):
     # Set a custom function to handle the case when no subcommand is provided
     plan_parser.set_defaults(func=lambda args: plan_parser.print_help())
 
-    # For the plan command, we'll use required=True for subparsers to ensure subcommands are properly recognized
-    # This helps avoid the ambiguity where the first argument gets assigned to a positional parameter
-    try:
-        # Python 3.7+ supports required parameter
-        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}', required=True)
-    except TypeError:
-        # For older Python versions, required parameter is not available
-        plan_subparsers = plan_parser.add_subparsers(dest='plan_subcommand', help='Plan subcommands', metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}')
-        # For older versions, the subparsers are not required by default - we'll handle this differently
+    # Keep subcommands optional so `maestro plan` can show help and exit cleanly.
+    plan_subparsers = plan_parser.add_subparsers(
+        dest='plan_subcommand',
+        help='Plan subcommands',
+        metavar='{add,a,list,ls,remove,rm,show,sh,add-item,ai,remove-item,ri,ops,o,discuss,d,explore,e}',
+    )
 
     # Add subcommand
     add_parser = plan_subparsers.add_parser('add', aliases=['a'], help='Add a new plan')

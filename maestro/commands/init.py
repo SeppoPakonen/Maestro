@@ -17,6 +17,10 @@ def add_init_parser(subparsers: Any) -> None:
         description='Initialize a Maestro project with required directories and configuration files.'
     )
     init_parser.add_argument(
+        '--dir',
+        help='Target directory to initialize (default: current directory)'
+    )
+    init_parser.add_argument(
         '--force',
         action='store_true',
         help='Force initialization even if Maestro files already exist'
@@ -28,8 +32,12 @@ def handle_init_command(args: argparse.Namespace) -> None:
     """Handle the init command."""
     print("Initializing Maestro project...")
 
+    base_dir = Path(args.dir).resolve() if getattr(args, "dir", None) else Path.cwd()
+    base_dir.mkdir(parents=True, exist_ok=True)
+
     # Define the directories to create
     required_dirs = [
+        ".maestro",
         "docs",
         "docs/maestro",
         "docs/tracks",
@@ -41,7 +49,7 @@ def handle_init_command(args: argparse.Namespace) -> None:
 
     # Create required directories
     for dir_path in required_dirs:
-        path = Path(dir_path)
+        path = base_dir / dir_path
         if path.suffix == '.md':
             # This is a file, create parent directory if needed
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -51,7 +59,7 @@ def handle_init_command(args: argparse.Namespace) -> None:
         print(f"  Created: {dir_path}")
 
     # Create Settings.md file if it doesn't exist or --force is used
-    settings_path = Path("docs/Settings.md")
+    settings_path = base_dir / "docs/Settings.md"
     if not settings_path.exists() or args.force:
         settings_content = """# Maestro Settings
 
@@ -90,7 +98,7 @@ def handle_init_command(args: argparse.Namespace) -> None:
         print(f"  {settings_path} already exists. Use --force to overwrite.")
 
     # Create basic RepoRules.md if it doesn't exist or --force is used
-    reporules_path = Path("docs/RepoRules.md")
+    reporules_path = base_dir / "docs/RepoRules.md"
     if not reporules_path.exists() or args.force:
         reporules_content = """# Repository Rules
 

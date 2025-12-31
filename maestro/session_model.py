@@ -79,18 +79,28 @@ class PlanNode:
     Represents a node in the plan tree for branch support.
     """
     plan_id: str
-    parent_plan_id: Optional[str]
-    created_at: str
-    label: str
-    status: str  # "active", "inactive", "dead"
-    notes: Optional[str]
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    status: str = "active"  # "active", "inactive", "dead"
+    parent_plan_id: Optional[str] = None
+    label: str = ""
+    notes: Optional[str] = None
     root_snapshot: str = ""  # Combined root task snapshot
     root_task_snapshot: Optional[str] = None  # Legacy compat
     root_clean_snapshot: Optional[str] = None  # Legacy compat
     categories_snapshot: List[str] = field(default_factory=list)
     subtask_ids: List[str] = field(default_factory=list)  # IDs of subtasks belonging to this plan
+    # Legacy aliases for older callers
+    title: Optional[str] = None
+    description: Optional[str] = None
+    parent_id: Optional[str] = None
 
     def __post_init__(self) -> None:
+        if self.parent_plan_id is None and self.parent_id is not None:
+            self.parent_plan_id = self.parent_id
+        if not self.label and self.title:
+            self.label = self.title
+        if self.notes is None and self.description:
+            self.notes = self.description
         # Consolidate any legacy snapshot fields into the canonical snapshot.
         if not self.root_snapshot:
             if self.root_task_snapshot:
@@ -126,15 +136,18 @@ class PlanNode:
         return cls(
             plan_id=data["plan_id"],
             parent_plan_id=data.get("parent_plan_id"),
-            created_at=data["created_at"],
-            label=data["label"],
-            status=data["status"],
+            created_at=data.get("created_at", datetime.now().isoformat()),
+            label=data.get("label", ""),
+            status=data.get("status", "active"),
             notes=data.get("notes"),
             root_snapshot=root_snapshot,
             root_task_snapshot=data.get("root_task_snapshot"),
             root_clean_snapshot=data.get("root_clean_snapshot"),
             categories_snapshot=data.get("categories_snapshot", []),
-            subtask_ids=data.get("subtask_ids", [])
+            subtask_ids=data.get("subtask_ids", []),
+            title=data.get("title"),
+            description=data.get("description"),
+            parent_id=data.get("parent_id")
         )
 
 
@@ -144,26 +157,30 @@ class Session:
     """
     def __init__(
         self,
-        id: str,
-        created_at: str,
-        updated_at: str,
-        root_task: str,
-        subtasks: List[Subtask],
-        rules_path: Optional[str],
-        status: str,
+        id: Optional[str] = None,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        root_task: str = "",
+        subtasks: Optional[List[Subtask]] = None,
+        rules_path: Optional[str] = None,
+        status: str = "new",
         root_task_raw: Optional[str] = None,
         root_task_clean: Optional[str] = None,
         root_task_summary: Optional[str] = None,
         root_task_categories: Optional[List[str]] = None,
         root_history: Optional[List[Dict[str, Any]]] = None,
         plans: Optional[List[PlanNode]] = None,
-        active_plan_id: Optional[str] = None
+        active_plan_id: Optional[str] = None,
+        session_id: Optional[str] = None,
     ):
-        self.id = id
+        resolved_id = id or session_id or str(uuid.uuid4())
+        created_at = created_at or datetime.now().isoformat()
+        updated_at = updated_at or created_at
+        self.id = resolved_id
         self.created_at = created_at
         self.updated_at = updated_at
         self.root_task = root_task
-        self.subtasks = subtasks
+        self.subtasks = subtasks or []
         self.rules_path = rules_path
         self.status = status
         self.root_task_raw = root_task_raw or root_task

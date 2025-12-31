@@ -151,7 +151,25 @@ Interactive view of the phase tree with branching and subtasks.
 
 **What NOT to do accidentally:**
 - Don't kill the active phase without confirming it's the right one""",
-            
+
+            "plans": """**Plans Overview**
+
+Manage planning artifacts and discussion outputs before they become tasks.
+
+**What this screen is for:**
+- Review existing plans and their status
+- Inspect plan details and assumptions
+- Decide which plans to keep or discard
+
+**Common actions:**
+- List plans
+- Show plan details
+- Remove outdated plans
+
+**Safe vs Dangerous:**
+- Viewing plan details is safe
+- Removing plans is irreversible and will delete plan content""",
+
             "tasks": """**Tasks Management**
 
 Manage individual tasks within the active phase.

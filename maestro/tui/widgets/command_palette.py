@@ -87,6 +87,44 @@ class CommandPaletteScreen(ModalScreen):
             "convert_run": "convert.run",
             "convert_status": "convert.status",
         }
+        self.command_explanations = {
+            "session_list": {
+                "description": "List all available work sessions.",
+                "mutates_state": False,
+                "reversible": True,
+                "related_screens": ["sessions"],
+            },
+            "session_new": {
+                "description": "Create a new work session.",
+                "mutates_state": True,
+                "reversible": True,
+                "related_screens": ["sessions"],
+            },
+            "session_set": {
+                "description": "Set the active work session.",
+                "mutates_state": True,
+                "reversible": True,
+                "related_screens": ["sessions"],
+            },
+            "session_remove": {
+                "description": "Remove a work session and its stored data.",
+                "mutates_state": True,
+                "reversible": False,
+                "related_screens": ["sessions"],
+            },
+        }
+
+    def get_command_explanation(self, action: str) -> dict:
+        """Return explanation metadata for a palette action."""
+        return self.command_explanations.get(
+            action,
+            {
+                "description": "No explanation available for this command.",
+                "mutates_state": False,
+                "reversible": True,
+                "related_screens": [],
+            },
+        )
 
     def _setup_commands(self):
         """Setup all available commands."""

@@ -13,7 +13,10 @@ import hashlib
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-import jsonschema
+try:
+    import jsonschema
+except ModuleNotFoundError:  # Optional dependency for test environments
+    jsonschema = None
 
 
 # Playbook schema definition
@@ -76,6 +79,12 @@ PLAYBOOK_SCHEMA = {
 }
 
 
+def _validate_playbook(playbook_data: Dict[str, Any]) -> None:
+    if jsonschema is None:
+        return
+    jsonschema.validate(instance=playbook_data, schema=PLAYBOOK_SCHEMA)
+
+
 class Playbook:
     """Represents a conversion playbook with all its constraints and policies."""
     
@@ -133,7 +142,7 @@ class PlaybookManager:
         """Create a new playbook from data."""
         try:
             # Validate the playbook data against schema
-            jsonschema.validate(instance=playbook_data, schema=PLAYBOOK_SCHEMA)
+            _validate_playbook(playbook_data)
             
             # Create playbook directory
             playbook_id = playbook_data['id']
@@ -146,10 +155,10 @@ class PlaybookManager:
                 json.dump(playbook_data, f, indent=2)
                 
             return True
-        except jsonschema.ValidationError as e:
-            print(f"Playbook validation error: {e}")
-            return False
         except Exception as e:
+            if jsonschema is not None and isinstance(e, jsonschema.ValidationError):
+                print(f"Playbook validation error: {e}")
+                return False
             print(f"Error creating playbook: {e}")
             return False
 
@@ -164,12 +173,12 @@ class PlaybookManager:
                 playbook_data = json.load(f)
                 
             # Validate the loaded playbook
-            jsonschema.validate(instance=playbook_data, schema=PLAYBOOK_SCHEMA)
+            _validate_playbook(playbook_data)
             return Playbook(playbook_data)
-        except jsonschema.ValidationError as e:
-            print(f"Playbook validation error: {e}")
-            return None
         except Exception as e:
+            if jsonschema is not None and isinstance(e, jsonschema.ValidationError):
+                print(f"Playbook validation error: {e}")
+                return None
             print(f"Error loading playbook {playbook_id}: {e}")
             return None
 

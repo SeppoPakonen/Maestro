@@ -11,6 +11,7 @@ import threading
 import time
 import json
 import os
+import socket
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 from maestro.qwen.main import QwenManager
@@ -780,7 +781,6 @@ def run_tui(
 ) -> int:
     """Simple TUI client for the Qwen TCP server."""
     try:
-        import socket
         import threading
         import json
         from typing import Optional
