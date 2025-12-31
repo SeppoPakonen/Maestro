@@ -346,6 +346,7 @@ class AssemblyInfo:
     package_dirs: List[str] = field(default_factory=list)  # List of package directory paths
     build_systems: List[str] = field(default_factory=list)  # List of build systems used
     metadata: Dict[str, Any] = field(default_factory=dict)
+    package_ids: List[str] = field(default_factory=list)  # List of package IDs contained in this assembly
 
 
 @dataclass

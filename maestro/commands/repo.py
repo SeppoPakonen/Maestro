@@ -119,7 +119,7 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 continue
             if root_relpath == '.':
                 root_relpath = '.'
-            assembly_id = _stable_id(f"assembly:{root_relpath}")
+            assembly_id = _stable_id(f"assembly:{asm.name}:{root_relpath}")
             entry = {
                 "assembly_id": assembly_id,
                 "name": asm.name,
@@ -136,11 +136,38 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
         for pkg in scan_result.packages_detected:
             pkg_path = Path(pkg.dir).resolve()
             pkg_dir_rel = os.path.relpath(pkg_path, repo_root_path)
-            parent_dir = os.path.normpath(str(pkg_path.parent))
-            assembly_entry = assembly_by_root.get(parent_dir)
-            assembly_id = assembly_entry["assembly_id"] if assembly_entry else None
-            package_relpath = os.path.relpath(pkg_path, parent_dir) if assembly_entry else pkg_dir_rel
-            package_id_seed = f"package:{assembly_id}:{package_relpath}"
+
+            # Find the best matching assembly for this package
+            # A package belongs to an assembly if the package root path is inside the assembly root path
+            # Priority: more specific paths first (longest match)
+            best_assembly_entry = None
+            best_match_length = -1
+
+            for asm_path, asm_entry in assembly_by_root.items():
+                asm_path_obj = Path(asm_path).resolve()
+                # Check if the package directory is under the assembly directory
+                try:
+                    # If the package path is the same as assembly path, it belongs to that assembly
+                    if pkg_path == asm_path_obj:
+                        # Exact match, this is the best possible match
+                        best_assembly_entry = asm_entry
+                        best_match_length = len(str(asm_path_obj))
+                        break
+                    # If the package path is under the assembly path, it belongs to that assembly
+                    rel_path = pkg_path.relative_to(asm_path_obj)
+                    if not str(rel_path).startswith('..'):
+                        # This assembly contains the package, check if it's a better match than previous
+                        current_match_length = len(str(asm_path_obj))
+                        if current_match_length > best_match_length:
+                            best_assembly_entry = asm_entry
+                            best_match_length = current_match_length
+                except ValueError:
+                    # pkg_path is not under asm_path_obj, continue to next assembly
+                    continue
+
+            assembly_id = best_assembly_entry["assembly_id"] if best_assembly_entry else None
+            package_relpath = os.path.relpath(pkg_path, best_assembly_entry["root_relpath"]) if best_assembly_entry else pkg_dir_rel
+            package_id_seed = f"package:{assembly_id}:{package_relpath}:{pkg.name}"
             package_entry = {
                 "package_id": _stable_id(package_id_seed),
                 "name": pkg.name,
@@ -149,7 +176,7 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 "assembly_id": assembly_id,
                 "build_system": pkg.build_system,
             }
-            if assembly_entry:
+            if best_assembly_entry:
                 package_entries_by_assembly[assembly_id].append(package_entry)
             else:
                 unassigned_packages.append(package_entry)
@@ -597,6 +624,14 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
                 entry['files'] = len(p.get('files', []))
                 entry['dir'] = p.get('dir', '')
                 entry['build_system'] = p.get('build_system', 'upp')
+
+                # Handle multi-build system packages
+                if p.get('build_system') == 'multi' and 'build_systems' in p:
+                    entry['build_systems'] = p['build_systems']
+                    entry['primary_build_system'] = p.get('primary_build_system', p['build_systems'][0] if p['build_systems'] else 'unknown')
+                else:
+                    entry['build_systems'] = [p.get('build_system', 'upp')]
+
                 if repo_root and p.get('dir'):
                     entry['rel_path'] = os.path.relpath(p['dir'], repo_root)
 
@@ -621,7 +656,12 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
                 build_system = pkg.get('build_system', 'upp')
                 rel_path = os.path.relpath(pkg['dir'], repo_root) if repo_root else pkg['dir']
 
-                if build_system == 'upp':
+                # Handle multi-build system packages
+                if build_system == 'multi':
+                    build_systems = pkg.get('build_systems', ['multi'])
+                    build_system_label = '+'.join(build_systems)
+                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  [{build_system_label}] {rel_path}", 2)
+                elif build_system == 'upp':
                     print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {rel_path}", 2)
                 else:
                     # Show build system label for non-U++ packages
@@ -1539,7 +1579,7 @@ def add_repo_parser(subparsers):
     repo_pkg_parser.add_argument('--group', help='Filter to specific group (use with --show-groups)')
 
     # repo asm
-    repo_asm_parser = repo_subparsers.add_parser('asm', aliases=['a'], help='Assembly query commands')
+    repo_asm_parser = repo_subparsers.add_parser('asm', aliases=['a', 'assembly'], help='Assembly query commands')
     repo_asm_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
     repo_asm_subparsers = repo_asm_parser.add_subparsers(dest='asm_subcommand', help='Assembly subcommands')
 
