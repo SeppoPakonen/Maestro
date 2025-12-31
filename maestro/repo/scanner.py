@@ -17,7 +17,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from maestro.repo.package import PackageInfo
 
@@ -62,6 +62,78 @@ class RepoScanResult:
     unknown_paths: List[UnknownPath] = field(default_factory=list)
     user_assemblies: List[Dict[str, Any]] = field(default_factory=list)  # From ~/.config/u++/ide/*.var
     internal_packages: List[InternalPackage] = field(default_factory=list)  # Inferred from unknown paths
+
+
+def _is_ignored_path(path: Path, repo_root: Path, skip_dirs: set[str]) -> bool:
+    try:
+        rel_path = path.relative_to(repo_root)
+    except ValueError:
+        return True
+    for part in rel_path.parts:
+        if part.startswith('.'):
+            return True
+        if part in skip_dirs:
+            return True
+    return False
+
+
+def detect_upp_assemblies(
+    repo_root: str,
+    packages: List[PackageInfo],
+    min_packages: int = 1,
+    skip_dirs: Optional[set[str]] = None,
+    verbose: bool = False,
+) -> List[AssemblyInfo]:
+    """Detect U++ assemblies based on immediate package children."""
+    repo_root_resolved = Path(repo_root).resolve()
+    ignore_dirs = set(skip_dirs or set())
+    ignore_dirs.update({
+        'build', 'dist', 'out', 'target', 'bin', 'obj',
+        'Debug', 'Release', 'x64', 'x86',
+        'node_modules', '__pycache__', '.maestro',
+    })
+
+    assemblies_by_root: Dict[Path, List[PackageInfo]] = {}
+    for pkg in packages:
+        pkg_path = Path(pkg.dir).resolve()
+        try:
+            pkg_path.relative_to(repo_root_resolved)
+        except ValueError:
+            continue
+        parent_dir = pkg_path.parent
+        if _is_ignored_path(parent_dir, repo_root_resolved, ignore_dirs):
+            continue
+        assemblies_by_root.setdefault(parent_dir, []).append(pkg)
+
+    assemblies: List[AssemblyInfo] = []
+    for asm_root in sorted(assemblies_by_root.keys(), key=lambda p: str(p)):
+        packages_in_dir = assemblies_by_root[asm_root]
+        if len(packages_in_dir) < min_packages:
+            continue
+        packages_sorted = sorted(
+            packages_in_dir,
+            key=lambda pkg: os.path.relpath(pkg.dir, asm_root),
+        )
+        package_dirs = [str(Path(pkg.dir).resolve()) for pkg in packages_sorted]
+        package_names = [pkg.name for pkg in packages_sorted]
+        build_systems = sorted({pkg.build_system for pkg in packages_in_dir})
+        assembly = AssemblyInfo(
+            name=asm_root.name,
+            root_path=str(asm_root),
+            package_folders=package_dirs,
+            assembly_type='upp',
+            packages=package_names,
+            package_dirs=package_dirs,
+            build_systems=build_systems,
+            metadata={},
+        )
+        assemblies.append(assembly)
+        if verbose:
+            rel_root = os.path.relpath(str(asm_root), str(repo_root_resolved))
+            print(f"[maestro] assembly: {rel_root} ({len(package_names)} packages)")
+
+    assemblies.sort(key=lambda asm: asm.root_path)
+    return assemblies
 
 
 def scan_upp_repo_v2(
@@ -193,58 +265,6 @@ def scan_upp_repo_v2(
             ancestor_paths_resolved.add(current)
             current = current.parent
 
-    # Identify package folders (directories containing multiple package dirs)
-    package_folders = set()
-    for pkg_info in discovered_packages:
-        parent_dir = os.path.dirname(os.path.normpath(pkg_info.dir))
-        if parent_dir != os.path.normpath(root_dir):  # Only consider if not directly under root
-            package_folders.add(parent_dir)
-
-    # For each directory that contains packages, consider it as a potential assembly
-    potential_assemblies = set()
-    assembly_package_counts = {}
-
-    for pkg_info in discovered_packages:
-        parent_dir = os.path.dirname(os.path.normpath(pkg_info.dir))
-        if parent_dir not in assembly_package_counts:
-            assembly_package_counts[parent_dir] = []
-        assembly_package_counts[parent_dir].append(pkg_info)
-
-    # Identify assemblies: directories that contain 2 or more packages
-    for parent_dir, packages_in_dir in assembly_package_counts.items():
-        if len(packages_in_dir) >= 2:
-            potential_assemblies.add(parent_dir)
-
-    # Create assembly info
-    assembly_infos = []
-    for asm_path in sorted(potential_assemblies):
-        # Find all package folders in this assembly
-        asm_packages = [
-            os.path.normpath(p.dir) for p in discovered_packages
-            if os.path.dirname(os.path.normpath(p.dir)) == asm_path
-        ]
-        # Use unique package directories as package folders
-        unique_pkg_dirs = sorted(set(asm_packages))
-
-        assembly_info = AssemblyInfo(
-            name=os.path.basename(asm_path),
-            root_path=asm_path,
-            package_folders=unique_pkg_dirs
-        )
-        assembly_infos.append(assembly_info)
-
-    # If the root itself contains multiple packages, consider it as an assembly too
-    # Only add if it's not already in potential assemblies to avoid duplicates
-    root_packages = [p for p in discovered_packages if os.path.dirname(os.path.normpath(p.dir)) == os.path.normpath(root_dir)]
-    if len(root_packages) > 1 and os.path.normpath(root_dir) not in potential_assemblies:
-        root_asm_packages = sorted([os.path.normpath(p.dir) for p in root_packages])
-        root_asm = AssemblyInfo(
-            name=os.path.basename(root_dir),
-            root_path=root_dir,
-            package_folders=root_asm_packages
-        )
-        assembly_infos.append(root_asm)
-
     # Second pass: find unknown paths with pruning
     # We prune (skip descending into) package directories unless they're ancestors of other packages
     unknown_paths = []
@@ -363,38 +383,8 @@ def scan_upp_repo_v2(
         ]
 
     # Sort results for stability
-    assembly_infos.sort(key=lambda x: x.root_path)
     discovered_packages.sort(key=lambda x: (x.name, x.dir))
     unknown_paths.sort(key=lambda x: x.path)
-
-    # Read user assemblies from ~/.config/u++/ide/*.var if requested
-    user_assemblies = []
-    if include_user_config:
-        try:
-            from maestro.repo.uplusplus_var_reader import read_user_assemblies
-            user_assemblies = read_user_assemblies(repo_root=root_dir)
-
-            if verbose and user_assemblies:
-                print(f"[maestro] Found {len(user_assemblies)} user assembly configurations")
-
-            # Add evidence_refs to assemblies_detected based on user_assemblies
-            for user_asm in user_assemblies:
-                for repo_path in user_asm.get('repo_paths', []):
-                    # Find matching assembly in assembly_infos
-                    repo_path_resolved = os.path.realpath(repo_path)
-                    for asm_info in assembly_infos:
-                        asm_path_resolved = os.path.realpath(asm_info.root_path)
-                        # Check if paths match or are related
-                        if repo_path_resolved.startswith(asm_path_resolved) or asm_path_resolved.startswith(repo_path_resolved):
-                            evidence_ref = f"found in {user_asm['var_filename']}"
-                            if evidence_ref not in asm_info.evidence_refs:
-                                asm_info.evidence_refs.append(evidence_ref)
-        except ImportError:
-            if verbose:
-                print("[maestro] Warning: Could not import uplusplus_var_reader")
-        except Exception as e:
-            if verbose:
-                print(f"[maestro] Warning: Failed to read user assemblies: {e}")
 
     # Scan for other build systems (CMake, Make, Autoconf, etc.)
     build_system_packages = []
@@ -459,24 +449,45 @@ def scan_upp_repo_v2(
     ]
     all_packages = discovered_packages + build_system_packages
 
-    # Detect assemblies using the new assembly detection system
-    from maestro.repo.assembly import detect_assemblies
-    new_assemblies = detect_assemblies(root_dir, all_packages, verbose=verbose)
+    # Identify U++ assemblies based on package layout
+    assembly_infos = detect_upp_assemblies(
+        root_dir,
+        all_packages,
+        min_packages=1,
+        skip_dirs=skip_dirs,
+        verbose=verbose,
+    )
 
-    # Convert new AssemblyInfo objects to match the expected format with backward compatibility
-    final_assemblies = []
-    for new_asm in new_assemblies:
-        final_asm = AssemblyInfo(
-            name=new_asm.name,
-            root_path=new_asm.dir,  # Map dir to root_path
-            package_folders=new_asm.package_dirs,  # Map package_dirs to package_folders
-            assembly_type=new_asm.assembly_type,
-            packages=new_asm.packages,
-            package_dirs=new_asm.package_dirs,
-            build_systems=new_asm.build_systems,
-            metadata=new_asm.metadata
-        )
-        final_assemblies.append(final_asm)
+    # Read user assemblies from ~/.config/u++/ide/*.var if requested
+    user_assemblies = []
+    if include_user_config:
+        try:
+            from maestro.repo.uplusplus_var_reader import read_user_assemblies
+            user_assemblies = read_user_assemblies(repo_root=root_dir)
+
+            if verbose and user_assemblies:
+                print(f"[maestro] Found {len(user_assemblies)} user assembly configurations")
+
+            # Add evidence_refs to assemblies_detected based on user_assemblies
+            for user_asm in user_assemblies:
+                for repo_path in user_asm.get('repo_paths', []):
+                    # Find matching assembly in assembly_infos
+                    repo_path_resolved = os.path.realpath(repo_path)
+                    for asm_info in assembly_infos:
+                        asm_path_resolved = os.path.realpath(asm_info.root_path)
+                        # Check if paths match or are related
+                        if repo_path_resolved.startswith(asm_path_resolved) or asm_path_resolved.startswith(repo_path_resolved):
+                            evidence_ref = f"found in {user_asm['var_filename']}"
+                            if evidence_ref not in asm_info.evidence_refs:
+                                asm_info.evidence_refs.append(evidence_ref)
+        except ImportError:
+            if verbose:
+                print("[maestro] Warning: Could not import uplusplus_var_reader")
+        except Exception as e:
+            if verbose:
+                print(f"[maestro] Warning: Failed to read user assemblies: {e}")
+
+    final_assemblies = assembly_infos
 
     # Infer internal packages from unknown paths
     internal_packages = infer_internal_packages(unknown_paths, root_dir)

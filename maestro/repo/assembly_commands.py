@@ -1,8 +1,10 @@
+import hashlib
 import json
 import os
-from pathlib import Path
-from typing import Dict, Any
-from .assembly import AssemblyInfo
+from typing import Any, Dict, List, Tuple
+
+from maestro.modules.utils import print_error
+from maestro.repo.storage import find_repo_root, load_repo_model
 
 
 def handle_asm_command(args):
@@ -14,122 +16,197 @@ def handle_asm_command(args):
     - show: Show details for specific assembly
     - help: Show help
     """
-    repo_path = args.path if hasattr(args, 'path') and args.path else '.'
+    repo_path = args.path if hasattr(args, 'path') and args.path else None
 
-    if args.asm_subcommand in ['list', 'ls', 'l']:
+    if args.asm_subcommand in ['list', 'ls', 'l', None]:
         list_assemblies(repo_path, getattr(args, 'json', False))
-    elif args.asm_subcommand in ['show', 's']:
-        # Handle 'show' subcommand (and its alias 's') to show assembly details
-        if hasattr(args, 'assembly_name') and args.assembly_name:
-            show_assembly(repo_path, args.assembly_name, getattr(args, 'json', False))
+    elif args.asm_subcommand in ['show', 's', 'sh']:
+        assembly_ref = getattr(args, 'assembly_ref', None)
+        if assembly_ref:
+            show_assembly(repo_path, assembly_ref, getattr(args, 'json', False))
         else:
-            print("Error: Assembly name required for 'show' command")
+            print_error("Assembly ID or name required for 'show' command", 2)
             show_asm_help()
     elif args.asm_subcommand in ['help', 'h']:
         show_asm_help()
-    elif args.asm_subcommand is None:
-        # If no subcommand provided, show help
-        show_asm_help()
     else:
-        print(f"Unknown assembly command: {args.asm_subcommand}")
+        print_error(f"Unknown assembly command: {args.asm_subcommand}", 2)
         show_asm_help()
 
 
-def load_assemblies_data(repo_root: str) -> Dict[str, Any]:
-    """Load assemblies data from .maestro/repo/assemblies.json"""
-    maestro_dir = os.path.join(repo_root, '.maestro', 'repo')
-    assemblies_file = os.path.join(maestro_dir, 'assemblies.json')
-    
-    if os.path.exists(assemblies_file):
-        with open(assemblies_file, 'r') as f:
-            return json.load(f)
-    return {"assemblies": []}
+def _stable_id(seed: str) -> str:
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
 
 
-def list_assemblies(repo_root: str, json_output: bool = False):
+def _resolve_repo_root(repo_root: str | None) -> str:
+    if repo_root:
+        return repo_root
+    return find_repo_root()
+
+
+def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    assemblies = index_data.get("assemblies")
+    packages = index_data.get("packages")
+    if isinstance(assemblies, list) and isinstance(packages, list):
+        return assemblies, packages
+
+    assemblies_detected = index_data.get("assemblies_detected", [])
+    packages_detected = index_data.get("packages_detected", [])
+
+    derived_assemblies: List[Dict[str, Any]] = []
+    assemblies_by_root: Dict[str, Dict[str, Any]] = {}
+    for asm in assemblies_detected:
+        root_path = asm.get("root_path", "")
+        if not root_path:
+            continue
+        root_relpath = os.path.relpath(root_path, repo_root)
+        assembly_id = _stable_id(f"assembly:{root_relpath}")
+        entry = {
+            "assembly_id": assembly_id,
+            "name": asm.get("name", os.path.basename(root_path)),
+            "root_relpath": root_relpath,
+            "kind": asm.get("assembly_type", "upp"),
+            "package_ids": [],
+        }
+        derived_assemblies.append(entry)
+        assemblies_by_root[os.path.normpath(root_path)] = entry
+
+    packages_by_assembly: Dict[str, List[Dict[str, Any]]] = {a["assembly_id"]: [] for a in derived_assemblies}
+    derived_packages: List[Dict[str, Any]] = []
+
+    for pkg in packages_detected:
+        pkg_dir = pkg.get("dir")
+        if not pkg_dir:
+            continue
+        parent_dir = os.path.normpath(os.path.dirname(pkg_dir))
+        assembly_entry = assemblies_by_root.get(parent_dir)
+        assembly_id = assembly_entry["assembly_id"] if assembly_entry else None
+        package_relpath = os.path.relpath(pkg_dir, parent_dir) if assembly_entry else os.path.relpath(pkg_dir, repo_root)
+        package_id = _stable_id(f"package:{assembly_id}:{package_relpath}")
+        entry = {
+            "package_id": package_id,
+            "name": pkg.get("name", ""),
+            "dir_relpath": os.path.relpath(pkg_dir, repo_root),
+            "package_relpath": package_relpath,
+            "assembly_id": assembly_id,
+            "build_system": pkg.get("build_system", "upp"),
+        }
+        if assembly_entry:
+            packages_by_assembly[assembly_id].append(entry)
+        derived_packages.append(entry)
+
+    for asm in derived_assemblies:
+        entries = sorted(packages_by_assembly[asm["assembly_id"]], key=lambda p: p["package_relpath"])
+        asm["package_ids"] = [pkg["package_id"] for pkg in entries]
+
+    derived_assemblies = sorted(derived_assemblies, key=lambda a: a["root_relpath"])
+    derived_packages = sorted(derived_packages, key=lambda p: p["dir_relpath"])
+    return derived_assemblies, derived_packages
+
+
+def load_assemblies_data(repo_root: str | None) -> Dict[str, Any]:
+    """Load assemblies data from docs/maestro/repo_model.json."""
+    resolved_root = _resolve_repo_root(repo_root)
+    index_data = load_repo_model(resolved_root)
+    assemblies, packages = _derive_assemblies_and_packages(index_data, resolved_root)
+    return {
+        "repo_root": index_data.get("repo_root", resolved_root),
+        "assemblies": assemblies,
+        "packages": packages,
+    }
+
+
+def list_assemblies(repo_root: str | None, json_output: bool = False):
     """List all detected assemblies."""
     assemblies_data = load_assemblies_data(repo_root)
     assemblies = assemblies_data.get('assemblies', [])
-    
+    packages = assemblies_data.get('packages', [])
+
     if json_output:
-        print(json.dumps(assemblies_data, indent=2))
+        payload = {
+            "assemblies": [
+                {
+                    "assembly_id": asm.get("assembly_id"),
+                    "name": asm.get("name"),
+                    "root_relpath": asm.get("root_relpath"),
+                    "kind": asm.get("kind", "upp"),
+                    "package_count": len(asm.get("package_ids", [])),
+                } for asm in assemblies
+            ]
+        }
+        print(json.dumps(payload, indent=2))
         return
-    
+
     if not assemblies:
         print("No assemblies found in repository.")
         return
-    
+
     print("Assemblies in repository:\n")
-    
+    package_counts = {}
+    for pkg in packages:
+        asm_id = pkg.get("assembly_id")
+        if asm_id:
+            package_counts[asm_id] = package_counts.get(asm_id, 0) + 1
+
     for i, asm in enumerate(assemblies, 1):
-        assembly_type_display = asm['assembly_type'].upper()
-        if asm['assembly_type'] == 'upp':
-            assembly_type_display = 'U++'
-        elif asm['assembly_type'] == 'multi':
-            assembly_type_display = f"Multi-type ({', '.join(asm['build_systems'])})"
-        elif asm['assembly_type'] in ['gradle', 'maven']:
-            assembly_type_display = f"Java/{asm['assembly_type'].title()}"
-        elif asm['assembly_type'] in ['cmake', 'autoconf', 'visual_studio']:
-            assembly_type_display = asm['assembly_type'].title()
-        
-        print(f"  {i}. {asm['name']} ({assembly_type_display})")
-        print(f"     Location: {asm['dir']}")
-        print(f"     Packages: {len(asm['packages'])} package{'s' if len(asm['packages']) != 1 else ''}")
-        if asm['build_systems']:
-            build_systems_str = ', '.join(asm['build_systems'])
-            print(f"     Build Systems: {build_systems_str}")
+        asm_name = asm.get("name", "unknown")
+        asm_kind = asm.get("kind", "upp")
+        asm_id = asm.get("assembly_id")
+        asm_root = asm.get("root_relpath", "")
+        asm_count = package_counts.get(asm_id, 0)
+        print(f"  {i}. {asm_name} ({asm_kind})")
+        print(f"     ID: {asm_id}")
+        print(f"     Root: {asm_root}")
+        print(f"     Packages: {asm_count}")
         print()
 
 
-def show_assembly(repo_root: str, assembly_name: str, json_output: bool = False):
+def show_assembly(repo_root: str | None, assembly_ref: str, json_output: bool = False):
     """Show detailed information about a specific assembly."""
     assemblies_data = load_assemblies_data(repo_root)
     assemblies = assemblies_data.get('assemblies', [])
-    
-    # Find the specific assembly
+    packages = assemblies_data.get('packages', [])
+
     target_assembly = None
     for asm in assemblies:
-        if asm['name'] == assembly_name:
+        if asm.get("assembly_id") == assembly_ref:
             target_assembly = asm
             break
-    
     if not target_assembly:
-        print(f"Assembly '{assembly_name}' not found in repository.")
+        matches = [asm for asm in assemblies if asm.get("name") == assembly_ref]
+        if len(matches) == 1:
+            target_assembly = matches[0]
+        elif len(matches) > 1:
+            print_error(f"Multiple assemblies named '{assembly_ref}', use assembly_id.", 2)
+            return
+
+    if not target_assembly:
+        print_error(f"Assembly '{assembly_ref}' not found in repository.", 2)
         return
-    
+
+    asm_id = target_assembly.get("assembly_id")
+    asm_packages = [
+        pkg for pkg in packages
+        if pkg.get("assembly_id") == asm_id
+    ]
+    asm_packages = sorted(asm_packages, key=lambda p: p.get("package_relpath", ""))
+
     if json_output:
-        print(json.dumps(target_assembly, indent=2))
+        payload = dict(target_assembly)
+        payload["packages"] = asm_packages
+        payload["package_count"] = len(asm_packages)
+        print(json.dumps(payload, indent=2))
         return
-    
-    assembly_type_display = target_assembly['assembly_type'].upper()
-    if target_assembly['assembly_type'] == 'upp':
-        assembly_type_display = 'U++'
-    elif target_assembly['assembly_type'] == 'multi':
-        assembly_type_display = f"Multi-type ({', '.join(target_assembly['build_systems'])})"
-    elif target_assembly['assembly_type'] in ['gradle', 'maven']:
-        assembly_type_display = f"Java/{target_assembly['assembly_type'].title()}"
-    elif target_assembly['assembly_type'] in ['cmake', 'autoconf', 'visual_studio']:
-        assembly_type_display = target_assembly['assembly_type'].title()
-    
-    print(f"Assembly: {target_assembly['name']}\n")
-    print(f"  Type: {assembly_type_display} Assembly")
-    print(f"  Location: {target_assembly['dir']}")
-    
-    if target_assembly['build_systems']:
-        build_systems_str = ', '.join(target_assembly['build_systems'])
-        print(f"  Build System{'s' if len(target_assembly['build_systems']) > 1 else ''}: {build_systems_str}")
-    
-    print(f"\n  Packages ({len(target_assembly['packages'])}):")
-    for pkg in target_assembly['packages']:
-        print(f"    - {pkg}")
-    
-    print(f"\n  Package Directories:")
-    for pkg_dir in target_assembly['package_dirs']:
-        rel_path = os.path.relpath(pkg_dir, target_assembly['dir'])
-        if rel_path == '.':
-            print(f"    {os.path.basename(target_assembly['dir'])}/")
-        else:
-            print(f"    {rel_path}/")
+
+    print(f"Assembly: {target_assembly.get('name', 'unknown')}\n")
+    print(f"  ID: {asm_id}")
+    print(f"  Kind: {target_assembly.get('kind', 'upp')}")
+    print(f"  Root: {target_assembly.get('root_relpath', '')}")
+    print(f"\n  Packages ({len(asm_packages)}):")
+    for pkg in asm_packages:
+        pkg_name = pkg.get("name", "unknown")
+        pkg_rel = pkg.get("package_relpath", "")
+        print(f"    - {pkg_name} ({pkg_rel})")
 
 
 def show_asm_help():
@@ -139,7 +216,7 @@ Maestro Assembly Commands (maestro repo asm)
 
 Usage:
   maestro repo asm list              # List all assemblies in repository
-  maestro repo asm show <name>       # Show details for specific assembly
+  maestro repo asm show <id|name>    # Show details for specific assembly
   maestro repo asm help              # Show this help message
 
 Options:
@@ -148,7 +225,7 @@ Options:
 
 Examples:
   maestro repo asm list              # List all assemblies
-  maestro repo asm show FolderZ      # Show details for specific assembly
+  maestro repo asm show uppsrc       # Show details for specific assembly
   maestro repo asm show myproject --json  # Show assembly in JSON format
 """
     print(help_text.strip())

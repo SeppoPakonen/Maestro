@@ -15,6 +15,7 @@ Commands:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -103,10 +104,79 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
             ]
         return serialized
 
+    def _stable_id(seed: str) -> str:
+        return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+
+    def _build_assemblies_and_packages() -> tuple[list[dict], list[dict]]:
+        repo_root_path = Path(repo_root).resolve()
+        assemblies: list[dict] = []
+        assembly_by_root: dict[str, dict] = {}
+        for asm in scan_result.assemblies_detected:
+            root_path = Path(asm.root_path).resolve()
+            try:
+                root_relpath = os.path.relpath(root_path, repo_root_path)
+            except ValueError:
+                continue
+            if root_relpath == '.':
+                root_relpath = '.'
+            assembly_id = _stable_id(f"assembly:{root_relpath}")
+            entry = {
+                "assembly_id": assembly_id,
+                "name": asm.name,
+                "root_relpath": root_relpath,
+                "kind": getattr(asm, "assembly_type", "upp"),
+                "package_ids": [],
+            }
+            assemblies.append(entry)
+            assembly_by_root[os.path.normpath(str(root_path))] = entry
+
+        package_entries_by_assembly: dict[str, list[dict]] = {a["assembly_id"]: [] for a in assemblies}
+        unassigned_packages: list[dict] = []
+
+        for pkg in scan_result.packages_detected:
+            pkg_path = Path(pkg.dir).resolve()
+            pkg_dir_rel = os.path.relpath(pkg_path, repo_root_path)
+            parent_dir = os.path.normpath(str(pkg_path.parent))
+            assembly_entry = assembly_by_root.get(parent_dir)
+            assembly_id = assembly_entry["assembly_id"] if assembly_entry else None
+            package_relpath = os.path.relpath(pkg_path, parent_dir) if assembly_entry else pkg_dir_rel
+            package_id_seed = f"package:{assembly_id}:{package_relpath}"
+            package_entry = {
+                "package_id": _stable_id(package_id_seed),
+                "name": pkg.name,
+                "dir_relpath": pkg_dir_rel,
+                "package_relpath": package_relpath,
+                "assembly_id": assembly_id,
+                "build_system": pkg.build_system,
+            }
+            if assembly_entry:
+                package_entries_by_assembly[assembly_id].append(package_entry)
+            else:
+                unassigned_packages.append(package_entry)
+
+        packages: list[dict] = []
+        for assembly in sorted(assemblies, key=lambda a: a["root_relpath"]):
+            pkg_entries = sorted(
+                package_entries_by_assembly[assembly["assembly_id"]],
+                key=lambda p: p["package_relpath"],
+            )
+            assembly["package_ids"] = [pkg["package_id"] for pkg in pkg_entries]
+            packages.extend(pkg_entries)
+
+        if unassigned_packages:
+            packages.extend(sorted(unassigned_packages, key=lambda p: p["dir_relpath"]))
+
+        assemblies = sorted(assemblies, key=lambda a: a["root_relpath"])
+        return assemblies, packages
+
+    assemblies_v2, packages_v2 = _build_assemblies_and_packages()
+
     # Prepare JSON data
     index_data = {
         "repo_root": repo_root,
         "scan_timestamp": datetime.now().isoformat(),
+        "assemblies": assemblies_v2,
+        "packages": packages_v2,
         "assemblies_detected": [
             {
                 "name": asm.name,
@@ -1468,6 +1538,20 @@ def add_repo_parser(subparsers):
     repo_pkg_parser.add_argument('--show-groups', action='store_true', help='Show package file groups')
     repo_pkg_parser.add_argument('--group', help='Filter to specific group (use with --show-groups)')
 
+    # repo asm
+    repo_asm_parser = repo_subparsers.add_parser('asm', aliases=['a'], help='Assembly query commands')
+    repo_asm_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_asm_subparsers = repo_asm_parser.add_subparsers(dest='asm_subcommand', help='Assembly subcommands')
+
+    repo_asm_list = repo_asm_subparsers.add_parser('list', aliases=['ls', 'l'], help='List assemblies')
+    repo_asm_list.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_asm_list.add_argument('--json', action='store_true', help='Output in JSON format')
+
+    repo_asm_show = repo_asm_subparsers.add_parser('show', aliases=['sh', 's'], help='Show assembly details')
+    repo_asm_show.add_argument('assembly_ref', help='Assembly ID or name')
+    repo_asm_show.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_asm_show.add_argument('--json', action='store_true', help='Output in JSON format')
+
     # repo conf
     repo_conf_parser = repo_subparsers.add_parser('conf', aliases=['c'], help='Repo configuration selection and defaults')
     repo_conf_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
@@ -1764,6 +1848,35 @@ def handle_repo_command(args):
                     print(f"  - {pkg.get('name', 'unknown')} ({pkg.get('build_system', 'unknown')})")
                 if len(packages) > 10:
                     print(f"  ... and {len(packages) - 10} more")
+
+                assemblies = index_data.get('assemblies', [])
+                packages_v2 = index_data.get('packages', [])
+                if assemblies:
+                    package_counts = {}
+                    for pkg in packages_v2:
+                        asm_id = pkg.get('assembly_id')
+                        if not asm_id:
+                            continue
+                        package_counts[asm_id] = package_counts.get(asm_id, 0) + 1
+                    sorted_assemblies = sorted(assemblies, key=lambda a: a.get('root_relpath', ''))
+                    print(f"\nAssemblies ({len(sorted_assemblies)}):")
+                    for asm in sorted_assemblies[:10]:
+                        asm_name = asm.get('name', 'unknown')
+                        asm_id = asm.get('assembly_id')
+                        asm_count = package_counts.get(asm_id, 0)
+                        print(f"  - {asm_name} ({asm_count} packages)")
+                    if len(sorted_assemblies) > 10:
+                        print(f"  ... and {len(sorted_assemblies) - 10} more")
+                else:
+                    assemblies_detected = index_data.get('assemblies_detected', [])
+                    if assemblies_detected:
+                        print(f"\nAssemblies ({len(assemblies_detected)}):")
+                        for asm in assemblies_detected[:10]:
+                            asm_name = asm.get('name', 'unknown')
+                            pkg_count = len(asm.get('package_folders', []))
+                            print(f"  - {asm_name} ({pkg_count} packages)")
+                        if len(assemblies_detected) > 10:
+                            print(f"  ... and {len(assemblies_detected) - 10} more")
 
         elif args.repo_subcommand == 'pkg':
             # Package inspection commands
