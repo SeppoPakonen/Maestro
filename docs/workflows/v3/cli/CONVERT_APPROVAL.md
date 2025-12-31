@@ -4,10 +4,15 @@ This workflow enforces plan approval before `maestro convert run` executes. It m
 
 ## Canonical commands
 
+- `maestro convert plan <PIPELINE_ID>`
+- `maestro convert plan <PIPELINE_ID> <ACTION>`
+- `maestro convert plan <ACTION> <PIPELINE_ID>`
 - `maestro convert plan show <PIPELINE_ID>`
 - `maestro convert plan approve <PIPELINE_ID> [--reason <TEXT>]`
 - `maestro convert plan reject <PIPELINE_ID> [--reason <TEXT>]`
 - `maestro convert run <PIPELINE_ID> [--ignore-gates]`
+
+Actions: `show`, `approve`, `reject`, `status`, `history`.
 
 ## State machine
 

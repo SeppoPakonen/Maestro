@@ -1,15 +1,15 @@
 # Maestro Configuration
 
-**Last Updated**: 2025-12-23
+**Last Updated**: 2025-12-31
 
 ---
 
 ## Project Metadata
 
-"project_id": "e152dd7f-83c7-4550-84ec-d053a6004470"
-"created_at": "2025-12-18T01:16:53.355885"
+"project_id": "61a89f24-337d-4fdd-8e10-a14f022ae770"
+"created_at": "2025-12-31T16:29:04.653904"
 "maestro_version": "1.2.1"
-"base_dir": "/home/sblo/Dev/Maestro"
+"base_dir": "/e/active/sblo/Dev/Maestro"
 "settings_schema_version": "1.2.1"
 
 ---
@@ -41,11 +41,11 @@
 "ai_gemini_default_args": ""
 "ai_qwen_model": "qwen"
 "ai_qwen_default_args": ""
-"ai_engines_claude": "planner"
+"ai_engines_claude": "both"
 "ai_engines_codex": "both"
 "ai_engines_gemini": "both"
 "ai_engines_qwen": "both"
-"ai_stacking_mode": "handsoff"
+"ai_stacking_mode": "managed"
 "ai_dangerously_skip_permissions": true
 "ai_qwen_transport": "cmdline"
 "ai_qwen_tcp_host": "localhost"
