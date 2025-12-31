@@ -84,3 +84,4 @@ venv/
 # OS/editor
 *.swp
 .DS_Store
+CLAUDE.md
