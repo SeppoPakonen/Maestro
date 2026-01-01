@@ -317,6 +317,10 @@ class WorkGraphRunner:
         if self.dry_run:
             return self._dry_run_task(task)
 
+        # Safety check: In execute mode, only run tasks marked safe_to_execute
+        if not getattr(task, 'safe_to_execute', False):
+            return self._skip_unsafe_task(task)
+
         # Execute task
         return self._run_task(task)
 
@@ -495,6 +499,28 @@ class WorkGraphRunner:
         if self.verbose or self.very_verbose:
             print(f"\n[{task.id}] {task.title}")
             print("  [SKIPPED]")
+
+    def _skip_unsafe_task(self, task: Task) -> str:
+        """Skip a task that is not marked safe_to_execute.
+
+        Args:
+            task: Task to skip
+
+        Returns:
+            Result: "skipped"
+        """
+        self._emit_event("TASK_SKIPPED_UNSAFE", {
+            "task_id": task.id,
+            "title": task.title,
+            "reason": "Task not marked safe_to_execute"
+        })
+        # Note: Don't add to skipped_tasks or increment counter here
+        # The main run loop will do that when it receives the "skipped" result
+
+        if self.verbose or self.very_verbose:
+            print(f"  [SKIPPED_UNSAFE] Task not marked safe_to_execute")
+
+        return "skipped"
 
     def _emit_event(self, event_type: str, data: Dict[str, any]) -> None:
         """Emit an event to the run record.

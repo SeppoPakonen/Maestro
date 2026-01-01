@@ -53,6 +53,7 @@ class Task:
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
     risk: Dict[str, Any] = field(default_factory=dict)
+    safe_to_execute: bool = False  # Default: require explicit opt-in for execution
 
     def __post_init__(self):
         """Validate task immediately after construction.

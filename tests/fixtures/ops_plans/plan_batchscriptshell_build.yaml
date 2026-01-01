@@ -1,0 +1,58 @@
+kind: ops_run
+name: BatchScriptShell green loop - build to workgraph
+steps:
+  # Step 1: Discover repo structure
+  - kind: maestro
+    args: ["repo", "resolve"]
+    timeout_s: 120
+    allow_write: false
+
+  # Step 2: Clean and build
+  # NOTE: This assumes running from BatchScriptShell repo root
+  # maestro make auto-detects build system (Makefile, CMake, etc.)
+  - kind: maestro
+    args: ["make", "clean"]
+    timeout_s: 60
+    allow_write: true
+
+  - kind: maestro
+    args: ["make"]
+    timeout_s: 300
+    allow_write: true
+
+  # Step 3: Scan build output for errors
+  # Captures stdout/stderr from make step
+  - kind: maestro
+    args: ["log", "scan", "--last-run", "--kind", "build"]
+    timeout_s: 60
+    allow_write: false
+
+  # Step 4: Ingest issues from log scan
+  - kind: maestro
+    args: ["issues", "add", "--from-log", "<LAST_SCAN_ID>"]
+    timeout_s: 60
+    allow_write: true
+
+  # Step 5: Triage issues
+  - kind: maestro
+    args: ["issues", "triage", "--auto"]
+    timeout_s: 60
+    allow_write: true
+
+  # Step 6: Generate WorkGraph from issues
+  - kind: maestro
+    args: ["plan", "decompose", "--domain", "issues", "Bring BatchScriptShell to green build", "-e"]
+    timeout_s: 180
+    allow_write: true
+
+  # Step 7: Materialize WorkGraph to Track/Phase/Task
+  - kind: maestro
+    args: ["plan", "enact", "<LAST_WORKGRAPH_ID>"]
+    timeout_s: 120
+    allow_write: true
+
+  # Step 8: Execute WorkGraph (dry-run mode by default)
+  - kind: maestro
+    args: ["plan", "run", "<LAST_WORKGRAPH_ID>", "--dry-run", "-v", "--max-steps", "5"]
+    timeout_s: 300
+    allow_write: false
