@@ -10,11 +10,150 @@ import json
 import os
 import re
 import hashlib
+import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Protocol
+from dataclasses import dataclass
 
 from maestro.config.paths import get_docs_root
+
+
+@dataclass
+class RunbookEvidence:
+    """Dataclass to hold repo evidence for runbook generation."""
+    repo_root: str
+    commands_docs: List[Dict[str, str]]  # List of {filename, title, summary}
+    help_text: Optional[str] = None
+    help_bin_path: Optional[str] = None
+    warnings: List[str] = None
+
+    def __post_init__(self):
+        if self.warnings is None:
+            self.warnings = []
+
+
+def extract_doc_title_and_summary(content: str) -> tuple[str, str]:
+    """Extract title and summary from markdown content."""
+    lines = content.split('\n')
+    title = ""
+    summary = ""
+
+    # Look for first heading as title
+    for line in lines:
+        if line.strip().startswith('#'):
+            title = line.strip().lstrip('#').strip()
+            break
+
+    # Look for first paragraph after title as summary
+    in_title_section = True
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            continue
+        if stripped and not stripped.startswith('#'):
+            summary = stripped
+            break
+
+    return title or "Untitled", summary
+
+
+def collect_repo_evidence(commands_dir: Optional[str] = None, help_bin: Optional[str] = None) -> RunbookEvidence:
+    """Collect repo evidence for runbook generation."""
+    repo_root = Path.cwd().resolve()
+
+    # Find commands directory
+    if commands_dir is None:
+        possible_paths = [
+            repo_root / "docs" / "commands",
+            repo_root / "docs" / "maestro" / "commands",
+            repo_root / "documentation" / "commands"
+        ]
+        commands_path = None
+        for path in possible_paths:
+            if path.exists():
+                commands_path = path
+                break
+    else:
+        commands_path = Path(commands_dir)
+
+    commands_docs = []
+    warnings = []
+
+    if commands_path and commands_path.exists():
+        for md_file in commands_path.glob("*.md"):
+            try:
+                content = md_file.read_text(encoding='utf-8')
+                title, summary = extract_doc_title_and_summary(content)
+                commands_docs.append({
+                    'filename': md_file.name,
+                    'title': title,
+                    'summary': summary
+                })
+            except Exception as e:
+                warnings.append(f"Could not read {md_file}: {str(e)}")
+    else:
+        if commands_dir:
+            warnings.append(f"Commands directory not found: {commands_dir}")
+        else:
+            warnings.append("No commands documentation directory found")
+
+    # Find help binary
+    help_text = None
+    help_bin_path = None
+
+    if help_bin:
+        bin_path = Path(help_bin)
+        if bin_path.exists():
+            try:
+                result = subprocess.run([str(bin_path), "--help"],
+                                      capture_output=True, text=True,
+                                      timeout=2, cwd=repo_root)
+                if result.returncode == 0:
+                    help_text = result.stdout
+                    help_bin_path = str(bin_path)
+                else:
+                    warnings.append(f"Binary --help command failed: {result.stderr}")
+            except subprocess.TimeoutExpired:
+                warnings.append(f"Binary --help command timed out after 2 seconds")
+            except Exception as e:
+                warnings.append(f"Error running binary --help: {str(e)}")
+        else:
+            warnings.append(f"Help binary not found: {help_bin}")
+    else:
+        # Look for common binary paths
+        possible_bins = [
+            repo_root / "build_maestro" / "bss",
+            repo_root / "build" / "bss",
+            repo_root / "bin" / "bss",
+            repo_root / "dist" / "bss",
+        ]
+
+        for bin_path in possible_bins:
+            if bin_path.exists():
+                try:
+                    result = subprocess.run([str(bin_path), "--help"],
+                                          capture_output=True, text=True,
+                                          timeout=2, cwd=repo_root)
+                    if result.returncode == 0:
+                        help_text = result.stdout
+                        help_bin_path = str(bin_path)
+                        break
+                    else:
+                        warnings.append(f"Binary --help command failed for {bin_path}: {result.stderr}")
+                except subprocess.TimeoutExpired:
+                    warnings.append(f"Binary --help command timed out after 2 seconds for {bin_path}")
+                except Exception as e:
+                    warnings.append(f"Error running binary --help for {bin_path}: {str(e)}")
+
+    return RunbookEvidence(
+        repo_root=str(repo_root),
+        commands_docs=commands_docs,
+        help_text=help_text,
+        help_bin_path=help_bin_path,
+        warnings=warnings
+    )
 
 
 def slugify(text: str) -> str:
@@ -36,6 +175,332 @@ def generate_runbook_id(title: str) -> str:
     # Create a hash of the normalized title
     title_hash = hashlib.sha256(title.encode('utf-8')).hexdigest()[:8]
     return f"rb-{slug}-{title_hash}"
+
+
+class RunbookGenerator(Protocol):
+    """Interface for runbook generation."""
+
+    def generate(self, evidence: RunbookEvidence, request_text: str) -> Dict[str, Any]:
+        """Generate a runbook from evidence and request text."""
+        ...
+
+
+class EvidenceOnlyGenerator:
+    """Generator that creates runbooks based only on evidence, without AI."""
+
+    def generate(self, evidence: RunbookEvidence, request_text: str) -> Dict[str, Any]:
+        """Generate a runbook based on evidence only."""
+        # Generate a title from the request text
+        title = request_text[:100] if request_text else "Evidence-based runbook"
+
+        # Generate a deterministic ID
+        runbook_id = generate_runbook_id(title)
+
+        # Create the runbook structure
+        runbook = {
+            'id': runbook_id,
+            'title': title,
+            'goal': f"Implement commands based on evidence from {evidence.repo_root}",
+            'prerequisites': [],
+            'steps': [],
+            'artifacts': [],
+            'invariants': [],
+            'tags': ['generated', 'evidence-based'],
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat(),
+            'repo_evidence': {
+                'repo_root': evidence.repo_root,
+                'commands_docs_count': len(evidence.commands_docs),
+                'help_available': evidence.help_text is not None,
+                'help_bin_path': evidence.help_bin_path,
+                'warnings_count': len(evidence.warnings)
+            }
+        }
+
+        # Add steps based on evidence
+        steps = []
+
+        # Step 1: Verify CLI help is available
+        if evidence.help_text:
+            steps.append({
+                'n': len(steps) + 1,
+                'actor': 'dev',
+                'action': f'Verify CLI help is available from {evidence.help_bin_path}',
+                'expected': 'Help text displays successfully showing available commands'
+            })
+        else:
+            steps.append({
+                'n': len(steps) + 1,
+                'actor': 'dev',
+                'action': 'Verify CLI help is available',
+                'expected': 'Help text should be available once the binary is built'
+            })
+
+        # Steps for each command documentation file
+        for i, doc in enumerate(evidence.commands_docs):
+            steps.append({
+                'n': len(steps) + 1,
+                'actor': 'dev',
+                'action': f'Review docs/commands/{doc["filename"]} and create a minimal script exercising {doc["title"]}',
+                'expected': f'Semantics of {doc["title"]} captured; add/adjust a test script'
+            })
+
+        # Add a final step suggesting next actions
+        if evidence.help_bin_path:
+            steps.append({
+                'n': len(steps) + 1,
+                'actor': 'dev',
+                'action': f'Run {evidence.help_bin_path} with minimal test script',
+                'expected': 'Commands execute as expected; manual verification until build exists'
+            })
+        else:
+            steps.append({
+                'n': len(steps) + 1,
+                'actor': 'dev',
+                'action': 'Build the binary and test with sample commands',
+                'expected': 'Binary builds successfully and responds to commands'
+            })
+
+        runbook['steps'] = steps
+
+        # Add warnings as prerequisites if any exist
+        if evidence.warnings:
+            runbook['prerequisites'] = [f'Warning: {warning}' for warning in evidence.warnings]
+
+        return runbook
+
+
+import sys
+
+class AIRunbookGenerator:
+    """Generator that creates runbooks using AI based on evidence and request text."""
+
+    def __init__(self, engine, verbose: bool = False):
+        self.engine = engine
+        self.verbose = verbose
+        # Store the last prompt and response for debugging purposes
+        self.last_prompt = None
+        self.last_response = None
+
+    def generate(self, evidence: RunbookEvidence, request_text: str) -> Dict[str, Any]:
+        """Generate a runbook using AI based on evidence and request text."""
+        # Create a prompt for the AI that includes both the request and evidence
+        prompt = self._create_runbook_generation_prompt(evidence, request_text)
+
+        # Store the prompt for potential very verbose output
+        self.last_prompt = prompt
+
+        if self.verbose:
+            print(f"Sending prompt to AI engine (length: {len(prompt)} chars)...")
+
+        # Generate the response using the AI engine
+        response = self.engine.generate(prompt)
+
+        # Store the response for potential very verbose output
+        self.last_response = response
+
+        if self.verbose:
+            print(f"AI response received (length: {len(response)} chars)")
+
+        # Try to parse the response as JSON
+        try:
+            # First, try to extract JSON from the response if it contains other text
+            runbook_json = self._extract_json_from_response(response)
+            if not runbook_json.strip():
+                print(f"Error: AI response is empty or contains no JSON: {response[:200]}...", file=sys.stderr)
+                # Fallback to evidence-only generation
+                fallback_generator = EvidenceOnlyGenerator()
+                return fallback_generator.generate(evidence, request_text)
+            runbook = json.loads(runbook_json)
+        except json.JSONDecodeError:
+            print(f"Error: AI response is not valid JSON: {response[:200]}...", file=sys.stderr)
+            # Fallback to evidence-only generation
+            fallback_generator = EvidenceOnlyGenerator()
+            return fallback_generator.generate(evidence, request_text)
+        except Exception as e:
+            print(f"Error processing AI response: {e}", file=sys.stderr)
+            # Fallback to evidence-only generation
+            fallback_generator = EvidenceOnlyGenerator()
+            return fallback_generator.generate(evidence, request_text)
+
+        # Validate the runbook structure
+        if not isinstance(runbook, dict):
+            print(f"Error: AI response is not a valid runbook object", file=sys.stderr)
+            # Fallback to evidence-only generation
+            fallback_generator = EvidenceOnlyGenerator()
+            return fallback_generator.generate(evidence, request_text)
+
+        # Ensure required fields are present
+        if 'title' not in runbook:
+            # Extract title from the request text if not provided by AI
+            runbook['title'] = request_text[:100] if request_text else "Runbook from AI generation"
+
+        # Generate a stable ID based on the title if not provided by AI
+        if 'id' not in runbook:
+            runbook['id'] = generate_runbook_id(runbook['title'])
+
+        # Ensure timestamps are present
+        now = datetime.now().isoformat()
+        if 'created_at' not in runbook:
+            runbook['created_at'] = now
+        if 'updated_at' not in runbook:
+            runbook['updated_at'] = now
+
+        # Ensure steps are properly formatted
+        if 'steps' not in runbook or not runbook['steps']:
+            # Fallback to evidence-based steps if AI didn't generate any
+            fallback_generator = EvidenceOnlyGenerator()
+            fallback_runbook = fallback_generator.generate(evidence, request_text)
+            runbook['steps'] = fallback_runbook.get('steps', [])
+
+        return runbook
+
+    def _create_runbook_generation_prompt(self, evidence: RunbookEvidence, request_text: str) -> str:
+        """Create a prompt for AI runbook generation."""
+        evidence_summary = {
+            'repo_root': evidence.repo_root,
+            'commands_docs_count': len(evidence.commands_docs),
+            'commands_docs': evidence.commands_docs,
+            'help_available': evidence.help_text is not None,
+            'help_text': evidence.help_text,
+            'help_bin_path': evidence.help_bin_path,
+            'warnings_count': len(evidence.warnings),
+            'warnings': evidence.warnings
+        }
+
+        prompt = f"""
+        Create a structured runbook JSON based on the following request and evidence.
+
+        REQUEST:
+        {request_text}
+
+        EVIDENCE:
+        {json.dumps(evidence_summary, indent=2)}
+
+        INSTRUCTIONS:
+        - Generate a complete runbook JSON object with the following structure:
+          {{
+            "id": "auto-generated",
+            "title": "Short imperative title (under 100 chars)",
+            "goal": "Detailed goal description",
+            "prerequisites": ["list", "of", "prerequisites"],
+            "steps": [
+              {{
+                "n": 1,
+                "actor": "dev|user|system|ai",
+                "action": "specific action to perform",
+                "expected": "expected outcome",
+                "details": "optional detailed description",
+                "variants": ["optional", "variant", "descriptions"]
+              }}
+            ],
+            "artifacts": [{{"path": "path/to/artifact", "purpose": "purpose of artifact"}}],
+            "invariants": ["list", "of", "invariants"],
+            "tags": ["list", "of", "tags"],
+            "created_at": "auto-generated",
+            "updated_at": "auto-generated"
+          }}
+        - The runbook should reference actual commands and documentation from the evidence
+        - Steps should be actionable and specific
+        - Use the evidence to inform realistic steps and artifacts
+        - Return ONLY the JSON object, no other text
+        """
+
+        return prompt
+
+    def _extract_json_from_response(self, response: str) -> str:
+        """Extract JSON from AI response that might contain other text."""
+        # Look for JSON between ```json and ``` markers
+        import re
+        json_match = re.search(r'```json\s*\n(.*?)\n```', response, re.DOTALL)
+        if json_match:
+            return json_match.group(1).strip()
+
+        # Look for JSON between ``` and ``` markers
+        code_match = re.search(r'```\s*\n(.*?)\n```', response, re.DOTALL)
+        if code_match:
+            return code_match.group(1).strip()
+
+        # If no markdown formatting, try to find JSON object directly
+        # Find the first { and last }
+        first_brace = response.find('{')
+        last_brace = response.rfind('}')
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            return response[first_brace:last_brace+1]
+
+        # If we can't extract JSON, return the original response
+        return response
+
+
+def format_ai_output_for_display(output_text: str, max_lines: int = 2000) -> str:
+    """Format AI engine output for readable display in very verbose mode.
+
+    Args:
+        output_text: Raw output from the AI engine
+        max_lines: Maximum number of lines to display before truncating
+
+    Returns:
+        Formatted string suitable for display
+    """
+    # Normalize line endings
+    normalized_text = output_text.replace('\r\n', '\n')
+
+    # Split into lines for potential truncation
+    lines = normalized_text.split('\n')
+
+    # Check if we need to truncate
+    needs_truncation = len(lines) > max_lines
+
+    # Take only the first max_lines if needed
+    display_lines = lines[:max_lines] if needs_truncation else lines
+
+    # Join the lines back together
+    display_text = '\n'.join(display_lines)
+
+    # Try to parse as JSON for pretty formatting
+    try:
+        parsed_json = json.loads(display_text)
+        # Pretty print JSON with indentation
+        formatted_text = json.dumps(parsed_json, indent=2, ensure_ascii=False)
+
+        if needs_truncation:
+            formatted_text += f"\n\n(... output truncated; full output exceeds {max_lines} lines)"
+
+        return formatted_text
+    except json.JSONDecodeError:
+        # If not JSON, try to parse as JSONL (JSON Lines)
+        try:
+            # Check if it looks like JSONL (multiple JSON objects separated by newlines)
+            json_objects = []
+            for line in display_lines:
+                line = line.strip()
+                if line.startswith('{') and line.endswith('}'):
+                    json_objects.append(json.loads(line))
+
+            if json_objects:
+                # Format as numbered list of JSON objects
+                formatted_parts = []
+                for i, obj in enumerate(json_objects, 1):
+                    formatted_parts.append(f"{i}. {json.dumps(obj, indent=2)}")
+
+                formatted_text = '\n'.join(formatted_parts)
+
+                if needs_truncation:
+                    formatted_text += f"\n\n(... output truncated; full output exceeds {max_lines} lines)"
+
+                return formatted_text
+        except json.JSONDecodeError:
+            pass  # Continue to plain text formatting if JSONL parsing fails
+
+    # If not JSON or JSONL, return as plain text with normalization
+    # Strip trailing whitespace from each line
+    normalized_lines = [line.rstrip() for line in display_lines]
+    formatted_text = '\n'.join(normalized_lines)
+
+    if needs_truncation:
+        formatted_text += f"\n\n(... output truncated; full output exceeds {max_lines} lines)"
+
+    return formatted_text
 
 
 def validate_runbook_schema(runbook: Dict[str, Any]) -> List[str]:
@@ -84,22 +549,31 @@ def validate_runbook_schema(runbook: Dict[str, Any]) -> List[str]:
                     continue
 
                 # Required fields in each step
-                step_required = ['cmd', 'expect']
+                step_required = ['n', 'actor', 'action', 'expected']
                 for field in step_required:
                     if field not in step:
                         errors.append(f"Step {i} missing required field: {field}")
 
                 # Validate step field types
-                if 'cmd' in step and not isinstance(step['cmd'], str):
-                    errors.append(f"Step {i} cmd must be a string")
+                if 'n' in step and not isinstance(step['n'], int):
+                    errors.append(f"Step {i} n must be an integer")
 
-                if 'expect' in step and not isinstance(step['expect'], str):
-                    errors.append(f"Step {i} expect must be a string")
+                if 'actor' in step and not isinstance(step['actor'], str):
+                    errors.append(f"Step {i} actor must be a string")
 
-                if 'notes' in step and not isinstance(step['notes'], str):
-                    errors.append(f"Step {i} notes must be a string if present")
+                if 'action' in step and not isinstance(step['action'], str):
+                    errors.append(f"Step {i} action must be a string")
 
-                # Normalize command by stripping leading $ and whitespace
+                if 'expected' in step and not isinstance(step['expected'], str):
+                    errors.append(f"Step {i} expected must be a string")
+
+                if 'details' in step and not isinstance(step['details'], str):
+                    errors.append(f"Step {i} details must be a string if present")
+
+                if 'variants' in step and not isinstance(step['variants'], list):
+                    errors.append(f"Step {i} variants must be a list if present")
+
+                # Normalize command by stripping leading $ and whitespace (for backward compatibility)
                 if 'cmd' in step and isinstance(step['cmd'], str):
                     step['cmd'] = step['cmd'].strip().lstrip('$').strip()
 
@@ -365,8 +839,16 @@ def add_runbook_parser(subparsers: Any) -> None:
     # Resolve command
     resolve_parser = runbook_subparsers.add_parser('resolve', aliases=['res'], help='Resolve freeform text to structured runbook JSON')
     resolve_parser.add_argument('text', nargs='?', help='Freeform text to convert to runbook')
-    resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show prompt hash, engine, and validation summary')
+    resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show prompt hash, engine, evidence summary, validation summary')
+    resolve_parser.add_argument('-vv', '--very-verbose', action='store_true', help='Also print resolved AI prompt and pretty engine output')
     resolve_parser.add_argument('-e', '--eval', action='store_true', help='Read freeform input from stdin instead of positional argument')
+    resolve_parser.add_argument('--no-evidence', action='store_true', help='Skip repo evidence collection; only use provided text')
+    resolve_parser.add_argument('--help-bin', help='Force a specific binary path for --help collection')
+    resolve_parser.add_argument('--commands-dir', help='Override docs/commands directory path')
+    resolve_parser.add_argument('--engine', help='Engine to use (e.g., claude, qwen, codex, gemini)')
+    resolve_parser.add_argument('--evidence-only', action='store_true', help='Use deterministic evidence compilation instead of AI')
+    resolve_parser.add_argument('--name', help='Custom name for the runbook (overrides AI-generated title)')
+    resolve_parser.add_argument('--dry-run', action='store_true', help='Show what would be created without saving')
 
     # Archive command
     archive_parser = runbook_subparsers.add_parser('archive', help='Archive a runbook (markdown or JSON)')
@@ -655,8 +1137,14 @@ def handle_runbook_show(args: argparse.Namespace) -> None:
     if steps:
         print(f"\nSteps ({len(steps)}):")
         for step in steps:
-            print(f"  {step['n']}. [{step['actor']}] {step['action']}")
-            print(f"     Expected: {step['expected']}")
+            # Handle backward compatibility for old step schema
+            step_number = step.get('n', 'N/A')
+            actor = step.get('actor', 'N/A')
+            action = step.get('action', 'N/A')
+            expected = step.get('expected', step.get('expect', 'N/A'))  # 'expect' for backward compatibility
+
+            print(f"  {step_number}. [{actor}] {action}")
+            print(f"     Expected: {expected}")
             if step.get('details'):
                 print(f"     Details: {step['details']}")
             if step.get('variants'):
@@ -839,7 +1327,7 @@ def handle_step_edit(args: argparse.Namespace) -> None:
         return
 
     steps = runbook.get('steps', [])
-    step = next((s for s in steps if s['n'] == args.n), None)
+    step = next((s for s in steps if s.get('n') == args.n), None)
     if not step:
         print(f"Error: Step {args.n} not found in runbook {args.id}.")
         return
@@ -885,16 +1373,21 @@ def handle_step_rm(args: argparse.Namespace) -> None:
         return
 
     steps = runbook.get('steps', [])
-    step = next((s for s in steps if s['n'] == args.n), None)
+    step = next((s for s in steps if s.get('n') == args.n), None)
     if not step:
         print(f"Error: Step {args.n} not found in runbook {args.id}.")
         return
 
     # Remove step
-    steps = [s for s in steps if s['n'] != args.n]
+    steps = [s for s in steps if s.get('n') != args.n]
 
-    # Renumber remaining steps
-    for i, s in enumerate(sorted(steps, key=lambda x: x['n']), start=1):
+    # Renumber remaining steps, handling backward compatibility
+    def sort_key(step):
+        return step.get('n', float('inf'))  # Put steps without 'n' at the end
+
+    sorted_steps = sorted(steps, key=sort_key)
+
+    for i, s in enumerate(sorted_steps, start=1):
         s['n'] = i
 
     runbook['steps'] = steps
@@ -921,8 +1414,14 @@ def handle_step_renumber(args: argparse.Namespace) -> None:
 
     steps = runbook.get('steps', [])
 
-    # Renumber steps sequentially
-    for i, step in enumerate(sorted(steps, key=lambda x: x['n']), start=1):
+    # Renumber steps sequentially, handling backward compatibility
+    # Sort by 'n' if it exists, otherwise use the original order
+    def sort_key(step):
+        return step.get('n', float('inf'))  # Put steps without 'n' at the end
+
+    sorted_steps = sorted(steps, key=sort_key)
+
+    for i, step in enumerate(sorted_steps, start=1):
         step['n'] = i
 
     runbook['steps'] = steps
@@ -1142,15 +1641,14 @@ def handle_runbook_archive(args: argparse.Namespace) -> None:
         return
 
 
-def handle_runbook_resolve(args: argparse.Namespace, resolver=None) -> None:
+from maestro.ai.engine_selector import select_engine_for_role, get_worker_engine, get_planner_engine
+from maestro.ai.types import AiEngineName
+
+def handle_runbook_resolve(args: argparse.Namespace) -> None:
     """Handle the runbook resolve command."""
     import sys
     import hashlib
     from typing import Any, Dict, List, Callable, Optional
-
-    # Use the provided resolver or default to create_runbook_from_freeform
-    if resolver is None:
-        resolver = create_runbook_from_freeform
 
     # Check if stdin is a TTY when using -e flag
     if args.eval:
@@ -1168,30 +1666,198 @@ def handle_runbook_resolve(args: argparse.Namespace, resolver=None) -> None:
             return
         freeform_input = args.text
 
-    if args.verbose:
-        # Calculate prompt hash
-        prompt_hash = hashlib.sha256(freeform_input.encode()).hexdigest()[:8]
-        print(f"Prompt hash: {prompt_hash}")
-        print(f"Engine: [FAKE_ENGINE - for testing purposes]")
-        print(f"Input: {freeform_input[:100]}{'...' if len(freeform_input) > 100 else ''}")
+    # Determine if we should use evidence collection
+    use_evidence = not getattr(args, 'no_evidence', False)
 
-    # Use the injected resolver to create the runbook from freeform input
-    runbook_data = resolver(freeform_input, args.verbose)
+    # Collect evidence if requested
+    evidence = None
+    if use_evidence:
+        evidence = collect_repo_evidence(
+            commands_dir=getattr(args, 'commands_dir', None),
+            help_bin=getattr(args, 'help_bin', None)
+        )
+
+        if args.verbose:
+            print(f"Collected evidence: {len(evidence.commands_docs)} command docs, "
+                  f"help from {evidence.help_bin_path or 'N/A'}, "
+                  f"{len(evidence.warnings)} warnings")
+
+    # Treat -vv as implying -v
+    effective_verbose = args.verbose or getattr(args, 'very_verbose', False)
+
+    # Determine which generator to use
+    # Handle backward compatibility: if engine is 'evidence', use evidence-only
+    if getattr(args, 'evidence_only', False) or (hasattr(args, 'engine') and args.engine == 'evidence'):
+        # Use evidence-only generator if --evidence-only flag is set or engine is 'evidence'
+        generator = EvidenceOnlyGenerator()
+        if effective_verbose:
+            prompt_hash = hashlib.sha256(freeform_input.encode()).hexdigest()[:8]
+            print(f"Prompt hash: {prompt_hash}")
+            print(f"Engine: [EVIDENCE_ONLY - deterministic compilation]")
+            print(f"Input: {freeform_input[:100]}{'...' if len(freeform_input) > 100 else ''}")
+    else:
+        # Use AI engine by default
+        try:
+            # Select an appropriate engine based on the role
+            # For runbook generation, we'll use a worker engine
+            # If args.engine is specified and not 'evidence', use it as preferred engine
+            preferred_order = None
+            if hasattr(args, 'engine') and args.engine and args.engine != 'evidence':
+                preferred_order = [args.engine]
+            engine = select_engine_for_role('worker', preferred_order=preferred_order)
+
+            if effective_verbose:
+                prompt_hash = hashlib.sha256(freeform_input.encode()).hexdigest()[:8]
+                print(f"Prompt hash: {prompt_hash}")
+                print(f"Engine: {engine.name}")
+                print(f"Input: {freeform_input[:100]}{'...' if len(freeform_input) > 100 else ''}")
+
+            # Create an AI-based generator
+            generator = AIRunbookGenerator(engine, verbose=effective_verbose)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            print("No AI engine available. Configure an engine or use --evidence-only flag.", file=sys.stderr)
+            sys.exit(1)
+
+    # Generate the runbook using the appropriate generator
+    if evidence is not None:
+        runbook_data = generator.generate(evidence, freeform_input)
+
+        # Print prompt and AI output if very verbose (bounded to 2000 chars)
+        if getattr(args, 'very_verbose', False) and isinstance(generator, AIRunbookGenerator):
+            print("\n=== AI PROMPT (first 2000 chars) ===")
+            prompt = generator.last_prompt or ""
+            print(prompt[:2000])
+            if len(prompt) > 2000:
+                print(f"\n... (truncated {len(prompt) - 2000} chars)")
+
+            print("\n=== AI RESPONSE (first 2000 chars) ===")
+            response = generator.last_response or ""
+            formatted_output = format_ai_output_for_display(response[:2000])
+            print(formatted_output)
+            if len(response) > 2000:
+                print(f"\n... (truncated {len(response) - 2000} chars)")
+            print()
+    else:
+        # Fallback to basic generation if no evidence
+        title = freeform_input[:100] if freeform_input else "Runbook from freeform text"
+        runbook_id = generate_runbook_id(title)
+        runbook_data = {
+            'id': runbook_id,
+            'title': title,
+            'goal': freeform_input[:500],
+            'steps': [
+                {
+                    'n': 1,
+                    'actor': 'dev',
+                    'action': 'Implement steps based on requirements',
+                    'expected': 'Requirements fulfilled'
+                }
+            ],
+            'tags': ['generated'],
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
 
     if runbook_data is None:
         print("Error: Failed to generate runbook from input.", file=sys.stderr)
         return
 
+    # Apply custom name if provided
+    if getattr(args, 'name', None):
+        runbook_data['title'] = args.name
+        # Regenerate ID based on the custom name
+        runbook_data['id'] = generate_runbook_id(args.name)
+
     # Validate the runbook data
     validation_errors = validate_runbook_schema(runbook_data)
     if validation_errors:
-        print("Error: Runbook validation failed:", file=sys.stderr)
-        for error in validation_errors:
-            print(f"  - {error}", file=sys.stderr)
-        return
+        # FALLBACK: Generate WorkGraph instead
+        if effective_verbose:
+            print("Runbook validation failed. Falling back to WorkGraph generation...")
+            print(f"Validation errors: {validation_errors[:3]}")  # Show first 3 errors
+
+        try:
+            from maestro.builders.workgraph_generator import WorkGraphGenerator
+            from maestro.archive.workgraph_storage import save_workgraph
+            from maestro.config.paths import get_workgraph_dir
+            from maestro.repo.discovery import discover_repo, DiscoveryBudget
+            from pathlib import Path
+
+            # Collect repo evidence for WorkGraph (same as plan decompose)
+            repo_root = Path.cwd()
+            budget = DiscoveryBudget()
+            discovery = discover_repo(repo_root, budget)
+
+            if effective_verbose:
+                print(f"Collected {len(discovery.evidence)} evidence items for WorkGraph")
+
+            # Use same engine as runbook generation
+            if not isinstance(generator, AIRunbookGenerator):
+                # If using EvidenceOnlyGenerator, we can't generate WorkGraph
+                print("Error: Runbook validation failed and WorkGraph fallback requires AI engine.", file=sys.stderr)
+                print("Use --engine option to specify an AI engine.", file=sys.stderr)
+                return
+
+            wg_generator = WorkGraphGenerator(
+                engine=generator.engine,
+                verbose=effective_verbose
+            )
+
+            workgraph = wg_generator.generate(
+                freeform_request=freeform_input,
+                discovery=discovery,
+                domain="runbook",
+                profile=getattr(args, 'profile', 'default')
+            )
+
+            # Very verbose: show AI prompt and response (bounded to 2000 chars)
+            if getattr(args, 'very_verbose', False):
+                print("\n=== AI PROMPT (first 2000 chars) ===")
+                prompt = wg_generator.last_prompt or ""
+                print(prompt[:2000])
+                if len(prompt) > 2000:
+                    print(f"\n... (truncated {len(prompt) - 2000} chars)")
+
+                print("\n=== AI RESPONSE (first 2000 chars) ===")
+                response = wg_generator.last_response or ""
+                print(response[:2000])
+                if len(response) > 2000:
+                    print(f"\n... (truncated {len(response) - 2000} chars)")
+                print()
+
+            # Save WorkGraph
+            wg_dir = get_workgraph_dir()
+            wg_path = wg_dir / f"{workgraph.id}.json"
+            save_workgraph(workgraph, wg_path)
+
+            print("\nRunbook too big/ambiguous → created WorkGraph instead")
+            print(f"WorkGraph ID: {workgraph.id}")
+            print(f"Domain: {workgraph.domain}")
+            print(f"Phases: {len(workgraph.phases)}")
+            total_tasks = sum(len(p.tasks) for p in workgraph.phases)
+            print(f"Tasks: {total_tasks}")
+            print(f"\nNext step: Run the following command to materialize the plan:")
+            print(f"  maestro plan enact {workgraph.id}")
+            return
+
+        except Exception as wg_error:
+            print(f"Error: Both runbook and WorkGraph generation failed.", file=sys.stderr)
+            print(f"  Runbook errors: {validation_errors[:2]}", file=sys.stderr)
+            print(f"  WorkGraph error: {wg_error}", file=sys.stderr)
+            if effective_verbose:
+                import traceback
+                traceback.print_exc()
+            return
 
     if args.verbose:
         print(f"Validation: {len(validation_errors)} errors found")
+
+    # Check for dry run
+    if getattr(args, 'dry_run', False):
+        print("DRY RUN: Would create/update runbook with the following data:")
+        print(json.dumps(runbook_data, indent=2))
+        return
 
     # Save the runbook
     save_runbook_with_update_semantics(runbook_data)

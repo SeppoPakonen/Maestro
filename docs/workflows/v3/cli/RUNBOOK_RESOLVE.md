@@ -27,7 +27,8 @@ cat docs/commands/batch_script_help.md | maestro runbook resolve -e -v "Derive a
 ## Flags
 
 - `-e, --eval`: Read freeform input from stdin instead of positional argument
-- `-v, --verbose`: Show prompt hash, engine, and validation summary
+- `-v, --verbose`: Show prompt hash, engine, evidence summary, validation summary
+- `-vv, --very-verbose`: Also print resolved AI prompt and pretty engine output (implies -v)
 - `--help`: Show help text with examples
 
 ## Resolve vs Discuss
@@ -48,6 +49,50 @@ The resolve command includes contextual information from the repository:
 - **CLI Surface**: Available commands and options (if `docs/maestro/cli_surface.json` exists)
 - **Repo Model**: Package/assembly counts (if `docs/maestro/repo_model.json` exists)
 - **Git Context**: Branch, uncommitted changes (if in a git repo)
+
+## WorkGraph Fallback (Automatic Robustness)
+
+When a runbook generation attempt produces invalid JSON or fails validation, `maestro runbook resolve` automatically falls back to creating a **WorkGraph** instead:
+
+### Behavior
+
+1. **Primary Attempt**: Generate structured runbook JSON using AI
+2. **Validation**: Check for required fields (`title`, `steps`, etc.)
+3. **On Failure**: Fall back to WorkGraph generation with structured Track/Phase/Task decomposition
+4. **Guidance**: Provide `maestro plan enact` command to materialize the WorkGraph
+
+### Why This Matters
+
+- **Real Repositories**: Complex projects may require multi-phase work that doesn't fit simple runbook structure
+- **Graceful Degradation**: Users always get actionable output (either runbook or work graph)
+- **No Silent Failures**: Clear messaging explains when fallback occurs and what to do next
+
+### Example Fallback Output
+
+```bash
+$ maestro runbook resolve -v "Add comprehensive test coverage and CI pipeline"
+
+Runbook validation failed. Falling back to WorkGraph generation...
+Validation errors: ['Missing required field: steps']
+Collected 15 evidence items for WorkGraph
+
+Runbook too big/ambiguous → created WorkGraph instead
+WorkGraph ID: wg-20260101-a3f5b8c2
+Domain: runbook
+Phases: 3
+Tasks: 12
+
+Next step: Run the following command to materialize the plan:
+  maestro plan enact wg-20260101-a3f5b8c2
+```
+
+### When Fallback Triggers
+
+- Runbook has no `title` field
+- Runbook has no `steps` or `steps` is empty
+- Runbook validation fails for other schema reasons
+
+See also: [maestro plan enact](./PLAN_ENACT.md) for WorkGraph materialization.
 
 ## JSON Schema Stability
 
@@ -79,6 +124,15 @@ maestro runbook resolve "Build the application and run tests"
 ### From Stdin with Verbose Output
 ```bash
 cat requirements.txt | maestro runbook resolve -e -v "Create build runbook from requirements"
+```
+
+### Very Verbose Output (Debug AI Interaction)
+```bash
+maestro runbook resolve -vv "Create a runbook for building the application"
+# This will show:
+# - The full AI prompt sent to the engine
+# - The raw AI response in a readable format
+# - All regular verbose information (prompt hash, engine, etc.)
 ```
 
 ### Check Results
