@@ -103,7 +103,7 @@ steps:
 """
     plan_path.write_text(plan_content)
 
-    with pytest.raises(ValueError, match="must have a 'maestro' key"):
+    with pytest.raises(ValueError, match="must have either 'maestro' or 'kind' field"):
         load_ops_plan(plan_path)
 
 

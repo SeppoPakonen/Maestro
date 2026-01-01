@@ -996,6 +996,77 @@ def handle_plan_decompose(args):
         for warning in discovery.warnings[:5]:  # Show first 5
             print_info(f"  - {warning}", 2)
 
+    # If domain=issues, enrich evidence with issues and log scan data
+    if args.domain == "issues":
+        if args.verbose or getattr(args, 'very_verbose', False):
+            print_info("Enriching evidence for domain=issues...", 2)
+
+        # Try to load issues from JSON storage
+        try:
+            from ..issues.json_store import list_issues_json, get_issues_summary
+            issues = list_issues_json(str(repo_root), severity=None, status="open")
+            if issues:
+                # Create a bounded summary of issues
+                issue_summary_lines = [f"Open issues ({len(issues)} total):"]
+                for issue in issues[:10]:  # Limit to first 10 for bounded evidence
+                    loc = f"{issue.file}:{issue.line}" if issue.file else "unknown"
+                    linked = f" [linked to {','.join(issue.linked_tasks)}]" if issue.linked_tasks else ""
+                    issue_summary_lines.append(
+                        f"  - {issue.issue_id} [{issue.severity}] {issue.message[:80]}{linked} ({loc})"
+                    )
+                if len(issues) > 10:
+                    issue_summary_lines.append(f"  ... and {len(issues) - 10} more")
+
+                discovery.evidence.append({
+                    "kind": "issues",
+                    "path": "docs/maestro/issues/",
+                    "summary": "\n".join(issue_summary_lines)
+                })
+
+                if args.verbose or getattr(args, 'very_verbose', False):
+                    print_info(f"Added {len(issues)} issues to evidence", 2)
+        except Exception as e:
+            # If issues storage doesn't exist yet or fails, just log a warning
+            discovery.warnings.append(f"Could not load issues: {e}")
+
+        # Try to load last log scan
+        try:
+            from ..log import list_scans, load_scan
+            scans = list_scans(str(repo_root))
+            if scans:
+                # Get most recent scan
+                last_scan = scans[-1]
+                scan_id = last_scan.get('scan_id')
+                if scan_id:
+                    scan_data = load_scan(scan_id, str(repo_root))
+                    if scan_data:
+                        meta = scan_data['meta']
+                        findings = scan_data['findings'][:5]  # Limit to first 5 findings
+
+                        finding_summary_lines = [f"Last log scan: {scan_id}"]
+                        finding_summary_lines.append(f"  Kind: {meta.get('kind')}")
+                        finding_summary_lines.append(f"  Timestamp: {meta.get('timestamp')}")
+                        finding_summary_lines.append(f"  Total findings: {len(scan_data['findings'])}")
+                        if findings:
+                            finding_summary_lines.append("  Sample findings:")
+                            for finding in findings:
+                                loc = f"{finding.file}:{finding.line}" if finding.file else "unknown"
+                                finding_summary_lines.append(
+                                    f"    - [{finding.severity}] {finding.message[:60]} ({loc})"
+                                )
+
+                        discovery.evidence.append({
+                            "kind": "log_scan",
+                            "path": f"docs/maestro/log_scans/{scan_id}/",
+                            "summary": "\n".join(finding_summary_lines)
+                        })
+
+                        if args.verbose or getattr(args, 'very_verbose', False):
+                            print_info(f"Added last log scan ({scan_id}) to evidence", 2)
+        except Exception as e:
+            # If log scan storage doesn't exist yet or fails, just log a warning
+            discovery.warnings.append(f"Could not load log scans: {e}")
+
     # Select AI engine
     preferred_order = [args.engine] if args.engine else None
     try:

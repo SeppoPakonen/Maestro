@@ -1,0 +1,50 @@
+kind: ops_run
+name: Real-world loop - issues to workgraph execution
+steps:
+  # Step 1: Repo discovery
+  - kind: maestro
+    args: ["repo", "resolve", "lite"]
+    timeout_s: 120
+    allow_write: false
+
+  # Step 2: (Optional) Build and capture output
+  # NOTE: This step will fail if there's no build system, but that's OK with continue-on-error
+  - kind: maestro
+    args: ["make"]
+    timeout_s: 300
+    allow_write: false
+
+  # Step 3: Log scan from last run (if exists)
+  - kind: maestro
+    args: ["log", "scan", "--last-run", "--kind", "build"]
+    timeout_s: 60
+    allow_write: false
+
+  # Step 4: Ingest issues from log scan
+  - kind: maestro
+    args: ["issues", "add", "--from-log", "<LAST_SCAN_ID>"]
+    timeout_s: 60
+    allow_write: true
+
+  # Step 5: Triage issues automatically
+  - kind: maestro
+    args: ["issues", "triage", "--auto"]
+    timeout_s: 60
+    allow_write: true
+
+  # Step 6: Generate WorkGraph from issues
+  - maestro: "plan decompose --domain issues 'Bring this repo to green build' -e"
+    timeout_s: 180
+    allow_write: true
+
+  # Step 7: Materialize WorkGraph to Track/Phase/Task
+  - kind: maestro
+    args: ["plan", "enact", "<LAST_WORKGRAPH_ID>"]
+    timeout_s: 120
+    allow_write: true
+
+  # Step 8: Execute WorkGraph in dry-run mode
+  - kind: maestro
+    args: ["plan", "run", "<LAST_WORKGRAPH_ID>", "--dry-run", "-v", "--max-steps", "5"]
+    timeout_s: 300
+    allow_write: false

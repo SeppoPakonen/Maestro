@@ -32,13 +32,36 @@ steps:
 
 ### Step Format
 
-Each step is an object with a single `maestro:` key containing the command to execute.
+Ops plans support two step formats:
+
+#### Old Format (Backward Compatible)
+
+Simple string command format:
 
 ```yaml
 - maestro: "repo resolve"
 ```
 
-**Important**: Only `maestro:` command steps are allowed. Arbitrary shell commands are **not supported** for security and determinism.
+#### New Structured Format (Recommended)
+
+Explicit format with timeout and metadata support:
+
+```yaml
+- kind: maestro
+  args: ["repo", "resolve", "-v"]
+  timeout_s: 120
+  cwd: "."
+  allow_write: false
+```
+
+**Fields**:
+- `kind` (required): Must be `maestro`
+- `args` (required): List of command arguments (e.g., `["repo", "resolve", "-v"]`)
+- `timeout_s` (optional): Timeout in seconds (default: 300)
+- `cwd` (optional): Working directory for command execution
+- `allow_write` (optional): If true, this step writes data and requires `--execute` flag (default: false)
+
+**Important**: Only `maestro` commands are allowed. Arbitrary shell commands are **not supported** for security and determinism.
 
 ## Examples
 
@@ -75,17 +98,75 @@ steps:
   - maestro: "workflow render hello-cli-workflow puml"
 ```
 
+### Example 4: Issues to WorkGraph Loop (Structured Format)
+
+```yaml
+kind: ops_run
+name: Real-world loop - issues to workgraph execution
+steps:
+  # Repo discovery
+  - kind: maestro
+    args: ["repo", "resolve", "lite"]
+    timeout_s: 120
+    allow_write: false
+
+  # Log scan from last run
+  - kind: maestro
+    args: ["log", "scan", "--last-run", "--kind", "build"]
+    timeout_s: 60
+    allow_write: false
+
+  # Ingest issues from log scan
+  - kind: maestro
+    args: ["issues", "add", "--from-log", "<LAST_SCAN_ID>"]
+    timeout_s: 60
+    allow_write: true
+
+  # Generate WorkGraph from issues
+  - kind: maestro
+    args: ["plan", "decompose", "--domain", "issues", "Bring repo to green build", "-e"]
+    timeout_s: 180
+    allow_write: true
+
+  # Materialize WorkGraph
+  - kind: maestro
+    args: ["plan", "enact", "<LAST_WORKGRAPH_ID>"]
+    timeout_s: 120
+    allow_write: true
+
+  # Execute WorkGraph (dry-run)
+  - kind: maestro
+    args: ["plan", "run", "<LAST_WORKGRAPH_ID>", "--dry-run", "-v", "--max-steps", "5"]
+    timeout_s: 300
+    allow_write: false
+```
+
 ## Placeholders
 
 Ops plans may reference outputs from previous steps with simple placeholders:
 
-- `<LAST_SCAN_ID>` - Last log scan ID
-- `<LAST_RUN_ID>` - Last ops run ID
+- `<LAST_RUN_ID>` - Current ops run ID (available immediately)
+- `<LAST_SCAN_ID>` - Last log scan ID (from `log scan` output)
+- `<LAST_WORKGRAPH_ID>` - Last WorkGraph ID (from `plan decompose` or `runbook resolve` output)
+- `<LAST_WORKGRAPH_RUN_ID>` - Last WorkGraph run ID (from `plan run` output)
 
 Placeholder notes:
 - `<LAST_RUN_ID>` is available immediately (current ops run ID).
 - `<LAST_SCAN_ID>` is filled from `log scan` output (`Scan created: <ID>`).
+- `<LAST_WORKGRAPH_ID>` is filled from `plan decompose` or `runbook resolve` output (`WorkGraph ID: <ID>` or `WorkGraph materialized: <ID>`).
+- `<LAST_WORKGRAPH_RUN_ID>` is filled from `plan run` output (`Run completed: <ID>`).
 - If a placeholder is used before it is available, execution fails. In dry-run mode, unresolved placeholders remain unchanged.
+
+### Metadata Linkage
+
+Step outputs are automatically parsed for IDs and stored in run record metadata:
+- `scan_id` - Extracted from log scan commands
+- `workgraph_id` - Extracted from plan decompose/runbook resolve commands
+- `workgraph_run_id` - Extracted from plan run commands
+
+Metadata is stored in:
+1. Individual step results (`steps.jsonl`)
+2. Run-level metadata (`meta.json`) with keys like `last_scan_id`, `last_workgraph_id`, etc.
 
 ## Run Records
 
@@ -160,6 +241,8 @@ maestro ops run plan.yaml
 
 Executes all steps and creates full run record.
 
+**Important**: Write steps (steps with `allow_write: true`) are skipped in normal mode unless `--execute` flag is passed.
+
 ### Dry-Run Mode
 
 ```bash
@@ -169,6 +252,27 @@ maestro ops run plan.yaml --dry-run
 - Shows what would be executed without running
 - Creates run record with `dry_run: true`
 - Steps are logged but not executed
+
+### Execute Mode (Allow Writes)
+
+```bash
+maestro ops run plan.yaml --execute
+```
+
+- Allows write steps to execute (steps with `allow_write: true`)
+- Default posture: safe, read-only operations only
+- Use `--execute` to enable steps that modify state (e.g., `issues add`, `plan enact`)
+
+**Write Steps**:
+- `issues add --from-log` - Ingests issues from log scans
+- `issues triage` - Updates issue metadata
+- `plan decompose` - Generates WorkGraphs (writes to `docs/maestro/plans/workgraphs/`)
+- `plan enact` - Materializes WorkGraphs to Track/Phase/Task JSON files
+
+**Read-Only Steps** (always execute):
+- `repo resolve` - Discovers repository structure
+- `log scan` - Scans logs for errors
+- `plan run --dry-run` - Previews WorkGraph execution without running commands
 
 ### Continue-on-Error Mode
 

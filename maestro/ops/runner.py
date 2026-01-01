@@ -32,16 +32,20 @@ class StepResult:
     duration_ms: int
     stdout: str = ""
     stderr: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSONL output."""
-        return {
+        result = {
             "step_index": self.step_index,
             "command": self.command,
             "started_at": self.started_at,
             "exit_code": self.exit_code,
             "duration_ms": self.duration_ms,
         }
+        if self.metadata:
+            result["metadata"] = self.metadata
+        return result
 
 
 @dataclass
@@ -55,10 +59,11 @@ class RunResult:
     dry_run: bool
     exit_code: int
     step_results: List[StepResult] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_meta_dict(self) -> Dict[str, Any]:
         """Convert to meta.json format."""
-        return {
+        result = {
             "run_id": self.run_id,
             "plan_name": self.plan_name,
             "plan_path": self.plan_path,
@@ -67,6 +72,9 @@ class RunResult:
             "dry_run": self.dry_run,
             "exit_code": self.exit_code,
         }
+        if self.metadata:
+            result["metadata"] = self.metadata
+        return result
 
     def to_summary_dict(self) -> Dict[str, Any]:
         """Convert to summary.json format."""
@@ -140,11 +148,34 @@ def load_ops_plan(plan_path: Path) -> Dict[str, Any]:
         if not isinstance(step, dict):
             raise ValueError(f"Step {i} must be an object")
 
-        if "maestro" not in step:
-            raise ValueError(f"Step {i} must have a 'maestro' key")
+        # Support both old format (maestro: "string") and new format (kind: maestro, args: [...])
+        if "kind" in step:
+            # New structured format
+            if step["kind"] != "maestro":
+                raise ValueError(f"Step {i}: only 'maestro' kind is supported, got '{step['kind']}'")
 
-        if not isinstance(step["maestro"], str):
-            raise ValueError(f"Step {i} 'maestro' value must be a string")
+            if "args" not in step:
+                raise ValueError(f"Step {i}: structured format requires 'args' field")
+
+            if not isinstance(step["args"], list):
+                raise ValueError(f"Step {i}: 'args' must be a list")
+
+            # Optional fields validation
+            if "timeout_s" in step and not isinstance(step["timeout_s"], (int, float)):
+                raise ValueError(f"Step {i}: 'timeout_s' must be a number")
+
+            if "cwd" in step and not isinstance(step["cwd"], str):
+                raise ValueError(f"Step {i}: 'cwd' must be a string")
+
+            if "allow_write" in step and not isinstance(step["allow_write"], bool):
+                raise ValueError(f"Step {i}: 'allow_write' must be a boolean")
+
+        elif "maestro" in step:
+            # Old simple format (backward compatibility)
+            if not isinstance(step["maestro"], str):
+                raise ValueError(f"Step {i}: 'maestro' value must be a string")
+        else:
+            raise ValueError(f"Step {i}: must have either 'maestro' or 'kind' field")
 
     return plan
 
@@ -175,11 +206,57 @@ def extract_scan_id(output: str) -> Optional[str]:
     return None
 
 
+def extract_workgraph_id(output: str) -> Optional[str]:
+    """Extract WorkGraph ID from command output.
+
+    Looks for patterns like:
+    - "WorkGraph created: wg-20260101-a3f5b8c2"
+    - "WorkGraph ID: wg-20260101-a3f5b8c2"
+    - "WorkGraph materialized: wg-20260101-a3f5b8c2"
+    - "created WorkGraph instead ... WorkGraph ID: wg-..."
+    """
+    for line in output.splitlines():
+        # Try "WorkGraph created: <id>" pattern
+        match = re.search(r"WorkGraph created:\s*(\S+)", line.strip())
+        if match:
+            return match.group(1)
+        # Try "WorkGraph ID: <id>" pattern
+        match = re.search(r"WorkGraph ID:\s*(\S+)", line.strip())
+        if match:
+            return match.group(1)
+        # Try "WorkGraph materialized: <id>" pattern
+        match = re.search(r"WorkGraph materialized:\s*(\S+)", line.strip())
+        if match:
+            return match.group(1)
+    return None
+
+
+def extract_workgraph_run_id(output: str) -> Optional[str]:
+    """Extract WorkGraph run ID from command output.
+
+    Looks for patterns like:
+    - "Run completed: wr-20260101-120000-a3f5b8c2"
+    - "Run ID: wr-20260101-120000-a3f5b8c2"
+    """
+    for line in output.splitlines():
+        # Try "Run completed: <id>" pattern
+        match = re.search(r"Run completed:\s*(\S+)", line.strip())
+        if match:
+            return match.group(1)
+        # Try "Run ID: <id>" pattern (for future compatibility)
+        match = re.search(r"Run ID:\s*(\S+)", line.strip())
+        if match:
+            return match.group(1)
+    return None
+
+
 def execute_step(
     command: str,
     dry_run: bool = False,
     docs_root: Optional[Path] = None,
-    allow_legacy: bool = False
+    allow_legacy: bool = False,
+    timeout: int = 300,
+    cwd: Optional[str] = None
 ) -> StepResult:
     """Execute a single maestro command step.
 
@@ -188,6 +265,8 @@ def execute_step(
         dry_run: If True, don't actually execute
         docs_root: Override docs root for testing
         allow_legacy: If True, allow legacy commands
+        timeout: Command timeout in seconds (default 300)
+        cwd: Working directory for command execution
 
     Returns:
         StepResult with execution details
@@ -205,7 +284,8 @@ def execute_step(
             exit_code=0,
             duration_ms=duration_ms,
             stdout="[DRY RUN]",
-            stderr=""
+            stderr="",
+            metadata={}
         )
 
     # Determine maestro entrypoint
@@ -234,7 +314,8 @@ def execute_step(
             text=True,
             env=env,
             stdin=subprocess.DEVNULL,
-            timeout=300  # 5 minute timeout per step
+            timeout=timeout,
+            cwd=cwd  # Use specified working directory if provided
         )
         exit_code = result.returncode
         stdout = result.stdout
@@ -242,13 +323,28 @@ def execute_step(
     except subprocess.TimeoutExpired:
         exit_code = 124  # Standard timeout exit code
         stdout = ""
-        stderr = "Step timed out after 300 seconds"
+        stderr = f"Step timed out after {timeout} seconds"
     except Exception as e:
         exit_code = 1
         stdout = ""
         stderr = f"Failed to execute: {e}"
 
     duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+
+    # Extract metadata from output (scan IDs, workgraph IDs, run IDs)
+    metadata = {}
+    if stdout:
+        scan_id = extract_scan_id(stdout)
+        if scan_id:
+            metadata["scan_id"] = scan_id
+
+        wg_id = extract_workgraph_id(stdout)
+        if wg_id:
+            metadata["workgraph_id"] = wg_id
+
+        wg_run_id = extract_workgraph_run_id(stdout)
+        if wg_run_id:
+            metadata["workgraph_run_id"] = wg_run_id
 
     return StepResult(
         step_index=0,  # Will be set by caller
@@ -257,7 +353,8 @@ def execute_step(
         exit_code=exit_code,
         duration_ms=duration_ms,
         stdout=stdout,
-        stderr=stderr
+        stderr=stderr,
+        metadata=metadata
     )
 
 
@@ -347,7 +444,8 @@ def run_ops_plan(
     plan_path: Path,
     dry_run: bool = False,
     continue_on_error: bool = False,
-    docs_root: Optional[Path] = None
+    docs_root: Optional[Path] = None,
+    execute_writes: bool = False
 ) -> RunResult:
     """Execute an ops plan.
 
@@ -356,6 +454,7 @@ def run_ops_plan(
         dry_run: If True, show what would be executed without running
         continue_on_error: If True, continue executing steps even if one fails
         docs_root: Override docs root for testing
+        execute_writes: If True, allow write steps to execute (default: False)
 
     Returns:
         RunResult with execution details
@@ -370,6 +469,8 @@ def run_ops_plan(
     placeholders: Dict[str, Optional[str]] = {
         "<LAST_RUN_ID>": run_id,
         "<LAST_SCAN_ID>": None,
+        "<LAST_WORKGRAPH_ID>": None,
+        "<LAST_WORKGRAPH_RUN_ID>": None,
     }
 
     # Initialize result
@@ -387,26 +488,63 @@ def run_ops_plan(
 
     # Execute steps
     for i, step in enumerate(plan["steps"]):
-        raw_command = step["maestro"]
+        # Extract command from step (support both old and new formats)
+        if "kind" in step:
+            # New structured format
+            # Convert args list to command string
+            raw_command = " ".join(step["args"])
+            timeout = int(step.get("timeout_s", 300))
+            cwd = step.get("cwd")
+            allow_write = step.get("allow_write", False)
+        else:
+            # Old simple format
+            raw_command = step["maestro"]
+            timeout = 300
+            cwd = None
+            allow_write = False
+
+        # Resolve placeholders in command
         command = resolve_placeholders(
             raw_command,
             placeholders,
             allow_unresolved=dry_run
         )
 
+        # Check if this is a write step that should be skipped
+        step_dry_run = dry_run
+        if allow_write and not execute_writes and not dry_run:
+            # This is a write step but --execute was not passed
+            # Force dry-run mode for this step
+            step_dry_run = True
+
+        # Execute step
         step_result = execute_step(
             command,
-            dry_run=dry_run,
+            dry_run=step_dry_run,
             docs_root=docs_root,
-            allow_legacy=allow_legacy
+            allow_legacy=allow_legacy,
+            timeout=timeout,
+            cwd=cwd
         )
         step_result.step_index = i
         result.step_results.append(step_result)
 
-        if step_result.exit_code == 0:
-            scan_id = extract_scan_id(step_result.stdout)
-            if scan_id:
-                placeholders["<LAST_SCAN_ID>"] = scan_id
+        # Update placeholders from step metadata
+        if step_result.exit_code == 0 and step_result.metadata:
+            if "scan_id" in step_result.metadata:
+                placeholders["<LAST_SCAN_ID>"] = step_result.metadata["scan_id"]
+            if "workgraph_id" in step_result.metadata:
+                placeholders["<LAST_WORKGRAPH_ID>"] = step_result.metadata["workgraph_id"]
+            if "workgraph_run_id" in step_result.metadata:
+                placeholders["<LAST_WORKGRAPH_RUN_ID>"] = step_result.metadata["workgraph_run_id"]
+
+        # Aggregate metadata into run result
+        if step_result.metadata:
+            for key, value in step_result.metadata.items():
+                # Store with step index prefix to avoid conflicts
+                result.metadata[f"step_{i}_{key}"] = value
+                # Also store as last known value (for easy access)
+                result.metadata[f"last_{key}"] = value
 
         # Check for failure
         if step_result.exit_code != 0:

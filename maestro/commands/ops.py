@@ -57,6 +57,11 @@ def add_ops_parser(subparsers) -> argparse.ArgumentParser:
         help='Show what would be executed without running'
     )
     run_parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Allow write steps to execute (default: dry-run for write steps)'
+    )
+    run_parser.add_argument(
         '--format',
         choices=['text', 'json'],
         default='text',
@@ -142,7 +147,8 @@ def handle_ops_run(args: argparse.Namespace) -> int:
         result = run_ops_plan(
             plan_path=plan_path,
             dry_run=args.dry_run,
-            continue_on_error=args.continue_on_error
+            continue_on_error=args.continue_on_error,
+            execute_writes=getattr(args, 'execute', False)
         )
 
         if args.format == 'json':
