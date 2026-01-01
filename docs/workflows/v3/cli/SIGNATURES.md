@@ -96,7 +96,7 @@ Replay accepts:
 - `maestro runbook step-add <ID> --actor <ACTOR> --action <ACTION> --expected <EXPECTED>`
 - `maestro runbook export <ID> --format {md|puml} [--out <PATH>]`
 - `maestro runbook render <ID> [--out <PATH>]`
-- `maestro runbook resolve [-v|--verbose] [--eval|-e] <freeform string>` (Freeform → JSON Runbook)
+- `maestro runbook resolve [-v|--verbose] [-vv|--very-verbose] [--eval|-e] <freeform string>` (Freeform → JSON Runbook)
 
 ## Runbook lifecycle (archive/restore)
 
@@ -384,6 +384,42 @@ Arguments:
 
 See also:
 - `docs/workflows/v3/cli/OPS_RUN_FORMAT.md` - Ops plan YAML format specification
+
+## Plan decompose
+
+### maestro plan decompose
+
+Decompose freeform request into structured WorkGraph plan with verifiable DoD.
+
+```bash
+maestro plan decompose [OPTIONS] <freeform>
+maestro plan decompose -e [OPTIONS]
+```
+
+Aliases: `dec`
+
+Arguments:
+- `<freeform>`: Freeform request text (optional if using `-e`)
+
+Options:
+- `-e, --eval` - Read freeform input from stdin
+- `--engine ENGINE` - AI engine to use (default: planner role engine)
+- `--profile PROFILE` - Planning profile: default, investor, purpose (default: default)
+- `--domain DOMAIN` - Domain: runbook, issues, workflow, convert, repo, general (default: general)
+- `--json` - Output full WorkGraph JSON to stdout
+- `--out PATH` - Write WorkGraph JSON to custom path
+- `-v, --verbose` - Show evidence summary, engine, validation summary
+- `-vv, --very-verbose` - Also print AI prompt and response
+
+Behavior:
+- Performs repo-agnostic discovery (max 40 files, 200KB)
+- Uses AI to generate WorkGraph JSON with tracks/phases/tasks
+- Validates all tasks have executable definition_of_done (hard gate)
+- Auto-repairs once if validation fails
+- Saves to `docs/maestro/plans/workgraphs/{id}.json` by default
+
+See also:
+- `docs/workflows/v3/cli/PLAN_DECOMPOSE.md` - Full decompose documentation
 
 ## Convert plan approval
 

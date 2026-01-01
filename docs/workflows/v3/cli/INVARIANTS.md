@@ -234,3 +234,30 @@ See also:
   - Failure: gate bypassed without explicit flag.
   - Next: add explicit override flag to work start command.
   - Implemented in: work command flag parsing and gate validation.
+
+## WorkGraph decomposition (plan decompose)
+
+- All WorkGraphs must have verifiable Definitions-of-Done (DoD).
+  - Failure: task missing `definition_of_done` or DoD is empty.
+  - Next: AI auto-repairs once; if still invalid, manual fix required.
+  - Implemented in: WorkGraph schema validation (`maestro/data/workgraph_schema.py`).
+- No "meta-runbook tasks" - all tasks must be machine-checkable.
+  - Failure: DoD has no `kind="command"` or `kind="file"` entry.
+  - Next: add explicit command to run or file to check.
+  - Implemented in: `DefinitionOfDone.__post_init__` validation.
+- Repo discovery must respect budgets (no unbounded resource use).
+  - Max 40 files processed
+  - Max 200KB total bytes collected
+  - Max 5 seconds per binary execution
+  - Failure: N/A (budgets enforced internally)
+  - Next: N/A (warnings logged if budget exceeded)
+  - Implemented in: `maestro/repo/discovery.py::discover_repo()`.
+- WorkGraph storage must be atomic (no partial writes).
+  - Failure: WorkGraph file corrupted or incomplete.
+  - Next: re-run `maestro plan decompose` to regenerate.
+  - Implemented in: `maestro/archive/workgraph_storage.py::save_workgraph()` using atomic write pattern.
+- WorkGraph IDs must be deterministic and collision-resistant.
+  - Format: `wg-YYYYMMDD-<shortsha>` (date + SHA256 hash of goal)
+  - Failure: duplicate ID generated (extremely rare).
+  - Next: change goal text slightly and regenerate.
+  - Implemented in: `WorkGraph.__post_init__` ID generation.
