@@ -2,6 +2,7 @@
 Unit tests for runbook command.
 """
 import json
+import os
 import pytest
 import tempfile
 import shutil
@@ -40,12 +41,17 @@ def temp_runbook_dir(monkeypatch):
     temp_dir = tempfile.mkdtemp()
     temp_path = Path(temp_dir)
 
-    # Mock Path.cwd() to return our temp directory
-    monkeypatch.setattr(Path, 'cwd', lambda: temp_path)
+    # Set MAESTRO_DOCS_ROOT to point to our temp directory
+    old_value = os.environ.get('MAESTRO_DOCS_ROOT')
+    monkeypatch.setenv('MAESTRO_DOCS_ROOT', str(temp_path))
 
     yield temp_path
 
     # Cleanup
+    if old_value is not None:
+        os.environ['MAESTRO_DOCS_ROOT'] = old_value
+    elif 'MAESTRO_DOCS_ROOT' in os.environ:
+        del os.environ['MAESTRO_DOCS_ROOT']
     shutil.rmtree(temp_dir)
 
 

@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from maestro.config.paths import get_docs_root
+
 
 def slugify(text: str) -> str:
     """Convert text to URL-friendly slug."""
@@ -421,7 +423,7 @@ def handle_runbook_command(args: argparse.Namespace) -> None:
 
 def _get_runbook_storage_path() -> Path:
     """Get the base path for runbook storage."""
-    return Path.cwd() / "docs" / "maestro" / "runbooks"
+    return get_docs_root() / "docs" / "maestro" / "runbooks"
 
 
 def _ensure_runbook_storage() -> None:
@@ -433,20 +435,69 @@ def _ensure_runbook_storage() -> None:
 
 
 def _load_index() -> List[Dict[str, Any]]:
-    """Load the runbook index."""
+    """Load the runbook index, rebuilding from filesystem if missing or stale."""
     index_path = _get_runbook_storage_path() / "index.json"
+    runbooks_dir = _get_runbook_storage_path() / "items"
+
+    # If index doesn't exist, rebuild it from filesystem
     if not index_path.exists():
-        return []
+        return _rebuild_index_from_filesystem()
+
+    # Load existing index
     with open(index_path, 'r') as f:
-        return json.load(f)
+        index = json.load(f)
+
+    # Check for stale entries (files that no longer exist) and rebuild if needed
+    stale_entries = []
+    for i, entry in enumerate(index):
+        runbook_path = runbooks_dir / f"{entry['id']}.json"
+        if not runbook_path.exists():
+            stale_entries.append(i)
+
+    # If there are stale entries, rebuild the index
+    if stale_entries:
+        return _rebuild_index_from_filesystem()
+
+    return index
+
+
+def _rebuild_index_from_filesystem() -> List[Dict[str, Any]]:
+    """Rebuild the runbook index from the filesystem."""
+    runbooks_dir = _get_runbook_storage_path() / "items"
+    runbooks_dir.mkdir(parents=True, exist_ok=True)
+
+    index = []
+    for runbook_file in runbooks_dir.glob("*.json"):
+        runbook_id = runbook_file.stem
+        runbook = _load_runbook(runbook_id)
+        if runbook:
+            index_entry = {
+                'id': runbook['id'],
+                'title': runbook['title'],
+                'tags': runbook.get('tags', []),
+                'status': runbook.get('status', 'proposed'),
+                'updated_at': runbook.get('updated_at', datetime.now().isoformat())
+            }
+            index.append(index_entry)
+
+    # Save the rebuilt index
+    _save_index(index)
+    return index
 
 
 def _save_index(index: List[Dict[str, Any]]) -> None:
-    """Save the runbook index."""
+    """Save the runbook index atomically."""
+    import tempfile
     _ensure_runbook_storage()
     index_path = _get_runbook_storage_path() / "index.json"
-    with open(index_path, 'w') as f:
-        json.dump(index, f, indent=2)
+
+    # Write to a temporary file first
+    with tempfile.NamedTemporaryFile(mode='w', dir=index_path.parent, delete=False, suffix='.tmp') as tmp_file:
+        json.dump(index, tmp_file, indent=2)
+        tmp_path = Path(tmp_file.name)
+
+    # Atomically move the temporary file to the target location
+    tmp_path.replace(index_path)
 
 
 def _load_runbook(runbook_id: str) -> Optional[Dict[str, Any]]:
@@ -459,12 +510,19 @@ def _load_runbook(runbook_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _save_runbook(runbook: Dict[str, Any]) -> None:
-    """Save a runbook."""
+    """Save a runbook atomically."""
+    import tempfile
     _ensure_runbook_storage()
     runbook_id = runbook['id']
     runbook_path = _get_runbook_storage_path() / "items" / f"{runbook_id}.json"
-    with open(runbook_path, 'w') as f:
-        json.dump(runbook, f, indent=2)
+
+    # Write to a temporary file first
+    with tempfile.NamedTemporaryFile(mode='w', dir=runbook_path.parent, delete=False, suffix='.tmp') as tmp_file:
+        json.dump(runbook, tmp_file, indent=2)
+        tmp_path = Path(tmp_file.name)
+
+    # Atomically move the temporary file to the target location
+    tmp_path.replace(runbook_path)
 
 
 def _generate_runbook_id(title: str) -> str:
@@ -1084,11 +1142,15 @@ def handle_runbook_archive(args: argparse.Namespace) -> None:
         return
 
 
-def handle_runbook_resolve(args: argparse.Namespace) -> None:
+def handle_runbook_resolve(args: argparse.Namespace, resolver=None) -> None:
     """Handle the runbook resolve command."""
     import sys
     import hashlib
-    from typing import Any, Dict, List
+    from typing import Any, Dict, List, Callable, Optional
+
+    # Use the provided resolver or default to create_runbook_from_freeform
+    if resolver is None:
+        resolver = create_runbook_from_freeform
 
     # Check if stdin is a TTY when using -e flag
     if args.eval:
@@ -1113,9 +1175,8 @@ def handle_runbook_resolve(args: argparse.Namespace) -> None:
         print(f"Engine: [FAKE_ENGINE - for testing purposes]")
         print(f"Input: {freeform_input[:100]}{'...' if len(freeform_input) > 100 else ''}")
 
-    # For now, create a simple runbook from the input
-    # In the full implementation, this would call the AI to generate the runbook
-    runbook_data = create_runbook_from_freeform(freeform_input, args.verbose)
+    # Use the injected resolver to create the runbook from freeform input
+    runbook_data = resolver(freeform_input, args.verbose)
 
     if runbook_data is None:
         print("Error: Failed to generate runbook from input.", file=sys.stderr)
