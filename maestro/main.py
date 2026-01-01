@@ -479,6 +479,10 @@ def main():
                 # Handle plan enact command
                 from .commands.plan import handle_plan_enact
                 handle_plan_enact(args)
+            elif args.plan_subcommand == 'run':
+                # Handle plan run command
+                from .commands.plan import handle_plan_run
+                handle_plan_run(args)
         else:
             # No subcommand provided - show help
             if hasattr(args, "func") and callable(args.func):

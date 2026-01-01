@@ -1152,6 +1152,115 @@ def handle_plan_enact(args):
         print_info(f"Files written to: {base_path}/{{tracks,phases,tasks}}/", 2)
 
 
+def handle_plan_run(args):
+    """Handle maestro plan run command."""
+    import os
+    from pathlib import Path
+    from ..data.workgraph_schema import WorkGraph
+    from ..archive.workgraph_storage import load_workgraph
+    from ..config.paths import get_workgraph_dir
+    from ..plan_run.runner import WorkGraphRunner
+
+    # Load WorkGraph
+    wg_dir = get_workgraph_dir()
+    wg_path = wg_dir / f"{args.workgraph_id}.json"
+
+    if not wg_path.exists():
+        print_error(f"Error: WorkGraph not found: {args.workgraph_id}", 2)
+        print_error(f"Expected path: {wg_path}", 2)
+        sys.exit(1)
+
+    try:
+        workgraph = load_workgraph(wg_path)
+    except Exception as e:
+        print_error(f"Error loading WorkGraph: {e}", 2)
+        sys.exit(1)
+
+    # Determine dry-run mode (default true, unless --execute is specified)
+    dry_run = not getattr(args, 'execute', False)
+
+    # Parse --only and --skip flags
+    only_tasks = None
+    if getattr(args, 'only', None):
+        only_tasks = [t.strip() for t in args.only.split(',')]
+
+    skip_tasks = None
+    if getattr(args, 'skip', None):
+        skip_tasks = [t.strip() for t in args.skip.split(',')]
+
+    # Get command timeout from env var (default 60s)
+    cmd_timeout = int(os.environ.get('MAESTRO_PLAN_RUN_CMD_TIMEOUT', '60'))
+
+    # Verbose flags
+    verbose = getattr(args, 'verbose', False)
+    very_verbose = getattr(args, 'very_verbose', False)
+    if very_verbose:
+        verbose = True
+
+    # Show WorkGraph summary if very verbose
+    if very_verbose:
+        print_info(f"WorkGraph: {workgraph.id}", 2)
+        print_info(f"  Goal: {workgraph.goal[:100]}...", 2)
+        print_info(f"  Phases: {len(workgraph.phases)}", 2)
+        total_tasks = sum(len(p.tasks) for p in workgraph.phases)
+        print_info(f"  Tasks: {total_tasks}", 2)
+        if dry_run:
+            print_info("  Mode: DRY RUN (preview only)", 2)
+        else:
+            print_info("  Mode: EXECUTE (running commands)", 2)
+        print()
+
+    # Create runner
+    try:
+        runner = WorkGraphRunner(
+            workgraph=workgraph,
+            workgraph_dir=wg_dir,
+            dry_run=dry_run,
+            max_steps=getattr(args, 'max_steps', None),
+            only_tasks=only_tasks,
+            skip_tasks=skip_tasks,
+            verbose=verbose,
+            very_verbose=very_verbose,
+            resume_run_id=getattr(args, 'resume', None),
+            cmd_timeout=cmd_timeout
+        )
+    except ValueError as e:
+        print_error(f"Error initializing runner: {e}", 2)
+        sys.exit(1)
+
+    # Run
+    try:
+        summary = runner.run()
+    except Exception as e:
+        print_error(f"Error running WorkGraph: {e}", 2)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+    # Output results
+    if getattr(args, 'json', False):
+        # JSON mode: print to stdout
+        print(json.dumps(summary, indent=2))
+    else:
+        # Human-readable mode
+        print()
+        print_success(f"Run completed: {summary['run_id']}", 2)
+        print_info(f"WorkGraph: {summary['workgraph_id']}", 2)
+        print_info(f"Tasks completed: {summary['tasks_completed']}", 2)
+        print_info(f"Tasks failed: {summary['tasks_failed']}", 2)
+        print_info(f"Tasks skipped: {summary['tasks_skipped']}", 2)
+
+        if dry_run:
+            print_info("Mode: DRY RUN (no commands executed)", 2)
+        else:
+            print_info("Mode: EXECUTE", 2)
+
+        # Show run record location
+        run_dir = wg_dir / args.workgraph_id / "runs" / summary['run_id']
+        print_info(f"Run record: {run_dir}/", 2)
+
+
 def add_plan_parser(subparsers):
     """Add plan command subparsers."""
     plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
@@ -1301,6 +1410,62 @@ def add_plan_parser(subparsers):
         '-v', '--verbose',
         action='store_true',
         help='Show detailed output'
+    )
+
+    # Plan run subcommand
+    run_parser = plan_subparsers.add_parser(
+        'run',
+        help='Execute a WorkGraph plan with deterministic runner'
+    )
+    run_parser.add_argument(
+        'workgraph_id',
+        help='WorkGraph ID to run (e.g., wg-20260101-a3f5b8c2)'
+    )
+    run_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        default=True,
+        help='Preview only, do not execute commands (default: true)'
+    )
+    run_parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually execute commands (overrides --dry-run)'
+    )
+    run_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output summary as JSON to stdout'
+    )
+    run_parser.add_argument(
+        '--max-steps',
+        type=int,
+        help='Stop after N tasks (default: run all)'
+    )
+    run_parser.add_argument(
+        '--resume',
+        metavar='RUN_ID',
+        help='Resume from an existing run record'
+    )
+    run_parser.add_argument(
+        '--only',
+        metavar='TASK_ID,...',
+        help='Only run specified tasks (comma-separated)'
+    )
+    run_parser.add_argument(
+        '--skip',
+        metavar='TASK_ID,...',
+        help='Skip specified tasks (comma-separated)'
+    )
+    run_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show detailed output'
+    )
+    run_parser.add_argument(
+        '-vv', '--very-verbose',
+        action='store_true',
+        help='Show bounded plan summary and per-task reasoning'
     )
 
     return plan_parser

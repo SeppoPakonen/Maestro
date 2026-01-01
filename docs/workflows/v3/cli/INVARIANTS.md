@@ -276,3 +276,36 @@ See also:
   - Failure: enact writes to repo code or other locations.
   - Next: verify JsonStore base_path is under docs/.
   - Implemented in: `JsonStore` validation and `handle_plan_enact()` path handling.
+
+## Plan run (WorkGraph execution)
+
+- Run records are append-only and deterministic.
+  - Failure: modifying existing events or run meta after creation.
+  - Next: verify append_event() only appends, never modifies.
+  - Implemented in: `maestro.plan_run.storage.append_event()` appends to JSONL file.
+- Run IDs must be deterministic and collision-resistant.
+  - Format: `wr-YYYYMMDD-HHMMSS-<shortsha>` (date + time + SHA256 hash)
+  - Failure: duplicate run ID generated.
+  - Next: verify generate_run_id() uses workgraph_id + timestamp hash.
+  - Implemented in: `maestro.plan_run.models.generate_run_id()`.
+- Resume must detect WorkGraph changes and refuse to continue.
+  - Failure: resume continues with stale/changed WorkGraph.
+  - Next: compute workgraph hash on start and compare on resume.
+  - Implemented in: `WorkGraphRunner._resume_run()` checks workgraph_hash.
+- Topological ordering must be deterministic.
+  - Failure: same WorkGraph produces different task execution order.
+  - Next: sort runnable tasks by task_id for stable ordering.
+  - Implemented in: `WorkGraphRunner._get_runnable_tasks()` with sorted().
+- Dry-run mode must never execute subprocesses.
+  - Failure: commands executed in dry-run mode.
+  - Next: verify _dry_run_task() never calls subprocess.
+  - Implemented in: `WorkGraphRunner._dry_run_task()` only emits events.
+- Command execution must use timeout to prevent hangs.
+  - Default: 60s (configurable via MAESTRO_PLAN_RUN_CMD_TIMEOUT).
+  - Failure: commands run indefinitely.
+  - Next: verify subprocess.run() uses timeout parameter.
+  - Implemented in: `WorkGraphRunner._execute_command()` with timeout.
+- Run records must only write to docs/maestro/plans/workgraphs/.
+  - Failure: run records written to repo code or other locations.
+  - Next: verify get_run_dir() returns path under workgraph_dir.
+  - Implemented in: `maestro.plan_run.storage.get_run_dir()`.

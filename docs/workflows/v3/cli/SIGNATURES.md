@@ -459,6 +459,85 @@ maestro plan enact wg-20260101-a3f5b8c2 --json
 See also:
 - `docs/workflows/v3/cli/PLAN_ENACT.md` - Full enact documentation
 
+### maestro plan run
+
+Execute a WorkGraph plan with deterministic topological runner.
+
+```bash
+maestro plan run <WORKGRAPH_ID> [OPTIONS]
+```
+
+Arguments:
+- `<WORKGRAPH_ID>`: WorkGraph ID to execute (e.g., `wg-20260101-a3f5b8c2`)
+
+Options:
+- `--dry-run` - Preview only, do not execute commands (default: true for safety)
+- `--execute` - Actually execute commands (overrides --dry-run)
+- `--json` - Output summary as JSON to stdout
+- `--max-steps N` - Stop after N tasks (default: run all)
+- `--resume RUN_ID` - Resume from an existing run record
+- `--only TASK_ID,...` - Only run specified tasks (comma-separated)
+- `--skip TASK_ID,...` - Skip specified tasks (comma-separated)
+- `-v, --verbose` - Show detailed output
+- `-vv, --very-verbose` - Show bounded plan summary and per-task reasoning
+
+Environment Variables:
+- `MAESTRO_PLAN_RUN_CMD_TIMEOUT` - Command timeout in seconds (default: 60)
+
+Behavior:
+- Reads WorkGraph from `docs/maestro/plans/workgraphs/{id}.json`
+- Executes tasks in topological order (dependencies first)
+- Dry-run mode (default): shows what would be executed without running commands
+- Execute mode: runs DoD commands with timeout and captures output
+- Creates run record under `docs/maestro/plans/workgraphs/{id}/runs/{run_id}/`
+- Run records are append-only JSONL event logs
+- Resume: continues from last completed task, detects WorkGraph changes
+
+Run Record Structure:
+```
+docs/maestro/plans/workgraphs/<WORKGRAPH_ID>/
+  runs/
+    index.json                 # Append-only index of runs
+    <RUN_ID>/
+      meta.json                # Run metadata
+      events.jsonl             # Append-only event log
+```
+
+Events:
+- `RUN_STARTED` - Run started
+- `TASK_PLANNED` - Task identified as runnable
+- `TASK_STARTED` - Task execution started
+- `TASK_RESULT` - Task completed (ok|fail|blocked)
+- `TASK_SKIPPED` - Task skipped
+- `RUN_SUMMARY` - Run completed
+
+Examples:
+```bash
+# Dry-run (preview only, default)
+maestro plan run wg-20260101-a3f5b8c2
+
+# Execute commands (explicit)
+maestro plan run wg-20260101-a3f5b8c2 --execute
+
+# Limit to 5 tasks
+maestro plan run wg-20260101-a3f5b8c2 --dry-run --max-steps 5
+
+# Resume from previous run
+maestro plan run wg-20260101-a3f5b8c2 --resume wr-20260101-120000-a1b2c3d4
+
+# Only run specific tasks
+maestro plan run wg-20260101-a3f5b8c2 --only TASK-001,TASK-002
+
+# Skip specific tasks
+maestro plan run wg-20260101-a3f5b8c2 --skip TASK-003
+
+# Very verbose output
+maestro plan run wg-20260101-a3f5b8c2 -vv --max-steps 3
+```
+
+See also:
+- `docs/workflows/v3/cli/PLAN_RUN.md` - Full run documentation
+
 ## Convert plan approval
 
 - `maestro convert plan <PIPELINE_ID>`
