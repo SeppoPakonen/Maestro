@@ -471,6 +471,10 @@ def main():
                     auto_apply=getattr(args, 'auto_apply', False),
                     stop_after_apply=getattr(args, 'stop_after_apply', False)
                 )
+            elif args.plan_subcommand == 'decompose':
+                # Handle plan decompose command
+                from .commands.plan import handle_plan_decompose
+                handle_plan_decompose(args)
         else:
             # No subcommand provided - show help
             if hasattr(args, "func") and callable(args.func):

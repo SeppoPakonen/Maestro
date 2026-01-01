@@ -84,3 +84,21 @@ def get_workflows_root() -> Path:
         Path to workflows directory
     """
     return get_docs_root() / "docs" / "workflows" / "v3" / "workflows"
+
+
+def get_workgraph_dir() -> Path:
+    """Get the workgraph directory.
+
+    Returns:
+        Path to workgraph directory (docs/maestro/plans/workgraphs by default)
+    """
+    return get_docs_root() / "docs" / "maestro" / "plans" / "workgraphs"
+
+
+def get_workgraph_index_path() -> Path:
+    """Get the workgraph index file path.
+
+    Returns:
+        Path to workgraph index JSON file
+    """
+    return get_workgraph_dir() / "index.json"

@@ -959,6 +959,113 @@ Return a JSON object with this structure:
     return prompt
 
 
+def handle_plan_decompose(args):
+    """Handle maestro plan decompose command."""
+    from pathlib import Path
+    from ..repo.discovery import discover_repo, DiscoveryBudget
+    from ..builders.workgraph_generator import WorkGraphGenerator
+    from ..archive.workgraph_storage import save_workgraph
+    from ..config.paths import get_workgraph_dir
+    from ..ai.engine_selector import select_engine_for_role
+
+    # Read freeform input
+    if args.eval:
+        if sys.stdin.isatty():
+            print_error("Error: -e flag requires input from stdin, not terminal.", 2)
+            print_error("Usage: echo 'your request' | maestro plan decompose -e", 2)
+            sys.exit(1)
+        freeform_request = sys.stdin.read()
+    else:
+        if not args.freeform:
+            print_error("Error: Freeform request required when -e is not set.", 2)
+            sys.exit(1)
+        freeform_request = args.freeform
+
+    # Repo discovery
+    repo_root = Path.cwd()
+    budget = DiscoveryBudget()
+
+    if args.verbose or getattr(args, 'very_verbose', False):
+        print_info("Starting repo discovery...", 2)
+
+    discovery = discover_repo(repo_root, budget)
+
+    if args.verbose or getattr(args, 'very_verbose', False):
+        print_info(f"Collected {len(discovery.evidence)} evidence items", 2)
+        print_info(f"Warnings: {len(discovery.warnings)}", 2)
+        for warning in discovery.warnings[:5]:  # Show first 5
+            print_info(f"  - {warning}", 2)
+
+    # Select AI engine
+    preferred_order = [args.engine] if args.engine else None
+    try:
+        engine = select_engine_for_role('planner', preferred_order=preferred_order)
+    except Exception as e:
+        print_error(f"Error selecting engine: {e}", 2)
+        sys.exit(1)
+
+    if args.verbose or getattr(args, 'very_verbose', False):
+        print_info(f"Using engine: {engine.name}", 2)
+
+    # Generate WorkGraph
+    generator = WorkGraphGenerator(
+        engine=engine,
+        verbose=args.verbose or getattr(args, 'very_verbose', False)
+    )
+
+    try:
+        workgraph = generator.generate(
+            freeform_request=freeform_request,
+            discovery=discovery,
+            domain=args.domain,
+            profile=args.profile
+        )
+    except Exception as e:
+        print_error(f"Failed to generate WorkGraph: {e}", 2)
+        if getattr(args, 'very_verbose', False):
+            print_info(f"Last prompt:\n{generator.last_prompt[:1000]}...", 2)
+            print_info(f"Last response:\n{generator.last_response[:1000]}...", 2)
+        sys.exit(1)
+
+    # Very verbose: show AI prompt and response
+    if getattr(args, 'very_verbose', False):
+        print_header("AI PROMPT (sent to engine)")
+        prompt_preview = generator.last_prompt[:1000]
+        if len(generator.last_prompt) > 1000:
+            prompt_preview += "... (truncated)"
+        print(prompt_preview)
+
+        print_header("AI RESPONSE (raw)")
+        response_preview = generator.last_response[:1000]
+        if len(generator.last_response) > 1000:
+            response_preview += "... (truncated)"
+        print(response_preview)
+
+    # Save WorkGraph
+    if args.out:
+        output_path = Path(args.out)
+    else:
+        wg_dir = get_workgraph_dir()
+        output_path = wg_dir / f"{workgraph.id}.json"
+
+    save_workgraph(workgraph, output_path)
+
+    # Output results
+    if args.json:
+        # JSON mode: print to stdout
+        print(json.dumps(workgraph.to_dict(), indent=2))
+    else:
+        # Human-readable mode
+        print_success(f"WorkGraph created: {workgraph.id}", 2)
+        print_info(f"Domain: {workgraph.domain}", 2)
+        print_info(f"Profile: {workgraph.profile}", 2)
+        print_info(f"Track: {workgraph.track.get('name', 'N/A')}", 2)
+        print_info(f"Phases: {len(workgraph.phases)}", 2)
+        total_tasks = sum(len(p.tasks) for p in workgraph.phases)
+        print_info(f"Tasks: {total_tasks}", 2)
+        print_info(f"Saved to: {output_path}", 2)
+
+
 def add_plan_parser(subparsers):
     """Add plan command subparsers."""
     plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
@@ -1024,5 +1131,57 @@ def add_plan_parser(subparsers):
     explore_parser.add_argument('--save-session', action='store_true', default=False, help='Force session logging')
     explore_parser.add_argument('--auto-apply', action='store_true', default=False, help='Apply without asking each iteration (dangerous but explicit)')
     explore_parser.add_argument('--stop-after-apply', action='store_true', default=False, help='Apply one iteration then stop')
+
+    # Plan decompose subcommand
+    decompose_parser = plan_subparsers.add_parser(
+        'decompose',
+        aliases=['dec'],
+        help='Decompose freeform request into WorkGraph plan'
+    )
+    decompose_parser.add_argument(
+        'freeform',
+        nargs='?',
+        help='Freeform request text'
+    )
+    decompose_parser.add_argument(
+        '-e', '--eval',
+        action='store_true',
+        help='Read freeform input from stdin'
+    )
+    decompose_parser.add_argument(
+        '--engine',
+        help='AI engine to use (default: planner role engine)'
+    )
+    decompose_parser.add_argument(
+        '--profile',
+        default='default',
+        choices=['default', 'investor', 'purpose'],
+        help='Planning profile (default: default)'
+    )
+    decompose_parser.add_argument(
+        '--domain',
+        default='general',
+        choices=['runbook', 'issues', 'workflow', 'convert', 'repo', 'general'],
+        help='Domain for decomposition (default: general)'
+    )
+    decompose_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output full WorkGraph JSON to stdout'
+    )
+    decompose_parser.add_argument(
+        '--out',
+        help='Write WorkGraph JSON to path (default: docs/maestro/plans/workgraphs/{id}.json)'
+    )
+    decompose_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show evidence summary, engine, validation summary'
+    )
+    decompose_parser.add_argument(
+        '-vv', '--very-verbose',
+        action='store_true',
+        help='Also print AI prompt and response'
+    )
 
     return plan_parser
