@@ -1,0 +1,2082 @@
+{
+  "repo_root": "/e/active/sblo/Dev/BatchScriptShell",
+  "scan_timestamp": "2025-12-31T21:06:56.726897",
+  "assemblies": [
+    {
+      "assembly_id": "10c944eb66acb26b",
+      "name": "scripts",
+      "root_relpath": ".",
+      "kind": "scripts",
+      "package_ids": [
+        "2fb96494b7653b15",
+        "2fb96494b7653b15",
+        "2fb96494b7653b15",
+        "fa2a2938f0dc47be",
+        "fa2a2938f0dc47be",
+        "fa2a2938f0dc47be"
+      ]
+    },
+    {
+      "assembly_id": "10c944eb66acb26b",
+      "name": "BatchScriptShell",
+      "root_relpath": ".",
+      "kind": "root",
+      "package_ids": [
+        "2fb96494b7653b15",
+        "2fb96494b7653b15",
+        "2fb96494b7653b15",
+        "fa2a2938f0dc47be",
+        "fa2a2938f0dc47be",
+        "fa2a2938f0dc47be"
+      ]
+    },
+    {
+      "assembly_id": "b6eb3f85fcb8ecf0",
+      "name": "docs",
+      "root_relpath": "docs",
+      "kind": "docs",
+      "package_ids": []
+    },
+    {
+      "assembly_id": "24b9e0d5aaa293c7",
+      "name": "tests",
+      "root_relpath": "tests",
+      "kind": "tests",
+      "package_ids": []
+    }
+  ],
+  "packages": [
+    {
+      "package_id": "2fb96494b7653b15",
+      "name": "docs-configuration",
+      "dir_relpath": "docs",
+      "package_relpath": "docs",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "2fb96494b7653b15",
+      "name": "docs-documentation",
+      "dir_relpath": "docs",
+      "package_relpath": "docs",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "2fb96494b7653b15",
+      "name": "docs-other",
+      "dir_relpath": "docs",
+      "package_relpath": "docs",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "fa2a2938f0dc47be",
+      "name": "tests-documentation",
+      "dir_relpath": "tests",
+      "package_relpath": "tests",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "fa2a2938f0dc47be",
+      "name": "tests-other",
+      "dir_relpath": "tests",
+      "package_relpath": "tests",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "fa2a2938f0dc47be",
+      "name": "tests-scripts",
+      "dir_relpath": "tests",
+      "package_relpath": "tests",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "2fb96494b7653b15",
+      "name": "docs-configuration",
+      "dir_relpath": "docs",
+      "package_relpath": "docs",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "2fb96494b7653b15",
+      "name": "docs-documentation",
+      "dir_relpath": "docs",
+      "package_relpath": "docs",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "2fb96494b7653b15",
+      "name": "docs-other",
+      "dir_relpath": "docs",
+      "package_relpath": "docs",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "fa2a2938f0dc47be",
+      "name": "tests-documentation",
+      "dir_relpath": "tests",
+      "package_relpath": "tests",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "fa2a2938f0dc47be",
+      "name": "tests-other",
+      "dir_relpath": "tests",
+      "package_relpath": "tests",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "fa2a2938f0dc47be",
+      "name": "tests-scripts",
+      "dir_relpath": "tests",
+      "package_relpath": "tests",
+      "assembly_id": "10c944eb66acb26b",
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "548d6dcc3c367c40",
+      "name": "bss",
+      "dir_relpath": ".",
+      "package_relpath": ".",
+      "assembly_id": null,
+      "build_system": "multi"
+    },
+    {
+      "package_id": "548d6dcc3c367c40",
+      "name": "scripts-other",
+      "dir_relpath": ".",
+      "package_relpath": ".",
+      "assembly_id": null,
+      "build_system": "virtual"
+    },
+    {
+      "package_id": "548d6dcc3c367c40",
+      "name": "scripts-scripts",
+      "dir_relpath": ".",
+      "package_relpath": ".",
+      "assembly_id": null,
+      "build_system": "virtual"
+    }
+  ],
+  "assemblies_detected": [
+    {
+      "name": "docs",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell/docs",
+      "package_folders": [],
+      "evidence_refs": [
+        "detected docs directory"
+      ],
+      "assembly_type": "docs",
+      "packages": [
+        "docs-configuration",
+        "docs-documentation",
+        "docs-other"
+      ],
+      "package_dirs": [
+        "/e/active/sblo/Dev/BatchScriptShell/docs",
+        "/e/active/sblo/Dev/BatchScriptShell/docs",
+        "/e/active/sblo/Dev/BatchScriptShell/docs"
+      ],
+      "build_systems": [
+        "virtual"
+      ],
+      "metadata": {
+        "file_count": 79
+      }
+    },
+    {
+      "name": "tests",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell/tests",
+      "package_folders": [],
+      "evidence_refs": [
+        "detected tests directory"
+      ],
+      "assembly_type": "tests",
+      "packages": [
+        "tests-documentation",
+        "tests-other",
+        "tests-scripts"
+      ],
+      "package_dirs": [
+        "/e/active/sblo/Dev/BatchScriptShell/tests",
+        "/e/active/sblo/Dev/BatchScriptShell/tests",
+        "/e/active/sblo/Dev/BatchScriptShell/tests"
+      ],
+      "build_systems": [
+        "virtual"
+      ],
+      "metadata": {
+        "file_count": 25
+      }
+    },
+    {
+      "name": "scripts",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell",
+      "package_folders": [],
+      "evidence_refs": [
+        "detected script files in root"
+      ],
+      "assembly_type": "scripts",
+      "packages": [
+        "scripts-other",
+        "scripts-scripts"
+      ],
+      "package_dirs": [
+        "/e/active/sblo/Dev/BatchScriptShell",
+        "/e/active/sblo/Dev/BatchScriptShell"
+      ],
+      "build_systems": [
+        "virtual"
+      ],
+      "metadata": {
+        "script_count": 28,
+        "scripts": [
+          "build.sh",
+          "cd_home_quoted_test.bat",
+          "cd_home_test.bat",
+          "cd_test.bat",
+          "cd_userprofile_test.bat",
+          "comprehensive_test.bat",
+          "env_test.bat",
+          "minimal_test.bat",
+          "redirection_test.bat",
+          "run_all_tests.sh",
+          "simple_test.bat",
+          "test_builtins.bat",
+          "test_del_env.bat",
+          "test_echo.sh",
+          "test_env.bat",
+          "test_env_expansion.bat",
+          "test_escaped.bat",
+          "test_find.bat",
+          "test_find_env.bat",
+          "test_find_simple.bat",
+          "test_minimal.bat",
+          "test_nonexistent.bat",
+          "test_redir.bat",
+          "test_redir_env.bat",
+          "test_set_env.bat",
+          "test_set_simple.bat",
+          "test_type_env.bat",
+          "web_scraper.py"
+        ]
+      }
+    },
+    {
+      "name": "BatchScriptShell",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell",
+      "package_folders": [
+        "/e/active/sblo/Dev/BatchScriptShell",
+        "/e/active/sblo/Dev/BatchScriptShell",
+        "/e/active/sblo/Dev/BatchScriptShell"
+      ],
+      "evidence_refs": [
+        "root assembly for packages in root directory"
+      ],
+      "assembly_type": "root",
+      "packages": [
+        "bss",
+        "scripts-other",
+        "scripts-scripts"
+      ],
+      "package_dirs": [
+        "/e/active/sblo/Dev/BatchScriptShell",
+        "/e/active/sblo/Dev/BatchScriptShell",
+        "/e/active/sblo/Dev/BatchScriptShell"
+      ],
+      "build_systems": [
+        "virtual",
+        "multi"
+      ],
+      "metadata": {
+        "package_count": 3
+      }
+    }
+  ],
+  "packages_detected": [
+    {
+      "name": "bss",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell",
+      "upp_path": "CMakeLists.txt",
+      "files": [
+        "shell.c"
+      ],
+      "upp": null,
+      "build_system": "multi",
+      "dependencies": [],
+      "groups": [
+        {
+          "name": "C/C++",
+          "files": [
+            "shell.c"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    },
+    {
+      "name": "docs-configuration",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell/docs",
+      "upp_path": "",
+      "files": [
+        "docs/maestro/repo_model.json",
+        "docs/maestro/repo_state.json"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    },
+    {
+      "name": "docs-documentation",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell/docs",
+      "upp_path": "",
+      "files": [
+        "docs/000_index.md",
+        "docs/001_overview.md",
+        "docs/003_batch_script_discussion.md",
+        "docs/003_environment.md",
+        "docs/004_commands.md",
+        "docs/005_files.md",
+        "docs/006_syntax.md",
+        "docs/007_variables.md",
+        "docs/008_comments.md",
+        "docs/009_strings.md",
+        "docs/010_arrays.md",
+        "docs/011_decision_making.md",
+        "docs/012_operators.md",
+        "docs/013_date_time.md",
+        "docs/014_input_output.md",
+        "docs/015_return_code.md",
+        "docs/016_functions.md",
+        "docs/017_process.md",
+        "docs/018_aliases.md",
+        "docs/019_devices.md",
+        "docs/020_registry.md",
+        "docs/021_network.md",
+        "docs/022_printing.md",
+        "docs/023_debugging.md",
+        "docs/024_logging.md",
+        "docs/025_quick_guide.md",
+        "docs/026_useful_resources.md",
+        "docs/commands/batch_script_assoc.md",
+        "docs/commands/batch_script_attrib.md",
+        "docs/commands/batch_script_cd.md",
+        "docs/commands/batch_script_chkdsk.md",
+        "docs/commands/batch_script_choice.md",
+        "docs/commands/batch_script_cls.md",
+        "docs/commands/batch_script_cmd.md",
+        "docs/commands/batch_script_comp.md",
+        "docs/commands/batch_script_convert.md",
+        "docs/commands/batch_script_copy.md",
+        "docs/commands/batch_script_date.md",
+        "docs/commands/batch_script_del.md",
+        "docs/commands/batch_script_dir.md",
+        "docs/commands/batch_script_diskpart.md",
+        "docs/commands/batch_script_driverquery.md",
+        "docs/commands/batch_script_echo.md",
+        "docs/commands/batch_script_exit.md",
+        "docs/commands/batch_script_expand.md",
+        "docs/commands/batch_script_fc.md",
+        "docs/commands/batch_script_find.md",
+        "docs/commands/batch_script_format.md",
+        "docs/commands/batch_script_help.md",
+        "docs/commands/batch_script_ipconfig.md",
+        "docs/commands/batch_script_label.md",
+        "docs/commands/batch_script_md.md",
+        "docs/commands/batch_script_more.md",
+        "docs/commands/batch_script_move.md",
+        "docs/commands/batch_script_net.md",
+        "docs/commands/batch_script_path.md",
+        "docs/commands/batch_script_pause.md",
+        "docs/commands/batch_script_ping.md",
+        "docs/commands/batch_script_prompt.md",
+        "docs/commands/batch_script_rd.md",
+        "docs/commands/batch_script_rem.md",
+        "docs/commands/batch_script_ren.md",
+        "docs/commands/batch_script_set.md",
+        "docs/commands/batch_script_shutdown.md",
+        "docs/commands/batch_script_sort.md",
+        "docs/commands/batch_script_start.md",
+        "docs/commands/batch_script_subst.md",
+        "docs/commands/batch_script_time.md",
+        "docs/commands/batch_script_title.md",
+        "docs/commands/batch_script_tree.md",
+        "docs/commands/batch_script_type.md",
+        "docs/commands/batch_script_vol.md",
+        "docs/commands/batch_script_xcopy.md",
+        "docs/maestro/docs/RepoRules.md",
+        "docs/maestro/docs/Settings.md",
+        "docs/workflows/v3/reports/realworld_batchscriptshell_phase0_snapshot.md"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    },
+    {
+      "name": "docs-other",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell/docs",
+      "upp_path": "",
+      "files": [
+        "docs/COPYING"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    },
+    {
+      "name": "tests-documentation",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell/tests",
+      "upp_path": "",
+      "files": [
+        "tests/ADDITIONAL_TESTS_README.md",
+        "tests/README.md"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    },
+    {
+      "name": "tests-other",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell/tests",
+      "upp_path": "",
+      "files": [
+        "tests/additional_commands_test.bat",
+        "tests/cd_test.bat",
+        "tests/certain_failure_test.bat",
+        "tests/complex_test.bat",
+        "tests/comprehensive_test.bat",
+        "tests/copy_test.bat",
+        "tests/del_test.bat",
+        "tests/dir_test.bat",
+        "tests/dos_features_test.bat",
+        "tests/echo_test.bat",
+        "tests/failing_test.bat",
+        "tests/failing_test2.bat",
+        "tests/file_commands_test.bat",
+        "tests/interactive_commands_test.bat",
+        "tests/md_test.bat",
+        "tests/move_test.bat",
+        "tests/pause_test.bat",
+        "tests/pipe_test.bat",
+        "tests/rd_test.bat",
+        "tests/ren_test.bat",
+        "tests/run_all_tests.bat",
+        "tests/set_test.bat"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    },
+    {
+      "name": "tests-scripts",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell/tests",
+      "upp_path": "",
+      "files": [
+        "tests/transcribe_yrittaja.py"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    },
+    {
+      "name": "scripts-other",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell",
+      "upp_path": "",
+      "files": [
+        "cd_home_quoted_test.bat",
+        "cd_home_test.bat",
+        "cd_test.bat",
+        "cd_userprofile_test.bat",
+        "comprehensive_test.bat",
+        "env_test.bat",
+        "minimal_test.bat",
+        "redirection_test.bat",
+        "simple_test.bat",
+        "test_builtins.bat",
+        "test_del_env.bat",
+        "test_env.bat",
+        "test_env_expansion.bat",
+        "test_escaped.bat",
+        "test_find.bat",
+        "test_find_env.bat",
+        "test_find_simple.bat",
+        "test_minimal.bat",
+        "test_nonexistent.bat",
+        "test_redir.bat",
+        "test_redir_env.bat",
+        "test_set_env.bat",
+        "test_set_simple.bat",
+        "test_type_env.bat"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    },
+    {
+      "name": "scripts-scripts",
+      "dir": "/e/active/sblo/Dev/BatchScriptShell",
+      "upp_path": "",
+      "files": [
+        "build.sh",
+        "run_all_tests.sh",
+        "test_echo.sh",
+        "web_scraper.py"
+      ],
+      "upp": null,
+      "build_system": "virtual",
+      "dependencies": [],
+      "groups": [],
+      "ungrouped_files": []
+    }
+  ],
+  "unknown_paths": [
+    {
+      "path": ".deps",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": ".deps/bss-shell.Po",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": ".gitignore",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "CMakeLists.txt",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "LICENSE",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "Makefile",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "Makefile.am",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "Makefile.autotools-generated",
+      "type": "file",
+      "guessed_kind": "tooling"
+    },
+    {
+      "path": "Makefile.backup",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "Makefile.in",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "Makefile.main-backup",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "QWEN.md",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "README.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "TASKS.md",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "aclocal.m4",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache/output.0",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache/output.1",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache/output.2",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache/requests",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache/traces.0",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache/traces.1",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "autom4te.cache/traces.2",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "bss",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "bss-shell.o",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "build.sh",
+      "type": "file",
+      "guessed_kind": "scripts"
+    },
+    {
+      "path": "cd_home_quoted_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "cd_home_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "cd_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "cd_userprofile_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "compile",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "comprehensive_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "config.log",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "config.status",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "configure",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "configure.ac",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "depcomp",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "docs",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/000_index.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/001_overview.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/003_batch_script_discussion.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/003_environment.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/004_commands.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/005_files.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/006_syntax.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/007_variables.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/008_comments.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/009_strings.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/010_arrays.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/011_decision_making.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/012_operators.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/013_date_time.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/014_input_output.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/015_return_code.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/016_functions.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/017_process.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/018_aliases.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/019_devices.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/020_registry.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/021_network.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/022_printing.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/023_debugging.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/024_logging.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/025_quick_guide.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/026_useful_resources.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/COPYING",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_assoc.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_attrib.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_cd.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_chkdsk.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_choice.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_cls.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_cmd.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_comp.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_convert.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_copy.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_date.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_del.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_dir.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_diskpart.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_driverquery.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_echo.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_exit.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_expand.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_fc.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_find.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_format.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_help.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_ipconfig.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_label.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_md.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_more.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_move.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_net.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_path.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_pause.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_ping.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_prompt.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_rd.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_rem.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_ren.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_set.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_shutdown.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_sort.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_start.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_subst.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_time.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_title.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_tree.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_type.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_vol.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/commands/batch_script_xcopy.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs/RepoRules.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs/Settings.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs/maestro",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs/phases",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs/sessions",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs/tasks",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/docs/tracks",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/repo_model.json",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/maestro/repo_state.json",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/phases",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/sessions",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/tasks",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/tracks",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/workflows",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/workflows/v3",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/workflows/v3/reports",
+      "type": "dir",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "docs/workflows/v3/reports/realworld_batchscriptshell_phase0_snapshot.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "env_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "final_test.txt",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "install-sh",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "minimal_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "missing",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "move_dest_dir",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "move_source_dir",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "redirection_function.c",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "redirection_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "run_all_tests.sh",
+      "type": "file",
+      "guessed_kind": "scripts"
+    },
+    {
+      "path": "shell.c",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "shell_working.c",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "simple_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_builtins.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_copy_dest",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_copy_source",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_del_dir",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_del_env.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_echo.sh",
+      "type": "file",
+      "guessed_kind": "scripts"
+    },
+    {
+      "path": "test_env.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_env_expansion.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_escaped.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_find.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_find_env.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_find_simple.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_minimal.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_nonexistent.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_rd_complex",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_rd_dir1",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_rd_dir2",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_redir.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_redir_env.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_ren_dir1",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_ren_file1.txt",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_set_env.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_set_simple.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "test_type_env.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests",
+      "type": "dir",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/ADDITIONAL_TESTS_README.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "tests/README.md",
+      "type": "file",
+      "guessed_kind": "docs"
+    },
+    {
+      "path": "tests/additional_commands_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/cd_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/certain_failure_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/complex_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/comprehensive_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/copy_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/del_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/dir_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/dos_features_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/echo_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/failing_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/failing_test2.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/file_commands_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/interactive_commands_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/md_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/move_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/pause_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/pipe_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/rd_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/ren_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/run_all_tests.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/set_test.bat",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "tests/transcribe_yrittaja.py",
+      "type": "file",
+      "guessed_kind": "scripts"
+    },
+    {
+      "path": "valgrind.log",
+      "type": "file",
+      "guessed_kind": "unknown"
+    },
+    {
+      "path": "web_scraper.py",
+      "type": "file",
+      "guessed_kind": "scripts"
+    }
+  ],
+  "user_assemblies": [],
+  "internal_packages": [
+    {
+      "name": ".deps",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell/.deps",
+      "guessed_type": "misc",
+      "members": [
+        ".deps/bss-shell.Po"
+      ],
+      "groups": [
+        {
+          "name": "Other",
+          "files": [
+            ".deps/bss-shell.Po"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    },
+    {
+      "name": "autom4te.cache",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell/autom4te.cache",
+      "guessed_type": "misc",
+      "members": [
+        "autom4te.cache/output.0",
+        "autom4te.cache/output.1",
+        "autom4te.cache/output.2",
+        "autom4te.cache/requests",
+        "autom4te.cache/traces.0",
+        "autom4te.cache/traces.1",
+        "autom4te.cache/traces.2"
+      ],
+      "groups": [
+        {
+          "name": "Other",
+          "files": [
+            "autom4te.cache/output.0",
+            "autom4te.cache/output.1",
+            "autom4te.cache/output.2",
+            "autom4te.cache/requests",
+            "autom4te.cache/traces.0",
+            "autom4te.cache/traces.1",
+            "autom4te.cache/traces.2"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    },
+    {
+      "name": "docs",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell/docs",
+      "guessed_type": "docs",
+      "members": [
+        "docs/000_index.md",
+        "docs/001_overview.md",
+        "docs/003_batch_script_discussion.md",
+        "docs/003_environment.md",
+        "docs/004_commands.md",
+        "docs/005_files.md",
+        "docs/006_syntax.md",
+        "docs/007_variables.md",
+        "docs/008_comments.md",
+        "docs/009_strings.md",
+        "docs/010_arrays.md",
+        "docs/011_decision_making.md",
+        "docs/012_operators.md",
+        "docs/013_date_time.md",
+        "docs/014_input_output.md",
+        "docs/015_return_code.md",
+        "docs/016_functions.md",
+        "docs/017_process.md",
+        "docs/018_aliases.md",
+        "docs/019_devices.md",
+        "docs/020_registry.md",
+        "docs/021_network.md",
+        "docs/022_printing.md",
+        "docs/023_debugging.md",
+        "docs/024_logging.md",
+        "docs/025_quick_guide.md",
+        "docs/026_useful_resources.md",
+        "docs/COPYING",
+        "docs/commands",
+        "docs/commands/batch_script_assoc.md",
+        "docs/commands/batch_script_attrib.md",
+        "docs/commands/batch_script_cd.md",
+        "docs/commands/batch_script_chkdsk.md",
+        "docs/commands/batch_script_choice.md",
+        "docs/commands/batch_script_cls.md",
+        "docs/commands/batch_script_cmd.md",
+        "docs/commands/batch_script_comp.md",
+        "docs/commands/batch_script_convert.md",
+        "docs/commands/batch_script_copy.md",
+        "docs/commands/batch_script_date.md",
+        "docs/commands/batch_script_del.md",
+        "docs/commands/batch_script_dir.md",
+        "docs/commands/batch_script_diskpart.md",
+        "docs/commands/batch_script_driverquery.md",
+        "docs/commands/batch_script_echo.md",
+        "docs/commands/batch_script_exit.md",
+        "docs/commands/batch_script_expand.md",
+        "docs/commands/batch_script_fc.md",
+        "docs/commands/batch_script_find.md",
+        "docs/commands/batch_script_format.md",
+        "docs/commands/batch_script_help.md",
+        "docs/commands/batch_script_ipconfig.md",
+        "docs/commands/batch_script_label.md",
+        "docs/commands/batch_script_md.md",
+        "docs/commands/batch_script_more.md",
+        "docs/commands/batch_script_move.md",
+        "docs/commands/batch_script_net.md",
+        "docs/commands/batch_script_path.md",
+        "docs/commands/batch_script_pause.md",
+        "docs/commands/batch_script_ping.md",
+        "docs/commands/batch_script_prompt.md",
+        "docs/commands/batch_script_rd.md",
+        "docs/commands/batch_script_rem.md",
+        "docs/commands/batch_script_ren.md",
+        "docs/commands/batch_script_set.md",
+        "docs/commands/batch_script_shutdown.md",
+        "docs/commands/batch_script_sort.md",
+        "docs/commands/batch_script_start.md",
+        "docs/commands/batch_script_subst.md",
+        "docs/commands/batch_script_time.md",
+        "docs/commands/batch_script_title.md",
+        "docs/commands/batch_script_tree.md",
+        "docs/commands/batch_script_type.md",
+        "docs/commands/batch_script_vol.md",
+        "docs/commands/batch_script_xcopy.md",
+        "docs/maestro",
+        "docs/maestro/docs",
+        "docs/maestro/docs/RepoRules.md",
+        "docs/maestro/docs/Settings.md",
+        "docs/maestro/docs/maestro",
+        "docs/maestro/docs/phases",
+        "docs/maestro/docs/sessions",
+        "docs/maestro/docs/tasks",
+        "docs/maestro/docs/tracks",
+        "docs/maestro/repo_model.json",
+        "docs/maestro/repo_state.json",
+        "docs/phases",
+        "docs/sessions",
+        "docs/tasks",
+        "docs/tracks",
+        "docs/workflows",
+        "docs/workflows/v3",
+        "docs/workflows/v3/reports",
+        "docs/workflows/v3/reports/realworld_batchscriptshell_phase0_snapshot.md"
+      ],
+      "groups": [
+        {
+          "name": "Configuration",
+          "files": [
+            "docs/maestro/repo_model.json",
+            "docs/maestro/repo_state.json"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Documentation",
+          "files": [
+            "docs/000_index.md",
+            "docs/001_overview.md",
+            "docs/003_batch_script_discussion.md",
+            "docs/003_environment.md",
+            "docs/004_commands.md",
+            "docs/005_files.md",
+            "docs/006_syntax.md",
+            "docs/007_variables.md",
+            "docs/008_comments.md",
+            "docs/009_strings.md",
+            "docs/010_arrays.md",
+            "docs/011_decision_making.md",
+            "docs/012_operators.md",
+            "docs/013_date_time.md",
+            "docs/014_input_output.md",
+            "docs/015_return_code.md",
+            "docs/016_functions.md",
+            "docs/017_process.md",
+            "docs/018_aliases.md",
+            "docs/019_devices.md",
+            "docs/020_registry.md",
+            "docs/021_network.md",
+            "docs/022_printing.md",
+            "docs/023_debugging.md",
+            "docs/024_logging.md",
+            "docs/025_quick_guide.md",
+            "docs/026_useful_resources.md",
+            "docs/commands/batch_script_assoc.md",
+            "docs/commands/batch_script_attrib.md",
+            "docs/commands/batch_script_cd.md",
+            "docs/commands/batch_script_chkdsk.md",
+            "docs/commands/batch_script_choice.md",
+            "docs/commands/batch_script_cls.md",
+            "docs/commands/batch_script_cmd.md",
+            "docs/commands/batch_script_comp.md",
+            "docs/commands/batch_script_convert.md",
+            "docs/commands/batch_script_copy.md",
+            "docs/commands/batch_script_date.md",
+            "docs/commands/batch_script_del.md",
+            "docs/commands/batch_script_dir.md",
+            "docs/commands/batch_script_diskpart.md",
+            "docs/commands/batch_script_driverquery.md",
+            "docs/commands/batch_script_echo.md",
+            "docs/commands/batch_script_exit.md",
+            "docs/commands/batch_script_expand.md",
+            "docs/commands/batch_script_fc.md",
+            "docs/commands/batch_script_find.md",
+            "docs/commands/batch_script_format.md",
+            "docs/commands/batch_script_help.md",
+            "docs/commands/batch_script_ipconfig.md",
+            "docs/commands/batch_script_label.md",
+            "docs/commands/batch_script_md.md",
+            "docs/commands/batch_script_more.md",
+            "docs/commands/batch_script_move.md",
+            "docs/commands/batch_script_net.md",
+            "docs/commands/batch_script_path.md",
+            "docs/commands/batch_script_pause.md",
+            "docs/commands/batch_script_ping.md",
+            "docs/commands/batch_script_prompt.md",
+            "docs/commands/batch_script_rd.md",
+            "docs/commands/batch_script_rem.md",
+            "docs/commands/batch_script_ren.md",
+            "docs/commands/batch_script_set.md",
+            "docs/commands/batch_script_shutdown.md",
+            "docs/commands/batch_script_sort.md",
+            "docs/commands/batch_script_start.md",
+            "docs/commands/batch_script_subst.md",
+            "docs/commands/batch_script_time.md",
+            "docs/commands/batch_script_title.md",
+            "docs/commands/batch_script_tree.md",
+            "docs/commands/batch_script_type.md",
+            "docs/commands/batch_script_vol.md",
+            "docs/commands/batch_script_xcopy.md",
+            "docs/maestro/docs/RepoRules.md",
+            "docs/maestro/docs/Settings.md",
+            "docs/workflows/v3/reports/realworld_batchscriptshell_phase0_snapshot.md"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Other",
+          "files": [
+            "docs/COPYING",
+            "docs/commands",
+            "docs/maestro",
+            "docs/maestro/docs",
+            "docs/maestro/docs/maestro",
+            "docs/maestro/docs/phases",
+            "docs/maestro/docs/sessions",
+            "docs/maestro/docs/tasks",
+            "docs/maestro/docs/tracks",
+            "docs/phases",
+            "docs/sessions",
+            "docs/tasks",
+            "docs/tracks",
+            "docs/workflows",
+            "docs/workflows/v3",
+            "docs/workflows/v3/reports"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    },
+    {
+      "name": "root_misc",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell",
+      "guessed_type": "misc",
+      "members": [
+        ".deps",
+        ".gitignore",
+        "CMakeLists.txt",
+        "LICENSE",
+        "Makefile",
+        "Makefile.am",
+        "Makefile.autotools-generated",
+        "Makefile.backup",
+        "Makefile.in",
+        "Makefile.main-backup",
+        "QWEN.md",
+        "README.md",
+        "TASKS.md",
+        "aclocal.m4",
+        "autom4te.cache",
+        "bss",
+        "bss-shell.o",
+        "build.sh",
+        "cd_home_quoted_test.bat",
+        "cd_home_test.bat",
+        "cd_test.bat",
+        "cd_userprofile_test.bat",
+        "compile",
+        "comprehensive_test.bat",
+        "config.log",
+        "config.status",
+        "configure",
+        "configure.ac",
+        "depcomp",
+        "docs",
+        "env_test.bat",
+        "final_test.txt",
+        "install-sh",
+        "minimal_test.bat",
+        "missing",
+        "move_dest_dir",
+        "move_source_dir",
+        "redirection_function.c",
+        "redirection_test.bat",
+        "run_all_tests.sh",
+        "shell.c",
+        "shell_working.c",
+        "simple_test.bat",
+        "test_builtins.bat",
+        "test_copy_dest",
+        "test_copy_source",
+        "test_del_dir",
+        "test_del_env.bat",
+        "test_echo.sh",
+        "test_env.bat",
+        "test_env_expansion.bat",
+        "test_escaped.bat",
+        "test_find.bat",
+        "test_find_env.bat",
+        "test_find_simple.bat",
+        "test_minimal.bat",
+        "test_nonexistent.bat",
+        "test_rd_complex",
+        "test_rd_dir1",
+        "test_rd_dir2",
+        "test_redir.bat",
+        "test_redir_env.bat",
+        "test_ren_dir1",
+        "test_ren_file1.txt",
+        "test_set_env.bat",
+        "test_set_simple.bat",
+        "test_type_env.bat",
+        "tests",
+        "valgrind.log",
+        "web_scraper.py"
+      ],
+      "groups": [
+        {
+          "name": "Build Files",
+          "files": [
+            "Makefile",
+            "Makefile.am",
+            "Makefile.autotools-generated",
+            "Makefile.backup",
+            "Makefile.in",
+            "Makefile.main-backup",
+            "configure.ac"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "C/C++",
+          "files": [
+            "redirection_function.c",
+            "shell.c",
+            "shell_working.c"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Documentation",
+          "files": [
+            "CMakeLists.txt",
+            "QWEN.md",
+            "README.md",
+            "TASKS.md",
+            "final_test.txt",
+            "test_ren_file1.txt"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Other",
+          "files": [
+            ".deps",
+            ".gitignore",
+            "LICENSE",
+            "aclocal.m4",
+            "autom4te.cache",
+            "bss",
+            "bss-shell.o",
+            "cd_home_quoted_test.bat",
+            "cd_home_test.bat",
+            "cd_test.bat",
+            "cd_userprofile_test.bat",
+            "compile",
+            "comprehensive_test.bat",
+            "config.log",
+            "config.status",
+            "configure",
+            "depcomp",
+            "docs",
+            "env_test.bat",
+            "install-sh",
+            "minimal_test.bat",
+            "missing",
+            "move_dest_dir",
+            "move_source_dir",
+            "redirection_test.bat",
+            "simple_test.bat",
+            "test_builtins.bat",
+            "test_copy_dest",
+            "test_copy_source",
+            "test_del_dir",
+            "test_del_env.bat",
+            "test_env.bat",
+            "test_env_expansion.bat",
+            "test_escaped.bat",
+            "test_find.bat",
+            "test_find_env.bat",
+            "test_find_simple.bat",
+            "test_minimal.bat",
+            "test_nonexistent.bat",
+            "test_rd_complex",
+            "test_rd_dir1",
+            "test_rd_dir2",
+            "test_redir.bat",
+            "test_redir_env.bat",
+            "test_ren_dir1",
+            "test_set_env.bat",
+            "test_set_simple.bat",
+            "test_type_env.bat",
+            "tests",
+            "valgrind.log"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Scripts",
+          "files": [
+            "build.sh",
+            "run_all_tests.sh",
+            "test_echo.sh",
+            "web_scraper.py"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    },
+    {
+      "name": "tests",
+      "root_path": "/e/active/sblo/Dev/BatchScriptShell/tests",
+      "guessed_type": "misc",
+      "members": [
+        "tests/ADDITIONAL_TESTS_README.md",
+        "tests/README.md",
+        "tests/additional_commands_test.bat",
+        "tests/cd_test.bat",
+        "tests/certain_failure_test.bat",
+        "tests/complex_test.bat",
+        "tests/comprehensive_test.bat",
+        "tests/copy_test.bat",
+        "tests/del_test.bat",
+        "tests/dir_test.bat",
+        "tests/dos_features_test.bat",
+        "tests/echo_test.bat",
+        "tests/failing_test.bat",
+        "tests/failing_test2.bat",
+        "tests/file_commands_test.bat",
+        "tests/interactive_commands_test.bat",
+        "tests/md_test.bat",
+        "tests/move_test.bat",
+        "tests/pause_test.bat",
+        "tests/pipe_test.bat",
+        "tests/rd_test.bat",
+        "tests/ren_test.bat",
+        "tests/run_all_tests.bat",
+        "tests/set_test.bat",
+        "tests/transcribe_yrittaja.py"
+      ],
+      "groups": [
+        {
+          "name": "Documentation",
+          "files": [
+            "tests/ADDITIONAL_TESTS_README.md",
+            "tests/README.md"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Other",
+          "files": [
+            "tests/additional_commands_test.bat",
+            "tests/cd_test.bat",
+            "tests/certain_failure_test.bat",
+            "tests/complex_test.bat",
+            "tests/comprehensive_test.bat",
+            "tests/copy_test.bat",
+            "tests/del_test.bat",
+            "tests/dir_test.bat",
+            "tests/dos_features_test.bat",
+            "tests/echo_test.bat",
+            "tests/failing_test.bat",
+            "tests/failing_test2.bat",
+            "tests/file_commands_test.bat",
+            "tests/interactive_commands_test.bat",
+            "tests/md_test.bat",
+            "tests/move_test.bat",
+            "tests/pause_test.bat",
+            "tests/pipe_test.bat",
+            "tests/rd_test.bat",
+            "tests/ren_test.bat",
+            "tests/run_all_tests.bat",
+            "tests/set_test.bat"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        },
+        {
+          "name": "Scripts",
+          "files": [
+            "tests/transcribe_yrittaja.py"
+          ],
+          "readonly": false,
+          "auto_generated": true
+        }
+      ],
+      "ungrouped_files": []
+    }
+  ]
+}

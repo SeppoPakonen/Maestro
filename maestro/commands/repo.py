@@ -1446,8 +1446,7 @@ def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool
         rebuild: Force rebuild of hierarchy from scan data
     """
     # Import needed types locally
-    from maestro.repo.package_info import AssemblyInfo
-    from maestro.repo.repo_scanner import RepoScanResult
+    from maestro.repo.scanner import AssemblyInfo, RepoScanResult
 
     # Try to load existing hierarchy unless rebuild requested
     hierarchy = None

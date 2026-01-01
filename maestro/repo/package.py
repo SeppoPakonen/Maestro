@@ -30,6 +30,9 @@ class PackageInfo:
     dependencies: List[str] = field(default_factory=list)  # Project dependencies
     groups: List[FileGroup] = field(default_factory=list)  # Internal package groups
     ungrouped_files: List[str] = field(default_factory=list)  # Files not in any group
+    is_virtual: bool = False  # True if this is a virtual package (e.g., docs, tests, scripts)
+    virtual_type: Optional[str] = None  # Type of virtual package: 'docs', 'tests', 'scripts', etc.
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Additional metadata for the package
 
     def to_builder_package(self):
         """
@@ -64,5 +67,16 @@ class PackageInfo:
         ]
 
         builder_package.ungrouped_files = self.ungrouped_files
+
+        # Add virtual package information
+        builder_package.is_virtual = self.is_virtual
+        builder_package.virtual_type = self.virtual_type
+
+        # Add metadata
+        if self.metadata:
+            if hasattr(builder_package, 'metadata') and builder_package.metadata:
+                builder_package.metadata.update(self.metadata)
+            else:
+                builder_package.metadata = self.metadata
 
         return builder_package

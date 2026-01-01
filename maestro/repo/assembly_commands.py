@@ -68,7 +68,7 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
             "name": asm.get("name", os.path.basename(root_path)),
             "root_relpath": root_relpath,
             "kind": asm.get("assembly_type", "upp"),
-            "package_ids": [],
+            "package_ids": asm.get("package_ids", []),  # Use existing package_ids if available
         }
         derived_assemblies.append(entry)
         assemblies_by_root[norm_root_path] = entry
@@ -166,6 +166,7 @@ def list_assemblies(repo_root: str | None, json_output: bool = False):
                     "root_relpath": asm.get("root_relpath"),
                     "kind": asm.get("kind", "upp"),
                     "package_count": len(asm.get("package_ids", [])),
+                    "package_ids": asm.get("package_ids", [])
                 } for asm in assemblies
             ]
         }
@@ -177,18 +178,14 @@ def list_assemblies(repo_root: str | None, json_output: bool = False):
         return
 
     print("Assemblies in repository:\n")
-    package_counts = {}
-    for pkg in packages:
-        asm_id = pkg.get("assembly_id")
-        if asm_id:
-            package_counts[asm_id] = package_counts.get(asm_id, 0) + 1
 
     for i, asm in enumerate(assemblies, 1):
         asm_name = asm.get("name", "unknown")
         asm_kind = asm.get("kind", "upp")
         asm_id = asm.get("assembly_id")
         asm_root = asm.get("root_relpath", "")
-        asm_count = package_counts.get(asm_id, 0)
+        # Use the package_ids list to get the count
+        asm_count = len(asm.get("package_ids", []))
         print(f"  {i}. {asm_name} ({asm_kind})")
         print(f"     ID: {asm_id}")
         print(f"     Root: {asm_root}")

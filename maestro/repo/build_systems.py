@@ -979,4 +979,120 @@ def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, L
 
     # Note: U++ scanning is handled separately in scan_uplusplus_repo()
 
+    # Deduplicate packages that exist in multiple build systems
+    # For example, a package detected by both cmake and autoconf
+    results = deduplicate_packages(results, verbose)
+
     return results
+
+
+def deduplicate_packages(results: Dict[str, List[BuildSystemPackage]], verbose: bool = False) -> Dict[str, List[BuildSystemPackage]]:
+    """
+    Deduplicate packages that exist in multiple build systems.
+
+    For packages with the same name and directory, merge them into a single package
+    with multiple build systems listed in metadata.
+    """
+    # Group packages by name and directory
+    package_groups = {}
+
+    for build_system, packages in results.items():
+        for pkg in packages:
+            # Create a key based on name and directory
+            key = (pkg.name, pkg.dir)
+
+            if key not in package_groups:
+                package_groups[key] = []
+
+            # Add build system info to the package metadata
+            pkg_metadata = dict(pkg.metadata)
+            pkg_metadata['build_systems'] = [build_system]
+            pkg_metadata['primary_build_system'] = build_system
+
+            # Create a new package with updated metadata
+            updated_pkg = BuildSystemPackage(
+                name=pkg.name,
+                build_system='multi',  # Mark as multi-build system
+                dir=pkg.dir,
+                files=pkg.files,
+                metadata=pkg_metadata
+            )
+
+            package_groups[key].append(updated_pkg)
+
+    # Merge packages in the same group
+    merged_packages = {}
+    for (name, directory), pkg_list in package_groups.items():
+        if len(pkg_list) > 1:
+            # Multiple packages with same name and directory - merge them
+            primary_pkg = pkg_list[0]
+
+            # Collect all build systems
+            all_build_systems = []
+            for pkg in pkg_list:
+                build_systems = pkg.metadata.get('build_systems', [])
+                all_build_systems.extend(build_systems)
+
+            # Remove duplicates while preserving order
+            unique_build_systems = []
+            for bs in all_build_systems:
+                if bs not in unique_build_systems:
+                    unique_build_systems.append(bs)
+
+            # Update metadata
+            merged_metadata = dict(primary_pkg.metadata)
+            merged_metadata['build_systems'] = unique_build_systems
+            merged_metadata['primary_build_system'] = unique_build_systems[0] if unique_build_systems else 'unknown'
+
+            # Combine files from all packages
+            all_files = set()
+            for pkg in pkg_list:
+                all_files.update(pkg.files)
+
+            # Create merged package
+            merged_pkg = BuildSystemPackage(
+                name=primary_pkg.name,
+                build_system='multi',
+                dir=primary_pkg.dir,
+                files=sorted(list(all_files)),
+                metadata=merged_metadata
+            )
+
+            merged_packages[(name, directory)] = merged_pkg
+
+            if verbose:
+                print(f"[dedup] Merged package '{name}' from build systems: {unique_build_systems}")
+        else:
+            # Single package - no merging needed
+            merged_packages[(name, directory)] = pkg_list[0]
+
+    # Create a mapping of packages to their primary build system to avoid duplicates
+    # Each package should only appear in one build system list
+    deduplicated_results = {}
+
+    # Initialize all build system lists
+    all_build_systems = set()
+    for pkg in merged_packages.values():
+        if pkg.build_system == 'multi':
+            build_systems = pkg.metadata.get('build_systems', [])
+            all_build_systems.update(build_systems)
+        else:
+            all_build_systems.add(pkg.build_system)
+
+    for bs in all_build_systems:
+        deduplicated_results[bs] = []
+
+    # Add each package to its primary build system list only
+    for (name, directory), pkg in merged_packages.items():
+        if pkg.build_system == 'multi':
+            # For multi-build system packages, add to the primary build system only
+            primary_bs = pkg.metadata.get('primary_build_system', pkg.metadata.get('build_systems', ['unknown'])[0] if pkg.metadata.get('build_systems') else 'unknown')
+            if primary_bs in deduplicated_results:
+                deduplicated_results[primary_bs].append(pkg)
+        else:
+            # For single-build system packages, add to their specific build system
+            bs = pkg.build_system
+            if bs in deduplicated_results:
+                deduplicated_results[bs].append(pkg)
+
+    return deduplicated_results

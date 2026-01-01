@@ -96,6 +96,7 @@ Replay accepts:
 - `maestro runbook step-add <ID> --actor <ACTOR> --action <ACTION> --expected <EXPECTED>`
 - `maestro runbook export <ID> --format {md|puml} [--out <PATH>]`
 - `maestro runbook render <ID> [--out <PATH>]`
+- `maestro runbook resolve [-v|--verbose] [--eval|-e] <freeform string>` (Freeform → JSON Runbook)
 
 ## Runbook lifecycle (archive/restore)
 
@@ -136,8 +137,8 @@ Archived workflows are moved to timestamped folders and excluded from default li
 
 ## Repo assemblies
 
-- `maestro repo asm list [--json]`
-- `maestro repo asm show <ASSEMBLY_ID|NAME> [--json]`
+- `maestro repo asm list [--json]` (aliases: `assembly`)
+- `maestro repo asm show <ASSEMBLY_ID|NAME> [--json]` (aliases: `assembly`)
 
 ## Repo hub (cross-repo package discovery and linking)
 

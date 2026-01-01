@@ -14,6 +14,7 @@ class AssemblyInfo:
     package_dirs: List[str]            # List of package directory paths
     build_systems: List[str]           # List of build systems used (for multi-type assemblies)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    package_ids: List[str] = field(default_factory=list)  # List of package IDs contained in this assembly
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -24,7 +25,8 @@ class AssemblyInfo:
             'packages': self.packages,
             'package_dirs': self.package_dirs,
             'build_systems': self.build_systems,
-            'metadata': self.metadata
+            'metadata': self.metadata,
+            'package_ids': self.package_ids
         }
 
 

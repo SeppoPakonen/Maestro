@@ -35,6 +35,7 @@ class AssemblyInfo:
     package_dirs: List[str] = field(default_factory=list)  # List of package directory paths
     build_systems: List[str] = field(default_factory=list)  # List of build systems used
     metadata: Dict[str, Any] = field(default_factory=dict)
+    package_ids: List[str] = field(default_factory=list)  # List of package IDs contained in this assembly
 
 
 @dataclass
@@ -449,8 +450,13 @@ def scan_upp_repo_v2(
                     build_system=bs_pkg.build_system,  # Store build system type
                     dependencies=deps,
                     groups=groups,
-                    ungrouped_files=ungrouped_files
+                    ungrouped_files=ungrouped_files,
+                    metadata=dict(bs_pkg.metadata) if bs_pkg.metadata else {}  # Copy metadata
                 )
+
+                # Handle multi-build system packages
+                if bs_pkg.build_system == 'multi' and 'build_systems' in bs_pkg.metadata:
+                    pkg_info.build_system = 'multi'
                 build_system_packages.append(pkg_info)
 
     except ImportError as e:
@@ -502,8 +508,9 @@ def scan_upp_repo_v2(
                 print(f"[maestro] Warning: Failed to read user assemblies: {e}")
 
     # Add virtual assemblies for docs, tests, and scripts if they exist
-    virtual_assemblies = create_virtual_assemblies(root_dir, verbose=verbose)
+    virtual_assemblies, virtual_packages = create_virtual_assemblies(root_dir, verbose=verbose)
     all_assemblies = assembly_infos + virtual_assemblies
+    all_packages.extend(virtual_packages)
 
     # Create a root assembly if there are packages in the root directory that aren't part of other assemblies
     root_packages = []
@@ -694,7 +701,7 @@ def infer_internal_packages(unknown_paths: List[UnknownPath], repo_root: str) ->
     return internal_packages
 
 
-def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> List[AssemblyInfo]:
+def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> tuple[List[AssemblyInfo], List[PackageInfo]]:
     """
     Create virtual assemblies for common directories: docs, tests, scripts.
 
@@ -703,18 +710,23 @@ def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> List[Ass
         verbose: If True, print verbose information
 
     Returns:
-        List of AssemblyInfo objects for virtual assemblies
+        Tuple of (List of AssemblyInfo objects for virtual assemblies, List of PackageInfo objects for virtual packages)
     """
     virtual_assemblies = []
+    all_virtual_packages = []
 
     # Check for docs directory
     docs_path = os.path.join(repo_root, 'docs')
     if os.path.exists(docs_path) and os.path.isdir(docs_path):
-        # Count files in docs directory (recursively)
+        # Create virtual packages for docs directory
         docs_files = []
         for root, dirs, files in os.walk(docs_path):
             for file in files:
                 docs_files.append(os.path.relpath(os.path.join(root, file), repo_root))
+
+        # Create virtual packages based on file types
+        virtual_packages = create_virtual_packages_for_directory(docs_path, 'docs', docs_files, repo_root, verbose)
+        all_virtual_packages.extend(virtual_packages)
 
         assembly = AssemblyInfo(
             name='docs',
@@ -722,10 +734,11 @@ def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> List[Ass
             package_folders=[],
             evidence_refs=['detected docs directory'],
             assembly_type='docs',
-            packages=[],
-            package_dirs=[],
-            build_systems=[],
-            metadata={'file_count': len(docs_files)}
+            packages=[pkg.name for pkg in virtual_packages],
+            package_dirs=[pkg.dir for pkg in virtual_packages],
+            build_systems=['virtual'],
+            metadata={'file_count': len(docs_files)},
+            package_ids=[pkg.name for pkg in virtual_packages]  # Using name as ID for virtual packages
         )
         virtual_assemblies.append(assembly)
 
@@ -735,11 +748,15 @@ def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> List[Ass
     # Check for tests directory
     tests_path = os.path.join(repo_root, 'tests')
     if os.path.exists(tests_path) and os.path.isdir(tests_path):
-        # Count files in tests directory (recursively)
+        # Create virtual packages for tests directory
         tests_files = []
         for root, dirs, files in os.walk(tests_path):
             for file in files:
                 tests_files.append(os.path.relpath(os.path.join(root, file), repo_root))
+
+        # Create virtual packages based on file types
+        virtual_packages = create_virtual_packages_for_directory(tests_path, 'tests', tests_files, repo_root, verbose)
+        all_virtual_packages.extend(virtual_packages)
 
         assembly = AssemblyInfo(
             name='tests',
@@ -747,15 +764,46 @@ def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> List[Ass
             package_folders=[],
             evidence_refs=['detected tests directory'],
             assembly_type='tests',
-            packages=[],
-            package_dirs=[],
-            build_systems=[],
-            metadata={'file_count': len(tests_files)}
+            packages=[pkg.name for pkg in virtual_packages],
+            package_dirs=[pkg.dir for pkg in virtual_packages],
+            build_systems=['virtual'],
+            metadata={'file_count': len(tests_files)},
+            package_ids=[pkg.name for pkg in virtual_packages]  # Using name as ID for virtual packages
         )
         virtual_assemblies.append(assembly)
 
         if verbose:
             print(f"[maestro] virtual assembly: tests ({len(tests_files)} files)")
+
+    # Check for scripts directory
+    scripts_path = os.path.join(repo_root, 'scripts')
+    if os.path.exists(scripts_path) and os.path.isdir(scripts_path):
+        # Create virtual packages for scripts directory
+        scripts_files = []
+        for root, dirs, files in os.walk(scripts_path):
+            for file in files:
+                scripts_files.append(os.path.relpath(os.path.join(root, file), repo_root))
+
+        # Create virtual packages based on file types
+        virtual_packages = create_virtual_packages_for_directory(scripts_path, 'scripts', scripts_files, repo_root, verbose)
+        all_virtual_packages.extend(virtual_packages)
+
+        assembly = AssemblyInfo(
+            name='scripts',
+            root_path=scripts_path,
+            package_folders=[],
+            evidence_refs=['detected scripts directory'],
+            assembly_type='scripts',
+            packages=[pkg.name for pkg in virtual_packages],
+            package_dirs=[pkg.dir for pkg in virtual_packages],
+            build_systems=['virtual'],
+            metadata={'file_count': len(scripts_files)},
+            package_ids=[pkg.name for pkg in virtual_packages]  # Using name as ID for virtual packages
+        )
+        virtual_assemblies.append(assembly)
+
+        if verbose:
+            print(f"[maestro] virtual assembly: scripts ({len(scripts_files)} files)")
 
     # Check for script files in root directory
     script_extensions = {'.sh', '.bat', '.cmd', '.ps1', '.py', '.pl', '.rb', '.js', '.ts'}
@@ -765,26 +813,98 @@ def create_virtual_assemblies(repo_root: str, verbose: bool = False) -> List[Ass
         if os.path.isfile(file_path):
             _, ext = os.path.splitext(file)
             if ext.lower() in script_extensions:
-                root_scripts.append(file)
+                root_scripts.append(os.path.relpath(file_path, repo_root))
 
     if root_scripts:
+        # Create virtual packages for root scripts
+        virtual_packages = create_virtual_packages_for_directory(repo_root, 'scripts', root_scripts, repo_root, verbose)
+        all_virtual_packages.extend(virtual_packages)
+
         assembly = AssemblyInfo(
             name='scripts',
             root_path=repo_root,
             package_folders=[],
             evidence_refs=['detected script files in root'],
             assembly_type='scripts',
-            packages=[],
-            package_dirs=[],
-            build_systems=[],
-            metadata={'script_count': len(root_scripts), 'scripts': root_scripts}
+            packages=[pkg.name for pkg in virtual_packages],
+            package_dirs=[pkg.dir for pkg in virtual_packages],
+            build_systems=['virtual'],
+            metadata={'script_count': len(root_scripts), 'scripts': root_scripts},
+            package_ids=[pkg.name for pkg in virtual_packages]  # Using name as ID for virtual packages
         )
         virtual_assemblies.append(assembly)
 
         if verbose:
             print(f"[maestro] virtual assembly: scripts ({len(root_scripts)} scripts)")
 
-    return virtual_assemblies
+    return virtual_assemblies, all_virtual_packages
+
+
+def create_virtual_packages_for_directory(dir_path: str, pkg_type: str, files: List[str], repo_root: str, verbose: bool = False) -> List[PackageInfo]:
+    """
+    Create virtual packages for a directory based on file types.
+
+    Args:
+        dir_path: Path to the directory
+        pkg_type: Type of package ('docs', 'tests', 'scripts', etc.)
+        files: List of files in the directory
+        repo_root: Repository root path
+        verbose: If True, print verbose information
+
+    Returns:
+        List of PackageInfo objects representing virtual packages
+    """
+    from .package import PackageInfo, FileGroup
+    from .grouping import AutoGrouper
+
+    # Group files by type using AutoGrouper
+    grouper = AutoGrouper()
+    groups = grouper.auto_group(files)
+
+    # Create a virtual package for each group
+    virtual_packages = []
+
+    for group in groups:
+        if group.files:  # Only create package if there are files in the group
+            # Create a virtual package name based on the group name and directory
+            group_name_clean = group.name.replace(' ', '_').replace('/', '_').lower()
+            pkg_name = f"{pkg_type}-{group_name_clean}"
+
+            # Create the virtual package
+            virtual_pkg = PackageInfo(
+                name=pkg_name,
+                dir=dir_path,
+                upp_path="",
+                files=group.files,
+                build_system="virtual",
+                is_virtual=True,
+                virtual_type=pkg_type
+            )
+
+            virtual_packages.append(virtual_pkg)
+
+            if verbose:
+                print(f"[maestro] created virtual package: {pkg_name} ({len(group.files)} files)")
+
+    # If no groups were created or all groups are empty, create a single package with all files
+    if not virtual_packages:
+        if files:
+            pkg_name = f"{pkg_type}-all"
+            virtual_pkg = PackageInfo(
+                name=pkg_name,
+                dir=dir_path,
+                upp_path="",
+                files=files,
+                build_system="virtual",
+                is_virtual=True,
+                virtual_type=pkg_type
+            )
+            virtual_packages.append(virtual_pkg)
+
+            if verbose:
+                print(f"[maestro] created virtual package: {pkg_name} ({len(files)} files)")
+
+    return virtual_packages
 
 
 __all__ = [

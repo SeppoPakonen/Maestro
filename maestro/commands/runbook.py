@@ -8,9 +8,265 @@ that can later feed Workflow graphs.
 import argparse
 import json
 import os
+import re
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+def slugify(text: str) -> str:
+    """Convert text to URL-friendly slug."""
+    # Convert to lowercase and replace spaces with hyphens
+    text = text.lower().replace(' ', '-')
+    # Remove special characters except hyphens
+    text = re.sub(r'[^a-z0-9\-]', '', text)
+    # Remove multiple consecutive hyphens
+    text = re.sub(r'-+', '-', text)
+    # Remove leading/trailing hyphens
+    text = text.strip('-')
+    return text
+
+
+def generate_runbook_id(title: str) -> str:
+    """Generate a deterministic runbook ID from title."""
+    slug = slugify(title)
+    # Create a hash of the normalized title
+    title_hash = hashlib.sha256(title.encode('utf-8')).hexdigest()[:8]
+    return f"rb-{slug}-{title_hash}"
+
+
+def validate_runbook_schema(runbook: Dict[str, Any]) -> List[str]:
+    """Validate runbook against schema requirements."""
+    errors = []
+
+    # Required fields at the top level
+    required_fields = ['id', 'title', 'goal', 'steps']
+    for field in required_fields:
+        if field not in runbook:
+            errors.append(f"Missing required field: {field}")
+
+    # Validate field types
+    if 'id' in runbook and not isinstance(runbook['id'], str):
+        errors.append("id must be a string")
+
+    if 'title' in runbook and not isinstance(runbook['title'], str):
+        errors.append("title must be a string")
+
+    if 'goal' in runbook and not isinstance(runbook['goal'], str):
+        errors.append("goal must be a string")
+
+    # Validate optional fields if present
+    if 'prerequisites' in runbook and not isinstance(runbook['prerequisites'], list):
+        errors.append("prerequisites must be a list if present")
+
+    if 'artifacts' in runbook and not isinstance(runbook['artifacts'], list):
+        errors.append("artifacts must be a list if present")
+
+    if 'invariants' in runbook and not isinstance(runbook['invariants'], list):
+        errors.append("invariants must be a list if present")
+
+    if 'tags' in runbook and not isinstance(runbook['tags'], list):
+        errors.append("tags must be a list if present")
+
+    # Validate steps
+    if 'steps' in runbook:
+        if not isinstance(runbook['steps'], list):
+            errors.append("Steps must be a list")
+        elif len(runbook['steps']) == 0:
+            errors.append("Steps list cannot be empty")
+        else:
+            for i, step in enumerate(runbook['steps']):
+                if not isinstance(step, dict):
+                    errors.append(f"Step {i} must be an object")
+                    continue
+
+                # Required fields in each step
+                step_required = ['cmd', 'expect']
+                for field in step_required:
+                    if field not in step:
+                        errors.append(f"Step {i} missing required field: {field}")
+
+                # Validate step field types
+                if 'cmd' in step and not isinstance(step['cmd'], str):
+                    errors.append(f"Step {i} cmd must be a string")
+
+                if 'expect' in step and not isinstance(step['expect'], str):
+                    errors.append(f"Step {i} expect must be a string")
+
+                if 'notes' in step and not isinstance(step['notes'], str):
+                    errors.append(f"Step {i} notes must be a string if present")
+
+                # Normalize command by stripping leading $ and whitespace
+                if 'cmd' in step and isinstance(step['cmd'], str):
+                    step['cmd'] = step['cmd'].strip().lstrip('$').strip()
+
+    # Validate artifacts if present
+    if 'artifacts' in runbook:
+        for i, artifact in enumerate(runbook['artifacts']):
+            if not isinstance(artifact, dict):
+                errors.append(f"Artifact {i} must be an object")
+                continue
+
+            if 'path' not in artifact:
+                errors.append(f"Artifact {i} missing required field: path")
+
+            if 'purpose' not in artifact:
+                errors.append(f"Artifact {i} missing required field: purpose")
+
+    # Validate prerequisites if present
+    if 'prerequisites' in runbook:
+        for i, prereq in enumerate(runbook['prerequisites']):
+            if not isinstance(prereq, str):
+                errors.append(f"Prerequisite {i} must be a string")
+
+    # Validate invariants if present
+    if 'invariants' in runbook:
+        for i, invariant in enumerate(runbook['invariants']):
+            if not isinstance(invariant, str):
+                errors.append(f"Invariant {i} must be a string")
+
+    # Validate tags if present
+    if 'tags' in runbook:
+        for i, tag in enumerate(runbook['tags']):
+            if not isinstance(tag, str):
+                errors.append(f"Tag {i} must be a string")
+
+    return errors
+
+
+def create_runbook_from_freeform(text: str, verbose: bool = False) -> Optional[Dict[str, Any]]:
+    """Create a runbook from freeform text using AI (placeholder implementation)."""
+    # This is a placeholder implementation - in the real implementation,
+    # this would call the AI to generate the runbook from the freeform text
+    # For now, we'll create a more sophisticated runbook based on the input text
+
+    # Generate a title from the first part of the text
+    lines = text.strip().split('\n')
+    title = lines[0][:100] if lines[0] else "Runbook from freeform text"
+
+    # Generate a deterministic ID
+    runbook_id = generate_runbook_id(title)
+
+    # Gather repo evidence if available
+    repo_evidence = gather_repo_evidence()
+
+    # Create a more detailed prompt for the AI (in a real implementation)
+    # For now, we'll create a structured runbook based on the input
+    runbook = {
+        'id': runbook_id,
+        'title': title,
+        'goal': text[:500],  # Use first 500 chars as goal
+        'prerequisites': [],
+        'steps': [
+            {
+                'cmd': 'echo "Implement actual steps based on requirements"',
+                'expect': 'Command executes successfully',
+                'notes': f'Original input: {text[:200]}{"..." if len(text) > 200 else ""}'
+            }
+        ],
+        'artifacts': [],
+        'invariants': [],
+        'tags': ['generated'],
+        'created_at': datetime.now().isoformat(),
+        'updated_at': datetime.now().isoformat()
+    }
+
+    # Add repo evidence to the runbook if available
+    if repo_evidence:
+        runbook['repo_evidence'] = repo_evidence
+
+    if verbose:
+        print(f"Generated runbook ID: {runbook_id}")
+        print(f"Repo evidence included: {bool(repo_evidence)}")
+
+    return runbook
+
+
+def gather_repo_evidence() -> Dict[str, Any]:
+    """Gather repo evidence to include in the AI prompt."""
+    evidence = {}
+
+    # Include CLI surface summary if available
+    try:
+        # Look for CLI surface information in the repo
+        cli_surface_path = Path.cwd() / "docs" / "maestro" / "cli_surface.json"
+        if cli_surface_path.exists():
+            with open(cli_surface_path, 'r') as f:
+                evidence['cli_surface'] = json.load(f)
+    except Exception:
+        pass  # Ignore if CLI surface info is not available
+
+    # Include repo model summary if available
+    try:
+        # Look for repo model information
+        repo_model_path = Path.cwd() / "docs" / "maestro" / "repo_model.json"
+        if repo_model_path.exists():
+            with open(repo_model_path, 'r') as f:
+                repo_model = json.load(f)
+                evidence['repo_model'] = {
+                    'packages_count': len(repo_model.get('packages', [])),
+                    'assemblies_count': len(repo_model.get('assemblies', [])),
+                    'has_virtual_packages': repo_model.get('has_virtual_packages', False)
+                }
+    except Exception:
+        pass  # Ignore if repo model info is not available
+
+    # Include basic repo information
+    try:
+        import subprocess
+        # Get git information if in a git repo
+        try:
+            git_status = subprocess.run(['git', 'status'], capture_output=True, text=True, cwd=Path.cwd())
+            if git_status.returncode == 0:
+                evidence['git'] = {
+                    'is_git_repo': True,
+                    'branch': subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True, cwd=Path.cwd()).stdout.strip(),
+                    'has_uncommitted_changes': 'nothing to commit' not in git_status.stdout
+                }
+        except:
+            evidence['git'] = {'is_git_repo': False}
+    except Exception:
+        pass  # Ignore if git info is not available
+
+    return evidence
+
+
+def save_runbook_with_update_semantics(runbook: Dict[str, Any]) -> None:
+    """Save runbook with update semantics (replace if exists, add if new)."""
+    _ensure_runbook_storage()
+
+    # Save the runbook file
+    runbook_path = _get_runbook_storage_path() / "items" / f"{runbook['id']}.json"
+    with open(runbook_path, 'w') as f:
+        json.dump(runbook, f, indent=2)
+
+    # Update the index
+    index = _load_index()
+    existing_entry = None
+    for i, entry in enumerate(index):
+        if entry['id'] == runbook['id']:
+            existing_entry = i
+            break
+
+    # Create or update index entry
+    index_entry = {
+        'id': runbook['id'],
+        'title': runbook['title'],
+        'tags': runbook.get('tags', []),
+        'status': runbook.get('status', 'proposed'),
+        'updated_at': runbook['updated_at']
+    }
+
+    if existing_entry is not None:
+        # Update existing entry
+        index[existing_entry] = index_entry
+    else:
+        # Add new entry
+        index.append(index_entry)
+
+    # Save updated index
+    _save_index(index)
 
 
 def add_runbook_parser(subparsers: Any) -> None:
@@ -38,6 +294,7 @@ def add_runbook_parser(subparsers: Any) -> None:
     show_parser = runbook_subparsers.add_parser('show', aliases=['sh'], help='Show a specific runbook')
     show_parser.add_argument('id', help='ID of the runbook to show')
     show_parser.add_argument('--archived', action='store_true', help='Show archived item')
+    show_parser.add_argument('--json', action='store_true', help='Show raw JSON output')
 
     # Add command
     add_parser = runbook_subparsers.add_parser('add', aliases=['new'], help='Create a new runbook')
@@ -103,6 +360,12 @@ def add_runbook_parser(subparsers: Any) -> None:
     discuss_parser = runbook_subparsers.add_parser('discuss', aliases=['d'], help='Discuss runbook with AI (placeholder)')
     discuss_parser.add_argument('id', help='ID of the runbook to discuss')
 
+    # Resolve command
+    resolve_parser = runbook_subparsers.add_parser('resolve', aliases=['res'], help='Resolve freeform text to structured runbook JSON')
+    resolve_parser.add_argument('text', nargs='?', help='Freeform text to convert to runbook')
+    resolve_parser.add_argument('-v', '--verbose', action='store_true', help='Show prompt hash, engine, and validation summary')
+    resolve_parser.add_argument('-e', '--eval', action='store_true', help='Read freeform input from stdin instead of positional argument')
+
     # Archive command
     archive_parser = runbook_subparsers.add_parser('archive', help='Archive a runbook (markdown or JSON)')
     archive_parser.add_argument('id_or_path', help='Runbook ID or file path')
@@ -146,6 +409,8 @@ def handle_runbook_command(args: argparse.Namespace) -> None:
         handle_runbook_render(args)
     elif args.runbook_subcommand in ['discuss', 'd']:
         handle_runbook_discuss(args)
+    elif args.runbook_subcommand in ['resolve', 'res']:
+        handle_runbook_resolve(args)
     elif args.runbook_subcommand == 'archive':
         handle_runbook_archive(args)
     elif args.runbook_subcommand == 'restore':
@@ -225,6 +490,31 @@ def _generate_runbook_id(title: str) -> str:
 
 def handle_runbook_list(args: argparse.Namespace) -> None:
     """Handle the runbook list command."""
+    # Check if we should list archived runbooks
+    if hasattr(args, 'archived') and args.archived:
+        # List archived runbooks instead
+        from maestro.archive.runbook_archive import list_archived_runbooks
+
+        type_filter = getattr(args, 'type', 'all') if hasattr(args, 'type') else 'all'
+        if type_filter == 'all':
+            type_filter = None  # None means all types
+
+        archived_entries = list_archived_runbooks(type_filter=type_filter)
+
+        if not archived_entries:
+            print("No archived runbooks found.")
+            return
+
+        print(f"Found {len(archived_entries)} archived runbook(s):\n")
+        for entry in archived_entries:
+            print(f"  {entry.archive_id:<30} [{entry.type:>15}] {entry.archived_at}")
+            print(f"  {'':30} original: {entry.original_path}")
+            if entry.reason:
+                print(f"  {'':30} reason: {entry.reason}")
+            print()
+        return
+
+    # List active runbooks
     index = _load_index()
 
     # Apply filters
@@ -253,11 +543,41 @@ def handle_runbook_list(args: argparse.Namespace) -> None:
 
 def handle_runbook_show(args: argparse.Namespace) -> None:
     """Handle the runbook show command."""
+    # Check if we should show archived runbook
+    if hasattr(args, 'archived') and args.archived:
+        from maestro.archive.runbook_archive import find_archive_entry, RestoreError
+        try:
+            # Try to find the archived runbook
+            entry = find_archive_entry(args.id)
+            if not entry:
+                print(f"Error: Archived runbook '{args.id}' not found.")
+                return
+
+            # For archived runbook, we'll just show the archive entry details
+            print(f"Archived Runbook: {entry.archive_id}")
+            print(f"Type: {entry.type}")
+            print(f"Original Path: {entry.original_path}")
+            print(f"Archived At: {entry.archived_at}")
+            print(f"User: {entry.user}")
+            if entry.reason:
+                print(f"Reason: {entry.reason}")
+            if entry.git_head:
+                print(f"Git Head: {entry.git_head}")
+        except RestoreError as e:
+            print(f"Error: {e}")
+        return
+
     runbook = _load_runbook(args.id)
     if not runbook:
         print(f"Error: Runbook '{args.id}' not found.")
         return
 
+    # If --json flag is set, output raw JSON
+    if hasattr(args, 'json') and args.json:
+        print(json.dumps(runbook, indent=2))
+        return
+
+    # Otherwise, show human-readable format
     print(f"Runbook: {runbook['title']}")
     print(f"ID: {runbook['id']}")
     print(f"Status: {runbook.get('status', 'proposed')}")
@@ -762,6 +1082,61 @@ def handle_runbook_archive(args: argparse.Namespace) -> None:
     except ArchiveError as e:
         print(f"Error: {e}")
         return
+
+
+def handle_runbook_resolve(args: argparse.Namespace) -> None:
+    """Handle the runbook resolve command."""
+    import sys
+    import hashlib
+    from typing import Any, Dict, List
+
+    # Check if stdin is a TTY when using -e flag
+    if args.eval:
+        if sys.stdin.isatty():
+            print("Error: -e flag requires input from stdin, not terminal.", file=sys.stderr)
+            print("Usage: echo 'your text' | maestro runbook resolve -e", file=sys.stderr)
+            return
+        # Read from stdin
+        freeform_input = sys.stdin.read()
+    else:
+        # Check if text argument is provided
+        if not args.text:
+            print("Error: Text argument is required when -e flag is not set.", file=sys.stderr)
+            print("Usage: maestro runbook resolve 'your text here'", file=sys.stderr)
+            return
+        freeform_input = args.text
+
+    if args.verbose:
+        # Calculate prompt hash
+        prompt_hash = hashlib.sha256(freeform_input.encode()).hexdigest()[:8]
+        print(f"Prompt hash: {prompt_hash}")
+        print(f"Engine: [FAKE_ENGINE - for testing purposes]")
+        print(f"Input: {freeform_input[:100]}{'...' if len(freeform_input) > 100 else ''}")
+
+    # For now, create a simple runbook from the input
+    # In the full implementation, this would call the AI to generate the runbook
+    runbook_data = create_runbook_from_freeform(freeform_input, args.verbose)
+
+    if runbook_data is None:
+        print("Error: Failed to generate runbook from input.", file=sys.stderr)
+        return
+
+    # Validate the runbook data
+    validation_errors = validate_runbook_schema(runbook_data)
+    if validation_errors:
+        print("Error: Runbook validation failed:", file=sys.stderr)
+        for error in validation_errors:
+            print(f"  - {error}", file=sys.stderr)
+        return
+
+    if args.verbose:
+        print(f"Validation: {len(validation_errors)} errors found")
+
+    # Save the runbook
+    save_runbook_with_update_semantics(runbook_data)
+
+    print(f"Created/updated runbook: {runbook_data['id']}")
+    print(f"  Title: {runbook_data['title']}")
 
 
 def handle_runbook_restore(args: argparse.Namespace) -> None:
