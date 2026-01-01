@@ -1066,6 +1066,92 @@ def handle_plan_decompose(args):
         print_info(f"Saved to: {output_path}", 2)
 
 
+def handle_plan_enact(args):
+    """Handle maestro plan enact command."""
+    from pathlib import Path
+    from ..data.workgraph_schema import WorkGraph
+    from ..archive.workgraph_storage import load_workgraph
+    from ..builders.workgraph_materializer import WorkGraphMaterializer
+    from ..tracks.json_store import JsonStore
+    from ..config.paths import get_workgraph_dir
+
+    # Load WorkGraph
+    wg_dir = get_workgraph_dir()
+    wg_path = wg_dir / f"{args.workgraph_id}.json"
+
+    if not wg_path.exists():
+        print_error(f"Error: WorkGraph not found: {args.workgraph_id}", 2)
+        print_error(f"Expected path: {wg_path}", 2)
+        sys.exit(1)
+
+    try:
+        workgraph = load_workgraph(wg_path)
+    except Exception as e:
+        print_error(f"Error loading WorkGraph: {e}", 2)
+        sys.exit(1)
+
+    if args.verbose:
+        print_info(f"Loaded WorkGraph: {workgraph.id}", 2)
+        print_info(f"  Goal: {workgraph.goal}", 2)
+        print_info(f"  Domain: {workgraph.domain}", 2)
+        print_info(f"  Profile: {workgraph.profile}", 2)
+        print_info(f"  Phases: {len(workgraph.phases)}", 2)
+        total_tasks = sum(len(p.tasks) for p in workgraph.phases)
+        print_info(f"  Tasks: {total_tasks}", 2)
+
+    # Create materializer
+    base_path = args.out if args.out else "docs/maestro"
+    json_store = JsonStore(base_path=base_path)
+    materializer = WorkGraphMaterializer(json_store=json_store)
+
+    # Dry run preview
+    if args.dry_run:
+        print_info("DRY RUN: Would create/update the following:", 2)
+        track_id = workgraph.track.get('id', workgraph.id)
+        track_name = args.name or workgraph.track.get('name', workgraph.goal)
+        print_info(f"  Track: {track_id} ({track_name})", 2)
+        for phase in workgraph.phases:
+            print_info(f"    Phase: {phase.id} ({phase.name})", 2)
+            for task in phase.tasks:
+                print_info(f"      Task: {task.id} ({task.title})", 2)
+        print_info("Use --verbose for more details.", 2)
+        return
+
+    # Materialize
+    try:
+        summary = materializer.materialize(workgraph, track_name_override=args.name)
+    except Exception as e:
+        print_error(f"Error materializing WorkGraph: {e}", 2)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+    # Output results
+    if args.json:
+        # JSON mode: print to stdout
+        print(json.dumps(summary, indent=2))
+    else:
+        # Human-readable mode
+        print_success(f"WorkGraph materialized: {summary['track_id']}", 2)
+        print_info(f"Phases created: {summary['phases_created']}", 2)
+        print_info(f"Phases updated: {summary['phases_updated']}", 2)
+        print_info(f"Tasks created: {summary['tasks_created']}", 2)
+        print_info(f"Tasks updated: {summary['tasks_updated']}", 2)
+
+        if args.verbose and summary['created_items']:
+            print_info("Created items:", 2)
+            for item in summary['created_items']:
+                print_info(f"  - {item}", 2)
+
+        if args.verbose and summary['updated_items']:
+            print_info("Updated items:", 2)
+            for item in summary['updated_items']:
+                print_info(f"  - {item}", 2)
+
+        print_info(f"Files written to: {base_path}/{{tracks,phases,tasks}}/", 2)
+
+
 def add_plan_parser(subparsers):
     """Add plan command subparsers."""
     plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
@@ -1182,6 +1268,39 @@ def add_plan_parser(subparsers):
         '-vv', '--very-verbose',
         action='store_true',
         help='Also print AI prompt and response'
+    )
+
+    # Plan enact subcommand
+    enact_parser = plan_subparsers.add_parser(
+        'enact',
+        help='Materialize a WorkGraph plan into Track/Phase/Task files'
+    )
+    enact_parser.add_argument(
+        'workgraph_id',
+        help='WorkGraph ID to materialize (e.g., wg-20260101-a3f5b8c2)'
+    )
+    enact_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output summary as JSON to stdout'
+    )
+    enact_parser.add_argument(
+        '--out',
+        help='Output directory for Track/Phase/Task files (default: docs/maestro)'
+    )
+    enact_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Preview what would be created/updated without writing files'
+    )
+    enact_parser.add_argument(
+        '--name',
+        help='Override track name (default: uses WorkGraph track name)'
+    )
+    enact_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show detailed output'
     )
 
     return plan_parser

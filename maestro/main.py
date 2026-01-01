@@ -475,6 +475,10 @@ def main():
                 # Handle plan decompose command
                 from .commands.plan import handle_plan_decompose
                 handle_plan_decompose(args)
+            elif args.plan_subcommand == 'enact':
+                # Handle plan enact command
+                from .commands.plan import handle_plan_enact
+                handle_plan_enact(args)
         else:
             # No subcommand provided - show help
             if hasattr(args, "func") and callable(args.func):

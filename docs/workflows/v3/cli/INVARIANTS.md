@@ -261,3 +261,18 @@ See also:
   - Failure: duplicate ID generated (extremely rare).
   - Next: change goal text slightly and regenerate.
   - Implemented in: `WorkGraph.__post_init__` ID generation.
+
+## Plan enact (WorkGraph materialization)
+
+- WorkGraph materialization is idempotent.
+  - Failure: running enact twice creates duplicate tracks/phases/tasks.
+  - Next: verify JsonStore checks for existing items before creating.
+  - Implemented in: `WorkGraphMaterializer.materialize()` checks for existing items and updates instead of creating.
+- Track/Phase/Task IDs must be stable and deterministic.
+  - Failure: same WorkGraph produces different IDs on re-enact.
+  - Next: use WorkGraph-provided IDs (TRK-001, PH-001, TASK-001).
+  - Implemented in: `WorkGraphMaterializer` uses WorkGraph IDs directly.
+- Enact only writes to docs/ (or MAESTRO_DOCS_ROOT equivalent).
+  - Failure: enact writes to repo code or other locations.
+  - Next: verify JsonStore base_path is under docs/.
+  - Implemented in: `JsonStore` validation and `handle_plan_enact()` path handling.

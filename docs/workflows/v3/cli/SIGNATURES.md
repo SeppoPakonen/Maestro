@@ -421,6 +421,44 @@ Behavior:
 See also:
 - `docs/workflows/v3/cli/PLAN_DECOMPOSE.md` - Full decompose documentation
 
+## Plan enact
+
+### maestro plan enact
+
+Materialize a WorkGraph plan into Track/Phase/Task files.
+
+```bash
+maestro plan enact <WORKGRAPH_ID> [OPTIONS]
+```
+
+Arguments:
+- `<WORKGRAPH_ID>`: WorkGraph ID to materialize (e.g., `wg-20260101-a3f5b8c2`)
+
+Options:
+- `--json` - Output summary as JSON to stdout
+- `--out DIR` - Output directory for files (default: `docs/maestro`)
+- `--dry-run` - Preview what would be created/updated without writing files
+- `--name "Track Title"` - Override track name (default: uses WorkGraph track name)
+- `-v, --verbose` - Show detailed output
+
+Behavior:
+- Reads WorkGraph from `docs/maestro/plans/workgraphs/{id}.json`
+- Converts WorkGraph structure to Track/Phase/Task JSON files
+- Materializes to `docs/maestro/{tracks,phases,tasks}/`
+- Updates index at `docs/maestro/index.json`
+- Idempotent: running twice updates existing items, doesn't duplicate
+
+Examples:
+```bash
+maestro plan enact wg-20260101-a3f5b8c2
+maestro plan enact wg-20260101-a3f5b8c2 --dry-run
+maestro plan enact wg-20260101-a3f5b8c2 --name "Custom Track"
+maestro plan enact wg-20260101-a3f5b8c2 --json
+```
+
+See also:
+- `docs/workflows/v3/cli/PLAN_ENACT.md` - Full enact documentation
+
 ## Convert plan approval
 
 - `maestro convert plan <PIPELINE_ID>`
