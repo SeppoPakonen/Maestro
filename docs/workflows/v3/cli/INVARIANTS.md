@@ -309,3 +309,33 @@ See also:
   - Failure: run records written to repo code or other locations.
   - Next: verify get_run_dir() returns path under workgraph_dir.
   - Implemented in: `maestro.plan_run.storage.get_run_dir()`.
+
+## Runbook actionability (runbook resolve --actionable)
+
+- All runbook steps must be executable when --actionable flag is set.
+  - Each step requires `command` (string) or `commands` (list of strings).
+  - Failure: step missing both `command` and `commands` fields.
+  - Next: AI re-generates or falls back to WorkGraph; user runs `maestro plan enact <WG_ID>`.
+  - Implemented in: `maestro.commands.runbook.validate_runbook_actionability()`.
+- Meta-steps (documentation/organization without executable commands) are rejected under --actionable.
+  - Examples of rejected meta-steps: "parse docs and organize", "create outline", "review code structure"
+  - Failure: step has `action` like "Review documentation" but no command field.
+  - Next: AI adds executable command (e.g., `grep`, `sed`, `ls`) or falls back to WorkGraph.
+  - Implemented in: `validate_runbook_actionability()` checks each step for command presence.
+- Placeholders are allowed in commands (e.g., <REPO_ROOT>, <BSS_BIN>, <DOCS_DIR>).
+  - Failure: N/A (placeholders are valid; user replaces them at execution time).
+  - Next: N/A (guidance provided in step `expected` or documentation).
+  - Implemented in: no validation against placeholders; they're string literals.
+- --actionable flag enforcement falls back to WorkGraph on validation failure.
+  - Failure: runbook validation fails (schema or actionability).
+  - Next: WorkGraph generated and saved; user runs `maestro plan enact <WG_ID>`.
+  - Implemented in: `handle_runbook_resolve()` catches actionability errors and calls WorkGraphGenerator.
+- Evidence-pack driven variable hints are included in AI prompt when available.
+  - Hints format: `<VARIABLE>: candidate_path` (e.g., `<BSS_BIN>: ./build_maestro/bss`).
+  - Failure: N/A (best-effort hint; AI may or may not use them).
+  - Next: N/A (informational only).
+  - Implemented in: `_create_runbook_generation_prompt()` appends hints section from evidence pack CLI candidates.
+- Without --actionable flag, meta-steps are allowed (backward compatible).
+  - Failure: N/A (default mode permits meta-steps).
+  - Next: N/A (no validation enforced unless --actionable is set).
+  - Implemented in: `handle_runbook_resolve()` skips actionability validation unless `args.actionable` is True.
