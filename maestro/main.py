@@ -483,6 +483,14 @@ def main():
                 # Handle plan run command
                 from .commands.plan import handle_plan_run
                 handle_plan_run(args)
+            elif args.plan_subcommand == 'score':
+                # Handle plan score command
+                from .commands.plan import handle_plan_score
+                handle_plan_score(args)
+            elif args.plan_subcommand == 'recommend':
+                # Handle plan recommend command
+                from .commands.plan import handle_plan_recommend
+                handle_plan_recommend(args)
         else:
             # No subcommand provided - show help
             if hasattr(args, "func") and callable(args.func):

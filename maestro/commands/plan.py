@@ -1437,6 +1437,153 @@ def handle_plan_run(args):
         print_info(f"Run record: {run_dir}/", 2)
 
 
+def handle_plan_score(args):
+    """Handle maestro plan score command."""
+    from pathlib import Path
+    from ..data.workgraph_schema import WorkGraph
+    from ..archive.workgraph_storage import load_workgraph
+    from ..config.paths import get_workgraph_dir
+    from ..builders.workgraph_scoring import rank_workgraph
+
+    # Load WorkGraph
+    wg_dir = get_workgraph_dir()
+    wg_path = wg_dir / f"{args.workgraph_id}.json"
+
+    if not wg_path.exists():
+        print_error(f"Error: WorkGraph not found: {args.workgraph_id}", 2)
+        print_error(f"Expected path: {wg_path}", 2)
+        sys.exit(1)
+
+    try:
+        workgraph = load_workgraph(wg_path)
+    except Exception as e:
+        print_error(f"Error loading WorkGraph: {e}", 2)
+        sys.exit(1)
+
+    # Rank tasks
+    profile = args.profile
+    verbose = getattr(args, 'verbose', False)
+
+    try:
+        ranked_wg = rank_workgraph(workgraph, profile=profile)
+    except Exception as e:
+        print_error(f"Error scoring WorkGraph: {e}", 2)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+    # Output results
+    if getattr(args, 'json', False):
+        # JSON mode: stable output with sorted keys
+        import json
+        output = {
+            "workgraph_id": ranked_wg.workgraph_id,
+            "profile": ranked_wg.profile,
+            "summary": ranked_wg.summary,
+            "ranked_tasks": [
+                {
+                    "task_id": t.task_id,
+                    "task_title": t.task_title,
+                    "score": t.score,
+                    "effort_bucket": t.effort_bucket,
+                    "impact": t.impact,
+                    "risk": t.risk,
+                    "purpose": t.purpose,
+                    "rationale": t.rationale,
+                    "inferred_fields": t.inferred_fields
+                }
+                for t in ranked_wg.ranked_tasks[:10]  # Top 10 for bounded output
+            ]
+        }
+        print(json.dumps(output, indent=2, sort_keys=True))
+    else:
+        # Human-readable mode
+        print_header(f"WorkGraph Scoring: {ranked_wg.workgraph_id}")
+        print_info(f"Profile: {ranked_wg.profile}", 2)
+        print_info(f"Total tasks: {ranked_wg.summary['total_tasks']}", 2)
+        print()
+
+        # Summary buckets
+        print_info("Summary:", 2)
+        print_info(f"  Quick wins (score>=5, effort<=2): {ranked_wg.summary['quick_wins']}", 2)
+        print_info(f"  Risky bets (risk>=4): {ranked_wg.summary['risky_bets']}", 2)
+        print_info(f"  Purpose wins (purpose>=4): {ranked_wg.summary['purpose_wins']}", 2)
+        print_info(f"  Top score: {ranked_wg.summary['top_score']:.1f}", 2)
+        print_info(f"  Avg score: {ranked_wg.summary['avg_score']:.1f}", 2)
+        print()
+
+        # Top 10 tasks
+        print_header("Top 10 Tasks (by score)")
+        for i, task in enumerate(ranked_wg.ranked_tasks[:10], 1):
+            print_info(f"{i:2d}. [{task.score:+.1f}] {task.task_id}: {task.task_title[:60]}", 2)
+            if verbose:
+                print_info(f"    {task.rationale}", 2)
+
+
+def handle_plan_recommend(args):
+    """Handle maestro plan recommend command."""
+    from pathlib import Path
+    from ..data.workgraph_schema import WorkGraph
+    from ..archive.workgraph_storage import load_workgraph
+    from ..config.paths import get_workgraph_dir
+    from ..builders.workgraph_scoring import rank_workgraph, get_top_recommendations
+
+    # Load WorkGraph
+    wg_dir = get_workgraph_dir()
+    wg_path = wg_dir / f"{args.workgraph_id}.json"
+
+    if not wg_path.exists():
+        print_error(f"Error: WorkGraph not found: {args.workgraph_id}", 2)
+        print_error(f"Expected path: {wg_path}", 2)
+        sys.exit(1)
+
+    try:
+        workgraph = load_workgraph(wg_path)
+    except Exception as e:
+        print_error(f"Error loading WorkGraph: {e}", 2)
+        sys.exit(1)
+
+    # Rank tasks
+    profile = args.profile
+    top_n = args.top
+
+    try:
+        ranked_wg = rank_workgraph(workgraph, profile=profile)
+        recommendations = get_top_recommendations(ranked_wg, top_n=top_n)
+    except Exception as e:
+        print_error(f"Error generating recommendations: {e}", 2)
+        sys.exit(1)
+
+    # Output recommendations
+    print_header(f"Top {top_n} Recommendations ({profile} profile)")
+    print_info(f"WorkGraph: {ranked_wg.workgraph_id}", 2)
+    print()
+
+    for i, rec in enumerate(recommendations, 1):
+        print_info(f"{i}. [{rec.score:+.1f}] {rec.task_id}: {rec.task_title}", 2)
+        print_info(f"   {rec.rationale}", 2)
+
+        # Print commands if requested
+        if getattr(args, 'print_commands', False):
+            # Find the task in the workgraph to get commands
+            task_obj = None
+            for phase in workgraph.phases:
+                for task in phase.tasks:
+                    if task.id == rec.task_id:
+                        task_obj = task
+                        break
+                if task_obj:
+                    break
+
+            if task_obj and task_obj.definition_of_done:
+                # Show first DoD command
+                first_dod = task_obj.definition_of_done[0]
+                if first_dod.kind == "command" and first_dod.cmd:
+                    print_info(f"   Primary command: {first_dod.cmd[:80]}", 2)
+        print()
+
+
 def add_plan_parser(subparsers):
     """Add plan command subparsers."""
     plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
@@ -1651,6 +1798,59 @@ def add_plan_parser(subparsers):
         '-vv', '--very-verbose',
         action='store_true',
         help='Show bounded plan summary and per-task reasoning'
+    )
+
+    # Plan score subcommand
+    score_parser = plan_subparsers.add_parser(
+        'score',
+        help='Score and rank WorkGraph tasks by priority (investor/purpose modes)'
+    )
+    score_parser.add_argument(
+        'workgraph_id',
+        help='WorkGraph ID to score (e.g., wg-20260101-a3f5b8c2)'
+    )
+    score_parser.add_argument(
+        '--profile',
+        choices=['investor', 'purpose', 'default'],
+        default='default',
+        help='Scoring profile (default: default)'
+    )
+    score_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output as JSON (sorted keys, stable)'
+    )
+    score_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show detailed scoring rationale'
+    )
+
+    # Plan recommend subcommand
+    recommend_parser = plan_subparsers.add_parser(
+        'recommend',
+        help='Get top N recommended next actions from WorkGraph'
+    )
+    recommend_parser.add_argument(
+        'workgraph_id',
+        help='WorkGraph ID to analyze (e.g., wg-20260101-a3f5b8c2)'
+    )
+    recommend_parser.add_argument(
+        '--profile',
+        choices=['investor', 'purpose', 'default'],
+        default='investor',
+        help='Scoring profile (default: investor)'
+    )
+    recommend_parser.add_argument(
+        '--top',
+        type=int,
+        default=3,
+        help='Number of top recommendations (default: 3)'
+    )
+    recommend_parser.add_argument(
+        '--print-commands',
+        action='store_true',
+        help='Include primary command(s) in output'
     )
 
     return plan_parser

@@ -41,6 +41,11 @@ def add_ops_parser(subparsers) -> argparse.ArgumentParser:
         action='store_true',
         help='Report gates but do not enforce them'
     )
+    doctor_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show recommendations and additional details'
+    )
 
     # ops run
     run_parser = ops_subparsers.add_parser(
@@ -120,7 +125,8 @@ def handle_ops_doctor(args: argparse.Namespace) -> int:
         # Run doctor checks
         result = run_doctor(
             strict=args.strict,
-            ignore_gates=args.ignore_gates
+            ignore_gates=args.ignore_gates,
+            verbose=getattr(args, 'verbose', False)
         )
     except Exception as exc:
         print(f"Internal error: {exc}", file=sys.stderr)
@@ -130,7 +136,7 @@ def handle_ops_doctor(args: argparse.Namespace) -> int:
     if args.format == 'json':
         print(json.dumps(result.to_dict(), indent=2))
     else:
-        print(format_text_output(result))
+        print(format_text_output(result, verbose=getattr(args, 'verbose', False)))
 
     return result.exit_code
 

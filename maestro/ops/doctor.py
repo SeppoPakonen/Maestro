@@ -495,12 +495,69 @@ def check_subwork_open_children(docs_root: Optional[Path] = None) -> Finding:
     )
 
 
-def run_doctor(strict: bool = False, ignore_gates: bool = False, docs_root: Optional[Path] = None) -> DoctorResult:
+def check_workgraph_recommendations(docs_root: Optional[Path] = None) -> Optional[Finding]:
+    """Check for WorkGraph recommendations (verbose mode only).
+
+    Bounded and fast:
+    - Only checks latest WorkGraph by timestamp
+    - Returns top 3 recommendations using investor profile
+    - Skips if no WorkGraphs exist
+    """
+    if not docs_root:
+        docs_root = get_docs_root()
+
+    wg_dir = docs_root / "docs" / "maestro" / "plans" / "workgraphs"
+
+    if not wg_dir.exists():
+        return None
+
+    # Find latest WorkGraph by modification time (bounded - one file only)
+    try:
+        wg_files = sorted(wg_dir.glob("wg-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if not wg_files:
+            return None
+
+        latest_wg_path = wg_files[0]
+
+        # Load and rank
+        from maestro.archive.workgraph_storage import load_workgraph
+        from maestro.builders.workgraph_scoring import rank_workgraph, get_top_recommendations
+
+        workgraph = load_workgraph(latest_wg_path)
+        ranked_wg = rank_workgraph(workgraph, profile="investor")
+        top_3 = get_top_recommendations(ranked_wg, top_n=3)
+
+        if not top_3:
+            return None
+
+        # Format recommendations as details
+        details_lines = [f"WorkGraph: {workgraph.id}"]
+        for i, rec in enumerate(top_3, 1):
+            details_lines.append(f"{i}. [{rec.score:+.1f}] {rec.task_id}: {rec.task_title[:60]}")
+            details_lines.append(f"   {rec.rationale}")
+
+        recommended_commands = [f"maestro plan score {workgraph.id}",
+                                f"maestro plan recommend {workgraph.id}"]
+
+        return Finding(
+            id="WORKGRAPH_RECOMMENDATIONS",
+            severity="ok",
+            message=f"Top 3 recommendations (investor profile)",
+            details="\n".join(details_lines),
+            recommended_commands=recommended_commands
+        )
+    except Exception:
+        # Silently skip on any error (bounded failure)
+        return None
+
+
+def run_doctor(strict: bool = False, ignore_gates: bool = False, verbose: bool = False, docs_root: Optional[Path] = None) -> DoctorResult:
     """Run all doctor checks.
 
     Args:
         strict: Treat warnings as errors
         ignore_gates: Report gates but do not enforce them (downgrade blockers to warnings)
+        verbose: Show WorkGraph recommendations and additional details
         docs_root: Override docs root for testing
 
     Returns:
@@ -517,6 +574,12 @@ def run_doctor(strict: bool = False, ignore_gates: bool = False, docs_root: Opti
     findings.append(check_blocker_issues(docs_root))
     findings.append(check_subwork_orphans(docs_root))
     findings.append(check_subwork_open_children(docs_root))
+
+    # Verbose mode: add WorkGraph recommendations
+    if verbose:
+        wg_rec = check_workgraph_recommendations(docs_root)
+        if wg_rec:
+            findings.append(wg_rec)
 
     # If ignore_gates, downgrade blockers to warnings
     if ignore_gates:
@@ -541,8 +604,13 @@ def run_doctor(strict: bool = False, ignore_gates: bool = False, docs_root: Opti
     return DoctorResult(findings=findings, exit_code=exit_code)
 
 
-def format_text_output(result: DoctorResult) -> str:
-    """Format doctor result as text."""
+def format_text_output(result: DoctorResult, verbose: bool = False) -> str:
+    """Format doctor result as text.
+
+    Args:
+        result: Doctor result to format
+        verbose: If True, show recommendations section
+    """
     lines = []
     lines.append("Maestro Ops Doctor")
     lines.append("=" * 70)
@@ -555,8 +623,13 @@ def format_text_output(result: DoctorResult) -> str:
         "error": [],
         "blocker": []
     }
+    # Separate recommendations from other findings
+    recommendations_finding = None
     for finding in result.findings:
-        by_severity.get(finding.severity, []).append(finding)
+        if finding.id == "WORKGRAPH_RECOMMENDATIONS":
+            recommendations_finding = finding
+        else:
+            by_severity.get(finding.severity, []).append(finding)
 
     # Print blockers first
     if by_severity["blocker"]:
@@ -606,6 +679,21 @@ def format_text_output(result: DoctorResult) -> str:
         lines.append("-" * 70)
         for finding in by_severity["ok"]:
             lines.append(f"✅ {finding.id}: {finding.message}")
+        lines.append("")
+
+    # Recommendations section (verbose mode only)
+    if verbose and recommendations_finding:
+        lines.append("RECOMMENDATIONS (INVESTOR PROFILE)")
+        lines.append("-" * 70)
+        lines.append(recommendations_finding.message)
+        if recommendations_finding.details:
+            for line in recommendations_finding.details.split("\n"):
+                lines.append(f"  {line}")
+        lines.append("")
+        if recommendations_finding.recommended_commands:
+            lines.append("  Next steps:")
+            for cmd in recommendations_finding.recommended_commands:
+                lines.append(f"    • {cmd}")
         lines.append("")
 
     # Summary
