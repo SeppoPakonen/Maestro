@@ -575,6 +575,51 @@ See also:
 - `docs/workflows/v3/cli/PLAN_ENACT.md` - Portfolio enact (top-N with closure)
 - `docs/workflows/v3/cli/PLAN_SCORE.md` - Scoring and recommendations
 
+## Plan postmortem
+
+### maestro plan postmortem
+
+Analyze run failures and turn them into capital (log scan → issues → fix WorkGraph).
+
+```bash
+maestro plan postmortem <RUN_ID> [OPTIONS]
+```
+
+Arguments:
+- `<RUN_ID>`: Run ID to analyze (e.g., `run-20260102-1234abcd`)
+
+Options:
+- `--execute` - Actually write to log scan + issues (default: preview only)
+- `--scan-kind run|build` - Log scan kind (default: run)
+- `--issues` - Ingest findings to issues system (requires --execute)
+- `--decompose` - Create WorkGraph for fixes (domain=issues, requires --execute)
+- `-v, --verbose` - Show detailed output
+- `-vv, --very-verbose` - Show very detailed output (AI prompts, full artifacts)
+- `--json` - Output summary as JSON
+
+Examples:
+```bash
+# Preview mode (default)
+maestro plan postmortem run-20260102-1234abcd
+
+# Execute with issues ingestion
+maestro plan postmortem run-20260102-1234abcd --execute --issues
+
+# Full pipeline (log scan → issues → fix WorkGraph)
+maestro plan postmortem run-20260102-1234abcd --execute --issues --decompose
+```
+
+Machine-readable markers:
+- `MAESTRO_POSTMORTEM_RUN_ID=<run-id>`
+- `MAESTRO_POSTMORTEM_ARTIFACTS=<count>`
+- `MAESTRO_POSTMORTEM_SCAN_ID=<scan-id>`
+- `MAESTRO_POSTMORTEM_ISSUES=<issue-ids>`
+- `MAESTRO_POSTMORTEM_WORKGRAPH=<workgraph-id>`
+
+See also:
+- `docs/workflows/v3/cli/PLAN_POSTMORTEM.md` - Full postmortem documentation
+- `docs/workflows/v3/cli/PLAN_SPRINT.md` - Sprint failure loop integration
+
 ### maestro plan run
 
 Execute a WorkGraph plan with deterministic topological runner.

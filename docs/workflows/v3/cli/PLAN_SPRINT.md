@@ -245,6 +245,33 @@ steps:
 
 Ops runners can capture the `MAESTRO_SPRINT_*` markers for metadata tracking.
 
+## Failure Loop (Autopipeline v1)
+
+When `maestro plan sprint --execute` detects task failures, it automatically suggests the postmortem command:
+
+```
+MAESTRO_SPRINT_POSTMORTEM_RUN_ID=run-20260102-1234abcd
+
+Failures detected! Run postmortem to analyze:
+  maestro plan postmortem run-20260102-1234abcd --execute --issues --decompose
+```
+
+The failure loop workflow:
+
+1. **Sprint executes** → some tasks fail (exit != 0 or timeout)
+2. **Artifacts saved** → stdout/stderr/meta.json for failed tasks
+3. **Sprint suggests** → `maestro plan postmortem <RUN_ID> --execute --issues --decompose`
+4. **User runs postmortem** → failure artifacts → log scan → issues → fix WorkGraph
+5. **Next sprint** → `maestro plan sprint <FIX_WORKGRAPH_ID> --top 5 --execute`
+
+**Failure becomes capital** - errors turn into structured work items for the next sprint.
+
+### Safety
+
+- Sprint does NOT auto-run postmortem (requires explicit user command)
+- Postmortem default is preview (requires explicit `--execute`)
+- All steps are idempotent and bounded
+
 ## See Also
 
 - [maestro plan decompose](./PLAN_DECOMPOSE.md) - Create WorkGraphs
@@ -252,3 +279,4 @@ Ops runners can capture the `MAESTRO_SPRINT_*` markers for metadata tracking.
 - [maestro plan recommend](./PLAN_SCORE.md) - Get top recommendations
 - [maestro plan enact](./PLAN_ENACT.md) - Materialize WorkGraphs
 - [maestro plan run](./SIGNATURES.md#plan-run) - Execute WorkGraphs
+- [maestro plan postmortem](./PLAN_POSTMORTEM.md) - Analyze failures and create fix WorkGraphs
