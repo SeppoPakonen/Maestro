@@ -275,9 +275,10 @@ import sys
 class AIRunbookGenerator:
     """Generator that creates runbooks using AI based on evidence and request text."""
 
-    def __init__(self, engine, verbose: bool = False):
+    def __init__(self, engine, verbose: bool = False, actionable: bool = False):
         self.engine = engine
         self.verbose = verbose
+        self.actionable = actionable
         # Store the last prompt and response for debugging purposes
         self.last_prompt = None
         self.last_response = None
@@ -285,7 +286,7 @@ class AIRunbookGenerator:
     def generate(self, evidence: RunbookEvidence, request_text: str) -> Dict[str, Any]:
         """Generate a runbook using AI based on evidence and request text."""
         # Create a prompt for the AI that includes both the request and evidence
-        prompt = self._create_runbook_generation_prompt(evidence, request_text)
+        prompt = self._create_runbook_generation_prompt(evidence, request_text, actionable=self.actionable)
 
         # Store the prompt for potential very verbose output
         self.last_prompt = prompt
@@ -355,7 +356,7 @@ class AIRunbookGenerator:
 
         return runbook
 
-    def _create_runbook_generation_prompt(self, evidence: RunbookEvidence, request_text: str) -> str:
+    def _create_runbook_generation_prompt(self, evidence: RunbookEvidence, request_text: str, actionable: bool = False) -> str:
         """Create a prompt for AI runbook generation."""
         evidence_summary = {
             'repo_root': evidence.repo_root,
@@ -368,6 +369,39 @@ class AIRunbookGenerator:
             'warnings': evidence.warnings
         }
 
+        # Generate variable hints from evidence
+        variable_hints = []
+        if evidence.help_bin_path:
+            variable_hints.append(f"<BSS_BIN>: {evidence.help_bin_path}")
+        if evidence.repo_root:
+            variable_hints.append(f"<REPO_ROOT>: (use this placeholder for repo root)")
+        if evidence.commands_docs:
+            # Infer docs directory from commands_docs filenames
+            if evidence.commands_docs[0].get('filename'):
+                # Assume docs are in docs/commands/ based on common patterns
+                variable_hints.append(f"<DOCS_COMMANDS_DIR>: docs/commands/")
+
+        # Additional hint about build directory (common in repos)
+        variable_hints.append(f"<BUILD_DIR>: (use this placeholder for build output directory)")
+
+        variable_hints_text = ""
+        if variable_hints:
+            variable_hints_text = "\n\nRESOLVED VARIABLE HINTS (use these in your commands):\n" + "\n".join(f"- {hint}" for hint in variable_hints)
+
+        # Actionability requirement
+        actionability_requirement = ""
+        if actionable:
+            actionability_requirement = """
+        - CRITICAL: ALL steps MUST include executable commands
+          - Each step MUST have either "command" (string) or "commands" (list of strings) field
+          - Examples:
+            * "command": "./build_maestro/bss --help"
+            * "commands": ["grep -h '^##' docs/commands/*.md", "ls -la docs/"]
+          - REJECT meta-steps like "review documentation", "analyze code", "organize"
+            unless they include specific executable commands
+          - Placeholders like <REPO_ROOT>, <BSS_BIN> are allowed in commands
+        """
+
         prompt = f"""
         Create a structured runbook JSON based on the following request and evidence.
 
@@ -375,7 +409,7 @@ class AIRunbookGenerator:
         {request_text}
 
         EVIDENCE:
-        {json.dumps(evidence_summary, indent=2)}
+        {json.dumps(evidence_summary, indent=2)}{variable_hints_text}
 
         INSTRUCTIONS:
         - Generate a complete runbook JSON object with the following structure:
@@ -390,6 +424,7 @@ class AIRunbookGenerator:
                 "actor": "dev|user|system|ai",
                 "action": "specific action to perform",
                 "expected": "expected outcome",
+                "command": "executable shell command (REQUIRED)",
                 "details": "optional detailed description",
                 "variants": ["optional", "variant", "descriptions"]
               }}
@@ -399,7 +434,7 @@ class AIRunbookGenerator:
             "tags": ["list", "of", "tags"],
             "created_at": "auto-generated",
             "updated_at": "auto-generated"
-          }}
+          }}{actionability_requirement}
         - The runbook should reference actual commands and documentation from the evidence
         - Steps should be actionable and specific
         - Use the evidence to inform realistic steps and artifacts
@@ -607,6 +642,60 @@ def validate_runbook_schema(runbook: Dict[str, Any]) -> List[str]:
         for i, tag in enumerate(runbook['tags']):
             if not isinstance(tag, str):
                 errors.append(f"Tag {i} must be a string")
+
+    return errors
+
+
+def validate_runbook_actionability(runbook: Dict[str, Any]) -> List[str]:
+    """
+    Validate that a runbook meets actionability requirements.
+
+    An actionable runbook must have executable steps (command or commands field).
+    Meta-steps without executable directives are rejected.
+
+    Args:
+        runbook: The runbook dictionary to validate
+
+    Returns:
+        List of actionability errors (empty if valid)
+    """
+    errors = []
+
+    steps = runbook.get('steps', [])
+    if not steps:
+        # Empty steps already caught by schema validation
+        return errors
+
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            # Not a dict - already caught by schema validation
+            continue
+
+        # Check if step has command or commands field
+        has_command = 'command' in step and isinstance(step['command'], str) and step['command'].strip()
+        has_commands = 'commands' in step and isinstance(step['commands'], list) and len(step['commands']) > 0
+
+        if not (has_command or has_commands):
+            # Check if this looks like a meta-step
+            action = step.get('action', '')
+            meta_keywords = [
+                'review', 'analyze', 'parse', 'organize', 'create outline',
+                'group', 'categorize', 'document', 'understand', 'study',
+                'read', 'examine', 'investigate', 'explore'
+            ]
+
+            is_meta_step = any(keyword in action.lower() for keyword in meta_keywords)
+
+            if is_meta_step:
+                errors.append(
+                    f"Step {step.get('n', i+1)} is a meta-step without executable command: '{action}' "
+                    f"(missing 'command' or 'commands' field)"
+                )
+            else:
+                errors.append(
+                    f"Step {step.get('n', i+1)} missing executable command: '{action}' "
+                    f"(needs 'command' or 'commands' field)"
+                )
 
     return errors
 
@@ -850,6 +939,7 @@ def add_runbook_parser(subparsers: Any) -> None:
     resolve_parser.add_argument('--evidence-only', action='store_true', help='Use deterministic evidence compilation instead of AI')
     resolve_parser.add_argument('--name', help='Custom name for the runbook (overrides AI-generated title)')
     resolve_parser.add_argument('--dry-run', action='store_true', help='Show what would be created without saving')
+    resolve_parser.add_argument('--actionable', action='store_true', help='Enforce actionability: all steps must have executable commands (fallback to WorkGraph on failure)')
 
     # Archive command
     archive_parser = runbook_subparsers.add_parser('archive', help='Archive a runbook (markdown or JSON)')
@@ -1826,7 +1916,8 @@ def handle_runbook_resolve(args: argparse.Namespace) -> None:
                 print(f"Input: {freeform_input[:100]}{'...' if len(freeform_input) > 100 else ''}")
 
             # Create an AI-based generator
-            generator = AIRunbookGenerator(engine, verbose=effective_verbose)
+            actionable = getattr(args, 'actionable', False)
+            generator = AIRunbookGenerator(engine, verbose=effective_verbose, actionable=actionable)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             print("No AI engine available. Configure an engine or use --evidence-only flag.", file=sys.stderr)
@@ -1882,13 +1973,13 @@ def handle_runbook_resolve(args: argparse.Namespace) -> None:
         # Regenerate ID based on the custom name
         runbook_data['id'] = generate_runbook_id(args.name)
 
-    # Validate the runbook data
+    # Validate the runbook data (schema)
     validation_errors = validate_runbook_schema(runbook_data)
     if validation_errors:
         # FALLBACK: Generate WorkGraph instead
         if effective_verbose:
-            print("Runbook validation failed. Falling back to WorkGraph generation...")
-            print(f"Validation errors: {validation_errors[:3]}")  # Show first 3 errors
+            print("Runbook schema validation failed. Falling back to WorkGraph generation...")
+            print(f"Schema errors: {validation_errors[:3]}")  # Show first 3 errors
 
         try:
             from maestro.builders.workgraph_generator import WorkGraphGenerator
@@ -1963,8 +2054,105 @@ def handle_runbook_resolve(args: argparse.Namespace) -> None:
                 traceback.print_exc()
             return
 
-    if args.verbose:
-        print(f"Validation: {len(validation_errors)} errors found")
+    # Schema validation passed
+    if effective_verbose:
+        print(f"Schema validation: passed")
+
+    # Actionability validation (only if --actionable flag is set)
+    if getattr(args, 'actionable', False):
+        actionability_errors = validate_runbook_actionability(runbook_data)
+
+        if actionability_errors:
+            # FALLBACK: Generate WorkGraph instead
+            if effective_verbose:
+                print("Runbook actionability validation failed. Falling back to WorkGraph generation...")
+                print(f"Actionability errors ({len(actionability_errors)}):")
+                for error in actionability_errors[:5]:  # Show first 5 errors
+                    print(f"  - {error}")
+
+            # Very verbose: show actionability failure reasons (bounded)
+            if getattr(args, 'very_verbose', False):
+                print("\n=== ACTIONABILITY VALIDATION FAILURES ===")
+                for error in actionability_errors:
+                    print(f"  {error}")
+                print()
+
+            try:
+                from maestro.builders.workgraph_generator import WorkGraphGenerator
+                from maestro.archive.workgraph_storage import save_workgraph
+                from maestro.config.paths import get_workgraph_dir
+                from maestro.repo.discovery import discover_repo, DiscoveryBudget
+                from pathlib import Path
+
+                # Collect repo evidence for WorkGraph (same as plan decompose)
+                repo_root = Path.cwd()
+                budget = DiscoveryBudget()
+                discovery = discover_repo(repo_root, budget)
+
+                if effective_verbose:
+                    print(f"Collected {len(discovery.evidence)} evidence items for WorkGraph")
+
+                # Use same engine as runbook generation
+                if not isinstance(generator, AIRunbookGenerator):
+                    # If using EvidenceOnlyGenerator, we can't generate WorkGraph
+                    print("Error: Runbook actionability failed and WorkGraph fallback requires AI engine.", file=sys.stderr)
+                    print("Use --engine option to specify an AI engine.", file=sys.stderr)
+                    return
+
+                wg_generator = WorkGraphGenerator(
+                    engine=generator.engine,
+                    verbose=effective_verbose
+                )
+
+                workgraph = wg_generator.generate(
+                    freeform_request=freeform_input,
+                    discovery=discovery,
+                    domain="runbook",
+                    profile=getattr(args, 'profile', 'default')
+                )
+
+                # Very verbose: show AI prompt and response (bounded to 2000 chars)
+                if getattr(args, 'very_verbose', False):
+                    print("\n=== AI PROMPT (first 2000 chars) ===")
+                    prompt = wg_generator.last_prompt or ""
+                    print(prompt[:2000])
+                    if len(prompt) > 2000:
+                        print(f"\n... (truncated {len(prompt) - 2000} chars)")
+
+                    print("\n=== AI RESPONSE (first 2000 chars) ===")
+                    response = wg_generator.last_response or ""
+                    print(response[:2000])
+                    if len(response) > 2000:
+                        print(f"\n... (truncated {len(response) - 2000} chars)")
+                    print()
+
+                # Save WorkGraph
+                wg_dir = get_workgraph_dir()
+                wg_path = wg_dir / f"{workgraph.id}.json"
+                save_workgraph(workgraph, wg_path)
+
+                print("\nRunbook not actionable → created WorkGraph instead")
+                print(f"WorkGraph ID: {workgraph.id}")
+                print(f"Domain: {workgraph.domain}")
+                print(f"Phases: {len(workgraph.phases)}")
+                total_tasks = sum(len(p.tasks) for p in workgraph.phases)
+                print(f"Tasks: {total_tasks}")
+                print(f"\nNext step: Run the following command to materialize the plan:")
+                print(f"  maestro plan enact {workgraph.id}")
+                return
+
+            except Exception as wg_error:
+                print(f"Error: Both runbook validation and WorkGraph generation failed.", file=sys.stderr)
+                print(f"  Actionability errors: {actionability_errors[:2]}", file=sys.stderr)
+                print(f"  WorkGraph error: {wg_error}", file=sys.stderr)
+                if effective_verbose:
+                    import traceback
+                    traceback.print_exc()
+                return
+
+        # Actionability validation passed
+        if effective_verbose:
+            print(f"Actionability validation: passed")
 
     # Check for dry run
     if getattr(args, 'dry_run', False):
