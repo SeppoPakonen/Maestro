@@ -440,19 +440,36 @@ Options:
 - `--dry-run` - Preview what would be created/updated without writing files
 - `--name "Track Title"` - Override track name (default: uses WorkGraph track name)
 - `-v, --verbose` - Show detailed output
+- `--top N` - Materialize only top N tasks (by profile score) + their dependencies
+- `--profile investor|purpose|default` - Scoring profile for --top selection (default: default)
 
 Behavior:
 - Reads WorkGraph from `docs/maestro/plans/workgraphs/{id}.json`
-- Converts WorkGraph structure to Track/Phase/Task JSON files
+- Without `--top`: Converts entire WorkGraph to Track/Phase/Task JSON files
+- With `--top`: Scores tasks, selects top-N + dependency closure, materializes selected subset
 - Materializes to `docs/maestro/{tracks,phases,tasks}/`
 - Updates index at `docs/maestro/index.json`
 - Idempotent: running twice updates existing items, doesn't duplicate
+- Portfolio mode (`--top`): Includes score annotations and safe_to_execute flags in task descriptions
 
 Examples:
 ```bash
+# Full materialization
 maestro plan enact wg-20260101-a3f5b8c2
+
+# Dry run
 maestro plan enact wg-20260101-a3f5b8c2 --dry-run
+
+# Portfolio enact (top-5 by investor score + deps)
+maestro plan enact wg-20260101-a3f5b8c2 --top 5 --profile investor
+
+# Purpose-aligned portfolio
+maestro plan enact wg-20260101-a3f5b8c2 --top 3 --profile purpose
+
+# Custom track name
 maestro plan enact wg-20260101-a3f5b8c2 --name "Custom Track"
+
+# JSON output
 maestro plan enact wg-20260101-a3f5b8c2 --json
 ```
 
