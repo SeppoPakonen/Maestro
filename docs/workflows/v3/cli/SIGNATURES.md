@@ -993,3 +993,86 @@ maestro ux eval "Build the project" --out custom/ux_reports/eval_001
 
 See: [UX_EVAL.md](./UX_EVAL.md) for detailed documentation.
 
+### maestro ux postmortem
+
+Convert UX eval findings into actionable issues and optionally a WorkGraph.
+
+```bash
+maestro ux postmortem <EVAL_ID> [OPTIONS]
+```
+
+Arguments:
+- `<EVAL_ID>` - UX eval ID to process (e.g., `ux_eval_20260102_143052`)
+
+Options:
+- `--execute` - Actually run pipeline (default: preview only)
+- `--issues` - Create issues from findings (requires `--execute`)
+- `--decompose` - Create WorkGraph for fixes (requires `--execute` and `--issues`)
+- `--profile {investor|purpose|default}` - WorkGraph profile for decompose (default: `default`)
+- `-v, --verbose` - Show detailed output
+- `-vv, --very-verbose` - Show all pipeline commands and outputs
+- `--json` - Output summary as JSON to stdout
+
+Examples:
+```bash
+# Preview (safe, no writes)
+maestro ux postmortem ux_eval_20260102_143052
+
+# Execute log scan only
+maestro ux postmortem ux_eval_20260102_143052 --execute
+
+# Execute with issues
+maestro ux postmortem ux_eval_20260102_143052 --execute --issues
+
+# Full pipeline (log scan → issues → workgraph)
+maestro ux postmortem ux_eval_20260102_143052 --execute --issues --decompose --profile investor
+
+# JSON output
+maestro ux postmortem ux_eval_20260102_143052 --execute --issues --json
+```
+
+See: [UX_POSTMORTEM.md](./UX_POSTMORTEM.md) for detailed documentation.
+
+### maestro ux list
+
+List all UX evaluation runs stored under docs/maestro/ux_eval/, newest first.
+
+```bash
+maestro ux list [OPTIONS]
+```
+
+Options:
+- `--json` - Output as JSON
+
+Examples:
+```bash
+# Human-readable list
+maestro ux list
+
+# JSON output
+maestro ux list --json
+```
+
+### maestro ux show
+
+Show UX evaluation summary and artifacts for a specific eval.
+
+```bash
+maestro ux show <EVAL_ID> [OPTIONS]
+```
+
+Arguments:
+- `<EVAL_ID>` - UX eval ID to show
+
+Options:
+- `--json` - Output as JSON
+
+Examples:
+```bash
+# Human-readable summary
+maestro ux show ux_eval_20260102_143052
+
+# JSON output
+maestro ux show ux_eval_20260102_143052 --json
+```
+

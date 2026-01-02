@@ -370,3 +370,70 @@ See also:
   - Failure: doctor scans all WorkGraphs or shows too many tasks.
   - Next: verify only latest WG by mtime is loaded; top 3 slicing applied.
   - Implemented in: `check_workgraph_recommendations()` sorts by mtime, takes first file, returns top 3.
+
+## UX postmortem (ux postmortem / ux list / ux show)
+
+- Synthetic log generation is deterministic (same eval → same log content).
+  - Failure: running postmortem twice on same eval produces different log content.
+  - Next: verify `build_ux_log()` has no randomness, timestamps, or non-deterministic inputs.
+  - Implemented in: `maestro.ux.postmortem.build_ux_log()` uses only eval artifacts (no datetime.now() in log body).
+
+- Preview mode is safe (no writes, no subprocess calls).
+  - Failure: preview mode writes to docs/ or calls maestro subcommands.
+  - Next: verify `execute=False` path does not create `ux_postmortem/` directory or call subprocess.run().
+  - Implemented in: `UXPostmortem.run()` skips all file writes and subprocess calls when `execute=False`.
+
+- Execute mode is idempotent (re-running doesn't duplicate issues).
+  - Failure: running postmortem twice creates duplicate issues with same fingerprints.
+  - Next: verify log scanner deduplication works; same synthetic log → same fingerprints.
+  - Implemented in: deterministic log + log scanner's fingerprint-based dedup ensures no duplicates.
+
+- Synthetic log contains expected markers for log scanner.
+  - Failure: log scanner fails to extract findings from synthetic log.
+  - Next: verify log contains `tool:`, `error:`, `status:`, and friction signals.
+  - Implemented in: `build_ux_log()` formats output with tool markers, error lines, status markers, and UX signals.
+
+- UX friction signals are detected correctly (high unknown rate, timeouts, zero success).
+  - Failure: obvious UX problems (e.g., 80% unknown commands) don't trigger friction signals.
+  - Next: verify signal thresholds are sensible (e.g., >30% unknown → signal).
+  - Implemented in: `build_ux_log()` computes signal ratios and emits warnings.
+
+- Postmortem writes only to ux_postmortem/ subdirectory (no side-effects outside eval dir).
+  - Failure: postmortem writes to repo code, /tmp, or other locations.
+  - Next: verify all writes are under `<eval_dir>/ux_postmortem/`.
+  - Implemented in: `UXPostmortem` hardcodes `self.postmortem_dir = eval_dir / "ux_postmortem"`.
+
+- Pipeline step ordering is correct (log scan → issues → workgraph).
+  - Failure: workgraph decompose runs before issues add, or issues add runs before log scan.
+  - Next: verify subprocess calls are sequential: scan ID used by issues, issues complete before decompose.
+  - Implemented in: `UXPostmortem.run()` calls `_run_log_scan()`, then `_create_issues_from_scan()`, then `_decompose_workgraph()`.
+
+- Machine-readable markers are emitted (MAESTRO_UX_POSTMORTEM_SCAN_ID, etc.).
+  - Failure: markers not printed, or printed with wrong format.
+  - Next: verify marker lines follow `KEY=VALUE` format with no extra whitespace.
+  - Implemented in: `UXPostmortem.run()` prints markers like `MAESTRO_UX_EVAL_ID={self.eval_id}`.
+
+- Postmortem metadata (postmortem.json) includes all required fields.
+  - Failure: postmortem.json missing timestamp, scan_id, or other required fields.
+  - Next: verify JSON schema matches spec: eval_id, timestamp, mode, log_file, scan_id, issues_created, workgraph_id, profile.
+  - Implemented in: `UXPostmortem.run()` constructs `postmortem_meta` dict with all required fields before writing.
+
+- Subprocess failures are handled gracefully (log scan timeout, issues add failure).
+  - Failure: postmortem crashes if log scan fails or times out.
+  - Next: verify try/except wraps subprocess.run() calls; returns None on failure instead of crashing.
+  - Implemented in: `_run_log_scan()`, `_create_issues_from_scan()`, `_decompose_workgraph()` catch TimeoutExpired and generic Exception.
+
+- Bounded output in -vv mode (subprocess stdout/stderr limited to 500 chars).
+  - Failure: -vv mode prints unbounded subprocess output (e.g., 10MB log scan output).
+  - Next: verify all subprocess output is sliced `[:500]` before printing.
+  - Implemented in: `UXPostmortem._run_log_scan()` prints `result.stdout[:500]` and `result.stderr[:500]`.
+
+- UX list sorts evals by modification time (newest first).
+  - Failure: ux list shows oldest evals first, or random order.
+  - Next: verify `eval_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)`.
+  - Implemented in: `handle_ux_list()` sorts by mtime with reverse=True.
+
+- UX show handles missing artifacts gracefully.
+  - Failure: ux show crashes if report.md or surface.json missing.
+  - Next: verify `if file.exists()` checks before accessing artifacts.
+  - Implemented in: `handle_ux_show()` checks `report_file.exists()`, `surface_file.exists()`, etc., and shows "Not found" instead of crashing.
