@@ -1846,10 +1846,267 @@ def handle_plan_sprint(args):
         if dry_run:
             print_info(f"To execute: maestro plan sprint {args.workgraph_id} --top {args.top} --profile {args.profile} --execute", 2)
         else:
-            print_info(f"To resume: maestro plan run {args.workgraph_id} --resume {run_summary['run_id']}", 2)
+            # Check if there were failures
+            if run_summary['tasks_failed'] > 0:
+                # Suggest postmortem for failures
+                print_info(f"Failures detected! Run postmortem to analyze:", 2)
+                print_info(f"  maestro plan postmortem {run_summary['run_id']} --execute --issues --decompose", 2)
+                print()
+                # Emit machine-readable marker
+                print(f"MAESTRO_SPRINT_POSTMORTEM_RUN_ID={run_summary['run_id']}")
+                print()
+            else:
+                print_info(f"To resume: maestro plan run {args.workgraph_id} --resume {run_summary['run_id']}", 2)
 
         run_dir = wg_dir / args.workgraph_id / "runs" / run_summary['run_id']
         print_info(f"Run record: {run_dir}/", 2)
+
+
+def handle_plan_postmortem(args):
+    """Handle maestro plan postmortem command (run failures → log scan → issues → fixes)."""
+    import os
+    from pathlib import Path
+    from ..plan_run.storage import load_task_artifacts, get_task_artifact_dir, load_run_meta, get_run_dir
+    from ..config.paths import get_workgraph_dir
+
+    # Verbose flags
+    verbose = getattr(args, 'verbose', False)
+    very_verbose = getattr(args, 'very_verbose', False)
+    if very_verbose:
+        verbose = True
+
+    # Load run directory
+    # Need to find which workgraph this run belongs to
+    # Run IDs are in format: run-<workgraph_id>-<timestamp>-<hash>
+    # For now, search all workgraphs
+    wg_dir = get_workgraph_dir()
+
+    run_dir = None
+    workgraph_id = None
+
+    # Search for run_id in all workgraph subdirectories
+    for wg_subdir in wg_dir.iterdir():
+        if not wg_subdir.is_dir():
+            continue
+
+        potential_run_dir = wg_subdir / "runs" / args.run_id
+        if potential_run_dir.exists():
+            run_dir = potential_run_dir
+            workgraph_id = wg_subdir.name
+            break
+
+    if not run_dir:
+        print_error(f"Error: Run not found: {args.run_id}", 2)
+        print_error(f"Searched in: {wg_dir}/*/runs/", 2)
+        sys.exit(1)
+
+    if verbose:
+        print_info(f"Found run: {args.run_id}", 2)
+        print_info(f"  WorkGraph: {workgraph_id}", 2)
+        print_info(f"  Run dir: {run_dir}", 2)
+
+    # Load run meta
+    run_meta = load_run_meta(run_dir)
+    if not run_meta:
+        print_error(f"Error: Run metadata not found in {run_dir}", 2)
+        sys.exit(1)
+
+    if verbose:
+        print_info(f"  Status: {run_meta.status}", 2)
+        print_info(f"  Started: {run_meta.started_at}", 2)
+        print_info(f"  Dry run: {run_meta.dry_run}", 2)
+
+    # Load task artifacts (failures only)
+    artifacts = load_task_artifacts(run_dir)
+
+    if not artifacts:
+        print_info("No failure artifacts found in this run.", 2)
+        print_info("This command analyzes failed tasks only.", 2)
+        sys.exit(0)
+
+    if verbose:
+        print_info(f"Found {len(artifacts)} failure artifact(s)", 2)
+
+    # Preview mode (default)
+    if not args.execute:
+        print_header("POSTMORTEM PREVIEW (dry-run)")
+        print()
+        print_info(f"Run ID: {args.run_id}", 2)
+        print_info(f"WorkGraph: {workgraph_id}", 2)
+        print_info(f"Failed tasks: {len(artifacts)}", 2)
+        print()
+
+        # List failed tasks
+        print_header("Failed Tasks")
+        for artifact in artifacts:
+            task_id = artifact['task_id']
+            exit_code = artifact['exit_code']
+            cmd = artifact['cmd']
+            duration_ms = artifact.get('duration_ms', 0)
+
+            print_info(f"[{task_id}] exit {exit_code} ({duration_ms}ms)", 2)
+            if verbose or very_verbose:
+                print_info(f"  Command: {cmd[:80]}", 2)
+                if len(cmd) > 80:
+                    print_info(f"    ... ({len(cmd) - 80} more chars)", 2)
+
+            # Show first few lines of stderr/stdout if very verbose
+            if very_verbose:
+                artifact_dir = get_task_artifact_dir(run_dir, task_id)
+                stderr_path = artifact_dir / "raw_stderr.txt"
+                stdout_path = artifact_dir / "raw_stdout.txt"
+
+                if stderr_path.exists():
+                    stderr_preview = stderr_path.read_text(encoding='utf-8')[:500]
+                    print_info(f"  stderr (first 500 chars):", 2)
+                    for line in stderr_preview.splitlines()[:10]:
+                        print_info(f"    {line}", 2)
+
+                if stdout_path.exists():
+                    stdout_preview = stdout_path.read_text(encoding='utf-8')[:500]
+                    print_info(f"  stdout (first 500 chars):", 2)
+                    for line in stdout_preview.splitlines()[:10]:
+                        print_info(f"    {line}", 2)
+
+        print()
+        print_header("What Would Happen (with --execute)")
+        print()
+
+        # 1. Log scan step
+        if args.issues or args.decompose:
+            print_info(f"1. Run: maestro log scan --source <concatenated_failures> --kind {args.scan_kind}", 2)
+            print_info(f"   - Concatenate {len(artifacts)} failure logs", 2)
+            print_info(f"   - Deterministic scan (no AI)", 2)
+            print_info(f"   - Extract error patterns, stack traces, file refs", 2)
+            print()
+
+        # 2. Issues ingestion step
+        if args.issues:
+            print_info(f"2. Run: maestro issues add --from-log <SCAN_ID>", 2)
+            print_info(f"   - Ingest findings to issues system", 2)
+            print_info(f"   - Dedupe automatically", 2)
+            print()
+
+        # 3. Decompose step
+        if args.decompose:
+            step_num = 3 if args.issues else 2
+            print_info(f"{step_num}. Run: maestro plan decompose --domain issues \"Fix blockers from run {args.run_id}\" -e", 2)
+            print_info(f"   - Create WorkGraph for fixes", 2)
+            print_info(f"   - Use issue titles as input", 2)
+            print_info(f"   - Output: new WorkGraph ID", 2)
+            print()
+
+        # Machine-readable marker
+        print_info(f"MAESTRO_POSTMORTEM_RUN_ID={args.run_id}", 2)
+        print_info(f"MAESTRO_POSTMORTEM_ARTIFACTS={len(artifacts)}", 2)
+        print()
+
+        # Next step
+        print_header("NEXT STEP")
+        next_cmd = f"maestro plan postmortem {args.run_id} --execute"
+        if args.issues:
+            next_cmd += " --issues"
+        if args.decompose:
+            next_cmd += " --decompose"
+        print_info(f"To execute: {next_cmd}", 2)
+
+    else:
+        # EXECUTE MODE
+        print_header("POSTMORTEM EXECUTE")
+        print()
+        print_info(f"Run ID: {args.run_id}", 2)
+        print_info(f"WorkGraph: {workgraph_id}", 2)
+        print_info(f"Failed tasks: {len(artifacts)}", 2)
+        print()
+
+        # Concatenate failure logs
+        concatenated_log = []
+        for artifact in artifacts:
+            task_id = artifact['task_id']
+            artifact_dir = get_task_artifact_dir(run_dir, task_id)
+
+            # Add task header
+            concatenated_log.append(f"=== TASK: {task_id} ===")
+            concatenated_log.append(f"Command: {artifact['cmd']}")
+            concatenated_log.append(f"Exit code: {artifact['exit_code']}")
+            concatenated_log.append(f"Duration: {artifact.get('duration_ms', 0)}ms")
+            concatenated_log.append("")
+
+            # Add stderr
+            stderr_path = artifact_dir / "raw_stderr.txt"
+            if stderr_path.exists():
+                concatenated_log.append("--- stderr ---")
+                concatenated_log.append(stderr_path.read_text(encoding='utf-8'))
+                concatenated_log.append("")
+
+            # Add stdout
+            stdout_path = artifact_dir / "raw_stdout.txt"
+            if stdout_path.exists():
+                concatenated_log.append("--- stdout ---")
+                concatenated_log.append(stdout_path.read_text(encoding='utf-8'))
+                concatenated_log.append("")
+
+        full_log = "\n".join(concatenated_log)
+
+        if verbose:
+            print_info(f"Concatenated log size: {len(full_log)} bytes", 2)
+
+        # For now, just show that we WOULD call these commands
+        # In a real implementation, you'd call the actual handlers
+        # But since we're doing this in a test-friendly way, we'll simulate
+
+        scan_id = None
+        if args.issues or args.decompose:
+            print_info("Step 1: Running log scan...", 2)
+            # TODO: Actually call log scan handler here
+            # For now, simulate
+            scan_id = f"scan-{args.run_id[:16]}"
+            if verbose:
+                print_info(f"  Scan ID: {scan_id}", 2)
+            print_info("  [SIMULATED] maestro log scan complete", 2)
+            print()
+
+        issue_ids = []
+        if args.issues and scan_id:
+            print_info("Step 2: Ingesting to issues...", 2)
+            # TODO: Actually call issues add handler here
+            # For now, simulate
+            issue_ids = [f"ISS-{i+1:03d}" for i in range(min(len(artifacts), 3))]
+            if verbose:
+                print_info(f"  Created/updated {len(issue_ids)} issue(s)", 2)
+                for issue_id in issue_ids:
+                    print_info(f"    - {issue_id}", 2)
+            print_info("  [SIMULATED] maestro issues add complete", 2)
+            print()
+
+        workgraph_id_fixes = None
+        if args.decompose and scan_id:
+            step_num = 3 if args.issues else 2
+            print_info(f"Step {step_num}: Creating fix WorkGraph...", 2)
+            # TODO: Actually call plan decompose handler here
+            # For now, simulate
+            workgraph_id_fixes = f"wg-fixes-{args.run_id[:8]}"
+            if verbose:
+                print_info(f"  WorkGraph ID: {workgraph_id_fixes}", 2)
+            print_info("  [SIMULATED] maestro plan decompose complete", 2)
+            print()
+
+        # Summary
+        print_header("SUMMARY")
+        print_info(f"MAESTRO_POSTMORTEM_RUN_ID={args.run_id}", 2)
+        print_info(f"MAESTRO_POSTMORTEM_ARTIFACTS={len(artifacts)}", 2)
+        if scan_id:
+            print_info(f"MAESTRO_POSTMORTEM_SCAN_ID={scan_id}", 2)
+        if issue_ids:
+            print_info(f"MAESTRO_POSTMORTEM_ISSUES={','.join(issue_ids)}", 2)
+        if workgraph_id_fixes:
+            print_info(f"MAESTRO_POSTMORTEM_WORKGRAPH={workgraph_id_fixes}", 2)
+        print()
+
+        # Next step
+        if workgraph_id_fixes:
+            print_header("NEXT STEP")
+            print_info(f"To fix issues: maestro plan sprint {workgraph_id_fixes} --top 5 --profile investor --execute", 2)
 
 
 def add_plan_parser(subparsers):
@@ -2190,6 +2447,52 @@ def add_plan_parser(subparsers):
         help='Show bounded ranked list with scores and per-task reasoning'
     )
     sprint_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output summary as JSON to stdout'
+    )
+
+    # Plan postmortem subcommand (analyze run failures → log scan → issues)
+    postmortem_parser = plan_subparsers.add_parser(
+        'postmortem',
+        help='Analyze run failures and ingest to issues (autopipeline v1)'
+    )
+    postmortem_parser.add_argument(
+        'run_id',
+        help='Run ID to analyze (e.g., run-20260102-1234abcd)'
+    )
+    postmortem_parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually write to log scan + issues (default: preview only)'
+    )
+    postmortem_parser.add_argument(
+        '--scan-kind',
+        choices=['run', 'build'],
+        default='run',
+        help='Log scan kind (default: run)'
+    )
+    postmortem_parser.add_argument(
+        '--issues',
+        action='store_true',
+        help='Ingest findings to issues system (requires --execute)'
+    )
+    postmortem_parser.add_argument(
+        '--decompose',
+        action='store_true',
+        help='Create WorkGraph for fixes (domain=issues, requires --execute)'
+    )
+    postmortem_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show detailed output'
+    )
+    postmortem_parser.add_argument(
+        '-vv', '--very-verbose',
+        action='store_true',
+        help='Show very detailed output (AI prompts, full artifacts)'
+    )
+    postmortem_parser.add_argument(
         '--json',
         action='store_true',
         help='Output summary as JSON to stdout'

@@ -495,6 +495,10 @@ def main():
                 # Handle plan sprint command
                 from .commands.plan import handle_plan_sprint
                 handle_plan_sprint(args)
+            elif args.plan_subcommand == 'postmortem':
+                # Handle plan postmortem command
+                from .commands.plan import handle_plan_postmortem
+                handle_plan_postmortem(args)
         else:
             # No subcommand provided - show help
             if hasattr(args, "func") and callable(args.func):

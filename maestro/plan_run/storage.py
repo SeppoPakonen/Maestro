@@ -202,3 +202,136 @@ def get_latest_run(workgraph_dir: Path, workgraph_id: str) -> Optional[RunMeta]:
     # Load full run meta
     run_dir = get_run_dir(workgraph_dir, workgraph_id, run_id)
     return load_run_meta(run_dir)
+
+
+def save_task_artifact(
+    run_dir: Path,
+    task_id: str,
+    stdout: str,
+    stderr: str,
+    exit_code: int,
+    duration_ms: int,
+    cmd: str,
+    cwd: str,
+    timestamp: str,
+    artifact_count: int
+) -> None:
+    """Save task failure artifacts (stdout/stderr/meta) to disk.
+
+    Budgets:
+    - Max 200KB per stream (truncate if larger)
+    - Max 20 artifacts per run (caller should check)
+
+    Args:
+        run_dir: Directory for this run
+        task_id: ID of the task that failed
+        stdout: Task stdout output
+        stderr: Task stderr output
+        exit_code: Command exit code
+        duration_ms: Command duration in milliseconds
+        cmd: Command that was executed
+        cwd: Working directory
+        timestamp: ISO timestamp
+        artifact_count: Current number of artifacts (for budgeting)
+    """
+    # Budget check: max 20 artifacts per run
+    if artifact_count >= 20:
+        return  # Skip saving if we've hit the limit
+
+    # Create task artifact directory
+    artifact_dir = run_dir / "tasks" / task_id
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    # Budget: max 200KB per stream (200 * 1024 = 204800 bytes)
+    MAX_STREAM_BYTES = 204800
+    stdout_truncated = False
+    stderr_truncated = False
+
+    stdout_bytes = stdout.encode('utf-8')
+    if len(stdout_bytes) > MAX_STREAM_BYTES:
+        stdout_truncated = True
+        # Truncate to MAX_STREAM_BYTES
+        stdout_bytes = stdout_bytes[:MAX_STREAM_BYTES]
+        stdout = stdout_bytes.decode('utf-8', errors='ignore')
+
+    stderr_bytes = stderr.encode('utf-8')
+    if len(stderr_bytes) > MAX_STREAM_BYTES:
+        stderr_truncated = True
+        stderr_bytes = stderr_bytes[:MAX_STREAM_BYTES]
+        stderr = stderr_bytes.decode('utf-8', errors='ignore')
+
+    # Write stdout
+    stdout_path = artifact_dir / "raw_stdout.txt"
+    with open(stdout_path, "w", encoding="utf-8") as f:
+        f.write(stdout)
+        if stdout_truncated:
+            f.write(f"\n\n[TRUNCATED: output exceeded {MAX_STREAM_BYTES} bytes]")
+
+    # Write stderr
+    stderr_path = artifact_dir / "raw_stderr.txt"
+    with open(stderr_path, "w", encoding="utf-8") as f:
+        f.write(stderr)
+        if stderr_truncated:
+            f.write(f"\n\n[TRUNCATED: output exceeded {MAX_STREAM_BYTES} bytes]")
+
+    # Write meta.json
+    meta = {
+        "task_id": task_id,
+        "exit_code": exit_code,
+        "duration_ms": duration_ms,
+        "cmd": cmd,
+        "cwd": cwd,
+        "timestamp": timestamp,
+        "stdout_truncated": stdout_truncated,
+        "stderr_truncated": stderr_truncated,
+        "stdout_bytes": len(stdout.encode('utf-8')),
+        "stderr_bytes": len(stderr.encode('utf-8'))
+    }
+
+    meta_path = artifact_dir / "meta.json"
+    _atomic_write_json(meta_path, meta)
+
+
+def load_task_artifacts(run_dir: Path) -> List[Dict[str, any]]:
+    """Load all task artifacts from a run directory.
+
+    Args:
+        run_dir: Directory for this run
+
+    Returns:
+        List of artifact metadata dictionaries (one per task with artifacts)
+    """
+    tasks_dir = run_dir / "tasks"
+    if not tasks_dir.exists():
+        return []
+
+    artifacts = []
+    for task_dir in tasks_dir.iterdir():
+        if not task_dir.is_dir():
+            continue
+
+        meta_path = task_dir / "meta.json"
+        if not meta_path.exists():
+            continue
+
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            artifacts.append(meta)
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    return artifacts
+
+
+def get_task_artifact_dir(run_dir: Path, task_id: str) -> Path:
+    """Get the artifact directory for a specific task.
+
+    Args:
+        run_dir: Directory for this run
+        task_id: ID of the task
+
+    Returns:
+        Path to task artifact directory
+    """
+    return run_dir / "tasks" / task_id

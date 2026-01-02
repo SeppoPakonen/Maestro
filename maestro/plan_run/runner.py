@@ -26,6 +26,7 @@ from .storage import (
     load_events,
     load_run_meta,
     save_run_meta,
+    save_task_artifact,
     update_run_index
 )
 
@@ -82,6 +83,8 @@ class WorkGraphRunner:
         self.tasks_completed_this_run = 0
         self.tasks_failed_this_run = 0
         self.tasks_skipped_this_run = 0
+        # Track artifact count for budgeting (max 20 per run)
+        self.artifact_count = 0
 
     def run(self) -> Dict[str, any]:
         """Execute the WorkGraph.
@@ -367,7 +370,7 @@ class WorkGraphRunner:
         """
         for i, dod in enumerate(task.definition_of_done):
             if dod.kind == "command":
-                result = self._execute_command(dod.cmd, dod.expect)
+                result = self._execute_command(dod.cmd, dod.expect, task_id=task.id)
                 if result["status"] != "ok":
                     # Emit TASK_RESULT event
                     self._emit_event("TASK_RESULT", {
@@ -402,18 +405,21 @@ class WorkGraphRunner:
 
         return "ok"
 
-    def _execute_command(self, cmd: str, expect: str) -> Dict[str, any]:
+    def _execute_command(self, cmd: str, expect: str, task_id: Optional[str] = None) -> Dict[str, any]:
         """Execute a command with timeout.
 
         Args:
             cmd: Command to execute
             expect: Expected result (e.g., "exit 0")
+            task_id: Optional task ID for artifact capture
 
         Returns:
             Result dictionary with status, reason, output
         """
         if self.verbose or self.very_verbose:
             print(f"  Executing: {cmd}")
+
+        start_time = datetime.now()
 
         try:
             result = subprocess.run(
@@ -422,14 +428,33 @@ class WorkGraphRunner:
                 capture_output=True,
                 text=True,
                 timeout=self.cmd_timeout,
-                check=False
+                check=False,
+                cwd=os.getcwd()
             )
+
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
 
             # Check expectation
             if "exit 0" in expect.lower():
                 if result.returncode == 0:
                     return {"status": "ok", "reason": "exit 0", "output": result.stdout}
                 else:
+                    # Save failure artifact if we have a task_id and are NOT in dry-run
+                    if task_id and not self.dry_run and self.run_dir:
+                        save_task_artifact(
+                            run_dir=self.run_dir,
+                            task_id=task_id,
+                            stdout=result.stdout,
+                            stderr=result.stderr,
+                            exit_code=result.returncode,
+                            duration_ms=duration_ms,
+                            cmd=cmd,
+                            cwd=os.getcwd(),
+                            timestamp=datetime.now().isoformat(),
+                            artifact_count=self.artifact_count
+                        )
+                        self.artifact_count += 1
+
                     return {
                         "status": "fail",
                         "reason": f"exit {result.returncode}",
@@ -440,13 +465,51 @@ class WorkGraphRunner:
                 if result.returncode == 0:
                     return {"status": "ok", "reason": "success", "output": result.stdout}
                 else:
+                    # Save failure artifact
+                    if task_id and not self.dry_run and self.run_dir:
+                        save_task_artifact(
+                            run_dir=self.run_dir,
+                            task_id=task_id,
+                            stdout=result.stdout,
+                            stderr=result.stderr,
+                            exit_code=result.returncode,
+                            duration_ms=duration_ms,
+                            cmd=cmd,
+                            cwd=os.getcwd(),
+                            timestamp=datetime.now().isoformat(),
+                            artifact_count=self.artifact_count
+                        )
+                        self.artifact_count += 1
+
                     return {
                         "status": "fail",
                         "reason": f"exit {result.returncode}",
                         "output": result.stderr or result.stdout
                     }
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
+            duration_ms = self.cmd_timeout * 1000
+
+            # Save timeout artifact
+            if task_id and not self.dry_run and self.run_dir:
+                # Try to get partial output from TimeoutExpired exception
+                stdout_partial = e.stdout.decode('utf-8') if e.stdout else ""
+                stderr_partial = e.stderr.decode('utf-8') if e.stderr else ""
+
+                save_task_artifact(
+                    run_dir=self.run_dir,
+                    task_id=task_id,
+                    stdout=stdout_partial,
+                    stderr=stderr_partial,
+                    exit_code=-1,  # Special code for timeout
+                    duration_ms=duration_ms,
+                    cmd=cmd,
+                    cwd=os.getcwd(),
+                    timestamp=datetime.now().isoformat(),
+                    artifact_count=self.artifact_count
+                )
+                self.artifact_count += 1
+
             return {
                 "status": "fail",
                 "reason": f"command timeout ({self.cmd_timeout}s)",
