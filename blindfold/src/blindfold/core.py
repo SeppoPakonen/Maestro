@@ -11,8 +11,37 @@ from . import interface_loader
 from . import redaction
 from . import db
 from . import state_db
+from . import settings_db
 import os
 import json
+
+
+def get_active_session_name(conn, env: dict[str, str]) -> str:
+    """
+    Determine the active session name based on precedence:
+    1. Environment variable BLINDFOLD_SESSION (if set and non-empty)
+    2. Stored active session in settings (if set)
+    3. Default session name "default"
+
+    Args:
+        conn: Database connection
+        env: Environment variables dictionary
+
+    Returns:
+        str: Active session name
+    """
+    # Check environment variable first
+    session_from_env = env.get("BLINDFOLD_SESSION", "").strip()
+    if session_from_env:
+        return session_from_env
+
+    # Check stored active session
+    stored_session = settings_db.get_setting(conn, "active_session")
+    if stored_session:
+        return stored_session
+
+    # Default session
+    return "default"
 
 
 def run(mode: str, command_argv: list, stdin_text: str):
@@ -82,13 +111,104 @@ def run(mode: str, command_argv: list, stdin_text: str):
             mappings = mapping.load_mappings(mappings_file)
             matched_mapping = mapping.find_mapping(command_argv, mappings)
 
-            # If a mapping matches, return the interface YAML
+            # If a mapping matches, return the interface YAML with session context
             if matched_mapping:
                 interface_filename = matched_mapping.get("interface")
                 if interface_filename:
                     try:
                         interface_text = interface_loader.load_interface_text(paths["data_dir"], interface_filename)
-                        return 0, interface_text, ""
+
+                        # Load the interface YAML
+                        try:
+                            data = yaml.safe_load(interface_text)
+                        except yaml.YAMLError:
+                            # If interface is invalid YAML, treat as error and return cookie
+                            # Generate a unique cookie (try up to 10 times to avoid collisions)
+                            for _ in range(10):
+                                cookie_val = cookie.generate_cookie()
+                                error_file_path = os.path.join(paths["state_dir"], "errors", f"{cookie_val}.json")
+                                if not os.path.exists(error_file_path):
+                                    break
+                            else:
+                                # If we couldn't find a unique cookie after 10 tries, raise an error
+                                return 2, "", "Error: Could not generate unique cookie\n"
+
+                            # Write error record with note about interface parse error
+                            error_log.write_error_record(
+                                state_dir=paths["state_dir"],
+                                cookie=cookie_val,
+                                argv=command_argv,
+                                cwd=os.getcwd(),
+                                stdin_text=stdin_text,
+                                version="0.0.0",
+                                redaction_rules=redaction_rules,
+                                note="interface parse error"
+                            )
+
+                            # Return error message with cookie
+                            error_msg = f"virheellinen komento. error-cookie-id={cookie_val}\n"
+                            return 2, "", error_msg
+
+                        # If data is not a dictionary, treat as error
+                        if not isinstance(data, dict):
+                            # Generate a unique cookie (try up to 10 times to avoid collisions)
+                            for _ in range(10):
+                                cookie_val = cookie.generate_cookie()
+                                error_file_path = os.path.join(paths["state_dir"], "errors", f"{cookie_val}.json")
+                                if not os.path.exists(error_file_path):
+                                    break
+                            else:
+                                # If we couldn't find a unique cookie after 10 tries, raise an error
+                                return 2, "", "Error: Could not generate unique cookie\n"
+
+                            # Write error record with note about interface parse error
+                            error_log.write_error_record(
+                                state_dir=paths["state_dir"],
+                                cookie=cookie_val,
+                                argv=command_argv,
+                                cwd=os.getcwd(),
+                                stdin_text=stdin_text,
+                                version="0.0.0",
+                                redaction_rules=redaction_rules,
+                                note="interface parse error"
+                            )
+
+                            # Return error message with cookie
+                            error_msg = f"virheellinen komento. error-cookie-id={cookie_val}\n"
+                            return 2, "", error_msg
+
+                        # Get the active session name
+                        db_path = db.get_db_path(paths["state_dir"])
+                        conn = db.connect(db_path)
+                        state_db.init_db(conn)
+                        settings_db.init_settings(conn)
+
+                        session_name = get_active_session_name(conn, os.environ)
+
+                        # Load session variables
+                        session_vars = state_db.list_vars_as_dict(conn, session_name)
+
+                        # Inject session information
+                        data.setdefault("session", {})["name"] = session_name
+
+                        # Inject context variables
+                        if "fields" not in data:
+                            data["fields"] = {}
+                        if "context" not in data["fields"]:
+                            data["fields"]["context"] = {}
+                        if "vars" not in data["fields"]["context"]:
+                            data["fields"]["context"]["vars"] = {}
+
+                        # Merge session variables into context.vars (overwriting existing keys)
+                        for key, value in session_vars.items():
+                            data["fields"]["context"]["vars"][key] = value
+
+                        # Close the database connection
+                        conn.close()
+
+                        # Return the modified YAML
+                        yaml_output = yaml.safe_dump(data, sort_keys=False)
+                        return 0, yaml_output, ""
                     except FileNotFoundError:
                         # If interface file not found, continue with error cookie flow
                         pass
@@ -148,6 +268,7 @@ def run_admin(subcommand: str, args: list):
         db_path = db.get_db_path(paths["state_dir"])
         conn = db.connect(db_path)
         state_db.init_db(conn)
+        settings_db.init_settings(conn)
 
         if subcommand == "session":
             result = handle_session_subcommand(conn, args)
@@ -194,7 +315,7 @@ def handle_session_subcommand(conn, args: list):
         tuple: (exit_code, stdout_text, stderr_text)
     """
     if len(args) < 1:
-        return 4, "", "session subcommand requires an action (list, create, delete)\n"
+        return 4, "", "session subcommand requires an action (list, create, delete, set-active)\n"
 
     action = args[0]
     action_args = args[1:]
@@ -209,6 +330,10 @@ def handle_session_subcommand(conn, args: list):
         if len(action_args) != 1:
             return 4, "", "session delete requires exactly one name argument\n"
         return admin_session_delete(conn, action_args[0])
+    elif action == "set-active":
+        if len(action_args) != 1:
+            return 4, "", "session set-active requires exactly one name argument\n"
+        return admin_session_set_active(conn, action_args[0])
     else:
         return 4, "", f"unknown session action: {action}\n"
 
@@ -265,6 +390,17 @@ def admin_session_delete(conn, name: str):
         return 0, f"deleted session {name}\n", ""
     else:
         return 4, f"session not found {name}\n", ""
+
+
+def admin_session_set_active(conn, name: str):
+    """Set the active session."""
+    # Ensure the session exists by trying to get it (this creates it if needed)
+    state_db.ensure_session(conn, name)
+
+    # Store the active session setting
+    settings_db.set_setting(conn, "active_session", name)
+
+    return 0, f"active session set to {name}\n", ""
 
 
 def admin_var_set(conn, args: list):

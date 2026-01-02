@@ -156,11 +156,11 @@ def get_var(conn, session_name: str, key: str) -> tuple[str, str] | None:
 def list_vars(conn, session_name: str) -> list[tuple[str, str, str]]:
     """
     List all variables in a session.
-    
+
     Args:
         conn: SQLite database connection
         session_name: Session name
-        
+
     Returns:
         list[tuple[str, str, str]]: List of (key, value, type) tuples
     """
@@ -168,8 +168,30 @@ def list_vars(conn, session_name: str) -> list[tuple[str, str, str]]:
         SELECT sv.key, sv.value, sv.type
         FROM session_vars sv
         JOIN sessions s ON sv.session_id = s.id
-        WHERE s.name = ? 
+        WHERE s.name = ?
         ORDER BY sv.key
     """, (session_name,))
-    
+
     return cursor.fetchall()
+
+
+def list_vars_as_dict(conn, session_name: str) -> dict[str, str]:
+    """
+    List all variables in a session as a dictionary.
+
+    Args:
+        conn: SQLite database connection
+        session_name: Session name
+
+    Returns:
+        dict[str, str]: Dictionary of key-value pairs
+    """
+    cursor = conn.execute("""
+        SELECT sv.key, sv.value
+        FROM session_vars sv
+        JOIN sessions s ON sv.session_id = s.id
+        WHERE s.name = ?
+        ORDER BY sv.key
+    """, (session_name,))
+
+    return dict(cursor.fetchall())

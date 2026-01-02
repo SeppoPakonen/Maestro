@@ -36,6 +36,7 @@ def main():
             print("  session list")
             print("  session create <name>")
             print("  session delete <name>")
+            print("  session set-active <name>")
             print("  var set --session <name> --key <k> --value <v> [--type <t>]")
             print("  var get --session <name> --key <k>")
             print("  var list --session <name>")

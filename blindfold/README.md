@@ -87,6 +87,7 @@ Admin mode provides commands to manage sessions and variables. These are for ope
 python -m blindfold --HIDDEN session list
 python -m blindfold --HIDDEN session create <name>
 python -m blindfold --HIDDEN session delete <name>
+python -m blindfold --HIDDEN session set-active <name>
 python -m blindfold --HIDDEN var set --session <name> --key <k> --value <v> [--type <t>]
 python -m blindfold --HIDDEN var get --session <name> --key <k>
 python -m blindfold --HIDDEN var list --session <name>
@@ -97,12 +98,46 @@ python -m blindfold --HIDDEN var list --session <name>
 - `session list`: Lists all session names
 - `session create <name>`: Creates a new session with the given name
 - `session delete <name>`: Deletes the specified session and all its variables
+- `session set-active <name>`: Sets the default session for blind mode (stored setting)
 
 ### Variable commands
 
 - `var set --session <name> --key <k> --value <v> [--type <t>]`: Sets a variable in the specified session (type defaults to "string")
 - `var get --session <name> --key <k>`: Gets the value of a variable from the specified session
 - `var list --session <name>`: Lists all variables in the specified session
+
+## Active session selection
+
+Blind mode can use session variables to provide context to the model. The active session is determined by precedence:
+
+1. Environment variable `BLINDFOLD_SESSION` (if set and non-empty)
+2. Stored active session (set via `session set-active` command)
+3. Default session name "default"
+
+When a mapping matches and interface YAML is printed, the following blocks are injected:
+- `session.name`: The active session name
+- `fields.context.vars`: Key-value pairs from the active session
+
+Example interface output with injected context:
+```yaml
+session:
+  name: "my-session"
+fields:
+  context:
+    vars:
+      project: "my-project"
+      environment: "production"
+```
+
+**Warning**: Variables may contain sensitive data. Pair with redaction configuration if exporting or logging.
+
+## State database (SQLite)
+
+Blindfold uses an SQLite database to persist session and variable data. The database is located at `<state_dir>/blindfold.sqlite3` and contains:
+
+- `sessions`: Named working contexts with creation timestamps
+- `session_vars`: Key-value variables scoped to sessions with optional type tags
+- `settings`: Global settings like the active session
 
 ## Admin mode (--HIDDEN)
 
