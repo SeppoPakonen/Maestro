@@ -981,20 +981,125 @@ def handle_plan_decompose(args):
             sys.exit(1)
         freeform_request = args.freeform
 
-    # Repo discovery
+    # Repo discovery - use evidence packs
     repo_root = Path.cwd()
-    budget = DiscoveryBudget()
+    use_evidence = not getattr(args, 'no_evidence', False)
 
-    if args.verbose or getattr(args, 'very_verbose', False):
-        print_info("Starting repo discovery...", 2)
+    evidence_pack = None
+    discovery = None
 
-    discovery = discover_repo(repo_root, budget)
+    if use_evidence:
+        from ..repo.evidence_pack import (
+            EvidenceCollector,
+            load_evidence_pack
+        )
+        from ..repo.profile import load_profile
+        from ..repo.discovery import DiscoveryEvidence
 
-    if args.verbose or getattr(args, 'very_verbose', False):
-        print_info(f"Collected {len(discovery.evidence)} evidence items", 2)
-        print_info(f"Warnings: {len(discovery.warnings)}", 2)
-        for warning in discovery.warnings[:5]:  # Show first 5
-            print_info(f"  - {warning}", 2)
+        # Check if --evidence-pack <ID> was provided
+        if getattr(args, 'evidence_pack', None):
+            # Load existing pack
+            storage_dir = repo_root / "docs" / "maestro" / "evidence_packs"
+            evidence_pack = load_evidence_pack(args.evidence_pack, storage_dir)
+
+            if not evidence_pack:
+                print_error(f"Error: Evidence pack not found: {args.evidence_pack}", 2)
+                print_error(f"Storage dir: {storage_dir}", 2)
+                print_error("Run 'maestro repo evidence pack --save' to create one", 2)
+                sys.exit(1)
+
+            if args.verbose or getattr(args, 'very_verbose', False):
+                print_info(f"Using evidence pack: {evidence_pack.meta.pack_id}", 2)
+                print_info(f"  Evidence count: {evidence_pack.meta.evidence_count}", 2)
+                print_info(f"  Total bytes: {evidence_pack.meta.total_bytes:,}", 2)
+        else:
+            # Generate pack on the fly
+            profile = load_profile(repo_root)
+
+            # Get budgets from profile or use defaults
+            if profile and profile.evidence_rules:
+                max_files = profile.evidence_rules.max_files
+                max_bytes = profile.evidence_rules.max_bytes
+                max_help_calls = profile.evidence_rules.max_help_calls
+                timeout_seconds = profile.evidence_rules.timeout_seconds
+                prefer_dirs = profile.evidence_rules.prefer_dirs
+                exclude_patterns = profile.evidence_rules.exclude_patterns
+            else:
+                max_files = 60
+                max_bytes = 250000
+                max_help_calls = 6
+                timeout_seconds = 5
+                prefer_dirs = []
+                exclude_patterns = []
+
+            if args.verbose or getattr(args, 'very_verbose', False):
+                print_info("Collecting evidence pack...", 2)
+
+            # Create collector
+            collector = EvidenceCollector(
+                repo_root=repo_root,
+                max_files=max_files,
+                max_bytes=max_bytes,
+                max_help_calls=max_help_calls,
+                timeout_seconds=timeout_seconds,
+                prefer_dirs=prefer_dirs,
+                exclude_patterns=exclude_patterns
+            )
+
+            # Get CLI candidates from profile
+            cli_candidates = None
+            if profile:
+                cli_candidates = profile.cli_help_candidates
+
+            # Collect evidence
+            evidence_pack = collector.collect_all(cli_candidates=cli_candidates)
+
+            if args.verbose or getattr(args, 'very_verbose', False):
+                print_info(f"Generated evidence pack: {evidence_pack.meta.pack_id}", 2)
+                print_info(f"  Evidence count: {evidence_pack.meta.evidence_count}", 2)
+                print_info(f"  Total bytes: {evidence_pack.meta.total_bytes:,}", 2)
+
+        # Show pack summary in very verbose mode
+        if getattr(args, 'very_verbose', False):
+            print_header("EVIDENCE PACK SUMMARY")
+            print(f"Pack ID: {evidence_pack.meta.pack_id}")
+            print(f"Items: {evidence_pack.meta.evidence_count}")
+
+            kind_counts = {}
+            for item in evidence_pack.items:
+                kind_counts[item.kind] = kind_counts.get(item.kind, 0) + 1
+
+            print("By kind:")
+            for kind, count in sorted(kind_counts.items()):
+                print(f"  {kind}: {count}")
+
+            if evidence_pack.meta.truncated_items:
+                print(f"Truncated: {len(evidence_pack.meta.truncated_items)} items")
+            if evidence_pack.meta.skipped_items:
+                print(f"Skipped (budget): {len(evidence_pack.meta.skipped_items)} items")
+
+        # Convert evidence pack to DiscoveryEvidence format
+        evidence_items = []
+        for item in evidence_pack.items:
+            evidence_items.append({
+                "kind": item.kind,
+                "path": item.source,
+                "summary": f"{item.source} ({item.size_bytes} bytes)"
+            })
+
+        discovery = DiscoveryEvidence(
+            evidence=evidence_items,
+            warnings=list(evidence_pack.meta.skipped_items) if evidence_pack.meta.skipped_items else [],
+            budget=evidence_pack.meta.budget_applied
+        )
+    else:
+        # No evidence mode - minimal discovery
+        from ..repo.discovery import DiscoveryEvidence
+        discovery = DiscoveryEvidence(
+            evidence=[],
+            warnings=["Evidence collection skipped (--no-evidence)"],
+            budget={}
+        )
 
     # If domain=issues, enrich evidence with issues and log scan data
     if args.domain == "issues":
@@ -1429,6 +1534,15 @@ def add_plan_parser(subparsers):
         default='general',
         choices=['runbook', 'issues', 'workflow', 'convert', 'repo', 'general'],
         help='Domain for decomposition (default: general)'
+    )
+    decompose_parser.add_argument(
+        '--evidence-pack',
+        help='Use existing evidence pack ID (from maestro repo evidence pack --save)'
+    )
+    decompose_parser.add_argument(
+        '--no-evidence',
+        action='store_true',
+        help='Skip repo evidence collection (freeform request only)'
     )
     decompose_parser.add_argument(
         '--json',

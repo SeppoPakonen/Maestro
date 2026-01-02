@@ -634,3 +634,155 @@ See: docs/workflows/v3/cli/CLI_SURFACE_CONTRACT.md
 - [CLI Surface Contract](./CLI_SURFACE_CONTRACT.md) - Complete contract and migration playbook
 - [Deprecation Policy](./DEPRECATION.md) - Timeline and rationale
 - [Test Contract](../../tests/test_cli_surface_contract.py) - Behavioral tests
+
+## Repo Evidence and Profiles
+
+### maestro repo profile show
+
+Show repository profile (or inferred values if not saved).
+
+```bash
+maestro repo profile show [--path PATH] [--json]
+```
+
+Options:
+- `--path PATH` - Repository path (default: current directory)
+- `--json` - Output as JSON
+
+Example:
+```bash
+maestro repo profile show
+maestro repo profile show --json
+```
+
+### maestro repo profile init
+
+Initialize repository profile with heuristic inference.
+
+```bash
+maestro repo profile init [--path PATH] [--maestro-dir|--dot-maestro] [--force]
+```
+
+Options:
+- `--path PATH` - Repository path (default: current directory)
+- `--maestro-dir` - Save to `docs/maestro/` (default)
+- `--dot-maestro` - Save to `.maestro/`
+- `--force` - Overwrite existing profile
+
+Example:
+```bash
+maestro repo profile init
+maestro repo profile init --dot-maestro --force
+```
+
+### maestro repo evidence pack
+
+Generate evidence pack from repository.
+
+```bash
+maestro repo evidence pack [--save] [--max-files N] [--max-bytes N] [--max-help-calls N] [--json] [-v]
+```
+
+Options:
+- `--save` - Save pack to `docs/maestro/evidence_packs/`
+- `--max-files N` - Maximum files to collect (default: from profile or 60)
+- `--max-bytes N` - Maximum bytes to collect (default: from profile or 250000)
+- `--max-help-calls N` - Maximum CLI help calls (default: from profile or 6)
+- `--json` - Output as JSON to stdout (no save)
+- `-v` - Show verbose output
+
+Example:
+```bash
+maestro repo evidence pack --save
+maestro repo evidence pack --max-files 30 --json
+```
+
+### maestro repo evidence list
+
+List all saved evidence packs.
+
+```bash
+maestro repo evidence list [--path PATH] [--json]
+```
+
+Options:
+- `--path PATH` - Repository path (default: current directory)
+- `--json` - Output as JSON
+
+Example:
+```bash
+maestro repo evidence list
+```
+
+### maestro repo evidence show
+
+Show evidence pack details.
+
+```bash
+maestro repo evidence show <pack-id> [--path PATH] [--json] [--show-content]
+```
+
+Arguments:
+- `<pack-id>` - Evidence pack ID to show
+
+Options:
+- `--path PATH` - Repository path (default: current directory)
+- `--json` - Output as JSON
+- `--show-content` - Show item content (may be large)
+
+Example:
+```bash
+maestro repo evidence show pack-abc123def456
+maestro repo evidence show pack-abc123def456 --show-content
+```
+
+### maestro runbook resolve (updated)
+
+Resolve freeform text to structured runbook JSON (now with evidence pack support).
+
+```bash
+maestro runbook resolve <text> [OPTIONS]
+```
+
+New Options:
+- `--evidence-pack <ID>` - Use existing evidence pack ID
+- (existing options unchanged)
+
+Example:
+```bash
+# Auto-generate evidence pack
+maestro runbook resolve "Set up CI pipeline"
+
+# Use saved pack
+maestro runbook resolve "Set up CI" --evidence-pack pack-abc123
+
+# Skip evidence
+maestro runbook resolve "Set up CI" --no-evidence
+```
+
+### maestro plan decompose (updated)
+
+Decompose freeform request into WorkGraph plan (now with evidence pack support).
+
+```bash
+maestro plan decompose <request> [OPTIONS]
+```
+
+New Options:
+- `--evidence-pack <ID>` - Use existing evidence pack ID
+- `--no-evidence` - Skip repo evidence collection
+- (existing options unchanged)
+
+Example:
+```bash
+# Auto-generate evidence pack
+maestro plan decompose "Refactor authentication"
+
+# Use saved pack
+maestro plan decompose "Refactor" --evidence-pack pack-abc123
+
+# Skip evidence
+maestro plan decompose "Refactor" --no-evidence
+```
+
+See [EVIDENCE_PACKS.md](./EVIDENCE_PACKS.md) for complete documentation.

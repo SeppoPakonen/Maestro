@@ -1672,16 +1672,128 @@ def handle_runbook_resolve(args: argparse.Namespace) -> None:
 
     # Collect evidence if requested
     evidence = None
-    if use_evidence:
-        evidence = collect_repo_evidence(
-            commands_dir=getattr(args, 'commands_dir', None),
-            help_bin=getattr(args, 'help_bin', None)
-        )
+    evidence_pack = None
 
-        if args.verbose:
-            print(f"Collected evidence: {len(evidence.commands_docs)} command docs, "
-                  f"help from {evidence.help_bin_path or 'N/A'}, "
-                  f"{len(evidence.warnings)} warnings")
+    if use_evidence:
+        from pathlib import Path
+        from maestro.repo.evidence_pack import (
+            EvidenceCollector,
+            load_evidence_pack
+        )
+        from maestro.repo.profile import load_profile
+
+        repo_root = Path.cwd()
+
+        # Check if --evidence-pack <ID> was provided
+        if getattr(args, 'evidence_pack', None):
+            # Load existing pack
+            storage_dir = repo_root / "docs" / "maestro" / "evidence_packs"
+            evidence_pack = load_evidence_pack(args.evidence_pack, storage_dir)
+
+            if not evidence_pack:
+                print(f"Error: Evidence pack not found: {args.evidence_pack}", file=sys.stderr)
+                print(f"Storage dir: {storage_dir}", file=sys.stderr)
+                print("Run 'maestro repo evidence pack --save' to create one", file=sys.stderr)
+                sys.exit(1)
+
+            if args.verbose:
+                print(f"Using evidence pack: {evidence_pack.meta.pack_id}")
+                print(f"  Evidence count: {evidence_pack.meta.evidence_count}")
+                print(f"  Total bytes: {evidence_pack.meta.total_bytes:,}")
+        else:
+            # Generate pack on the fly
+            profile = load_profile(repo_root)
+
+            # Get budgets from profile or use defaults
+            if profile and profile.evidence_rules:
+                max_files = profile.evidence_rules.max_files
+                max_bytes = profile.evidence_rules.max_bytes
+                max_help_calls = profile.evidence_rules.max_help_calls
+                timeout_seconds = profile.evidence_rules.timeout_seconds
+                prefer_dirs = profile.evidence_rules.prefer_dirs
+                exclude_patterns = profile.evidence_rules.exclude_patterns
+            else:
+                max_files = 60
+                max_bytes = 250000
+                max_help_calls = 6
+                timeout_seconds = 5
+                prefer_dirs = []
+                exclude_patterns = []
+
+            # Create collector
+            collector = EvidenceCollector(
+                repo_root=repo_root,
+                max_files=max_files,
+                max_bytes=max_bytes,
+                max_help_calls=max_help_calls,
+                timeout_seconds=timeout_seconds,
+                prefer_dirs=prefer_dirs,
+                exclude_patterns=exclude_patterns
+            )
+
+            # Get CLI candidates from profile
+            cli_candidates = None
+            if profile:
+                cli_candidates = profile.cli_help_candidates
+
+            # Collect evidence
+            evidence_pack = collector.collect_all(cli_candidates=cli_candidates)
+
+            if args.verbose:
+                print(f"Generated evidence pack: {evidence_pack.meta.pack_id}")
+                print(f"  Evidence count: {evidence_pack.meta.evidence_count}")
+                print(f"  Total bytes: {evidence_pack.meta.total_bytes:,}")
+
+        # Show pack summary in very verbose mode
+        if getattr(args, 'very_verbose', False):
+            print("\n=== EVIDENCE PACK SUMMARY ===")
+            print(f"Pack ID: {evidence_pack.meta.pack_id}")
+            print(f"Created: {evidence_pack.meta.created_at}")
+            print(f"Items: {evidence_pack.meta.evidence_count}")
+
+            kind_counts = {}
+            for item in evidence_pack.items:
+                kind_counts[item.kind] = kind_counts.get(item.kind, 0) + 1
+
+            print("By kind:")
+            for kind, count in sorted(kind_counts.items()):
+                print(f"  {kind}: {count}")
+
+            if evidence_pack.meta.truncated_items:
+                print(f"Truncated: {len(evidence_pack.meta.truncated_items)} items")
+            if evidence_pack.meta.skipped_items:
+                print(f"Skipped (budget): {len(evidence_pack.meta.skipped_items)} items")
+            print()
+
+        # Convert evidence pack to old RunbookEvidence format for backward compatibility
+        commands_docs = []
+        help_text = None
+        help_bin_path = None
+        warnings = list(evidence_pack.meta.skipped_items) if evidence_pack.meta.skipped_items else []
+
+        for item in evidence_pack.items:
+            if item.kind == "docs" and "commands" in item.source.lower():
+                # Extract title and summary from docs content
+                lines = item.content.split('\n')
+                title = lines[0].strip('#').strip() if lines else item.source
+                summary = '\n'.join(lines[1:10]) if len(lines) > 1 else ""
+                commands_docs.append({
+                    'filename': Path(item.source).name,
+                    'title': title,
+                    'summary': summary
+                })
+            elif item.kind == "command" and "--help" in item.source:
+                # Use first help output as help_text
+                if help_text is None:
+                    help_text = item.content
+                    help_bin_path = item.source.replace(" --help", "")
+
+        evidence = RunbookEvidence(
+            commands_docs=commands_docs,
+            help_text=help_text,
+            help_bin_path=help_bin_path,
+            warnings=warnings
+        )
 
     # Treat -vv as implying -v
     effective_verbose = args.verbose or getattr(args, 'very_verbose', False)

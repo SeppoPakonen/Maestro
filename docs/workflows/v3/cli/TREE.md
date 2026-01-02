@@ -10,7 +10,7 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 - `maestro init`
 - `maestro runbook {list|show|add|edit|rm|step-add|step-edit|step-rm|step-renumber|export|render|archive|restore|discuss|resolve}`
 - `maestro workflow {list|show|create|edit|delete|visualize|archive|restore}`
-- `maestro repo {resolve|refresh|conf|show|hub|make|asm}`
+- `maestro repo {resolve|refresh|conf|show|hub|make|asm|profile|evidence}`
 - `maestro track {list|show|add|edit|rm|discuss}`
 - `maestro phase {list|show|add|edit|rm|discuss}`
 - `maestro task {list|show|add|edit|rm|discuss|link|set}`
@@ -37,6 +37,8 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 - `maestro repo refresh all`
 - `maestro repo conf {show|select-default target}`
 - `maestro repo asm {list|show}` (aliases: `assembly`)
+- `maestro repo profile {show|init}`
+- `maestro repo evidence {pack|list|show}`
 - `maestro repo hub {find|list|link}`
 - `maestro workflow node {add|edit|rm}`
 - `maestro workflow edge {add|edit|rm}`
