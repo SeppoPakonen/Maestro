@@ -225,3 +225,250 @@ class WorkGraphMaterializer:
             'created_items': self.created_items,
             'updated_items': self.updated_items
         }
+
+    def materialize_selected(
+        self,
+        workgraph: WorkGraph,
+        task_ids: List[str],
+        track_name_override: Optional[str] = None,
+        selection_result: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """Materialize only selected tasks from a WorkGraph.
+
+        This is used by --top mode to materialize a portfolio of high-priority tasks
+        with their dependency closure.
+
+        Args:
+            workgraph: WorkGraph object to materialize
+            task_ids: List of task IDs to materialize (in dependency order)
+            track_name_override: Optional override for track name
+            selection_result: Optional SelectionResult for score annotations
+
+        Returns:
+            Dict with summary (same format as materialize())
+        """
+        self.created_items = []
+        self.updated_items = []
+
+        # Build task map for quick lookup
+        task_map = {}
+        for phase in workgraph.phases:
+            for task in phase.tasks:
+                task_map[task.id] = (phase, task)
+
+        # Filter to only selected tasks
+        selected_tasks = []
+        for task_id in task_ids:
+            if task_id in task_map:
+                selected_tasks.append(task_map[task_id])
+
+        if not selected_tasks:
+            raise ValueError("No tasks selected for materialization")
+
+        # 1. Create or update Track
+        track_id = workgraph.track.get('id', workgraph.id)
+        track_name = track_name_override or workgraph.track.get('name', workgraph.goal)
+
+        # Check if track exists
+        existing_track = self.json_store.load_track(track_id, load_phases=False)
+
+        if existing_track:
+            # Update existing track
+            track = existing_track
+            track.name = track_name
+            track.description = [workgraph.goal]
+            track.updated_at = datetime.now()
+            self.updated_items.append(f"track:{track_id}")
+        else:
+            # Create new track
+            track = Track(
+                track_id=track_id,
+                name=track_name,
+                status="planned",
+                completion=0,
+                description=[workgraph.goal],
+                phases=[],
+                priority=0,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                tags=[workgraph.domain, workgraph.profile],
+                owner=None,
+                is_top_priority=False
+            )
+            self.created_items.append(f"track:{track_id}")
+
+        # 2. Group selected tasks by phase
+        phase_task_map: Dict[str, List[Any]] = {}
+        for phase, task in selected_tasks:
+            if phase.id not in phase_task_map:
+                phase_task_map[phase.id] = []
+            phase_task_map[phase.id].append((phase, task))
+
+        # 3. Create or update Phases (only those with selected tasks)
+        phase_ids = []
+        tasks_created = 0
+        tasks_updated = 0
+
+        # Get score map if available
+        score_map = {}
+        if selection_result:
+            for scored_task in selection_result.ranked_tasks:
+                score_map[scored_task.task_id] = scored_task
+
+        for phase_id, phase_tasks in phase_task_map.items():
+            # Use first task's phase for metadata
+            phase_obj = phase_tasks[0][0]
+            phase_name = phase_obj.name
+
+            # Check if phase exists
+            existing_phase = self.json_store.load_phase(phase_id, load_tasks=False)
+
+            if existing_phase:
+                # Update existing phase
+                phase = existing_phase
+                phase.name = phase_name
+                phase.track_id = track_id
+                phase.updated_at = datetime.now()
+                self.updated_items.append(f"phase:{phase_id}")
+            else:
+                # Create new phase
+                phase = Phase(
+                    phase_id=phase_id,
+                    name=phase_name,
+                    status="planned",
+                    completion=0,
+                    description=[],
+                    tasks=[],
+                    track_id=track_id,
+                    priority=0,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                    tags=[],
+                    owner=None,
+                    dependencies=[],
+                    order=None
+                )
+                self.created_items.append(f"phase:{phase_id}")
+
+            phase_ids.append(phase_id)
+
+            # 4. Create or update Tasks for this phase
+            task_ids_for_phase = []
+
+            for _, wg_task in phase_tasks:
+                task_id = wg_task.id
+                task_name = wg_task.title
+
+                # Convert DoD to description lines
+                description_lines = []
+                description_lines.append(f"**Intent**: {wg_task.intent}")
+                description_lines.append("")
+
+                # Add score annotation if available (top-N mode)
+                if task_id in score_map:
+                    scored = score_map[task_id]
+                    description_lines.append(f"**Score**: {scored.score:.1f} ({selection_result.ranked_tasks[0].task_id == task_id and 'top-ranked' or 'selected'})")
+                    description_lines.append(f"**Rationale**: {scored.rationale[:200]}")
+                    description_lines.append("")
+
+                # Add safe_to_execute flag
+                safe_flag = "✓ Safe" if wg_task.safe_to_execute else "⚠ Unsafe"
+                description_lines.append(f"**Safe to Execute**: {safe_flag}")
+                description_lines.append("")
+
+                description_lines.append("**Definition of Done**:")
+                for dod in wg_task.definition_of_done:
+                    if dod.kind == "command":
+                        description_lines.append(f"- Run: `{dod.cmd}` (expect: {dod.expect})")
+                    elif dod.kind == "file":
+                        description_lines.append(f"- File: `{dod.path}` (expect: {dod.expect})")
+
+                if wg_task.verification:
+                    description_lines.append("")
+                    description_lines.append("**Verification**:")
+                    for verif in wg_task.verification:
+                        if verif.kind == "command":
+                            description_lines.append(f"- Run: `{verif.cmd}` (expect: {verif.expect})")
+                        elif verif.kind == "file":
+                            description_lines.append(f"- File: `{verif.path}` (expect: {verif.expect})")
+
+                if wg_task.inputs:
+                    description_lines.append("")
+                    description_lines.append(f"**Inputs**: {', '.join(wg_task.inputs)}")
+
+                if wg_task.outputs:
+                    description_lines.append("")
+                    description_lines.append(f"**Outputs**: {', '.join(wg_task.outputs)}")
+
+                if wg_task.risk:
+                    risk_level = wg_task.risk.get('level', 'unknown')
+                    risk_notes = wg_task.risk.get('notes', '')
+                    description_lines.append("")
+                    description_lines.append(f"**Risk**: {risk_level} - {risk_notes}")
+
+                # Map depends_on to dependencies
+                dependencies = wg_task.depends_on if wg_task.depends_on else []
+
+                # Check if task exists
+                existing_task = self.json_store.load_task(task_id)
+
+                if existing_task:
+                    # Update existing task
+                    task = existing_task
+                    task.name = task_name
+                    task.description = description_lines
+                    task.phase_id = phase_id
+                    task.dependencies = dependencies
+                    task.updated_at = datetime.now()
+                    self.updated_items.append(f"task:{task_id}")
+                    tasks_updated += 1
+                else:
+                    # Create new task
+                    task = Task(
+                        task_id=task_id,
+                        name=task_name,
+                        status="todo",
+                        priority="P2",
+                        estimated_hours=None,
+                        description=description_lines,
+                        phase_id=phase_id,
+                        completed=False,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now(),
+                        tags=wg_task.tags if wg_task.tags else [],
+                        owner=None,
+                        dependencies=dependencies,
+                        subtasks=[]
+                    )
+                    self.created_items.append(f"task:{task_id}")
+                    tasks_created += 1
+
+                # Save task
+                self.json_store.save_task(task)
+                task_ids_for_phase.append(task_id)
+
+            # Update phase with task IDs
+            phase.tasks = task_ids_for_phase
+            self.json_store.save_phase(phase)
+
+        # Update track with phase IDs
+        track.phases = phase_ids
+        self.json_store.save_track(track)
+
+        # Update index
+        index = self.json_store.load_index(load_tracks=False)
+        if track_id not in index.tracks:
+            index.tracks.append(track_id)
+            index.updated_at = datetime.now()
+            self.json_store.save_index(index)
+
+        # Return summary
+        return {
+            'track_id': track_id,
+            'phases_created': len([p for p in self.created_items if p.startswith('phase:')]),
+            'phases_updated': len([p for p in self.updated_items if p.startswith('phase:')]),
+            'tasks_created': tasks_created,
+            'tasks_updated': tasks_updated,
+            'created_items': self.created_items,
+            'updated_items': self.updated_items
+        }

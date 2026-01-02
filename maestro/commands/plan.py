@@ -1275,6 +1275,30 @@ def handle_plan_enact(args):
         total_tasks = sum(len(p.tasks) for p in workgraph.phases)
         print_info(f"  Tasks: {total_tasks}", 2)
 
+    # Check if --top is specified (portfolio enact)
+    selection_result = None
+    if args.top is not None:
+        from ..builders.workgraph_selection import select_top_n_with_closure, format_selection_summary
+
+        try:
+            selection_result = select_top_n_with_closure(
+                workgraph=workgraph,
+                profile=args.profile,
+                top_n=args.top
+            )
+        except Exception as e:
+            print_error(f"Error selecting top-N tasks: {e}", 2)
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
+            sys.exit(1)
+
+        # Show selection summary
+        if not getattr(args, 'json', False):
+            summary_text = format_selection_summary(selection_result, args.profile)
+            print_info(summary_text, 2)
+            print()
+
     # Create materializer
     base_path = args.out if args.out else "docs/maestro"
     json_store = JsonStore(base_path=base_path)
@@ -1286,16 +1310,35 @@ def handle_plan_enact(args):
         track_id = workgraph.track.get('id', workgraph.id)
         track_name = args.name or workgraph.track.get('name', workgraph.goal)
         print_info(f"  Track: {track_id} ({track_name})", 2)
-        for phase in workgraph.phases:
-            print_info(f"    Phase: {phase.id} ({phase.name})", 2)
-            for task in phase.tasks:
-                print_info(f"      Task: {task.id} ({task.title})", 2)
+
+        # Show only selected tasks if --top is used
+        if selection_result:
+            tasks_to_show = selection_result.ordered_task_ids
+            for task_id in tasks_to_show:
+                task_obj = selection_result.all_tasks.get(task_id)
+                if task_obj:
+                    print_info(f"    Task: {task_id} ({task_obj.title})", 2)
+        else:
+            for phase in workgraph.phases:
+                print_info(f"    Phase: {phase.id} ({phase.name})", 2)
+                for task in phase.tasks:
+                    print_info(f"      Task: {task.id} ({task.title})", 2)
         print_info("Use --verbose for more details.", 2)
         return
 
     # Materialize
     try:
-        summary = materializer.materialize(workgraph, track_name_override=args.name)
+        if selection_result:
+            # Materialize only selected tasks
+            summary = materializer.materialize_selected(
+                workgraph,
+                task_ids=selection_result.ordered_task_ids,
+                track_name_override=args.name,
+                selection_result=selection_result
+            )
+        else:
+            # Materialize entire WorkGraph
+            summary = materializer.materialize(workgraph, track_name_override=args.name)
     except Exception as e:
         print_error(f"Error materializing WorkGraph: {e}", 2)
         if args.verbose:
@@ -1742,6 +1785,17 @@ def add_plan_parser(subparsers):
         '-v', '--verbose',
         action='store_true',
         help='Show detailed output'
+    )
+    enact_parser.add_argument(
+        '--top',
+        type=int,
+        help='Materialize only top N tasks (by profile score) + their dependencies'
+    )
+    enact_parser.add_argument(
+        '--profile',
+        choices=['investor', 'purpose', 'default'],
+        default='default',
+        help='Scoring profile for --top selection (default: default)'
     )
 
     # Plan run subcommand

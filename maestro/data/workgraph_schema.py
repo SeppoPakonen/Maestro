@@ -67,6 +67,8 @@ class Task:
     risk_score: Optional[int] = None  # 0-5 (separate from risk dict for clarity)
     purpose: Optional[int] = None  # 0-5
     tags: List[str] = field(default_factory=list)
+    # Optional dependency field (v1.2 - for top-N enact with closure)
+    depends_on: List[str] = field(default_factory=list)  # List of task IDs this task depends on
 
     def __post_init__(self):
         """Validate task immediately after construction.
@@ -213,7 +215,9 @@ class WorkGraph:
                             **({} if t.impact is None else {"impact": t.impact}),
                             **({} if t.risk_score is None else {"risk_score": t.risk_score}),
                             **({} if t.purpose is None else {"purpose": t.purpose}),
-                            **({"tags": t.tags} if t.tags else {})
+                            **({"tags": t.tags} if t.tags else {}),
+                            # Optional dependency field (v1.2)
+                            **({"depends_on": t.depends_on} if t.depends_on else {})
                         }
                         for t in p.tasks
                     ]
@@ -278,7 +282,9 @@ class WorkGraph:
                     impact=t_data.get("impact"),
                     risk_score=t_data.get("risk_score"),
                     purpose=t_data.get("purpose"),
-                    tags=t_data.get("tags", [])
+                    tags=t_data.get("tags", []),
+                    # Optional dependency field (v1.2 - backward compatible)
+                    depends_on=t_data.get("depends_on", [])
                 )
                 tasks.append(task)
 

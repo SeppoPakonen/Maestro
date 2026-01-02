@@ -536,8 +536,12 @@ def check_workgraph_recommendations(docs_root: Optional[Path] = None) -> Optiona
             details_lines.append(f"{i}. [{rec.score:+.1f}] {rec.task_id}: {rec.task_title[:60]}")
             details_lines.append(f"   {rec.rationale}")
 
-        recommended_commands = [f"maestro plan score {workgraph.id}",
-                                f"maestro plan recommend {workgraph.id}"]
+        # Add enact command recommendation (portfolio mode)
+        recommended_commands = [
+            f"maestro plan enact {workgraph.id} --top 5 --profile investor",
+            f"maestro plan score {workgraph.id}",
+            f"maestro plan recommend {workgraph.id}"
+        ]
 
         return Finding(
             id="WORKGRAPH_RECOMMENDATIONS",
