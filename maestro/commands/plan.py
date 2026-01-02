@@ -1627,6 +1627,231 @@ def handle_plan_recommend(args):
         print()
 
 
+def handle_plan_sprint(args):
+    """Handle maestro plan sprint command (orchestrate: select → enact → run)."""
+    import os
+    from pathlib import Path
+    from ..data.workgraph_schema import WorkGraph
+    from ..archive.workgraph_storage import load_workgraph
+    from ..config.paths import get_workgraph_dir
+    from ..builders.workgraph_selection import select_top_n_with_closure, format_selection_summary
+    from ..builders.workgraph_materializer import WorkGraphMaterializer
+    from ..tracks.json_store import JsonStore
+    from ..plan_run.runner import WorkGraphRunner
+
+    # Verbose flags
+    verbose = getattr(args, 'verbose', False)
+    very_verbose = getattr(args, 'very_verbose', False)
+    if very_verbose:
+        verbose = True
+
+    # Load WorkGraph
+    wg_dir = get_workgraph_dir()
+    wg_path = wg_dir / f"{args.workgraph_id}.json"
+
+    if not wg_path.exists():
+        print_error(f"Error: WorkGraph not found: {args.workgraph_id}", 2)
+        print_error(f"Expected path: {wg_path}", 2)
+        sys.exit(1)
+
+    try:
+        workgraph = load_workgraph(wg_path)
+    except Exception as e:
+        print_error(f"Error loading WorkGraph: {e}", 2)
+        sys.exit(1)
+
+    if very_verbose:
+        print_info(f"WorkGraph: {workgraph.id}", 2)
+        print_info(f"  Goal: {workgraph.goal[:100]}...", 2)
+        print_info(f"  Phases: {len(workgraph.phases)}", 2)
+        total_tasks = sum(len(p.tasks) for p in workgraph.phases)
+        print_info(f"  Tasks: {total_tasks}", 2)
+        print()
+
+    # STEP 1: Select top N + dependency closure
+    if verbose or very_verbose:
+        print_info(f"Selecting top {args.top} tasks with dependencies...", 2)
+
+    try:
+        selection_result = select_top_n_with_closure(
+            workgraph=workgraph,
+            profile=args.profile,
+            top_n=args.top
+        )
+    except Exception as e:
+        print_error(f"Error selecting top-N tasks: {e}", 2)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+    # Show selection summary (bounded)
+    if not getattr(args, 'json', False):
+        if very_verbose:
+            # Show top 10 ranked tasks with scores
+            from ..builders.workgraph_scoring import rank_workgraph
+            ranked_wg = rank_workgraph(workgraph, profile=args.profile)
+            print_header("Top 10 Ranked Tasks (by score)")
+            for i, task in enumerate(ranked_wg.ranked_tasks[:10], 1):
+                print_info(f"{i:2d}. [{task.score:+.1f}] {task.task_id}: {task.task_title[:60]}", 2)
+            print()
+
+        summary_text = format_selection_summary(selection_result, args.profile, max_ids_per_list=10)
+        print_info(summary_text, 2)
+        print()
+
+    # STEP 2: Enact selected tasks (materialize to Track/Phase/Task files)
+    if verbose or very_verbose:
+        print_info(f"Enacting {len(selection_result.ordered_task_ids)} tasks...", 2)
+
+    base_path = args.out if args.out else "docs/maestro"
+    json_store = JsonStore(base_path=base_path)
+    materializer = WorkGraphMaterializer(json_store=json_store)
+
+    try:
+        enact_summary = materializer.materialize_selected(
+            workgraph,
+            task_ids=selection_result.ordered_task_ids,
+            track_name_override=getattr(args, 'name', None),
+            selection_result=selection_result
+        )
+    except Exception as e:
+        print_error(f"Error materializing tasks: {e}", 2)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+    if verbose or very_verbose:
+        print_success(f"Enacted {enact_summary['tasks_created'] + enact_summary['tasks_updated']} tasks", 2)
+        print()
+
+    # STEP 3: Run selected tasks (default dry-run)
+    dry_run = not getattr(args, 'execute', False)
+
+    # Determine which tasks to run
+    if getattr(args, 'only_top', True):
+        # Run only top tasks (not dependencies)
+        only_tasks = selection_result.top_task_ids
+        if verbose or very_verbose:
+            print_info(f"Running only top {len(only_tasks)} tasks (dependencies enacted but not run)...", 2)
+    else:
+        # Run all selected tasks (top + dependencies)
+        only_tasks = None
+        if verbose or very_verbose:
+            print_info(f"Running all {len(selection_result.ordered_task_ids)} tasks...", 2)
+
+    # Parse --skip flag
+    skip_tasks = None
+    if getattr(args, 'skip', None):
+        skip_tasks = [t.strip() for t in args.skip.split(',')]
+
+    # Get command timeout from env var (default 60s)
+    cmd_timeout = int(os.environ.get('MAESTRO_PLAN_RUN_CMD_TIMEOUT', '60'))
+
+    if verbose or very_verbose:
+        if dry_run:
+            print_info("  Mode: DRY RUN (preview only)", 2)
+        else:
+            print_info("  Mode: EXECUTE (running commands)", 2)
+        print()
+
+    # Create runner
+    try:
+        runner = WorkGraphRunner(
+            workgraph=workgraph,
+            workgraph_dir=wg_dir,
+            dry_run=dry_run,
+            max_steps=None,
+            only_tasks=only_tasks,
+            skip_tasks=skip_tasks,
+            verbose=verbose,
+            very_verbose=very_verbose,
+            resume_run_id=None,
+            cmd_timeout=cmd_timeout
+        )
+    except ValueError as e:
+        print_error(f"Error initializing runner: {e}", 2)
+        sys.exit(1)
+
+    # Run
+    try:
+        run_summary = runner.run()
+    except Exception as e:
+        print_error(f"Error running WorkGraph: {e}", 2)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+    # STEP 4: Print summary with machine-readable markers
+    if getattr(args, 'json', False):
+        # JSON mode: structured output
+        output = {
+            'workgraph_id': args.workgraph_id,
+            'profile': args.profile,
+            'top_n': args.top,
+            'selection': {
+                'top_task_ids': selection_result.top_task_ids,
+                'closure_task_ids': selection_result.closure_task_ids,
+                'total_selected': len(selection_result.ordered_task_ids)
+            },
+            'enact': {
+                'track_id': enact_summary['track_id'],
+                'tasks_created': enact_summary['tasks_created'],
+                'tasks_updated': enact_summary['tasks_updated']
+            },
+            'run': {
+                'run_id': run_summary['run_id'],
+                'tasks_completed': run_summary['tasks_completed'],
+                'tasks_failed': run_summary['tasks_failed'],
+                'tasks_skipped': run_summary['tasks_skipped'],
+                'dry_run': dry_run
+            }
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        # Human-readable mode with machine-readable markers
+        print()
+        print_header("SPRINT SUMMARY")
+
+        # Machine-readable markers (one per line for ops parsing)
+        print(f"MAESTRO_SPRINT_TOP_IDS={','.join(selection_result.top_task_ids)}")
+        print(f"MAESTRO_SPRINT_ENACTED={len(selection_result.ordered_task_ids)}")
+        print(f"MAESTRO_SPRINT_RUN_ID={run_summary['run_id']}")
+        print()
+
+        # Human-readable summary
+        print_info(f"Top tasks selected ({args.profile} profile): {', '.join(selection_result.top_task_ids[:5])}", 2)
+        if len(selection_result.top_task_ids) > 5:
+            print_info(f"  ... and {len(selection_result.top_task_ids) - 5} more", 2)
+
+        if selection_result.closure_task_ids:
+            print_info(f"Dependencies added: {len(selection_result.closure_task_ids)}", 2)
+
+        print_info(f"Materialized total: {len(selection_result.ordered_task_ids)} tasks to {enact_summary['track_id']}", 2)
+        print_info(f"Run ID: {run_summary['run_id']}", 2)
+        print_info(f"Tasks completed: {run_summary['tasks_completed']}", 2)
+        print_info(f"Tasks failed: {run_summary['tasks_failed']}", 2)
+        print_info(f"Tasks skipped: {run_summary['tasks_skipped']}", 2)
+
+        if dry_run:
+            print_info("Mode: DRY RUN (no commands executed)", 2)
+        else:
+            print_info("Mode: EXECUTE", 2)
+
+        # Next steps
+        print()
+        print_header("NEXT STEPS")
+        if dry_run:
+            print_info(f"To execute: maestro plan sprint {args.workgraph_id} --top {args.top} --profile {args.profile} --execute", 2)
+        else:
+            print_info(f"To resume: maestro plan run {args.workgraph_id} --resume {run_summary['run_id']}", 2)
+
+        run_dir = wg_dir / args.workgraph_id / "runs" / run_summary['run_id']
+        print_info(f"Run record: {run_dir}/", 2)
+
+
 def add_plan_parser(subparsers):
     """Add plan command subparsers."""
     plan_parser = subparsers.add_parser('plan', aliases=['pl'], help='Plan management')
@@ -1905,6 +2130,69 @@ def add_plan_parser(subparsers):
         '--print-commands',
         action='store_true',
         help='Include primary command(s) in output'
+    )
+
+    # Plan sprint subcommand (orchestrate: select → enact → run)
+    sprint_parser = plan_subparsers.add_parser(
+        'sprint',
+        help='Orchestrate recommend→enact→run loop (portfolio sprint button)'
+    )
+    sprint_parser.add_argument(
+        'workgraph_id',
+        help='WorkGraph ID to run sprint on (e.g., wg-20260101-a3f5b8c2)'
+    )
+    sprint_parser.add_argument(
+        '--top',
+        type=int,
+        required=True,
+        help='Number of top tasks to select (required)'
+    )
+    sprint_parser.add_argument(
+        '--profile',
+        choices=['investor', 'purpose', 'default'],
+        default='default',
+        help='Scoring profile for selection (default: default)'
+    )
+    sprint_parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually execute commands (default: dry-run preview only)'
+    )
+    sprint_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        default=True,
+        help='Preview only, do not execute commands (default: true)'
+    )
+    sprint_parser.add_argument(
+        '--only-top',
+        action='store_true',
+        default=True,
+        help='Run only top tasks (not dependencies) - default: true'
+    )
+    sprint_parser.add_argument(
+        '--skip',
+        metavar='TASK_ID,...',
+        help='Skip specified tasks (comma-separated)'
+    )
+    sprint_parser.add_argument(
+        '--out',
+        help='Output directory for Track/Phase/Task files (default: docs/maestro)'
+    )
+    sprint_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show detailed output'
+    )
+    sprint_parser.add_argument(
+        '-vv', '--very-verbose',
+        action='store_true',
+        help='Show bounded ranked list with scores and per-task reasoning'
+    )
+    sprint_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output summary as JSON to stdout'
     )
 
     return plan_parser

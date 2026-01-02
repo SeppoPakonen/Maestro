@@ -491,6 +491,10 @@ def main():
                 # Handle plan recommend command
                 from .commands.plan import handle_plan_recommend
                 handle_plan_recommend(args)
+            elif args.plan_subcommand == 'sprint':
+                # Handle plan sprint command
+                from .commands.plan import handle_plan_sprint
+                handle_plan_sprint(args)
         else:
             # No subcommand provided - show help
             if hasattr(args, "func") and callable(args.func):
