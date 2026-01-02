@@ -1,0 +1,5 @@
+patterns:
+  - pattern: '(?i)token=\S+'
+    replace: 'token=***'
+  - pattern: '(?i)api[_-]?key=\S+'
+    replace: 'api_key=***'

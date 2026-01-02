@@ -49,3 +49,47 @@ expectation_gap:
 ```
 
 Note that questions and help are not allowed in blindfold mode; missing information should be expressed as expectation_gap instead.
+
+## Redaction
+
+Blindfold automatically redacts sensitive information from stored logs and feedback. Redaction rules are loaded from `<data_dir>/redaction.yaml` and applied to:
+
+- Error ledger stdin_snippet
+- Stored feedback content
+
+The default configuration includes patterns for common sensitive data like tokens and API keys. You can customize the redaction rules by editing the configuration file.
+
+## Garbage collection
+
+Blindfold provides a garbage collection command to delete old error logs and feedback files:
+
+```bash
+python -m blindfold --HIDDEN gc --older-than 30d
+```
+
+This command deletes files older than the specified duration in the state directory. Supported formats:
+- `Nd` for days (e.g., `30d`)
+- `Nh` for hours (e.g., `12h`)
+- `Nm` for minutes (e.g., `90m`)
+
+## Admin mode (--HIDDEN)
+
+Admin mode provides commands for operators to inspect errors and feedback, and to add command mappings. Admin mode is for operators, not the model. Admin output is human-readable text (not YAML).
+
+```bash
+python -m blindfold --HIDDEN list-errors
+python -m blindfold --HIDDEN show-error 0x....
+python -m blindfold --HIDDEN list-feedback
+python -m blindfold --HIDDEN show-feedback 0x....
+python -m blindfold --HIDDEN add-mapping --argv "demo" --interface demo.yaml
+python -m blindfold --HIDDEN gc --older-than 30d
+```
+
+### Available commands
+
+- `list-errors`: Lists all error cookies in the state directory
+- `show-error <cookie>`: Shows details of a specific error
+- `list-feedback`: Lists all feedback cookies in the state directory
+- `show-feedback <cookie>`: Shows details of a specific feedback
+- `add-mapping --argv "<space separated tokens>" --interface <filename.yaml> [--id <id>] [--notes <text>]`: Adds a new mapping from command arguments to an interface file
+- `gc --older-than <duration>`: Deletes old error logs and feedback files (older than specified duration)

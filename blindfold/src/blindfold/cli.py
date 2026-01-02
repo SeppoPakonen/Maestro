@@ -2,7 +2,7 @@
 
 import sys
 import argparse
-from .core import run
+from .core import run, run_admin
 
 def main():
     """Main CLI entrypoint."""
@@ -23,7 +23,23 @@ def main():
 
     # Determine mode and call core.run
     if args.HIDDEN:
-        exit_code, stdout_text, stderr_text = run(mode="admin", command_argv=remainder, stdin_text=stdin_text)
+        if not remainder:
+            # --HIDDEN alone (no subcommand) should print help for admin subcommands and exit 4
+            print("usage: python -m blindfold --HIDDEN <subcommand> [args]")
+            print("subcommands:")
+            print("  list-errors")
+            print("  show-error <cookie>")
+            print("  list-feedback")
+            print("  show-feedback <cookie>")
+            print("  add-mapping --argv \"<space separated tokens>\" --interface <filename.yaml> [--id <id>] [--notes <text>]")
+            print("  gc --older-than <duration>")
+            sys.exit(4)
+
+        # Parse admin subcommand
+        subcommand = remainder[0]
+        subcommand_args = remainder[1:]
+
+        exit_code, stdout_text, stderr_text = run_admin(subcommand, subcommand_args)
     elif args.FEEDBACK:
         # For feedback mode, the first remainder item is the cookie
         if len(remainder) == 0:

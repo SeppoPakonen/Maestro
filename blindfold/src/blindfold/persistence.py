@@ -70,3 +70,10 @@ def bootstrap_packaged_data(data_dir: str) -> None:
         mappings_content = resources.files("blindfold.data.mappings").joinpath("mappings.yaml").read_text()
         with open(mappings_path, 'w', encoding='utf-8') as f:
             f.write(mappings_content)
+
+    # Check if redaction.yaml exists, if not copy from packaged data
+    redaction_path = os.path.join(data_dir, "redaction.yaml")
+    if not os.path.exists(redaction_path):
+        redaction_content = resources.files("blindfold.data").joinpath("redaction.yaml").read_text()
+        with open(redaction_path, 'w', encoding='utf-8') as f:
+            f.write(redaction_content)
