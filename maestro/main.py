@@ -554,6 +554,12 @@ def main():
         if exit_code:
             raise SystemExit(exit_code)
 
+    elif args.command == 'ux':
+        from maestro.commands.ux import handle_ux_command
+        exit_code = handle_ux_command(args)
+        if exit_code:
+            raise SystemExit(exit_code)
+
     elif args.command == 'resume':
         _print_legacy_warning('resume', 'maestro discuss resume / maestro work resume')
         handle_resume_session(

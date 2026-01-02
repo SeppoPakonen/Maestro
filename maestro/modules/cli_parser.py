@@ -169,6 +169,7 @@ _COMMAND_SPECS = (
     ("understand", "maestro.commands.understand", "add_understand_parser", True),
     ("tu", "maestro.commands.tu", "add_tu_parser", False),
     ("convert", "maestro.commands.convert", "add_convert_parser", False),
+    ("ux", "maestro.commands.ux", "add_ux_parser", False),
 )
 
 

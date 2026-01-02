@@ -53,6 +53,8 @@ _LAZY_ATTRS: Dict[str, Tuple[str, str]] = {
     "handle_make_command": ("maestro.commands.make", "handle_make_command"),
     "add_ops_parser": ("maestro.commands.ops", "add_ops_parser"),
     "handle_ops_command": ("maestro.commands.ops", "handle_ops_command"),
+    "add_ux_parser": ("maestro.commands.ux", "add_ux_parser"),
+    "handle_ux_command": ("maestro.commands.ux", "handle_ux_command"),
 }
 
 __all__ = list(_LAZY_ATTRS.keys())
