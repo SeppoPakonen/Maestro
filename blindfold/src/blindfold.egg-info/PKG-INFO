@@ -1,0 +1,48 @@
+Metadata-Version: 2.4
+Name: blindfold
+Version: 0.0.0
+Summary: A tool for blind mode operations
+Author-email: Author <author@example.com>
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: PyYAML>=6.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0; extra == "dev"
+
+# Blindfold
+
+A tool for blind mode operations.
+
+## Setup
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+pip install -e ".[dev]"
+pytest -q
+```
+
+## Invalid commands & error cookies
+
+When blindfold receives an invalid blind command, it generates an error-cookie-id and records the error details. Invalid blind commands produce an error-cookie-id in the format "0x" + 8 lowercase hex digits, and errors are recorded under state/errors/ in JSON format.
+
+## Feedback mode
+
+Feedback mode allows operators to provide structured explanations for error cookies. To submit feedback:
+
+```bash
+python -m blindfold --FEEDBACK 0x........ < feedback.yaml
+```
+
+The feedback must be provided as YAML or JSON mapping (object) via stdin. The feedback is stored under `state/feedback/<cookie>.yaml`.
+
+Example feedback.yaml:
+```yaml
+expectation:
+  input: "user prompt"
+  context: "some vars"
+  process: "should do X"
+  output: "expected Y"
+```

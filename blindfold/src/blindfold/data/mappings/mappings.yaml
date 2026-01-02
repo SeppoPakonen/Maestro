@@ -1,0 +1,4 @@
+- id: "demo"
+  argv: ["demo"]
+  interface: "demo.yaml"
+  notes: "Built-in demo mapping"
