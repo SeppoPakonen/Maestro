@@ -530,6 +530,51 @@ maestro plan recommend wg-20260101-a3f5b8c2 --profile purpose --top 5
 See also:
 - `docs/workflows/v3/cli/PLAN_SCORE.md` - Full scoring documentation
 
+## Plan sprint
+
+### maestro plan sprint
+
+Orchestrate the complete portfolio workflow: recommend → enact → run loop (the "portfolio sprint button").
+
+```bash
+maestro plan sprint <WORKGRAPH_ID> --top N [OPTIONS]
+```
+
+Arguments:
+- `<WORKGRAPH_ID>`: WorkGraph ID to run sprint on
+
+Options:
+- `--top N` - Number of top tasks to select **(required)**
+- `--profile investor|purpose|default` - Scoring profile (default: default)
+- `--execute` - Actually execute commands (default: dry-run preview only)
+- `--dry-run` - Preview only (default: true)
+- `--only-top` - Run only top tasks, not dependencies (default: true)
+- `--skip TASK_ID,...` - Skip specified tasks (comma-separated)
+- `--out DIR` - Output directory (default: docs/maestro)
+- `-v, --verbose` - Show detailed output
+- `-vv, --very-verbose` - Show bounded ranked list with scores
+- `--json` - Output summary as JSON
+
+Examples:
+```bash
+# Investor loop (dry-run preview)
+maestro plan sprint wg-20260101-a3f5b8c2 --top 5 --profile investor
+
+# Execute top 5 investor-scored tasks
+maestro plan sprint wg-20260101-a3f5b8c2 --top 5 --profile investor --execute
+
+# Purpose-driven sprint
+maestro plan sprint wg-20260101-a3f5b8c2 --top 3 --profile purpose --execute
+
+# Run all selected (top + dependencies)
+maestro plan sprint wg-20260101-a3f5b8c2 --top 5 --profile investor --execute --only-top=false
+```
+
+See also:
+- `docs/workflows/v3/cli/PLAN_SPRINT.md` - Full sprint documentation
+- `docs/workflows/v3/cli/PLAN_ENACT.md` - Portfolio enact (top-N with closure)
+- `docs/workflows/v3/cli/PLAN_SCORE.md` - Scoring and recommendations
+
 ### maestro plan run
 
 Execute a WorkGraph plan with deterministic topological runner.
