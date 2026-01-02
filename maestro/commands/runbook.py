@@ -843,6 +843,7 @@ def add_runbook_parser(subparsers: Any) -> None:
     resolve_parser.add_argument('-vv', '--very-verbose', action='store_true', help='Also print resolved AI prompt and pretty engine output')
     resolve_parser.add_argument('-e', '--eval', action='store_true', help='Read freeform input from stdin instead of positional argument')
     resolve_parser.add_argument('--no-evidence', action='store_true', help='Skip repo evidence collection; only use provided text')
+    resolve_parser.add_argument('--evidence-pack', help='Use existing evidence pack ID (from maestro repo evidence pack --save)')
     resolve_parser.add_argument('--help-bin', help='Force a specific binary path for --help collection')
     resolve_parser.add_argument('--commands-dir', help='Override docs/commands directory path')
     resolve_parser.add_argument('--engine', help='Engine to use (e.g., claude, qwen, codex, gemini)')

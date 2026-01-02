@@ -1651,6 +1651,323 @@ def handle_repo_rules_inject(repo_root: str, context: str = 'general'):
     print_info("This command will format rules for AI prompt injection", 2)
 
 
+def handle_repo_profile_show(args, repo_root: Path):
+    """
+    Show repository profile.
+
+    Args:
+        args: Parsed command-line arguments
+        repo_root: Path to repository root
+    """
+    from maestro.repo.profile import load_profile, find_profile_path, infer_profile_from_repo
+    import json
+
+    # Try to load existing profile
+    profile = load_profile(repo_root)
+    profile_path = find_profile_path(repo_root)
+
+    if args.json:
+        if profile:
+            print(json.dumps(profile.to_dict(), indent=2))
+        else:
+            # Return inferred profile in JSON mode
+            inferred = infer_profile_from_repo(repo_root)
+            output = {
+                "status": "inferred",
+                "note": "No profile found, showing inferred values",
+                "profile": inferred.to_dict()
+            }
+            print(json.dumps(output, indent=2))
+    else:
+        if profile:
+            print_header("REPOSITORY PROFILE")
+            print(f"\nProfile path: {profile_path}\n")
+            print(f"Product name:      {profile.product_name or '(not set)'}")
+            print(f"Primary language:  {profile.primary_language or '(not set)'}")
+
+            if profile.build_entrypoints:
+                print(f"\nBuild entrypoints:")
+                for entry in profile.build_entrypoints:
+                    print(f"  - {entry}")
+
+            if profile.docs_hints:
+                print(f"\nDocs hints:")
+                for hint in profile.docs_hints:
+                    print(f"  - {hint}")
+
+            if profile.cli_help_candidates:
+                print(f"\nCLI help candidates:")
+                for candidate in profile.cli_help_candidates:
+                    print(f"  - {candidate}")
+
+            print(f"\nEvidence rules:")
+            print(f"  max_files:       {profile.evidence_rules.max_files}")
+            print(f"  max_bytes:       {profile.evidence_rules.max_bytes}")
+            print(f"  max_help_calls:  {profile.evidence_rules.max_help_calls}")
+            print(f"  timeout_seconds: {profile.evidence_rules.timeout_seconds}")
+
+            if profile.evidence_rules.prefer_dirs:
+                print(f"  prefer_dirs:     {', '.join(profile.evidence_rules.prefer_dirs)}")
+            if profile.evidence_rules.exclude_patterns:
+                print(f"  exclude_patterns: {', '.join(profile.evidence_rules.exclude_patterns)}")
+        else:
+            print_warning(f"No profile found in {repo_root}", 2)
+            print_info("Run 'maestro repo profile init' to create one", 2)
+            print("")
+            print_info("Inferred profile (not saved):", 2)
+            inferred = infer_profile_from_repo(repo_root)
+            print(f"  Product name:      {inferred.product_name}")
+            print(f"  Primary language:  {inferred.primary_language or '(auto-detect)'}")
+            if inferred.build_entrypoints:
+                print(f"  Build entrypoints: {', '.join(inferred.build_entrypoints)}")
+
+
+def handle_repo_profile_init(args, repo_root: Path):
+    """
+    Initialize repository profile with heuristic inference.
+
+    Args:
+        args: Parsed command-line arguments
+        repo_root: Path to repository root
+    """
+    from maestro.repo.profile import (
+        load_profile,
+        infer_profile_from_repo,
+        save_profile,
+        find_profile_path
+    )
+
+    # Check if profile already exists
+    existing_path = find_profile_path(repo_root)
+    if existing_path and not args.force:
+        print_error(f"Profile already exists at: {existing_path}", 2)
+        print_info("Use --force to overwrite", 2)
+        sys.exit(1)
+
+    # Infer profile from repo
+    print_info("Inferring profile from repository structure...", 2)
+    profile = infer_profile_from_repo(repo_root)
+
+    # Determine save location
+    prefer_maestro_dir = not args.dot_maestro  # Default to docs/maestro/
+
+    # Save profile
+    saved_path = save_profile(profile, repo_root, prefer_maestro_dir=prefer_maestro_dir)
+
+    print_success(f"Profile created: {saved_path}", 2)
+    print("")
+    print_info("Profile summary:", 2)
+    print(f"  Product name:      {profile.product_name}")
+    print(f"  Primary language:  {profile.primary_language or '(auto-detected)'}")
+
+    if profile.build_entrypoints:
+        print(f"  Build entrypoints: {len(profile.build_entrypoints)}")
+        for entry in profile.build_entrypoints[:3]:
+            print(f"    - {entry}")
+        if len(profile.build_entrypoints) > 3:
+            print(f"    ... and {len(profile.build_entrypoints) - 3} more")
+
+    if profile.docs_hints:
+        print(f"  Docs hints:        {len(profile.docs_hints)}")
+
+    if profile.cli_help_candidates:
+        print(f"  CLI candidates:    {len(profile.cli_help_candidates)}")
+
+    print("")
+    print_info("Edit the profile file to customize values", 2)
+
+
+def handle_repo_evidence_pack(args, repo_root: Path):
+    """
+    Generate evidence pack from repository.
+
+    Args:
+        args: Parsed command-line arguments
+        repo_root: Path to repository root
+    """
+    from maestro.repo.profile import load_profile
+    from maestro.repo.evidence_pack import (
+        EvidenceCollector,
+        save_evidence_pack
+    )
+    import json
+
+    # Load profile if it exists
+    profile = load_profile(repo_root)
+
+    # Get budgets (CLI args override profile override defaults)
+    if profile and profile.evidence_rules:
+        max_files = args.max_files or profile.evidence_rules.max_files
+        max_bytes = args.max_bytes or profile.evidence_rules.max_bytes
+        max_help_calls = args.max_help_calls or profile.evidence_rules.max_help_calls
+        timeout_seconds = profile.evidence_rules.timeout_seconds
+        prefer_dirs = profile.evidence_rules.prefer_dirs
+        exclude_patterns = profile.evidence_rules.exclude_patterns
+    else:
+        max_files = args.max_files or 60
+        max_bytes = args.max_bytes or 250000
+        max_help_calls = args.max_help_calls or 6
+        timeout_seconds = 5
+        prefer_dirs = []
+        exclude_patterns = []
+
+    if args.verbose:
+        print_info("Collecting evidence...", 2)
+        print(f"  Max files:       {max_files}")
+        print(f"  Max bytes:       {max_bytes}")
+        print(f"  Max help calls:  {max_help_calls}")
+
+    # Create collector
+    collector = EvidenceCollector(
+        repo_root=repo_root,
+        max_files=max_files,
+        max_bytes=max_bytes,
+        max_help_calls=max_help_calls,
+        timeout_seconds=timeout_seconds,
+        prefer_dirs=prefer_dirs,
+        exclude_patterns=exclude_patterns
+    )
+
+    # Get CLI candidates from profile
+    cli_candidates = None
+    if profile:
+        cli_candidates = profile.cli_help_candidates
+
+    # Collect evidence
+    pack = collector.collect_all(cli_candidates=cli_candidates)
+
+    # Output or save
+    if args.json:
+        # Output to stdout
+        print(json.dumps(pack.to_dict(), indent=2))
+    else:
+        # Human-readable summary
+        print_header("EVIDENCE PACK")
+        print(f"\nPack ID:         {pack.meta.pack_id}")
+        print(f"Evidence count:  {pack.meta.evidence_count}")
+        print(f"Total bytes:     {pack.meta.total_bytes:,}")
+        print(f"\nFiles processed: {pack.meta.budget_applied['files_processed']}/{max_files}")
+        print(f"Help calls made: {pack.meta.budget_applied['help_calls_made']}/{max_help_calls}")
+
+        if pack.meta.truncated_items:
+            print(f"\nTruncated items: {len(pack.meta.truncated_items)}")
+            if args.verbose:
+                for item in pack.meta.truncated_items[:5]:
+                    print(f"  - {item}")
+                if len(pack.meta.truncated_items) > 5:
+                    print(f"  ... and {len(pack.meta.truncated_items) - 5} more")
+
+        if pack.meta.skipped_items:
+            print(f"\nSkipped items (budget): {len(pack.meta.skipped_items)}")
+            if args.verbose:
+                for item in pack.meta.skipped_items[:5]:
+                    print(f"  - {item}")
+                if len(pack.meta.skipped_items) > 5:
+                    print(f"  ... and {len(pack.meta.skipped_items) - 5} more")
+
+        # Save if requested
+        if args.save:
+            storage_dir = repo_root / "docs" / "maestro" / "evidence_packs"
+            pack_dir = save_evidence_pack(pack, storage_dir)
+            print(f"\nSaved to: {pack_dir}")
+        else:
+            print("\nUse --save to store this pack for reuse")
+
+
+def handle_repo_evidence_list(args, repo_root: Path):
+    """
+    List saved evidence packs.
+
+    Args:
+        args: Parsed command-line arguments
+        repo_root: Path to repository root
+    """
+    from maestro.repo.evidence_pack import find_evidence_packs
+    import json
+
+    storage_dir = repo_root / "docs" / "maestro" / "evidence_packs"
+
+    pack_ids = find_evidence_packs(storage_dir)
+
+    if args.json:
+        output = {
+            "storage_dir": str(storage_dir),
+            "packs": pack_ids
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        if not pack_ids:
+            print_warning(f"No evidence packs found in {storage_dir}", 2)
+            print_info("Run 'maestro repo evidence pack --save' to create one", 2)
+        else:
+            print_header("EVIDENCE PACKS")
+            print(f"\nStorage dir: {storage_dir}\n")
+            for pack_id in pack_ids:
+                print(f"  - {pack_id}")
+            print(f"\nTotal: {len(pack_ids)} packs")
+
+
+def handle_repo_evidence_show(args, repo_root: Path):
+    """
+    Show evidence pack details.
+
+    Args:
+        args: Parsed command-line arguments
+        repo_root: Path to repository root
+    """
+    from maestro.repo.evidence_pack import load_evidence_pack
+    import json
+
+    storage_dir = repo_root / "docs" / "maestro" / "evidence_packs"
+
+    pack = load_evidence_pack(args.pack_id, storage_dir)
+
+    if not pack:
+        print_error(f"Evidence pack not found: {args.pack_id}", 2)
+        print_info(f"Storage dir: {storage_dir}", 2)
+        sys.exit(1)
+
+    if args.json:
+        # Full JSON output
+        print(json.dumps(pack.to_dict(), indent=2))
+    else:
+        # Human-readable summary
+        print_header(f"EVIDENCE PACK: {args.pack_id}")
+        print(f"\nCreated:         {pack.meta.created_at}")
+        print(f"Repo root:       {pack.meta.repo_root}")
+        print(f"Evidence count:  {pack.meta.evidence_count}")
+        print(f"Total bytes:     {pack.meta.total_bytes:,}")
+
+        print("\nBudget applied:")
+        for key, value in pack.meta.budget_applied.items():
+            print(f"  {key}: {value}")
+
+        if pack.meta.truncated_items:
+            print(f"\nTruncated: {len(pack.meta.truncated_items)} items")
+
+        if pack.meta.skipped_items:
+            print(f"Skipped:   {len(pack.meta.skipped_items)} items")
+
+        print("\nEvidence items:")
+        kind_counts = {}
+        for item in pack.items:
+            kind_counts[item.kind] = kind_counts.get(item.kind, 0) + 1
+
+        for kind, count in sorted(kind_counts.items()):
+            print(f"  {kind}: {count}")
+
+        if args.show_content:
+            print("\nItem details:")
+            for i, item in enumerate(pack.items, 1):
+                print(f"\n--- Item {i}: {item.source} ({item.kind}) ---")
+                print(f"Size: {item.size_bytes} bytes")
+                if item.truncated:
+                    print("(truncated)")
+                print(item.content[:500])  # First 500 chars
+                if len(item.content) > 500:
+                    print(f"\n... ({len(item.content) - 500} more chars)")
+
+
 # Parser registration
 
 def add_repo_parser(subparsers):
@@ -1765,6 +2082,48 @@ def add_repo_parser(subparsers):
     # repo conventions show (default)
     repo_conventions_show_parser = repo_conventions_subparsers.add_parser('show', help='Show current conventions')
     repo_conventions_show_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
+
+    # repo profile
+    repo_profile_parser = repo_subparsers.add_parser('profile', help='Repository profile management')
+    repo_profile_subparsers = repo_profile_parser.add_subparsers(dest='profile_subcommand', help='Profile subcommands')
+
+    # repo profile show
+    repo_profile_show_parser = repo_profile_subparsers.add_parser('show', help='Show repository profile')
+    repo_profile_show_parser.add_argument('--path', help='Path to repository (default: current directory)')
+    repo_profile_show_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+
+    # repo profile init
+    repo_profile_init_parser = repo_profile_subparsers.add_parser('init', help='Initialize repository profile with heuristic inference')
+    repo_profile_init_parser.add_argument('--path', help='Path to repository (default: current directory)')
+    repo_profile_init_parser.add_argument('--maestro-dir', action='store_true', help='Save to docs/maestro/ (default)')
+    repo_profile_init_parser.add_argument('--dot-maestro', action='store_true', help='Save to .maestro/')
+    repo_profile_init_parser.add_argument('--force', action='store_true', help='Overwrite existing profile')
+
+    # repo evidence
+    repo_evidence_parser = repo_subparsers.add_parser('evidence', help='Evidence pack generation and management')
+    repo_evidence_subparsers = repo_evidence_parser.add_subparsers(dest='evidence_subcommand', help='Evidence subcommands')
+
+    # repo evidence pack
+    repo_evidence_pack_parser = repo_evidence_subparsers.add_parser('pack', help='Generate evidence pack from repository')
+    repo_evidence_pack_parser.add_argument('--path', help='Path to repository (default: current directory)')
+    repo_evidence_pack_parser.add_argument('--json', action='store_true', help='Output pack as JSON to stdout (no save)')
+    repo_evidence_pack_parser.add_argument('--save', action='store_true', help='Save pack to docs/maestro/evidence_packs/')
+    repo_evidence_pack_parser.add_argument('--max-files', type=int, help='Maximum files to collect (default: from profile or 60)')
+    repo_evidence_pack_parser.add_argument('--max-bytes', type=int, help='Maximum bytes to collect (default: from profile or 250000)')
+    repo_evidence_pack_parser.add_argument('--max-help-calls', type=int, help='Maximum CLI help calls (default: from profile or 6)')
+    repo_evidence_pack_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # repo evidence list
+    repo_evidence_list_parser = repo_evidence_subparsers.add_parser('list', aliases=['ls'], help='List saved evidence packs')
+    repo_evidence_list_parser.add_argument('--path', help='Path to repository (default: current directory)')
+    repo_evidence_list_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+
+    # repo evidence show
+    repo_evidence_show_parser = repo_evidence_subparsers.add_parser('show', help='Show evidence pack details')
+    repo_evidence_show_parser.add_argument('pack_id', help='Evidence pack ID to show')
+    repo_evidence_show_parser.add_argument('--path', help='Path to repository (default: current directory)')
+    repo_evidence_show_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    repo_evidence_show_parser.add_argument('--show-content', action='store_true', help='Show item content (may be large)')
 
     # repo rules
     repo_rules_parser = repo_subparsers.add_parser('rules', help='Show/edit repository rules')
@@ -2215,6 +2574,30 @@ def handle_repo_command(args):
             else:
                 # Default to show
                 handle_repo_rules_show(repo_root)
+
+        elif args.repo_subcommand == 'profile':
+            profile_sub = getattr(args, 'profile_subcommand', None)
+            repo_root = Path(getattr(args, 'path', None) or os.getcwd())
+
+            if profile_sub == 'init':
+                handle_repo_profile_init(args, repo_root)
+            else:
+                # Default to show
+                handle_repo_profile_show(args, repo_root)
+
+        elif args.repo_subcommand == 'evidence':
+            evidence_sub = getattr(args, 'evidence_subcommand', None)
+            repo_root = Path(getattr(args, 'path', None) or os.getcwd())
+
+            if evidence_sub == 'pack':
+                handle_repo_evidence_pack(args, repo_root)
+            elif evidence_sub == 'list':
+                handle_repo_evidence_list(args, repo_root)
+            elif evidence_sub == 'show':
+                handle_repo_evidence_show(args, repo_root)
+            else:
+                print_error("Unknown evidence subcommand", 2)
+                sys.exit(1)
 
         elif args.repo_subcommand == 'hub':
             # Hub command for cross-repo package discovery and linking
