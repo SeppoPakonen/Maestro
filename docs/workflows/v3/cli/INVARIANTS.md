@@ -339,3 +339,34 @@ See also:
   - Failure: N/A (default mode permits meta-steps).
   - Next: N/A (no validation enforced unless --actionable is set).
   - Implemented in: `handle_runbook_resolve()` skips actionability validation unless `args.actionable` is True.
+
+## WorkGraph scoring (plan score / plan recommend)
+
+- WorkGraph scoring is deterministic (no AI, no network calls).
+  - Failure: same WorkGraph + same profile produces different scores.
+  - Next: verify scoring formulas are pure functions with no randomness.
+  - Implemented in: `maestro.builders.workgraph_scoring.score_task()` and `rank_workgraph()`.
+- Scoring is bounded and fast (<100ms for 100+ tasks).
+  - Failure: scoring takes >1 second or unbounded time.
+  - Next: profile scoring engine and optimize hot paths.
+  - Implemented in: deterministic heuristics with no file I/O loops.
+- JSON output has stable, sorted keys for scripting.
+  - Failure: JSON output order changes between runs.
+  - Next: verify `json.dumps(..., sort_keys=True)` is used.
+  - Implemented in: `handle_plan_score()` uses `sort_keys=True`.
+- Top N output prevents information overload (default: top 10 tasks, top 3 recommendations).
+  - Failure: output prints all tasks without limit.
+  - Next: verify slicing `[:10]` and `[:3]` is applied.
+  - Implemented in: `handle_plan_score()` slices to top 10; `handle_plan_recommend()` uses `--top` parameter (default 3).
+- Scoring profiles (investor, purpose, default) produce meaningfully different orderings.
+  - Failure: all profiles produce same ranking.
+  - Next: verify formulas differ (investor: ROI-first; purpose: mission-first; default: balanced).
+  - Implemented in: `score_task()` has distinct formulas per profile.
+- Ops doctor shows top 3 WorkGraph recommendations when -v flag is used.
+  - Failure: doctor doesn't show recommendations even with -v.
+  - Next: verify `check_workgraph_recommendations()` is called when `verbose=True`.
+  - Implemented in: `run_doctor()` adds WORKGRAPH_RECOMMENDATIONS finding when verbose=True.
+- Ops doctor recommendations are bounded (latest WorkGraph only, top 3 tasks).
+  - Failure: doctor scans all WorkGraphs or shows too many tasks.
+  - Next: verify only latest WG by mtime is loaded; top 3 slicing applied.
+  - Implemented in: `check_workgraph_recommendations()` sorts by mtime, takes first file, returns top 3.

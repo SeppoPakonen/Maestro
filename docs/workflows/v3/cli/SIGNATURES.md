@@ -459,6 +459,60 @@ maestro plan enact wg-20260101-a3f5b8c2 --json
 See also:
 - `docs/workflows/v3/cli/PLAN_ENACT.md` - Full enact documentation
 
+## Plan score
+
+### maestro plan score
+
+Score and rank WorkGraph tasks by priority (investor/purpose modes).
+
+```bash
+maestro plan score <WORKGRAPH_ID> [OPTIONS]
+```
+
+Arguments:
+- `<WORKGRAPH_ID>`: WorkGraph ID to score
+
+Options:
+- `--profile investor|purpose|default` - Scoring profile (default: default)
+- `--json` - Output as JSON (sorted keys, stable)
+- `-v, --verbose` - Show detailed scoring rationale
+
+Examples:
+```bash
+maestro plan score wg-20260101-a3f5b8c2 --profile investor
+maestro plan score wg-20260101-a3f5b8c2 --json
+```
+
+See also:
+- `docs/workflows/v3/cli/PLAN_SCORE.md` - Full scoring documentation
+
+## Plan recommend
+
+### maestro plan recommend
+
+Get top N recommended next actions from a WorkGraph.
+
+```bash
+maestro plan recommend <WORKGRAPH_ID> [OPTIONS]
+```
+
+Arguments:
+- `<WORKGRAPH_ID>`: WorkGraph ID to analyze
+
+Options:
+- `--profile investor|purpose|default` - Scoring profile (default: investor)
+- `--top N` - Number of recommendations (default: 3)
+- `--print-commands` - Include primary command(s) in output
+
+Examples:
+```bash
+maestro plan recommend wg-20260101-a3f5b8c2
+maestro plan recommend wg-20260101-a3f5b8c2 --profile purpose --top 5
+```
+
+See also:
+- `docs/workflows/v3/cli/PLAN_SCORE.md` - Full scoring documentation
+
 ### maestro plan run
 
 Execute a WorkGraph plan with deterministic topological runner.
