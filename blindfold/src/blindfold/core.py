@@ -9,6 +9,8 @@ from . import feedback
 from . import mapping
 from . import interface_loader
 from . import redaction
+from . import db
+from . import state_db
 import os
 import json
 
@@ -141,7 +143,22 @@ def run_admin(subcommand: str, args: list):
     paths = persistence.get_default_paths()
     persistence.ensure_dirs(paths)
 
-    if subcommand == "list-errors":
+    # Handle session and var subcommands that require database
+    if subcommand.startswith("session") or subcommand.startswith("var"):
+        db_path = db.get_db_path(paths["state_dir"])
+        conn = db.connect(db_path)
+        state_db.init_db(conn)
+
+        if subcommand == "session":
+            result = handle_session_subcommand(conn, args)
+        elif subcommand == "var":
+            result = handle_var_subcommand(conn, args)
+        else:
+            result = 4, "", f"unknown admin subcommand: {subcommand}\n"
+
+        conn.close()
+        return result
+    elif subcommand == "list-errors":
         return admin_list_errors(paths["state_dir"])
     elif subcommand == "show-error":
         if len(args) != 1:
@@ -163,6 +180,181 @@ def run_admin(subcommand: str, args: list):
             return 4, "", "gc requires --older-than <duration> argument\n"
     else:
         return 4, "", f"unknown admin subcommand: {subcommand}\n"
+
+
+def handle_session_subcommand(conn, args: list):
+    """
+    Handle session subcommands.
+
+    Args:
+        conn: Database connection
+        args: List of arguments for the session subcommand
+
+    Returns:
+        tuple: (exit_code, stdout_text, stderr_text)
+    """
+    if len(args) < 1:
+        return 4, "", "session subcommand requires an action (list, create, delete)\n"
+
+    action = args[0]
+    action_args = args[1:]
+
+    if action == "list":
+        return admin_session_list(conn)
+    elif action == "create":
+        if len(action_args) != 1:
+            return 4, "", "session create requires exactly one name argument\n"
+        return admin_session_create(conn, action_args[0])
+    elif action == "delete":
+        if len(action_args) != 1:
+            return 4, "", "session delete requires exactly one name argument\n"
+        return admin_session_delete(conn, action_args[0])
+    else:
+        return 4, "", f"unknown session action: {action}\n"
+
+
+def handle_var_subcommand(conn, args: list):
+    """
+    Handle var subcommands.
+
+    Args:
+        conn: Database connection
+        args: List of arguments for the var subcommand
+
+    Returns:
+        tuple: (exit_code, stdout_text, stderr_text)
+    """
+    if len(args) < 1:
+        return 4, "", "var subcommand requires an action (set, get, list)\n"
+
+    action = args[0]
+    action_args = args[1:]
+
+    if action == "set":
+        return admin_var_set(conn, action_args)
+    elif action == "get":
+        return admin_var_get(conn, action_args)
+    elif action == "list":
+        return admin_var_list(conn, action_args)
+    else:
+        return 4, "", f"unknown var action: {action}\n"
+
+
+def admin_session_list(conn):
+    """List all sessions."""
+    sessions = state_db.list_sessions(conn)
+    return 0, "\n".join(sessions) + ("\n" if sessions else ""), ""
+
+
+def admin_session_create(conn, name: str):
+    """Create a session."""
+    # Check if session already exists by trying to get it
+    existing_sessions = state_db.list_sessions(conn)
+    if name in existing_sessions:
+        return 0, f"session exists {name}\n", ""
+
+    # Create the session
+    session_id = state_db.ensure_session(conn, name)
+    return 0, f"created session {name}\n", ""
+
+
+def admin_session_delete(conn, name: str):
+    """Delete a session."""
+    deleted = state_db.delete_session(conn, name)
+    if deleted:
+        return 0, f"deleted session {name}\n", ""
+    else:
+        return 4, f"session not found {name}\n", ""
+
+
+def admin_var_set(conn, args: list):
+    """Set a variable in a session."""
+    # Parse arguments manually
+    session_name = None
+    key = None
+    value = None
+    var_type = "string"
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--session" and i + 1 < len(args):
+            session_name = args[i + 1]
+            i += 2
+        elif arg == "--key" and i + 1 < len(args):
+            key = args[i + 1]
+            i += 2
+        elif arg == "--value" and i + 1 < len(args):
+            value = args[i + 1]
+            i += 2
+        elif arg == "--type" and i + 1 < len(args):
+            var_type = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if not session_name or not key or value is None:
+        return 4, "", "var set requires --session, --key, and --value arguments\n"
+
+    state_db.set_var(conn, session_name, key, value, var_type)
+    return 0, f"set {session_name}:{key}\n", ""
+
+
+def admin_var_get(conn, args: list):
+    """Get a variable from a session."""
+    # Parse arguments manually
+    session_name = None
+    key = None
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--session" and i + 1 < len(args):
+            session_name = args[i + 1]
+            i += 2
+        elif arg == "--key" and i + 1 < len(args):
+            key = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if not session_name or not key:
+        return 4, "", "var get requires --session and --key arguments\n"
+
+    result = state_db.get_var(conn, session_name, key)
+    if result:
+        value, var_type = result
+        return 0, f"{value}\n", f"(type={var_type})\n" if var_type != "string" else ""
+    else:
+        return 4, "", f"variable not found: {session_name}:{key}\n"
+
+
+def admin_var_list(conn, args: list):
+    """List all variables in a session."""
+    # Parse arguments manually
+    session_name = None
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--session" and i + 1 < len(args):
+            session_name = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if not session_name:
+        return 4, "", "var list requires --session argument\n"
+
+    vars_list = state_db.list_vars(conn, session_name)
+    output_lines = []
+    for key, value, var_type in vars_list:
+        if var_type == "string":
+            output_lines.append(f"{key}={value}")
+        else:
+            output_lines.append(f"{key}={value} (type={var_type})")
+
+    return 0, "\n".join(output_lines) + ("\n" if output_lines else ""), ""
 
 
 def admin_list_errors(state_dir: str):

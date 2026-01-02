@@ -72,6 +72,38 @@ This command deletes files older than the specified duration in the state direct
 - `Nh` for hours (e.g., `12h`)
 - `Nm` for minutes (e.g., `90m`)
 
+## State database (SQLite)
+
+Blindfold uses an SQLite database to persist session and variable data. The database is located at `<state_dir>/blindfold.sqlite3` and contains:
+
+- `sessions`: Named working contexts with creation timestamps
+- `session_vars`: Key-value variables scoped to sessions with optional type tags
+
+## Sessions and variables (admin mode)
+
+Admin mode provides commands to manage sessions and variables. These are for operators, not the model. Admin output is human-readable text (not YAML).
+
+```bash
+python -m blindfold --HIDDEN session list
+python -m blindfold --HIDDEN session create <name>
+python -m blindfold --HIDDEN session delete <name>
+python -m blindfold --HIDDEN var set --session <name> --key <k> --value <v> [--type <t>]
+python -m blindfold --HIDDEN var get --session <name> --key <k>
+python -m blindfold --HIDDEN var list --session <name>
+```
+
+### Session commands
+
+- `session list`: Lists all session names
+- `session create <name>`: Creates a new session with the given name
+- `session delete <name>`: Deletes the specified session and all its variables
+
+### Variable commands
+
+- `var set --session <name> --key <k> --value <v> [--type <t>]`: Sets a variable in the specified session (type defaults to "string")
+- `var get --session <name> --key <k>`: Gets the value of a variable from the specified session
+- `var list --session <name>`: Lists all variables in the specified session
+
 ## Admin mode (--HIDDEN)
 
 Admin mode provides commands for operators to inspect errors and feedback, and to add command mappings. Admin mode is for operators, not the model. Admin output is human-readable text (not YAML).

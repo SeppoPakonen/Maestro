@@ -33,6 +33,12 @@ def main():
             print("  show-feedback <cookie>")
             print("  add-mapping --argv \"<space separated tokens>\" --interface <filename.yaml> [--id <id>] [--notes <text>]")
             print("  gc --older-than <duration>")
+            print("  session list")
+            print("  session create <name>")
+            print("  session delete <name>")
+            print("  var set --session <name> --key <k> --value <v> [--type <t>]")
+            print("  var get --session <name> --key <k>")
+            print("  var list --session <name>")
             sys.exit(4)
 
         # Parse admin subcommand
