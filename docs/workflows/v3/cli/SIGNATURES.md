@@ -947,3 +947,49 @@ maestro plan decompose "Refactor" --no-evidence
 ```
 
 See [EVIDENCE_PACKS.md](./EVIDENCE_PACKS.md) for complete documentation.
+
+
+## UX Evaluation
+
+### maestro ux eval
+
+Run blindfold UX evaluation for a goal (help-driven discovery → attempts → telemetry → report).
+
+```bash
+maestro ux eval "<GOAL>" [OPTIONS]
+```
+
+Arguments:
+- `<GOAL>` - Goal string to evaluate (e.g., "Create an actionable runbook")
+
+Options:
+- `--repo <PATH>` - Repository root path (default: current directory)
+- `--execute` - Actually execute commands (default: dry-run preview only)
+- `-v, --verbose` - Show decision summary and discovered commands count
+- `-vv, --very-verbose` - Additionally show bounded help excerpts and reasoning trace
+- `--json` - Output summary as JSON to stdout
+- `--out <PATH>` - Output directory for report (default: docs/workflows/v3/reports/ux_eval_<timestamp>)
+
+Examples:
+```bash
+# Dry-run evaluation (safe default)
+maestro ux eval "Create an actionable runbook for building the project"
+
+# Verbose mode
+maestro ux eval "Make a green loop plan" -v
+
+# Very verbose mode (show help excerpts and reasoning)
+maestro ux eval "Create a runbook" -vv
+
+# Execute mode (actually run commands)
+maestro ux eval "List all plans" --execute
+
+# JSON output
+maestro ux eval "Create a plan" --json
+
+# Custom output directory
+maestro ux eval "Build the project" --out custom/ux_reports/eval_001
+```
+
+See: [UX_EVAL.md](./UX_EVAL.md) for detailed documentation.
+

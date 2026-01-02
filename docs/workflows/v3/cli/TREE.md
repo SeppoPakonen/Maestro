@@ -27,6 +27,7 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 - `maestro convert {list|show|add|edit|rm|plan|run}`
 - `maestro select {toolchain}`
 - `maestro platform {caps}`
+- `maestro ux {eval}`
 
 ## Selected subtrees
 
