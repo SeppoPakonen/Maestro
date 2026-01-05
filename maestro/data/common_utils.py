@@ -14,7 +14,7 @@ import sys
 # Import JSON storage
 from maestro.tracks.json_store import JsonStore
 from maestro.tracks.models import Track, Phase, Task
-from maestro.data.track_cache import TrackDataCache
+from maestro.data.track_cache import TrackDataCache, cache_validation_enabled
 
 
 def _track_to_dict(track: Track, phases: List[Phase] = None, tasks: List[Task] = None) -> Dict[str, Any]:
@@ -105,7 +105,7 @@ def parse_todo_safe(todo_path: Path = None, verbose: bool = False) -> Optional[d
     try:
         json_store = JsonStore()
         cache = TrackDataCache(Path('.'))
-        result = cache.load_or_rebuild(json_store)
+        result = cache.load_or_rebuild(json_store, validate=cache_validation_enabled())
         if not result.cached:
             print_warning(f"Track cache not used ({result.reason or 'rebuilt'}); reloading from JSON.")
         snapshot = result.snapshot
@@ -157,7 +157,7 @@ def parse_done_safe(done_path: Path = None, verbose: bool = False) -> Optional[d
     try:
         json_store = JsonStore()
         cache = TrackDataCache(Path('.'))
-        result = cache.load_or_rebuild(json_store)
+        result = cache.load_or_rebuild(json_store, validate=cache_validation_enabled())
         if not result.cached:
             print_warning(f"Track cache not used ({result.reason or 'rebuilt'}); reloading from JSON.")
         snapshot = result.snapshot

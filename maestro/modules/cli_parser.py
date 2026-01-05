@@ -218,6 +218,8 @@ def create_main_parser(
                        help='Path to session JSON file (required for most commands)')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Show detailed debug, engine commands, and file paths')
+    parser.add_argument('--validate-cache', action='store_true',
+                       help='Validate the track/phases/task cache before reuse')
     parser.add_argument('-q', '--quiet', action='store_true',
                        help='Suppress streaming AI output and extra messages')
 

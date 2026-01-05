@@ -18,6 +18,19 @@ from typing import Dict, List, Optional, Tuple
 from maestro.tracks.json_store import JsonStore
 from maestro.tracks.models import Track, Phase, Task
 
+_VALIDATE_CACHE = False
+
+
+def set_cache_validation(enabled: bool) -> None:
+    """Enable or disable cache validation before reading stored snapshots."""
+    global _VALIDATE_CACHE
+    _VALIDATE_CACHE = enabled
+
+
+def cache_validation_enabled() -> bool:
+    """Return whether cache validation is enabled."""
+    return _VALIDATE_CACHE
+
 
 @dataclass(frozen=True)
 class TrackCacheSnapshot:
@@ -52,13 +65,25 @@ class TrackDataCache:
         self.data_file = self.scope_dir / "data.bin"
         self.scope_dir.mkdir(parents=True, exist_ok=True)
 
-    def load_or_rebuild(self, json_store: JsonStore) -> CacheLoadResult:
+    def load_or_rebuild(self, json_store: JsonStore, validate: bool = False) -> CacheLoadResult:
         """Load the snapshot if cache is fresh; otherwise rebuild it."""
-        snapshot, reason = self._load_snapshot(json_store)
-        if snapshot is not None:
-            return CacheLoadResult(snapshot=snapshot, cached=True)
-        snapshot = self._build_and_persist(json_store)
-        return CacheLoadResult(snapshot=snapshot, cached=False, reason=reason or "cache rebuild")
+        if not self.data_file.exists() or not self.meta_file.exists():
+            snapshot = self._build_and_persist(json_store)
+            return CacheLoadResult(snapshot=snapshot, cached=False, reason="cache rebuild")
+
+        if validate:
+            snapshot, reason = self._load_snapshot(json_store)
+            if snapshot is not None:
+                return CacheLoadResult(snapshot=snapshot, cached=True)
+            snapshot = self._build_and_persist(json_store)
+            return CacheLoadResult(snapshot=snapshot, cached=False, reason=reason or "cache rebuild")
+
+        try:
+            payload = pickle.loads(self.data_file.read_bytes())
+            return CacheLoadResult(snapshot=payload, cached=True)
+        except Exception:
+            snapshot = self._build_and_persist(json_store)
+            return CacheLoadResult(snapshot=snapshot, cached=False, reason="invalid cache payload")
 
     def invalidate(self) -> bool:
         """Remove cached files for this repo."""

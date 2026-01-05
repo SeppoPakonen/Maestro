@@ -69,6 +69,7 @@ from maestro.convert.pipeline_runtime import (  # noqa: E402
     get_decisions,
     get_decision_by_id,
 )
+from maestro.data.track_cache import set_cache_validation
 
 
 def init_maestro_dir(target_dir: str, verbose: bool = True) -> str:
@@ -242,6 +243,8 @@ def main():
             sys.argv[1] = 'wsession'
 
     args = parser.parse_args()
+
+    set_cache_validation(getattr(args, 'validate_cache', False))
 
     # Handle help command first
     if args.command == 'help' or (hasattr(args, 'help') and args.help):

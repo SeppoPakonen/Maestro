@@ -59,7 +59,7 @@ def test_track_cache_reuses_snapshot(tmp_path):
     data["name"] = "Task Alpha Updated"
     task_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-    third = cache.load_or_rebuild(json_store)
+    third = cache.load_or_rebuild(json_store, validate=True)
     assert not third.cached
     assert cache.meta_file.read_bytes() != meta_bytes
     assert cache.data_file.read_bytes() != data_bytes
