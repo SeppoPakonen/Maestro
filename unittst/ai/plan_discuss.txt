@@ -20,11 +20,11 @@ Steps:
    - At least 1 track
    - At least 1 phase within that track
    - At least 1 task within that phase
-7. Check docs/todo.md to ensure the structure was created correctly
+7. Check docs/maestro to ensure the structure was created correctly
 
 Expected Success Criteria:
 - Plan is created successfully
 - Plan discuss with -p argument adds the requested items automatically (no interactive prompts)
 - Plan explore converts the plan into proper project structure
-- docs/todo.md contains at least 1 track with 1 phase and 1 task
+- docs/maestro contains at least 1 track with 1 phase and 1 task
 - No errors during the process

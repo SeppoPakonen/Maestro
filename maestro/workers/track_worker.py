@@ -8,7 +8,7 @@ from ..work_session import WorkSession
 from ..breadcrumb import create_breadcrumb, estimate_tokens, write_breadcrumb
 from ..engines import EngineError, get_engine
 from ..ai.task_sync import build_task_prompt, write_sync_state
-from ..data import parse_phase_md, parse_todo_md
+from ..tracks.json_store import JsonStore
 from ..work_session import save_session
 
 
@@ -166,31 +166,37 @@ def _safe_generate(prompt: str, engine_name: str) -> Tuple[str, Optional[str]]:
 
 
 def _load_track_tasks(track_id: str) -> List[Tuple[str, Dict[str, Any], Dict[str, Any]]]:
-    todo_data = parse_todo_md("docs/todo.md")
-    track = next(
-        (item for item in todo_data.get("tracks", []) if item.get("track_id") == track_id),
-        None,
-    )
+    json_store = JsonStore()
+    track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
     if not track:
         return []
 
-    phases = track.get("phases", [])
-    if not phases:
-        return []
-
+    phases: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
     tasks: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
-    phases_dir = Path("docs/phases")
-    for phase in phases:
-        phase_id = phase.get("phase_id")
-        if not phase_id:
+    for phase_id in json_store.list_all_phases():
+        phase = json_store.load_phase(phase_id, load_tasks=True)
+        if not phase or phase.track_id != track_id:
             continue
-        phase_path = phases_dir / f"{phase_id}.md"
-        if not phase_path.exists():
-            continue
-        phase_data = parse_phase_md(str(phase_path))
-        for task in phase_data.get("tasks", []):
-            task_id = task.get("task_id") or task.get("task_number")
-            if not task_id:
+        phase_dict = {
+            "phase_id": phase.phase_id,
+            "name": phase.name,
+            "track_id": phase.track_id,
+            "tasks": [],
+        }
+        for task in phase.tasks or []:
+            task_obj = task
+            if isinstance(task, str):
+                task_obj = json_store.load_task(task)
+            if not task_obj:
                 continue
-            tasks.append((task_id, task, phase_data))
+            task_dict = {
+                "task_id": task_obj.task_id,
+                "name": task_obj.name,
+                "status": task_obj.status,
+                "completed": task_obj.completed,
+                "description": task_obj.description or [],
+            }
+            phase_dict["tasks"].append(task_dict)
+            tasks.append((task_obj.task_id, task_dict, phase_dict))
+        phases.append(phase_dict)
     return tasks

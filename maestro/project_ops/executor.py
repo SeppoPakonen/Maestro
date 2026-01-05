@@ -2,25 +2,16 @@
 Executor for the Project Operations pipeline.
 
 This module implements the executor that can preview and apply operations
-to the project markdown files (docs/todo.md, docs/done.md, etc.) with 
-dry-run capability.
+to the project JSON storage with dry-run capability.
 """
 
 from __future__ import annotations
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 from .operations import CreateTrack, CreatePhase, CreateTask, MoveTaskToDone, SetContext
-from ..data.markdown_writer import (
-    insert_track_block,
-    insert_phase_block,
-    insert_task_block,
-    update_task_metadata,
-    update_phase_metadata,
-    update_track_metadata
-)
-from ..data.markdown_parser import parse_todo_md
 from ..tracks.json_store import JsonStore
 from ..tracks.models import Track, Phase, Task
 
@@ -36,48 +27,72 @@ class PreviewResult:
 class ProjectOpsExecutor:
     """Executor for project operations with dry-run and apply functionality."""
 
-    def __init__(self, todo_path: str = "docs/todo.md"):
-        path = Path(todo_path)
-        if not path.is_absolute():
-            try:
-                path = (Path.cwd() / path).resolve()
-            except FileNotFoundError:
-                path = (Path(__file__).resolve().parents[2] / path).resolve()
-        self.todo_path = path
-        # Ensure the docs directory exists
-        self.todo_path.parent.mkdir(parents=True, exist_ok=True)
-        # Create the file if it doesn't exist
-        if not self.todo_path.exists():
-            self.todo_path.write_text("# TODO\n\n", encoding='utf-8')
-        # Initialize JSON store for JSON storage with context-aware path
-        # The JSON store should be in the same docs directory as the todo.md
-        json_base_path = self.todo_path.parent / "maestro"
-        self.json_store = JsonStore(str(json_base_path))
+    def __init__(self, base_path: str = "docs/maestro"):
+        path = Path(base_path)
+        if path.suffix == ".md":
+            path = path.parent / "maestro"
+        elif path.name == "docs":
+            path = path / "maestro"
+        self.json_store = JsonStore(str(path))
+
+    def _slugify(self, value: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+        return slug or "item"
+
+    def _resolve_track_id(self, track_ref: str) -> str:
+        track_ref_norm = track_ref.strip().lower()
+        for track_id in self.json_store.list_all_tracks():
+            track = self.json_store.load_track(track_id, load_phases=False, load_tasks=False)
+            if track and track.name.strip().lower() == track_ref_norm:
+                return track.track_id
+        if track_ref in self.json_store.list_all_tracks():
+            return track_ref
+        raise ValueError(f"Track '{track_ref}' not found")
+
+    def _resolve_phase_id(self, track_id: str, phase_ref: str) -> str:
+        phase_ref_norm = phase_ref.strip().lower()
+        for phase_id in self.json_store.list_all_phases():
+            phase = self.json_store.load_phase(phase_id, load_tasks=False)
+            if phase and phase.track_id == track_id and phase.name.strip().lower() == phase_ref_norm:
+                return phase.phase_id
+        if phase_ref in self.json_store.list_all_phases():
+            return phase_ref
+        raise ValueError(f"Phase '{phase_ref}' not found in track '{track_id}'")
+
+    def _ensure_unique_id(self, base_id: str, existing_ids: List[str]) -> str:
+        if base_id not in existing_ids:
+            return base_id
+        suffix = 2
+        while f"{base_id}-{suffix}" in existing_ids:
+            suffix += 1
+        return f"{base_id}-{suffix}"
 
     def _preview_create_track(self, op: CreateTrack) -> List[str]:
         """Preview a CreateTrack operation."""
-        # Check if track already exists
-        todo_data = parse_todo_md(str(self.todo_path))
-        for track in todo_data.get('tracks', []):
-            if track.get('title', '').lower() == op.title.lower():
-                raise ValueError(f"Track with title '{op.title}' already exists")
-        
+        track_names = []
+        for track_id in self.json_store.list_all_tracks():
+            track = self.json_store.load_track(track_id, load_phases=False, load_tasks=False)
+            if track:
+                track_names.append(track.name.lower())
+        if op.title.lower() in track_names:
+            raise ValueError(f"Track with title '{op.title}' already exists")
         return [f"Create track: '{op.title}'"]
 
     def _preview_create_phase(self, op: CreatePhase) -> List[str]:
         """Preview a CreatePhase operation."""
-        # For now, we'll just note the operation
-        # In a real implementation, we'd check if the parent track exists
+        self._resolve_track_id(op.track)
         return [f"Create phase '{op.title}' in track '{op.track}'"]
 
     def _preview_create_task(self, op: CreateTask) -> List[str]:
         """Preview a CreateTask operation."""
-        # For now, we'll just note the operation
-        # In a real implementation, we'd check if the parent track and phase exist
+        track_id = self._resolve_track_id(op.track)
+        self._resolve_phase_id(track_id, op.phase)
         return [f"Create task '{op.title}' in phase '{op.phase}' of track '{op.track}'"]
 
     def _preview_move_task_to_done(self, op: MoveTaskToDone) -> List[str]:
         """Preview a MoveTaskToDone operation."""
+        track_id = self._resolve_track_id(op.track)
+        self._resolve_phase_id(track_id, op.phase)
         return [f"Move task '{op.task}' in phase '{op.phase}' of track '{op.track}' to done"]
 
     def _preview_set_context(self, op: SetContext) -> List[str]:
@@ -93,111 +108,85 @@ class ProjectOpsExecutor:
 
     def _apply_create_track(self, op: CreateTrack) -> bool:
         """Apply a CreateTrack operation."""
-        # Check if track already exists
-        todo_data = parse_todo_md(str(self.todo_path))
-        for track in todo_data.get('tracks', []):
-            if track.get('title', '').lower() == op.title.lower():
-                raise ValueError(f"Track with title '{op.title}' already exists")
+        track_names = []
+        existing_ids = self.json_store.list_all_tracks()
+        for track_id in existing_ids:
+            track = self.json_store.load_track(track_id, load_phases=False, load_tasks=False)
+            if track:
+                track_names.append(track.name.lower())
+        if op.title.lower() in track_names:
+            raise ValueError(f"Track with title '{op.title}' already exists")
 
-        # Generate track block content
-        track_id = op.title.lower().replace(' ', '-').replace('_', '-')
-        track_block = f"## Track: {op.title}\n\n- *track_id*: *{track_id}*\n- *status*: *proposed*\n- *completion*: 0%\n\n"
-
-        # Insert the track into markdown
-        success = insert_track_block(self.todo_path, track_block)
-
-        # Also create JSON representation
-        if success:
-            track = Track(
-                track_id=track_id,
-                name=op.title,
-                status='proposed',
-                completion=0,
-                description=[],
-                phases=[],
-                priority=0,
-                tags=[],
-                owner=None,
-                is_top_priority=False
-            )
-            self.json_store.save_track(track)
-
-            # Update index
-            index = self.json_store.load_index()
-            if track_id not in index.tracks:
-                index.tracks.append(track_id)
-                self.json_store.save_index(index)
-
-        return success
+        base_id = self._slugify(op.title)
+        track_id = self._ensure_unique_id(base_id, existing_ids)
+        track = Track(
+            track_id=track_id,
+            name=op.title,
+            status='proposed',
+            completion=0,
+            description=[],
+            phases=[],
+            priority=0,
+            tags=[],
+            owner=None,
+            is_top_priority=False
+        )
+        self.json_store.save_track(track)
+        index = self.json_store.load_index()
+        if track_id not in index.tracks:
+            index.tracks.append(track_id)
+            self.json_store.save_index(index)
+        return True
 
     def _apply_create_phase(self, op: CreatePhase) -> bool:
         """Apply a CreatePhase operation."""
-        # Generate phase block content
-        phase_id = op.title.lower().replace(' ', '-').replace('_', '-')
-        track_id = op.track.lower().replace(' ', '-').replace('_', '-')
-        phase_block = f"### Phase {phase_id}: {op.title}\n\n- *phase_id*: *{phase_id}*\n- *status*: *proposed*\n- *completion*: 0\n\n"
+        track_id = self._resolve_track_id(op.track)
+        existing_ids = self.json_store.list_all_phases()
+        base_id = self._slugify(op.title)
+        phase_id = self._ensure_unique_id(base_id, existing_ids)
+        phase = Phase(
+            phase_id=phase_id,
+            name=op.title,
+            status='proposed',
+            completion=0,
+            description=[],
+            tasks=[],
+            track_id=track_id,
+            priority='P2',
+            tags=[],
+            owner=None,
+            dependencies=[],
+            order=None
+        )
+        self.json_store.save_phase(phase)
 
-        # Insert the phase into the track markdown
-        success = insert_phase_block(self.todo_path, track_id, phase_block)
-
-        # Also create JSON representation
-        if success:
-            phase = Phase(
-                phase_id=phase_id,
-                name=op.title,
-                status='proposed',
-                completion=0,
-                description=[],
-                tasks=[],
-                track_id=track_id,
-                priority='P2',
-                tags=[],
-                owner=None,
-                dependencies=[],
-                order=None
-            )
-            self.json_store.save_phase(phase)
-
-            # Update track to include this phase
-            track = self.json_store.load_track(track_id, load_phases=True, load_tasks=False)
-            if track:
-                if not track.phases:
-                    track.phases = []
-                if phase_id not in track.phases:
-                    track.phases.append(phase_id)
-                    self.json_store.save_track(track)
-
-        return success
+        track = self.json_store.load_track(track_id, load_phases=True, load_tasks=False)
+        if not track:
+            raise ValueError(f"Track '{track_id}' not found")
+        if not track.phases:
+            track.phases = []
+        if phase_id not in track.phases:
+            track.phases.append(phase_id)
+            self.json_store.save_track(track)
+        return True
 
     def _apply_create_task(self, op: CreateTask) -> bool:
         """Apply a CreateTask operation."""
-        # Generate task block content
-        task_title_slug = op.title.lower().replace(' ', '-').replace('_', '-')
-        phase_id = op.phase.lower().replace(' ', '-').replace('_', '-')
-
-        # Load phase to get existing tasks and generate proper task_id
+        track_id = self._resolve_track_id(op.track)
+        phase_id = self._resolve_phase_id(track_id, op.phase)
         phase = self.json_store.load_phase(phase_id, load_tasks=True)
         if not phase:
-            # If phase doesn't exist in JSON, we can't create task properly
-            # Fall back to markdown-only for now
-            task_content = f"- [ ] {op.title}  #task_id: {task_title_slug} #status: todo\n"
-            with self.todo_path.open('a', encoding='utf-8') as f:
-                f.write(f"\n{task_content}")
-            return True
+            raise ValueError(f"Phase '{phase_id}' not found")
 
-        # Generate proper task_id with phase prefix
-        existing_task_ids = [t if isinstance(t, str) else t.task_id for t in (phase.tasks or [])]
+        existing_task_ids = [
+            task.task_id if hasattr(task, "task_id") else task
+            for task in (phase.tasks or [])
+        ]
         base_num = 1
         while f"{phase_id}.{base_num}" in existing_task_ids:
             base_num += 1
         task_id = f"{phase_id}.{base_num}"
 
-        # Create task in markdown
-        task_content = f"- [ ] {op.title}  #task_id: {task_id} #status: todo\n"
-        with self.todo_path.open('a', encoding='utf-8') as f:
-            f.write(f"\n{task_content}")
-
-        # Also create JSON representation
         task = Task(
             task_id=task_id,
             name=op.title,
@@ -225,19 +214,35 @@ class ProjectOpsExecutor:
 
     def _apply_move_task_to_done(self, op: MoveTaskToDone) -> bool:
         """Apply a MoveTaskToDone operation."""
-        # Update markdown status
-        task_id = op.task.lower().replace(' ', '-').replace('_', '-')
-        success = update_task_metadata(self.todo_path, task_id, "status", "done")
+        track_id = self._resolve_track_id(op.track)
+        phase_id = self._resolve_phase_id(track_id, op.phase)
+        phase = self.json_store.load_phase(phase_id, load_tasks=True)
+        if not phase:
+            raise ValueError(f"Phase '{phase_id}' not found")
 
-        # Also update JSON representation if it exists
-        if success:
-            task = self.json_store.load_task(task_id)
-            if task:
-                task.status = 'done'
-                task.completed = True
-                self.json_store.save_task(task)
+        task_ref_norm = op.task.strip().lower()
+        task_id = None
+        for task in phase.tasks or []:
+            if hasattr(task, "name") and task.name.strip().lower() == task_ref_norm:
+                task_id = task.task_id
+                break
+            if isinstance(task, str) and task.strip().lower() == task_ref_norm:
+                task_id = task
+                break
+        if not task_id:
+            slugged = self._slugify(op.task)
+            if slugged in self.json_store.list_all_tasks():
+                task_id = slugged
+        if not task_id:
+            raise ValueError(f"Task '{op.task}' not found in phase '{phase_id}'")
 
-        return success
+        task_obj = self.json_store.load_task(task_id)
+        if not task_obj:
+            raise ValueError(f"Task '{task_id}' not found")
+        task_obj.status = 'done'
+        task_obj.completed = True
+        self.json_store.save_task(task_obj)
+        return True
 
     def _apply_set_context(self, op: SetContext) -> bool:
         """Apply a SetContext operation."""

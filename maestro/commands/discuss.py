@@ -310,60 +310,164 @@ def _resolve_contract_type(contract_value: Optional[str]) -> ContractType:
 
 def apply_patch_operations(patch_operations):
     """Apply the patch operations to the appropriate data sources."""
-    from maestro.data.markdown_writer import (
-        insert_track_block,
-        insert_phase_block,
-        insert_task_block,
-        update_task_metadata,
-        update_phase_metadata,
-        update_track_metadata
-    )
-    from pathlib import Path
+    from maestro.tracks.json_store import JsonStore
+    from maestro.tracks.models import Track, Phase, Task
+    import re
+
+    json_store = JsonStore()
+
+    def slugify(value: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+        return slug or "item"
+
+    def ensure_unique_id(base_id: str, existing_ids: list[str]) -> str:
+        if base_id not in existing_ids:
+            return base_id
+        suffix = 2
+        while f"{base_id}-{suffix}" in existing_ids:
+            suffix += 1
+        return f"{base_id}-{suffix}"
+
+    def resolve_track_id(track_id: Optional[str], track_name: Optional[str]) -> Optional[str]:
+        if track_id and json_store.load_track(track_id, load_phases=False, load_tasks=False):
+            return track_id
+        if track_name:
+            target = track_name.strip().lower()
+            for candidate_id in json_store.list_all_tracks():
+                track = json_store.load_track(candidate_id, load_phases=False, load_tasks=False)
+                if track and track.name.strip().lower() == target:
+                    return track.track_id
+        return track_id
+
+    def resolve_phase_id(phase_id: Optional[str], phase_name: Optional[str], track_id: Optional[str]) -> Optional[str]:
+        if phase_id and json_store.load_phase(phase_id, load_tasks=False):
+            return phase_id
+        if phase_name:
+            target = phase_name.strip().lower()
+            for candidate_id in json_store.list_all_phases():
+                phase = json_store.load_phase(candidate_id, load_tasks=False)
+                if phase and phase.name.strip().lower() == target:
+                    if track_id is None or phase.track_id == track_id:
+                        return phase.phase_id
+        return phase_id
 
     for op in patch_operations:
         if op.op_type == PatchOperationType.ADD_TRACK:
-            # Add a new track to docs/todo.md
             track_name = op.data.get('track_name', 'Unnamed Track')
             track_id = op.data.get('track_id', track_name.replace(' ', '-').lower())
+            if json_store.load_track(track_id, load_phases=False, load_tasks=False):
+                track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+                if track and track_name and track.name != track_name:
+                    track.name = track_name
+                    json_store.save_track(track)
+                continue
 
-            # Create track block content
-            track_block = f"## Track: {track_name}\n\n- *track_id*: *{track_id}*\n- *status*: *proposed*\n- *completion*: 0%\n\n"
-
-            # Insert the track
-            todo_path = Path('docs/todo.md')
-            if todo_path.exists():
-                insert_track_block(todo_path, track_block)
-            else:
-                todo_path.parent.mkdir(parents=True, exist_ok=True)
-                todo_path.write_text(track_block)
+            base_id = slugify(track_id)
+            track_id = ensure_unique_id(base_id, json_store.list_all_tracks())
+            track = Track(
+                track_id=track_id,
+                name=track_name,
+                status="proposed",
+                completion=0,
+                description=[],
+                phases=[],
+                priority=0,
+                tags=[],
+                owner=None,
+                is_top_priority=False,
+            )
+            json_store.save_track(track)
+            index = json_store.load_index()
+            if track_id not in index.tracks:
+                index.tracks.append(track_id)
+                json_store.save_index(index)
 
         elif op.op_type == PatchOperationType.ADD_PHASE:
-            # Add a new phase to a track
             phase_name = op.data.get('phase_name', 'Unnamed Phase')
             phase_id = op.data.get('phase_id', phase_name.replace(' ', '-').lower())
             track_id = op.data.get('track_id', 'default')
+            track_id = resolve_track_id(track_id, op.data.get("track_name"))
+            if not track_id:
+                raise ValueError("Track is required for phase creation")
 
-            # Create phase block content
-            phase_block = f"### Phase {phase_id}: {phase_name}\n\n- *phase_id*: *{phase_id}*\n- *status*: *proposed*\n- *completion*: 0\n\n"
+            if not json_store.load_track(track_id, load_phases=False, load_tasks=False):
+                raise ValueError(f"Track '{track_id}' not found")
 
-            # Insert the phase
-            todo_path = Path('docs/todo.md')
-            if todo_path.exists():
-                insert_phase_block(todo_path, track_id, phase_block)
+            if json_store.load_phase(phase_id, load_tasks=False):
+                phase = json_store.load_phase(phase_id, load_tasks=False)
+                if phase and phase_name and phase.name != phase_name:
+                    phase.name = phase_name
+                    json_store.save_phase(phase)
+            else:
+                base_id = slugify(phase_id)
+                phase_id = ensure_unique_id(base_id, json_store.list_all_phases())
+                phase = Phase(
+                    phase_id=phase_id,
+                    name=phase_name,
+                    status="proposed",
+                    completion=0,
+                    description=[],
+                    tasks=[],
+                    track_id=track_id,
+                    priority="P2",
+                    tags=[],
+                    owner=None,
+                    dependencies=[],
+                    order=None,
+                )
+                json_store.save_phase(phase)
+
+            track = json_store.load_track(track_id, load_phases=True, load_tasks=False)
+            if track:
+                if not track.phases:
+                    track.phases = []
+                if phase_id not in track.phases:
+                    track.phases.append(phase_id)
+                    json_store.save_track(track)
 
         elif op.op_type == PatchOperationType.ADD_TASK:
-            # Add a new task to a phase
             task_name = op.data.get('task_name', 'Unnamed Task')
             task_id = op.data.get('task_id', f"task-{len(str(task_name))}")
-            phase_id = op.data.get('phase_id', 'default')
+            phase_id = op.data.get('phase_id')
+            track_id = op.data.get('track_id')
+            phase_id = resolve_phase_id(phase_id, op.data.get("phase_name"), track_id)
+            if not phase_id:
+                raise ValueError("Phase is required for task creation")
 
-            # Create task block content
-            task_block = f"### Task {task_id}: {task_name}\n\n- *task_id*: *{task_id}*\n- *status*: *proposed*\n\n"
+            phase = json_store.load_phase(phase_id, load_tasks=True)
+            if not phase:
+                raise ValueError(f"Phase '{phase_id}' not found")
 
-            # Insert the task
-            phase_file = Path(f'docs/phases/{phase_id}.md')
-            if phase_file.exists():
-                insert_task_block(phase_file, task_block)
+            existing_task_ids = [
+                task.task_id if hasattr(task, "task_id") else task
+                for task in (phase.tasks or [])
+            ]
+            if not task_id or json_store.load_task(task_id) is None:
+                base_num = 1
+                while f"{phase_id}.{base_num}" in existing_task_ids:
+                    base_num += 1
+                task_id = f"{phase_id}.{base_num}"
+
+            task = Task(
+                task_id=task_id,
+                name=task_name,
+                status="proposed",
+                priority="P2",
+                estimated_hours=None,
+                description=[],
+                phase_id=phase_id,
+                completed=False,
+                tags=[],
+                owner=None,
+                dependencies=[],
+                subtasks=[],
+            )
+            json_store.save_task(task)
+            if not phase.tasks:
+                phase.tasks = []
+            if task_id not in phase.tasks:
+                phase.tasks.append(task_id)
+                json_store.save_phase(phase)
 
         elif op.op_type == PatchOperationType.MOVE_TASK:
             # Move a task to a different phase
@@ -372,18 +476,41 @@ def apply_patch_operations(patch_operations):
             source_phase_id = op.data.get('source_phase_id')
 
             # Implementation for moving tasks between phases would go here
-            print(f"Moving task {task_id} from phase {source_phase_id} to phase {target_phase_id}")
+            if not (task_id and target_phase_id and source_phase_id):
+                raise ValueError("Task move requires task_id, source_phase_id, and target_phase_id")
+
+            task = json_store.load_task(task_id)
+            if not task:
+                raise ValueError(f"Task '{task_id}' not found")
+            source_phase = json_store.load_phase(source_phase_id, load_tasks=True)
+            target_phase = json_store.load_phase(target_phase_id, load_tasks=True)
+            if not source_phase or not target_phase:
+                raise ValueError("Source/target phase not found")
+
+            if source_phase.tasks and task_id in source_phase.tasks:
+                source_phase.tasks.remove(task_id)
+                json_store.save_phase(source_phase)
+            if not target_phase.tasks:
+                target_phase.tasks = []
+            if task_id not in target_phase.tasks:
+                target_phase.tasks.append(task_id)
+                json_store.save_phase(target_phase)
+            task.phase_id = target_phase_id
+            json_store.save_task(task)
 
         elif op.op_type == PatchOperationType.EDIT_TASK_FIELDS:
             # Edit fields of a task
             task_id = op.data.get('task_id')
             fields = op.data.get('fields', {})
-
-            # Update task fields
-            phase_file = find_phase_file_for_task(task_id)
-            if phase_file:
-                for field, value in fields.items():
-                    update_task_metadata(phase_file, task_id, field, value)
+            if not task_id:
+                raise ValueError("Task ID required for field edits")
+            task = json_store.load_task(task_id)
+            if not task:
+                raise ValueError(f"Task '{task_id}' not found")
+            for field, value in fields.items():
+                if hasattr(task, field):
+                    setattr(task, field, value)
+            json_store.save_task(task)
 
         elif op.op_type == PatchOperationType.MARK_DONE:
             # Mark an item as done
@@ -391,20 +518,26 @@ def apply_patch_operations(patch_operations):
             item_id = op.data.get('item_id')
 
             if item_type == 'task':
-                # Update task status
-                phase_file = find_phase_file_for_task(item_id)
-                if phase_file:
-                    update_task_metadata(phase_file, item_id, 'status', 'done')
+                task = json_store.load_task(item_id)
+                if not task:
+                    raise ValueError(f"Task '{item_id}' not found")
+                task.status = 'done'
+                task.completed = True
+                json_store.save_task(task)
             elif item_type == 'phase':
-                # Update phase status
-                todo_path = Path('docs/todo.md')
-                if todo_path.exists():
-                    update_phase_metadata(todo_path, item_id, 'status', 'done')
+                phase = json_store.load_phase(item_id, load_tasks=True)
+                if not phase:
+                    raise ValueError(f"Phase '{item_id}' not found")
+                phase.status = 'done'
+                phase.completion = 100
+                json_store.save_phase(phase)
             elif item_type == 'track':
-                # Update track status
-                todo_path = Path('docs/todo.md')
-                if todo_path.exists():
-                    update_track_metadata(todo_path, item_id, 'status', 'done')
+                track = json_store.load_track(item_id, load_phases=True, load_tasks=False)
+                if not track:
+                    raise ValueError(f"Track '{item_id}' not found")
+                track.status = 'done'
+                track.completion = 100
+                json_store.save_track(track)
 
         elif op.op_type == PatchOperationType.MARK_TODO:
             # Mark an item as todo
@@ -412,36 +545,24 @@ def apply_patch_operations(patch_operations):
             item_id = op.data.get('item_id')
 
             if item_type == 'task':
-                # Update task status
-                phase_file = find_phase_file_for_task(item_id)
-                if phase_file:
-                    update_task_metadata(phase_file, item_id, 'status', 'planned')
+                task = json_store.load_task(item_id)
+                if not task:
+                    raise ValueError(f"Task '{item_id}' not found")
+                task.status = 'todo'
+                task.completed = False
+                json_store.save_task(task)
             elif item_type == 'phase':
-                # Update phase status
-                todo_path = Path('docs/todo.md')
-                if todo_path.exists():
-                    update_phase_metadata(todo_path, item_id, 'status', 'planned')
+                phase = json_store.load_phase(item_id, load_tasks=True)
+                if not phase:
+                    raise ValueError(f"Phase '{item_id}' not found")
+                phase.status = 'planned'
+                json_store.save_phase(phase)
             elif item_type == 'track':
-                # Update track status
-                todo_path = Path('docs/todo.md')
-                if todo_path.exists():
-                    update_track_metadata(todo_path, item_id, 'status', 'planned')
-
-
-def find_phase_file_for_task(task_id: str) -> Optional[Path]:
-    """Find the phase file that contains a specific task."""
-    from pathlib import Path
-
-    phases_dir = Path('docs/phases')
-    if not phases_dir.exists():
-        return None
-
-    for phase_file in phases_dir.glob('*.md'):
-        content = phase_file.read_text(encoding='utf-8')
-        if task_id in content:
-            return phase_file
-
-    return None
+                track = json_store.load_track(item_id, load_phases=True, load_tasks=False)
+                if not track:
+                    raise ValueError(f"Track '{item_id}' not found")
+                track.status = 'planned'
+                json_store.save_track(track)
 
 
 def save_discussion_artifacts(

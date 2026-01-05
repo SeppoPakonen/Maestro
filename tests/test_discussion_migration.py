@@ -295,7 +295,7 @@ def test_discussion_session_generate_actions():
     assert isinstance(actions, list)
 
 
-@patch('maestro.ai.discussion.parse_todo_md')
+@patch('maestro.ai.discussion.parse_todo_safe')
 def test_track_discuss_integration(mock_parse_todo):
     """Test that track discuss command creates session properly."""
     # Mock the todo parsing to return a track

@@ -41,7 +41,8 @@ from ..breadcrumb import (
     capture_tool_call,
     track_file_modification
 )
-from ..data import parse_phase_md, parse_todo_md as data_parse_todo_md
+from ..data import parse_phase_md
+from ..data.common_utils import parse_todo_safe
 from ..engines import get_engine, EngineError
 from ..cli.interactive import is_interactive_allowed
 
@@ -145,59 +146,11 @@ def _looks_like_legacy_todo(lines: List[str]) -> bool:
     return False
 
 
-def parse_todo_md(path: str = "docs/todo.md") -> Dict[str, Any]:
-    """
-    Parse docs/todo.md into tracks and phases for work selection.
-
-    Supports a legacy "ID_Name" heading format and the modern track/phase format.
-    """
-    path_obj = Path(path)
-    if not path_obj.exists():
+def parse_todo_md(path: Optional[str] = None) -> Dict[str, Any]:
+    """Load track/phase data for work selection from JSON storage."""
+    data = parse_todo_safe(verbose=False)
+    if not data:
         return {"tracks": [], "phases": []}
-
-    content = path_obj.read_text(encoding="utf-8")
-    lines = content.splitlines()
-
-    if _looks_like_legacy_todo(lines):
-        tracks: List[Dict[str, Any]] = []
-        phases: List[Dict[str, Any]] = []
-        current_track_id: Optional[str] = None
-
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("## "):
-                heading = stripped[3:].strip()
-                parsed = _split_legacy_heading(heading)
-                if not parsed:
-                    continue
-                current_track_id = parsed["id"]
-                tracks.append({
-                    "id": parsed["id"],
-                    "name": parsed["name"],
-                    "type": "track",
-                    "status": "todo",
-                    "description": [],
-                })
-                continue
-
-            if stripped.startswith("### "):
-                heading = stripped[4:].strip()
-                parsed = _split_legacy_heading(heading)
-                if not parsed:
-                    continue
-                phases.append({
-                    "id": parsed["id"],
-                    "name": parsed["name"],
-                    "type": "phase",
-                    "track": current_track_id,
-                    "status": "todo",
-                    "description": [],
-                })
-                continue
-
-        return {"tracks": tracks, "phases": phases}
-
-    data = data_parse_todo_md(path)
     phases: List[Dict[str, Any]] = []
     for track in data.get("tracks", []):
         track.setdefault("type", "track")
@@ -207,7 +160,6 @@ def parse_todo_md(path: str = "docs/todo.md") -> Dict[str, Any]:
             phase_entry.setdefault("track", track_id)
             phase_entry.setdefault("type", "phase")
             phases.append(phase_entry)
-
     data["phases"] = phases
     return data
 
@@ -357,8 +309,8 @@ def load_available_work() -> Dict[str, List[Dict[str, Any]]]:
           "issues": [...]
         }
     """
-    # Parse docs/todo.md for tracks and phases
-    todo_data = parse_todo_md("docs/todo.md")
+    # Parse JSON-backed tracks and phases
+    todo_data = parse_todo_md()
     # Scan docs/issues/ for open issues
     issues = load_issues()
 
@@ -732,7 +684,7 @@ async def handle_work_track(args):
     Work on a specific track or list tracks for selection.
 
     If <id> provided:
-      - Load track from docs/todo.md
+      - Load track from JSON store
       - Create WorkSession with type='work_track'
       - Execute track worker
 
@@ -851,7 +803,7 @@ async def handle_work_phase(args):
     Work on a specific phase or list phases for selection.
 
     If <id> provided:
-      - Load phase from docs/todo.md
+      - Load phase from JSON store
       - Create WorkSession with type='work_phase'
       - Execute phase worker
 
@@ -1460,7 +1412,7 @@ Respond with:
 Example response:
 "Would analyze repository health and identify top 3 priority items"
 - Check git status and recent commits
-- Scan docs/todo.md for pending phases
+- Scan JSON store for pending phases
 - Evaluate issue complexity and dependencies
 - Recommend next actionable item
 - Estimate time/effort required

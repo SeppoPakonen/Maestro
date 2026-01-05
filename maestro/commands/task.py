@@ -12,41 +12,24 @@ Commands:
 - maestro task <id> set - Set current task context
 """
 
+import json
 import re
 import sys
 import tempfile
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
-from maestro.data import parse_todo_md, parse_done_md, parse_phase_md, parse_config_md
-from maestro.data.markdown_writer import (
-    escape_asterisk_text,
-    extract_phase_block,
-    extract_task_block,
-    insert_task_block,
-    remove_task_block,
-    replace_phase_block,
-    replace_task_block,
-    update_task_metadata,
-    update_task_heading_status,
-)
+from maestro.tracks.json_store import JsonStore
 from maestro.display.table_renderer import render_task_table, _status_display
 from maestro.data.common_utils import (
-    parse_todo_safe,
-    parse_done_safe,
     get_all_tracks_with_phases_and_tasks,
     resolve_identifier_by_type,
     filter_items_by_track,
+    get_available_ids,
     print_error,
     print_warning,
-    print_info
+    print_info,
 )
 from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
-
-
-# Using the unified parse_todo_safe from common_utils
-
-
-# Functions are now using the unified versions from common_utils
 
 
 def _available_phase_ids(verbose: bool = False) -> List[str]:
@@ -79,8 +62,6 @@ def _normalize_task_status(status: Optional[str], completed: bool, phase_status:
 
 
 def _collect_phase_index(verbose: bool = False) -> Tuple[Dict[str, Dict[str, str]], List[str]]:
-    todo_path = Path('docs/todo.md')
-    done_path = Path('docs/done.md')
     phase_index: Dict[str, Dict[str, str]] = {}
     phase_order: List[str] = []
 
@@ -102,28 +83,17 @@ def _collect_phase_index(verbose: bool = False) -> Tuple[Dict[str, Dict[str, str
         if phase_id not in phase_order:
             phase_order.append(phase_id)
 
-    if todo_path.exists():
-        todo_data = parse_todo_safe(todo_path, verbose=verbose)
-        if todo_data:
-            for track in todo_data.get('tracks', []):
-                for phase in track.get('phases', []):
-                    add_phase(track, phase)
+    json_store = JsonStore()
+    tracks = get_all_tracks_with_phases_and_tasks(verbose=verbose)
+    for track in tracks:
+        for phase in track.get('phases', []):
+            add_phase(track, phase)
 
-    if done_path.exists():
-        done_data = parse_done_safe(done_path, verbose=verbose)
-        if done_data:
-            for track in done_data.get('tracks', []):
-                for phase in track.get('phases', []):
-                    add_phase(track, phase)
-
-    phases_dir = Path('docs/phases')
-    if phases_dir.exists():
-        for phase_file in sorted(phases_dir.glob('*.md')):
-            phase_id = phase_file.stem
-            if phase_id not in phase_index:
-                phase_index[phase_id] = {}
-            if phase_id not in phase_order:
-                phase_order.append(phase_id)
+    for phase_id in json_store.list_all_phases():
+        if phase_id not in phase_index:
+            phase_index[phase_id] = {}
+        if phase_id not in phase_order:
+            phase_order.append(phase_id)
 
     return phase_index, phase_order
 
@@ -206,7 +176,7 @@ def _collect_task_entries(verbose: bool = False) -> List[Dict[str, str]]:
                 task_status = _normalize_task_status(task.status, completed, phase_status)
 
                 # Build task entry matching the old format
-                phase_file_path = Path('docs/phases') / f"{phase_id}.md"
+                phase_file_path = Path('docs/maestro/phases') / f"{phase_id}.json"
                 tasks.append({
                     "task_id": task_id,
                     "name": task.name,
@@ -452,94 +422,6 @@ def _resolve_text_input(args) -> str:
     return sys.stdin.read()
 
 
-def _find_task_file(task_id: str) -> Optional[Path]:
-    phases_dir = Path('docs/phases')
-    if not phases_dir.exists():
-        return None
-    for phase_file in phases_dir.glob('*.md'):
-        phase = parse_phase_md(str(phase_file))
-        for task in phase.get('tasks', []):
-            if task.get('task_id') == task_id or task.get('task_number') == task_id:
-                return phase_file
-    return None
-
-
-def _find_task_line(lines: List[str], task_id: str) -> Optional[int]:
-    pattern = re.compile(rf'\*\*{re.escape(task_id)}\s*:', re.IGNORECASE)
-    for idx, line in enumerate(lines):
-        if pattern.search(line):
-            return idx
-    return None
-
-
-def _insert_task_in_todo(
-    todo_path: Path,
-    phase_id: str,
-    task_id: str,
-    name: str,
-    desc_lines: List[str],
-    after_task_id: Optional[str],
-    before_task_id: Optional[str],
-) -> None:
-    block = extract_phase_block(todo_path, phase_id)
-    if not block:
-        return
-
-    lines = block.splitlines(keepends=True)
-    insert_idx = len(lines)
-
-    if after_task_id:
-        task_idx = _find_task_line(lines, after_task_id)
-        if task_idx is not None:
-            insert_idx = task_idx + 1
-            while insert_idx < len(lines) and not lines[insert_idx].lstrip().startswith("- ["):
-                insert_idx += 1
-    elif before_task_id:
-        task_idx = _find_task_line(lines, before_task_id)
-        if task_idx is not None:
-            insert_idx = task_idx
-
-    task_lines = [f"- [ ] **{task_id}: {name}**\n"]
-    for line in desc_lines:
-        if line.strip():
-            task_lines.append(f"  - {line.strip()}\n")
-
-    lines[insert_idx:insert_idx] = task_lines + ["\n"]
-    replace_phase_block(todo_path, phase_id, "".join(lines))
-
-
-def _remove_task_from_todo(todo_path: Path, task_id: str) -> None:
-    text = todo_path.read_text(encoding='utf-8')
-    lines = text.splitlines(keepends=True)
-    pattern = re.compile(rf'^\s*-\s+\[[ x]\]\s+\*\*{re.escape(task_id)}\s*:', re.IGNORECASE)
-    idx = 0
-    while idx < len(lines):
-        if pattern.search(lines[idx]):
-            start = idx
-            idx += 1
-            while idx < len(lines):
-                if lines[idx].lstrip().startswith("- [") and pattern.search(lines[idx]) is None:
-                    break
-                if lines[idx].startswith("### Phase") or lines[idx].startswith("## "):
-                    break
-                idx += 1
-            del lines[start:idx]
-            break
-        idx += 1
-    todo_path.write_text("".join(lines), encoding='utf-8')
-
-
-def _set_task_checkbox(todo_path: Path, task_id: str, checked: bool) -> bool:
-    text = todo_path.read_text(encoding='utf-8')
-    lines = text.splitlines(keepends=True)
-    pattern = re.compile(rf'^(\s*-\s+\[)[ x](\]\s+\*\*{re.escape(task_id)}\s*:)', re.IGNORECASE)
-    for idx, line in enumerate(lines):
-        if pattern.match(line):
-            mark = 'x' if checked else ' '
-            lines[idx] = pattern.sub(lambda m: f"{m.group(1)}{mark}{m.group(2)}", line)
-            todo_path.write_text("".join(lines), encoding='utf-8')
-            return True
-    return False
 
 
 def add_task(name: str, args):
@@ -726,39 +608,39 @@ def edit_task(task_id: str, args):
     """
     Edit a task in $EDITOR.
 
-    Opens the phase file containing the task.
+    Opens the JSON task file.
     """
     import os
     import subprocess
 
     verbose = getattr(args, 'verbose', False)
-    phase_file = _find_task_file(task_id)
-    if not phase_file:
-        print(f"Error: Task '{task_id}' not found in any phase file.")
+    json_store = JsonStore()
+    task_file = json_store.tasks_dir / f"{task_id}.json"
+    if not task_file.exists():
+        print(f"Error: Task '{task_id}' not found.")
         if verbose:
             print("Verbose: Use 'maestro task list' to see available task IDs.")
         return 1
-
-    block = extract_task_block(phase_file, task_id)
-    if not block:
-        print(f"Error: Task '{task_id}' not found in {phase_file}.")
-        return 1
+    original = task_file.read_text(encoding='utf-8')
 
     editor = os.environ.get('EDITOR', 'vim')
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".md") as tmp:
-            tmp.write(block.encode('utf-8'))
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp:
+            tmp.write(original.encode('utf-8'))
             tmp_path = tmp.name
         subprocess.run([editor, tmp_path])
         new_block = Path(tmp_path).read_text(encoding='utf-8')
         Path(tmp_path).unlink(missing_ok=True)
-        if new_block == block:
+        if new_block == original:
             print("No changes made.")
             return 0
-        if not replace_task_block(phase_file, task_id, new_block):
-            print("Error: Failed to update task block.")
+        try:
+            json.loads(new_block)
+        except json.JSONDecodeError as exc:
+            print(f"Error: Updated content is not valid JSON: {exc}")
             return 1
-        print(f"Updated task '{task_id}'.")
+        task_file.write_text(new_block, encoding='utf-8')
+        print(f"Updated task '{task_id}' JSON.")
         return 0
     except Exception as e:
         print(f"Error opening editor: {e}")
@@ -825,32 +707,33 @@ def handle_task_command(args):
             if not hasattr(args, 'task_id') or not args.task_id:
                 print("Error: Task ID required. Usage: maestro task text <id>")
                 return 1
-            phase_file = _find_task_file(args.task_id)
-            if not phase_file:
-                print(f"Error: Task '{args.task_id}' not found in any phase file.")
+            json_store = JsonStore()
+            task_file = json_store.tasks_dir / f"{args.task_id}.json"
+            if not task_file.exists():
+                print(f"Error: Task '{args.task_id}' not found.")
                 return 1
-            block = extract_task_block(phase_file, args.task_id)
-            if not block:
-                print(f"Error: Task '{args.task_id}' not found in {phase_file}.")
-                return 1
-            print(block.rstrip())
+            print(task_file.read_text(encoding='utf-8').rstrip())
             return 0
         elif args.task_subcommand in ['set-text', 'setraw']:
             if not hasattr(args, 'task_id') or not args.task_id:
                 print("Error: Task ID required. Usage: maestro task set-text <id> [--file path]")
                 return 1
-            phase_file = _find_task_file(args.task_id)
-            if not phase_file:
-                print(f"Error: Task '{args.task_id}' not found in any phase file.")
-                return 1
             new_block = _resolve_text_input(args)
             if not new_block.strip():
                 print("Error: Replacement text is empty.")
                 return 1
-            if not replace_task_block(phase_file, args.task_id, new_block):
-                print(f"Error: Task '{args.task_id}' not found in {phase_file}.")
+            try:
+                json.loads(new_block)
+            except json.JSONDecodeError as exc:
+                print(f"Error: Updated content is not valid JSON: {exc}")
                 return 1
-            print(f"Updated task '{args.task_id}'.")
+            json_store = JsonStore()
+            task_file = json_store.tasks_dir / f"{args.task_id}.json"
+            if not task_file.exists():
+                print(f"Error: Task '{args.task_id}' not found.")
+                return 1
+            task_file.write_text(new_block, encoding='utf-8')
+            print(f"Updated task '{args.task_id}' JSON.")
             return 0
         elif args.task_subcommand in ['help', 'h']:
             print_task_help()
@@ -882,14 +765,11 @@ def handle_task_command(args):
 
     # No subcommand - show help or list based on context
     # Check if we have a current phase set
-    config_path = Path('docs/config.md')
-    if config_path.exists():
-        config = parse_config_md(str(config_path))
-        current_phase = config.get('current_phase')
-        if current_phase:
-            # List tasks in current phase
-            args.filters = [current_phase]
-            return list_tasks(args)
+    from maestro.config.settings import get_settings
+    settings = get_settings()
+    if settings.current_phase:
+        args.filters = [settings.current_phase]
+        return list_tasks(args)
 
     print_task_help()
     return 0

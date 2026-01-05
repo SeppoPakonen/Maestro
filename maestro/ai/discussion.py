@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 from typing import Any, Dict, List, Optional
 
-from maestro.data import parse_phase_md, parse_todo_md
+from maestro.data.common_utils import parse_todo_safe
 from .actions import extract_json_actions
 
 
@@ -99,7 +99,7 @@ class Discussion:
 
 
 def build_track_context(track_id: Optional[str]) -> DiscussionContext:
-    todo = parse_todo_md("docs/todo.md")
+    todo = parse_todo_safe(verbose=False) or {"tracks": []}
     tracks = todo.get("tracks", [])
     track = None
     if track_id:
@@ -122,21 +122,17 @@ def build_track_context(track_id: Optional[str]) -> DiscussionContext:
 
 
 def build_phase_context(phase_id: str) -> DiscussionContext:
-    phase_file = Path(f"docs/phases/{phase_id}.md")
-    if phase_file.exists():
-        phase = parse_phase_md(str(phase_file))
-    else:
-        todo = parse_todo_md("docs/todo.md")
-        phase = None
-        for track in todo.get("tracks", []):
-            for item in track.get("phases", []):
-                if item.get("phase_id") == phase_id:
-                    phase = item
-                    break
-            if phase:
+    todo = parse_todo_safe(verbose=False) or {"tracks": []}
+    phase = None
+    for track in todo.get("tracks", []):
+        for item in track.get("phases", []):
+            if item.get("phase_id") == phase_id:
+                phase = item
                 break
-        if not phase:
-            raise ValueError(f"Phase '{phase_id}' not found.")
+        if phase:
+            break
+    if not phase:
+        raise ValueError(f"Phase '{phase_id}' not found.")
     allowed_actions = ["phase.edit", "task.add", "task.edit"]
     prompt = _build_system_prompt("phase", phase_id, allowed_actions, phase)
     return DiscussionContext(
@@ -148,17 +144,21 @@ def build_phase_context(phase_id: str) -> DiscussionContext:
 
 
 def build_task_context(task_id: str) -> DiscussionContext:
-    phases_dir = Path("docs/phases")
-    if not phases_dir.exists():
-        raise ValueError("docs/phases directory not found.")
+    todo = parse_todo_safe(verbose=False) or {"tracks": []}
     task = None
     phase_context = None
-    for phase_file in phases_dir.glob("*.md"):
-        phase = parse_phase_md(str(phase_file))
-        for item in phase.get("tasks", []):
-            if item.get("task_id") == task_id or item.get("task_number") == task_id:
-                task = item
-                phase_context = {"phase_id": phase.get("phase_id"), "phase_name": phase.get("name")}
+    for track in todo.get("tracks", []):
+        for phase in track.get("phases", []):
+            for item in phase.get("tasks", []):
+                if item.get("task_id") == task_id or item.get("task_number") == task_id:
+                    task = item
+                    phase_context = {
+                        "phase_id": phase.get("phase_id"),
+                        "phase_name": phase.get("name"),
+                        "track_id": track.get("track_id"),
+                    }
+                    break
+            if task:
                 break
         if task:
             break

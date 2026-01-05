@@ -453,7 +453,7 @@ def parse_track_from_block(lines: List[str], start_idx: int) -> Tuple[Optional[T
 
 
 def parse_todo_md(path: Path) -> Tuple[Optional[TrackIndex], Optional[ParseError]]:
-    """Parse docs/todo.md into a TrackIndex object."""
+    """Parse legacy todo markdown into a TrackIndex object."""
     path = Path(path)
     if not path.exists():
         return TrackIndex(), None
@@ -634,7 +634,7 @@ def parse_phase_md(path: Path) -> Tuple[Optional[Phase], Optional[ParseError]]:
 
 
 def parse_done_md(path: Path) -> Tuple[Optional[DoneArchive], Optional[ParseError]]:
-    """Parse docs/done.md into a DoneArchive object."""
+    """Parse legacy done markdown into a DoneArchive object."""
     path = Path(path)
     if not path.exists():
         return DoneArchive(), None

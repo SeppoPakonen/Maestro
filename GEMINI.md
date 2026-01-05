@@ -8,10 +8,9 @@ Instructions for Google Gemini when working on the Maestro project.
 
 At the **end of a Phase**, the agent must:
 
-1. Move completed tasks from `docs/todo.md`
-2. Into `docs/done.md`
-3. Preserve Phase structure and numbering
-4. Never leave completed tasks in `todo.md`
+1. Mark completed tasks as done in the JSON store
+2. Preserve Phase structure and numbering
+3. Never leave completed tasks marked as todo
 
 This rule ensures the task tracking system remains accurate and up-to-date.
 

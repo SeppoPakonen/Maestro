@@ -15,6 +15,7 @@ Commands:
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -28,24 +29,13 @@ from types import SimpleNamespace
 from typing import List, Optional
 
 from maestro.config.settings import get_settings
-from maestro.data import parse_todo_md
-from maestro.data.markdown_writer import (
-    escape_asterisk_text,
-    extract_track_block,
-    insert_track_block,
-    remove_track_block,
-    replace_track_block,
-    update_track_metadata,
-    update_track_heading_status,
-)
 from maestro.display.table_renderer import render_track_table, render_phase_table, _box_chars, _style_text, _truncate, _pad_to_width, _status_display
 from maestro.data.common_utils import (
-    parse_todo_safe,
     get_all_tracks_with_phases_and_tasks,
     resolve_identifier_by_type,
     print_error,
     print_warning,
-    print_info
+    print_info,
 )
 from .status_utils import allowed_statuses, normalize_status, status_badge, status_timestamp
 from .discuss import handle_track_discuss
@@ -64,56 +54,16 @@ def resolve_track_identifier(identifier: str, verbose: bool = False) -> Optional
     return resolve_identifier_by_type(identifier, 'track', verbose)
 
 
-def _ensure_todo_file(verbose: bool = False) -> Optional[Path]:
-    docs_dir = Path('docs')
-    todo_path = docs_dir / 'todo.md'
-    if todo_path.exists():
-        return todo_path
-
-    try:
-        docs_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime('%Y-%m-%d')
-        todo_content = (
-            "# Maestro Development TODO\n\n"
-            f"**Last Updated**: {timestamp}\n\n"
-            "---\n\n"
-        )
-        todo_path.write_text(todo_content, encoding='utf-8')
-        if verbose:
-            print(f"Verbose: Created {todo_path}")
-        return todo_path
-    except Exception as exc:
-        if verbose:
-            print(f"Verbose: Failed to create {todo_path}: {exc}")
-        return None
-
-
-def _parse_todo_safe(todo_path: Path, verbose: bool = False) -> Optional[dict]:
-    try:
-        return parse_todo_md(str(todo_path))
-    except Exception as exc:
-        if verbose:
-            print(f"Verbose: Error parsing {todo_path}: {exc}")
-            import traceback
-            traceback.print_exc()
-        else:
-            print(f"Error parsing {todo_path}. Use --verbose for more details.")
-        return None
-
-
 def _available_track_ids(verbose: bool = False) -> List[str]:
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        return []
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if not data:
-        return []
-    return [track.get('track_id') for track in data.get('tracks', []) if track.get('track_id')]
+    from maestro.tracks.json_store import JsonStore
+
+    json_store = JsonStore()
+    return json_store.list_all_tracks()
 
 
 def list_tracks(args) -> int:
     """
-    List all tracks from docs/todo.md.
+    List all tracks from the JSON store.
     """
     tracks = get_all_tracks_with_phases_and_tasks(verbose=getattr(args, 'verbose', False))
 
@@ -176,27 +126,7 @@ def show_track(track_identifier: str, args) -> int:
                 print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        return 1
-
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if data is None:
-        return 1
-    tracks = data.get('tracks', [])
-
-    done_path = Path('docs/done.md')
-    done_phases = []
-    if done_path.exists():
-        done_data = _parse_todo_safe(done_path, verbose=verbose)
-        if done_data:
-            done_tracks = done_data.get('tracks', [])
-            for done_track in done_tracks:
-                if done_track.get('track_id') == track_id:
-                    done_phases = done_track.get('phases', [])
-                    break
-
+    tracks = get_all_tracks_with_phases_and_tasks(verbose=verbose)
     track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
         print(f"Error: Track '{track_identifier}' not found.")
@@ -253,14 +183,7 @@ def show_track(track_identifier: str, args) -> int:
 
     phases = track.get('phases', [])
     todo_phases = [phase for phase in phases if phase.get('status') != 'done']
-    done_from_todo = [phase for phase in phases if phase.get('status') == 'done']
-    seen_done_ids = {phase.get('phase_id') for phase in done_phases if phase.get('phase_id')}
-    for phase in done_from_todo:
-        phase_id = phase.get('phase_id')
-        if not phase_id or phase_id in seen_done_ids:
-            continue
-        done_phases.append(phase)
-        seen_done_ids.add(phase_id)
+    done_phases = [phase for phase in phases if phase.get('status') == 'done']
 
     todo_rows = []
     for i, phase in enumerate(todo_phases, 1):
@@ -327,27 +250,7 @@ def show_track_details(track_identifier: str, args) -> int:
                 print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        return 1
-
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if data is None:
-        return 1
-    tracks = data.get('tracks', [])
-
-    done_path = Path('docs/done.md')
-    done_phases = []
-    if done_path.exists():
-        done_data = _parse_todo_safe(done_path, verbose=verbose)
-        if done_data:
-            done_tracks = done_data.get('tracks', [])
-            for done_track in done_tracks:
-                if done_track.get('track_id') == track_id:
-                    done_phases = done_track.get('phases', [])
-                    break
-
+    tracks = get_all_tracks_with_phases_and_tasks(verbose=verbose)
     track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
         print(f"Error: Track '{track_identifier}' not found.")
@@ -372,7 +275,7 @@ def show_track_details(track_identifier: str, args) -> int:
             print(f"  {line}")
         print()
 
-    all_phases = track.get('phases', []) + done_phases
+    all_phases = track.get('phases', [])
 
     print("=" * 80)
     print("PHASES")
@@ -548,31 +451,33 @@ def edit_track(track_identifier: str, args) -> int:
                 print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        return 1
+    from maestro.tracks.json_store import JsonStore
 
-    block = extract_track_block(todo_path, track_id)
-    if not block:
-        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+    json_store = JsonStore()
+    track_file = json_store.tracks_dir / f"{track_id}.json"
+    if not track_file.exists():
+        print(f"Error: Track '{track_id}' not found.")
         return 1
+    original = track_file.read_text(encoding='utf-8')
 
     editor = os.environ.get('EDITOR', 'vim')
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".md") as tmp:
-            tmp.write(block.encode('utf-8'))
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp:
+            tmp.write(original.encode('utf-8'))
             tmp_path = tmp.name
         subprocess.run([editor, tmp_path])
         new_block = Path(tmp_path).read_text(encoding='utf-8')
         Path(tmp_path).unlink(missing_ok=True)
-        if new_block == block:
+        if new_block == original:
             print("No changes made.")
             return 0
-        if not replace_track_block(todo_path, track_id, new_block):
-            print("Error: Failed to update track block.")
+        try:
+            json.loads(new_block)
+        except json.JSONDecodeError as exc:
+            print(f"Error: Updated content is not valid JSON: {exc}")
             return 1
-        print(f"Updated track '{track_id}'.")
+        track_file.write_text(new_block, encoding='utf-8')
+        print(f"Updated track '{track_id}' JSON.")
         return 0
     except Exception as e:
         print(f"Error opening editor: {e}")
@@ -581,7 +486,7 @@ def edit_track(track_identifier: str, args) -> int:
 
 def set_track_status(track_identifier: str, args) -> int:
     """
-    Update a track status in docs/todo.md.
+    Update a track status in the JSON store.
     """
     verbose = getattr(args, 'verbose', False)
     track_id = resolve_track_identifier(track_identifier, verbose=verbose)
@@ -599,25 +504,20 @@ def set_track_status(track_identifier: str, args) -> int:
         print(f"Error: Unknown status. Allowed: {allowed_statuses()}.")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        return 1
+    from maestro.tracks.json_store import JsonStore
 
-    if not update_track_metadata(todo_path, track_id, 'status', status_value):
-        print(f"Error: Track '{track_id}' not found in docs/todo.md.")
+    json_store = JsonStore()
+    track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+    if not track:
+        print(f"Error: Track '{track_id}' not found.")
         return 1
-
-    update_track_heading_status(todo_path, track_id, status_badge(status_value))
+    track.status = status_value
+    track.updated_at = datetime.now()
+    json_store.save_track(track)
 
     summary = getattr(args, 'summary', None)
     if summary:
-        update_track_metadata(todo_path, track_id, 'status_summary', summary)
-    else:
-        print("Note: consider adding --summary to capture the status change context.")
-
-    changed_at = status_timestamp()
-    update_track_metadata(todo_path, track_id, 'status_changed', changed_at)
+        print("Note: status summary is not stored in JSON tracks.")
 
     print(f"Updated track '{track_id}' status to '{status_value}'.")
     return 0
@@ -640,16 +540,7 @@ def set_track_context(track_identifier: str, args) -> int:
                 print(f"Verbose: Available tracks: {', '.join(available)}")
         return 1
 
-    todo_path = Path('docs/todo.md')
-    if not todo_path.exists():
-        print("Error: docs/todo.md not found.")
-        return 1
-
-    data = _parse_todo_safe(todo_path, verbose=verbose)
-    if data is None:
-        return 1
-    tracks = data.get('tracks', [])
-
+    tracks = get_all_tracks_with_phases_and_tasks(verbose=verbose)
     track = next((t for t in tracks if t.get('track_id') == track_id), None)
     if not track:
         print(f"Error: Track '{track_identifier}' not found.")
@@ -748,33 +639,38 @@ def handle_track_command(args) -> int:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track text <id>")
                 return 1
-            todo_path = Path('docs/todo.md')
-            if not todo_path.exists():
-                print("Error: docs/todo.md not found.")
+            from maestro.tracks.json_store import JsonStore
+
+            json_store = JsonStore()
+            track_file = json_store.tracks_dir / f"{args.track_id}.json"
+            if not track_file.exists():
+                print(f"Error: Track '{args.track_id}' not found.")
                 return 1
-            block = extract_track_block(todo_path, args.track_id)
-            if not block:
-                print(f"Error: Track '{args.track_id}' not found in docs/todo.md.")
-                return 1
-            print(block.rstrip())
+            print(track_file.read_text(encoding='utf-8').rstrip())
             return 0
 
         if subcommand in ['set-text', 'setraw']:
             if not hasattr(args, 'track_id') or not args.track_id:
                 print("Error: Track ID required. Usage: maestro track set-text <id> [--file path]")
                 return 1
-            todo_path = Path('docs/todo.md')
-            if not todo_path.exists():
-                print("Error: docs/todo.md not found.")
+            from maestro.tracks.json_store import JsonStore
+
+            json_store = JsonStore()
+            track_file = json_store.tracks_dir / f"{args.track_id}.json"
+            if not track_file.exists():
+                print(f"Error: Track '{args.track_id}' not found.")
                 return 1
             new_block = _resolve_text_input(args)
             if not new_block.strip():
                 print("Error: Replacement text is empty.")
                 return 1
-            if not replace_track_block(todo_path, args.track_id, new_block):
-                print(f"Error: Track '{args.track_id}' not found in docs/todo.md.")
+            try:
+                json.loads(new_block)
+            except json.JSONDecodeError as exc:
+                print(f"Error: Updated content is not valid JSON: {exc}")
                 return 1
-            print(f"Updated track '{args.track_id}'.")
+            track_file.write_text(new_block, encoding='utf-8')
+            print(f"Updated track '{args.track_id}' JSON.")
             return 0
 
         if subcommand in ['set', 'st']:
@@ -975,7 +871,7 @@ def add_track_parsers(subparsers):
     track_text_parser = track_subparsers.add_parser(
         'text',
         aliases=['raw'],
-        help='Show raw track block from docs/todo.md'
+        help='Show raw track JSON payload'
     )
     track_text_parser.add_argument('track_id', help='Track ID to show')
 

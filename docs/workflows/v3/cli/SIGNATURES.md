@@ -1076,3 +1076,27 @@ maestro ux show ux_eval_20260102_143052
 maestro ux show ux_eval_20260102_143052 --json
 ```
 
+### UX Development Tools
+
+**Qwen Blindfold Audit** (not a CLI command, but a development tool):
+
+```bash
+tools/ux_blindfold/qwen_coach.sh --goal "..." [--repo PATH] [--execute]
+```
+
+This is a meta-evaluation tool that uses the **real qwen CLI** to test Maestro's discoverability from help text alone. It's not part of the Maestro CLI surface - it's a development/testing tool.
+
+Key features:
+- Tests UX discoverability using only --help text (no argparse introspection)
+- Safe-by-default: blocks write operations unless --execute provided
+- Generates detailed friction reports and improvement suggestions
+- Artifacts saved to: `docs/workflows/v3/reports/ux_blindfold/<timestamp>/`
+
+Example:
+```bash
+cd ~/Dev/BatchScriptShell
+tools/ux_blindfold/qwen_coach.sh --goal "Create an actionable runbook for building and testing this repo"
+```
+
+See: [UX_BLINDFOLD_QWEN.md](./UX_BLINDFOLD_QWEN.md) for complete documentation.
+

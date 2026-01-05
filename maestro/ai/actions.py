@@ -9,12 +9,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from maestro.data import (
     parse_heading,
     parse_phase_heading,
-    parse_phase_md,
     parse_quoted_value,
     parse_task_heading,
-    parse_todo_md,
     parse_track_heading,
 )
+from maestro.tracks.json_store import JsonStore
+from maestro.tracks.models import Track, Phase, Task
 
 
 ACTION_SCHEMA: Dict[str, Dict[str, List[str]]] = {
@@ -158,7 +158,14 @@ def _phase_heading_id(phase_id: str, track_id: Optional[str] = None) -> str:
 
 
 def _next_phase_id(track_id: str) -> str:
-    todo = parse_todo_md("docs/todo.md")
+    json_store = JsonStore()
+    todo = {"tracks": []}
+    tracks = []
+    for tid in json_store.list_all_tracks():
+        track = json_store.load_track(tid, load_phases=False, load_tasks=False)
+        if track:
+            tracks.append({"track_id": track.track_id, "phases": track.phases})
+    todo["tracks"] = tracks
     numeric_suffixes: List[int] = []
     for track in todo.get("tracks", []):
         if track.get("track_id") != track_id:
@@ -355,29 +362,23 @@ class ActionProcessor:
         if action_type.startswith("track."):
             return
         if action_type.startswith("phase.") or action_type.startswith("task."):
-            todo = parse_todo_md("docs/todo.md")
-            tracks = todo.get("tracks", [])
-            phase_ids = {phase.get("phase_id") for track in tracks for phase in track.get("phases", [])}
-            track_ids = {track.get("track_id") for track in tracks}
+            json_store = JsonStore()
+            track_ids = set(json_store.list_all_tracks())
+            phase_ids = set(json_store.list_all_phases())
             if "track_id" in data and data["track_id"] not in track_ids:
-                errors.append(f"Action {idx + 1}: track_id '{data['track_id']}' not found in docs/todo.md.")
+                errors.append(f"Action {idx + 1}: track_id '{data['track_id']}' not found.")
             if "phase_id" in data and data["phase_id"] not in phase_ids:
-                errors.append(f"Action {idx + 1}: phase_id '{data['phase_id']}' not found in docs/todo.md.")
+                errors.append(f"Action {idx + 1}: phase_id '{data['phase_id']}' not found.")
         if action_type.startswith("task."):
             task_id = data.get("task_id")
             if task_id:
-                phases_dir = Path("docs/phases")
-                if phases_dir.exists():
-                    if not self._task_exists(phases_dir, task_id):
-                        errors.append(f"Action {idx + 1}: task_id '{task_id}' not found in phase files.")
+                json_store = JsonStore()
+                if not json_store.load_task(task_id):
+                    errors.append(f"Action {idx + 1}: task_id '{task_id}' not found.")
 
-    def _task_exists(self, phases_dir: Path, task_id: str) -> bool:
-        for phase_file in phases_dir.glob("*.md"):
-            phase = parse_phase_md(str(phase_file))
-            for task in phase.get("tasks", []):
-                if task.get("task_id") == task_id or task.get("task_number") == task_id:
-                    return True
-        return False
+    def _task_exists(self, task_id: str) -> bool:
+        json_store = JsonStore()
+        return json_store.load_task(task_id) is not None
 
     def _apply_track_add(self, data: Dict[str, Any]) -> str:
         name = data.get("name")
@@ -387,62 +388,50 @@ class ActionProcessor:
         priority = data.get("priority", 0)
         status = data.get("status", "planned")
         description = data.get("description")
-        todo_path = Path("docs/todo.md")
-        lines = _read_lines(todo_path)
-        if lines and lines[-1].strip():
-            lines.append("")
-        lines.append(f"## Track: {name}")
-        lines.append(_format_quoted_value("track_id", track_id))
-        lines.append(_format_quoted_value("priority", priority))
-        lines.append(_format_quoted_value("status", status))
-        lines.append("")
-        if description:
-            lines.append(str(description))
-            lines.append("")
-        _write_lines(todo_path, lines)
+        json_store = JsonStore()
+        if json_store.load_track(track_id, load_phases=False, load_tasks=False):
+            raise ActionExecutionError(f"Track '{track_id}' already exists.")
+        track = Track(
+            track_id=track_id,
+            name=name,
+            status=status,
+            completion=data.get("completion", 0),
+            description=[str(description)] if isinstance(description, str) else (description or []),
+            phases=[],
+            priority=priority,
+        )
+        json_store.save_track(track)
         return f"Added track '{track_id}'."
 
     def _apply_track_edit(self, data: Dict[str, Any]) -> str:
         track_id = data.get("track_id")
         if not track_id:
             raise ActionExecutionError("track.edit requires track_id.")
-        todo_path = Path("docs/todo.md")
-        lines = _read_lines(todo_path)
-        block = _find_track_block(lines, track_id)
-        if not block:
-            raise ActionExecutionError(f"Track '{track_id}' not found in docs/todo.md.")
-        start, _ = block
+        json_store = JsonStore()
+        track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+        if not track:
+            raise ActionExecutionError(f"Track '{track_id}' not found.")
         if "name" in data and data["name"]:
-            lines[start] = _replace_heading_name(
-                lines[start],
-                r"^(##\\s+(?:🔥\\s+)?(?:TOP PRIORITY\\s+)?Track:\\s+)(.+?)(\\s+[✅🚧📋💡].*)?$",
-                data["name"],
-            )
-        _update_metadata_block(
-            lines,
-            start + 1,
-            {
-                "track_id": track_id,
-                "priority": data.get("priority"),
-                "status": data.get("status"),
-                "completion": data.get("completion"),
-            },
-        )
-        _write_lines(todo_path, lines)
+            track.name = data["name"]
+        if "priority" in data and data["priority"] is not None:
+            track.priority = data["priority"]
+        if "status" in data and data["status"]:
+            track.status = data["status"]
+        if "completion" in data and data["completion"] is not None:
+            track.completion = data["completion"]
+        description = data.get("description")
+        if description is not None:
+            track.description = [str(description)] if isinstance(description, str) else description
+        json_store.save_track(track)
         return f"Updated track '{track_id}'."
 
     def _apply_track_remove(self, data: Dict[str, Any]) -> str:
         track_id = data.get("track_id")
         if not track_id:
             raise ActionExecutionError("track.remove requires track_id.")
-        todo_path = Path("docs/todo.md")
-        lines = _read_lines(todo_path)
-        block = _find_track_block(lines, track_id)
-        if not block:
-            raise ActionExecutionError(f"Track '{track_id}' not found in docs/todo.md.")
-        start, end = block
-        del lines[start:end]
-        _write_lines(todo_path, lines)
+        json_store = JsonStore()
+        if not json_store.delete_track(track_id, delete_phases=True, delete_tasks=True):
+            raise ActionExecutionError(f"Track '{track_id}' not found.")
         return f"Removed track '{track_id}'."
 
     def _apply_phase_add(self, data: Dict[str, Any]) -> str:
@@ -450,112 +439,65 @@ class ActionProcessor:
         track_id = data.get("track_id")
         if not name or not track_id:
             raise ActionExecutionError("phase.add requires track_id and name.")
-        phase_id = data.get("phase_id") or _next_phase_id(track_id)
+        phase_id = data.get("phase_id") or _slugify(f"{track_id}-{name}")
         status = data.get("status", "planned")
         completion = data.get("completion", 0)
-        heading_id = _phase_heading_id(phase_id, track_id)
-        todo_path = Path("docs/todo.md")
-        lines = _read_lines(todo_path)
-        track_block = _find_track_block(lines, track_id)
-        if not track_block:
-            raise ActionExecutionError(f"Track '{track_id}' not found in docs/todo.md.")
-        _, track_end = track_block
-        insert_at = track_end
-        if insert_at > 0 and lines[insert_at - 1].strip():
-            lines.insert(insert_at, "")
-            insert_at += 1
-        phase_lines = [
-            f"### Phase {heading_id}: {name}",
-            _format_quoted_value("phase_id", phase_id),
-            _format_quoted_value("status", status),
-            _format_quoted_value("completion", completion),
-            "",
-            f"- [ ] [Phase {heading_id}: {name}](phases/{phase_id}.md) 📋 **[Planned]**",
-            "",
-        ]
-        lines[insert_at:insert_at] = phase_lines
-        _write_lines(todo_path, lines)
-        phase_path = Path("docs/phases") / f"{phase_id}.md"
-        if not phase_path.exists():
-            phase_file_lines = [
-                f"# Phase {heading_id}: {name} 📋 **[Planned]**",
-                "",
-                _format_quoted_value("phase_id", phase_id),
-                _format_quoted_value("track_id", track_id),
-                _format_quoted_value("status", status),
-                _format_quoted_value("completion", completion),
-                "",
-                "## Tasks",
-                "",
-            ]
-            _write_lines(phase_path, phase_file_lines)
+        json_store = JsonStore()
+        track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+        if not track:
+            raise ActionExecutionError(f"Track '{track_id}' not found.")
+        if json_store.load_phase(phase_id, load_tasks=False):
+            raise ActionExecutionError(f"Phase '{phase_id}' already exists.")
+        phase = Phase(
+            phase_id=phase_id,
+            name=name,
+            status=status,
+            completion=completion,
+            description=[],
+            tasks=[],
+            track_id=track_id,
+            priority=data.get("priority", 0),
+        )
+        json_store.save_phase(phase)
+        if phase_id not in track.phases:
+            track.phases.append(phase_id)
+            json_store.save_track(track)
         return f"Added phase '{phase_id}' to track '{track_id}'."
 
     def _apply_phase_edit(self, data: Dict[str, Any]) -> str:
         phase_id = data.get("phase_id")
         if not phase_id:
             raise ActionExecutionError("phase.edit requires phase_id.")
-        todo_path = Path("docs/todo.md")
-        lines = _read_lines(todo_path)
-        block = _find_phase_block(lines, phase_id)
-        if not block:
-            raise ActionExecutionError(f"Phase '{phase_id}' not found in docs/todo.md.")
-        start, _ = block
+        json_store = JsonStore()
+        phase = json_store.load_phase(phase_id, load_tasks=False)
+        if not phase:
+            raise ActionExecutionError(f"Phase '{phase_id}' not found.")
         if "name" in data and data["name"]:
-            lines[start] = _replace_heading_name(
-                lines[start],
-                r"^(###\\s+Phase\\s+[\\w\\d]+:\\s+)(.+?)(\\s+[✅🚧📋💡].*)?$",
-                data["name"],
-            )
-        _update_metadata_block(
-            lines,
-            start + 1,
-            {
-                "duration": data.get("duration"),
-                "status": data.get("status"),
-                "priority": data.get("priority"),
-                "completion": data.get("completion"),
-            },
-        )
-        _write_lines(todo_path, lines)
-        phase_path = Path("docs/phases") / f"{phase_id}.md"
-        if phase_path.exists():
-            phase_lines = _read_lines(phase_path)
-            if phase_lines:
-                if "name" in data and data["name"]:
-                    phase_lines[0] = _replace_heading_name(
-                        phase_lines[0],
-                        r"^(#\\s+Phase\\s+[\\w\\d]+:\\s+)(.+?)(\\s+[✅🚧📋💡].*)?$",
-                        data["name"],
-                    )
-                _update_metadata_block(
-                    phase_lines,
-                    1,
-                    {
-                        "duration": data.get("duration"),
-                        "status": data.get("status"),
-                        "priority": data.get("priority"),
-                        "completion": data.get("completion"),
-                    },
-                )
-                _write_lines(phase_path, phase_lines)
+            phase.name = data["name"]
+        if "status" in data and data["status"]:
+            phase.status = data["status"]
+        if "priority" in data and data["priority"] is not None:
+            phase.priority = data["priority"]
+        if "completion" in data and data["completion"] is not None:
+            phase.completion = data["completion"]
+        json_store.save_phase(phase)
         return f"Updated phase '{phase_id}'."
 
     def _apply_phase_remove(self, data: Dict[str, Any]) -> str:
         phase_id = data.get("phase_id")
         if not phase_id:
             raise ActionExecutionError("phase.remove requires phase_id.")
-        todo_path = Path("docs/todo.md")
-        lines = _read_lines(todo_path)
-        block = _find_phase_block(lines, phase_id)
-        if not block:
-            raise ActionExecutionError(f"Phase '{phase_id}' not found in docs/todo.md.")
-        start, end = block
-        del lines[start:end]
-        _write_lines(todo_path, lines)
-        phase_path = Path("docs/phases") / f"{phase_id}.md"
-        if phase_path.exists():
-            phase_path.unlink()
+        json_store = JsonStore()
+        phase = json_store.load_phase(phase_id, load_tasks=False)
+        if not phase:
+            raise ActionExecutionError(f"Phase '{phase_id}' not found.")
+        track_id = phase.track_id
+        json_store.delete_phase(phase_id, delete_tasks=True)
+        if track_id:
+            track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+            if track and phase_id in track.phases:
+                track.phases = [p for p in track.phases if p != phase_id]
+                json_store.save_track(track)
         return f"Removed phase '{phase_id}'."
 
     def _apply_task_add(self, data: Dict[str, Any]) -> str:
@@ -563,115 +505,76 @@ class ActionProcessor:
         phase_id = data.get("phase_id")
         if not name or not phase_id:
             raise ActionExecutionError("task.add requires phase_id and name.")
-        phase_path = Path("docs/phases") / f"{phase_id}.md"
-        if not phase_path.exists():
-            raise ActionExecutionError(f"Phase file docs/phases/{phase_id}.md not found.")
-        lines = _read_lines(phase_path)
-        task_number = _next_task_number(phase_id, lines)
-        suffix_match = re.search(r"(\\d+)$", task_number)
-        task_suffix = suffix_match.group(1) if suffix_match else task_number.split(".")[-1]
-        task_id = data.get("task_id") or f"{phase_id}-{task_suffix}"
-        insert_at = len(lines)
-        found_task = False
-        for idx, line in enumerate(lines):
-            if parse_task_heading(line.strip()):
-                found_task = True
-                end = idx + 1
-                while end < len(lines):
-                    if parse_task_heading(lines[end].strip()):
-                        break
-                    if parse_heading(lines[end].strip()):
-                        break
-                    end += 1
-                insert_at = end
-        if not found_task:
-            for idx, line in enumerate(lines):
-                heading = parse_heading(line.strip())
-                if heading and heading[0] == 2 and heading[1].strip().lower().startswith("tasks"):
-                    insert_at = idx + 1
-                    while insert_at < len(lines) and not lines[insert_at].strip():
-                        insert_at += 1
-                    break
-        if insert_at > 0 and lines[insert_at - 1].strip():
-            lines.insert(insert_at, "")
-            insert_at += 1
-        task_lines = [
-            f"### Task {task_number}: {name}",
-            _format_quoted_value("task_id", task_id),
-        ]
-        if "priority" in data:
-            task_lines.append(_format_quoted_value("priority", data.get("priority")))
-        if "estimated_hours" in data:
-            task_lines.append(_format_quoted_value("estimated_hours", data.get("estimated_hours")))
-        task_lines.extend([""])
-        lines[insert_at:insert_at] = task_lines
-        _write_lines(phase_path, lines)
+        json_store = JsonStore()
+        phase = json_store.load_phase(phase_id, load_tasks=False)
+        if not phase:
+            raise ActionExecutionError(f"Phase '{phase_id}' not found.")
+        task_id = data.get("task_id") or _slugify(f"{phase_id}-{name}")
+        if json_store.load_task(task_id):
+            raise ActionExecutionError(f"Task '{task_id}' already exists.")
+        task = Task(
+            task_id=task_id,
+            name=name,
+            status=data.get("status", "todo"),
+            priority=data.get("priority", "P2"),
+            estimated_hours=data.get("estimated_hours"),
+            description=[],
+            phase_id=phase_id,
+            completed=False,
+        )
+        json_store.save_task(task)
+        if task_id not in phase.tasks:
+            phase.tasks.append(task_id)
+            json_store.save_phase(phase)
         return f"Added task '{task_id}' to phase '{phase_id}'."
 
     def _apply_task_edit(self, data: Dict[str, Any]) -> str:
         task_id = data.get("task_id")
         if not task_id:
             raise ActionExecutionError("task.edit requires task_id.")
-        phases_dir = Path("docs/phases")
-        if not phases_dir.exists():
-            raise ActionExecutionError("docs/phases directory not found.")
-        for phase_path in phases_dir.glob("*.md"):
-            lines = _read_lines(phase_path)
-            block = _find_task_block(lines, task_id)
-            if not block:
-                continue
-            start, _ = block
-            if "name" in data and data["name"]:
-                lines[start] = _replace_heading_name(
-                    lines[start],
-                    r"^(###\\s+Task\\s+[\\d.]+:\\s+)(.+?)(\\s+[✅🚧📋💡].*)?$",
-                    data["name"],
-                )
-            _update_metadata_block(
-                lines,
-                start + 1,
-                {
-                    "priority": data.get("priority"),
-                    "estimated_hours": data.get("estimated_hours"),
-                    "completed": data.get("completed"),
-                },
-            )
-            _write_lines(phase_path, lines)
-            return f"Updated task '{task_id}'."
-        raise ActionExecutionError(f"Task '{task_id}' not found in phase files.")
+        json_store = JsonStore()
+        task = json_store.load_task(task_id)
+        if not task:
+            raise ActionExecutionError(f"Task '{task_id}' not found.")
+        if "name" in data and data["name"]:
+            task.name = data["name"]
+        if "priority" in data and data["priority"] is not None:
+            task.priority = data["priority"]
+        if "estimated_hours" in data and data["estimated_hours"] is not None:
+            task.estimated_hours = data["estimated_hours"]
+        if "completed" in data and data["completed"] is not None:
+            task.completed = bool(data["completed"])
+            if task.completed:
+                task.status = "done"
+        json_store.save_task(task)
+        return f"Updated task '{task_id}'."
 
     def _apply_task_complete(self, data: Dict[str, Any]) -> str:
         task_id = data.get("task_id")
         if not task_id:
             raise ActionExecutionError("task.complete requires task_id.")
-        phases_dir = Path("docs/phases")
-        if not phases_dir.exists():
-            raise ActionExecutionError("docs/phases directory not found.")
-        for phase_path in phases_dir.glob("*.md"):
-            lines = _read_lines(phase_path)
-            block = _find_task_block(lines, task_id)
-            if not block:
-                continue
-            start, _ = block
-            _update_metadata_block(lines, start + 1, {"completed": True})
-            _write_lines(phase_path, lines)
-            return f"Completed task '{task_id}'."
-        raise ActionExecutionError(f"Task '{task_id}' not found in phase files.")
+        json_store = JsonStore()
+        task = json_store.load_task(task_id)
+        if not task:
+            raise ActionExecutionError(f"Task '{task_id}' not found.")
+        task.completed = True
+        task.status = "done"
+        json_store.save_task(task)
+        return f"Completed task '{task_id}'."
 
     def _apply_task_remove(self, data: Dict[str, Any]) -> str:
         task_id = data.get("task_id")
         if not task_id:
             raise ActionExecutionError("task.remove requires task_id.")
-        phases_dir = Path("docs/phases")
-        if not phases_dir.exists():
-            raise ActionExecutionError("docs/phases directory not found.")
-        for phase_path in phases_dir.glob("*.md"):
-            lines = _read_lines(phase_path)
-            block = _find_task_block(lines, task_id)
-            if not block:
-                continue
-            start, end = block
-            del lines[start:end]
-            _write_lines(phase_path, lines)
-            return f"Removed task '{task_id}'."
-        raise ActionExecutionError(f"Task '{task_id}' not found in phase files.")
+        json_store = JsonStore()
+        task = json_store.load_task(task_id)
+        if not task:
+            raise ActionExecutionError(f"Task '{task_id}' not found.")
+        phase_id = task.phase_id
+        json_store.delete_task(task_id)
+        if phase_id:
+            phase = json_store.load_phase(phase_id, load_tasks=False)
+            if phase and task_id in phase.tasks:
+                phase.tasks = [t for t in phase.tasks if t != task_id]
+                json_store.save_phase(phase)
+        return f"Removed task '{task_id}'."

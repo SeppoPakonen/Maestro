@@ -9,8 +9,7 @@ Commands:
 import argparse
 
 from maestro.config.settings import get_settings
-from maestro.data import parse_todo_md
-from pathlib import Path
+from maestro.tracks.json_store import JsonStore
 
 
 def show_context(args):
@@ -34,22 +33,16 @@ def show_context(args):
 
     # Show track
     if settings.current_track:
-        # Look up track name from docs/todo.md
-        todo_path = Path('docs/todo.md')
-        if todo_path.exists():
-            data = parse_todo_md(str(todo_path))
-            tracks = data.get('tracks', [])
-            track = next((t for t in tracks if t.get('track_id') == settings.current_track), None)
-            if track:
-                print(f"  Track: {settings.current_track} ({track.get('name', 'Unnamed')})")
-            else:
-                print(f"  Track: {settings.current_track}")
+        json_store = JsonStore()
+        track = json_store.load_track(settings.current_track, load_phases=False, load_tasks=False)
+        if track:
+            print(f"  Track: {settings.current_track} ({track.name})")
         else:
             print(f"  Track: {settings.current_track}")
 
     # Show phase
     if settings.current_phase:
-        # Look up phase name from docs/todo.md or phase files
+        # Look up phase name from JSON store
         print(f"  Phase: {settings.current_phase}")
 
     # Show task

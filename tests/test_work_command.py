@@ -3,7 +3,6 @@
 import asyncio
 import os
 import tempfile
-from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 import json
@@ -22,6 +21,8 @@ from maestro.commands.work import (
     simple_priority_sort
 )
 from maestro.work_session import WorkSession, create_session
+from maestro.tracks.json_store import JsonStore
+from maestro.tracks.models import Track, Phase, Task
 
 
 class TestWorkCommand(unittest.TestCase):
@@ -41,56 +42,70 @@ class TestWorkCommand(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_parse_todo_md_empty(self):
-        """Test parsing an empty todo.md file."""
-        # Create empty todo.md in temp directory
-        docs_dir = Path(self.test_dir) / "docs"
-        docs_dir.mkdir(exist_ok=True)
-        todo_file = docs_dir / "todo.md"
-        todo_file.write_text("# Empty todo file")
-
-        result = parse_todo_md(str(todo_file))
+        """Test parsing when no JSON data exists."""
+        result = parse_todo_md()
         self.assertEqual(result["tracks"], [])
         self.assertEqual(result["phases"], [])
 
     def test_parse_todo_md_with_content(self):
-        """Test parsing a todo.md file with tracks and phases."""
-        # Create todo.md with content in temp directory
-        docs_dir = Path(self.test_dir) / "docs"
-        docs_dir.mkdir(exist_ok=True)
-        todo_file = docs_dir / "todo.md"
-        todo_file.write_text("""
-## ws1_Session_Infrastructure
-- [ ] Design session infrastructure
-- [ ] Implement session creation
-- [ ] Add session persistence
+        """Test parsing JSON store with tracks and phases."""
+        json_store = JsonStore()
+        track = Track(
+            track_id="ws1",
+            name="Session Infrastructure",
+            status="planned",
+            completion=0,
+            description=[],
+            phases=["ws1p1"],
+            priority=0,
+            tags=[],
+            owner=None,
+            is_top_priority=False,
+        )
+        phase = Phase(
+            phase_id="ws1p1",
+            name="Create Session",
+            status="planned",
+            completion=0,
+            description=[],
+            tasks=["ws1p1.1"],
+            track_id="ws1",
+            priority=0,
+            tags=[],
+            owner=None,
+            dependencies=[],
+            order=None,
+        )
+        task = Task(
+            task_id="ws1p1.1",
+            name="Create session class",
+            status="todo",
+            priority="P2",
+            estimated_hours=None,
+            description=[],
+            phase_id="ws1p1",
+            completed=False,
+            tags=[],
+            owner=None,
+            dependencies=[],
+            subtasks=[],
+        )
+        json_store.save_track(track)
+        json_store.save_phase(phase)
+        json_store.save_task(task)
 
-### ws1p1_Create_Session
-- [ ] Create session class
-- [ ] Implement creation method
+        result = parse_todo_md()
+        self.assertEqual(len(result["tracks"]), 1)
+        self.assertEqual(len(result["phases"]), 1)
 
-### ws1p2_Store_Session
-- [ ] Create storage interface
-- [ ] Implement storage method
-
-## ws2_Breadcrumb_System
-- [ ] Design breadcrumb system
-- [ ] Implement breadcrumb creation
-""")
-
-        result = parse_todo_md(str(todo_file))
-        self.assertEqual(len(result["tracks"]), 2)
-        self.assertEqual(len(result["phases"]), 2)
-
-        # Check first track
         track1 = result["tracks"][0]
-        self.assertEqual(track1["id"], "ws1")
-        self.assertEqual(track1["name"], "Session_Infrastructure")
+        self.assertEqual(track1["track_id"], "ws1")
+        self.assertEqual(track1["name"], "Session Infrastructure")
         self.assertEqual(track1["type"], "track")
 
-        # Check first phase
         phase1 = result["phases"][0]
-        self.assertEqual(phase1["id"], "ws1p1")
-        self.assertEqual(phase1["name"], "Create_Session")
+        self.assertEqual(phase1["phase_id"], "ws1p1")
+        self.assertEqual(phase1["name"], "Create Session")
         self.assertEqual(phase1["track"], "ws1")
 
     @patch('maestro.commands.work.Path.exists')
@@ -338,20 +353,50 @@ class TestWorkCommandIntegration(unittest.TestCase):
 
     def test_full_workflow_integration(self):
         """Test full workflow with test files."""
-        # Create a test todo.md file
-        todo_content = """
-## ws1_Session_Infrastructure
-- [ ] Design session infrastructure
-- [ ] Implement session creation
-
-### ws1p1_Create_Session
-- [ ] Create session class
-
-## ws2_Breadcrumb_System
-- [ ] Design breadcrumb system
-"""
-        with open("docs/todo.md", "w") as f:
-            f.write(todo_content)
+        json_store = JsonStore()
+        track = Track(
+            track_id="ws1",
+            name="Session Infrastructure",
+            status="planned",
+            completion=0,
+            description=[],
+            phases=["ws1p1"],
+            priority=0,
+            tags=[],
+            owner=None,
+            is_top_priority=False,
+        )
+        phase = Phase(
+            phase_id="ws1p1",
+            name="Create Session",
+            status="planned",
+            completion=0,
+            description=[],
+            tasks=["ws1p1.1"],
+            track_id="ws1",
+            priority=0,
+            tags=[],
+            owner=None,
+            dependencies=[],
+            order=None,
+        )
+        task = Task(
+            task_id="ws1p1.1",
+            name="Create session class",
+            status="todo",
+            priority="P2",
+            estimated_hours=None,
+            description=[],
+            phase_id="ws1p1",
+            completed=False,
+            tags=[],
+            owner=None,
+            dependencies=[],
+            subtasks=[],
+        )
+        json_store.save_track(track)
+        json_store.save_phase(phase)
+        json_store.save_task(task)
 
         # Create a test issue file
         issue_content = """# Test Issue

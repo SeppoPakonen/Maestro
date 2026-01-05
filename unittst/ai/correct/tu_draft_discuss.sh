@@ -66,42 +66,42 @@ timeout 1200 python "$MAESTRO_PATH" $VERBOSE plan explore 1 --apply --auto-apply
 # Step 6: Verify that the explore command created the expected structure
 echo "[8/8] Verifying project structure was created..."
 
-# Check if docs/todo.md exists
-if [ ! -f docs/todo.md ]; then
-    echo "ERROR: docs/todo.md was not created"
+# Check if docs/maestro exists
+if [ ! -d docs/maestro ]; then
+    echo "ERROR: docs/maestro was not created"
     exit 1
 fi
 
-# Parse docs/todo.md to verify structure
+# Parse JSON store to verify structure
 # We need at least 1 track, 1 phase, and 1 task
 
-# Count tracks (lines starting with "## Track:")
-TRACK_COUNT=$(grep -c "^## Track:" docs/todo.md || echo "0")
+# Count tracks
+TRACK_COUNT=$(find docs/maestro/tracks -name '*.json' -type f 2>/dev/null | wc -l | tr -d ' ')
 echo "Found $TRACK_COUNT track(s)"
 
 if [ "$TRACK_COUNT" -lt 1 ]; then
     echo "ERROR: Expected at least 1 track, found $TRACK_COUNT"
-    cat docs/todo.md
+    find docs/maestro -type f -name '*.json' 2>/dev/null
     exit 1
 fi
 
-# Count phases (lines starting with "###" followed by "Phase")
-PHASE_COUNT=$(grep -c "^### Phase" docs/todo.md || echo "0")
+# Count phases
+PHASE_COUNT=$(find docs/maestro/phases -name '*.json' -type f 2>/dev/null | wc -l | tr -d ' ')
 echo "Found $PHASE_COUNT phase(s)"
 
 if [ "$PHASE_COUNT" -lt 1 ]; then
     echo "ERROR: Expected at least 1 phase, found $PHASE_COUNT"
-    cat docs/todo.md
+    find docs/maestro -type f -name '*.json' 2>/dev/null
     exit 1
 fi
 
-# Count tasks (lines starting with "- [ ]" or "- [x]")
-TASK_COUNT=$(grep -c "^- \[" docs/todo.md || echo "0")
+# Count tasks
+TASK_COUNT=$(find docs/maestro/tasks -name '*.json' -type f 2>/dev/null | wc -l | tr -d ' ')
 echo "Found $TASK_COUNT task(s)"
 
 if [ "$TASK_COUNT" -lt 1 ]; then
     echo "ERROR: Expected at least 1 task, found $TASK_COUNT"
-    cat docs/todo.md
+    find docs/maestro -type f -name '*.json' 2>/dev/null
     exit 1
 fi
 
@@ -115,8 +115,8 @@ echo "============================================"
 
 # Show the final structure
 echo ""
-echo "Final docs/todo.md contents:"
-cat docs/todo.md
+echo "Final docs/maestro contents:"
+find docs/maestro -type f -name '*.json' 2>/dev/null
 
 # Now let's test the TU draft functionality
 echo ""

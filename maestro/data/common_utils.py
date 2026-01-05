@@ -11,9 +11,6 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 import sys
 
-# Keep markdown imports for backward compatibility / fallback
-from maestro.data import parse_todo_md, parse_done_md
-
 # Import JSON storage
 from maestro.tracks.json_store import JsonStore
 from maestro.tracks.models import Track, Phase, Task

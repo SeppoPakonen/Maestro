@@ -11,6 +11,7 @@ from maestro.project_ops.operations import CreateTrack, CreatePhase, CreateTask,
 from maestro.project_ops.decoder import decode_project_ops_json, DecodeError
 from maestro.project_ops.translator import actions_to_ops
 from maestro.project_ops.executor import ProjectOpsExecutor, PreviewResult
+from maestro.tracks.json_store import JsonStore
 
 
 def test_validate_project_ops_result_valid():
@@ -172,13 +173,9 @@ def test_actions_to_ops_missing_required_fields():
 
 def test_preview_ops():
     """Test preview functionality of the executor."""
-    # Create a temporary project store
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir) / "docs" / "todo.md"
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path.write_text("# TODO\n\n", encoding='utf-8')
-        
-        executor = ProjectOpsExecutor(str(temp_path))
+        base_path = Path(temp_dir) / "docs" / "maestro"
+        executor = ProjectOpsExecutor(str(base_path))
         
         # Create operations
         ops = [
@@ -194,13 +191,9 @@ def test_preview_ops():
 
 def test_apply_ops_dry_run():
     """Test apply functionality with dry_run=True."""
-    # Create a temporary project store
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir) / "docs" / "todo.md"
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path.write_text("# TODO\n\n", encoding='utf-8')
-        
-        executor = ProjectOpsExecutor(str(temp_path))
+        base_path = Path(temp_dir) / "docs" / "maestro"
+        executor = ProjectOpsExecutor(str(base_path))
         
         # Create operations
         ops = [
@@ -210,20 +203,15 @@ def test_apply_ops_dry_run():
         preview_result = executor.apply_ops(ops, dry_run=True)
         
         assert isinstance(preview_result, PreviewResult)
-        # The file should not have been changed since it was a dry run
-        content = temp_path.read_text(encoding='utf-8')
-        assert "Test Track" not in content
+        json_store = JsonStore(str(base_path))
+        assert json_store.list_all_tracks() == []
 
 
 def test_apply_ops():
     """Test apply functionality."""
-    # Create a temporary project store
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir) / "docs" / "todo.md"
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path.write_text("# TODO\n\n", encoding='utf-8')
-        
-        executor = ProjectOpsExecutor(str(temp_path))
+        base_path = Path(temp_dir) / "docs" / "maestro"
+        executor = ProjectOpsExecutor(str(base_path))
         
         # Create operations
         ops = [
@@ -233,21 +221,16 @@ def test_apply_ops():
         # Apply the operations
         result = executor.apply_ops(ops, dry_run=False)
         
-        # Check that the file was actually changed
-        content = temp_path.read_text(encoding='utf-8')
-        assert "Test Track" in content
+        json_store = JsonStore(str(base_path))
+        assert json_store.list_all_tracks()
         assert len(result.changes) >= 1
 
 
 def test_executor_with_all_operation_types():
     """Test executor with all operation types."""
-    # Create a temporary project store
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir) / "docs" / "todo.md"
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path.write_text("# TODO\n\n", encoding='utf-8')
-        
-        executor = ProjectOpsExecutor(str(temp_path))
+        base_path = Path(temp_dir) / "docs" / "maestro"
+        executor = ProjectOpsExecutor(str(base_path))
         
         # Create operations of all types
         ops = [
@@ -263,20 +246,16 @@ def test_executor_with_all_operation_types():
         result = executor.apply_ops(ops, dry_run=False)
         
         # Check that operations were applied
-        content = temp_path.read_text(encoding='utf-8')
-        assert "New Track" in content
+        json_store = JsonStore(str(base_path))
+        assert json_store.list_all_tracks()
         assert len(result.changes) >= 2
 
 
 def test_idempotency_expectations():
     """Test idempotency - applying same operation twice should handle appropriately."""
-    # Create a temporary project store
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir) / "docs" / "todo.md"
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path.write_text("# TODO\n\n", encoding='utf-8')
-        
-        executor = ProjectOpsExecutor(str(temp_path))
+        base_path = Path(temp_dir) / "docs" / "maestro"
+        executor = ProjectOpsExecutor(str(base_path))
         
         # Create an operation to create a track
         ops = [

@@ -463,7 +463,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
     from ..project_ops.decoder import decode_project_ops_json, DecodeError
     from ..project_ops.translator import actions_to_ops
     from ..project_ops.executor import ProjectOpsExecutor
-    from ..data.markdown_parser import parse_todo_md
+    from ..data.common_utils import parse_todo_safe
 
     def _is_session_id(value: Optional[str]) -> bool:
         return bool(value and len(value) > 10 and "-" in value and not value.endswith(".md"))
@@ -596,7 +596,7 @@ def handle_plan_explore(title_or_number: str = None, session_path: Optional[str]
             try:
                 # This is a simplified way to get project state
                 # In a real implementation, we'd have a proper way to get current state
-                project_state = parse_todo_md("docs/todo.md") if Path("docs/todo.md").exists() else {}
+                project_state = parse_todo_safe(verbose=False) or {}
 
                 # Create a summary of current state
                 current_tracks = project_state.get('tracks', [])

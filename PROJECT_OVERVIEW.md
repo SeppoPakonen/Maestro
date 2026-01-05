@@ -19,15 +19,13 @@ The project is organized into a hierarchy of Tracks, Phases, and Tasks.
 - **Phases** break down Tracks into manageable stages.
 - **Tasks** are the individual work items within a Phase.
 
-This structure is explicitly managed through CLI commands and is reflected in the `docs/todo.md` and `docs/done.md` files.
+This structure is explicitly managed through CLI commands and is reflected in the JSON store under `docs/maestro/`.
 
 ### Major directories and their roles
 - **`maestro/`**: The core application logic.
 - **`docs/`**: The "single source of truth" for project state, configuration, and documentation. This directory is critical and contains:
     - **`config.md`**: Project configuration.
-    - **`todo.md`**: Active tracks, phases, and tasks.
-    - **`done.md`**: Completed tasks.
-    - **`phases/`**: Detailed phase specifications.
+    - **`maestro/`**: JSON store for tracks, phases, and tasks.
     - **`repo/`**: The state of the scanned repository.
     - **`discussions/`**: The history of AI conversations.
 - **`.maestro/`**: A legacy directory, partially migrated to `docs/`, which still contains build artifacts and other runtime data.
@@ -35,18 +33,18 @@ This structure is explicitly managed through CLI commands and is reflected in th
 - **`external/`**: Git submodules for external AI agent CLIs.
 
 ### Where “truth” lives (docs vs code vs config)
-The project is undergoing a significant "Evolved Decision" to move the "single source of truth" from a collection of JSON files in the `.maestro/` directory to a set of human-readable and machine-parsable Markdown files in the `docs/` directory. This is a deliberate choice to make the project state more transparent, version-controllable, and friendly to both humans and AI.
+The project stores its "single source of truth" in JSON under `docs/maestro/`, keeping state structured, version-controllable, and easy to audit.
 
 ## C. Temporal Model
 
 ### How TODO, DONE, history, and future intent are represented
-- **TODO**: The `docs/todo.md` file contains all active tracks, phases, and tasks. The `GEMINI.md` file specifies a "Mandatory Task Lifecycle Rule" that dictates how tasks are moved from `todo.md` to `done.md`.
-- **DONE**: The `docs/done.md` file contains all completed tasks.
+- **TODO**: Active tracks, phases, and tasks are stored in `docs/maestro/` and marked by status fields.
+- **DONE**: Completed work is represented by status fields in the JSON store.
 - **History**: The project's history is captured in several places:
     - The git history of the `docs/` directory provides a complete audit trail of project state changes.
     - `sessions/<session>/inputs/` and `sessions/<session>/outputs/` store the raw prompts and responses from AI interactions.
     - `docs/discussions/` stores the history of AI conversations in a more structured format.
-- **Future Intent**: Future intent is represented by the "planners" and the "conversational planning" feature. The user and AI collaborate to define the project's future direction, which is then captured in the `docs/todo.md` file.
+- **Future Intent**: Future intent is represented by the "planners" and the "conversational planning" feature. The user and AI collaborate to define the project's future direction, which is then captured in `docs/maestro/`.
 
 ### What constitutes “state” in this project
 The state of the project is a combination of:

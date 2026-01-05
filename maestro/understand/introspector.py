@@ -126,7 +126,7 @@ class ProjectIntrospector:
             "maestro/modules/cli_parser.py - CLI parsing logic",
             "maestro/plan_ops/ - Plan operations implementation",
             "maestro/project_ops/ - Project operations implementation",
-            "docs/todo.md and docs/done.md - Task tracking",
+            "docs/maestro - Task tracking",
             "maestro/config/settings.py - Configuration management",
             "maestro/plans.py - Plan storage and management",
             "maestro/session_model.py - Session management",

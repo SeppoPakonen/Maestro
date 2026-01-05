@@ -57,6 +57,23 @@ Canonical shapes are defined in `docs/workflows/v3/cli/SIGNATURES.md`, and hard 
 
 See also: `docs/workflows/v3/cli/INTEGRATION_SELECT_PLATFORM_REPOCONF.md` for toolchain/caps/repoconf/make/tu integration.
 
+## Development Tools
+
+**UX Blindfold Audit - Single-Shot (tools/ux_blindfold)**
+
+Qwen-driven single-shot planning harness for testing CLI discoverability:
+- `tools/ux_blindfold/qwen_coach.sh --goal "..." [--repo PATH] [--execute]`
+
+See [UX_BLINDFOLD_QWEN.md](./UX_BLINDFOLD_QWEN.md) for usage and examples.
+
+**UX Blindfold Loop - Iterative (tools/ux_qwen_loop)**
+
+Qwen-driven iterative evaluation loop with stuck detection and UX recommendations:
+- `python tools/ux_qwen_loop/run.py --maestro-bin CMD --repo-root PATH --goal "..." [OPTIONS]`
+- `tools/smoke/qwen_blindfold_maestro.sh [--execute] [--repo PATH]` (smoke test script)
+
+See [UX_QWEN_LOOP.md](./UX_QWEN_LOOP.md) for complete documentation.
+
 ## Legacy/Deprecated Commands (Hidden by Default)
 
 **Kill Switch:** `MAESTRO_ENABLE_LEGACY=1` enables these commands with deprecation warnings.

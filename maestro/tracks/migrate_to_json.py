@@ -1,8 +1,8 @@
 """
-Migration script to convert markdown-based storage to JSON storage.
+Migration script to convert legacy markdown storage to JSON storage.
 
 This script:
-1. Parses existing docs/todo.md and docs/done.md
+1. Parses legacy todo/done markdown files
 2. Converts data to JSON format
 3. Writes to docs/maestro/ directory
 4. Preserves all relationships and data
@@ -10,7 +10,7 @@ This script:
 
 import sys
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from maestro.tracks.md_store import parse_todo_md, parse_done_md
 from maestro.data.markdown_parser import parse_phase_md as parse_phase_dict
@@ -19,8 +19,8 @@ from maestro.tracks.models import TrackIndex, DoneArchive, Phase, Task
 
 
 def migrate_markdown_to_json(
-    todo_md_path: str = "docs/todo.md",
-    done_md_path: str = "docs/done.md",
+    todo_md_path: Optional[str] = None,
+    done_md_path: Optional[str] = None,
     json_base_path: str = "docs/maestro",
     dry_run: bool = False
 ) -> Dict[str, int]:
@@ -28,8 +28,8 @@ def migrate_markdown_to_json(
     Migrate markdown storage to JSON storage.
 
     Args:
-        todo_md_path: Path to todo.md file
-        done_md_path: Path to done.md file
+        todo_md_path: Path to legacy todo markdown file
+        done_md_path: Path to legacy done markdown file
         json_base_path: Base path for JSON storage
         dry_run: If True, don't write files, just report what would be done
 
@@ -49,15 +49,19 @@ def migrate_markdown_to_json(
     print("=" * 60)
     print()
 
+    if not todo_md_path and not done_md_path:
+        raise ValueError("At least one legacy markdown path is required for migration.")
+
     # Initialize JSON store
     json_store = JsonStore(json_base_path)
     print(f"JSON storage initialized at: {json_base_path}")
     print()
 
     # Parse todo.md
-    print(f"Parsing {todo_md_path}...")
-    todo_path = Path(todo_md_path)
-    if todo_path.exists():
+    if todo_md_path:
+        print(f"Parsing {todo_md_path}...")
+    todo_path = Path(todo_md_path) if todo_md_path else None
+    if todo_path and todo_path.exists():
         track_index, error = parse_todo_md(todo_path)
         if error:
             print(f"ERROR parsing todo.md: {error}")
@@ -99,15 +103,16 @@ def migrate_markdown_to_json(
             except Exception as e:
                 print(f"  ERROR saving index: {e}")
                 stats["errors"] += 1
-    else:
+    elif todo_md_path:
         print(f"  {todo_md_path} not found, skipping")
 
     print()
 
     # Parse done.md
-    print(f"Parsing {done_md_path}...")
-    done_path = Path(done_md_path)
-    if done_path.exists():
+    if done_md_path:
+        print(f"Parsing {done_md_path}...")
+    done_path = Path(done_md_path) if done_md_path else None
+    if done_path and done_path.exists():
         done_archive, error = parse_done_md(done_path)
         if error:
             print(f"ERROR parsing done.md: {error}")
@@ -157,7 +162,7 @@ def migrate_markdown_to_json(
             except Exception as e:
                 print(f"  ERROR saving archive: {e}")
                 stats["errors"] += 1
-    else:
+    elif done_md_path:
         print(f"  {done_md_path} not found, skipping")
 
     print()
@@ -319,13 +324,13 @@ def main():
     parser = argparse.ArgumentParser(description="Migrate markdown storage to JSON storage")
     parser.add_argument(
         "--todo-md",
-        default="docs/todo.md",
-        help="Path to todo.md file (default: docs/todo.md)"
+        default=None,
+        help="Path to legacy todo markdown file"
     )
     parser.add_argument(
         "--done-md",
-        default="docs/done.md",
-        help="Path to done.md file (default: docs/done.md)"
+        default=None,
+        help="Path to legacy done markdown file"
     )
     parser.add_argument(
         "--json-path",

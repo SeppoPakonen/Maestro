@@ -796,7 +796,7 @@ def parse_task(lines: List[str], start_idx: int) -> Tuple[Dict, int]:
 
 def parse_todo_md(path: str) -> Dict:
     """
-    Parse docs/todo.md into structured data.
+    Parse legacy todo markdown into structured data.
 
     Args:
         path: Path to todo.md file
@@ -836,7 +836,7 @@ def parse_todo_md(path: str) -> Dict:
 
 def parse_done_md(path: str) -> Dict:
     """
-    Parse docs/done.md into structured data.
+    Parse legacy done markdown into structured data.
 
     Args:
         path: Path to done.md file

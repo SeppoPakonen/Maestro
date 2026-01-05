@@ -1,15 +1,15 @@
 """
 UI Facade for Phase Operations
 
-This module provides structured data access to phase information using markdown backend without CLI dependencies.
+This module provides structured data access to phase information using JSON storage without CLI dependencies.
 """
 from dataclasses import dataclass
 from typing import List, Optional
-import json
 import os
 from pathlib import Path
 from maestro.session_model import Session, load_session, PlanNode, save_session
-from maestro.data import parse_todo_md, parse_done_md, parse_phase_md, parse_config_md
+from maestro.data import parse_config_md
+from maestro.tracks.json_store import JsonStore
 
 
 @dataclass
@@ -87,86 +87,66 @@ def get_phase_tree(session_id: Optional[str] = None) -> PhaseTreeNode:
     Returns:
         Root phase tree node with all phases organized hierarchically
     """
-    # First try markdown backend
-    try:
-        tracks_data = parse_todo_md("docs/todo.md")
-
-        # Create a mapping of all phases by ID for building the tree
-        phase_nodes_map = {}
-
-        # First, create all phase nodes
-        for track in tracks_data.get('tracks', []):
-            track_name = track.get('name', 'Unnamed Track')
-            for phase_data in track.get('phases', []):
-                phase_id = phase_data.get('phase_id', track_name.replace(' ', '_'))
-                phase_name = phase_data.get('name', phase_id)
-
-                # Create a PhaseTreeNode from the phase data
-                phase_node = PhaseTreeNode(
-                    phase_id=phase_id,
-                    label=phase_name,
-                    status=_get_phase_status_from_emoji(phase_data.get('status_emoji')),
-                    created_at=phase_data.get('created_at', ''),
-                    parent_phase_id=None,  # For now, phases are top-level within tracks
-                    children=[],  # Will fill this in next step
-                    subtasks=[]  # Using empty list for now, or phase_data.get('tasks', [])
-                )
-
-                phase_nodes_map[phase_id] = phase_node
-
-        # Now build the tree structure by linking children to parents
-        # In the current markdown format, we don't have explicit parent-child relationships
-        # So each track will be a root-level node with its phases as children
-        root_nodes = []
-        for track in tracks_data.get('tracks', []):
-            track_name = track.get('name', 'Unnamed Track')
-            track_id = track_name.replace(' ', '_')
-
-            # Create a track node that will contain all phases in this track
-            track_node = PhaseTreeNode(
-                phase_id=track_id,
-                label=track_name,
-                status="planned",  # Track status is aggregate of phase statuses
-                created_at=track.get('created_at', ''),
-                parent_phase_id=None,
-                children=[],
-                subtasks=[]
-            )
-
-            # Add all phases in this track as children of the track node
-            for phase_data in track.get('phases', []):
-                phase_id = phase_data.get('phase_id', track_name.replace(' ', '_'))
-                if phase_id in phase_nodes_map:
-                    phase_node = phase_nodes_map[phase_id]
-                    phase_node.parent_phase_id = track_id  # Set parent for the phase
-                    track_node.children.append(phase_node)
-
-            root_nodes.append(track_node)
-
-        # If we have multiple roots, create a virtual root
-        if len(root_nodes) == 0:
-            # No phases in session
-            raise ValueError("No phases found in docs/todo.md")
-        elif len(root_nodes) == 1:
-            # Single root (one track)
-            return root_nodes[0]
-        else:
-            # Multiple root tracks - create a virtual root
-            virtual_root = PhaseTreeNode(
-                phase_id="virtual_root",
-                label="All Tracks",
-                status="planned",
-                created_at="",
-                parent_phase_id=None,
-                children=root_nodes,
-                subtasks=[]
-            )
-            return virtual_root
-    except Exception as e:
-        # Fallback to JSON backend if markdown files don't exist
-        print(f"Warning: Using fallback JSON backend due to: {e}")
-        # This maintains backward compatibility
+    if session_id:
         return _get_phase_tree_json_backend(session_id)
+
+    json_store = JsonStore()
+    track_ids = json_store.list_all_tracks()
+    if not track_ids:
+        raise ValueError("No tracks found in JSON store")
+
+    phase_nodes_map = {}
+    phases_by_track = {}
+    for phase_id in json_store.list_all_phases():
+        phase = json_store.load_phase(phase_id, load_tasks=False)
+        if not phase:
+            continue
+        phase_node = PhaseTreeNode(
+            phase_id=phase.phase_id,
+            label=phase.name,
+            status=phase.status,
+            created_at=phase.created_at.isoformat() if phase.created_at else "",
+            parent_phase_id=None,
+            children=[],
+            subtasks=[task.task_id if hasattr(task, "task_id") else task for task in phase.tasks],
+        )
+        phase_nodes_map[phase.phase_id] = phase_node
+        phases_by_track.setdefault(phase.track_id, []).append(phase.phase_id)
+
+    root_nodes = []
+    for track_id in track_ids:
+        track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+        if not track:
+            continue
+        track_node = PhaseTreeNode(
+            phase_id=track.track_id,
+            label=track.name,
+            status=track.status,
+            created_at=track.created_at.isoformat() if track.created_at else "",
+            parent_phase_id=None,
+            children=[],
+            subtasks=[],
+        )
+        for phase_id in phases_by_track.get(track.track_id, []):
+            phase_node = phase_nodes_map.get(phase_id)
+            if phase_node:
+                phase_node.parent_phase_id = track.track_id
+                track_node.children.append(phase_node)
+        root_nodes.append(track_node)
+
+    if len(root_nodes) == 1:
+        return root_nodes[0]
+
+    virtual_root = PhaseTreeNode(
+        phase_id="virtual_root",
+        label="All Tracks",
+        status="planned",
+        created_at="",
+        parent_phase_id=None,
+        children=root_nodes,
+        subtasks=[],
+    )
+    return virtual_root
 
 
 def _get_phase_tree_json_backend(session_id: Optional[str] = None) -> PhaseTreeNode:
@@ -225,7 +205,7 @@ def _get_phase_tree_json_backend(session_id: Optional[str] = None) -> PhaseTreeN
 
 def list_phases(session_id: Optional[str] = None) -> List[PhaseInfo]:
     """
-    Get list of all phases from docs/todo.md
+    Get list of all phases from JSON storage
 
     Args:
         session_id: Optional session ID (not used in markdown backend)
@@ -233,30 +213,24 @@ def list_phases(session_id: Optional[str] = None) -> List[PhaseInfo]:
     Returns:
         List of phase information
     """
-    try:
-        tracks_data = parse_todo_md("docs/todo.md")
-
-        phases_info = []
-        for track in tracks_data.get('tracks', []):
-            for phase_data in track.get('phases', []):
-                phase_id = phase_data.get('phase_id', track.get('name', 'Unnamed').replace(' ', '_'))
-                phase_name = phase_data.get('name', phase_id)
-
-                phase_info = PhaseInfo(
-                    phase_id=phase_id,
-                    label=phase_name,
-                    status=_get_phase_status_from_emoji(phase_data.get('status_emoji')),
-                    created_at=phase_data.get('created_at', ''),
-                    parent_phase_id=None,
-                    subtask_count=len(phase_data.get('tasks', []))
-                )
-                phases_info.append(phase_info)
-
-        return phases_info
-    except Exception as e:
-        # Fallback to JSON backend
-        print(f"Warning: Using fallback JSON backend due to: {e}")
+    if session_id:
         return _list_phases_json_backend(session_id)
+
+    json_store = JsonStore()
+    phases_info = []
+    for phase_id in json_store.list_all_phases():
+        phase = json_store.load_phase(phase_id, load_tasks=True)
+        if not phase:
+            continue
+        phases_info.append(PhaseInfo(
+            phase_id=phase.phase_id,
+            label=phase.name,
+            status=phase.status,
+            created_at=phase.created_at.isoformat() if phase.created_at else "",
+            parent_phase_id=None,
+            subtask_count=len(phase.tasks or []),
+        ))
+    return phases_info
 
 
 def _list_phases_json_backend(session_id: Optional[str] = None) -> List[PhaseInfo]:
@@ -284,7 +258,7 @@ def _list_phases_json_backend(session_id: Optional[str] = None) -> List[PhaseInf
 
 def get_phase_details(phase_id: str) -> Optional[PhaseInfo]:
     """
-    Get details for a specific phase from markdown files
+    Get details for a specific phase from JSON storage
 
     Args:
         phase_id: ID of the phase to get details for
@@ -292,55 +266,18 @@ def get_phase_details(phase_id: str) -> Optional[PhaseInfo]:
     Returns:
         Detailed information about the phase or None
     """
-    try:
-        # First check in todo.md
-        tracks_data = parse_todo_md("docs/todo.md")
-
-        for track in tracks_data.get('tracks', []):
-            for phase_data in track.get('phases', []):
-                if phase_data.get('phase_id') == phase_id:
-                    return PhaseInfo(
-                        phase_id=phase_data.get('phase_id', phase_id),
-                        label=phase_data.get('name', phase_id),
-                        status=_get_phase_status_from_emoji(phase_data.get('status_emoji')),
-                        created_at=phase_data.get('created_at', ''),
-                        parent_phase_id=None,  # No parent in current structure
-                        subtask_count=len(phase_data.get('tasks', []))
-                    )
-
-        # If not found in todo, check in done.md
-        done_tracks_data = parse_done_md("docs/done.md")
-        for track in done_tracks_data.get('tracks', []):
-            for phase_data in track.get('phases', []):
-                if phase_data.get('phase_id') == phase_id:
-                    return PhaseInfo(
-                        phase_id=phase_data.get('phase_id', phase_id),
-                        label=phase_data.get('name', phase_id),
-                        status=_get_phase_status_from_emoji(phase_data.get('status_emoji')),
-                        created_at=phase_data.get('created_at', ''),
-                        parent_phase_id=None,
-                        subtask_count=len(phase_data.get('tasks', []))
-                    )
-
-        # If individual phase file exists, parse that too
-        phase_file_path = f"docs/phases/{phase_id}.md"
-        if os.path.exists(phase_file_path):
-            phase_data = parse_phase_md(phase_file_path)
-            if phase_data.get('phase_id') == phase_id:
-                return PhaseInfo(
-                    phase_id=phase_data.get('phase_id', phase_id),
-                    label=phase_data.get('name', phase_id),
-                    status=_get_phase_status_from_emoji(phase_data.get('status_emoji')),
-                    created_at=phase_data.get('created_at', ''),
-                    parent_phase_id=None,
-                    subtask_count=len(phase_data.get('tasks', []))
-                )
-
+    json_store = JsonStore()
+    phase = json_store.load_phase(phase_id, load_tasks=True)
+    if not phase:
         return None
-    except Exception as e:
-        # Fallback to JSON backend
-        print(f"Warning: Using fallback JSON backend due to: {e}")
-        return _get_phase_details_json_backend(phase_id)
+    return PhaseInfo(
+        phase_id=phase.phase_id,
+        label=phase.name,
+        status=phase.status,
+        created_at=phase.created_at.isoformat() if phase.created_at else "",
+        parent_phase_id=None,
+        subtask_count=len(phase.tasks or []),
+    )
 
 
 def _get_phase_details_json_backend(phase_id: str) -> Optional[PhaseInfo]:
@@ -493,27 +430,17 @@ def _set_active_phase_json_backend(session_id: str, phase_id: str) -> PhaseInfo:
 
 def kill_phase(phase_id: str) -> None:
     """
-    Mark a phase as killed/cancelled in docs/todo.md
+    Mark a phase as killed/cancelled in JSON storage.
 
     Args:
         phase_id: ID of the phase to mark as killed
     """
-    try:
-        # Read todo.md and update the phase status
-        # This is a simplified approach; in a real implementation,
-        # we'd want to properly update the markdown structure
-        todo_path = Path("docs/todo.md")
-        if todo_path.exists():
-            content = todo_path.read_text()
-            # For now we'll just indicate the change - a proper implementation
-            # would use a markdown writer to update the specific phase status
-            print(f"Marking phase {phase_id} as killed in todo.md - implementation needed")
-        else:
-            raise FileNotFoundError("docs/todo.md not found")
-    except Exception as e:
-        # Fallback to JSON backend
-        print(f"Warning: Using fallback JSON backend due to: {e}")
-        _kill_phase_json_backend(phase_id)
+    json_store = JsonStore()
+    phase = json_store.load_phase(phase_id, load_tasks=True)
+    if not phase:
+        raise ValueError(f"Phase '{phase_id}' not found")
+    phase.status = "cancelled"
+    json_store.save_phase(phase)
 
 
 def _kill_phase_json_backend(phase_id: str) -> None:
