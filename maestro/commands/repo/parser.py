@@ -32,6 +32,17 @@ def add_repo_parser(subparsers):
     repo_show_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
     repo_show_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
 
+    # repo import-roadmap
+    repo_import_parser = repo_subparsers.add_parser(
+        'import-roadmap',
+        help='Import roadmap/task folders into Maestro tracks/phases/tasks'
+    )
+    repo_import_parser.add_argument('--roadmap', required=True, help='Path to roadmap directory')
+    repo_import_parser.add_argument('--tasks', required=True, help='Path to task directory')
+    repo_import_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_import_parser.add_argument('--apply', action='store_true', help='Write tracks/phases/tasks to docs/maestro/')
+    repo_import_parser.add_argument('--dry-run', action='store_true', help='Preview import plan (default)')
+
     # repo pkg
     repo_pkg_parser = repo_subparsers.add_parser('pkg', help='Package query and inspection commands')
     repo_pkg_parser.add_argument('package_name', nargs='?', help='Package name to inspect (supports partial match)')

@@ -51,6 +51,7 @@ from .resolve_cmd import (
     handle_repo_rules_edit,
     handle_repo_rules_inject,
 )
+from .import_roadmap import handle_repo_import_roadmap
 
 def handle_repo_command(args):
     """
@@ -240,6 +241,9 @@ def handle_repo_command(args):
                             print(f"  - {asm_name} ({pkg_count} packages)")
                     if len(assemblies_detected) > 10:
                         print(f"  ... and {len(assemblies_detected) - 10} more")
+
+        elif args.repo_subcommand == 'import-roadmap':
+            return handle_repo_import_roadmap(args)
 
         elif args.repo_subcommand == 'pkg':
             # Package inspection commands
