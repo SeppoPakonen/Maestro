@@ -25,6 +25,7 @@ from maestro.repo.storage import (
     REPO_TRUTH_REL,
     load_repoconf,
     save_repoconf,
+    repo_model_path,
 )
 from maestro.git_guard import check_branch_guard
 
@@ -237,13 +238,15 @@ def handle_repo_command(args):
                             asm_name = asm.get('name', 'unknown')
                             pkg_count = len(asm.get('package_folders', []))
                             print(f"  - {asm_name} ({pkg_count} packages)")
-                        if len(assemblies_detected) > 10:
-                            print(f"  ... and {len(assemblies_detected) - 10} more")
+                    if len(assemblies_detected) > 10:
+                        print(f"  ... and {len(assemblies_detected) - 10} more")
 
         elif args.repo_subcommand == 'pkg':
             # Package inspection commands
             repo_root = getattr(args, 'path', None) if hasattr(args, 'path') else None
             index_data = load_repo_index(repo_root)
+            if not repo_root:
+                repo_root = index_data.get("repo_root") or find_repo_root()
             packages = index_data.get('packages_detected', [])
 
             # Get package name (optional)
@@ -271,7 +274,7 @@ def handle_repo_command(args):
 
                 # Dispatch to appropriate handler
                 if action == 'info':
-                    handle_repo_pkg_info(pkg, getattr(args, 'json', False))
+                    handle_repo_pkg_info(pkg, getattr(args, 'json', False), repo_root)
                 elif action == 'list':
                     handle_repo_pkg_files(pkg, getattr(args, 'json', False))
                 elif action == 'groups':
@@ -464,4 +467,3 @@ def handle_repo_command(args):
     else:
         # If no subcommand specified, show help
         print_info("Use 'maestro repo --help' to see available commands", 2)
-

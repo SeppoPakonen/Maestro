@@ -588,6 +588,7 @@ def discover_build_configs(repo_root: str, package_names: List[str] = None) -> D
     for pkg in packages_to_analyze:
         # Convert dict to PackageInfo object for consistency
         from .package import PackageInfo, FileGroup
+        from maestro.repo.pathnorm import expand_repo_path
         
         # Create groups from the dict data
         groups = []
@@ -601,8 +602,8 @@ def discover_build_configs(repo_root: str, package_names: List[str] = None) -> D
         
         package_info = PackageInfo(
             name=pkg['name'],
-            dir=pkg['dir'],
-            upp_path=pkg.get('upp_path', ''),
+            dir=expand_repo_path(repo_root, pkg.get('dir', '')),
+            upp_path=expand_repo_path(repo_root, pkg.get('upp_path', '')),
             files=pkg.get('files', []),
             upp=pkg.get('upp'),
             build_system=pkg.get('build_system', 'upp'),

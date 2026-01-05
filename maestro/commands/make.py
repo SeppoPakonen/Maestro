@@ -729,9 +729,13 @@ class MakeCommand:
     
     def _detect_current_package(self, directory: str, repo_model: Dict[str, Any]) -> Optional[str]:
         """Detect package name from repo model by matching the current directory."""
+        from maestro.repo.pathnorm import expand_repo_path
+
         current = Path(directory).resolve()
+        repo_root = repo_model.get("repo_root") or self._find_repo_root()
         for pkg in repo_model.get("packages_detected", []):
-            pkg_dir = Path(pkg.get("dir", "")).resolve()
+            pkg_dir = expand_repo_path(repo_root, pkg.get("dir", ""))
+            pkg_dir = Path(pkg_dir).resolve()
             try:
                 current.relative_to(pkg_dir)
                 return pkg.get("name")
@@ -741,12 +745,21 @@ class MakeCommand:
     
     def _find_package_info(self, package_name: str, repo_model: Dict[str, Any]) -> Optional[Dict]:
         """Find package information using repo model only."""
+        from maestro.repo.pathnorm import expand_repo_path
+
+        repo_root = repo_model.get("repo_root") or self._find_repo_root()
         for pkg in repo_model.get("packages_detected", []):
             if pkg.get("name") == package_name:
-                return pkg
+                pkg_info = dict(pkg)
+                pkg_info["dir"] = expand_repo_path(repo_root, pkg_info.get("dir", ""))
+                if pkg_info.get("upp_path"):
+                    pkg_info["upp_path"] = expand_repo_path(repo_root, pkg_info.get("upp_path", ""))
+                return pkg_info
         for pkg in repo_model.get("internal_packages", []):
             if pkg.get("name") == package_name:
-                return pkg
+                pkg_info = dict(pkg)
+                pkg_info["root_path"] = expand_repo_path(repo_root, pkg_info.get("root_path", ""))
+                return pkg_info
         return None
 
     def _find_repo_root(self) -> str:

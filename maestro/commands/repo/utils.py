@@ -29,6 +29,12 @@ from maestro.repo.storage import (
     default_repo_state,
     load_repo_model,
 )
+from maestro.repo.pathnorm import (
+    normalize_path_to_posix,
+    normalize_relpath,
+    normalize_repo_model_paths,
+    normalize_repo_path,
+)
 
 
 def find_repo_root(start_path: str = None) -> str:
@@ -89,9 +95,8 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
         assembly_by_kind: dict[str, dict] = {}  # Map from kind to assembly for virtual package routing
         for asm in scan_result.assemblies_detected:
             root_path = Path(asm.root_path).resolve()
-            try:
-                root_relpath = os.path.relpath(root_path, repo_root_path)
-            except ValueError:
+            root_relpath, _ = normalize_repo_path(repo_root, str(root_path))
+            if str(root_relpath).startswith("<external>"):
                 continue
             if root_relpath == '.':
                 root_relpath = '.'
@@ -121,7 +126,7 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
 
         for pkg in scan_result.packages_detected:
             pkg_path = Path(pkg.dir).resolve()
-            pkg_dir_rel = os.path.relpath(pkg_path, repo_root_path)
+            pkg_dir_rel, _ = normalize_repo_path(repo_root, str(pkg_path))
 
             # Find the best matching assembly for this package
             # Priority order:
@@ -241,13 +246,17 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                                 continue
 
             assembly_id = best_assembly_entry["assembly_id"] if best_assembly_entry else None
-            package_relpath = os.path.relpath(pkg_path, best_assembly_entry["root_relpath"]) if best_assembly_entry else pkg_dir_rel
+            if best_assembly_entry:
+                asm_root_abs = (repo_root_path / best_assembly_entry["root_relpath"]).resolve()
+                package_relpath = normalize_relpath(str(asm_root_abs), str(pkg_path))
+            else:
+                package_relpath = pkg_dir_rel
             package_id_seed = f"package:{assembly_id}:{package_relpath}:{pkg.name}"
             package_entry = {
                 "package_id": _stable_id(package_id_seed),
                 "name": pkg.name,
-                "dir_relpath": pkg_dir_rel,
-                "package_relpath": package_relpath,
+                "dir_relpath": normalize_path_to_posix(pkg_dir_rel),
+                "package_relpath": normalize_path_to_posix(package_relpath),
                 "assembly_id": assembly_id,
                 "build_system": pkg.build_system,
             }
@@ -296,12 +305,18 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
         "assemblies_detected": [
             {
                 "name": asm.name,
-                "root_path": asm.root_path,
-                "package_folders": asm.package_folders,
+                "root_path": normalize_repo_path(repo_root, asm.root_path)[0],
+                "package_folders": [
+                    normalize_repo_path(repo_root, folder)[0]
+                    for folder in asm.package_folders
+                ],
                 "evidence_refs": getattr(asm, 'evidence_refs', []),
                 "assembly_type": getattr(asm, 'assembly_type', 'upp'),
                 "packages": getattr(asm, 'packages', []),
-                "package_dirs": getattr(asm, 'package_dirs', []),
+                "package_dirs": [
+                    normalize_repo_path(repo_root, pkg_dir)[0]
+                    for pkg_dir in getattr(asm, 'package_dirs', [])
+                ],
                 "build_systems": getattr(asm, 'build_systems', []),
                 "metadata": getattr(asm, 'metadata', {})
             } for asm in scan_result.assemblies_detected
@@ -309,26 +324,29 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
         "packages_detected": [
             {
                 "name": pkg.name,
-                "dir": pkg.dir,
-                "upp_path": pkg.upp_path,
-                "files": pkg.files,
+                "dir": normalize_repo_path(repo_root, pkg.dir)[0],
+                "upp_path": normalize_repo_path(repo_root, pkg.upp_path)[0] if pkg.upp_path else "",
+                "files": [normalize_path_to_posix(path) for path in pkg.files],
                 "upp": _serialize_upp_payload(getattr(pkg, 'upp', None)),
                 "build_system": pkg.build_system,
                 "dependencies": getattr(pkg, 'dependencies', []),
                 "groups": [
                     {
                         "name": group.name,
-                        "files": group.files,
+                        "files": [normalize_path_to_posix(path) for path in group.files],
                         "readonly": getattr(group, 'readonly', False),
                         "auto_generated": getattr(group, 'auto_generated', False)
                     } for group in pkg.groups
                 ],
-                "ungrouped_files": pkg.ungrouped_files
+                "ungrouped_files": [
+                    normalize_path_to_posix(path)
+                    for path in pkg.ungrouped_files
+                ]
             } for pkg in scan_result.packages_detected
         ],
         "unknown_paths": [
             {
-                "path": unknown.path,
+                "path": normalize_path_to_posix(unknown.path),
                 "type": unknown.type,
                 "guessed_kind": getattr(unknown, 'guessed_kind', '')
             } for unknown in getattr(scan_result, 'unknown_paths', [])
@@ -337,22 +355,26 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
         "internal_packages": [
             {
                 "name": ipkg.name,
-                "root_path": ipkg.root_path,
+                "root_path": normalize_repo_path(repo_root, ipkg.root_path)[0],
                 "guessed_type": ipkg.guessed_type,
-                "members": ipkg.members,
+                "members": [normalize_path_to_posix(path) for path in ipkg.members],
                 "groups": [
                     {
                         "name": group.name,
-                        "files": group.files,
+                        "files": [normalize_path_to_posix(path) for path in group.files],
                         "readonly": getattr(group, 'readonly', False),
                         "auto_generated": getattr(group, 'auto_generated', False)
                     } for group in getattr(ipkg, '_groups', [])
                 ],
-                "ungrouped_files": getattr(ipkg, '_ungrouped_files', ipkg.members)
+                "ungrouped_files": [
+                    normalize_path_to_posix(path)
+                    for path in getattr(ipkg, '_ungrouped_files', ipkg.members)
+                ]
             } for ipkg in getattr(scan_result, 'internal_packages', [])
         ]
     }
 
+    index_data, _ = normalize_repo_model_paths(index_data, repo_root)
     model_path = write_repo_model(repo_root, index_data)
     if verbose:
         print_debug(f"Wrote {model_path}", 2)

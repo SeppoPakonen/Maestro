@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from maestro.modules.utils import print_error
+from maestro.modules.utils import print_error, print_warning
+from maestro.repo.pathnorm import normalize_relpath, normalize_repo_model_paths
 
 REPO_TRUTH_REL = Path("docs") / "maestro"
 REPO_MODEL_FILENAME = "repo_model.json"
@@ -96,7 +97,12 @@ def load_repo_model(repo_root: Optional[str] = None) -> Dict[str, Any]:
     """Load repo model data from repo_model.json."""
     path = repo_model_path(repo_root, require=True)
     with open(path, "r", encoding="utf-8") as handle:
-        return json.load(handle)
+        data = json.load(handle)
+    resolved_root = repo_root or str(path.parents[2])
+    normalized, count = normalize_repo_model_paths(data, resolved_root)
+    if count:
+        print_warning(f"Normalized {count} absolute paths to repo-relative form")
+    return normalized
 
 
 def load_repoconf(repo_root: Optional[str] = None) -> Dict[str, Any]:
@@ -153,10 +159,11 @@ def _raise_dot_maestro_error(repo_root: Path) -> None:
 
 def default_repo_state(repo_root: str, model_path: Path, scan_counts: Dict[str, int]) -> Dict[str, Any]:
     """Create a minimal repo state metadata payload."""
+    model_relpath = normalize_relpath(repo_root, str(model_path))
     return {
         "last_resolved_at": datetime.now().isoformat(),
         "repo_root": repo_root,
-        "repo_model_path": str(model_path),
+        "repo_model_path": model_relpath,
         "packages_count": scan_counts.get("packages", 0),
         "assemblies_count": scan_counts.get("assemblies", 0),
         "user_assemblies_count": scan_counts.get("user_assemblies", 0),

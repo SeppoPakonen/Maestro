@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 from maestro.modules.utils import print_error
 from maestro.repo.storage import find_repo_root, load_repo_model
+from maestro.repo.pathnorm import expand_repo_path, normalize_path_to_posix, normalize_relpath, normalize_repo_path
 
 
 def handle_asm_command(args):
@@ -59,14 +60,17 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
         root_path = asm.get("root_path", "")
         if not root_path:
             continue
+        root_relpath = normalize_repo_path(repo_root, root_path)[0]
+        if root_relpath.startswith("<external>"):
+            continue
+        root_abs = expand_repo_path(repo_root, root_relpath)
         # Normalize the root path to match how package directories will be stored
-        norm_root_path = os.path.normpath(root_path)
-        root_relpath = os.path.relpath(norm_root_path, repo_root)
+        norm_root_path = os.path.normpath(root_abs)
         assembly_id = _stable_id(f"assembly:{root_relpath}")
         entry = {
             "assembly_id": assembly_id,
             "name": asm.get("name", os.path.basename(root_path)),
-            "root_relpath": root_relpath,
+            "root_relpath": normalize_path_to_posix(root_relpath),
             "kind": asm.get("assembly_type", "upp"),
             "package_ids": asm.get("package_ids", []),  # Use existing package_ids if available
         }
@@ -80,8 +84,12 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
         pkg_dir = pkg.get("dir")
         if not pkg_dir:
             continue
-        pkg_dir_norm = os.path.normpath(pkg_dir)
-        parent_dir = os.path.normpath(os.path.dirname(pkg_dir))
+        pkg_dir_rel = normalize_repo_path(repo_root, pkg_dir)[0]
+        if pkg_dir_rel.startswith("<external>"):
+            continue
+        pkg_dir_abs = expand_repo_path(repo_root, pkg_dir_rel)
+        pkg_dir_norm = os.path.normpath(pkg_dir_abs)
+        parent_dir = os.path.normpath(os.path.dirname(pkg_dir_abs))
 
         # Look for assembly that contains this package
         assembly_found = None
@@ -116,13 +124,16 @@ def _derive_assemblies_and_packages(index_data: Dict[str, Any], repo_root: str) 
                         continue
 
         assembly_id = assembly_found["assembly_id"] if assembly_found else None
-        package_relpath = os.path.relpath(pkg_dir, parent_dir) if assembly_found else os.path.relpath(pkg_dir, repo_root)
+        if assembly_found:
+            package_relpath = normalize_relpath(parent_dir, pkg_dir_abs)
+        else:
+            package_relpath = pkg_dir_rel
         package_id = _stable_id(f"package:{assembly_id}:{package_relpath}")
         entry = {
             "package_id": package_id,
             "name": pkg.get("name", ""),
-            "dir_relpath": os.path.relpath(pkg_dir, repo_root),
-            "package_relpath": package_relpath,
+            "dir_relpath": normalize_path_to_posix(pkg_dir_rel),
+            "package_relpath": normalize_path_to_posix(package_relpath),
             "assembly_id": assembly_id,
             "build_system": pkg.get("build_system", "upp"),
         }

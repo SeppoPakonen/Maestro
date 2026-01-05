@@ -11,6 +11,7 @@ from datetime import datetime
 
 from maestro.repo.hub.index import HubIndexManager, RepoRecord, PackageRecord
 from maestro.repo.storage import load_repo_model
+from maestro.repo.pathnorm import expand_repo_path
 
 
 class HubScanner:
@@ -78,10 +79,11 @@ class HubScanner:
         # Build package records
         packages = []
         for pkg_data in repo_model.get('packages_detected', []):
+            pkg_root = expand_repo_path(str(repo_path_obj), pkg_data.get('dir', ''))
             pkg_id = self.hub_index.compute_package_id(
                 pkg_data['build_system'],
                 pkg_data['name'],
-                pkg_data['dir']
+                pkg_root
             )
 
             packages.append(PackageRecord(

@@ -29,6 +29,7 @@ from maestro.modules.utils import (
 # Import from maestro.repo
 from maestro.repo.build_config import get_package_config
 from maestro.repo.upp_conditions import match_when
+from maestro.repo.pathnorm import display_repo_path, normalize_path_to_posix
 
 def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = False, repo_root: str = None):
     """List all packages in the repository (U++ and internal)."""
@@ -48,7 +49,7 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
                 entry['guessed_type'] = p.get('guessed_type', 'misc')
                 entry['root_path'] = p.get('root_path', '')
                 if repo_root:
-                    entry['rel_path'] = os.path.relpath(p['root_path'], repo_root)
+                    entry['rel_path'] = normalize_path_to_posix(p.get('root_path', ''))
             else:
                 entry['files'] = len(p.get('files', []))
                 entry['dir'] = p.get('dir', '')
@@ -62,7 +63,7 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
                     entry['build_systems'] = [p.get('build_system', 'upp')]
 
                 if repo_root and p.get('dir'):
-                    entry['rel_path'] = os.path.relpath(p['dir'], repo_root)
+                    entry['rel_path'] = normalize_path_to_posix(p.get('dir', ''))
 
             output.append(entry)
         print(json.dumps(output, indent=2))
@@ -78,26 +79,26 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
                 guessed_type = pkg.get('guessed_type', 'misc')
                 members_count = len(pkg.get('members', []))
                 root_path = pkg.get('root_path', '')
-                rel_path = os.path.relpath(root_path, repo_root) if repo_root else root_path
-                print_info(f"[{i:4d}] {pkg['name']:30s} {members_count:4d} items  [{guessed_type}] {rel_path}", 2)
+                display_path = display_repo_path(repo_root, root_path) if repo_root else root_path
+                print_info(f"[{i:4d}] {pkg['name']:30s} {members_count:4d} items  [{guessed_type}] {display_path}", 2)
             else:
                 # Build system package display (U++, CMake, Make, etc.)
                 build_system = pkg.get('build_system', 'upp')
-                rel_path = os.path.relpath(pkg['dir'], repo_root) if repo_root else pkg['dir']
+                display_path = display_repo_path(repo_root, pkg.get('dir', '')) if repo_root else pkg.get('dir', '')
 
                 # Handle multi-build system packages
                 if build_system == 'multi':
                     build_systems = pkg.get('build_systems', ['multi'])
                     build_system_label = '+'.join(build_systems)
-                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  [{build_system_label}] {rel_path}", 2)
+                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  [{build_system_label}] {display_path}", 2)
                 elif build_system == 'upp':
-                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {rel_path}", 2)
+                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  {display_path}", 2)
                 else:
                     # Show build system label for non-U++ packages
-                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  [{build_system}] {rel_path}", 2)
+                    print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  [{build_system}] {display_path}", 2)
 
 
-def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False):
+def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False, repo_root: str = None):
     """Show detailed information about a package (U++ or internal)."""
     pkg_type = pkg.get('_type', 'upp')
 
@@ -128,11 +129,11 @@ def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False):
             else:
                 print_header(f"{build_system.upper()} PACKAGE: {pkg['name']}")
 
-            print(f"\nDirectory: {pkg['dir']}")
+            print(f"\nDirectory: {display_repo_path(repo_root, pkg.get('dir', ''))}")
             print(f"Build system: {build_system}")
 
             if build_system == 'upp':
-                print(f"UPP file: {pkg['upp_path']}")
+                print(f"UPP file: {display_repo_path(repo_root, pkg.get('upp_path', ''))}")
 
             print(f"Files: {len(pkg['files'])}")
 
@@ -964,5 +965,3 @@ def handle_repo_rules_inject(repo_root: str, context: str = 'general'):
 
     print_warning("Rule injection formatting not yet fully implemented (Phase RF4)", 2)
     print_info("This command will format rules for AI prompt injection", 2)
-
-
