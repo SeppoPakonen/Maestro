@@ -7,13 +7,31 @@ and common operations that are used across multiple CLI modules.
 Updated to use JSON storage instead of markdown.
 """
 
+from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 import sys
 
 # Import JSON storage
 from maestro.tracks.json_store import JsonStore
 from maestro.tracks.models import Track, Phase, Task
+
+
+def _build_phase_task_cache(json_store: JsonStore) -> Tuple[Dict[str, Phase], Dict[str, List[Task]]]:
+    """Load all phases and tasks once and keep them keyed by ID."""
+    phases: Dict[str, Phase] = {}
+    for phase_id in json_store.list_all_phases():
+        phase = json_store.load_phase(phase_id, load_tasks=False)
+        if phase:
+            phases[phase_id] = phase
+
+    tasks_by_phase: Dict[str, List[Task]] = defaultdict(list)
+    for task_id in json_store.list_all_tasks():
+        task = json_store.load_task(task_id)
+        if task:
+            tasks_by_phase[task.phase_id].append(task)
+
+    return phases, tasks_by_phase
 
 
 def _track_to_dict(track: Track, phases: List[Phase] = None, tasks: List[Task] = None) -> Dict[str, Any]:
@@ -92,6 +110,7 @@ def parse_todo_safe(todo_path: Path = None, verbose: bool = False) -> Optional[d
     """
     try:
         json_store = JsonStore()
+        phase_cache, tasks_by_phase = _build_phase_task_cache(json_store)
 
         # Get list of all track IDs
         track_ids = json_store.list_all_tracks()
@@ -103,22 +122,17 @@ def parse_todo_safe(todo_path: Path = None, verbose: bool = False) -> Optional[d
             if not track:
                 continue
 
-            # Load phases for this track
-            phase_ids = json_store.list_all_phases()
             track_phases = []
             all_tasks = []
+            phase_ids = track.phases if isinstance(track.phases, list) else []
 
             for phase_id in phase_ids:
-                phase = json_store.load_phase(phase_id, load_tasks=False)
-                if phase and phase.track_id == track_id:
-                    track_phases.append(phase)
+                phase = phase_cache.get(phase_id)
+                if not phase or phase.track_id != track_id:
+                    continue
 
-                    # Load tasks for this phase
-                    task_ids = json_store.list_all_tasks()
-                    for task_id in task_ids:
-                        task = json_store.load_task(task_id)
-                        if task and task.phase_id == phase_id:
-                            all_tasks.append(task)
+                track_phases.append(phase)
+                all_tasks.extend(tasks_by_phase.get(phase_id, []))
 
             track_dict = _track_to_dict(track, track_phases, all_tasks)
             tracks_dicts.append(track_dict)
@@ -148,6 +162,7 @@ def parse_done_safe(done_path: Path = None, verbose: bool = False) -> Optional[d
     """
     try:
         json_store = JsonStore()
+        phase_cache, tasks_by_phase = _build_phase_task_cache(json_store)
 
         # Load the archive index
         archive = json_store.load_archive(load_tracks=True, load_phases=False, load_tasks=False)
@@ -189,16 +204,12 @@ def parse_done_safe(done_path: Path = None, verbose: bool = False) -> Optional[d
             all_tasks = []
 
             for phase_id in phase_ids:
-                phase = json_store.load_phase(phase_id, load_tasks=False)
-                if phase:
-                    track_phases.append(phase)
+                phase = phase_cache.get(phase_id)
+                if not phase:
+                    continue
 
-                    # Load tasks for this phase
-                    task_ids = json_store.list_all_tasks()
-                    for task_id in task_ids:
-                        task = json_store.load_task(task_id)
-                        if task and task.phase_id == phase_id:
-                            all_tasks.append(task)
+                track_phases.append(phase)
+                all_tasks.extend(tasks_by_phase.get(phase_id, []))
 
             track_dict = _track_to_dict(track, track_phases, all_tasks)
             tracks_dicts.append(track_dict)
