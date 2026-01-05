@@ -7,31 +7,14 @@ and common operations that are used across multiple CLI modules.
 Updated to use JSON storage instead of markdown.
 """
 
-from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List
 import sys
 
 # Import JSON storage
 from maestro.tracks.json_store import JsonStore
 from maestro.tracks.models import Track, Phase, Task
-
-
-def _build_phase_task_cache(json_store: JsonStore) -> Tuple[Dict[str, Phase], Dict[str, List[Task]]]:
-    """Load all phases and tasks once and keep them keyed by ID."""
-    phases: Dict[str, Phase] = {}
-    for phase_id in json_store.list_all_phases():
-        phase = json_store.load_phase(phase_id, load_tasks=False)
-        if phase:
-            phases[phase_id] = phase
-
-    tasks_by_phase: Dict[str, List[Task]] = defaultdict(list)
-    for task_id in json_store.list_all_tasks():
-        task = json_store.load_task(task_id)
-        if task:
-            tasks_by_phase[task.phase_id].append(task)
-
-    return phases, tasks_by_phase
+from maestro.data.track_cache import TrackDataCache
 
 
 def _track_to_dict(track: Track, phases: List[Phase] = None, tasks: List[Task] = None) -> Dict[str, Any]:
@@ -97,6 +80,17 @@ def _task_to_dict(task: Task) -> Dict[str, Any]:
     }
 
 
+def _extract_phase_ids(track: Track) -> List[str]:
+    """Normalize phase references from a track to a list of phase IDs."""
+    phase_ids: List[str] = []
+    for entry in getattr(track, "phases", []) or []:
+        if isinstance(entry, Phase):
+            phase_ids.append(entry.phase_id)
+        elif isinstance(entry, str):
+            phase_ids.append(entry)
+    return phase_ids
+
+
 def parse_todo_safe(todo_path: Path = None, verbose: bool = False) -> Optional[dict]:
     """
     Safely load todo data from JSON storage with error handling.
@@ -110,29 +104,29 @@ def parse_todo_safe(todo_path: Path = None, verbose: bool = False) -> Optional[d
     """
     try:
         json_store = JsonStore()
-        phase_cache, tasks_by_phase = _build_phase_task_cache(json_store)
+        cache = TrackDataCache(Path('.'))
+        result = cache.load_or_rebuild(json_store)
+        if not result.cached:
+            print_warning(f"Track cache not used ({result.reason or 'rebuilt'}); reloading from JSON.")
+        snapshot = result.snapshot
 
-        # Get list of all track IDs
-        track_ids = json_store.list_all_tracks()
-
-        # Load each track with its nested data
         tracks_dicts = []
-        for track_id in track_ids:
-            track = json_store.load_track(track_id, load_phases=False, load_tasks=False)
+        for track_id in snapshot.track_order:
+            track = snapshot.tracks.get(track_id)
             if not track:
                 continue
 
             track_phases = []
             all_tasks = []
-            phase_ids = track.phases if isinstance(track.phases, list) else []
+            phase_ids = _extract_phase_ids(track)
 
             for phase_id in phase_ids:
-                phase = phase_cache.get(phase_id)
+                phase = snapshot.phases.get(phase_id)
                 if not phase or phase.track_id != track_id:
                     continue
 
                 track_phases.append(phase)
-                all_tasks.extend(tasks_by_phase.get(phase_id, []))
+                all_tasks.extend(snapshot.tasks_by_phase.get(phase_id, []))
 
             track_dict = _track_to_dict(track, track_phases, all_tasks)
             tracks_dicts.append(track_dict)
@@ -162,7 +156,11 @@ def parse_done_safe(done_path: Path = None, verbose: bool = False) -> Optional[d
     """
     try:
         json_store = JsonStore()
-        phase_cache, tasks_by_phase = _build_phase_task_cache(json_store)
+        cache = TrackDataCache(Path('.'))
+        result = cache.load_or_rebuild(json_store)
+        if not result.cached:
+            print_warning(f"Track cache not used ({result.reason or 'rebuilt'}); reloading from JSON.")
+        snapshot = result.snapshot
 
         # Load the archive index
         archive = json_store.load_archive(load_tracks=True, load_phases=False, load_tasks=False)
@@ -204,12 +202,12 @@ def parse_done_safe(done_path: Path = None, verbose: bool = False) -> Optional[d
             all_tasks = []
 
             for phase_id in phase_ids:
-                phase = phase_cache.get(phase_id)
+                phase = snapshot.phases.get(phase_id)
                 if not phase:
                     continue
 
                 track_phases.append(phase)
-                all_tasks.extend(tasks_by_phase.get(phase_id, []))
+                all_tasks.extend(snapshot.tasks_by_phase.get(phase_id, []))
 
             track_dict = _track_to_dict(track, track_phases, all_tasks)
             tracks_dicts.append(track_dict)

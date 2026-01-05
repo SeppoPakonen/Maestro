@@ -155,6 +155,7 @@ _COMMAND_SPECS = (
     ("make", "maestro.commands.make", "add_make_parser", False),
     ("log", "maestro.commands.log", "add_log_parser", False),
     ("cache", "maestro.commands.cache", "add_cache_parser", False),
+    ("track-cache", "maestro.commands.track_cache", "add_track_cache_parser", False),
     ("ops", "maestro.commands.ops", "add_ops_parser", False),
     ("track", "maestro.commands.track", "add_track_parsers", False),
     ("phase", "maestro.commands.phase", "add_phase_parser", False),
