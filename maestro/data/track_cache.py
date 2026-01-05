@@ -160,11 +160,9 @@ class TrackDataCache:
 
     @staticmethod
     def _file_signature(path: Path) -> Dict[str, int]:
-        """Record size, mtime, and hash for the given file."""
-        data = path.read_bytes()
+        """Record size and mtime for the given file."""
         stat = path.stat()
         return {
             "size": stat.st_size,
             "mtime": stat.st_mtime_ns,
-            "hash": hashlib.sha256(data).hexdigest(),
         }
