@@ -237,17 +237,20 @@ class UppBuilder(Builder):
         dfs(package.name)
         return dependency_order
     
-    def get_compiler_flags(self, package: UppPackage) -> Dict[str, List[str]]:
+    def get_compiler_flags(self, package: UppPackage, config: Optional[MethodConfig] = None) -> Dict[str, List[str]]:
         """
         Generate compiler flags for the package based on build method and config.
 
         Maps U++ mainconfig options to actual compiler flags.
         """
+        # Use provided config if available, otherwise use default config
+        method_config = config if config is not None else self.config
+
         # Start with config defaults
-        cflags = self.config.compiler.cflags.copy()
-        cxxflags = self.config.compiler.cxxflags.copy()
-        includes = self.config.compiler.includes.copy()
-        defines = self.config.compiler.defines.copy()
+        cflags = method_config.compiler.cflags.copy()
+        cxxflags = method_config.compiler.cxxflags.copy()
+        includes = method_config.compiler.includes.copy()
+        defines = method_config.compiler.defines.copy()
 
         # Add package-specific defines
         defines.extend(package.defines)
@@ -263,17 +266,17 @@ class UppBuilder(Builder):
             for part in config_parts:
                 if part == "GUI":
                     # GUI-specific flags (platform dependent)
-                    if self.host.os == "windows":
+                    if self.host.platform == "windows":
                         defines.append("WIN32")
                         defines.append("_WINDOWS")
-                    elif self.host.os in ["linux", "darwin"]:
+                    elif self.host.platform in ["linux", "darwin"]:
                         defines.append("GUI_GTK")
 
         # Add -I flags for dependencies
         for dep_name in package.uses:
             # In a real implementation, this would find actual include paths
             # For now, we'll add a placeholder
-            dep_include_path = os.path.join(self.host.get_build_dir(), dep_name, "include")
+            dep_include_path = os.path.join(method_config.config.target_dir, dep_name, "include")
             if os.path.exists(dep_include_path):
                 includes.append(dep_include_path)
 
@@ -286,17 +289,45 @@ class UppBuilder(Builder):
         return {
             'cflags': cflags + include_flags[:],  # Copy to avoid mutation
             'cxxflags': cxxflags + define_flags + include_flags,
-            'ldflags': self.config.compiler.ldflags.copy()
+            'ldflags': method_config.compiler.ldflags.copy()
         }
     
-    def build_package(self, package: Union[Package, UppPackage]) -> bool:
+    def build_package(self, package: Union[Package, UppPackage], config: Optional[MethodConfig] = None) -> bool:
         """
         Build a single U++ package.
 
         Implements the core build logic similar to umk's BuildPackage.
         """
-        # Cast to UppPackage if needed
-        if not isinstance(package, UppPackage):
+        # Handle both dict and Package object inputs
+        if isinstance(package, dict):
+            # Convert dict to UppPackage
+            package_name = package.get('name', 'unknown')
+            package_dir = package.get('dir', package.get('directory', ''))
+            package_path = package.get('path', package_dir)
+            build_system = package.get('build_system', 'upp')
+
+            upp_pkg = UppPackage(
+                name=package_name,
+                path=package_path,
+                dir=package_dir
+            )
+            upp_pkg.build_system = build_system
+
+            # Add other attributes from the dict if they exist
+            if 'files' in package:
+                upp_pkg.files = package['files']
+            if 'uses' in package:
+                upp_pkg.uses = package['uses']
+            if 'description' in package:
+                upp_pkg.description = package['description']
+
+            # Parse the .upp file to populate UppPackage
+            upp_file = os.path.join(package_dir, f"{package_name}.upp")
+            if os.path.exists(upp_file):
+                parsed = self.parse_upp_file(upp_file)
+                upp_pkg.__dict__.update(parsed.__dict__)
+            package = upp_pkg
+        elif not isinstance(package, UppPackage):
             # Convert from base package
             upp_pkg = UppPackage(
                 name=package.name,
@@ -311,19 +342,22 @@ class UppBuilder(Builder):
                 upp_pkg.__dict__.update(parsed.__dict__)
             package = upp_pkg
 
+        # Use provided config if available, otherwise use default config
+        method_config = config if config is not None else self.config
+
         # Get build directory for this package/method combination
         build_dir = os.path.join(
-            self.host.get_build_dir(),
-            self.config.name,
+            method_config.config.target_dir,
+            method_config.name,
             package.name
         )
         os.makedirs(build_dir, exist_ok=True)
 
         # Get compiler flags
-        flags = self.get_compiler_flags(package)
+        flags = self.get_compiler_flags(package, method_config)
 
         # Determine which compiler to use based on config
-        compiler = self.config.compiler.cxx or self.config.compiler.cc
+        compiler = method_config.compiler.cxx or method_config.compiler.cc
 
         # Compile each source file
         obj_files = []
@@ -407,7 +441,7 @@ class UppBuilder(Builder):
 
         # Determine build directory for this package/method
         build_dir = os.path.join(
-            self.host.get_build_dir(),
+            self.config.config.target_dir,
             self.config.name,
             package.name
         )
@@ -431,7 +465,7 @@ class UppBuilder(Builder):
         Return target file extension based on platform and method.
         """
         # Determine extension based on OS and build type
-        if self.host.os == "windows":
+        if self.host.platform == "windows":
             if self.config.name.endswith("-exe") or self.config.name.endswith("exe"):
                 return ".exe"
             else:
