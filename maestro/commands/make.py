@@ -165,7 +165,7 @@ class MakeCommand:
             reset_command_output_log()
 
             # Build the package
-            success = builder.build_package(package_info, method_config)
+            success = builder.build_package(package_info, method_config, verbose=args.verbose)
             if success:
                 if args.verbose:
                     print(f"Successfully built package: {package_name}")

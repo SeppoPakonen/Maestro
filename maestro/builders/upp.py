@@ -88,27 +88,28 @@ class UppBuilder(Builder):
         current_value = []
         
         lines = content.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            i += 1
+
             # Skip empty lines and comments
             if not line or line.startswith('#'):
                 continue
-                
+
             # Check for section keywords
             if line.startswith('description'):
                 # Extract description text
-                desc_match = re.match(r'description\s+"([^"]*)"', line)
+                desc_match = re.search(r'description\s+"([^"]*(?:\\.[^"]*)*)"', line)
                 if desc_match:
                     package.description = desc_match.group(1)
-                    
+
             elif line.startswith('mainconfig'):
                 # Handle multi-line mainconfig section
                 # Could be: mainconfig "" = "GUI MT"; (single line)
                 # or: mainconfig \n    "" = "GUI MT"; (multi-line as in the test)
                 # or: mainconfig { "" = "GUI MT"; } (braced)
-                config_match = re.search(r'mainconfig\s+""\s*=\s*"([^"]*)"', line)
+                config_match = re.search(r'mainconfig\s+""\s*=\s*"([^"]*(?:\\.[^"]*)*)"', line)
                 if config_match:
                     package.mainconfig = config_match.group(1)
                 elif line == 'mainconfig':
@@ -117,29 +118,118 @@ class UppBuilder(Builder):
                 elif '{' in line:
                     current_section = 'mainconfig'
                     current_value = []
-                    
+
             elif line.startswith('file'):
-                current_section = 'files'
-                # Handle inline file definition
-                if line.endswith(','):
-                    current_value = [line[5:].strip().rstrip(',').strip('"')]
-                elif '"' in line:
-                    # Simple case: file "filename.cpp"
-                    file_match = re.search(r'"([^"]*)"', line)
+                # Handle file section - can be single line or multi-line
+                if '{' in line:
+                    # Multi-line file section with braces
+                    current_section = 'files_braces'
+                    # Process lines until we find the closing brace
+                    while i < len(lines):
+                        file_line = lines[i].strip()
+                        i += 1
+                        if file_line == '}':
+                            break
+                        # Extract file names from the line
+                        file_match = re.search(r'"([^"]*(?:\\.[^"]*)*)"', file_line)
+                        if file_match:
+                            package.files.append(file_match.group(1))
+                elif line == 'file':  # Just the word 'file' followed by multiple lines
+                    # This is the start of a multi-line file section without braces
+                    # Process lines until we find one ending with semicolon
+                    while i < len(lines):
+                        file_line = lines[i].strip()
+                        i += 1
+                        if not file_line:
+                            continue  # Skip empty lines
+                        # Extract file names from the line - can be quoted or unquoted
+                        # First try to find quoted file names
+                        file_matches = re.findall(r'"([^"]*(?:\\.[^"]*)*)"', file_line)
+                        for file_match in file_matches:
+                            package.files.append(file_match)
+
+                        # If no quoted files found, try to extract unquoted file names
+                        if not file_matches:
+                            # Look for identifiers that end with commas or semicolons
+                            # This pattern looks for file names that may contain dots and extensions
+                            unquoted_matches = re.findall(r'([a-zA-Z0-9_./][a-zA-Z0-9_./-]*?)[,;]', file_line)
+                            for match in unquoted_matches:
+                                package.files.append(match.strip())
+
+                            # Check if the line ends with a file name followed by semicolon (last file)
+                            # Only add if it's not already in the list to avoid duplicates
+                            semicolon_match = re.search(r'([a-zA-Z0-9_./][a-zA-Z0-9_./-]*)\s*;\s*$', file_line)
+                            if semicolon_match:
+                                last_file = semicolon_match.group(1).strip()
+                                if last_file not in package.files:
+                                    package.files.append(last_file)
+
+                        # If line ends with semicolon, we're done
+                        if file_line.endswith(';'):
+                            break
+                elif line.endswith(','):
+                    # Multi-line file section without braces, starting with comma
+                    current_section = 'files_multiline'
+                    file_match = re.search(r'"([^"]*(?:\\.[^"]*)*)"', line)
                     if file_match:
                         package.files.append(file_match.group(1))
+                elif line.endswith(';'):
+                    # Single-line file section ending with semicolon
+                    file_match = re.search(r'"([^"]*(?:\\.[^"]*)*)"', line)
+                    if file_match:
+                        package.files.append(file_match.group(1))
+                else:
+                    # Single file or start of multi-line without braces
+                    file_match = re.search(r'"([^"]*(?:\\.[^"]*)*)"', line)
+                    if file_match:
+                        package.files.append(file_match.group(1))
+                    elif ',' in line:
+                        current_section = 'files_multiline'
                         
             elif line.startswith('uses'):
-                current_section = 'uses'
-                # Handle inline uses definition
-                if line.endswith(','):
-                    current_value = [line[5:].strip().rstrip(',').strip()]
-                else:
-                    # Handle uses PackageName or uses plugin/z format
-                    # This regex captures both regular names and names with slashes
-                    uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)', line[5:])
+                # Handle uses section - can be single line or multi-line
+                if '{' in line:
+                    # Multi-line uses section with braces
+                    current_section = 'uses_braces'
+                elif line == 'uses':  # Just the word 'uses' followed by multiple lines
+                    # This is the start of a multi-line uses section
+                    current_section = 'uses_multiline'
+                elif '(' in line and ')' in line:
+                    # This is a conditional uses line like: uses(!POSIX) Core/SSL;
+                    # Extract the dependency after the parentheses
+                    conditional_match = re.search(r'uses\(.*?\)\s+(.+)', line)
+                    if conditional_match:
+                        dep_part = conditional_match.group(1).strip()
+                        # Further extract dependency name if it ends with semicolon
+                        dep_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)', dep_part)
+                        if dep_match:
+                            # Replace backslashes with forward slashes for consistency
+                            use_entry = dep_match.group(1).replace('\\', '/')
+                            package.uses.append(use_entry)
+                elif line.endswith(','):
+                    # Multi-line uses section starting with comma
+                    current_section = 'uses_multiline'
+                    uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)', line[5:])
                     if uses_match:
-                        package.uses.append(uses_match.group(1))
+                        # Replace backslashes with forward slashes for consistency
+                        use_entry = uses_match.group(1).replace('\\', '/')
+                        package.uses.append(use_entry)
+                elif line.endswith(';'):
+                    # Single-line uses section ending with semicolon
+                    uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)', line[5:])
+                    if uses_match:
+                        # Replace backslashes with forward slashes for consistency
+                        use_entry = uses_match.group(1).replace('\\', '/')
+                        package.uses.append(use_entry)
+                else:
+                    # Single use or start of multi-line
+                    uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)', line[5:])
+                    if uses_match:
+                        # Replace backslashes with forward slashes for consistency
+                        use_entry = uses_match.group(1).replace('\\', '/')
+                        package.uses.append(use_entry)
+                    elif ',' in line:
+                        current_section = 'uses_multiline'
                         
             elif line.startswith('flag'):
                 current_section = 'flags'
@@ -158,17 +248,14 @@ class UppBuilder(Builder):
             # Handle mainconfig assignment when we're waiting for it
             elif current_section == 'mainconfig_waiting_assignment' and '""' in line and '=' in line:
                 # This line should contain the assignment like "   "" = "GUI MT";"
-                config_match = re.search(r'""\s*=\s*"([^"]*)"', line)
+                config_match = re.search(r'""\s*=\s*"([^"]*(?:\\.[^"]*)*)"', line)
                 if config_match:
                     package.mainconfig = config_match.group(1)
                     current_section = None  # Reset section
-                
+
             elif line == '}':
                 # End of multi-line section
-                if current_section == 'files':
-                    package.files.extend(current_value)
-                    current_value = []
-                elif current_section == 'uses':
+                if current_section == 'uses':
                     package.uses.extend(current_value)
                     current_value = []
                 elif current_section == 'flags':
@@ -178,29 +265,36 @@ class UppBuilder(Builder):
                     # Process mainconfig assignment from collected lines
                     current_value = []
                 current_section = None
-                
+
+            # Handle lines inside uses sections (when we're in a uses_multiline section)
+            elif current_section == 'uses_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag')):
+                # This line should contain a use dependency
+                # Look for dependency name followed by semicolon
+                uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)\s*;', line)
+                if uses_match:
+                    # Replace backslashes with forward slashes for consistency
+                    use_entry = uses_match.group(1).replace('\\', '/')
+                    package.uses.append(use_entry)
+                    current_section = None  # Done with this uses section
+                else:
+                    # Look for dependency name followed by comma (more dependencies coming)
+                    uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)\s*,', line)
+                    if uses_match:
+                        # Replace backslashes with forward slashes for consistency
+                        use_entry = uses_match.group(1).replace('\\', '/')
+                        package.uses.append(use_entry)
+
             elif line.endswith(',') and current_section:
                 # Continue multi-line values
-                if current_section == 'files':
-                    file_match = re.search(r'"([^"]*)"', line.rstrip(','))
-                    if file_match:
-                        current_value.append(file_match.group(1))
-                elif current_section == 'uses':
+                if current_section == 'uses':
                     # Handle uses with slash format like plugin/z
                     uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)', line.rstrip(','))
                     if uses_match:
                         current_value.append(uses_match.group(1))
-                        
+
             elif line.endswith(';') and current_section:
                 # Last item in multi-line section
-                if current_section == 'files':
-                    file_match = re.search(r'"([^"]*)"', line.rstrip(';'))
-                    if file_match:
-                        current_value.append(file_match.group(1))
-                        package.files.extend(current_value)
-                        current_value = []
-                        current_section = None
-                elif current_section == 'uses':
+                if current_section == 'uses':
                     # Handle uses with slash format like plugin/z
                     uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)', line.rstrip(';'))
                     if uses_match:
@@ -273,15 +367,44 @@ class UppBuilder(Builder):
                         defines.append("GUI_GTK")
 
         # Add -I flags for dependencies
+        repo_root = self._get_repo_root(package)
         for dep_name in package.uses:
-            # In a real implementation, this would find actual include paths
-            # For now, we'll add a placeholder
-            dep_include_path = os.path.join(method_config.config.target_dir, dep_name, "include")
-            if os.path.exists(dep_include_path):
-                includes.append(dep_include_path)
+            # Handle U++ style dependency paths like "ide/Builders" or "plugin/z"
+            # For "ide/Builders", the include path should be the uppsrc directory so that
+            # #include <ide/Builders/Builders.h> can find the file
+            dep_parts = dep_name.split('/')
+            if len(dep_parts) > 1:
+                # This is a hierarchical dependency like "ide/Builders"
+                # The include path should be the uppsrc directory to allow full path includes
+                if repo_root:
+                    uppsrc_path = os.path.join(repo_root, "uppsrc")
+                    if os.path.exists(uppsrc_path):
+                        includes.append(uppsrc_path)
+            else:
+                # This is a simple package name
+                if repo_root:
+                    dep_include_path = os.path.join(repo_root, "uppsrc", dep_name)
+                    if os.path.exists(dep_include_path):
+                        includes.append(dep_include_path)
+
+            # Also try the standard target directory approach as fallback
+            fallback_path = os.path.join(method_config.config.target_dir, dep_name, "include")
+            if os.path.exists(fallback_path) and fallback_path not in includes:
+                includes.append(fallback_path)
 
         # Format defines as -D flags
         define_flags = [f"-D{define}" for define in defines]
+
+        # Add build directory to includes so build_info.h can be found
+        # This should be the build directory for this specific package/method combination
+        build_dir = os.path.join(
+            method_config.config.target_dir,
+            method_config.name,
+            package.name
+        )
+        build_dir = os.path.abspath(build_dir)
+        if build_dir not in includes:
+            includes.append(build_dir)
 
         # Format includes as -I flags
         include_flags = [f"-I{inc}" for inc in includes]
@@ -291,8 +414,20 @@ class UppBuilder(Builder):
             'cxxflags': cxxflags + define_flags + include_flags,
             'ldflags': method_config.compiler.ldflags.copy()
         }
+
+    def _get_repo_root(self, package: UppPackage):
+        """Get the repository root from the package path."""
+        # Start from the package directory and look for the root
+        current_dir = os.path.dirname(os.path.dirname(package.dir))  # Go up from uppsrc/pkgname to uppsrc
+        while current_dir != os.path.dirname(current_dir):  # While not at filesystem root
+            # Check if this looks like a U++ repository root
+            if os.path.exists(os.path.join(current_dir, "uppsrc")):
+                return current_dir
+            current_dir = os.path.dirname(current_dir)
+        # If we can't find a typical U++ repo structure, return the current working directory
+        return os.getcwd()
     
-    def build_package(self, package: Union[Package, UppPackage], config: Optional[MethodConfig] = None) -> bool:
+    def build_package(self, package: Union[Package, UppPackage], config: Optional[MethodConfig] = None, verbose: bool = False) -> bool:
         """
         Build a single U++ package.
 
@@ -351,7 +486,12 @@ class UppBuilder(Builder):
             method_config.name,
             package.name
         )
+        # Convert to absolute path to ensure it's created in the right location
+        build_dir = os.path.abspath(build_dir)
         os.makedirs(build_dir, exist_ok=True)
+
+        # Generate build_info.h file if needed
+        self._generate_build_info_header(build_dir, package, method_config)
 
         # Get compiler flags
         flags = self.get_compiler_flags(package, method_config)
@@ -373,14 +513,23 @@ class UppBuilder(Builder):
                 obj_name = os.path.splitext(os.path.basename(source_file))[0] + ".o"
                 obj_path = os.path.join(build_dir, obj_name)
 
+                # Ensure the directory for the object file exists
+                obj_dir = os.path.dirname(obj_path)
+                os.makedirs(obj_dir, exist_ok=True)
+
                 # Determine which flags to use based on file type
                 if ext in ['.c']:
                     compile_flags = [compiler] + flags['cflags'] + ["-c", source_path, "-o", obj_path]
                 else:
                     compile_flags = [compiler] + flags['cxxflags'] + ["-c", source_path, "-o", obj_path]
 
+                # Show which file is being built and the command if verbose
+                print(f"Compiling: {source_file}")
+                if verbose:
+                    print(f"Command: {' '.join(compile_flags)}")
+
                 # Execute compilation
-                success = execute_command(compile_flags, cwd=package.dir)
+                success = execute_command(compile_flags, cwd=package.dir, verbose=verbose)
                 if not success:
                     print(f"[ERROR] Failed to compile {source_file} in package {package.name}")
                     return False
@@ -398,6 +547,32 @@ class UppBuilder(Builder):
             print(f"[INFO] Successfully built {target_path}")
 
         return success
+
+    def _generate_build_info_header(self, build_dir: str, package: Package, method_config: MethodConfig):
+        """Generate build_info.h with build metadata."""
+        import time
+        from datetime import datetime
+
+        build_info_path = os.path.join(build_dir, "build_info.h")
+
+        # Get current time
+        current_time = datetime.now()
+
+        # Create build_info.h content
+        content = f'''#define bmYEAR   {current_time.year}
+#define bmMONTH  {current_time.month}
+#define bmDAY    {current_time.day}
+#define bmHOUR   {current_time.hour}
+#define bmMINUTE {current_time.minute}
+#define bmSECOND {current_time.second}
+#define bmTIME   Time({current_time.year}, {current_time.month}, {current_time.day}, {current_time.hour}, {current_time.minute}, {current_time.second})
+#define bmMACHINE "{os.uname().nodename if hasattr(os, 'uname') else 'unknown'}"
+#define bmUSER    "{os.getenv("USER", os.getenv("USERNAME", "unknown"))}"
+'''
+
+        # Write the build_info.h file
+        with open(build_info_path, 'w', encoding='utf-8') as f:
+            f.write(content)
     
     def link(self, linkfiles: List[str], linkoptions: Dict[str, Any]) -> bool:
         """
