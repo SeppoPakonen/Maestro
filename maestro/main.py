@@ -135,6 +135,7 @@ def _resolve_help_command(argv):
         "ws": "wsession",
         "runba": "runbook",
         "rb": "runbook",
+        "tut": "tutorial",
     }
     return alias_map.get(raw, raw)
 
@@ -755,6 +756,10 @@ def main():
             # No subcommand provided - show help
             parser.print_help()
             sys.exit(0)
+
+    elif args.command == 'tutorial':
+        from maestro.commands.tutorial import handle_tutorial_command
+        handle_tutorial_command(args)
 
     else:
         # If no command is provided, show help

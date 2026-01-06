@@ -171,6 +171,7 @@ _COMMAND_SPECS = (
     ("tu", "maestro.commands.tu", "add_tu_parser", False),
     ("convert", "maestro.commands.convert", "add_convert_parser", False),
     ("ux", "maestro.commands.ux", "add_ux_parser", False),
+    ("tutorial", "maestro.commands.tutorial", "add_tutorial_parser", False),
 )
 
 
@@ -334,7 +335,8 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
         'wk': 'work',
         'ws': 'wsession',
         'runba': 'runbook',
-        'rb': 'runbook'
+        'rb': 'runbook',
+        'tut': 'tutorial',
     }
     if args.command in ('build', 'b'):
         setattr(args, "_deprecated_build_alias", True)
