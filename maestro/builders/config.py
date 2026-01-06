@@ -504,7 +504,43 @@ class MethodManager:
             created_methods.append("maven-default")
         
         return created_methods
-    
+
+    def detect_default_method(self) -> Optional[str]:
+        """Detect the best default build method based on available tools."""
+        detected_tools = self.detect_compilers()
+
+        # Prioritize methods based on common preferences
+        priority_order = [
+            ("gcc", "gcc-debug"),
+            ("clang", "clang-debug"),
+            ("msvc", "msvc-debug"),
+            ("cmake", "cmake-default"),
+            ("msbuild", "msbuild-default"),
+            ("maven", "maven-default")
+        ]
+
+        # Check for existing methods first
+        available_methods = self.get_available_methods()
+        for tool_key, method_name in priority_order:
+            if tool_key in detected_tools and method_name in available_methods:
+                return method_name
+
+        # If no pre-existing method found, try to create default methods
+        if not available_methods:
+            self.create_default_methods()
+            available_methods = self.get_available_methods()
+
+        # Try again with newly created methods
+        for tool_key, method_name in priority_order:
+            if tool_key in detected_tools and method_name in available_methods:
+                return method_name
+
+        # If still no method found, return the first available method
+        if available_methods:
+            return available_methods[0]
+
+        return None
+
     def load_method(self, name: str) -> Optional[MethodConfig]:
         """Load a method by name."""
         if not self._loaded:
