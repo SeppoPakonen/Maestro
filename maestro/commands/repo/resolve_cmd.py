@@ -98,7 +98,129 @@ def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = Fal
                     print_info(f"[{i:4d}] {pkg['name']:30s} {len(pkg['files']):4d} files  [{build_system}] {display_path}", 2)
 
 
-def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False, repo_root: str = None):
+def _find_package_by_name(pkg_name: str, all_packages: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Find a package by name using multiple strategies.
+
+    Args:
+        pkg_name: Name of package to find
+        all_packages: List of all packages in the repository
+
+    Returns:
+        Package dictionary if found, None otherwise
+    """
+    # Strategy 1: Exact name match
+    pkg_dict = next((p for p in all_packages if p['name'] == pkg_name), None)
+    if pkg_dict:
+        return pkg_dict
+
+    # Strategy 2: Path-based match (e.g., api/MidiFile matches uppsrc/api/MidiFile)
+    if '/' in pkg_name:
+        for p in all_packages:
+            if p.get('dir') and (p['dir'].endswith(pkg_name) or p['dir'].endswith('/' + pkg_name)):
+                return p
+
+    # Strategy 3: Basename match (extract last component)
+    if '/' in pkg_name:
+        basename = pkg_name.split('/')[-1]
+        pkg_dict = next((p for p in all_packages if p['name'] == basename), None)
+        if pkg_dict:
+            return pkg_dict
+
+    return None
+
+
+def _combine_conditions(cond1: str, cond2: str) -> str:
+    """
+    Combine two conditions with logical AND.
+
+    Args:
+        cond1: First condition
+        cond2: Second condition
+
+    Returns:
+        Combined condition string
+    """
+    if not cond1:
+        return cond2
+    if not cond2:
+        return cond1
+    # For simplicity, we'll just join with logical AND
+    # In a real implementation, you might want more sophisticated logic
+    return f"({cond1}) && ({cond2})"
+
+
+def _get_deep_dependencies(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]], visited: set = None, path: List[str] = None, inherited_condition: str = None):
+    """
+    Recursively get all dependencies for a package with dependency chain tracking.
+
+    Args:
+        pkg: Package dictionary
+        all_packages: List of all packages in the repository
+        visited: Set of already visited packages to avoid cycles
+        path: Current dependency path for tracking chain
+        inherited_condition: Condition inherited from parent dependency
+
+    Returns:
+        List of tuples (dependency_package, dependency_chain, condition)
+    """
+    if visited is None:
+        visited = set()
+    if path is None:
+        path = []
+
+    # Get package name to avoid cycles
+    pkg_name = pkg['name']
+
+    # If already visited, return empty list to avoid cycles
+    if pkg_name in visited:
+        return []
+
+    # Add to visited and path
+    visited.add(pkg_name)
+    path.append(pkg_name)
+
+    # Get dependencies from this package
+    deps_with_chain = []
+
+    # Get dependencies from .upp metadata if available
+    if pkg.get('upp') and pkg['upp'].get('uses'):
+        uses_list = pkg['upp']['uses']
+        for use in uses_list:
+            if isinstance(use, dict):
+                dep_name = use['package']
+                condition = use.get('condition')
+            else:
+                # Backward compatibility with old format
+                dep_name = use
+                condition = None
+
+            # Combine the current condition with the inherited condition
+            combined_condition = _combine_conditions(inherited_condition, condition)
+
+            # Find the dependency package in all packages using the same logic as pkg_tree
+            dep_pkg = _find_package_by_name(dep_name, all_packages)
+
+            if dep_pkg:
+                # Add this dependency with its chain
+                chain = list(path)  # Copy current path
+                deps_with_chain.append({
+                    'package': dep_pkg,
+                    'chain': chain,
+                    'condition': combined_condition
+                })
+
+                # Recursively get dependencies of this dependency with the combined condition
+                sub_deps = _get_deep_dependencies(dep_pkg, all_packages, set(visited), list(path), combined_condition)
+                deps_with_chain.extend(sub_deps)
+
+    # Remove current package from path when returning
+    path.pop()
+
+    return deps_with_chain
+
+
+def handle_repo_pkg_info(pkg: Dict[str, Any], all_packages: List[Dict[str, Any]] = None, json_output: bool = False, repo_root: str = None):
     """Show detailed information about a package (U++ or internal)."""
     pkg_type = pkg.get('_type', 'upp')
 
@@ -153,9 +275,44 @@ def handle_repo_pkg_info(pkg: Dict[str, Any], json_output: bool = False, repo_ro
             if upp.get('uses'):
                 print_info(f"Dependencies ({len(upp['uses'])}):", 2)
                 for dep in upp['uses'][:10]:
-                    print_info(f"  - {dep}", 2)
+                    if isinstance(dep, dict):
+                        dep_str = f"{dep['package']}"
+                        if dep.get('condition'):
+                            dep_str += f" (condition: {dep['condition']})"
+                        print_info(f"  - {dep_str}", 2)
+                    else:
+                        print_info(f"  - {dep}", 2)
                 if len(upp['uses']) > 10:
                     print_info(f"  ... and {len(upp['uses']) - 10} more", 2)
+
+            # Show deep dependencies if all_packages is provided
+            if all_packages:
+                deep_deps = _get_deep_dependencies(pkg, all_packages)
+
+                # Remove duplicates while preserving order
+                seen_deps = set()
+                unique_deep_deps = []
+                for dep_info in deep_deps:
+                    dep_name = dep_info['package']['name']
+                    if dep_name not in seen_deps:
+                        seen_deps.add(dep_name)
+                        unique_deep_deps.append(dep_info)
+
+                if unique_deep_deps:
+                    print_info(f"\nDeep dependencies ({len(unique_deep_deps)} total):", 2)
+                    for dep_info in unique_deep_deps[:20]:  # Limit display to first 20
+                        dep_pkg = dep_info['package']
+                        dep_chain = dep_info['chain']
+                        condition = dep_info.get('condition')
+
+                        chain_str = " -> ".join(dep_chain)
+                        if condition:
+                            print_info(f"  - {dep_pkg['name']} (condition: {condition}) [via: {chain_str}]", 2)
+                        else:
+                            print_info(f"  - {dep_pkg['name']} [via: {chain_str}]", 2)
+
+                    if len(unique_deep_deps) > 20:
+                        print_info(f"  ... and {len(unique_deep_deps) - 20} more", 2)
 
             if upp.get('acceptflags'):
                 print_info(f"Accept flags: {', '.join(upp['acceptflags'])}", 2)

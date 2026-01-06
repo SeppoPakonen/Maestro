@@ -15,6 +15,7 @@ def handle_asm_command(args):
     Subcommands:
     - list: List all assemblies
     - show: Show details for specific assembly
+    - conf: Handle assembly configurations
     - help: Show help
     """
     repo_path = args.path if hasattr(args, 'path') and args.path else None
@@ -28,6 +29,10 @@ def handle_asm_command(args):
         else:
             print_error("Assembly ID or name required for 'show' command", 2)
             show_asm_help()
+    elif args.asm_subcommand == 'conf':
+        # Import assembly config commands here to avoid circular imports
+        from maestro.repo.assembly_config_commands import handle_asm_conf_command
+        handle_asm_conf_command(args)
     elif args.asm_subcommand in ['help', 'h']:
         show_asm_help()
     else:

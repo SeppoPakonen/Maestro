@@ -55,9 +55,14 @@ from maestro.commands.repo import (
     handle_repo_profile_show,
     handle_repo_profile_init,
     # Evidence handlers
-    handle_repo_evidence_pack,
     handle_repo_evidence_list,
     handle_repo_evidence_show,
+)
+
+from maestro.repo import (
+    handle_asm_conf_command,
+    # Evidence handlers
+    handle_repo_evidence_pack,
 )
 
 __all__ = [
@@ -91,6 +96,8 @@ __all__ = [
     'handle_repo_rules_show',
     'handle_repo_rules_edit',
     'handle_repo_rules_inject',
+    # Assembly configuration handlers
+    'handle_asm_conf_command',
     # Profile handlers
     'handle_repo_profile_show',
     'handle_repo_profile_init',

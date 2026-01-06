@@ -43,6 +43,11 @@ from .resolve_cmd import (
     handle_repo_rules_inject,
 )
 
+# Export assembly configuration handlers
+from maestro.repo.assembly_config_commands import (
+    handle_asm_conf_command,
+)
+
 # Export profile handlers
 from .profile_cmd import (
     handle_repo_profile_show,
@@ -87,6 +92,8 @@ __all__ = [
     'handle_repo_rules_show',
     'handle_repo_rules_edit',
     'handle_repo_rules_inject',
+    # Assembly configuration handlers
+    'handle_asm_conf_command',
     # Profile handlers
     'handle_repo_profile_show',
     'handle_repo_profile_init',

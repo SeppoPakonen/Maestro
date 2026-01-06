@@ -261,13 +261,14 @@ def handle_repo_command(args):
                 # List all packages
                 handle_repo_pkg_list(packages, getattr(args, 'json', False), repo_root)
             else:
-                # Find matching package (partial match)
-                matching_pkgs = [p for p in packages if pkg_name.lower() in p.get('name', '').lower()]
+                # Find matching package (exact match including case)
+                matching_pkgs = [p for p in packages if pkg_name == p.get('name', '')]
 
                 if not matching_pkgs:
                     print_error(f"No package found matching: {pkg_name}", 2)
                     sys.exit(1)
                 elif len(matching_pkgs) > 1:
+                    # This case should not occur with exact matching, but included for safety
                     print_warning(f"Multiple packages match '{pkg_name}':", 2)
                     for p in matching_pkgs:
                         print(f"  - {p.get('name')}")
@@ -278,7 +279,7 @@ def handle_repo_command(args):
 
                 # Dispatch to appropriate handler
                 if action == 'info':
-                    handle_repo_pkg_info(pkg, getattr(args, 'json', False), repo_root)
+                    handle_repo_pkg_info(pkg, packages, getattr(args, 'json', False), repo_root)
                 elif action == 'list':
                     handle_repo_pkg_files(pkg, getattr(args, 'json', False))
                 elif action == 'groups':
