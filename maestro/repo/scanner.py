@@ -115,6 +115,9 @@ def detect_upp_assemblies(
         except ValueError:
             continue
         parent_dir = pkg_path.parent
+        # Skip repo root itself as an assembly root
+        if parent_dir == repo_root_resolved:
+            continue
         if _is_ignored_path(parent_dir, repo_root_resolved, ignore_dirs):
             continue
         assemblies_by_root.setdefault(parent_dir, []).append(pkg)
