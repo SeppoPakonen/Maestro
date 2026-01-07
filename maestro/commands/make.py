@@ -479,19 +479,20 @@ class MakeCommand:
                 ])
 
                 # Set up linking flags for executable
-                output_executable_path = os.path.join(home_dir, "hw2")  # Target override from umk command
+                output_executable_path = os.path.join(home_dir, "HelloWorldStd")  # Target override from umk command
+                # The object file is in the target_flags_dir directly (not in subdirectory)
+                obj_file_path = os.path.join(target_flags_dir, "HelloWorld.o")  # Source file is HelloWorld.cpp -> HelloWorld.o
                 ldflags = [
                     "-static", "-o", output_executable_path, "-ggdb",
-                    "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64"
+                    "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64",
+                    obj_file_path, "-Wl,--start-group", "-Wl,--end-group"
                 ]
 
                 # Add dependency libraries if they exist
                 dep_lib_path = os.path.join(home_dir, ".cache", "upp.out", "HelloWorld2", "CLANG.Debug.Debug_Full.Main.Noblitz", "HelloWorld2.a")
                 if os.path.exists(dep_lib_path):
-                    ldflags.extend(["-Wl,--start-group", dep_lib_path, "-Wl,--end-group"])
-                else:
-                    # If no dependencies, just add the end-group
-                    ldflags.extend(["-Wl,--start-group", "-Wl,--end-group"])
+                    # Insert the dependency library between start-group and end-group
+                    ldflags.insert(-1, dep_lib_path)  # Insert before the final "-Wl,--end-group"
 
                 method_config.compiler.ldflags = ldflags
                 method_config.name = f"{method_config.name}-exe"

@@ -546,17 +546,19 @@ class UppBuilder(Builder):
         target_name = f"{package.name}{target_ext}"
         target_path = os.path.join(build_dir, target_name)
 
-        if target_ext in [".a", ".lib"]:
-            # Create a static library
-            print("Creating library...")
-            link_args = ["ar", "-sr", target_path] + obj_files
+        # Check if this is an executable build (no extension on Unix, .exe on Windows)
+        is_executable = (target_ext == "" and self.host.platform != "windows") or target_ext == ".exe"
+
+        if is_executable:
+            # This is an executable build - link directly using the ldflags from make command
+            print("Linking...")
+            # Use the ldflags that were set up in the make command (they should contain the full linking command)
+            link_args = [compiler] + flags['ldflags']
             success = execute_command(link_args, cwd=build_dir, verbose=verbose)
         else:
-            # Link an executable - match umk format
-            print("Linking...")
-            # Use the ldflags that were set up in the make command
-            link_args = [compiler] + obj_files + flags['ldflags']
-            # The -o flag and path should already be in ldflags from our injection
+            # Create a static library (non-executable)
+            print("Creating library...")
+            link_args = ["ar", "-sr", target_path] + obj_files
             success = execute_command(link_args, cwd=build_dir, verbose=verbose)
 
         if success:
