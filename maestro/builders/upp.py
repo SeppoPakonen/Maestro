@@ -666,6 +666,7 @@ class UppBuilder(Builder):
         # Compile each source file
         obj_files = []
         source_extensions = ['.cpp', '.c', '.cxx', '.cc', '.rc']
+        last_file_time = 0.0
 
         for idx, source_file in enumerate(package.files):
             source_path = os.path.join(package.dir, source_file)
@@ -673,12 +674,13 @@ class UppBuilder(Builder):
             # Check if it's a source file
             _, ext = os.path.splitext(source_file.lower())
             if ext in source_extensions:
+                # Print "compiled in" like umk
+                m, s = divmod(last_file_time, 60)
+                print(f"compiled in ({int(m)}:{s:05.2f})")
+                print(source_file)
+                
                 file_start_time = time.time()
                 
-                # Print "compiled in" like umk (matches previous file or first one)
-                print(f"compiled in (0:00.{idx:02d})")
-                print(source_file)
-
                 # Generate object file path
                 obj_ext = ".obj" if is_msc else ".o"
                 if ext == '.rc' and is_msc:
@@ -735,6 +737,7 @@ class UppBuilder(Builder):
                     print(f"[ERROR] Failed to compile {source_file} in package {package.name}")
                     return False
 
+                last_file_time = time.time() - file_start_time
                 obj_files.append(obj_path)
             
         elapsed = time.time() - start_time
