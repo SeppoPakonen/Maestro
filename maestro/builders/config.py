@@ -11,6 +11,48 @@ from typing import Dict, List, Optional, Union, Any
 from enum import Enum
 
 
+def load_var_file(file_path: str) -> Dict[str, str]:
+    """
+    Load a .bm (build method) file similar to U++'s LoadVarFile function.
+
+    Args:
+        file_path: Path to the .bm file to load
+
+    Returns:
+        Dictionary containing key-value pairs from the file
+    """
+    variables = {}
+
+    if not os.path.exists(file_path):
+        return variables
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue  # Skip empty lines and comments
+
+            # Look for assignment pattern: KEY = "value";
+            if '=' in line and line.endswith(';'):
+                # Split on the first '=' to handle values that might contain '='
+                key, value_part = line.split('=', 1)
+                key = key.strip()
+
+                # Extract value between quotes
+                value_part = value_part.strip()[:-1]  # Remove trailing semicolon
+                value_part = value_part.strip()
+
+                # Handle quoted values
+                if value_part.startswith('"') and value_part.endswith('"'):
+                    value = value_part[1:-1]  # Remove surrounding quotes
+                else:
+                    value = value_part  # Use as-is if not quoted
+
+                variables[key] = value
+
+    return variables
+
+
 class BuildType(str, Enum):
     DEBUG = "Debug"
     RELEASE = "Release"
@@ -557,7 +599,191 @@ class MethodManager:
             if config:
                 return self._resolve_inheritance(config)
 
+        # Try to load U++ .bm files if not found in standard locations
+        config = self._load_upp_build_method(name)
+        if config:
+            return config
+
         return None
+
+    def _load_upp_build_method(self, name: str) -> Optional[MethodConfig]:
+        """Load U++ build method from .bm file."""
+        # Check for U++ build method files in standard locations
+        upp_config_dirs = [
+            Path.home() / ".config" / "u++" / "theide",
+            Path.home() / ".config" / "upp" / "theide",
+            Path("/usr/local/share/upp/theide"),
+            Path("/usr/share/upp/theide")
+        ]
+
+        for config_dir in upp_config_dirs:
+            bm_file = config_dir / f"{name}.bm"
+            if bm_file.exists():
+                return self._parse_bm_file_to_method_config(bm_file, name)
+
+        return None
+
+    def _parse_bm_file_to_method_config(self, bm_file: Path, method_name: str) -> Optional[MethodConfig]:
+        """Parse a .bm file to create a MethodConfig."""
+        try:
+            variables = load_var_file(str(bm_file))
+
+            # Determine compiler paths from PATH variable in .bm file
+            compiler_cc = ""
+            compiler_cxx = ""
+
+            # Get compiler from .bm file
+            if "COMPILER" in variables:
+                compiler_cxx = variables["COMPILER"]
+                # For C compiler, typically use same but replace ++ with nothing or use cc
+                compiler_cc = variables["COMPILER"].replace("++", "")
+
+            # Parse PATH from .bm file to find actual compiler executable
+            if "PATH" in variables:
+                paths = variables["PATH"].split(';')
+                for path_dir in paths:
+                    path_dir = path_dir.strip()
+                    if path_dir:
+                        # Look for compiler in specified paths
+                        cxx_path = Path(path_dir) / compiler_cxx
+                        cc_path = Path(path_dir) / compiler_cc
+
+                        if cxx_path.exists() and os.access(cxx_path, os.X_OK):
+                            compiler_cxx = str(cxx_path)
+                        if cc_path.exists() and os.access(cc_path, os.X_OK):
+                            compiler_cc = str(cc_path)
+
+            # Fallback: try to find compiler in system PATH
+            if not compiler_cxx or not os.path.exists(compiler_cxx):
+                compiler_cxx = self._find_executable(variables.get("COMPILER", "clang++"))
+            if not compiler_cc or not os.path.exists(compiler_cc):
+                compiler_cc = self._find_executable(compiler_cc or "clang")
+
+            # Build flags based on .bm file content
+            cxxflags = []
+            cflags = []
+            ldflags = []
+            includes = []
+            defines = []
+
+            # Add common C++ options
+            if "COMMON_CPP_OPTIONS" in variables:
+                cxxflags.extend(variables["COMMON_CPP_OPTIONS"].split())
+
+            # Add debug options if this is a debug method
+            if "DEBUG" in method_name.upper() or "DEBUG" in variables:
+                if "DEBUG_OPTIONS" in variables:
+                    cxxflags.extend(variables["DEBUG_OPTIONS"].split())
+                if "DEBUG_FLAGS" in variables:
+                    cxxflags.extend(variables["DEBUG_FLAGS"].split())
+                if "DEBUG_INFO" in variables:
+                    debug_info = variables["DEBUG_INFO"]
+                    if debug_info == "2":
+                        cxxflags.extend(["-ggdb", "-g2"])
+                    elif debug_info == "1":
+                        cxxflags.append("-g")
+
+                # Add debug defines
+                defines.extend(["_DEBUG", "DEBUG"])
+
+            # Add release options if this is a release method
+            if "RELEASE" in method_name.upper() or "RELEASE" in variables:
+                if "RELEASE_OPTIONS" in variables:
+                    cxxflags.extend(variables["RELEASE_OPTIONS"].split())
+                if "RELEASE_FLAGS" in variables:
+                    cxxflags.extend(variables["RELEASE_FLAGS"].split())
+
+            # Add common options
+            if "COMMON_OPTIONS" in variables:
+                cxxflags.extend(variables["COMMON_OPTIONS"].split())
+                cflags.extend(variables["COMMON_OPTIONS"].split())
+
+            # Add common flags
+            if "COMMON_FLAGS" in variables:
+                cxxflags.extend(variables["COMMON_FLAGS"].split())
+                cflags.extend(variables["COMMON_FLAGS"].split())
+
+            # Add includes from .bm file
+            if "INCLUDE" in variables:
+                include_paths = variables["INCLUDE"].split(';')
+                for inc_path in include_paths:
+                    inc_path = inc_path.strip()
+                    if inc_path:
+                        includes.append(inc_path)
+
+            # Add library paths to linker flags
+            if "LIB" in variables:
+                lib_paths = variables["LIB"].split(';')
+                for lib_path in lib_paths:
+                    lib_path = lib_path.strip()
+                    if lib_path:
+                        ldflags.extend(["-L" + lib_path])
+
+            # Add common linker options
+            if "COMMON_LINK" in variables:
+                ldflags.extend(variables["COMMON_LINK"].split())
+
+            # Add debug linker options
+            if "DEBUG" in method_name.upper() and "DEBUG_LINK" in variables:
+                ldflags.extend(variables["DEBUG_LINK"].split())
+
+            # Add release linker options
+            if "RELEASE" in method_name.upper() and "RELEASE_LINK" in variables:
+                ldflags.extend(variables["RELEASE_LINK"].split())
+
+            # Add defines based on BUILDER name
+            if "BUILDER" in variables:
+                builder_name = variables["BUILDER"]
+                defines.append(f"flag{builder_name.upper()}")
+
+            # Add debug/release defines
+            if "DEBUG" in method_name.upper():
+                defines.extend(["flagDEBUG", "flagDEBUG_FULL"])
+            if "RELEASE" in method_name.upper():
+                defines.append("flagRELEASE")
+
+            # Add platform defines
+            current_os = platform.system().lower()
+            defines.append(f"flag{current_os.upper()}")
+            if current_os == "linux":
+                defines.extend(["flagPOSIX", "flagLINUX"])
+            elif current_os == "darwin":
+                defines.extend(["flagPOSIX", "flagMACOS"])
+            elif current_os == "windows":
+                defines.append("flagWINDOWS")
+
+            # Create MethodConfig from parsed data
+            config = MethodConfig(
+                name=method_name,
+                builder="upp",  # Use U++ builder for .bm methods
+                compiler=CompilerConfig(
+                    cc=compiler_cc,
+                    cxx=compiler_cxx,
+                    cflags=cflags,
+                    cxxflags=cxxflags,
+                    ldflags=ldflags,
+                    defines=defines,
+                    includes=includes
+                ),
+                config=BuildConfig(
+                    build_type=BuildType.DEBUG if "DEBUG" in method_name.upper() else BuildType.RELEASE,
+                    parallel=True,
+                    jobs=os.cpu_count() or 4,
+                    verbose=False
+                ),
+                platform=PlatformConfig(
+                    os=OSFamily(current_os),
+                    arch=platform.machine().lower()
+                )
+            )
+
+            # Cache the config
+            self._methods[method_name] = config
+            return config
+
+        except Exception as e:
+            print(f"Error parsing .bm file {bm_file}: {e}", file=sys.stderr)
+            return None
     
     def _load_method_from_file(self, file_path: Path) -> Optional[MethodConfig]:
         """Load a method configuration from a TOML file."""

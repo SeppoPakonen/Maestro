@@ -499,6 +499,9 @@ class UppBuilder(Builder):
         # Determine which compiler to use based on config
         compiler = method_config.compiler.cxx or method_config.compiler.cc
 
+        # Print package build header similar to umk
+        print(f"cd {package.dir}")
+
         # Compile each source file
         obj_files = []
         source_extensions = ['.cpp', '.c', '.cxx', '.cc']
@@ -509,6 +512,9 @@ class UppBuilder(Builder):
             # Check if it's a source file
             _, ext = os.path.splitext(source_file.lower())
             if ext in source_extensions:
+                # Print the file being compiled (like umk does)
+                print(source_file)
+
                 # Generate object file path
                 obj_name = os.path.splitext(os.path.basename(source_file))[0] + ".o"
                 obj_path = os.path.join(build_dir, obj_name)
@@ -524,7 +530,6 @@ class UppBuilder(Builder):
                     compile_flags = [compiler] + flags['cxxflags'] + ["-c", source_path, "-o", obj_path]
 
                 # Show which file is being built and the command if verbose
-                print(f"Compiling: {source_file}")
                 if verbose:
                     print(f"Command: {' '.join(compile_flags)}")
 
@@ -543,18 +548,15 @@ class UppBuilder(Builder):
 
         if target_ext in [".a", ".lib"]:
             # Create a static library
-            if verbose:
-                print(f"Creating library: {target_name}")
+            print("Creating library...")
             link_args = ["ar", "-sr", target_path] + obj_files
             success = execute_command(link_args, cwd=build_dir, verbose=verbose)
         else:
-            # Link an executable
-            if verbose:
-                print(f"Linking executable: {target_name}")
+            # Link an executable - match umk format
+            print("Linking...")
+            # Use the ldflags that were set up in the make command
             link_args = [compiler] + obj_files + flags['ldflags']
-            # The -o flag and path might already be in ldflags from our injection
-            if "-o" not in link_args:
-                link_args.extend(["-o", target_path])
+            # The -o flag and path should already be in ldflags from our injection
             success = execute_command(link_args, cwd=build_dir, verbose=verbose)
 
         if success:
