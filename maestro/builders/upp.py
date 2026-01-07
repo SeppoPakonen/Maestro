@@ -818,7 +818,15 @@ class UppBuilder(Builder):
             import shutil
             try:
                 # Safety check: ensure we're not deleting something dangerous
-                if ".cache/upp.out" in build_dir or ".maestro/build" in build_dir:
+                # Use normpath to handle slash differences
+                norm_build_dir = os.path.normpath(build_dir)
+                is_safe = (
+                    os.path.join(".cache", "upp.out") in norm_build_dir or 
+                    os.path.join(".maestro", "build") in norm_build_dir or
+                    "upp.out" in norm_build_dir
+                )
+                
+                if is_safe:
                     shutil.rmtree(build_dir)
                     print(f"[INFO] Cleaned build directory for package {package.name}: {build_dir}")
                     return True
