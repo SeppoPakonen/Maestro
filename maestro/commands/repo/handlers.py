@@ -429,6 +429,31 @@ def handle_repo_command(args):
                     sys.exit(1)
 
                 if entity == "target":
+                    from maestro.repo.assembly_config_commands import load_asm_configs
+                    
+                    asm_configs = load_asm_configs(repo_root)
+                    selected_asm = asm_configs.get("selected")
+                    
+                    if not selected_asm:
+                        print_error("No assembly configuration selected. Please select an assembly first.", 2)
+                        print_info("Use 'maestro repo asm conf select <name>'", 2)
+                        sys.exit(1)
+                        
+                    # Check if target exists in selected assembly
+                    asm_config = asm_configs["configurations"][selected_asm]
+                    roots = asm_config.get("roots", [])
+                    found = False
+                    for root in roots:
+                        abs_root = os.path.normpath(os.path.join(repo_root, root)) if not os.path.isabs(root) else root
+                        if os.path.exists(os.path.join(abs_root, value)):
+                            found = True
+                            break
+                    
+                    if not found:
+                        print_error(f"Package '{value}' not found in the active assembly '{selected_asm}'.", 2)
+                        print_info(f"Assembly roots: {', '.join(roots)}", 2)
+                        sys.exit(1)
+
                     repoconf = {
                         "selected_target": value,
                         "targets": [value],
