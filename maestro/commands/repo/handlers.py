@@ -32,7 +32,7 @@ from maestro.git_guard import check_branch_guard
 from maestro.commands.repo.utils import find_repo_root, write_repo_artifacts, load_repo_index
 from maestro.commands.repo.profile_cmd import handle_repo_profile_show, handle_repo_profile_init
 from maestro.commands.repo.evidence_cmd import handle_repo_evidence_pack, handle_repo_evidence_list, handle_repo_evidence_show
-from maestro.repo.storage import save_repo_model, load_repo_model, repo_model_path, load_repoconf, save_repoconf
+from maestro.repo.storage import write_repo_model, load_repo_model, repo_model_path, load_repoconf, save_repoconf
 from maestro.builders.host import Host, LocalHost
 from maestro.builders.upp import UppPackage
 
