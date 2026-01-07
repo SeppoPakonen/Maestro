@@ -473,11 +473,15 @@ def handle_repo_command(args):
             if hier_sub == 'edit':
                 handle_repo_hier_edit(repo_root)
             else:
-                # Default to show
+                # For 'show' subcommand or default behavior
+                # Get packages from args - they could be in different places depending on command structure
+                packages = getattr(args, 'packages', []) if hasattr(args, 'packages') else []
+
                 handle_repo_hier(repo_root,
                                getattr(args, 'json', False),
                                getattr(args, 'show_files', False),
-                               getattr(args, 'rebuild', False))
+                               getattr(args, 'rebuild', False),
+                               packages)
 
         elif args.repo_subcommand == 'conventions':
             conv_sub = getattr(args, 'conventions_subcommand', None)

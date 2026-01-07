@@ -708,3 +708,179 @@ def print_hierarchy_tree(hierarchy: Dict[str, Any], show_files: bool = False):
 
                     print(f"{group_indent}{group_prefix}{Colors.YELLOW}{group['name']}{Colors.RESET} "
                           f"{Colors.DIM}({group['file_count']} files){Colors.RESET}")
+
+
+def build_dependency_hierarchy(starting_packages: List[str], all_packages: List[Dict[str, Any]], config_flags: List[str] = None) -> Dict[str, Any]:
+    """
+    Build dependency hierarchy starting from specified packages.
+
+    Args:
+        starting_packages: List of package names to start dependency tracing from
+        all_packages: List of all packages in the repository
+        config_flags: List of configuration flags to filter conditional dependencies
+
+    Returns:
+        Dictionary representing dependency hierarchy
+    """
+    def _find_package_by_name(pkg_name: str) -> Optional[Dict[str, Any]]:
+        """Find a package by name."""
+        pkg_dict = next((p for p in all_packages if p['name'] == pkg_name), None)
+        if pkg_dict:
+            return pkg_dict
+
+        # Strategy 2: Path-based match (e.g., api/MidiFile matches uppsrc/api/MidiFile)
+        if '/' in pkg_name:
+            for p in all_packages:
+                if p.get('dir') and (p['dir'].endswith(pkg_name) or p['dir'].endswith('/' + pkg_name)):
+                    return p
+
+        # Strategy 3: Basename match (extract last component)
+        if '/' in pkg_name:
+            basename = pkg_name.split('/')[-1]
+            pkg_dict = next((p for p in all_packages if p['name'] == basename), None)
+            if pkg_dict:
+                return pkg_dict
+
+        return None
+
+    def _combine_conditions(cond1: str, cond2: str) -> str:
+        """Combine two conditions with logical AND."""
+        if not cond1:
+            return cond2
+        if not cond2:
+            return cond1
+        # For simplicity, we'll just join with logical AND
+        # In a real implementation, you might want more sophisticated logic
+        return f"({cond1}) && ({cond2})"
+
+    def _get_deep_dependencies(pkg: Dict[str, Any], visited: set = None, path: List[str] = None, inherited_condition: str = None):
+        """
+        Recursively get all dependencies for a package with dependency chain tracking.
+        """
+        if visited is None:
+            visited = set()
+        if path is None:
+            path = []
+
+        # Get package name to avoid cycles
+        pkg_name = pkg['name']
+
+        # If already visited, return empty list to avoid cycles
+        if pkg_name in visited:
+            return []
+
+        # Add to visited and path
+        visited.add(pkg_name)
+        path.append(pkg_name)
+
+        # Get dependencies from this package
+        deps_with_chain = []
+
+        # Get dependencies from .upp metadata if available
+        if pkg.get('upp') and pkg['upp'].get('uses'):
+            uses_list = pkg['upp']['uses']
+            for use in uses_list:
+                if isinstance(use, dict):
+                    dep_name = use['package']
+                    condition = use.get('condition')
+                else:
+                    # Backward compatibility with old format
+                    dep_name = use
+                    condition = None
+
+                # Combine the current condition with the inherited condition
+                combined_condition = _combine_conditions(inherited_condition, condition)
+
+                # Find the dependency package
+                dep_pkg = _find_package_by_name(dep_name)
+
+                if dep_pkg:
+                    # Add this dependency with its chain
+                    chain = list(path)  # Copy current path
+                    deps_with_chain.append({
+                        'package': dep_pkg,
+                        'chain': chain,
+                        'condition': combined_condition
+                    })
+
+                    # Recursively get dependencies of this dependency with the combined condition
+                    sub_deps = _get_deep_dependencies(dep_pkg, set(visited), list(path), combined_condition)
+                    deps_with_chain.extend(sub_deps)
+
+        # Remove current package from path when returning
+        path.pop()
+
+        return deps_with_chain
+
+    # Build the dependency hierarchy
+    hierarchy = {
+        'starting_packages': starting_packages,
+        'dependencies': {},
+        'metadata': {
+            'total_starting_packages': len(starting_packages),
+            'total_dependencies_traced': 0
+        }
+    }
+
+    # Process each starting package
+    for pkg_name in starting_packages:
+        pkg = _find_package_by_name(pkg_name)
+        if pkg:
+            # Get all deep dependencies for this package
+            deep_deps = _get_deep_dependencies(pkg)
+
+            # Remove duplicates while preserving order and conditions
+            seen_deps = set()
+            unique_deep_deps = []
+            for dep_info in deep_deps:
+                dep_name = dep_info['package']['name']
+                # Create a unique key that includes the condition
+                unique_key = (dep_name, dep_info.get('condition', ''))
+                if unique_key not in seen_deps:
+                    seen_deps.add(unique_key)
+                    unique_deep_deps.append(dep_info)
+
+            # Store dependencies for this starting package
+            hierarchy['dependencies'][pkg_name] = {
+                'package_info': pkg,
+                'dependencies': unique_deep_deps,
+                'dependency_count': len(unique_deep_deps)
+            }
+
+            hierarchy['metadata']['total_dependencies_traced'] += len(unique_deep_deps)
+
+    return hierarchy
+
+
+def print_dependency_hierarchy(hierarchy: Dict[str, Any], show_conditions: bool = True):
+    """
+    Print dependency hierarchy in tree view with colors.
+
+    Args:
+        hierarchy: Dependency hierarchy dictionary
+        show_conditions: Whether to show dependency conditions
+    """
+    starting_pkgs = hierarchy['starting_packages']
+
+    print(f"\n{Colors.GREEN}📦 DEPENDENCY HIERARCHY{Colors.RESET}")
+    print(f"   {Colors.DIM}Starting packages: {', '.join(starting_pkgs)}{Colors.RESET}")
+    print(f"   {Colors.DIM}Total dependencies traced: {hierarchy['metadata']['total_dependencies_traced']}{Colors.RESET}\n")
+
+    for pkg_name, pkg_data in hierarchy['dependencies'].items():
+        print(f"{Colors.BLUE}🏗️  {pkg_name}{Colors.RESET} {Colors.DIM}({pkg_data['dependency_count']} dependencies){Colors.RESET}")
+
+        for i, dep_info in enumerate(pkg_data['dependencies']):
+            dep_pkg = dep_info['package']
+            dep_chain = dep_info['chain']
+            condition = dep_info.get('condition')
+
+            is_last = (i == len(pkg_data['dependencies']) - 1)
+            prefix = "└── " if is_last else "├── "
+
+            chain_str = " -> ".join(dep_chain)
+            if show_conditions and condition:
+                print(f"{prefix}{Colors.CYAN}📄 {dep_pkg['name']}{Colors.RESET} {Colors.DIM}[condition: {condition}]{Colors.RESET}")
+                print(f"    {Colors.DIM}via: {chain_str}{Colors.RESET}")
+            else:
+                print(f"{prefix}{Colors.CYAN}📄 {dep_pkg['name']}{Colors.RESET}")
+                print(f"    {Colors.DIM}via: {chain_str}{Colors.RESET}")

@@ -30,6 +30,18 @@ from maestro.modules.utils import (
 from maestro.repo.build_config import get_package_config
 from maestro.repo.upp_conditions import match_when
 from maestro.repo.pathnorm import display_repo_path, normalize_path_to_posix
+from maestro.repo.storage import repo_model_path
+from maestro.repo.package import FileGroup, PackageInfo
+from maestro.commands.repo.utils import (
+    build_repo_hierarchy,
+    build_dependency_hierarchy,
+    save_hierarchy,
+    load_hierarchy,
+    load_hierarchy_overrides,
+    merge_hierarchy_overrides,
+    print_hierarchy_tree,
+    print_dependency_hierarchy
+)
 
 def handle_repo_pkg_list(packages: List[Dict[str, Any]], json_output: bool = False, repo_root: str = None):
     """List all packages in the repository (U++ and internal)."""
@@ -908,7 +920,7 @@ def handle_repo_hier_edit(repo_root: str):
         sys.exit(1)
 
 
-def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool = False, rebuild: bool = False):
+def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool = False, rebuild: bool = False, packages: List[str] = None):
     """
     Show AI-analyzed repository hierarchy.
 
@@ -917,18 +929,14 @@ def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool
         json_output: Output in JSON format
         show_files: Show file groups in tree view
         rebuild: Force rebuild of hierarchy from scan data
+        packages: Optional list of packages to show dependency hierarchy for
     """
     # Import needed types locally
     from maestro.repo.scanner import AssemblyInfo, RepoScanResult
+    from maestro.repo.storage import load_repoconf
 
-    # Try to load existing hierarchy unless rebuild requested
-    hierarchy = None
-    if not rebuild:
-        hierarchy = load_hierarchy(repo_root)
-
-    # If no hierarchy exists or rebuild requested, generate it
-    if hierarchy is None:
-        # Load repo scan results
+    if packages:
+        # If specific packages are provided, show dependency hierarchy
         model_path = repo_model_path(repo_root, require=True)
         try:
             with open(model_path, 'r', encoding='utf-8') as f:
@@ -937,63 +945,118 @@ def handle_repo_hier(repo_root: str, json_output: bool = False, show_files: bool
             print_error(f"Failed to read repository model: {e}", 2)
             sys.exit(1)
 
-        # Reconstruct RepoScanResult from index data
-        packages = []
-        for pkg_data in index_data.get('packages_detected', []):
-            # Reconstruct FileGroup objects
-            groups = []
-            for group_data in pkg_data.get('groups', []):
-                groups.append(FileGroup(
-                    name=group_data.get('name', ''),
-                    files=group_data.get('files', []),
-                    readonly=group_data.get('readonly', False),
-                    auto_generated=group_data.get('auto_generated', False)
-                ))
+        # Convert packages_detected to dictionaries for compatibility
+        all_packages = index_data.get('packages_detected', [])
 
-            packages.append(PackageInfo(
-                name=pkg_data.get('name', ''),
-                dir=pkg_data.get('dir', ''),
-                upp_path=pkg_data.get('upp_path', ''),
-                files=pkg_data.get('files', []),
-                build_system=pkg_data.get('build_system', 'upp'),
-                groups=groups,
-                ungrouped_files=pkg_data.get('ungrouped_files', [])
-            ))
+        # Build and show dependency hierarchy
+        dep_hierarchy = build_dependency_hierarchy(packages, all_packages)
 
-        assemblies = []
-        for asm_data in index_data.get('assemblies_detected', []):
-            assemblies.append(AssemblyInfo(
-                name=asm_data.get('name', ''),
-                root_path=asm_data.get('root_path', ''),
-                package_folders=asm_data.get('package_folders', []),
-                assembly_type=asm_data.get('assembly_type', 'upp')
-            ))
-
-        repo_scan = RepoScanResult(
-            assemblies_detected=assemblies,
-            packages_detected=packages
-        )
-
-        # Build hierarchy
-        hierarchy = build_repo_hierarchy(repo_scan, repo_root)
-
-        # Save for future use
-        save_hierarchy(hierarchy, repo_root, verbose=False)
-
-    # Load and apply overrides if they exist
-    overrides = load_hierarchy_overrides(repo_root)
-    if overrides:
-        hierarchy = merge_hierarchy_overrides(hierarchy, overrides)
-
-    # Output hierarchy
-    if json_output:
-        print(json.dumps(hierarchy, indent=2))
+        if json_output:
+            print(json.dumps(dep_hierarchy, indent=2))
+        else:
+            print_dependency_hierarchy(dep_hierarchy, show_conditions=True)
+            print()  # Empty line at end
     else:
-        print_header("REPOSITORY HIERARCHY")
-        if overrides:
-            print(f"{Colors.YELLOW}Note: Manual overrides applied from hierarchy_overrides.json{Colors.RESET}\n")
-        print_hierarchy_tree(hierarchy, show_files=show_files)
-        print()  # Empty line at end
+        # If no packages specified, check for active package from repo config
+        repoconf = load_repoconf(repo_root)
+        active_package = repoconf.get("selected_target") if repoconf else None
+
+        if active_package:
+            # Show dependency hierarchy for the active package
+            model_path = repo_model_path(repo_root, require=True)
+            try:
+                with open(model_path, 'r', encoding='utf-8') as f:
+                    index_data = json.load(f)
+            except Exception as e:
+                print_error(f"Failed to read repository model: {e}", 2)
+                sys.exit(1)
+
+            # Convert packages_detected to dictionaries for compatibility
+            all_packages = index_data.get('packages_detected', [])
+
+            # Build and show dependency hierarchy for the active package
+            dep_hierarchy = build_dependency_hierarchy([active_package], all_packages)
+
+            if json_output:
+                print(json.dumps(dep_hierarchy, indent=2))
+            else:
+                print_dependency_hierarchy(dep_hierarchy, show_conditions=True)
+                print()  # Empty line at end
+        else:
+            # Original behavior - show directory hierarchy
+            # Try to load existing hierarchy unless rebuild requested
+            hierarchy = None
+            if not rebuild:
+                hierarchy = load_hierarchy(repo_root)
+
+            # If no hierarchy exists or rebuild requested, generate it
+            if hierarchy is None:
+                # Load repo scan results
+                model_path = repo_model_path(repo_root, require=True)
+                try:
+                    with open(model_path, 'r', encoding='utf-8') as f:
+                        index_data = json.load(f)
+                except Exception as e:
+                    print_error(f"Failed to read repository model: {e}", 2)
+                    sys.exit(1)
+
+                # Reconstruct RepoScanResult from index data
+                packages = []
+                for pkg_data in index_data.get('packages_detected', []):
+                    # Reconstruct FileGroup objects
+                    groups = []
+                    for group_data in pkg_data.get('groups', []):
+                        groups.append(FileGroup(
+                            name=group_data.get('name', ''),
+                            files=group_data.get('files', []),
+                            readonly=group_data.get('readonly', False),
+                            auto_generated=group_data.get('auto_generated', False)
+                        ))
+
+                    packages.append(PackageInfo(
+                        name=pkg_data.get('name', ''),
+                        dir=pkg_data.get('dir', ''),
+                        upp_path=pkg_data.get('upp_path', ''),
+                        files=pkg_data.get('files', []),
+                        build_system=pkg_data.get('build_system', 'upp'),
+                        groups=groups,
+                        ungrouped_files=pkg_data.get('ungrouped_files', [])
+                    ))
+
+                assemblies = []
+                for asm_data in index_data.get('assemblies_detected', []):
+                    assemblies.append(AssemblyInfo(
+                        name=asm_data.get('name', ''),
+                        root_path=asm_data.get('root_path', ''),
+                        package_folders=asm_data.get('package_folders', []),
+                        assembly_type=asm_data.get('assembly_type', 'upp')
+                    ))
+
+                repo_scan = RepoScanResult(
+                    assemblies_detected=assemblies,
+                    packages_detected=packages
+                )
+
+                # Build hierarchy
+                hierarchy = build_repo_hierarchy(repo_scan, repo_root)
+
+                # Save for future use
+                save_hierarchy(hierarchy, repo_root, verbose=False)
+
+            # Load and apply overrides if they exist
+            overrides = load_hierarchy_overrides(repo_root)
+            if overrides:
+                hierarchy = merge_hierarchy_overrides(hierarchy, overrides)
+
+            # Output hierarchy
+            if json_output:
+                print(json.dumps(hierarchy, indent=2))
+            else:
+                print_header("REPOSITORY HIERARCHY")
+                if overrides:
+                    print(f"{Colors.YELLOW}Note: Manual overrides applied from hierarchy_overrides.json{Colors.RESET}\n")
+                print_hierarchy_tree(hierarchy, show_files=show_files)
+                print()  # Empty line at end
 
 
 def handle_repo_conventions_detect(repo_root: str, verbose: bool = False):

@@ -169,6 +169,7 @@ def add_repo_parser(subparsers):
 
     # repo hier show (default)
     repo_hier_show_parser = repo_hier_subparsers.add_parser('show', help='Show repository hierarchy')
+    repo_hier_show_parser.add_argument('packages', nargs='*', help='Package names to show dependency hierarchy for (optional, shows directory hierarchy if omitted)')
     repo_hier_show_parser.add_argument('--path', help='Path to repository (default: auto-detect)')
     repo_hier_show_parser.add_argument('--json', action='store_true', help='Output in JSON format')
     repo_hier_show_parser.add_argument('--show-files', action='store_true', help='Show file groups in tree view')
