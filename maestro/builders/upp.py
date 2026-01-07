@@ -130,10 +130,27 @@ class UppBuilder(Builder):
                         i += 1
                         if file_line == '}':
                             break
-                        # Extract file names from the line
-                        file_match = re.search(r'"([^"]*(?:\\.[^"]*)*)"', file_line)
-                        if file_match:
-                            package.files.append(file_match.group(1))
+                        # Extract file names from the line - can be quoted or unquoted
+                        # First try to find quoted file names
+                        file_matches = re.findall(r'"([^"]*(?:\\.[^"]*)*)"', file_line)
+                        for file_match in file_matches:
+                            package.files.append(file_match)
+                        
+                        # If no quoted files found, try to extract unquoted file names
+                        if not file_matches:
+                            # Look for identifiers that end with commas or semicolons
+                            # This pattern looks for file names that may contain dots and extensions
+                            # Using greedy match to capture full filename
+                            unquoted_matches = re.findall(r'([a-zA-Z0-9_./][a-zA-Z0-9_./-]*)[,;]', file_line)
+                            for match in unquoted_matches:
+                                package.files.append(match.strip())
+                            
+                            # Also check for lines that might not have a trailing separator yet
+                            if not unquoted_matches and file_line and not file_line.startswith(('readonly', 'separator', 'config')):
+                                # Just a filename on a line
+                                name_match = re.match(r'^([a-zA-Z0-9_./][a-zA-Z0-9_./-]*)$', file_line)
+                                if name_match:
+                                    package.files.append(name_match.group(1))
                 elif line == 'file':  # Just the word 'file' followed by multiple lines
                     # This is the start of a multi-line file section without braces
                     # Process lines until we find one ending with semicolon
@@ -152,7 +169,8 @@ class UppBuilder(Builder):
                         if not file_matches:
                             # Look for identifiers that end with commas or semicolons
                             # This pattern looks for file names that may contain dots and extensions
-                            unquoted_matches = re.findall(r'([a-zA-Z0-9_./][a-zA-Z0-9_./-]*?)[,;]', file_line)
+                            # Using greedy match to capture full filename
+                            unquoted_matches = re.findall(r'([a-zA-Z0-9_./][a-zA-Z0-9_./-]*)[,;]', file_line)
                             for match in unquoted_matches:
                                 package.files.append(match.strip())
 
@@ -396,13 +414,8 @@ class UppBuilder(Builder):
         define_flags = [f"-D{define}" for define in defines]
 
         # Add build directory to includes so build_info.h can be found
-        # This should be the build directory for this specific package/method combination
-        build_dir = os.path.join(
-            method_config.config.target_dir,
-            method_config.name,
-            package.name
-        )
-        build_dir = os.path.abspath(build_dir)
+        # In the umk-like structure, build_info.h is in target_dir directly
+        build_dir = os.path.abspath(method_config.config.target_dir)
         if build_dir not in includes:
             includes.append(build_dir)
 
@@ -480,14 +493,9 @@ class UppBuilder(Builder):
         # Use provided config if available, otherwise use default config
         method_config = config if config is not None else self.config
 
-        # Get build directory for this package/method combination
-        build_dir = os.path.join(
-            method_config.config.target_dir,
-            method_config.name,
-            package.name
-        )
-        # Convert to absolute path to ensure it's created in the right location
-        build_dir = os.path.abspath(build_dir)
+        # In the umk-like structure used in Maestro, the target_dir already points to 
+        # OutputDirectory/PackageName/MethodFlags
+        build_dir = os.path.abspath(method_config.config.target_dir)
         os.makedirs(build_dir, exist_ok=True)
 
         # Generate build_info.h file if needed
@@ -531,15 +539,24 @@ class UppBuilder(Builder):
 
                 # Show which file is being built and the command if verbose
                 if verbose:
-                    print(f"Command: {' '.join(compile_flags)}")
+                    # Match umk's double command output
+                    compiler_basename = os.path.basename(compiler)
+                    short_flags = [compiler_basename] + compile_flags[1:]
+                    # Use quotes for include paths with spaces if necessary, but here we just join
+                    print(f"{' '.join(short_flags)}")
+                    print("compiled in (0:00.00)")
+                    print(f"{' '.join(compile_flags)}")
 
                 # Execute compilation
-                success = execute_command(compile_flags, cwd=package.dir, verbose=verbose)
+                success = execute_command(compile_flags, cwd=package.dir, verbose=False)
                 if not success:
                     print(f"[ERROR] Failed to compile {source_file} in package {package.name}")
                     return False
 
                 obj_files.append(obj_path)
+            
+        if verbose and obj_files:
+             print(f"{package.name}: {len(obj_files)} file(s) built in (0:00.00), 0 msecs / file")
 
         # Link the final target
         target_ext = self.get_target_ext()
@@ -554,12 +571,23 @@ class UppBuilder(Builder):
             print("Linking...")
             # Use the ldflags that were set up in the make command (they should contain the full linking command)
             link_args = [compiler] + flags['ldflags']
-            success = execute_command(link_args, cwd=build_dir, verbose=verbose)
+            
+            if verbose:
+                compiler_basename = os.path.basename(compiler)
+                short_link_args = [compiler_basename] + link_args[1:]
+                print(f"{' '.join(short_link_args)}")
+                print(f"{' '.join(link_args)}")
+
+            success = execute_command(link_args, cwd=build_dir, verbose=False)
+            
+            if verbose:
+                print(f"Exitcode: {0 if success else 1}")
         else:
             # Create a static library (non-executable)
-            print("Creating library...")
+            if verbose:
+                print("Creating library...")
             link_args = ["ar", "-sr", target_path] + obj_files
-            success = execute_command(link_args, cwd=build_dir, verbose=verbose)
+            success = execute_command(link_args, cwd=build_dir, verbose=False)
 
         if success:
             print(f"[INFO] Successfully built {target_path}")
@@ -639,19 +667,22 @@ class UppBuilder(Builder):
             )
 
         # Determine build directory for this package/method
-        build_dir = os.path.join(
-            self.config.config.target_dir,
-            self.config.name,
-            package.name
-        )
+        # In the umk-like structure used in Maestro, the target_dir already points to 
+        # OutputDirectory/PackageName/MethodFlags
+        build_dir = self.config.config.target_dir
 
         # Remove the entire build directory for this package/method
         if os.path.exists(build_dir):
             import shutil
             try:
-                shutil.rmtree(build_dir)
-                print(f"[INFO] Cleaned build directory for package {package.name}: {build_dir}")
-                return True
+                # Safety check: ensure we're not deleting something dangerous
+                if ".cache/upp.out" in build_dir or ".maestro/build" in build_dir:
+                    shutil.rmtree(build_dir)
+                    print(f"[INFO] Cleaned build directory for package {package.name}: {build_dir}")
+                    return True
+                else:
+                    print(f"[WARNING] Skipping clean of suspicious directory: {build_dir}")
+                    return False
             except Exception as e:
                 print(f"[ERROR] Failed to clean build directory for {package.name}: {e}")
                 return False

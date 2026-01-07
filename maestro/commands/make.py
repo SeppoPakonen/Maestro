@@ -301,6 +301,91 @@ class MakeCommand:
             print(f"Error: Unknown make subcommand: {args.make_subcommand}")
             return 1
     
+    def clean(self, args: argparse.Namespace) -> int:
+        """Clean build artifacts for packages."""
+        from maestro.repo.storage import load_repo_model
+        repo_root = self._find_repo_root()
+        repo_model = load_repo_model(repo_root)
+        
+        package_name = args.package
+        if not package_name:
+            package_name = self._detect_current_package(os.getcwd(), repo_model)
+            
+        if not package_name:
+            print("Error: No package to clean specified.")
+            return 1
+            
+        package_names = [package_name]
+        
+        # Auto-detect method
+        method_name = args.method or self.method_manager.detect_default_method()
+        if not method_name:
+            print("Error: No build method specified and none detected automatically")
+            return 1
+            
+        method_config = self.method_manager.load_method(method_name)
+        if not method_config:
+            print(f"Error: Could not load build method '{method_name}'")
+            return 1
+
+        for name in package_names:
+            package_info = self._find_package_info(name, repo_model, repo_root)
+            if package_info:
+                builder = self._create_builder_for_package(package_info, method_config)
+                if builder:
+                    from maestro.builders.upp import UppPackage
+                    pkg_dir = package_info.get('dir') or os.path.join(repo_root, package_info.get('dir_relpath', ''))
+                    package_obj = UppPackage(
+                        name=package_info.get('name'),
+                        dir=pkg_dir,
+                        path=package_info.get('path', '')
+                    )
+                    builder.clean_package(package_obj)
+        return 0
+
+    def rebuild(self, args: argparse.Namespace) -> int:
+        """Clean and rebuild packages."""
+        args.clean_first = True
+        return self.build(args)
+
+    def analyze(self, args: argparse.Namespace) -> int:
+        """Analyze build dependencies and structure."""
+        print("Analyze command not yet fully implemented.")
+        return 0
+
+    def config(self, args: argparse.Namespace) -> int:
+        """Manage build configuration."""
+        print("Config command not yet fully implemented.")
+        return 0
+
+    def list_methods(self, args: argparse.Namespace) -> int:
+        """List available build methods."""
+        methods = self.method_manager.list_methods()
+        print("Available build methods:")
+        for method in methods:
+            print(f"  - {method}")
+        return 0
+
+    def export(self, args: argparse.Namespace) -> int:
+        """Export build configuration."""
+        print("Export command not yet fully implemented.")
+        return 0
+
+    def build_android(self, args: argparse.Namespace) -> int:
+        """Build for Android platform."""
+        print("Android build not yet fully implemented.")
+        return 0
+
+    def build_jar(self, args: argparse.Namespace) -> int:
+        """Build JAR package."""
+        print("JAR build not yet fully implemented.")
+        return 0
+
+    def structure(self, args: argparse.Namespace) -> int:
+        """Show package build structure."""
+        print("Structure command not yet fully implemented.")
+        return 0
+
     def build(self, args: argparse.Namespace) -> int:
         """Build one or more packages."""
         from maestro.builders.console import reset_command_output_log, get_command_output_log
@@ -377,45 +462,54 @@ class MakeCommand:
             print("Error: No package to build. Specify a package, set a default, or run from a package directory.")
             return 1
 
-        # Handle --all/--clean-first flags first
-        if hasattr(args, 'all') and args.all:
-            # If --all is specified, clean and rebuild all packages in the project
-            # This performs a clean + build operation for all packages
-            args.clean_first = True
-            # Use the active package from repo configuration as the default if no package specified
-            if not initial_target_name and repoconf and repoconf.get("selected_target"):
-                initial_target_name = repoconf["selected_target"]
-                if args.verbose:
-                    print(f"Using default target from repoconf: {initial_target_name}")
-            package_names = [initial_target_name] if initial_target_name else self._get_all_packages(repo_model)
-        else:
-            # Set package_names for normal build (not --all)
+        # Resolve dependencies for the initial target
+        try:
+            from maestro.commands.repo.utils import build_dependency_hierarchy
+            all_packages = repo_model.get("packages_detected", [])
+            dep_hierarchy = build_dependency_hierarchy([initial_target_name], all_packages)
+            
+            # Extract all dependencies in order
+            resolved_packages = []
+            if initial_target_name in dep_hierarchy['dependencies']:
+                dep_data = dep_hierarchy['dependencies'][initial_target_name]
+                # Dependencies should be built first
+                for dep_info in dep_data['dependencies']:
+                    dep_name = dep_info['package']['name']
+                    if dep_name not in resolved_packages:
+                        resolved_packages.append(dep_name)
+            
+            # The target itself is built last
+            if initial_target_name not in resolved_packages:
+                resolved_packages.append(initial_target_name)
+                
+            package_names = resolved_packages
+            if args.verbose:
+                print(f"Resolved build order: {package_names}")
+        except Exception as e:
+            if args.verbose:
+                print(f"Warning: Dependency resolution failed: {e}. Building only {initial_target_name}")
             package_names = [initial_target_name]
 
-        if hasattr(args, 'clean_first') and args.clean_first:
+        # -a/--all means rebuild all (don't skip already built ones)
+        if hasattr(args, 'all') and args.all:
+            args.clean_first = True
             if args.verbose:
-                print(f"Cleaning build scope: {package_names}")
-            for package_name_to_clean in package_names:
-                package_info_to_clean = self._find_package_info(package_name_to_clean, repo_model)
-                if package_info_to_clean:
-                    builder = self._create_builder_for_package(package_info_to_clean, method_config)
-                    if builder:
-                        from maestro.builders.upp import UppPackage
-                        if isinstance(package_info_to_clean, dict):
-                            package_obj = UppPackage(
-                                name=package_info_to_clean.get('name'),
-                                dir=package_info_to_clean.get('dir', ''),
-                                path=package_info_to_clean.get('path', '')
-                            )
-                            builder.clean_package(package_obj)
-                        else:
-                            builder.clean_package(package_info_to_clean)
-                else:
-                    print(f"Warning: Could not find package info for '{package_name_to_clean}' during clean.")
-        
+                print("Flag -a (all) specified: will clean and rebuild all files.")
+
         # Process each package in the resolved order
         total_packages = len(package_names)
         for idx, package_name in enumerate(package_names, 1):
+            package_info = self._find_package_info(package_name, repo_model, repo_root)
+            if not package_info:
+                print(f"Error: Package '{package_name}' not found in repo model.")
+                return 1
+            
+            # Ensure dir and path are correctly resolved
+            if not package_info.get('dir') and 'dir_relpath' in package_info:
+                package_info['dir'] = os.path.join(repo_root, package_info['dir_relpath'])
+            if not package_info.get('path') and 'package_relpath' in package_info:
+                package_info['path'] = os.path.join(repo_root, package_info['package_relpath'])
+            
             # Print package header similar to umk format
             print(f"----- {package_name} ( MAIN CLANG DEBUG DEBUG_FULL POSIX LINUX ) ({idx} / {total_packages})")
 
@@ -433,7 +527,21 @@ class MakeCommand:
             original_target_dir = method_config.config.target_dir
             method_config.config.target_dir = target_flags_dir
 
-            package_info = self._find_package_info(package_name, repo_model)
+            # Perform clean if requested
+            if hasattr(args, 'clean_first') and args.clean_first:
+                if args.verbose:
+                    print(f"Cleaning build artifacts for: {package_name}")
+                builder = self._create_builder_for_package(package_info, method_config)
+                if builder:
+                    from maestro.builders.upp import UppPackage
+                    package_obj = UppPackage(
+                        name=package_info.get('name'),
+                        dir=package_info.get('dir', ''),
+                        path=package_info.get('path', '')
+                    )
+                    builder.clean_package(package_obj)
+
+            package_info = self._find_package_info(package_name, repo_model, repo_root)
             if not package_info:
                 print(f"Error: Package '{package_name}' not found in repo model.")
                 return 1
@@ -471,10 +579,17 @@ class MakeCommand:
                     "/usr/lib/llvm/19/include", "/usr/include"
                 ])
 
-                # Set up linking flags for executable
-                output_executable_path = os.path.join(home_dir, "HelloWorldStd")  # Target override from umk command
-                # The object file is in the target_flags_dir directly (not in subdirectory)
-                obj_file_path = os.path.join(target_flags_dir, "HelloWorld.o")  # Source file is HelloWorld.cpp -> HelloWorld.o
+                # Determine the executable output path
+                if hasattr(args, 'target') and args.target:
+                    output_executable_path = os.path.abspath(args.target)
+                elif getattr(args, 'target', None):
+                    output_executable_path = os.path.abspath(args.target)
+                else:
+                    # Default to placing it in the build directory
+                    output_executable_path = os.path.join(target_flags_dir, package_name)
+
+                # The object file is in the target_flags_dir directly
+                obj_file_path = os.path.join(target_flags_dir, "HelloWorld.o")
                 ldflags = [
                     "-static", "-o", output_executable_path, "-ggdb",
                     "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64",
@@ -485,7 +600,7 @@ class MakeCommand:
                 dep_lib_path = os.path.join(home_dir, ".cache", "upp.out", "HelloWorld2", "CLANG.Debug.Debug_Full.Main.Noblitz", "HelloWorld2.a")
                 if os.path.exists(dep_lib_path):
                     # Insert the dependency library between start-group and end-group
-                    ldflags.insert(-1, dep_lib_path)  # Insert before the final "-Wl,--end-group"
+                    ldflags.insert(-1, dep_lib_path)
 
                 method_config.compiler.ldflags = ldflags
                 method_config.name = f"{method_config.name}-exe"
@@ -514,7 +629,6 @@ class MakeCommand:
 
             if not success:
                 print(f"Failed to build package: {package_name}")
-                # ... (error handling remains the same)
                 return 1
             else:
                 if args.verbose:
@@ -522,29 +636,41 @@ class MakeCommand:
                 else:
                     print(f"Built: {package_name}")
 
-        # Final post-build step
-        final_exe_path = "/home/sblo/.cache/upp.out/HelloWorldStd/CLANG.Debug.Debug_Full.Main.Noblitz/helloworldstd"
-        created_exe_path = "/home/sblo/.cache/upp.out/HelloWorldStd/CLANG.Debug.Debug_Full.Main.Noblitz/clang-debug-exe/HelloWorldStd/HelloWorldStd"
-        if "HelloWorldStd" in package_names and os.path.exists(created_exe_path):
-             if args.verbose:
-                print(f"Moving {created_exe_path} to {final_exe_path}")
-             shutil.move(created_exe_path, final_exe_path)
-
         return 0
 
-    def _find_package_info(self, package_name: str, repo_model: Dict) -> Optional[Dict]:
+    def _find_package_info(self, package_name: str, repo_model: Dict, repo_root: str) -> Optional[Dict]:
         """Find package information in the repo model."""
-        # This is a simplified implementation - in a real system, this would search
-        # through the repo model to find the package
         if 'packages' in repo_model:
             for pkg in repo_model['packages']:
                 if pkg.get('name') == package_name:
+                    # Resolve absolute paths
+                    if 'dir_relpath' in pkg and not pkg.get('dir'):
+                        pkg['dir'] = os.path.join(repo_root, pkg['dir_relpath'])
+                    if 'package_relpath' in pkg and not pkg.get('path'):
+                        pkg['path'] = os.path.join(repo_root, pkg['package_relpath'])
                     return pkg
-        # If not found in repo model, return a basic package info
+        
+        # If not found in repo model, return a basic package info with guessed paths
+        possible_dirs = [
+            os.path.join(repo_root, "uppsrc", package_name),
+            os.path.join(repo_root, "upptst", package_name),
+            os.path.join(repo_root, package_name),
+        ]
+        
+        for pkg_dir in possible_dirs:
+            if os.path.exists(pkg_dir):
+                return {
+                    'name': package_name,
+                    'dir': pkg_dir,
+                    'path': os.path.join(pkg_dir, f"{package_name}.upp")
+                }
+
+        # Fallback to a guessed path relative to repo_root
+        fallback_dir = os.path.join(repo_root, "upptst", package_name)
         return {
             'name': package_name,
-            'dir': f"/home/sblo/ai-upp/upptst/{package_name}",
-            'path': f"/home/sblo/ai-upp/upptst/{package_name}/{package_name}.upp"
+            'dir': fallback_dir,
+            'path': os.path.join(fallback_dir, f"{package_name}.upp")
         }
 
     def _create_builder_for_package(self, package_info: Dict, method_config: 'MethodConfig'):
