@@ -104,7 +104,7 @@ def handle_repo_pkg_add(args):
             repo_model.setdefault('packages_detected', []).append(pkg.to_dict())
             print_success(f"Added new package '{pkg.name}' to repo model.", 2)
         
-        save_repo_model(repo_root, repo_model)
+        write_repo_model(repo_root, repo_model)
         
         # Reload the index to ensure it reflects the new state
         load_repo_index(repo_root, force_reload=True)
