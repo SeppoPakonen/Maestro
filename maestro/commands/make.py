@@ -441,23 +441,16 @@ class MakeCommand:
             if getattr(args, 'verbose', False):
                 print_info(f"Using assembly configuration: {selected_asm_name}", 2)
         else:
-            # Fallback to repo_model assemblies if no explicit configuration selected
-            # but warn the user
-            print_warning("No assembly configuration selected. Fallback to auto-detected assemblies.", 2)
-            if 'assemblies' in repo_model:
-                for asm in repo_model['assemblies']:
-                    if 'root_relpath' in asm:
-                        root_abs = os.path.normpath(os.path.join(repo_root, asm['root_relpath']))
-                        if root_abs not in assembly_roots:
-                            assembly_roots.append(root_abs)
+            print_error("No assembly configuration selected. Build cannot proceed without an active assembly.", 2)
+            print_info("Use 'maestro repo asm conf select <name>' or 'maestro repo asm import <var_file>'", 2)
+            return 1
         
         # Add project root as well if not already there
         if repo_root not in assembly_roots:
             assembly_roots.append(repo_root)
 
         if not assembly_roots:
-            print_error("No assembly roots found. Please select an assembly configuration.", 2)
-            print_info("Use 'maestro repo asm conf list' and 'maestro repo asm conf select <name>'", 2)
+            print_error("No assembly roots found in the selected configuration.", 2)
             return 1
 
         # Auto-detect method if not specified
@@ -550,9 +543,9 @@ class MakeCommand:
         # Process each package in the resolved order
         total_packages = len(package_names)
         for idx, package_name in enumerate(package_names, 1):
-            package_info = self._find_package_info(package_name, repo_model, repo_root)
+            package_info = self._find_package_info(package_name, repo_model, repo_root, assembly_roots)
             if not package_info:
-                print(f"Error: Package '{package_name}' not found in repo model.")
+                print(f"Error: Package '{package_name}' not found in repo model or assembly roots.")
                 return 1
             
             # Ensure dir and path are correctly resolved
@@ -788,19 +781,67 @@ class MakeCommand:
         print(f"\nOK. ({int(m)}:{s:05.2f})")
         return 0
 
-    def _find_package_info(self, package_name: str, repo_model: Dict, repo_root: str) -> Optional[Dict]:
-        """Find package information in the repo model."""
+    def _find_package_info(self, package_name: str, repo_model: Dict, repo_root: str, assembly_roots: List[str] = None) -> Optional[Dict]:
+        """Find package information, prioritizing assembly roots."""
+        # 1. Search in the assembly roots first (Manual lookup)
+        if assembly_roots:
+            for root in assembly_roots:
+                pkg_dir = os.path.normpath(os.path.join(root, package_name))
+                upp_file = os.path.join(pkg_dir, f"{package_name}.upp")
+                if os.path.exists(upp_file):
+                    return {
+                        'name': package_name,
+                        'dir': pkg_dir,
+                        'path': upp_file
+                    }
+
+        # 2. Fallback to repo model (with assembly root filtering)
         if 'packages' in repo_model:
+            matching_pkgs = []
             for pkg in repo_model['packages']:
                 if pkg.get('name') == package_name:
-                    # Resolve absolute paths
-                    if 'dir_relpath' in pkg and not pkg.get('dir'):
-                        pkg['dir'] = os.path.join(repo_root, pkg['dir_relpath'])
-                    if 'package_relpath' in pkg and not pkg.get('path'):
-                        pkg['path'] = os.path.join(repo_root, pkg['package_relpath'])
-                    return pkg
+                    # Resolve absolute path for checking against assembly roots
+                    pkg_path = pkg.get('dir')
+                    if not pkg_path and 'dir_relpath' in pkg:
+                        pkg_path = os.path.join(repo_root, pkg['dir_relpath'])
+                    
+                    if not pkg_path:
+                        matching_pkgs.append(pkg)
+                        continue
+                        
+                    pkg_path = os.path.normpath(pkg_path)
+                    
+                    # If we have assembly roots, check if this package is inside one of them
+                    if assembly_roots:
+                        is_in_asm = False
+                        for root in assembly_roots:
+                            try:
+                                rel = os.path.relpath(pkg_path, root)
+                                if not rel.startswith('..'):
+                                    is_in_asm = True
+                                    break
+                            except ValueError:
+                                continue
+                        if is_in_asm:
+                            # Found a match in assembly roots - return immediately
+                            if 'dir_relpath' in pkg and not pkg.get('dir'):
+                                pkg['dir'] = os.path.join(repo_root, pkg['dir_relpath'])
+                            if 'package_relpath' in pkg and not pkg.get('path'):
+                                pkg['path'] = os.path.join(repo_root, pkg['package_relpath'])
+                            return pkg
+                    
+                    matching_pkgs.append(pkg)
+            
+            # If no match in assembly roots but we found some matches in model, return the first one
+            if matching_pkgs:
+                pkg = matching_pkgs[0]
+                if 'dir_relpath' in pkg and not pkg.get('dir'):
+                    pkg['dir'] = os.path.join(repo_root, pkg['dir_relpath'])
+                if 'package_relpath' in pkg and not pkg.get('path'):
+                    pkg['path'] = os.path.join(repo_root, pkg['package_relpath'])
+                return pkg
         
-        # If not found in repo model, return a basic package info with guessed paths
+        # 3. Last resort: guessed paths
         possible_dirs = [
             os.path.join(repo_root, "uppsrc", package_name),
             os.path.join(repo_root, "upptst", package_name),
@@ -815,13 +856,7 @@ class MakeCommand:
                     'path': os.path.join(pkg_dir, f"{package_name}.upp")
                 }
 
-        # Fallback to a guessed path relative to repo_root
-        fallback_dir = os.path.join(repo_root, "upptst", package_name)
-        return {
-            'name': package_name,
-            'dir': fallback_dir,
-            'path': os.path.join(fallback_dir, f"{package_name}.upp")
-        }
+        return None
 
     def _create_builder_for_package(self, package_info: Dict, method_config: 'MethodConfig'):
         """Create appropriate builder for the package."""
