@@ -141,10 +141,18 @@ def add_asm_config(repo_root: str, name: str, roots: List[str], json_output: boo
         print_error(f"Configuration '{name}' already exists", 2)
         return
 
+    # Process roots (handle potential comma-separated strings if passed as a single argument)
+    processed_roots = []
+    for r in roots:
+        if ',' in r:
+            processed_roots.extend([part.strip() for part in r.split(',') if part.strip()])
+        else:
+            processed_roots.append(r)
+
     # Validate roots exist
     invalid_roots = []
     normalized_roots = []
-    for root in roots:
+    for root in processed_roots:
         # Try relative to repo root first
         abs_path = os.path.normpath(os.path.join(resolved_root, root))
         if not os.path.exists(abs_path):
@@ -222,10 +230,18 @@ def modify_asm_config(repo_root: str, name: str, roots: List[str], json_output: 
         print_error(f"Configuration '{name}' does not exist", 2)
         return
 
+    # Process roots (handle potential comma-separated strings if passed as a single argument)
+    processed_roots = []
+    for r in roots:
+        if ',' in r:
+            processed_roots.extend([part.strip() for part in r.split(',') if part.strip()])
+        else:
+            processed_roots.append(r)
+
     # Validate roots exist
     invalid_roots = []
     normalized_roots = []
-    for root in roots:
+    for root in processed_roots:
         abs_path = os.path.normpath(os.path.join(resolved_root, root))
         if not os.path.exists(abs_path):
             abs_path = os.path.normpath(root)

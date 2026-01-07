@@ -379,6 +379,15 @@ class UppBuilder(Builder):
         dfs(package.name)
         return dependency_order
     
+    def _is_msc(self, compiler_path: str) -> bool:
+        """Check if the compiler is Microsoft Visual C++."""
+        if not compiler_path:
+            return False
+        # Normalize and get basename
+        basename = os.path.basename(compiler_path).lower()
+        # Must be cl or cl.exe, not something like clang-cl.exe
+        return basename == "cl.exe" or basename == "cl"
+
     def get_compiler_flags(self, package: UppPackage, config: Optional[MethodConfig] = None) -> Dict[str, List[str]]:
         """
         Generate compiler flags for the package based on build method and config.
@@ -441,7 +450,7 @@ class UppBuilder(Builder):
                         defines.append("GUI_GTK")
 
         # Determine flag prefix based on compiler
-        is_msc = "cl.exe" in (method_config.compiler.cxx or "").lower()
+        is_msc = self._is_msc(method_config.compiler.cxx or method_config.compiler.cc)
         
         if is_msc:
             # Add standard MSC flags if not already present
@@ -578,7 +587,7 @@ class UppBuilder(Builder):
 
         # Determine which compiler to use based on config
         compiler = method_config.compiler.cxx or method_config.compiler.cc
-        is_msc = "cl.exe" in (compiler or "").lower()
+        is_msc = self._is_msc(compiler)
 
         # Print package build header similar to umk
         print(f"cd {package.dir}")
