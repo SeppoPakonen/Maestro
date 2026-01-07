@@ -667,8 +667,8 @@ class MakeCommand:
                     if def_flag not in method_config.compiler.defines:
                         method_config.compiler.defines.append(def_flag)
                 
-                # Special handling for MSC if detected
-                is_msc = "MSC" in display_flags
+            # Special handling for MSC if detected
+                is_msc = any(f.upper().startswith("MSC") for f in display_flags)
                 
                 if not is_msc:
                     # Original clang/gcc specific flags
