@@ -537,11 +537,25 @@ class UppBuilder(Builder):
                 obj_files.append(obj_path)
 
         # Link the final target
-        target_name = f"{package.name}{self.get_target_ext()}"
+        target_ext = self.get_target_ext()
+        target_name = f"{package.name}{target_ext}"
         target_path = os.path.join(build_dir, target_name)
 
-        link_args = [compiler] + obj_files + flags['ldflags'] + ["-o", target_path]
-        success = execute_command(link_args, cwd=build_dir)
+        if target_ext in [".a", ".lib"]:
+            # Create a static library
+            if verbose:
+                print(f"Creating library: {target_name}")
+            link_args = ["ar", "-sr", target_path] + obj_files
+            success = execute_command(link_args, cwd=build_dir, verbose=verbose)
+        else:
+            # Link an executable
+            if verbose:
+                print(f"Linking executable: {target_name}")
+            link_args = [compiler] + obj_files + flags['ldflags']
+            # The -o flag and path might already be in ldflags from our injection
+            if "-o" not in link_args:
+                link_args.extend(["-o", target_path])
+            success = execute_command(link_args, cwd=build_dir, verbose=verbose)
 
         if success:
             print(f"[INFO] Successfully built {target_path}")
@@ -601,17 +615,23 @@ class UppBuilder(Builder):
         # Execute link command
         return execute_command(link_cmd)
     
-    def clean_package(self, package: Union[Package, UppPackage]) -> bool:
+    def clean_package(self, package: Union[Package, UppPackage, Dict]) -> bool:
         """
         Clean package build artifacts.
         """
+        if isinstance(package, dict):
+            # Convert dict to UppPackage
+            package = UppPackage(
+                name=package.get('name'),
+                dir=package.get('dir', ''),
+                path=package.get('path', '')
+            )
         # Cast to UppPackage if needed
-        if not isinstance(package, UppPackage):
+        elif not isinstance(package, UppPackage):
             package = UppPackage(
                 name=package.name,
                 dir=package.dir,
-                path=package.path,
-                build_system=package.build_system
+                path=package.path
             )
 
         # Determine build directory for this package/method

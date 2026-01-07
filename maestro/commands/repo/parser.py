@@ -5,6 +5,7 @@ Defines all CLI arguments and subcommands for maestro repo.
 """
 
 from __future__ import annotations
+import argparse
 
 def add_repo_parser(subparsers):
     """
@@ -43,17 +44,52 @@ def add_repo_parser(subparsers):
     repo_import_parser.add_argument('--apply', action='store_true', help='Write tracks/phases/tasks to docs/maestro/')
     repo_import_parser.add_argument('--dry-run', action='store_true', help='Preview import plan (default)')
 
-    # repo pkg
-    repo_pkg_parser = repo_subparsers.add_parser('pkg', help='Package query and inspection commands')
-    repo_pkg_parser.add_argument('package_name', nargs='?', help='Package name to inspect (supports partial match)')
-    repo_pkg_parser.add_argument('action', nargs='?', choices=['info', 'list', 'search', 'tree', 'conf', 'groups'], default='info',
-                                 help='Action: info (default), list (files), search (file search), tree (deps), conf (configurations), groups (file groups)')
-    repo_pkg_parser.add_argument('query', nargs='?', help='Search query (for search action) or config number (for tree with config filter)')
-    repo_pkg_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
-    repo_pkg_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
-    repo_pkg_parser.add_argument('--deep', action='store_true', help='Show full tree with all duplicates (for tree action)')
-    repo_pkg_parser.add_argument('--show-groups', action='store_true', help='Show package file groups')
-    repo_pkg_parser.add_argument('--group', help='Filter to specific group (use with --show-groups)')
+    # repo pkg (main parser for package commands)
+    repo_pkg_parser = repo_subparsers.add_parser('pkg', help='Package query and management commands')
+    repo_pkg_subparsers = repo_pkg_parser.add_subparsers(dest='pkg_subcommand', help='Package subcommands')
+
+    # repo pkg info (default subcommand)
+    repo_pkg_info_parser = repo_pkg_subparsers.add_parser('info', help='Display information about a package')
+    repo_pkg_info_parser.add_argument('package_name', nargs='?', help='Package name to inspect (supports partial match)')
+    repo_pkg_info_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_pkg_info_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    repo_pkg_info_parser.add_argument('--show-groups', action='store_true', help='Show package file groups')
+    repo_pkg_info_parser.add_argument('--group', help='Filter to specific group (use with --show-groups)')
+    
+    # repo pkg add
+    repo_pkg_add_parser = repo_pkg_subparsers.add_parser('add', help='Add a package to the repository model')
+    repo_pkg_add_parser.add_argument('package_path', help='Relative path to the package directory')
+    repo_pkg_add_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_pkg_add_parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output')
+
+    # Existing repo pkg subcommands
+    repo_pkg_list_parser = repo_pkg_subparsers.add_parser('list', help='List files in a package')
+    repo_pkg_list_parser.add_argument('package_name', help='Package name')
+    repo_pkg_list_parser.add_argument('--path', help='Path to repository root')
+    repo_pkg_list_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    repo_pkg_search_parser = repo_pkg_subparsers.add_parser('search', help='Search for files within a package')
+    repo_pkg_search_parser.add_argument('package_name', help='Package name')
+    repo_pkg_search_parser.add_argument('query', help='Search query')
+    repo_pkg_search_parser.add_argument('--path', help='Path to repository root')
+    repo_pkg_search_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    repo_pkg_tree_parser = repo_pkg_subparsers.add_parser('tree', help='Display package dependency tree')
+    repo_pkg_tree_parser.add_argument('package_name', help='Package name')
+    repo_pkg_tree_parser.add_argument('--path', help='Path to repository root')
+    repo_pkg_tree_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    repo_pkg_tree_parser.add_argument('--deep', action='store_true', help='Show full tree with all duplicates')
+    repo_pkg_tree_parser.add_argument('--config', help='Config number (for tree with config filter)')
+
+    repo_pkg_conf_parser = repo_pkg_subparsers.add_parser('conf', help='Show package configurations')
+    repo_pkg_conf_parser.add_argument('package_name', help='Package name')
+    repo_pkg_conf_parser.add_argument('--path', help='Path to repository root')
+    repo_pkg_conf_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+
+    repo_pkg_groups_parser = repo_pkg_subparsers.add_parser('groups', help='Show package file groups')
+    repo_pkg_groups_parser.add_argument('package_name', help='Package name')
+    repo_pkg_groups_parser.add_argument('--path', help='Path to repository root')
+    repo_pkg_groups_parser.add_argument('--json', action='store_true', help='Output results in JSON format')
 
     # repo asm
     repo_asm_parser = repo_subparsers.add_parser('asm', aliases=['a', 'assembly'], help='Assembly query commands')

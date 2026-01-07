@@ -29,11 +29,14 @@ from maestro.repo.storage import (
 )
 from maestro.git_guard import check_branch_guard
 
-# Import handlers from submodules
-from .utils import find_repo_root, write_repo_artifacts, load_repo_index
-from .profile_cmd import handle_repo_profile_show, handle_repo_profile_init
-from .evidence_cmd import handle_repo_evidence_pack, handle_repo_evidence_list, handle_repo_evidence_show
-from .resolve_cmd import (
+from maestro.commands.repo.utils import find_repo_root, write_repo_artifacts, load_repo_index
+from maestro.commands.repo.profile_cmd import handle_repo_profile_show, handle_repo_profile_init
+from maestro.commands.repo.evidence_cmd import handle_repo_evidence_pack, handle_repo_evidence_list, handle_repo_evidence_show
+from maestro.repo.storage import save_repo_model, load_repo_model, repo_model_path, load_repoconf, save_repoconf
+from maestro.builders.host import Host, LocalHost
+from maestro.builders.upp import UppPackage
+
+from maestro.commands.repo.resolve_cmd import (
     handle_repo_pkg_list,
     handle_repo_pkg_info,
     handle_repo_pkg_files,
@@ -51,7 +54,70 @@ from .resolve_cmd import (
     handle_repo_rules_edit,
     handle_repo_rules_inject,
 )
-from .import_roadmap import handle_repo_import_roadmap
+from maestro.commands.repo.import_roadmap import handle_repo_import_roadmap
+
+def handle_repo_pkg_add(args):
+    """
+    Handle the 'repo pkg add' command to add a package to the repository model.
+    """
+    repo_root = getattr(args, 'path', None)
+    if not repo_root:
+        repo_root = find_repo_root()
+    
+    if not repo_root:
+        print_error("Repository root not found. Please specify --path or run from a Maestro repository.", 2)
+        sys.exit(1)
+
+    host = LocalHost() # Instantiate LocalHost
+    package_path = os.path.join(repo_root, args.package_path)
+
+    if not os.path.exists(package_path):
+        print_error(f"Package path does not exist: {package_path}", 2)
+        sys.exit(1)
+    if not os.path.isdir(package_path):
+        print_error(f"Package path is not a directory: {package_path}", 2)
+        sys.exit(1)
+
+    print_info(f"Scanning package: {package_path}")
+
+    try:
+        # Create an UppPackage instance to scan the package
+        pkg = UppPackage(
+            name=os.path.basename(package_path), # Guess name from directory
+            dir=os.path.relpath(package_path, repo_root),
+            path=package_path
+        )
+        pkg.scan_package(host, verbose=args.verbose)
+
+        repo_model = load_repo_model(repo_root)
+        
+        # Check if package already exists and update it, otherwise add it
+        found = False
+        for i, existing_pkg in enumerate(repo_model.get('packages_detected', [])):
+            if existing_pkg.get('name') == pkg.name and existing_pkg.get('dir') == pkg.dir:
+                repo_model['packages_detected'][i] = pkg.to_dict()
+                found = True
+                print_success(f"Updated existing package '{pkg.name}' in repo model.", 2)
+                break
+        
+        if not found:
+            repo_model.setdefault('packages_detected', []).append(pkg.to_dict())
+            print_success(f"Added new package '{pkg.name}' to repo model.", 2)
+        
+        save_repo_model(repo_root, repo_model)
+        
+        # Reload the index to ensure it reflects the new state
+        load_repo_index(repo_root, force_reload=True)
+        
+    except Exception as e:
+        print_error(f"Failed to add package: {e}", 2)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+    
+    return 0
+
 
 def handle_repo_command(args):
     """
@@ -246,21 +312,24 @@ def handle_repo_command(args):
             return handle_repo_import_roadmap(args)
 
         elif args.repo_subcommand == 'pkg':
-            # Package inspection commands
+            # Package inspection and management commands
+            pkg_subcommand = getattr(args, 'pkg_subcommand', None)
+
+            if pkg_subcommand == 'add':
+                return handle_repo_pkg_add(args)
+            
             repo_root = getattr(args, 'path', None) if hasattr(args, 'path') else None
             index_data = load_repo_index(repo_root)
             if not repo_root:
                 repo_root = index_data.get("repo_root") or find_repo_root()
             packages = index_data.get('packages_detected', [])
 
-            # Get package name (optional)
+            # Get package name (optional, only for specific subcommands)
             pkg_name = getattr(args, 'package_name', None)
-            action = getattr(args, 'action', 'info')
 
-            if not pkg_name:
-                # List all packages
+            if pkg_subcommand == 'list':
                 handle_repo_pkg_list(packages, getattr(args, 'json', False), repo_root)
-            else:
+            elif pkg_name: # For commands that require a package name
                 # Find matching package (exact match including case)
                 matching_pkgs = [p for p in packages if pkg_name == p.get('name', '')]
 
@@ -268,7 +337,6 @@ def handle_repo_command(args):
                     print_error(f"No package found matching: {pkg_name}", 2)
                     sys.exit(1)
                 elif len(matching_pkgs) > 1:
-                    # This case should not occur with exact matching, but included for safety
                     print_warning(f"Multiple packages match '{pkg_name}':", 2)
                     for p in matching_pkgs:
                         print(f"  - {p.get('name')}")
@@ -277,27 +345,27 @@ def handle_repo_command(args):
 
                 pkg = matching_pkgs[0]
 
-                # Dispatch to appropriate handler
-                if action == 'info':
+                # Dispatch to appropriate handler based on pkg_subcommand
+                if pkg_subcommand == 'info':
                     handle_repo_pkg_info(pkg, packages, getattr(args, 'json', False), repo_root)
-                elif action == 'list':
+                elif pkg_subcommand == 'list': # Redundant if handled above, but keep for clarity
                     handle_repo_pkg_files(pkg, getattr(args, 'json', False))
-                elif action == 'groups':
+                elif pkg_subcommand == 'groups':
                     handle_repo_pkg_groups(pkg, getattr(args, 'json', False),
                                           getattr(args, 'show_groups', False),
                                           getattr(args, 'group', None))
-                elif action == 'search':
+                elif pkg_subcommand == 'search':
                     query = getattr(args, 'query', None)
                     if not query:
                         print_error("Search query is required for search action", 2)
                         sys.exit(1)
                     handle_repo_pkg_search(pkg, query, getattr(args, 'json', False))
-                elif action == 'tree':
+                elif pkg_subcommand == 'tree':
                     config_flags = None
-                    if hasattr(args, 'query') and args.query:
+                    # For tree, 'query' argument from old structure is now 'config'
+                    if hasattr(args, 'config') and args.config:
                         try:
-                            config_num = int(args.query)
-                            # Get config flags for this config number
+                            config_num = int(args.config)
                             from maestro.repo.build_config import get_package_config
                             pkg_config = get_package_config(pkg)
                             if pkg_config and 0 <= config_num < len(pkg_config.configurations):
@@ -306,8 +374,12 @@ def handle_repo_command(args):
                             pass
                     handle_repo_pkg_tree(pkg, packages, getattr(args, 'json', False),
                                         getattr(args, 'deep', False), config_flags)
-                elif action == 'conf':
+                elif pkg_subcommand == 'conf':
                     handle_repo_pkg_conf(pkg, getattr(args, 'json', False))
+            else:
+                # If no pkg_name and not 'list', or unknown subcommand
+                print_error(f"Unknown package subcommand or missing package name: {pkg_subcommand}", 2)
+                sys.exit(1)
 
         elif args.repo_subcommand == 'conf':
             from maestro.repo.storage import load_repoconf, save_repoconf
