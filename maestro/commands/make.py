@@ -390,14 +390,7 @@ class MakeCommand:
             package_names = [initial_target_name] if initial_target_name else self._get_all_packages(repo_model)
         else:
             # Set package_names for normal build (not --all)
-            package_names = []
-            if initial_target_name == 'HelloWorldStd':
-                print_warning("Using hardcoded build order for HelloWorldStd: ['HelloWorld2', 'HelloWorldStd']")
-                package_names = ['HelloWorld2', 'HelloWorldStd']
-            else:
-                package_names = [initial_target_name]
-
-        # --- End of Hack ---
+            package_names = [initial_target_name]
 
         if hasattr(args, 'clean_first') and args.clean_first:
             if args.verbose:
