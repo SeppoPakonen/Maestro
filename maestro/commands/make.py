@@ -418,18 +418,47 @@ class MakeCommand:
             if getattr(args, 'verbose', False):
                 print(f"Note: Hub links not available: {e}")
 
-        # Extract assembly roots from repo model
-        assembly_roots = []
-        if 'assemblies' in repo_model:
-            for asm in repo_model['assemblies']:
-                if 'root_relpath' in asm:
-                    root_abs = os.path.normpath(os.path.join(repo_root, asm['root_relpath']))
-                    if root_abs not in assembly_roots:
-                        assembly_roots.append(root_abs)
+        # Extract assembly roots from selected assembly configuration
+        from maestro.repo.assembly_config_commands import load_asm_configs
+        asm_configs = load_asm_configs(repo_root)
+        selected_asm_name = asm_configs.get("selected")
         
-        # Add project root as well
+        assembly_roots = []
+        if selected_asm_name and selected_asm_name in asm_configs.get("configurations", {}):
+            config = asm_configs["configurations"][selected_asm_name]
+            roots = config.get("roots", [])
+            for root in roots:
+                # Resolve paths (they could be relative to repo root or absolute)
+                abs_path = os.path.normpath(os.path.join(repo_root, root))
+                if os.path.exists(abs_path):
+                    if abs_path not in assembly_roots:
+                        assembly_roots.append(abs_path)
+                elif os.path.exists(root):
+                    abs_path = os.path.normpath(root)
+                    if abs_path not in assembly_roots:
+                        assembly_roots.append(abs_path)
+            
+            if getattr(args, 'verbose', False):
+                print_info(f"Using assembly configuration: {selected_asm_name}", 2)
+        else:
+            # Fallback to repo_model assemblies if no explicit configuration selected
+            # but warn the user
+            print_warning("No assembly configuration selected. Fallback to auto-detected assemblies.", 2)
+            if 'assemblies' in repo_model:
+                for asm in repo_model['assemblies']:
+                    if 'root_relpath' in asm:
+                        root_abs = os.path.normpath(os.path.join(repo_root, asm['root_relpath']))
+                        if root_abs not in assembly_roots:
+                            assembly_roots.append(root_abs)
+        
+        # Add project root as well if not already there
         if repo_root not in assembly_roots:
             assembly_roots.append(repo_root)
+
+        if not assembly_roots:
+            print_error("No assembly roots found. Please select an assembly configuration.", 2)
+            print_info("Use 'maestro repo asm conf list' and 'maestro repo asm conf select <name>'", 2)
+            return 1
 
         # Auto-detect method if not specified
         method_name = args.method

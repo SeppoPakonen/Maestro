@@ -105,6 +105,12 @@ def add_repo_parser(subparsers):
     repo_asm_show.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
     repo_asm_show.add_argument('--json', action='store_true', help='Output in JSON format')
 
+    repo_asm_import = repo_asm_subparsers.add_parser('import', help='Import assembly configuration from .var file')
+    repo_asm_import.add_argument('var_file', help='Path to the .var file')
+    repo_asm_import.add_argument('--name', help='Name of the configuration (defaults to var filename)')
+    repo_asm_import.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_asm_import.add_argument('--json', action='store_true', help='Output in JSON format')
+
     # repo asm conf
     repo_asm_conf_parser = repo_asm_subparsers.add_parser('conf', aliases=['c'], help='Assembly configuration commands')
     repo_asm_conf_parser.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
@@ -116,9 +122,15 @@ def add_repo_parser(subparsers):
 
     repo_asm_conf_add = repo_asm_conf_subparsers.add_parser('add', aliases=['create'], help='Add a new assembly configuration')
     repo_asm_conf_add.add_argument('name', help='Name of the configuration to add')
-    repo_asm_conf_add.add_argument('packages', nargs='*', help='List of packages to include in the configuration')
+    repo_asm_conf_add.add_argument('packages', nargs='*', help='List of directory paths to include in the configuration')
     repo_asm_conf_add.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
     repo_asm_conf_add.add_argument('--json', action='store_true', help='Output in JSON format')
+
+    repo_asm_conf_import = repo_asm_conf_subparsers.add_parser('import', help='Import assembly configuration from .var file')
+    repo_asm_conf_import.add_argument('var_file', help='Path to the .var file')
+    repo_asm_conf_import.add_argument('--name', help='Name of the configuration (defaults to var filename)')
+    repo_asm_conf_import.add_argument('--path', help='Path to repository root (default: auto-detect via docs/maestro/)')
+    repo_asm_conf_import.add_argument('--json', action='store_true', help='Output in JSON format')
 
     repo_asm_conf_remove = repo_asm_conf_subparsers.add_parser('remove', aliases=['rm', 'delete'], help='Remove an assembly configuration')
     repo_asm_conf_remove.add_argument('name', help='Name of the configuration to remove')
@@ -148,8 +160,8 @@ def add_repo_parser(subparsers):
     repo_conf_list.add_argument('--json', action='store_true', help='Output results in JSON format')
 
     repo_conf_select = repo_conf_subparsers.add_parser('select-default', help='Select default repo configuration')
-    repo_conf_select.add_argument('entity', choices=['target'], help='Entity to select (target)')
-    repo_conf_select.add_argument('value', help='Default target value')
+    repo_conf_select.add_argument('entity', choices=['target', 'asm'], help='Entity to select (target, asm)')
+    repo_conf_select.add_argument('value', help='Default value for the selected entity')
 
     # repo refresh
     repo_refresh_parser = repo_subparsers.add_parser('refresh', help='Refresh repository metadata')

@@ -32,6 +32,7 @@ class UppPackage(Package):
     mainconfig: str = ""
     files: List[str] = field(default_factory=list)
     uses: List[str] = field(default_factory=list)
+    options: List[str] = field(default_factory=list)
     flags: List[str] = field(default_factory=list)
     defines: List[str] = field(default_factory=list)
 
@@ -45,6 +46,7 @@ class UppPackage(Package):
         self.mainconfig = ""
         self.files = []
         self.uses = []
+        self.options = []
         self.flags = []
         self.defines = []
         self.configs = {}
@@ -249,6 +251,21 @@ class UppBuilder(Builder):
                     elif ',' in line:
                         current_section = 'uses_multiline'
                         
+            elif line.startswith('options'):
+                # Handle options section - can be single line or multi-line
+                if '{' in line:
+                    current_section = 'options_braces'
+                elif line == 'options':
+                    current_section = 'options_multiline'
+                elif line.endswith(';'):
+                    # Single-line options ending with semicolon
+                    opts_match = re.search(r'options\s+(.+);', line)
+                    if opts_match:
+                        package.options.extend(opts_match.group(1).split())
+                else:
+                    # Single option or start of multi-line
+                    package.options.extend(line[7:].strip().split())
+
             elif line.startswith('flag'):
                 current_section = 'flags'
                 # Extract flag
@@ -276,6 +293,9 @@ class UppBuilder(Builder):
                 if current_section == 'uses':
                     package.uses.extend(current_value)
                     current_value = []
+                elif current_section == 'options' or current_section == 'options_braces':
+                    package.options.extend(current_value)
+                    current_value = []
                 elif current_section == 'flags':
                     package.flags.extend(current_value)
                     current_value = []
@@ -285,7 +305,7 @@ class UppBuilder(Builder):
                 current_section = None
 
             # Handle lines inside uses sections (when we're in a uses_multiline section)
-            elif current_section == 'uses_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag')):
+            elif current_section == 'uses_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'options')):
                 # This line should contain a use dependency
                 # Look for dependency name followed by semicolon
                 uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)\s*;', line)
@@ -301,6 +321,16 @@ class UppBuilder(Builder):
                         # Replace backslashes with forward slashes for consistency
                         use_entry = uses_match.group(1).replace('\\', '/')
                         package.uses.append(use_entry)
+
+            elif current_section == 'options_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'uses')):
+                # Handle multi-line options without braces
+                package.options.extend(line.strip().rstrip(';').split())
+                if line.endswith(';'):
+                    current_section = None
+            
+            elif current_section == 'options_braces' and line != '}':
+                # Handle lines inside options { ... }
+                package.options.extend(line.strip().rstrip(';').split())
 
             elif line.endswith(',') and current_section:
                 # Continue multi-line values
@@ -367,21 +397,35 @@ class UppBuilder(Builder):
         # Add package-specific defines
         defines.extend(package.defines)
 
+        # Add package-specific options (from .upp options section)
+        for opt in package.options:
+            if opt.startswith("-I"):
+                # Handle -I includes from options
+                inc_path = opt[2:]
+                if inc_path not in includes:
+                    includes.append(inc_path)
+            elif opt.startswith("-D"):
+                # Handle -D defines from options
+                def_val = opt[2:]
+                if def_val not in defines:
+                    defines.append(def_val)
+            else:
+                # Other options go to both cflags and cxxflags
+                if opt not in cflags:
+                    cflags.append(opt)
+                if opt not in cxxflags:
+                    cxxflags.append(opt)
+
         # Add assembly roots to includes
+        # These are the primary search paths for packages and headers
         if hasattr(method_config.config, 'assembly_roots'):
             for root in method_config.config.assembly_roots:
                 if root not in includes:
                     includes.append(root)
-        else:
-            # Fallback to old logic if assembly_roots not provided
-            uppsrc_path = os.path.join(package.dir, "..", "uppsrc")
-            if os.path.exists(uppsrc_path) and uppsrc_path not in includes:
-                includes.append(uppsrc_path)
-            
-            # Also add package parent dir
-            pkg_parent = os.path.dirname(package.dir)
-            if os.path.exists(pkg_parent) and pkg_parent not in includes:
-                includes.append(pkg_parent)
+        
+        # Add the package directory itself
+        if package.dir not in includes:
+            includes.append(package.dir)
 
         # Parse mainconfig and apply appropriate flags
         if package.mainconfig:
@@ -395,29 +439,6 @@ class UppBuilder(Builder):
                         defines.append("_WINDOWS")
                     elif self.host.platform in ["linux", "darwin"]:
                         defines.append("GUI_GTK")
-
-        # Add -I flags for dependencies
-        repo_root = self._get_repo_root(package)
-        for dep_name in package.uses:
-            # Handle U++ style dependency paths like "ide/Builders" or "plugin/z"
-            dep_parts = dep_name.split('/')
-            if len(dep_parts) > 1:
-                if repo_root:
-                    uppsrc_path = os.path.join(repo_root, "uppsrc")
-                    if os.path.exists(uppsrc_path) and uppsrc_path not in includes:
-                        includes.append(uppsrc_path)
-            else:
-                if repo_root:
-                    # Check in common assembly roots
-                    for sub in ["uppsrc", "upptst"]:
-                        dep_include_path = os.path.join(repo_root, sub, dep_name)
-                        if os.path.exists(dep_include_path) and dep_include_path not in includes:
-                            includes.append(dep_include_path)
-
-            # Also try the standard target directory approach as fallback
-            fallback_path = os.path.join(method_config.config.target_dir, dep_name, "include")
-            if os.path.exists(fallback_path) and fallback_path not in includes:
-                includes.append(fallback_path)
 
         # Determine flag prefix based on compiler
         is_msc = "cl.exe" in (method_config.compiler.cxx or "").lower()

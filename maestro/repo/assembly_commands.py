@@ -16,6 +16,7 @@ def handle_asm_command(args):
     - list: List all assemblies
     - show: Show details for specific assembly
     - conf: Handle assembly configurations
+    - import: Import assembly configuration from .var file
     - help: Show help
     """
     repo_path = args.path if hasattr(args, 'path') and args.path else None
@@ -29,6 +30,14 @@ def handle_asm_command(args):
         else:
             print_error("Assembly ID or name required for 'show' command", 2)
             show_asm_help()
+    elif args.asm_subcommand == 'import':
+        from maestro.repo.assembly_config_commands import import_asm_config
+        var_file = getattr(args, 'var_file', None)
+        name = getattr(args, 'name', None)
+        if var_file:
+            import_asm_config(repo_path, var_file, name, getattr(args, 'json', False))
+        else:
+            print_error(".var file path required for 'import' command", 2)
     elif args.asm_subcommand == 'conf':
         # Import assembly config commands here to avoid circular imports
         from maestro.repo.assembly_config_commands import handle_asm_conf_command

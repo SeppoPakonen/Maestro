@@ -32,6 +32,7 @@ def handle_asm_conf_command(args):
     - remove: Remove an assembly configuration
     - modify: Modify an existing assembly configuration
     - select: Select an active assembly configuration
+    - import: Import an assembly configuration from a .var file
     """
     repo_path = args.path if hasattr(args, 'path') and args.path else None
 
@@ -43,6 +44,13 @@ def handle_asm_conf_command(args):
             add_asm_config(repo_path, name, getattr(args, 'packages', []), getattr(args, 'json', False))
         else:
             print_error("Configuration name required for 'add' command", 2)
+    elif args.asm_conf_subcommand == 'import':
+        var_file = getattr(args, 'var_file', None)
+        name = getattr(args, 'name', None)
+        if var_file:
+            import_asm_config(repo_path, var_file, name, getattr(args, 'json', False))
+        else:
+            print_error(".var file path required for 'import' command", 2)
     elif args.asm_conf_subcommand in ['remove', 'rm', 'delete']:
         name = getattr(args, 'name', None)
         if name:
@@ -118,14 +126,13 @@ def list_asm_configs(repo_root: str, json_output: bool = False):
     for name, config in configs["configurations"].items():
         selected_marker = " (selected)" if name == configs["selected"] else ""
         print_info(f"  {name}{selected_marker}", 2)
-        print_info(f"    Packages ({len(config['packages'])}):", 3)
-        for pkg in config["packages"][:5]:  # Show first 5 packages
-            print_info(f"      - {pkg}", 3)
-        if len(config["packages"]) > 5:
-            print_info(f"      ... and {len(config['packages']) - 5} more", 3)
+        roots = config.get("roots", [])
+        print_info(f"    Roots ({len(roots)}):", 3)
+        for root in roots:
+            print_info(f"      - {root}", 3)
 
 
-def add_asm_config(repo_root: str, name: str, packages: List[str], json_output: bool = False):
+def add_asm_config(repo_root: str, name: str, roots: List[str], json_output: bool = False):
     """Add a new assembly configuration."""
     resolved_root = find_repo_root() if not repo_root else repo_root
     configs = load_asm_configs(resolved_root)
@@ -134,19 +141,36 @@ def add_asm_config(repo_root: str, name: str, packages: List[str], json_output: 
         print_error(f"Configuration '{name}' already exists", 2)
         return
 
-    # Validate packages exist in the repository
-    assemblies_data = load_assemblies_data(resolved_root)
-    all_packages = assemblies_data.get('packages', [])
-    all_package_names = [pkg.get('name') for pkg in all_packages if pkg.get('name')]
-    
-    invalid_packages = [pkg for pkg in packages if pkg not in all_package_names]
-    if invalid_packages:
-        print_error(f"The following packages don't exist in the repository: {', '.join(invalid_packages)}", 2)
+    # Validate roots exist
+    invalid_roots = []
+    normalized_roots = []
+    for root in roots:
+        # Try relative to repo root first
+        abs_path = os.path.normpath(os.path.join(resolved_root, root))
+        if not os.path.exists(abs_path):
+            # Try as absolute path
+            abs_path = os.path.normpath(root)
+            if not os.path.exists(abs_path):
+                invalid_roots.append(root)
+                continue
+        
+        # If it's inside repo, store as relative path
+        try:
+            rel = os.path.relpath(abs_path, resolved_root)
+            if not rel.startswith('..'):
+                normalized_roots.append(rel)
+            else:
+                normalized_roots.append(abs_path)
+        except ValueError:
+            normalized_roots.append(abs_path)
+
+    if invalid_roots:
+        print_error(f"The following paths don't exist: {', '.join(invalid_roots)}", 2)
         return
 
     configs["configurations"][name] = {
-        "packages": packages,
-        "created_at": str(os.times()[4])  # Using process time as timestamp
+        "roots": normalized_roots,
+        "created_at": str(os.times()[4])
     }
     
     save_asm_configs(resolved_root, configs)
@@ -159,7 +183,7 @@ def add_asm_config(repo_root: str, name: str, packages: List[str], json_output: 
         }
         print(json.dumps(result, indent=2))
     else:
-        print_success(f"Configuration '{name}' added successfully with {len(packages)} packages", 2)
+        print_success(f"Configuration '{name}' added successfully with {len(normalized_roots)} roots", 2)
 
 
 def remove_asm_config(repo_root: str, name: str, json_output: bool = False):
@@ -189,7 +213,7 @@ def remove_asm_config(repo_root: str, name: str, json_output: bool = False):
         print_success(f"Configuration '{name}' removed successfully", 2)
 
 
-def modify_asm_config(repo_root: str, name: str, packages: List[str], json_output: bool = False):
+def modify_asm_config(repo_root: str, name: str, roots: List[str], json_output: bool = False):
     """Modify an existing assembly configuration."""
     resolved_root = find_repo_root() if not repo_root else repo_root
     configs = load_asm_configs(resolved_root)
@@ -198,18 +222,32 @@ def modify_asm_config(repo_root: str, name: str, packages: List[str], json_outpu
         print_error(f"Configuration '{name}' does not exist", 2)
         return
 
-    # Validate packages exist in the repository
-    assemblies_data = load_assemblies_data(resolved_root)
-    all_packages = assemblies_data.get('packages', [])
-    all_package_names = [pkg.get('name') for pkg in all_packages if pkg.get('name')]
-    
-    invalid_packages = [pkg for pkg in packages if pkg not in all_package_names]
-    if invalid_packages:
-        print_error(f"The following packages don't exist in the repository: {', '.join(invalid_packages)}", 2)
+    # Validate roots exist
+    invalid_roots = []
+    normalized_roots = []
+    for root in roots:
+        abs_path = os.path.normpath(os.path.join(resolved_root, root))
+        if not os.path.exists(abs_path):
+            abs_path = os.path.normpath(root)
+            if not os.path.exists(abs_path):
+                invalid_roots.append(root)
+                continue
+        
+        try:
+            rel = os.path.relpath(abs_path, resolved_root)
+            if not rel.startswith('..'):
+                normalized_roots.append(rel)
+            else:
+                normalized_roots.append(abs_path)
+        except ValueError:
+            normalized_roots.append(abs_path)
+
+    if invalid_roots:
+        print_error(f"The following paths don't exist: {', '.join(invalid_roots)}", 2)
         return
 
-    configs["configurations"][name]["packages"] = packages
-    configs["configurations"][name]["updated_at"] = str(os.times()[4])  # Using process time as timestamp
+    configs["configurations"][name]["roots"] = normalized_roots
+    configs["configurations"][name]["updated_at"] = str(os.times()[4])
     
     save_asm_configs(resolved_root, configs)
     
@@ -221,7 +259,7 @@ def modify_asm_config(repo_root: str, name: str, packages: List[str], json_outpu
         }
         print(json.dumps(result, indent=2))
     else:
-        print_success(f"Configuration '{name}' modified successfully with {len(packages)} packages", 2)
+        print_success(f"Configuration '{name}' modified successfully with {len(normalized_roots)} roots", 2)
 
 
 def select_asm_config(repo_root: str, name: str, json_output: bool = False):
@@ -246,6 +284,37 @@ def select_asm_config(repo_root: str, name: str, json_output: bool = False):
         print_success(f"Configuration '{name}' selected as active", 2)
 
 
+def import_asm_config(repo_root: str, var_file_path: str, name: Optional[str] = None, json_output: bool = False):
+    """Import assembly configuration from a .var file."""
+    resolved_root = find_repo_root() if not repo_root else repo_root
+    
+    if not os.path.exists(var_file_path):
+        print_error(f".var file not found: {var_file_path}", 2)
+        return
+
+    # If name not provided, use filename without extension
+    if not name:
+        name = os.path.splitext(os.path.basename(var_file_path))[0]
+
+    try:
+        from maestro.builders.config import load_var_file
+        variables = load_var_file(var_file_path)
+        
+        upp_val = variables.get("UPP", "")
+        if not upp_val:
+            print_error(f"No UPP key found in {var_file_path}", 2)
+            return
+            
+        # UPP is semicolon separated list of paths
+        roots = [r.strip() for root in upp_val.split(';') if (r := root.strip())]
+        
+        # Add the assembly config
+        add_asm_config(resolved_root, name, roots, json_output)
+        
+    except Exception as e:
+        print_error(f"Failed to import .var file: {e}", 2)
+
+
 def show_asm_conf_help():
     """Show help for assembly configuration commands."""
     help_text = """
@@ -253,9 +322,10 @@ Maestro Assembly Configuration Commands (maestro repo asm conf)
 
 Usage:
   maestro repo asm conf list                    # List all assembly configurations
-  maestro repo asm conf add <name> [packages]  # Add a new assembly configuration
+  maestro repo asm conf add <name> [roots]      # Add a new assembly configuration
+  maestro repo asm conf import <var_file> [--name <name>] # Import from U++ .var file
   maestro repo asm conf remove <name>          # Remove an assembly configuration
-  maestro repo asm conf modify <name> [packages] # Modify an existing configuration
+  maestro repo asm conf modify <name> [roots]   # Modify an existing configuration
   maestro repo asm conf select <name>          # Select an active configuration
 
 Options:
@@ -264,9 +334,9 @@ Options:
 
 Examples:
   maestro repo asm conf list                   # List all configurations
-  maestro repo asm conf add umk examples,tutorial,reference,upptst,uppsrc  # Create umk config
+  maestro repo asm conf add umk uppsrc,upptst  # Create umk config with two roots
+  maestro repo asm conf import ~/upp/main.var  # Import from U++ assembly file
   maestro repo asm conf remove myconfig        # Remove a configuration
-  maestro repo asm conf modify umk examples,uppsrc  # Modify existing config
   maestro repo asm conf select umk             # Select umk config as active
 """
     print(help_text.strip())

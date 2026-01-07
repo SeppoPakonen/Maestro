@@ -422,28 +422,34 @@ def handle_repo_command(args):
                     print_error(branch_guard_error, 2)
                     sys.exit(1)
 
-                if getattr(args, "entity", None) != "target":
-                    print_error("Only target selection is supported.", 2)
+                entity = getattr(args, "entity", None)
+                value = getattr(args, "value", None)
+                if not value:
+                    print_error(f"{entity.capitalize()} value is required.", 2)
                     sys.exit(1)
-                target = getattr(args, "value", None)
-                if not target:
-                    print_error("Target value is required.", 2)
+
+                if entity == "target":
+                    repoconf = {
+                        "selected_target": value,
+                        "targets": [value],
+                        "updated_at": datetime.now().isoformat()
+                    }
+                    try:
+                        existing = load_repoconf(repo_root)
+                        targets = existing.get("targets", [])
+                        if value not in targets:
+                            targets.append(value)
+                        repoconf["targets"] = targets
+                    except SystemExit:
+                        pass
+                    save_repoconf(repo_root, repoconf)
+                    print_success(f"Selected default target: {value}", 2)
+                elif entity == "asm":
+                    from maestro.repo.assembly_config_commands import select_asm_config
+                    select_asm_config(repo_root, value, getattr(args, 'json', False))
+                else:
+                    print_error(f"Unsupported entity: {entity}", 2)
                     sys.exit(1)
-                repoconf = {
-                    "selected_target": target,
-                    "targets": [target],
-                    "updated_at": datetime.now().isoformat()
-                }
-                try:
-                    existing = load_repoconf(repo_root)
-                    targets = existing.get("targets", [])
-                    if target not in targets:
-                        targets.append(target)
-                    repoconf["targets"] = targets
-                except SystemExit:
-                    pass
-                save_repoconf(repo_root, repoconf)
-                print_success(f"Selected default target: {target}", 2)
             else:
                 print_info("Use 'maestro repo conf --help' for available subcommands.", 2)
 

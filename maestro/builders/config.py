@@ -640,11 +640,18 @@ class MethodManager:
             compiler_cc = ""
             compiler_cxx = ""
 
-            # Get compiler from .bm file
+            # Get builder type and compiler from .bm file
+            builder_type = variables.get("BUILDER", "").upper()
             compiler_name = variables.get("COMPILER", "").strip()
+            
             if not compiler_name:
-                # Default to cl for MSVC/MSVS methods on Windows, otherwise clang++
-                if platform.system() == "Windows" and ("msvc" in method_name.lower() or "msvs" in method_name.lower()):
+                if builder_type.startswith("MSC"):
+                    compiler_name = "cl"
+                elif builder_type.startswith("GCC"):
+                    compiler_name = "g++"
+                elif builder_type.startswith("CLANG"):
+                    compiler_name = "clang++"
+                elif platform.system() == "Windows" and ("msvc" in method_name.lower() or "msvs" in method_name.lower()):
                     compiler_name = "cl"
                 else:
                     compiler_name = "clang++"
