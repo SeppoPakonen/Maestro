@@ -13,6 +13,7 @@ import subprocess
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from pathlib import Path
 
+from maestro.builders.config import BuildType, OSFamily
 from maestro.modules.utils import (
     print_header,
     print_success,
@@ -510,12 +511,62 @@ class MakeCommand:
             if not package_info.get('path') and 'package_relpath' in package_info:
                 package_info['path'] = os.path.join(repo_root, package_info['package_relpath'])
             
+            # Determine flags for display
+            display_flags = []
+            if package_name == initial_target_name:
+                display_flags.append("MAIN")
+            
+            # Add flags from defines (e.g., flagMSC22X64 -> MSC22X64)
+            for d in method_config.compiler.defines:
+                if d.startswith("flag"):
+                    flag_name = d[4:]
+                    if flag_name not in display_flags:
+                        display_flags.append(flag_name)
+            
+            # Add builder/compiler flags if not already there
+            if "MSC" not in " ".join(display_flags).upper() and (
+                "MSC" in method_config.name.upper() or 
+                (method_config.compiler.cxx and "cl.exe" in method_config.compiler.cxx.lower())
+            ):
+                 display_flags.append("MSC")
+            elif "CLANG" not in " ".join(display_flags).upper() and "CLANG" in method_config.name.upper():
+                 display_flags.append("CLANG")
+            elif "GCC" not in " ".join(display_flags).upper() and "GCC" in method_config.name.upper():
+                 display_flags.append("GCC")
+            
+            if "DEBUG" not in display_flags and "RELEASE" not in display_flags:
+                if method_config.config.build_type == BuildType.DEBUG:
+                    display_flags.extend(["DEBUG", "DEBUG_FULL"])
+                else:
+                    display_flags.append("RELEASE")
+            
+            if "WIN32" not in display_flags and "POSIX" not in display_flags:
+                if method_config.platform.os == OSFamily.WINDOWS:
+                    display_flags.append("WIN32")
+                else:
+                    display_flags.extend(["POSIX", "LINUX"])
+            
             # Print package header similar to umk format
-            print(f"----- {package_name} ( MAIN CLANG DEBUG DEBUG_FULL POSIX LINUX ) ({idx} / {total_packages})")
+            flags_str = " ".join(display_flags)
+            print(f"----- {package_name} ( {flags_str} ) ({idx} / {total_packages})")
 
             # Set up the correct output directory structure like umk
             home_dir = os.path.expanduser("~")
-            flags_part = "CLANG.Debug.Debug_Full.Main.Noblitz"  # This should be derived from the build method
+            
+            # Derive flags_part similar to umk
+            flags_components = [method_name]
+            if method_config.config.build_type == BuildType.DEBUG:
+                flags_components.append("Debug")
+                flags_components.append("Debug_Full")
+            else:
+                flags_components.append("Release")
+            
+            if package_name == initial_target_name:
+                flags_components.append("Main")
+                
+            flags_components.append("Noblitz")
+            flags_part = ".".join(flags_components)
+            
             target_base_dir = os.path.join(home_dir, ".cache", "upp.out")
             target_pkg_dir = os.path.join(target_base_dir, package_name)
             target_flags_dir = os.path.join(target_pkg_dir, flags_part)
@@ -557,50 +608,84 @@ class MakeCommand:
                 # Update the package_info with the parsed files
                 package_info['files'] = parsed_package.files
 
-            # If this is HelloWorldStd, we need to set up for executable build
+            # If this is the main package, we need to set up for executable build
             original_ldflags = None
             original_cxxflags = None
+            original_defines = None
             original_name = None
-            if package_name == "HelloWorldStd":
+            
+            if package_name == initial_target_name:
                 original_ldflags = list(method_config.compiler.ldflags) if hasattr(method_config.compiler, 'ldflags') else []
                 original_cxxflags = list(method_config.compiler.cxxflags) if hasattr(method_config.compiler, 'cxxflags') else []
+                original_defines = list(method_config.compiler.defines) if hasattr(method_config.compiler, 'defines') else []
                 original_name = method_config.name
 
-                # Add flags specific to HelloWorldStd
-                method_config.compiler.cxxflags.extend([
-                    "-DflagMAIN", "-DflagCLANG", "-DflagDEBUG", "-DflagDEBUG_FULL",
-                    "-DflagPOSIX", "-DflagLINUX", "-ggdb", "-g2", "-fexceptions",
-                    "-D_DEBUG", "-Wno-logical-op-parentheses"
-                ])
-
-                # Add includes like umk does
-                method_config.compiler.includes.extend([
-                    "/home/sblo/ai-upp/upptst", "/home/sblo/ai-upp/uppsrc",
-                    "/usr/lib/llvm/19/include", "/usr/include"
-                ])
+                # Add flagMAIN and other flags from display_flags as defines
+                for f in display_flags:
+                    def_flag = f"flag{f}"
+                    if def_flag not in method_config.compiler.defines:
+                        method_config.compiler.defines.append(def_flag)
+                
+                # Special handling for MSC if detected
+                is_msc = "MSC" in display_flags
+                
+                if not is_msc:
+                    # Original clang/gcc specific flags
+                    method_config.compiler.cxxflags.extend([
+                        "-ggdb", "-g2", "-fexceptions",
+                        "-Wno-logical-op-parentheses"
+                    ])
 
                 # Determine the executable output path
                 if hasattr(args, 'target') and args.target:
                     output_executable_path = os.path.abspath(args.target)
-                elif getattr(args, 'target', None):
-                    output_executable_path = os.path.abspath(args.target)
                 else:
                     # Default to placing it in the build directory
-                    output_executable_path = os.path.join(target_flags_dir, package_name)
+                    ext = ".exe" if method_config.platform.os == OSFamily.WINDOWS else ""
+                    output_executable_path = os.path.join(target_flags_dir, f"{package_name}{ext}")
 
                 # The object file is in the target_flags_dir directly
-                obj_file_path = os.path.join(target_flags_dir, "HelloWorld.o")
-                ldflags = [
-                    "-static", "-o", output_executable_path, "-ggdb",
-                    "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64",
-                    obj_file_path, "-Wl,--start-group", "-Wl,--end-group"
-                ]
+                obj_ext = ".obj" if is_msc else ".o"
+                obj_file_path = os.path.join(target_flags_dir, f"{package_name}{obj_ext}")
+                
+                if is_msc:
+                    # MSC link flags
+                    ldflags = [
+                        "/nologo", "/machine:x64", f"/out:{output_executable_path}",
+                        "/subsystem:console"
+                    ]
+                    if method_config.config.build_type == BuildType.DEBUG:
+                        ldflags.extend(["/debug", "/incremental:no", "/opt:noref"])
+                    else:
+                        ldflags.extend(["/incremental:no", "/release", "/opt:ref,icf"])
+                    
+                    # Add object files and libraries
+                    ldflags.append(obj_file_path)
+                else:
+                    # Original clang/gcc link flags
+                    ldflags = [
+                        "-static", "-o", output_executable_path, "-ggdb",
+                        "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64",
+                        obj_file_path, "-Wl,--start-group", "-Wl,--end-group"
+                    ]
 
-                # Add dependency libraries if they exist
-                dep_lib_path = os.path.join(home_dir, ".cache", "upp.out", "HelloWorld2", "CLANG.Debug.Debug_Full.Main.Noblitz", "HelloWorld2.a")
-                if os.path.exists(dep_lib_path):
-                    # Insert the dependency library between start-group and end-group
-                    ldflags.insert(-1, dep_lib_path)
+                # Add dependency libraries
+                dep_flags_part = flags_part.replace(".Main.", ".")
+                for dep_name in package_names:
+                    if dep_name == package_name:
+                        continue
+                        
+                    lib_ext = ".lib" if is_msc else ".a"
+                    dep_lib_path = os.path.join(home_dir, ".cache", "upp.out", dep_name, dep_flags_part, f"{dep_name}{lib_ext}")
+                    
+                    if os.path.exists(dep_lib_path):
+                        if is_msc:
+                            if dep_lib_path not in ldflags:
+                                ldflags.append(dep_lib_path)
+                        else:
+                            if dep_lib_path not in ldflags:
+                                # Insert the dependency library between start-group and end-group
+                                ldflags.insert(-1, dep_lib_path)
 
                 method_config.compiler.ldflags = ldflags
                 method_config.name = f"{method_config.name}-exe"
@@ -617,11 +702,13 @@ class MakeCommand:
             success = builder.build_package(package_info, method_config, verbose=args.verbose)
 
             # Restore original config if modified
-            if package_name == "HelloWorldStd":
+            if package_name == initial_target_name:
                 if original_ldflags is not None:
                     method_config.compiler.ldflags = original_ldflags
                 if original_cxxflags is not None:
                     method_config.compiler.cxxflags = original_cxxflags
+                if original_defines is not None:
+                    method_config.compiler.defines = original_defines
                 if original_name is not None:
                     method_config.name = original_name
             # Restore original target directory
@@ -682,10 +769,15 @@ class MakeCommand:
         host = LocalHost()
 
         # Create the appropriate builder based on method_config
-        if method_config.builder == "upp" or method_config.name in ["clang-debug", "gcc-debug", "clang-release", "gcc-release"]:
+        msc_names = ["msc-debug", "msc-release", "msvc-debug", "msvc-release"]
+        if (method_config.builder == "upp" or 
+            method_config.name in ["clang-debug", "gcc-debug", "clang-release", "gcc-release"] or
+            method_config.name in msc_names or
+            "msvc" in method_config.name.lower() or
+            "msc" in method_config.name.lower()):
             return UppBuilder(host, method_config)
         else:
-            # Default to UppBuilder for now
+            # Default to UppBuilder for now for U++ repos
             return UppBuilder(host, method_config)
 
     def _detect_current_package(self, current_dir: str, repo_model: Dict) -> Optional[str]:

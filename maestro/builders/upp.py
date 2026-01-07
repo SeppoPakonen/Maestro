@@ -410,8 +410,42 @@ class UppBuilder(Builder):
             if os.path.exists(fallback_path) and fallback_path not in includes:
                 includes.append(fallback_path)
 
+        # Determine flag prefix based on compiler
+        is_msc = "cl.exe" in (method_config.compiler.cxx or "").lower()
+        
+        if is_msc:
+            # Add standard MSC flags if not already present
+            msc_base_flags = ["-nologo", "-W3", "-GR", "-EHsc"]
+            for flag in msc_base_flags:
+                if flag not in cxxflags:
+                    cxxflags.append(flag)
+                if flag not in cflags:
+                    cflags.append(flag)
+            
+            # Handle DEBUG_FULL / DEBUG_MINIMAL
+            if method_config.config.build_type == BuildType.DEBUG:
+                if "-Zi" not in cxxflags and "-Zd" not in cxxflags:
+                    cxxflags.append("-Zi")
+                if "-Zi" not in cflags and "-Zd" not in cflags:
+                    cflags.append("-Zi")
+            
+            # Handle MD/MT
+            is_shared = "flagSO" in defines or "flagSHARED" in defines
+            runtime_flag = "-MD" if is_shared else "-MT"
+            if method_config.config.build_type == BuildType.DEBUG:
+                runtime_flag += "d"
+            
+            if not any(f.startswith("-M") for f in cxxflags):
+                cxxflags.append(runtime_flag)
+            if not any(f.startswith("-M") for f in cflags):
+                cflags.append(runtime_flag)
+
+        # Even for cl.exe, umk seems to use -D and -I
+        def_prefix = "-D"
+        inc_prefix = "-I"
+
         # Format defines as -D flags
-        define_flags = [f"-D{define}" for define in defines]
+        define_flags = [f"{def_prefix}{define}" for define in defines]
 
         # Add build directory to includes so build_info.h can be found
         # In the umk-like structure, build_info.h is in target_dir directly
@@ -420,7 +454,12 @@ class UppBuilder(Builder):
             includes.append(build_dir)
 
         # Format includes as -I flags
-        include_flags = [f"-I{inc}" for inc in includes]
+        include_flags = []
+        for inc in includes:
+            if " " in inc:
+                include_flags.append(f'{inc_prefix}"{inc}"')
+            else:
+                include_flags.append(f"{inc_prefix}{inc}")
 
         return {
             'cflags': cflags + include_flags[:],  # Copy to avoid mutation
@@ -506,13 +545,14 @@ class UppBuilder(Builder):
 
         # Determine which compiler to use based on config
         compiler = method_config.compiler.cxx or method_config.compiler.cc
+        is_msc = "cl.exe" in (compiler or "").lower()
 
         # Print package build header similar to umk
         print(f"cd {package.dir}")
 
         # Compile each source file
         obj_files = []
-        source_extensions = ['.cpp', '.c', '.cxx', '.cc']
+        source_extensions = ['.cpp', '.c', '.cxx', '.cc', '.rc']
 
         for source_file in package.files:
             source_path = os.path.join(package.dir, source_file)
@@ -524,7 +564,12 @@ class UppBuilder(Builder):
                 print(source_file)
 
                 # Generate object file path
-                obj_name = os.path.splitext(os.path.basename(source_file))[0] + ".o"
+                obj_ext = ".obj" if is_msc else ".o"
+                if ext == '.rc' and is_msc:
+                     obj_name = os.path.splitext(os.path.basename(source_file))[0] + "$rc.obj"
+                else:
+                     obj_name = os.path.splitext(os.path.basename(source_file))[0] + obj_ext
+                
                 obj_path = os.path.join(build_dir, obj_name)
 
                 # Ensure the directory for the object file exists
@@ -532,20 +577,46 @@ class UppBuilder(Builder):
                 os.makedirs(obj_dir, exist_ok=True)
 
                 # Determine which flags to use based on file type
-                if ext in ['.c']:
-                    compile_flags = [compiler] + flags['cflags'] + ["-c", source_path, "-o", obj_path]
+                if is_msc:
+                    if ext == '.rc':
+                         # Resource compiler flags
+                         rc_flags = ["rc", f'/fo"{obj_path}"']
+                         # Add includes and defines (filtered for rc.exe)
+                         for f in flags['cxxflags']:
+                             if f.startswith("-I"):
+                                 rc_flags.append("/i" + f[2:])
+                             elif f.startswith("-D"):
+                                 rc_flags.append("/d" + f[2:])
+                         rc_flags.append(source_path)
+                         compile_flags = rc_flags
+                    else:
+                        out_flag = f'/Fo"{obj_path}"'
+                        if ext in ['.c']:
+                            compile_flags = [compiler] + flags['cflags'] + ["/c", source_path, out_flag]
+                        else:
+                            compile_flags = [compiler] + flags['cxxflags'] + ["/c", source_path, out_flag]
                 else:
-                    compile_flags = [compiler] + flags['cxxflags'] + ["-c", source_path, "-o", obj_path]
+                    if ext in ['.c']:
+                        compile_flags = [compiler] + flags['cflags'] + ["-c", source_path, "-o", obj_path]
+                    else:
+                        compile_flags = [compiler] + flags['cxxflags'] + ["-c", source_path, "-o", obj_path]
 
                 # Show which file is being built and the command if verbose
                 if verbose:
                     # Match umk's double command output
                     compiler_basename = os.path.basename(compiler)
-                    short_flags = [compiler_basename] + compile_flags[1:]
-                    # Use quotes for include paths with spaces if necessary, but here we just join
+                    # Quote compiler if it has spaces
+                    if " " in compiler and not compiler.startswith('"'):
+                        compiler_q = f'"{compiler}"'
+                        compiler_basename_q = f'"{compiler_basename}"'
+                    else:
+                        compiler_q = compiler
+                        compiler_basename_q = compiler_basename
+
+                    short_flags = [compiler_basename_q] + compile_flags[1:]
                     print(f"{' '.join(short_flags)}")
                     print("compiled in (0:00.00)")
-                    print(f"{' '.join(compile_flags)}")
+                    print(f"{' '.join([compiler_q] + compile_flags[1:])}")
 
                 # Execute compilation
                 success = execute_command(compile_flags, cwd=package.dir, verbose=False)
@@ -570,13 +641,25 @@ class UppBuilder(Builder):
             # This is an executable build - link directly using the ldflags from make command
             print("Linking...")
             # Use the ldflags that were set up in the make command (they should contain the full linking command)
-            link_args = [compiler] + flags['ldflags']
+            if is_msc:
+                linker = compiler.replace("cl.exe", "link.exe")
+                link_args = [linker] + flags['ldflags']
+            else:
+                link_args = [compiler] + flags['ldflags']
             
             if verbose:
-                compiler_basename = os.path.basename(compiler)
-                short_link_args = [compiler_basename] + link_args[1:]
+                linker_basename = os.path.basename(link_args[0])
+                # Quote linker if it has spaces
+                if " " in link_args[0] and not link_args[0].startswith('"'):
+                    linker_q = f'"{link_args[0]}"'
+                    linker_basename_q = f'"{linker_basename}"'
+                else:
+                    linker_q = link_args[0]
+                    linker_basename_q = linker_basename
+                    
+                short_link_args = [linker_basename_q] + link_args[1:]
                 print(f"{' '.join(short_link_args)}")
-                print(f"{' '.join(link_args)}")
+                print(f"{' '.join([linker_q] + link_args[1:])}")
 
             success = execute_command(link_args, cwd=build_dir, verbose=False)
             
@@ -586,7 +669,28 @@ class UppBuilder(Builder):
             # Create a static library (non-executable)
             if verbose:
                 print("Creating library...")
-            link_args = ["ar", "-sr", target_path] + obj_files
+            
+            if is_msc:
+                # Find link.exe in the same directory as cl.exe
+                linker = compiler.replace("cl.exe", "link.exe")
+                link_args = [linker, "/lib", "-nologo", f'-out:"{target_path}"'] + obj_files
+                
+                if verbose:
+                    linker_basename = os.path.basename(linker)
+                    # Quote linker if it has spaces
+                    if " " in linker and not linker.startswith('"'):
+                        linker_q = f'"{linker}"'
+                        linker_basename_q = f'"{linker_basename}"'
+                    else:
+                        linker_q = linker
+                        linker_basename_q = linker_basename
+                        
+                    short_link_args = [linker_basename_q] + link_args[1:]
+                    print(f"{' '.join(short_link_args)}")
+                    print(f"{' '.join([linker_q] + link_args[1:])}")
+            else:
+                link_args = ["ar", "-sr", target_path] + obj_files
+            
             success = execute_command(link_args, cwd=build_dir, verbose=False)
 
         if success:

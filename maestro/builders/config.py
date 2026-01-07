@@ -447,10 +447,10 @@ class MethodManager:
             self.save_method(clang_release_config)
             created_methods.append("clang-release")
         
-        # Create MSVC debug method
+        # Create MSC debug method
         if 'msvc' in detected_tools:
-            msvc_debug_config = MethodConfig(
-                name="msvc-debug",
+            msc_debug_config = MethodConfig(
+                name="msc-debug",
                 builder="msvc",
                 compiler=CompilerConfig(
                     cc=detected_tools['msvc']['cc'],
@@ -469,14 +469,14 @@ class MethodManager:
                     arch="x64"
                 )
             )
-            self.save_method(msvc_debug_config)
-            created_methods.append("msvc-debug")
+            self.save_method(msc_debug_config)
+            created_methods.append("msc-debug")
             
-            # Create MSVC release method
-            msvc_release_config = MethodConfig(
-                name="msvc-release",
+            # Create MSC release method
+            msc_release_config = MethodConfig(
+                name="msc-release",
                 builder="msvc",
-                inherit="msvc-debug",
+                inherit="msc-debug",
                 compiler=CompilerConfig(
                     cflags=["/O2", "/Ob2", "/DNDEBUG", "/MD"],
                     cxxflags=["/O2", "/Ob2", "/DNDEBUG", "/MD"],
@@ -488,8 +488,8 @@ class MethodManager:
                     jobs=os.cpu_count() or 4
                 )
             )
-            self.save_method(msvc_release_config)
-            created_methods.append("msvc-release")
+            self.save_method(msc_release_config)
+            created_methods.append("msc-release")
         
         # Create CMake method
         if 'cmake' in detected_tools:
@@ -549,20 +549,27 @@ class MethodManager:
 
     def detect_default_method(self) -> Optional[str]:
         """Detect the best default build method based on available tools."""
+        available_methods = self.get_available_methods()
+        
+        # On Windows, prioritize MSVS*x64
+        if platform.system() == "Windows":
+             msvs_methods = [m for m in available_methods if m.startswith("MSVS") and m.endswith("x64")]
+             if msvs_methods:
+                 return sorted(msvs_methods, reverse=True)[0]
+
         detected_tools = self.detect_compilers()
 
         # Prioritize methods based on common preferences
         priority_order = [
+            ("msvc", "msc-debug"),
             ("gcc", "gcc-debug"),
             ("clang", "clang-debug"),
-            ("msvc", "msvc-debug"),
             ("cmake", "cmake-default"),
             ("msbuild", "msbuild-default"),
             ("maven", "maven-default")
         ]
 
         # Check for existing methods first
-        available_methods = self.get_available_methods()
         for tool_key, method_name in priority_order:
             if tool_key in detected_tools and method_name in available_methods:
                 return method_name
@@ -610,6 +617,7 @@ class MethodManager:
         """Load U++ build method from .bm file."""
         # Check for U++ build method files in standard locations
         upp_config_dirs = [
+            Path.home() / "upp",
             Path.home() / ".config" / "u++" / "theide",
             Path.home() / ".config" / "upp" / "theide",
             Path("/usr/local/share/upp/theide"),
@@ -633,10 +641,13 @@ class MethodManager:
             compiler_cxx = ""
 
             # Get compiler from .bm file
-            if "COMPILER" in variables:
-                compiler_cxx = variables["COMPILER"]
-                # For C compiler, typically use same but replace ++ with nothing or use cc
-                compiler_cc = variables["COMPILER"].replace("++", "")
+            compiler_name = variables.get("COMPILER", "").strip()
+            if not compiler_name:
+                # Default to cl for MSVC/MSVS methods on Windows, otherwise clang++
+                if platform.system() == "Windows" and ("msvc" in method_name.lower() or "msvs" in method_name.lower()):
+                    compiler_name = "cl"
+                else:
+                    compiler_name = "clang++"
 
             # Parse PATH from .bm file to find actual compiler executable
             if "PATH" in variables:
@@ -644,20 +655,42 @@ class MethodManager:
                 for path_dir in paths:
                     path_dir = path_dir.strip()
                     if path_dir:
-                        # Look for compiler in specified paths
-                        cxx_path = Path(path_dir) / compiler_cxx
-                        cc_path = Path(path_dir) / compiler_cc
-
-                        if cxx_path.exists() and os.access(cxx_path, os.X_OK):
-                            compiler_cxx = str(cxx_path)
-                        if cc_path.exists() and os.access(cc_path, os.X_OK):
-                            compiler_cc = str(cc_path)
+                        # On Windows, compilers might be cl.exe, clang++.exe, etc.
+                        cxx_exe = compiler_name
+                        if not cxx_exe.endswith('.exe') and platform.system() == "Windows":
+                            cxx_exe += '.exe'
+                        
+                        try:
+                            cxx_path = Path(path_dir) / cxx_exe
+                            if cxx_path.exists() and os.access(cxx_path, os.X_OK):
+                                compiler_cxx = str(cxx_path)
+                                # For C compiler, if it's cl.exe, it's the same
+                                if "cl" in compiler_name.lower():
+                                    compiler_cc = compiler_cxx
+                                else:
+                                    cc_exe = compiler_name.replace("++", "").replace("g++", "gcc")
+                                    if not cc_exe.endswith('.exe') and platform.system() == "Windows":
+                                        cc_exe += '.exe'
+                                    cc_path = Path(path_dir) / cc_exe
+                                    if cc_path.exists():
+                                        compiler_cc = str(cc_path)
+                                break
+                        except Exception:
+                            continue
+                        
+                        # Special case for cl.exe if not explicitly found yet
+                        if not compiler_cxx and platform.system() == "Windows":
+                             cl_path = Path(path_dir) / "cl.exe"
+                             if cl_path.exists():
+                                 compiler_cxx = str(cl_path)
+                                 compiler_cc = str(cl_path)
+                                 break
 
             # Fallback: try to find compiler in system PATH
-            if not compiler_cxx or not os.path.exists(compiler_cxx):
-                compiler_cxx = self._find_executable(variables.get("COMPILER", "clang++"))
-            if not compiler_cc or not os.path.exists(compiler_cc):
-                compiler_cc = self._find_executable(compiler_cc or "clang")
+            if not compiler_cxx:
+                compiler_cxx = self._find_executable(compiler_name)
+            if not compiler_cc:
+                compiler_cc = self._find_executable(compiler_name.replace("++", "").replace("g++", "gcc"))
 
             # Build flags based on .bm file content
             cxxflags = []
@@ -1013,7 +1046,25 @@ class MethodManager:
         """Get list of available method names."""
         if not self._loaded:
             self.load_all_methods()
-        return list(self._methods.keys())
+        
+        methods = list(self._methods.keys())
+        
+        # Also add U++ build methods
+        upp_config_dirs = [
+            Path.home() / "upp",
+            Path.home() / ".config" / "u++" / "theide",
+            Path.home() / ".config" / "upp" / "theide",
+            Path("/usr/local/share/upp/theide"),
+            Path("/usr/share/upp/theide")
+        ]
+
+        for config_dir in upp_config_dirs:
+            if config_dir.exists():
+                for bm_file in config_dir.glob("*.bm"):
+                    if bm_file.stem not in methods:
+                        methods.append(bm_file.stem)
+        
+        return methods
 
 
 # Global method manager instance
