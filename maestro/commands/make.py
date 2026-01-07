@@ -445,10 +445,6 @@ class MakeCommand:
             print_info("Use 'maestro repo asm conf select <name>' or 'maestro repo asm import <var_file>'", 2)
             return 1
         
-        # Add project root as well if not already there
-        if repo_root not in assembly_roots:
-            assembly_roots.append(repo_root)
-
         if not assembly_roots:
             print_error("No assembly roots found in the selected configuration.", 2)
             return 1
