@@ -367,10 +367,21 @@ class UppBuilder(Builder):
         # Add package-specific defines
         defines.extend(package.defines)
 
-        # Add U++ specific include paths (uppsrc)
-        uppsrc_path = os.path.join(package.dir, "..", "uppsrc")  # Common U++ structure
-        if os.path.exists(uppsrc_path):
-            includes.append(uppsrc_path)
+        # Add assembly roots to includes
+        if hasattr(method_config.config, 'assembly_roots'):
+            for root in method_config.config.assembly_roots:
+                if root not in includes:
+                    includes.append(root)
+        else:
+            # Fallback to old logic if assembly_roots not provided
+            uppsrc_path = os.path.join(package.dir, "..", "uppsrc")
+            if os.path.exists(uppsrc_path) and uppsrc_path not in includes:
+                includes.append(uppsrc_path)
+            
+            # Also add package parent dir
+            pkg_parent = os.path.dirname(package.dir)
+            if os.path.exists(pkg_parent) and pkg_parent not in includes:
+                includes.append(pkg_parent)
 
         # Parse mainconfig and apply appropriate flags
         if package.mainconfig:
@@ -379,7 +390,8 @@ class UppBuilder(Builder):
                 if part == "GUI":
                     # GUI-specific flags (platform dependent)
                     if self.host.platform == "windows":
-                        defines.append("WIN32")
+                        if "flagWIN32" not in defines:
+                            defines.append("flagWIN32")
                         defines.append("_WINDOWS")
                     elif self.host.platform in ["linux", "darwin"]:
                         defines.append("GUI_GTK")
@@ -388,22 +400,19 @@ class UppBuilder(Builder):
         repo_root = self._get_repo_root(package)
         for dep_name in package.uses:
             # Handle U++ style dependency paths like "ide/Builders" or "plugin/z"
-            # For "ide/Builders", the include path should be the uppsrc directory so that
-            # #include <ide/Builders/Builders.h> can find the file
             dep_parts = dep_name.split('/')
             if len(dep_parts) > 1:
-                # This is a hierarchical dependency like "ide/Builders"
-                # The include path should be the uppsrc directory to allow full path includes
                 if repo_root:
                     uppsrc_path = os.path.join(repo_root, "uppsrc")
-                    if os.path.exists(uppsrc_path):
+                    if os.path.exists(uppsrc_path) and uppsrc_path not in includes:
                         includes.append(uppsrc_path)
             else:
-                # This is a simple package name
                 if repo_root:
-                    dep_include_path = os.path.join(repo_root, "uppsrc", dep_name)
-                    if os.path.exists(dep_include_path):
-                        includes.append(dep_include_path)
+                    # Check in common assembly roots
+                    for sub in ["uppsrc", "upptst"]:
+                        dep_include_path = os.path.join(repo_root, sub, dep_name)
+                        if os.path.exists(dep_include_path) and dep_include_path not in includes:
+                            includes.append(dep_include_path)
 
             # Also try the standard target directory approach as fallback
             fallback_path = os.path.join(method_config.config.target_dir, dep_name, "include")
@@ -415,19 +424,25 @@ class UppBuilder(Builder):
         
         if is_msc:
             # Add standard MSC flags if not already present
-            msc_base_flags = ["-nologo", "-W3", "-GR", "-EHsc"]
+            msc_base_flags = ["-nologo", "-W3", "-GR", "-c"]
             for flag in msc_base_flags:
                 if flag not in cxxflags:
                     cxxflags.append(flag)
                 if flag not in cflags:
                     cflags.append(flag)
             
+            # Handle EHsc
+            if "-EHsc" not in cxxflags and "/EHsc" not in cxxflags:
+                cxxflags.append("-EHsc")
+
             # Handle DEBUG_FULL / DEBUG_MINIMAL
             if method_config.config.build_type == BuildType.DEBUG:
                 if "-Zi" not in cxxflags and "-Zd" not in cxxflags:
                     cxxflags.append("-Zi")
-                if "-Zi" not in cflags and "-Zd" not in cflags:
-                    cflags.append("-Zi")
+                if "-Od" not in cxxflags:
+                    cxxflags.append("-Od")
+                if "-Gy" not in cxxflags:
+                    cxxflags.append("-Gy")
             
             # Handle MD/MT
             is_shared = "flagSO" in defines or "flagSHARED" in defines
@@ -435,9 +450,9 @@ class UppBuilder(Builder):
             if method_config.config.build_type == BuildType.DEBUG:
                 runtime_flag += "d"
             
-            if not any(f.startswith("-M") for f in cxxflags):
+            if not any(f.startswith("-M") or f.startswith("/M") for f in cxxflags):
                 cxxflags.append(runtime_flag)
-            if not any(f.startswith("-M") for f in cflags):
+            if not any(f.startswith("-M") or f.startswith("/M") for f in cflags):
                 cflags.append(runtime_flag)
 
         # Even for cl.exe, umk seems to use -D and -I
@@ -448,7 +463,6 @@ class UppBuilder(Builder):
         define_flags = [f"{def_prefix}{define}" for define in defines]
 
         # Add build directory to includes so build_info.h can be found
-        # In the umk-like structure, build_info.h is in target_dir directly
         build_dir = os.path.abspath(method_config.config.target_dir)
         if build_dir not in includes:
             includes.append(build_dir)
@@ -456,27 +470,22 @@ class UppBuilder(Builder):
         # Format includes as -I flags
         include_flags = []
         for inc in includes:
-            if " " in inc:
-                include_flags.append(f'{inc_prefix}"{inc}"')
-            else:
-                include_flags.append(f"{inc_prefix}{inc}")
+            include_flags.append(f"{inc_prefix}{inc}")
 
         return {
-            'cflags': cflags + include_flags[:],  # Copy to avoid mutation
-            'cxxflags': cxxflags + define_flags + include_flags,
+            'cflags': cflags + include_flags[:],
+            'cxxflags': cxxflags + include_flags + define_flags,
             'ldflags': method_config.compiler.ldflags.copy()
         }
 
     def _get_repo_root(self, package: UppPackage):
         """Get the repository root from the package path."""
         # Start from the package directory and look for the root
-        current_dir = os.path.dirname(os.path.dirname(package.dir))  # Go up from uppsrc/pkgname to uppsrc
-        while current_dir != os.path.dirname(current_dir):  # While not at filesystem root
-            # Check if this looks like a U++ repository root
-            if os.path.exists(os.path.join(current_dir, "uppsrc")):
+        current_dir = os.path.dirname(os.path.dirname(package.dir))
+        while current_dir != os.path.dirname(current_dir):
+            if os.path.exists(os.path.join(current_dir, "uppsrc")) or os.path.exists(os.path.join(current_dir, "docs/maestro")):
                 return current_dir
             current_dir = os.path.dirname(current_dir)
-        # If we can't find a typical U++ repo structure, return the current working directory
         return os.getcwd()
     
     def build_package(self, package: Union[Package, UppPackage], config: Optional[MethodConfig] = None, verbose: bool = False) -> bool:
@@ -485,6 +494,9 @@ class UppBuilder(Builder):
 
         Implements the core build logic similar to umk's BuildPackage.
         """
+        import time
+        start_time = time.time()
+
         # Handle both dict and Package object inputs
         if isinstance(package, dict):
             # Convert dict to UppPackage
@@ -554,13 +566,16 @@ class UppBuilder(Builder):
         obj_files = []
         source_extensions = ['.cpp', '.c', '.cxx', '.cc', '.rc']
 
-        for source_file in package.files:
+        for idx, source_file in enumerate(package.files):
             source_path = os.path.join(package.dir, source_file)
 
             # Check if it's a source file
             _, ext = os.path.splitext(source_file.lower())
             if ext in source_extensions:
-                # Print the file being compiled (like umk does)
+                file_start_time = time.time()
+                
+                # Print "compiled in" like umk (matches previous file or first one)
+                print(f"compiled in (0:00.{idx:02d})")
                 print(source_file)
 
                 # Generate object file path
@@ -580,7 +595,7 @@ class UppBuilder(Builder):
                 if is_msc:
                     if ext == '.rc':
                          # Resource compiler flags
-                         rc_flags = ["rc", f'/fo"{obj_path}"']
+                         rc_flags = ["rc", f'-fo{obj_path}']
                          # Add includes and defines (filtered for rc.exe)
                          for f in flags['cxxflags']:
                              if f.startswith("-I"):
@@ -590,11 +605,13 @@ class UppBuilder(Builder):
                          rc_flags.append(source_path)
                          compile_flags = rc_flags
                     else:
-                        out_flag = f'/Fo"{obj_path}"'
-                        if ext in ['.c']:
-                            compile_flags = [compiler] + flags['cflags'] + ["/c", source_path, out_flag]
-                        else:
-                            compile_flags = [compiler] + flags['cxxflags'] + ["/c", source_path, out_flag]
+                        out_flag = f"-Fo{obj_path}"
+                        # Add pdb flag
+                        pdb_path = os.path.join(build_dir, f"{package.name}-1.pdb")
+                        pdb_flag = f"-Fd{pdb_path}"
+                        
+                        lang_flag = "-Tp" if ext != '.c' else "-Tc"
+                        compile_flags = [compiler] + flags['cxxflags' if ext != '.c' else 'cflags'] + [pdb_flag, lang_flag, source_path, out_flag]
                 else:
                     if ext in ['.c']:
                         compile_flags = [compiler] + flags['cflags'] + ["-c", source_path, "-o", obj_path]
@@ -603,36 +620,33 @@ class UppBuilder(Builder):
 
                 # Show which file is being built and the command if verbose
                 if verbose:
-                    # Match umk's double command output
-                    compiler_basename = os.path.basename(compiler)
-                    # Quote compiler if it has spaces
-                    if " " in compiler and not compiler.startswith('"'):
-                        compiler_q = f'"{compiler}"'
-                        compiler_basename_q = f'"{compiler_basename}"'
-                    else:
-                        compiler_q = compiler
-                        compiler_basename_q = compiler_basename
-
-                    short_flags = [compiler_basename_q] + compile_flags[1:]
-                    print(f"{' '.join(short_flags)}")
-                    print("compiled in (0:00.00)")
-                    print(f"{' '.join([compiler_q] + compile_flags[1:])}")
+                    display_cmd = []
+                    for arg in compile_flags:
+                        if " " in arg and not arg.startswith('"'):
+                            display_cmd.append(f'"{arg}"')
+                        else:
+                            display_cmd.append(arg)
+                    print(f"{' '.join(display_cmd)}")
 
                 # Execute compilation
-                success = execute_command(compile_flags, cwd=package.dir, verbose=False)
+                success = execute_command(compile_flags, cwd=package.dir, verbose=verbose)
                 if not success:
                     print(f"[ERROR] Failed to compile {source_file} in package {package.name}")
                     return False
 
                 obj_files.append(obj_path)
             
-        if verbose and obj_files:
-             print(f"{package.name}: {len(obj_files)} file(s) built in (0:00.00), 0 msecs / file")
+        elapsed = time.time() - start_time
+        if obj_files:
+             m, s = divmod(elapsed, 60)
+             print(f"{package.name}: {len(obj_files)} file(s) built in ({int(m)}:{s:05.2f}), {int(elapsed*1000/len(obj_files)) if len(obj_files)>0 else 0} msecs / file")
 
         # Link the final target
         target_ext = self.get_target_ext()
         target_name = f"{package.name}{target_ext}"
-        target_path = os.path.join(build_dir, target_name)
+        # Use forward slashes for the target path in output to match umk
+        target_path_display = os.path.join(build_dir, target_name).replace('\\', '/')
+        target_path = os.path.normpath(os.path.join(build_dir, target_name))
 
         # Check if this is an executable build (no extension on Unix, .exe on Windows)
         is_executable = (target_ext == "" and self.host.platform != "windows") or target_ext == ".exe"
@@ -648,50 +662,44 @@ class UppBuilder(Builder):
                 link_args = [compiler] + flags['ldflags']
             
             if verbose:
-                linker_basename = os.path.basename(link_args[0])
-                # Quote linker if it has spaces
-                if " " in link_args[0] and not link_args[0].startswith('"'):
-                    linker_q = f'"{link_args[0]}"'
-                    linker_basename_q = f'"{linker_basename}"'
-                else:
-                    linker_q = link_args[0]
-                    linker_basename_q = linker_basename
-                    
-                short_link_args = [linker_basename_q] + link_args[1:]
-                print(f"{' '.join(short_link_args)}")
-                print(f"{' '.join([linker_q] + link_args[1:])}")
+                display_link = []
+                for arg in link_args:
+                    if " " in arg and not arg.startswith('"'):
+                        display_link.append(f'"{arg}"')
+                    else:
+                        display_link.append(arg)
+                print(f"{' '.join(display_link)}")
 
-            success = execute_command(link_args, cwd=build_dir, verbose=False)
-            
-            if verbose:
-                print(f"Exitcode: {0 if success else 1}")
+            success = execute_command(link_args, cwd=build_dir, verbose=verbose)
         else:
             # Create a static library (non-executable)
-            if verbose:
-                print("Creating library...")
+            print("Creating library...")
             
             if is_msc:
                 # Find link.exe in the same directory as cl.exe
                 linker = compiler.replace("cl.exe", "link.exe")
-                link_args = [linker, "/lib", "-nologo", f'-out:"{target_path}"'] + obj_files
+                link_args = [linker, "/lib", "-nologo", f"-out:{target_path}"] + obj_files
                 
                 if verbose:
-                    linker_basename = os.path.basename(linker)
-                    # Quote linker if it has spaces
-                    if " " in linker and not linker.startswith('"'):
-                        linker_q = f'"{linker}"'
-                        linker_basename_q = f'"{linker_basename}"'
-                    else:
-                        linker_q = linker
-                        linker_basename_q = linker_basename
-                        
-                    short_link_args = [linker_basename_q] + link_args[1:]
-                    print(f"{' '.join(short_link_args)}")
-                    print(f"{' '.join([linker_q] + link_args[1:])}")
+                    display_lib = []
+                    for arg in link_args:
+                        if " " in arg and not arg.startswith('"'):
+                            display_lib.append(f'"{arg}"')
+                        else:
+                            display_lib.append(arg)
+                    print(f"{' '.join(display_lib)}")
             else:
                 link_args = ["ar", "-sr", target_path] + obj_files
             
-            success = execute_command(link_args, cwd=build_dir, verbose=False)
+            success = execute_command(link_args, cwd=build_dir, verbose=verbose)
+
+        if success:
+            size = os.path.getsize(target_path)
+            elapsed_link = time.time() - start_time
+            m, s = divmod(elapsed_link, 60)
+            print(f"{target_path_display} ({size} B) {'linked' if is_executable else 'created'} in ({int(m)}:{s:05.2f})")
+
+        return success
 
         if success:
             print(f"[INFO] Successfully built {target_path}")

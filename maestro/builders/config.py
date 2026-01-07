@@ -750,7 +750,10 @@ class MethodManager:
                 for lib_path in lib_paths:
                     lib_path = lib_path.strip()
                     if lib_path:
-                        ldflags.extend(["-L" + lib_path])
+                        if platform.system() == "Windows" and ("msvc" in method_name.lower() or "msvs" in method_name.lower()):
+                            ldflags.append(f"/LIBPATH:{lib_path}")
+                        else:
+                            ldflags.extend(["-L" + lib_path])
 
             # Add common linker options
             if "COMMON_LINK" in variables:
@@ -768,22 +771,27 @@ class MethodManager:
             if "BUILDER" in variables:
                 builder_name = variables["BUILDER"]
                 defines.append(f"flag{builder_name.upper()}")
+            
+            # Add the method name itself as a flag (e.g., flagMSC22X64)
+            method_flag = f"flag{method_name.upper()}"
+            if method_flag not in defines:
+                defines.append(method_flag)
 
             # Add debug/release defines
-            if "DEBUG" in method_name.upper():
+            is_debug = "RELEASE" not in method_name.upper() and "RELEASE" not in variables
+            if is_debug:
                 defines.extend(["flagDEBUG", "flagDEBUG_FULL"])
-            if "RELEASE" in method_name.upper():
+            else:
                 defines.append("flagRELEASE")
 
             # Add platform defines
             current_os = platform.system().lower()
-            defines.append(f"flag{current_os.upper()}")
             if current_os == "linux":
                 defines.extend(["flagPOSIX", "flagLINUX"])
             elif current_os == "darwin":
                 defines.extend(["flagPOSIX", "flagMACOS"])
             elif current_os == "windows":
-                defines.append("flagWINDOWS")
+                defines.extend(["flagWIN32", "flagMSC"])
 
             # Create MethodConfig from parsed data
             config = MethodConfig(
@@ -799,7 +807,7 @@ class MethodManager:
                     includes=includes
                 ),
                 config=BuildConfig(
-                    build_type=BuildType.DEBUG if "DEBUG" in method_name.upper() else BuildType.RELEASE,
+                    build_type=BuildType.DEBUG if is_debug else BuildType.RELEASE,
                     parallel=True,
                     jobs=os.cpu_count() or 4,
                     verbose=False

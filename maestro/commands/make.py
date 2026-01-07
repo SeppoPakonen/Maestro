@@ -389,6 +389,8 @@ class MakeCommand:
 
     def build(self, args: argparse.Namespace) -> int:
         """Build one or more packages."""
+        import time
+        overall_start_time = time.time()
         from maestro.builders.console import reset_command_output_log, get_command_output_log
         from maestro.issues.parsers import parse_build_logs
         from maestro.issues.issue_store import write_issue
@@ -416,6 +418,19 @@ class MakeCommand:
             if getattr(args, 'verbose', False):
                 print(f"Note: Hub links not available: {e}")
 
+        # Extract assembly roots from repo model
+        assembly_roots = []
+        if 'assemblies' in repo_model:
+            for asm in repo_model['assemblies']:
+                if 'root_relpath' in asm:
+                    root_abs = os.path.normpath(os.path.join(repo_root, asm['root_relpath']))
+                    if root_abs not in assembly_roots:
+                        assembly_roots.append(root_abs)
+        
+        # Add project root as well
+        if repo_root not in assembly_roots:
+            assembly_roots.append(repo_root)
+
         # Auto-detect method if not specified
         method_name = args.method
         if not method_name:
@@ -435,11 +450,17 @@ class MakeCommand:
             method_config.config.jobs = args.jobs
         if hasattr(args, 'verbose') and args.verbose:
             method_config.config.verbose = True
+        
+        method_config.config.assembly_roots = assembly_roots
 
         if external_roots:
             if not hasattr(method_config.config, 'external_package_roots'):
                 method_config.config.external_package_roots = []
             method_config.config.external_package_roots.extend(external_roots)
+            # Add external roots to assembly_roots for inclusion
+            for root in external_roots:
+                if root not in method_config.config.assembly_roots:
+                    method_config.config.assembly_roots.append(root)
 
         if args.verbose:
             print(f"Building packages with method: {method_name}")
@@ -528,7 +549,8 @@ class MakeCommand:
                 "MSC" in method_config.name.upper() or 
                 (method_config.compiler.cxx and "cl.exe" in method_config.compiler.cxx.lower())
             ):
-                 display_flags.append("MSC")
+                 if "MSC" not in display_flags:
+                     display_flags.append("MSC")
             elif "CLANG" not in " ".join(display_flags).upper() and "CLANG" in method_config.name.upper():
                  display_flags.append("CLANG")
             elif "GCC" not in " ".join(display_flags).upper() and "GCC" in method_config.name.upper():
@@ -542,7 +564,8 @@ class MakeCommand:
             
             if "WIN32" not in display_flags and "POSIX" not in display_flags:
                 if method_config.platform.os == OSFamily.WINDOWS:
-                    display_flags.append("WIN32")
+                    if "WIN32" not in display_flags:
+                        display_flags.append("WIN32")
                 else:
                     display_flags.extend(["POSIX", "LINUX"])
             
@@ -569,7 +592,7 @@ class MakeCommand:
             
             target_base_dir = os.path.join(home_dir, ".cache", "upp.out")
             target_pkg_dir = os.path.join(target_base_dir, package_name)
-            target_flags_dir = os.path.join(target_pkg_dir, flags_part)
+            target_flags_dir = os.path.normpath(os.path.join(target_pkg_dir, flags_part))
 
             # Create the target directory structure
             os.makedirs(target_flags_dir, exist_ok=True)
@@ -644,9 +667,18 @@ class MakeCommand:
                     ext = ".exe" if method_config.platform.os == OSFamily.WINDOWS else ""
                     output_executable_path = os.path.join(target_flags_dir, f"{package_name}{ext}")
 
-                # The object file is in the target_flags_dir directly
+                # Determine the object files produced by compilation
+                obj_files = []
                 obj_ext = ".obj" if is_msc else ".o"
-                obj_file_path = os.path.join(target_flags_dir, f"{package_name}{obj_ext}")
+                source_extensions = ['.cpp', '.c', '.cxx', '.cc', '.rc']
+                for source_file in package_info.get('files', []):
+                    _, ext = os.path.splitext(source_file.lower())
+                    if ext in source_extensions:
+                        if ext == '.rc' and is_msc:
+                            obj_name = os.path.splitext(os.path.basename(source_file))[0] + "$rc.obj"
+                        else:
+                            obj_name = os.path.splitext(os.path.basename(source_file))[0] + obj_ext
+                        obj_files.append(os.path.join(target_flags_dir, obj_name))
                 
                 if is_msc:
                     # MSC link flags
@@ -655,19 +687,26 @@ class MakeCommand:
                         "/subsystem:console"
                     ]
                     if method_config.config.build_type == BuildType.DEBUG:
-                        ldflags.extend(["/debug", "/incremental:no", "/opt:noref"])
+                        # Use /debug and generate pdb
+                        pdb_path = os.path.splitext(output_executable_path)[0] + ".pdb"
+                        ldflags.extend(["/debug", f"/pdb:{pdb_path}", "/incremental:no", "/opt:noref"])
                     else:
                         ldflags.extend(["/incremental:no", "/release", "/opt:ref,icf"])
                     
-                    # Add object files and libraries
-                    ldflags.append(obj_file_path)
+                    # Add existing ldflags (e.g., /LIBPATH from .bm file)
+                    ldflags.extend(original_ldflags)
+                    
+                    # Add object files
+                    ldflags.extend(obj_files)
                 else:
                     # Original clang/gcc link flags
                     ldflags = [
                         "-static", "-o", output_executable_path, "-ggdb",
                         "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64",
-                        obj_file_path, "-Wl,--start-group", "-Wl,--end-group"
                     ]
+                    ldflags.extend(original_ldflags)
+                    ldflags.extend(obj_files)
+                    ldflags.extend(["-Wl,--start-group", "-Wl,--end-group"])
 
                 # Add dependency libraries
                 dep_flags_part = flags_part.replace(".Main.", ".")
@@ -676,7 +715,7 @@ class MakeCommand:
                         continue
                         
                     lib_ext = ".lib" if is_msc else ".a"
-                    dep_lib_path = os.path.join(home_dir, ".cache", "upp.out", dep_name, dep_flags_part, f"{dep_name}{lib_ext}")
+                    dep_lib_path = os.path.normpath(os.path.join(home_dir, ".cache", "upp.out", dep_name, dep_flags_part, f"{dep_name}{lib_ext}"))
                     
                     if os.path.exists(dep_lib_path):
                         if is_msc:
@@ -688,15 +727,12 @@ class MakeCommand:
                                 ldflags.insert(-1, dep_lib_path)
 
                 method_config.compiler.ldflags = ldflags
-                method_config.name = f"{method_config.name}-exe"
+                method_config.name = f"{method_name}-exe"
 
             builder = self._create_builder_for_package(package_info, method_config)
             if not builder:
                 print(f"Error: Could not create builder for package '{package_name}'")
                 return 1
-
-            if args.verbose:
-                print(f"Building package: {package_name}")
 
             reset_command_output_log()
             success = builder.build_package(package_info, method_config, verbose=args.verbose)
@@ -717,12 +753,10 @@ class MakeCommand:
             if not success:
                 print(f"Failed to build package: {package_name}")
                 return 1
-            else:
-                if args.verbose:
-                    print(f"Successfully built package: {package_name}")
-                else:
-                    print(f"Built: {package_name}")
 
+        overall_elapsed = time.time() - overall_start_time
+        m, s = divmod(overall_elapsed, 60)
+        print(f"\nOK. ({int(m)}:{s:05.2f})")
         return 0
 
     def _find_package_info(self, package_name: str, repo_model: Dict, repo_root: str) -> Optional[Dict]:
