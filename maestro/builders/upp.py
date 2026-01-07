@@ -33,6 +33,8 @@ class UppPackage(Package):
     files: List[str] = field(default_factory=list)
     uses: List[str] = field(default_factory=list)
     options: List[str] = field(default_factory=list)
+    link_options: List[str] = field(default_factory=list)
+    include_paths: List[str] = field(default_factory=list)
     flags: List[str] = field(default_factory=list)
     defines: List[str] = field(default_factory=list)
 
@@ -47,6 +49,8 @@ class UppPackage(Package):
         self.files = []
         self.uses = []
         self.options = []
+        self.link_options = []
+        self.include_paths = []
         self.flags = []
         self.defines = []
         self.configs = {}
@@ -266,12 +270,43 @@ class UppBuilder(Builder):
                     # Single option or start of multi-line
                     package.options.extend(line[7:].strip().split())
 
+            elif line.startswith('link'):
+                # Handle link section
+                if '{' in line:
+                    current_section = 'link_braces'
+                elif line == 'link':
+                    current_section = 'link_multiline'
+                elif line.endswith(';'):
+                    link_match = re.search(r'link\s+(.+);', line)
+                    if link_match:
+                        package.link_options.extend(link_match.group(1).split())
+                else:
+                    package.link_options.extend(line[4:].strip().split())
+
+            elif line.startswith('include'):
+                # Handle include section
+                if '{' in line:
+                    current_section = 'include_braces'
+                elif line == 'include':
+                    current_section = 'include_multiline'
+                elif line.endswith(';'):
+                    inc_match = re.search(r'include\s+(.+);', line)
+                    if inc_match:
+                        package.include_paths.extend(inc_match.group(1).split())
+                else:
+                    package.include_paths.extend(line[7:].strip().split())
+
             elif line.startswith('flag'):
                 current_section = 'flags'
-                # Extract flag
-                flag_match = re.search(r'(\w+)', line[5:])
-                if flag_match:
-                    package.flags.append(flag_match.group(1))
+                # Handle flag
+                if '{' in line:
+                    current_section = 'flags_braces'
+                elif line == 'flag':
+                    current_section = 'flags_multiline'
+                else:
+                    flag_match = re.search(r'(\w+)', line[5:])
+                    if flag_match:
+                        package.flags.append(flag_match.group(1))
 
             elif line == '{':
                 # Handle multi-line sections - if we're waiting for mainconfig, now we have the assignment
@@ -293,10 +328,16 @@ class UppBuilder(Builder):
                 if current_section == 'uses':
                     package.uses.extend(current_value)
                     current_value = []
-                elif current_section == 'options' or current_section == 'options_braces':
+                elif current_section in ['options', 'options_braces']:
                     package.options.extend(current_value)
                     current_value = []
-                elif current_section == 'flags':
+                elif current_section in ['link', 'link_braces']:
+                    package.link_options.extend(current_value)
+                    current_value = []
+                elif current_section in ['include', 'include_braces']:
+                    package.include_paths.extend(current_value)
+                    current_value = []
+                elif current_section in ['flags', 'flags_braces']:
                     package.flags.extend(current_value)
                     current_value = []
                 elif current_section == 'mainconfig':
@@ -305,7 +346,7 @@ class UppBuilder(Builder):
                 current_section = None
 
             # Handle lines inside uses sections (when we're in a uses_multiline section)
-            elif current_section == 'uses_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'options')):
+            elif current_section == 'uses_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'options', 'link', 'include')):
                 # This line should contain a use dependency
                 # Look for dependency name followed by semicolon
                 uses_match = re.search(r'([a-zA-Z0-9_][a-zA-Z0-9_/\\]*[a-zA-Z0-9_]|[a-zA-Z0-9_]+)\s*;', line)
@@ -322,7 +363,7 @@ class UppBuilder(Builder):
                         use_entry = uses_match.group(1).replace('\\', '/')
                         package.uses.append(use_entry)
 
-            elif current_section == 'options_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'uses')):
+            elif current_section == 'options_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'uses', 'link', 'include')):
                 # Handle multi-line options without braces
                 package.options.extend(line.strip().rstrip(';').split())
                 if line.endswith(';'):
@@ -331,6 +372,30 @@ class UppBuilder(Builder):
             elif current_section == 'options_braces' and line != '}':
                 # Handle lines inside options { ... }
                 package.options.extend(line.strip().rstrip(';').split())
+
+            elif current_section == 'link_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'uses', 'options', 'include')):
+                package.link_options.extend(line.strip().rstrip(';').split())
+                if line.endswith(';'):
+                    current_section = None
+
+            elif current_section == 'link_braces' and line != '}':
+                package.link_options.extend(line.strip().rstrip(';').split())
+
+            elif current_section == 'include_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'flag', 'uses', 'options', 'link')):
+                package.include_paths.extend(line.strip().rstrip(';').split())
+                if line.endswith(';'):
+                    current_section = None
+
+            elif current_section == 'include_braces' and line != '}':
+                package.include_paths.extend(line.strip().rstrip(';').split())
+
+            elif current_section == 'flags_multiline' and not line.startswith(('file', 'mainconfig', 'description', 'options', 'link', 'include')):
+                package.flags.extend([f.strip() for f in line.strip().rstrip(';').split(',') if f.strip()])
+                if line.endswith(';'):
+                    current_section = None
+
+            elif current_section == 'flags_braces' and line != '}':
+                package.flags.extend([f.strip() for f in line.strip().rstrip(';').split(',') if f.strip()])
 
             elif line.endswith(',') and current_section:
                 # Continue multi-line values
@@ -400,6 +465,7 @@ class UppBuilder(Builder):
         # Start with config defaults
         cflags = method_config.compiler.cflags.copy()
         cxxflags = method_config.compiler.cxxflags.copy()
+        ldflags = method_config.compiler.ldflags.copy()
         includes = method_config.compiler.includes.copy()
         defines = method_config.compiler.defines.copy()
 
@@ -424,6 +490,16 @@ class UppBuilder(Builder):
                     cflags.append(opt)
                 if opt not in cxxflags:
                     cxxflags.append(opt)
+
+        # Add package-specific include paths
+        for inc in package.include_paths:
+            if inc not in includes:
+                includes.append(inc)
+
+        # Add package-specific link options
+        for lnk in package.link_options:
+            if lnk not in ldflags:
+                ldflags.append(lnk)
 
         # Add assembly roots to includes
         # These are the primary search paths for packages and headers
@@ -505,18 +581,13 @@ class UppBuilder(Builder):
         return {
             'cflags': cflags + include_flags[:],
             'cxxflags': cxxflags + include_flags + define_flags,
-            'ldflags': method_config.compiler.ldflags.copy()
+            'ldflags': ldflags
         }
 
     def _get_repo_root(self, package: UppPackage):
         """Get the repository root from the package path."""
-        # Start from the package directory and look for the root
-        current_dir = os.path.dirname(os.path.dirname(package.dir))
-        while current_dir != os.path.dirname(current_dir):
-            if os.path.exists(os.path.join(current_dir, "uppsrc")) or os.path.exists(os.path.join(current_dir, "docs/maestro")):
-                return current_dir
-            current_dir = os.path.dirname(current_dir)
-        return os.getcwd()
+        from maestro.repo.storage import find_repo_root
+        return find_repo_root(package.dir) or os.getcwd()
     
     def build_package(self, package: Union[Package, UppPackage], config: Optional[MethodConfig] = None, verbose: bool = False) -> bool:
         """
