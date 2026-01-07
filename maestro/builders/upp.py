@@ -453,6 +453,23 @@ class UppBuilder(Builder):
         # Must be cl or cl.exe, not something like clang-cl.exe
         return basename == "cl.exe" or basename == "cl"
 
+    def _get_msc_linker(self, compiler_path: str) -> str:
+        """Get the path to the MSVC linker (link.exe) based on the compiler path."""
+        if not compiler_path:
+            return "link.exe"
+        
+        # Replace cl.exe or cl with link.exe or link
+        dir_name = os.path.dirname(compiler_path)
+        base_name = os.path.basename(compiler_path).lower()
+        
+        if base_name == "cl.exe":
+            return os.path.join(dir_name, "link.exe")
+        elif base_name == "cl":
+            return os.path.join(dir_name, "link")
+        
+        # Fallback
+        return compiler_path.replace("cl.exe", "link.exe").replace("cl", "link")
+
     def get_compiler_flags(self, package: UppPackage, config: Optional[MethodConfig] = None) -> Dict[str, List[str]]:
         """
         Generate compiler flags for the package based on build method and config.
@@ -760,7 +777,7 @@ class UppBuilder(Builder):
             print("Linking...")
             # Use the ldflags that were set up in the make command (they should contain the full linking command)
             if is_msc:
-                linker = compiler.replace("cl.exe", "link.exe")
+                linker = self._get_msc_linker(compiler)
                 link_args = [linker] + flags['ldflags']
             else:
                 link_args = [compiler] + flags['ldflags']
@@ -781,7 +798,7 @@ class UppBuilder(Builder):
             
             if is_msc:
                 # Find link.exe in the same directory as cl.exe
-                linker = compiler.replace("cl.exe", "link.exe")
+                linker = self._get_msc_linker(compiler)
                 link_args = [linker, "/lib", "-nologo", f"-out:{target_path}"] + obj_files
                 
                 if verbose:

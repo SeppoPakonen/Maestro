@@ -563,9 +563,11 @@ class MakeCommand:
                         display_flags.append(flag_name)
             
             # Add builder/compiler flags if not already there
+            compiler_path = (method_config.compiler.cxx or "").lower()
+            is_msc_path = "cl.exe" in compiler_path or "cl" == os.path.basename(compiler_path) or "cl.exe" == os.path.basename(compiler_path)
+            
             if "MSC" not in " ".join(display_flags).upper() and (
-                "MSC" in method_config.name.upper() or 
-                (method_config.compiler.cxx and "cl.exe" in method_config.compiler.cxx.lower())
+                "MSC" in method_config.name.upper() or is_msc_path
             ):
                  if "MSC" not in display_flags:
                      display_flags.append("MSC")
