@@ -259,6 +259,7 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 "package_relpath": normalize_path_to_posix(package_relpath),
                 "assembly_id": assembly_id,
                 "build_system": pkg.build_system,
+                "metadata": getattr(pkg, 'metadata', {})
             }
             if best_assembly_entry:
                 package_entries_by_assembly[assembly_id].append(package_entry)
@@ -341,7 +342,8 @@ def write_repo_artifacts(repo_root: str, scan_result, verbose: bool = False):
                 "ungrouped_files": [
                     normalize_path_to_posix(path)
                     for path in pkg.ungrouped_files
-                ]
+                ],
+                "metadata": getattr(pkg, 'metadata', {})
             } for pkg in scan_result.packages_detected
         ],
         "unknown_paths": [
@@ -776,36 +778,65 @@ def build_dependency_hierarchy(starting_packages: List[str], all_packages: List[
         # Get dependencies from this package
         deps_with_chain = []
 
-        # Get dependencies from .upp metadata if available
+        # List of dependencies to process
+        dependencies_to_process = []
+
+        # 1. Get dependencies from .upp metadata if available
         if pkg.get('upp') and pkg['upp'].get('uses'):
             uses_list = pkg['upp']['uses']
             for use in uses_list:
                 if isinstance(use, dict):
-                    dep_name = use['package']
-                    condition = use.get('condition')
+                    dependencies_to_process.append({
+                        'name': use['package'],
+                        'condition': use.get('condition')
+                    })
                 else:
                     # Backward compatibility with old format
-                    dep_name = use
-                    condition = None
-
-                # Combine the current condition with the inherited condition
-                combined_condition = _combine_conditions(inherited_condition, condition)
-
-                # Find the dependency package
-                dep_pkg = _find_package_by_name(dep_name)
-
-                if dep_pkg:
-                    # Add this dependency with its chain
-                    chain = list(path)  # Copy current path
-                    deps_with_chain.append({
-                        'package': dep_pkg,
-                        'chain': chain,
-                        'condition': combined_condition
+                    dependencies_to_process.append({
+                        'name': use,
+                        'condition': None
                     })
 
-                    # Recursively get dependencies of this dependency with the combined condition
-                    sub_deps = _get_deep_dependencies(dep_pkg, set(visited), list(path), combined_condition)
-                    deps_with_chain.extend(sub_deps)
+        # 2. Get dependencies from generic 'dependencies' list if available
+        if pkg.get('dependencies'):
+            for dep in pkg['dependencies']:
+                if isinstance(dep, str):
+                    # Check if it's already added from U++ (prevent duplicates)
+                    if not any(d['name'] == dep for d in dependencies_to_process):
+                        dependencies_to_process.append({
+                            'name': dep,
+                            'condition': None
+                        })
+                elif isinstance(dep, dict) and 'name' in dep:
+                    # Handle dict format if used
+                    if not any(d['name'] == dep['name'] for d in dependencies_to_process):
+                        dependencies_to_process.append({
+                            'name': dep['name'],
+                            'condition': dep.get('condition')
+                        })
+
+        for dep_info in dependencies_to_process:
+            dep_name = dep_info['name']
+            condition = dep_info['condition']
+
+            # Combine the current condition with the inherited condition
+            combined_condition = _combine_conditions(inherited_condition, condition)
+
+            # Find the dependency package
+            dep_pkg = _find_package_by_name(dep_name)
+
+            if dep_pkg:
+                # Add this dependency with its chain
+                chain = list(path)  # Copy current path
+                deps_with_chain.append({
+                    'package': dep_pkg,
+                    'chain': chain,
+                    'condition': combined_condition
+                })
+
+                # Recursively get dependencies of this dependency with the combined condition
+                sub_deps = _get_deep_dependencies(dep_pkg, set(visited), list(path), combined_condition)
+                deps_with_chain.extend(sub_deps)
 
         # Remove current package from path when returning
         path.pop()

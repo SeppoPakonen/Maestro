@@ -19,8 +19,9 @@ class Package:
         self.name = name
         # Accept legacy 'path' while preferring explicit 'directory' when provided.
         self.directory = directory if directory != "" else (path if path is not None else "")
-        # Maintain backward-compatible attribute name
+        # Maintain backward-compatible attribute names
         self.path = self.directory
+        self.dir = self.directory
         self.build_system = build_system
         self.source_files = source_files or []
         self.dependencies = dependencies or []

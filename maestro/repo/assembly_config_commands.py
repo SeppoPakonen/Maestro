@@ -8,7 +8,7 @@ configurations for different use cases.
 
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 from maestro.modules.utils import (
