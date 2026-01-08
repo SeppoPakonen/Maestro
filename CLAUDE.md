@@ -25,7 +25,36 @@ When producing plans, agents must respect the engine enablement matrix and stack
 
 - Engine enablement: Only use engines that are enabled for the required role (planner/worker)
 - Stacking mode: In managed mode, return structured JSON plans; in handsoff mode, may include more direct instructions
-- ## Task 3 — v2 Generator: YAML IR → PlantUML → SVG (LOD0/LOD1/LOD2 variants)
+
+## Maestro Build System Philosophy
+
+Maestro is designed to **replace** traditional build systems (cmake, gradle, make, msbuild, qmake, etc.), not wrap them.
+
+### Key Principles
+
+1. **Unified Interface**: `maestro make build` and `maestro make run` work consistently across all project types
+2. **Direct Execution**: `maestro make run` executes built binaries directly, not via original build system
+3. **Build System Detection**: Maestro detects existing build systems (gradle, cmake, etc.) to extract build parameters, then compiles directly using compilers (javac, gcc, cl.exe)
+
+### Implementation Guidelines for Agents
+
+When implementing run/execute features:
+- ✅ DO: Execute built binaries directly from build output directory
+- ✅ DO: Use builder's `get_executable_path()` to locate outputs
+- ❌ DON'T: Call `./gradlew run`, `cmake --build . --target run`, `make run`, etc.
+- ❌ DON'T: Delegate to original build system for execution
+
+Example:
+```bash
+# Correct approach
+maestro make build MyProject
+maestro make run MyProject
+
+# What we DON'T do internally
+./gradlew desktop:run  # ❌ Delegates to Gradle
+```
+
+## Task 3 — v2 Generator: YAML IR → PlantUML → SVG (LOD0/LOD1/LOD2 variants)
 
 **Objective**
 Build the deterministic generator that produces v2 diagrams from YAML IR and renders **SVG** via PlantUML. Generate multiple LODs so zooming and layering never gets “forgotten”.

@@ -257,6 +257,32 @@ def add_make_parser(subparsers: Any) -> argparse.ArgumentParser:
         help='Show verbose output'
     )
 
+    # Run subcommand
+    run_parser = make_subparsers.add_parser(
+        'run',
+        help='Run built executable',
+        description='Execute the built binary for a package.'
+    )
+    run_parser.add_argument(
+        'package',
+        nargs='?',
+        help='Package name to run (optional if in package directory or default target set)'
+    )
+    run_parser.add_argument(
+        'args',
+        nargs=argparse.REMAINDER,
+        help='Arguments to pass to the executable (use -- to separate)'
+    )
+    run_parser.add_argument(
+        '-m', '--method',
+        help='Build method used (for locating output)'
+    )
+    run_parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show verbose output'
+    )
+
     make_parser.set_defaults(func=handle_make_command)
     return make_parser
 
@@ -298,6 +324,8 @@ class MakeCommand:
             return self.build_jar(args)
         elif args.make_subcommand == 'structure':
             return self.structure(args)
+        elif args.make_subcommand == 'run':
+            return self.run(args)
         else:
             print(f"Error: Unknown make subcommand: {args.make_subcommand}")
             return 1
@@ -386,6 +414,101 @@ class MakeCommand:
         """Show package build structure."""
         print("Structure command not yet fully implemented.")
         return 0
+
+    def run(self, args: argparse.Namespace) -> int:
+        """Run the built executable for a package."""
+        from maestro.repo.storage import load_repo_model, load_repoconf
+
+        repo_root = self._find_repo_root()
+        repo_model = load_repo_model(repo_root)
+        repoconf = load_repoconf(repo_root)
+
+        # Determine package name
+        package_name = args.package
+        if not package_name:
+            if repoconf and repoconf.get("selected_target"):
+                package_name = repoconf["selected_target"]
+            else:
+                current_dir = os.getcwd()
+                package_name = self._detect_current_package(current_dir, repo_model)
+
+        if not package_name:
+            print("Error: No package to run. Specify a package or run from package directory.")
+            return 1
+
+        # Find package info
+        package_info = self._find_package_info(package_name, repo_model, repo_root)
+        if not package_info:
+            print(f"Error: Package '{package_name}' not found.")
+            return 1
+
+        # Load method config
+        method_name = args.method or self.method_manager.detect_default_method()
+        if not method_name:
+            print("Error: No build method detected.")
+            return 1
+
+        method_config = self.method_manager.load_method(method_name)
+        if not method_config:
+            print(f"Error: Could not load build method '{method_name}'")
+            return 1
+
+        # Create builder to find executable
+        builder = self._create_builder_for_package(package_info, method_config)
+        if not builder:
+            print(f"Error: Could not create builder for package '{package_name}'")
+            return 1
+
+        # Create package object
+        from maestro.builders.base import Package as BuilderPackage
+        package_obj = BuilderPackage(
+            name=package_name,
+            directory=package_info.get('dir', ''),
+            build_system=package_info.get('build_system', 'upp'),
+            source_files=package_info.get('files', []),
+            dependencies=package_info.get('dependencies', []),
+            metadata=package_info.get('metadata', {})
+        )
+
+        # Let the builder find the executable (builder-specific logic)
+        exe_path = builder.get_executable_path(package_obj, method_config)
+        if not exe_path:
+            print(f"Error: Executable not found for '{package_name}'")
+            print(f"Build system: {package_info.get('build_system', 'unknown')}")
+            print(f"Run 'maestro make build {package_name}' first.")
+            return 1
+
+        # Parse arguments (remove leading -- if present)
+        run_args = list(args.args or [])
+        if run_args and run_args[0] == "--":
+            run_args = run_args[1:]
+
+        # Build command - handle JAR files specially
+        if exe_path.endswith('.jar'):
+            # JAR files need to be executed with java -jar
+            cmd = ['java', '-jar', exe_path] + run_args
+        else:
+            # Native executables can be run directly
+            cmd = [exe_path] + run_args
+
+        try:
+            import platform
+            use_shell = platform.system() == "Windows"
+            result = subprocess.run(cmd, cwd=os.getcwd(), shell=use_shell)
+            return result.returncode
+        except FileNotFoundError:
+            if exe_path.endswith('.jar'):
+                print(f"Error: Java runtime not found or JAR file missing: {exe_path}")
+                print("Make sure Java is installed and in PATH")
+            else:
+                print(f"Error: Executable not found: {exe_path}")
+            return 1
+        except KeyboardInterrupt:
+            print("\nInterrupted by user")
+            return 130
+        except Exception as e:
+            print(f"Error running executable: {e}")
+            return 1
 
     def build(self, args: argparse.Namespace) -> int:
         """Build one or more packages."""
@@ -902,11 +1025,16 @@ class MakeCommand:
 
     def _detect_current_package(self, current_dir: str, repo_model: Dict) -> Optional[str]:
         """Detect the current package based on the current directory."""
-        # Check if we're in a package directory by looking for .upp file
+        # 1. Check if we're in a package directory by looking for .upp file
         current_package_name = os.path.basename(current_dir)
         upp_file = os.path.join(current_dir, f"{current_package_name}.upp")
 
         if os.path.exists(upp_file):
+            return current_package_name
+
+        # 2. Check for Gradle project
+        if os.path.exists(os.path.join(current_dir, "build.gradle")) or \
+           os.path.exists(os.path.join(current_dir, "build.gradle.kts")):
             return current_package_name
 
         return None

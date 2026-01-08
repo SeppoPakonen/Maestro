@@ -420,29 +420,38 @@ class GradleBuilder(Builder):
         """Find the executable for Gradle packages.
 
         For Gradle Application plugin projects, look for:
-        1. build/install/{package.name}/bin/{package.name} (from installDist)
+        1. build/install/{package.name}/bin/{package.name}[.bat] (from installDist)
         2. build/libs/*.jar (fallback, but requires main manifest)
         """
+        import platform
+        is_windows = platform.system() == "Windows"
+        
         # First, try to find installDist output (Gradle Application plugin)
-        install_bin_dir = os.path.join(package.directory, "build", "install", package.name, "bin")
+        # Note: we use package.dir or package.directory
+        pkg_dir = getattr(package, 'directory', getattr(package, 'dir', ''))
+        install_bin_dir = os.path.join(pkg_dir, "build", "install", package.name, "bin")
+        
         if os.path.exists(install_bin_dir):
-            # Look for launcher script (Unix)
+            if is_windows:
+                # On Windows, prefer .bat or .cmd
+                for ext in [".bat", ".cmd"]:
+                    launcher_win = os.path.join(install_bin_dir, f"{package.name}{ext}")
+                    if os.path.exists(launcher_win):
+                        return launcher_win
+            
+            # Look for launcher script (Unix or as fallback on Windows)
             launcher_script = os.path.join(install_bin_dir, package.name)
             if os.path.exists(launcher_script):
-                # Make sure it's executable
-                try:
-                    os.chmod(launcher_script, 0o755)
-                except:
-                    pass
+                if not is_windows:
+                    # Make sure it's executable on Unix
+                    try:
+                        os.chmod(launcher_script, 0o755)
+                    except:
+                        pass
                 return launcher_script
 
-            # Look for Windows .bat script
-            launcher_bat = os.path.join(install_bin_dir, f"{package.name}.bat")
-            if os.path.exists(launcher_bat):
-                return launcher_bat
-
         # Fallback: look for JAR files in build/libs/
-        build_libs_dir = os.path.join(package.directory, "build", "libs")
+        build_libs_dir = os.path.join(pkg_dir, "build", "libs")
         if not os.path.exists(build_libs_dir):
             return None
 

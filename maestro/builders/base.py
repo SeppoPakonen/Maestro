@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
+import os
 from ..builders.config import MethodConfig, BuildConfig
 
 
@@ -111,3 +112,37 @@ class Builder(ABC):
             config: New build method configuration
         """
         self.config = config
+
+    def get_executable_path(self, package: Package, method_config: MethodConfig) -> Optional[str]:
+        """Find the executable for this package after a successful build.
+
+        Args:
+            package: Package to find executable for
+            method_config: Build method configuration used for the build
+
+        Returns:
+            Path to executable, or None if not found or not applicable
+
+        Note:
+            Default implementation searches common output locations.
+            Builders can override for build-system-specific logic.
+        """
+        # Default implementation: check target_dir for executable
+        target_dir = getattr(method_config.config, 'target_dir', None)
+        if not target_dir:
+            return None
+
+        # Common executable names
+        pkg_name = package.name
+        from ..builders.config import OSFamily
+        ext = ".exe" if method_config.platform.os == OSFamily.WINDOWS else ""
+        candidates = [
+            os.path.join(target_dir, pkg_name + ext),
+            os.path.join(target_dir, pkg_name),
+        ]
+
+        for candidate in candidates:
+            if os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+
+        return None
