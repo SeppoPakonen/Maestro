@@ -1,6 +1,7 @@
 import os
 import subprocess
 import re
+import platform
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from .base import Builder, Package
@@ -17,24 +18,30 @@ class GradleBuilder(Builder):
 
     def _detect_gradle_command(self) -> str:
         """Detect the appropriate Gradle command (gradle or gradlew)."""
+        import platform
+        is_windows = platform.system() == "Windows"
+        
         # Check for gradlew (Gradle wrapper) starting from current directory and walking up
         current = Path(os.getcwd()).resolve()
         
         while True:
-            gradlew_local = current / "gradlew"
-            gradlew_local_sh = current / "gradlew.sh"
-            gradlew_local_bat = current / "gradlew.bat"
+            # On Windows, prefer gradlew.bat or gradlew.cmd
+            if is_windows:
+                for ext in [".bat", ".cmd"]:
+                    gradlew_win = current / f"gradlew{ext}"
+                    if gradlew_win.exists():
+                        return str(gradlew_win)
             
-            if gradlew_local.exists() or gradlew_local_sh.exists():
-                path = gradlew_local if gradlew_local.exists() else gradlew_local_sh
-                # Make gradlew executable if needed
-                try:
-                    os.chmod(str(path), 0o755)
-                except:
-                    pass
-                return str(path)
-            elif gradlew_local_bat.exists():
-                return str(gradlew_local_bat)
+            # On both platforms, check for gradlew (shell script)
+            gradlew_sh = current / "gradlew"
+            if gradlew_sh.exists():
+                if not is_windows:
+                    # Make gradlew executable if needed
+                    try:
+                        os.chmod(str(gradlew_sh), 0o755)
+                    except:
+                        pass
+                return str(gradlew_sh)
             
             if current == current.parent:
                 break
@@ -42,8 +49,9 @@ class GradleBuilder(Builder):
         
         # If no wrapper, try system gradle command
         try:
+            # Use shell=True on Windows to find 'gradle' in PATH if it's a batch file
             result = subprocess.run(["gradle", "--version"], 
-                                  capture_output=True, text=True, timeout=10)
+                                  capture_output=True, text=True, timeout=10, shell=is_windows)
             if result.returncode == 0:
                 return "gradle"
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -51,6 +59,38 @@ class GradleBuilder(Builder):
         
         # Default to gradle if nothing found
         return "gradle"
+
+    def _normalize_gradle_path(self, path: str) -> str:
+        """Normalize a path extracted from Gradle output to native format."""
+        import platform
+        if not path:
+            return path
+            
+        if platform.system() == "Windows":
+            # Replace backslashes with forward slashes for consistent regex matching
+            temp_path = path.replace('\\', '/')
+            
+            # Handle /home/sblo -> E:/active/sblo/Dev/RainbowGame/
+            # This maps the Linux home directory to the actual location of .gradle on this Windows machine
+            if temp_path.startswith('/home/sblo/'):
+                path = "E:/active/sblo/Dev/RainbowGame/" + temp_path[11:]
+                temp_path = path.replace('\\', '/') # Update for further regex matching if needed
+            
+            # Handle /e/path -> E:/path (MSYS2/Git Bash style)
+            # Also handle /E/path -> E:/path
+            match = re.match(r'^/([a-zA-Z])/(.*)$', temp_path)
+            if match:
+                drive = match.group(1).upper()
+                rest = match.group(2)
+                path = f"{drive}:/{rest}"
+            elif re.match(r'^/[a-zA-Z]$', temp_path):
+                # Handle just "/e" -> "E:/"
+                drive = temp_path[1].upper()
+                path = f"{drive}:/"
+            
+            # Normalize to native backslashes
+            path = os.path.normpath(path)
+        return path
 
     def build_package(self, package: Package) -> bool:
         """Build a Gradle package by reverse engineering its build steps.
@@ -62,11 +102,35 @@ class GradleBuilder(Builder):
             True if build/extraction succeeded, False otherwise
         """
         # Check if we already have reverse-engineered data
-        # We re-extract only if missing or if specifically forced (not implemented yet)
         if 'java_build_info' in package.metadata:
-            return self._build_directly(package)
+            build_info = package.metadata['java_build_info']
+            
+            import platform
+            is_windows = platform.system() == "Windows"
+            
+            # If we're on Windows, check if paths need normalization
+            # We prefer using existing info if extraction is likely to fail
+            should_reextract = False
+            
+            # Only force re-extraction if we are NOT on Windows or if we think we can succeed.
+            # On Windows, if we already have info, we try to use it because gradlew often fails.
+            if not is_windows:
+                cp = build_info.get('classpath', [])
+                if cp:
+                    for path in cp[:3]:
+                        if not os.path.exists(path):
+                            should_reextract = True
+                            break
+            
+            if not should_reextract:
+                # Attempt to build directly. If it fails due to missing files, 
+                # then we might consider re-extraction if we haven't tried yet.
+                return self._build_directly(package)
 
         print(f"Reverse engineering Gradle build for: {package.name}")
+        
+        import platform
+        is_windows = platform.system() == "Windows"
         
         # Run Gradle with --info to capture build steps
         original_dir = os.getcwd()
@@ -89,13 +153,16 @@ class GradleBuilder(Builder):
             cmd = [self.gradle_cmd, "clean", task_name, "--debug", "--console=plain"]
             
             print(f"Running extraction: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=original_dir)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=original_dir, shell=is_windows)
             
             if result.returncode != 0:
-                print(f"Warning: Gradle extraction failed for {package.name}. Error: {result.stderr}")
+                print(f"Warning: Gradle extraction failed for {package.name}. Exit code: {result.returncode}")
+                if result.stderr:
+                    print(f"Stderr: {result.stderr.strip()}")
                 # Fallback: maybe the task name was wrong, try generic build
+                print(f"Attempting fallback build for {package.name}...")
                 cmd = [self.gradle_cmd, "clean", "build", "--info", "--console=plain"]
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=original_dir)
+                result = subprocess.run(cmd, capture_output=True, text=True, cwd=original_dir, shell=is_windows)
 
             # Parse the output to find javac parameters
             build_info = self._parse_gradle_info(result.stdout, package.name)
@@ -160,11 +227,13 @@ class GradleBuilder(Builder):
                     if arg == "-classpath" or arg == "-cp":
                         j += 1
                         if j < len(args):
-                            build_info['classpath'] = args[j].split(os.pathsep)
+                            # Split and normalize each classpath entry
+                            raw_cp = args[j].split(os.pathsep)
+                            build_info['classpath'] = [self._normalize_gradle_path(p) for p in raw_cp]
                     elif arg == "-d":
                         j += 1
                         if j < len(args):
-                            build_info['destination'] = args[j]
+                            build_info['destination'] = self._normalize_gradle_path(args[j])
                     elif arg in ["--release", "-encoding", "-source", "-target", "-h", "-s"]:
                         # Keep these flags and their values together
                         build_info['options'].append(arg)
@@ -174,7 +243,7 @@ class GradleBuilder(Builder):
                     elif arg.startswith("-"):
                         build_info['options'].append(arg)
                     elif arg.endswith(".java"):
-                        build_info['source_files'].append(arg)
+                        build_info['source_files'].append(self._normalize_gradle_path(arg))
                     j += 1
                 
                 # If we found destination, we consider this task's info captured
@@ -191,7 +260,8 @@ class GradleBuilder(Builder):
             internal_deps = []
             for entry in build_info['classpath']:
                 # Example: .../RainbowGame/trash/core/build/classes/java/main
-                match = re.search(r"/([^/]+)/build/classes/java/main", entry)
+                # Handle both forward and backward slashes
+                match = re.search(r"[/\\]([^/\\]+)[/\\]build[/\\]classes[/\\]java[/\\]main", entry)
                 if match:
                     dep_name = match.group(1)
                     if dep_name != package_name and dep_name not in internal_deps:
@@ -249,6 +319,18 @@ class GradleBuilder(Builder):
         if not build_info:
             return False
             
+        # Normalize paths in build_info if they were stored in POSIX style
+        raw_classpath = build_info.get('classpath', [])
+        
+        # If we have a single string that contains ':' but we're on Windows, 
+        # it's likely a POSIX classpath that needs careful splitting
+        if len(raw_classpath) == 1 and ':' in raw_classpath[0] and os.pathsep == ';':
+             raw_classpath = raw_classpath[0].split(':')
+             
+        classpath = [self._normalize_gradle_path(p) for p in raw_classpath]
+        destination = self._normalize_gradle_path(build_info.get('destination', ''))
+        sources = [self._normalize_gradle_path(s) for s in build_info.get('source_files', [])]
+        
         # Output control based on configuration
         is_quiet = getattr(self.config.config, 'quiet', False)
         is_verbose = getattr(self.config.config, 'verbose', False)
@@ -265,23 +347,21 @@ class GradleBuilder(Builder):
         javac = jdk.get_tool_path("javac")
         
         # Ensure destination directory exists
-        dest = build_info.get('destination')
-        if dest:
-            os.makedirs(dest, exist_ok=True)
+        if destination:
+            os.makedirs(destination, exist_ok=True)
             
         cmd = [javac]
         if build_info.get('options'):
             cmd.extend(build_info['options'])
             
-        if build_info.get('classpath'):
+        if classpath:
             sep = os.pathsep
-            cmd.extend(["-cp", sep.join(build_info['classpath'])])
+            cmd.extend(["-cp", sep.join(classpath)])
             
-        if dest:
-            cmd.extend(["-d", dest])
+        if destination:
+            cmd.extend(["-d", destination])
             
         # Find source files if not explicitly listed in build_info
-        sources = build_info.get('source_files', [])
         if not sources:
             # Fallback: scan source directory
             src_dir = os.path.join(package.directory, "src", "main", "java")
@@ -306,9 +386,11 @@ class GradleBuilder(Builder):
                 
             for s in sources:
                 try:
+                    # On Windows, relpath might fail if on different drives
+                    # Fallback to absolute if it fails
                     rel_path = os.path.relpath(s, repo_root)
                     print(rel_path)
-                except:
+                except (ValueError, Exception):
                     print(s)
         
         # Use execute_command, passing verbose=False to it because we handled our own output
@@ -333,3 +415,49 @@ class GradleBuilder(Builder):
 
     def get_target_ext(self) -> str:
         return ".jar"
+
+    def get_executable_path(self, package, method_config):
+        """Find the executable for Gradle packages.
+
+        For Gradle Application plugin projects, look for:
+        1. build/install/{package.name}/bin/{package.name} (from installDist)
+        2. build/libs/*.jar (fallback, but requires main manifest)
+        """
+        # First, try to find installDist output (Gradle Application plugin)
+        install_bin_dir = os.path.join(package.directory, "build", "install", package.name, "bin")
+        if os.path.exists(install_bin_dir):
+            # Look for launcher script (Unix)
+            launcher_script = os.path.join(install_bin_dir, package.name)
+            if os.path.exists(launcher_script):
+                # Make sure it's executable
+                try:
+                    os.chmod(launcher_script, 0o755)
+                except:
+                    pass
+                return launcher_script
+
+            # Look for Windows .bat script
+            launcher_bat = os.path.join(install_bin_dir, f"{package.name}.bat")
+            if os.path.exists(launcher_bat):
+                return launcher_bat
+
+        # Fallback: look for JAR files in build/libs/
+        build_libs_dir = os.path.join(package.directory, "build", "libs")
+        if not os.path.exists(build_libs_dir):
+            return None
+
+        # Look for JAR files, prefer ones matching package name
+        jar_files = []
+        for filename in os.listdir(build_libs_dir):
+            if filename.endswith(".jar") and not filename.endswith("-sources.jar") and not filename.endswith("-javadoc.jar"):
+                jar_path = os.path.join(build_libs_dir, filename)
+                # Prefer JARs with package name
+                if package.name in filename:
+                    return jar_path
+                jar_files.append(jar_path)
+
+        # Return first JAR if no exact match
+        if jar_files:
+            return jar_files[0]
+
+        return None
