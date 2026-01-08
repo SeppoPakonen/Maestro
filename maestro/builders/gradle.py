@@ -1,13 +1,6 @@
-"""
-Gradle builder for the Maestro build system.
-
-Implements Phase 5.75: Gradle Builder
-- Support gradle/gradlew, multi-module projects, and Kotlin DSL
-- Gap: Gradle packages scanned (100%) but can't be built
-"""
-
 import os
 import subprocess
+import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from .base import Builder, Package
@@ -24,23 +17,28 @@ class GradleBuilder(Builder):
 
     def _detect_gradle_command(self) -> str:
         """Detect the appropriate Gradle command (gradle or gradlew)."""
-        # Check for gradlew (Gradle wrapper) first in the package directory
-        current_dir = os.getcwd()
+        # Check for gradlew (Gradle wrapper) starting from current directory and walking up
+        current = Path(os.getcwd()).resolve()
         
-        # Look for gradlew in the current directory
-        gradlew_local = os.path.join(current_dir, "gradlew")
-        gradlew_local_sh = os.path.join(current_dir, "gradlew.sh")
-        gradlew_local_bat = os.path.join(current_dir, "gradlew.bat")
-        
-        if os.path.exists(gradlew_local) or os.path.exists(gradlew_local_sh):
-            # Make gradlew executable if needed
-            if os.path.exists(gradlew_local):
-                os.chmod(gradlew_local, 0o755)
-            elif os.path.exists(gradlew_local_sh):
-                os.chmod(gradlew_local_sh, 0o755)
-            return "./gradlew"
-        elif os.path.exists(gradlew_local_bat):
-            return "gradlew.bat"
+        while True:
+            gradlew_local = current / "gradlew"
+            gradlew_local_sh = current / "gradlew.sh"
+            gradlew_local_bat = current / "gradlew.bat"
+            
+            if gradlew_local.exists() or gradlew_local_sh.exists():
+                path = gradlew_local if gradlew_local.exists() else gradlew_local_sh
+                # Make gradlew executable if needed
+                try:
+                    os.chmod(str(path), 0o755)
+                except:
+                    pass
+                return str(path)
+            elif gradlew_local_bat.exists():
+                return str(gradlew_local_bat)
+            
+            if current == current.parent:
+                break
+            current = current.parent
         
         # If no wrapper, try system gradle command
         try:
@@ -55,316 +53,259 @@ class GradleBuilder(Builder):
         return "gradle"
 
     def build_package(self, package: Package) -> bool:
-        """Build a Gradle package.
+        """Build a Gradle package by reverse engineering its build steps.
 
         Args:
             package: Package to build
 
         Returns:
-            True if build succeeded, False otherwise
+            True if build/extraction succeeded, False otherwise
         """
-        print(f"Building Gradle package: {package.name}")
+        # Check if we already have reverse-engineered data
+        # We re-extract only if missing or if specifically forced (not implemented yet)
+        if 'java_build_info' in package.metadata:
+            return self._build_directly(package)
+
+        print(f"Reverse engineering Gradle build for: {package.name}")
         
-        # Change to package directory
+        # Run Gradle with --info to capture build steps
         original_dir = os.getcwd()
         try:
-            os.chdir(package.directory)
+            # Change to the root directory where gradlew is located if needed
+            gradlew_path = Path(self.gradle_cmd)
+            work_dir = package.directory
             
-            # Determine build command based on build system configuration
-            gradle_cmd = self.gradle_cmd
+            # Construct command to get javac parameters
+            # We use compileJava task specifically to get javac flags
+            task_name = f":{package.name.replace('-', ':')}:compileJava"
+            if package.name == os.path.basename(package.directory) and not package.name.startswith(":"):
+                # Try simple task name if it's a root-like module
+                task_name = f":{package.name}:compileJava"
             
-            # Build arguments based on configuration
-            build_args = [gradle_cmd]
+            # If it's the root project
+            if package.metadata.get('root_project') == package.name:
+                task_name = "compileJava"
+
+            cmd = [self.gradle_cmd, "clean", task_name, "--debug", "--console=plain"]
             
-            # Add build type (Debug/Release)
-            if self.config.config.build_type == "Release":
-                build_args.extend(["-Prelease=true"])
+            print(f"Running extraction: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=original_dir)
+            
+            if result.returncode != 0:
+                print(f"Warning: Gradle extraction failed for {package.name}. Error: {result.stderr}")
+                # Fallback: maybe the task name was wrong, try generic build
+                cmd = [self.gradle_cmd, "clean", "build", "--info", "--console=plain"]
+                result = subprocess.run(cmd, capture_output=True, text=True, cwd=original_dir)
+
+            # Parse the output to find javac parameters
+            build_info = self._parse_gradle_info(result.stdout, package.name)
+            
+            if build_info:
+                print(f"Successfully reverse engineered build info for {package.name}")
+                package.metadata['java_build_info'] = build_info
+                
+                # Update the repo model with this new metadata
+                self._persist_metadata(package)
+                
+                return self._build_directly(package)
             else:
-                build_args.extend(["-Pdebug=true"])
-            
-            # Add parallel execution if configured
-            if self.config.config.parallel and self.config.config.jobs > 1:
-                build_args.extend([f"-j{self.config.config.jobs}"])
-            
-            # Add verbose output if configured
-            if self.config.config.verbose:
-                build_args.append("--info")
-            else:
-                build_args.append("--quiet")
-            
-            # Determine appropriate Gradle tasks based on package type
-            # Check if this is an Android project by looking for common indicators
-            is_android_project = self._is_android_project()
-            
-            if is_android_project:
-                # For Android projects, build assemble tasks
-                build_args.append("assemble")
-            else:
-                # For regular Java/Kotlin projects, try common build tasks
-                build_args.append("build")
-            
-            # Add offline mode if configured
-            if self.config.config.offline:
-                build_args.append("--offline")
-            
-            # Execute the build command
-            print(f"Executing: {' '.join(build_args)}")
-            success = execute_command(build_args)
-            
-            if success:
-                print(f"Successfully built Gradle package: {package.name}")
-            else:
-                print(f"Failed to build Gradle package: {package.name}")
-            
-            return success
-            
+                print(f"Failed to extract javac parameters for {package.name}")
+                return False
+                
         finally:
             os.chdir(original_dir)
 
-    def _is_android_project(self) -> bool:
-        """Check if the current project is an Android project."""
-        # Check for common Android project indicators
-        android_indicators = [
-            "build.gradle",  # Look for build.gradle that contains Android configuration
-            "build.gradle.kts",  # Kotlin DSL version
-            "settings.gradle", 
-            "settings.gradle.kts",
-            "gradle.properties",
-            "src/main/AndroidManifest.xml",  # Android manifest
-            "src/main/res"  # Android resources directory
-        ]
+    def _parse_gradle_info(self, output: str, package_name: str) -> Optional[Dict[str, Any]]:
+        """Parse Gradle --info/--debug output to extract javac command parameters."""
+        build_info = {
+            'classpath': [],
+            'source_files': [],
+            'options': [],
+            'destination': ''
+        }
         
-        # Check if any of these files exist
-        for indicator in android_indicators:
-            if os.path.exists(indicator):
-                # For build.gradle files, check if they contain Android plugin
-                if indicator in ["build.gradle", "build.gradle.kts"]:
-                    try:
-                        with open(indicator, 'r', encoding='utf-8') as f:
-                            content = f.read().lower()
-                            if 'com.android.application' in content or \
-                               'com.android.library' in content or \
-                               'android' in content:
-                                return True
-                    except:
-                        # If we can't read the file, continue checking
-                        continue
+        print(f"Parsing Gradle output for {package_name}...")
         
-        # Also check for Android-specific directories
-        android_dirs = ["app", "lib"]
-        for android_dir in android_dirs:
-            if os.path.exists(os.path.join(android_dir, "src", "main", "AndroidManifest.xml")):
-                return True
+        # Look for the compiler arguments line in debug output
+        # It usually looks like: [DEBUG] [org.gradle.api.internal.tasks.compile.NormalizingJavaCompiler] Compiler arguments: ...
         
-        return False
+        # Normalize the task name for matching (e.g., :desktop:compileJava)
+        task_match_pattern = f":{package_name.replace('-', ':')}:compileJava"
+        
+        current_task = None
+        found_for_target = False
+        
+        lines = output.splitlines()
+        for i, line in enumerate(lines):
+            # Track which task we are in
+            task_start_match = re.search(r"Executing actions for task '(.*)'", line)
+            if task_start_match:
+                current_task = task_start_match.group(1)
+                if current_task == task_match_pattern or current_task.endswith(f":{package_name}:compileJava") or current_task == ":compileJava":
+                    found_for_target = True
+                else:
+                    found_for_target = False
+            
+            # If we are in the correct task and find compiler arguments
+            if found_for_target and "Compiler arguments:" in line:
+                args_part = line.split("Compiler arguments:", 1)[1].strip()
+                
+                # Split arguments, handling tokens
+                import shlex
+                args = shlex.split(args_part)
+                
+                j = 0
+                while j < len(args):
+                    arg = args[j]
+                    if arg == "-classpath" or arg == "-cp":
+                        j += 1
+                        if j < len(args):
+                            build_info['classpath'] = args[j].split(os.pathsep)
+                    elif arg == "-d":
+                        j += 1
+                        if j < len(args):
+                            build_info['destination'] = args[j]
+                    elif arg in ["--release", "-encoding", "-source", "-target", "-h", "-s"]:
+                        # Keep these flags and their values together
+                        build_info['options'].append(arg)
+                        j += 1
+                        if j < len(args):
+                            build_info['options'].append(args[j])
+                    elif arg.startswith("-"):
+                        build_info['options'].append(arg)
+                    elif arg.endswith(".java"):
+                        build_info['source_files'].append(arg)
+                    j += 1
+                
+                # If we found destination, we consider this task's info captured
+                if build_info['destination']:
+                    break
+
+        # Final check: if we found destination, we consider it a success
+        if build_info['destination']:
+            # Clean up classpath: remove empty strings, normalize paths
+            build_info['classpath'] = [p for p in build_info['classpath'] if p.strip()]
+            
+            # Extract internal dependencies from classpath
+            # We look for entries that look like build/classes of other modules
+            internal_deps = []
+            for entry in build_info['classpath']:
+                # Example: .../RainbowGame/trash/core/build/classes/java/main
+                match = re.search(r"/([^/]+)/build/classes/java/main", entry)
+                if match:
+                    dep_name = match.group(1)
+                    if dep_name != package_name and dep_name not in internal_deps:
+                        internal_deps.append(dep_name)
+            
+            build_info['internal_dependencies'] = internal_deps
+            return build_info
+            
+        return None
+
+    def _persist_metadata(self, package: Package):
+        """Save the updated metadata back to repo_model.json."""
+        try:
+            from ..repo.storage import find_repo_root, repo_model_path, load_repo_model
+            repo_root = find_repo_root()
+            model_path = repo_model_path(repo_root)
+            model = load_repo_model(repo_root)
+            
+            build_info = package.metadata.get('java_build_info', {})
+            internal_deps = build_info.get('internal_dependencies', [])
+            
+            updated = False
+            # Update 'packages' (serialized for builds)
+            for pkg in model.get('packages', []):
+                if pkg['name'] == package.name:
+                    pkg['metadata'] = package.metadata
+                    # Sync top-level dependencies
+                    for dep in internal_deps:
+                        if dep not in pkg.get('dependencies', []):
+                            pkg.setdefault('dependencies', []).append(dep)
+                    updated = True
+                    break
+            
+            # Update 'packages_detected' (from scanner)
+            for pkg in model.get('packages_detected', []):
+                if pkg['name'] == package.name:
+                    pkg['metadata'] = package.metadata
+                    # Sync top-level dependencies
+                    for dep in internal_deps:
+                        if dep not in pkg.get('dependencies', []):
+                            pkg.setdefault('dependencies', []).append(dep)
+                    updated = True
+                    break
+            
+            if updated:
+                import json
+                with open(model_path, 'w', encoding='utf-8') as f:
+                    json.dump(model, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Could not persist metadata: {e}")
+
+    def _build_directly(self, package: Package) -> bool:
+        """Run the build directly using javac using extracted info."""
+        build_info = package.metadata.get('java_build_info')
+        if not build_info:
+            return False
+            
+        print(f"Building {package.name} directly using javac...")
+        
+        from .jdk import find_system_jdk
+        jdk = find_system_jdk()
+        if not jdk:
+            print("Error: No JDK found for direct compilation")
+            return False
+            
+        javac = jdk.get_tool_path("javac")
+        
+        # Ensure destination directory exists
+        dest = build_info.get('destination')
+        if dest:
+            os.makedirs(dest, exist_ok=True)
+            
+        cmd = [javac]
+        if build_info.get('options'):
+            cmd.extend(build_info['options'])
+            
+        if build_info.get('classpath'):
+            sep = os.pathsep
+            cmd.extend(["-cp", sep.join(build_info['classpath'])])
+            
+        if dest:
+            cmd.extend(["-d", dest])
+            
+        # Find source files if not explicitly listed in build_info
+        sources = build_info.get('source_files', [])
+        if not sources:
+            # Fallback: scan source directory
+            src_dir = os.path.join(package.directory, "src", "main", "java")
+            if os.path.exists(src_dir):
+                for root, dirs, files in os.walk(src_dir):
+                    for f in files:
+                        if f.endswith(".java"):
+                            sources.append(os.path.join(root, f))
+        
+        cmd.extend(sources)
+        
+        print(f"Executing direct javac build for {package.name}")
+        return execute_command(cmd)
 
     def link(self, linkfiles: List[str], linkoptions: Dict[str, Any]) -> bool:
-        """Link final executable/library for Gradle projects.
-        
-        For Gradle projects, linking is typically handled by Gradle tasks.
-        This method may be used for custom linking or assembly tasks.
-
-        Args:
-            linkfiles: List of files to link
-            linkoptions: Linker options
-
-        Returns:
-            True if linking succeeded, False otherwise
-        """
-        print("Linking for Gradle projects is typically handled by Gradle tasks.")
-        # For Gradle, linking is usually part of the build process
-        # If custom linking is needed, implement specific Gradle tasks
+        """Linking for Java is often part of compilation or JAR creation."""
         return True
 
     def clean_package(self, package: Package) -> bool:
-        """Clean package build artifacts.
-
-        Args:
-            package: Package to clean
-
-        Returns:
-            True if clean succeeded, False otherwise
-        """
+        """Clean package build artifacts."""
         print(f"Cleaning Gradle package: {package.name}")
         
-        original_dir = os.getcwd()
-        try:
-            os.chdir(package.directory)
-            
-            gradle_cmd = self.gradle_cmd
-            clean_cmd = [gradle_cmd, "clean"]
-            
-            if self.config.config.verbose:
-                clean_cmd.append("--info")
-            else:
-                clean_cmd.append("--quiet")
-            
-            print(f"Executing: {' '.join(clean_cmd)}")
-            success = execute_command(clean_cmd)
-            
-            if success:
-                print(f"Successfully cleaned Gradle package: {package.name}")
-            else:
-                print(f"Failed to clean Gradle package: {package.name}")
-            
-            return success
-            
-        finally:
-            os.chdir(original_dir)
+        # Just remove the build directory
+        build_dir = Path(package.directory) / "build"
+        if build_dir.exists():
+            import shutil
+            shutil.rmtree(str(build_dir))
+            return True
+        return True
 
     def get_target_ext(self) -> str:
-        """Return target file extension for Gradle projects.
-
-        Returns:
-            Target file extension (typically .jar, .aar, or empty for multi-artifact projects)
-        """
-        # Gradle projects can produce various outputs (JAR, AAR, APK, etc.)
-        # Return .jar as a general default, but this could be customized
         return ".jar"
-
-    def configure(self, package: Package) -> bool:
-        """Configure Gradle build settings.
-
-        Args:
-            package: Package to configure
-
-        Returns:
-            True if configuration succeeded, False otherwise
-        """
-        print(f"Configuring Gradle package: {package.name}")
-        
-        # For Gradle projects, configuration is typically handled by build.gradle files
-        # But we can set properties based on the method configuration
-        properties = {}
-        
-        # Set build type as a Gradle property
-        if self.config.config.build_type == "Release":
-            properties["buildType"] = "release"
-        else:
-            properties["buildType"] = "debug"
-        
-        # Write or update gradle.properties with Maestro configuration
-        gradle_props_path = os.path.join(package.directory, "gradle.properties")
-        try:
-            with open(gradle_props_path, "a") as f:
-                f.write(f"\n# Maestro build configuration\n")
-                for key, value in properties.items():
-                    f.write(f"{key}={value}\n")
-            return True
-        except Exception as e:
-            print(f"Warning: Could not update gradle.properties: {e}")
-            return False
-
-    def detect_multi_module_structure(self, package: Package) -> List[str]:
-        """Detect and return list of modules in a multi-module Gradle project.
-
-        Args:
-            package: Package to analyze
-
-        Returns:
-            List of module names
-        """
-        modules = []
-        
-        original_dir = os.getcwd()
-        try:
-            os.chdir(package.directory)
-            
-            # Look for settings.gradle or settings.gradle.kts to identify modules
-            settings_files = ["settings.gradle", "settings.gradle.kts"]
-            
-            for settings_file in settings_files:
-                if os.path.exists(settings_file):
-                    try:
-                        with open(settings_file, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                            
-                        # Look for include statements (Gradle DSL)
-                        # Pattern: include ':module_name' or include ':path:to:module'
-                        import re
-                        # Match include statements in both Groovy and Kotlin DSL
-                        include_pattern = r"include\s*[('\":]([^)'\":]+)['\"):]?"
-                        matches = re.findall(include_pattern, content)
-                        
-                        for match in matches:
-                            # Clean up the module name
-                            module = match.strip().strip("'\"")
-                            if module and module not in modules:
-                                modules.append(module)
-                                
-                        break  # Found settings file, don't check the other one
-                    except Exception as e:
-                        print(f"Warning: Could not parse {settings_file}: {e}")
-            
-            # If no modules found via settings file, look for common module directory patterns
-            if not modules:
-                for item in os.listdir("."):
-                    if os.path.isdir(item):
-                        # Check if directory contains build.gradle or build.gradle.kts
-                        build_gradle = os.path.join(item, "build.gradle")
-                        build_gradle_kts = os.path.join(item, "build.gradle.kts")
-                        
-                        if os.path.exists(build_gradle) or os.path.exists(build_gradle_kts):
-                            modules.append(f":{item}")
-            
-        except Exception as e:
-            print(f"Warning: Error detecting multi-module structure: {e}")
-        finally:
-            os.chdir(original_dir)
-        
-        return modules
-
-    def build_multi_module_package(self, package: Package) -> bool:
-        """Build all modules in a multi-module Gradle project.
-
-        Args:
-            package: Package to build
-
-        Returns:
-            True if build succeeded, False otherwise
-        """
-        print(f"Building multi-module Gradle package: {package.name}")
-        
-        # Detect modules
-        modules = self.detect_multi_module_structure(package)
-        
-        if not modules:
-            # If no modules detected, build as a single module
-            return self.build_package(package)
-        
-        print(f"Detected modules: {modules}")
-        
-        original_dir = os.getcwd()
-        try:
-            os.chdir(package.directory)
-            
-            # Build all modules
-            gradle_cmd = self.gradle_cmd
-            build_cmd = [gradle_cmd, "build"]
-            
-            # Add parallel execution if configured
-            if self.config.config.parallel and self.config.config.jobs > 1:
-                build_cmd.extend([f"-j{self.config.config.jobs}"])
-            
-            # Add verbose output if configured
-            if self.config.config.verbose:
-                build_cmd.append("--info")
-            else:
-                build_cmd.append("--quiet")
-            
-            # Add offline mode if configured
-            if self.config.config.offline:
-                build_cmd.append("--offline")
-            
-            print(f"Executing: {' '.join(build_cmd)}")
-            success = execute_command(build_cmd)
-            
-            if success:
-                print(f"Successfully built multi-module Gradle package: {package.name}")
-            else:
-                print(f"Failed to build multi-module Gradle package: {package.name}")
-            
-            return success
-            
-        finally:
-            os.chdir(original_dir)

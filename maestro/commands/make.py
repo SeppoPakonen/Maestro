@@ -505,8 +505,10 @@ class MakeCommand:
         # Resolve dependencies for the initial target
         try:
             from maestro.commands.repo.utils import build_dependency_hierarchy
-            all_packages = repo_model.get("packages_detected", [])
-            dep_hierarchy = build_dependency_hierarchy([initial_target_name], all_packages)
+            all_packages = repo_model.get("packages", []) + repo_model.get("packages_detected", [])
+            # Unique packages by name
+            unique_packages = {p['name']: p for p in all_packages}.values()
+            dep_hierarchy = build_dependency_hierarchy([initial_target_name], list(unique_packages))
             
             # Extract all dependencies in order
             resolved_packages = []
@@ -527,6 +529,8 @@ class MakeCommand:
                 print(f"Resolved build order: {package_names}")
         except Exception as e:
             if args.verbose:
+                import traceback
+                traceback.print_exc()
                 print(f"Warning: Dependency resolution failed: {e}. Building only {initial_target_name}")
             package_names = [initial_target_name]
 
@@ -550,225 +554,258 @@ class MakeCommand:
             if not package_info.get('path') and 'package_relpath' in package_info:
                 package_info['path'] = os.path.join(repo_root, package_info['package_relpath'])
             
-            # Determine flags for display
-            display_flags = []
-            if package_name == initial_target_name:
-                display_flags.append("MAIN")
+            build_system = package_info.get('build_system', 'upp')
             
-            # Add flags from defines (e.g., flagMSC22X64 -> MSC22X64)
-            for d in method_config.compiler.defines:
-                if d.startswith("flag"):
-                    flag_name = d[4:]
-                    if flag_name not in display_flags:
-                        display_flags.append(flag_name)
-            
-            # Add builder/compiler flags if not already there
-            compiler_path = (method_config.compiler.cxx or "").lower()
-            is_msc_path = "cl.exe" in compiler_path or "cl" == os.path.basename(compiler_path) or "cl.exe" == os.path.basename(compiler_path)
-            
-            if "MSC" not in " ".join(display_flags).upper() and (
-                "MSC" in method_config.name.upper() or is_msc_path
-            ):
-                 if "MSC" not in display_flags:
-                     display_flags.append("MSC")
-            elif "CLANG" not in " ".join(display_flags).upper() and "CLANG" in method_config.name.upper():
-                 display_flags.append("CLANG")
-            elif "GCC" not in " ".join(display_flags).upper() and "GCC" in method_config.name.upper():
-                 display_flags.append("GCC")
-            
-            if "DEBUG" not in display_flags and "RELEASE" not in display_flags:
-                if method_config.config.build_type == BuildType.DEBUG:
-                    display_flags.extend(["DEBUG", "DEBUG_FULL"])
-                else:
-                    display_flags.append("RELEASE")
-            
-            if "WIN32" not in display_flags and "POSIX" not in display_flags:
-                if method_config.platform.os == OSFamily.WINDOWS:
-                    if "WIN32" not in display_flags:
-                        display_flags.append("WIN32")
-                else:
-                    display_flags.extend(["POSIX", "LINUX"])
-            
-            # Print package header similar to umk format
-            flags_str = " ".join(display_flags)
-            print(f"----- {package_name} ( {flags_str} ) ({idx} / {total_packages})")
-
-            # Set up the correct output directory structure like umk
-            home_dir = os.path.expanduser("~")
-            
-            # Derive flags_part similar to umk
-            flags_components = [method_name]
-            if method_config.config.build_type == BuildType.DEBUG:
-                flags_components.append("Debug")
-                flags_components.append("Debug_Full")
-            else:
-                flags_components.append("Release")
-            
-            if package_name == initial_target_name:
-                flags_components.append("Main")
+            if build_system == 'upp':
+                # Determine flags for display
+                display_flags = []
+                if package_name == initial_target_name:
+                    display_flags.append("MAIN")
                 
-            flags_components.append("Noblitz")
-            flags_part = ".".join(flags_components)
-            
-            target_base_dir = os.path.join(home_dir, ".cache", "upp.out")
-            target_pkg_dir = os.path.join(target_base_dir, package_name)
-            target_flags_dir = os.path.normpath(os.path.join(target_pkg_dir, flags_part))
-
-            # Create the target directory structure
-            os.makedirs(target_flags_dir, exist_ok=True)
-
-            # Modify the method config to use the correct target directory
-            original_target_dir = method_config.config.target_dir
-            method_config.config.target_dir = target_flags_dir
-
-            # Perform clean if requested
-            if hasattr(args, 'clean_first') and args.clean_first:
-                if args.verbose:
-                    print(f"Cleaning build artifacts for: {package_name}")
-                builder = self._create_builder_for_package(package_info, method_config)
-                if builder:
-                    from maestro.builders.upp import UppPackage
-                    package_obj = UppPackage(
-                        name=package_info.get('name'),
-                        dir=package_info.get('dir', ''),
-                        path=package_info.get('path', '')
-                    )
-                    builder.clean_package(package_obj)
-
-            package_info = self._find_package_info(package_name, repo_model, repo_root)
-            if not package_info:
-                print(f"Error: Package '{package_name}' not found in repo model.")
-                return 1
-
-            # Parse the .upp file to get the actual source files
-            upp_file_path = os.path.join(package_info.get('dir', ''), f"{package_name}.upp")
-            if os.path.exists(upp_file_path):
-                # Parse the .upp file to get source files
-                from maestro.builders.upp import UppBuilder
-                from maestro.builders.host import LocalHost
-                builder_instance = UppBuilder(LocalHost(), method_config)
-                parsed_package = builder_instance.parse_upp_file(upp_file_path)
-                # Update the package_info with the parsed files
-                package_info['files'] = parsed_package.files
-
-            # If this is the main package, we need to set up for executable build
-            original_ldflags = None
-            original_cxxflags = None
-            original_defines = None
-            original_name = None
-            
-            if package_name == initial_target_name:
-                original_ldflags = list(method_config.compiler.ldflags) if hasattr(method_config.compiler, 'ldflags') else []
-                original_cxxflags = list(method_config.compiler.cxxflags) if hasattr(method_config.compiler, 'cxxflags') else []
-                original_defines = list(method_config.compiler.defines) if hasattr(method_config.compiler, 'defines') else []
-                original_name = method_config.name
-
-                # Add flagMAIN and other flags from display_flags as defines
-                for f in display_flags:
-                    def_flag = f"flag{f}"
-                    if def_flag not in method_config.compiler.defines:
-                        method_config.compiler.defines.append(def_flag)
+                # Add flags from defines (e.g., flagMSC22X64 -> MSC22X64)
+                for d in method_config.compiler.defines:
+                    if d.startswith("flag"):
+                        flag_name = d[4:]
+                        if flag_name not in display_flags:
+                            display_flags.append(flag_name)
                 
-            # Special handling for MSC if detected
-                is_msc = any(f.upper().startswith("MSC") for f in display_flags)
+                # Add builder/compiler flags if not already there
+                compiler_path = (method_config.compiler.cxx or "").lower()
+                is_msc_path = "cl.exe" in compiler_path or "cl" == os.path.basename(compiler_path) or "cl.exe" == os.path.basename(compiler_path)
                 
-                if not is_msc:
-                    # Original clang/gcc specific flags
-                    method_config.compiler.cxxflags.extend([
-                        "-ggdb", "-g2", "-fexceptions",
-                        "-Wno-logical-op-parentheses"
-                    ])
-
-                # Determine the executable output path
-                if hasattr(args, 'target') and args.target:
-                    output_executable_path = os.path.abspath(args.target)
-                else:
-                    # Default to placing it in the build directory
-                    ext = ".exe" if method_config.platform.os == OSFamily.WINDOWS else ""
-                    output_executable_path = os.path.join(target_flags_dir, f"{package_name}{ext}")
-
-                # Determine the object files produced by compilation
-                obj_files = []
-                obj_ext = ".obj" if is_msc else ".o"
-                source_extensions = ['.cpp', '.c', '.cxx', '.cc', '.rc']
-                for source_file in package_info.get('files', []):
-                    _, ext = os.path.splitext(source_file.lower())
-                    if ext in source_extensions:
-                        if ext == '.rc' and is_msc:
-                            obj_name = os.path.splitext(os.path.basename(source_file))[0] + "$rc.obj"
-                        else:
-                            obj_name = os.path.splitext(os.path.basename(source_file))[0] + obj_ext
-                        obj_files.append(os.path.join(target_flags_dir, obj_name))
+                if "MSC" not in " ".join(display_flags).upper() and (
+                    "MSC" in method_config.name.upper() or is_msc_path
+                ):
+                     if "MSC" not in display_flags:
+                         display_flags.append("MSC")
+                elif "CLANG" not in " ".join(display_flags).upper() and "CLANG" in method_config.name.upper():
+                     display_flags.append("CLANG")
+                elif "GCC" not in " ".join(display_flags).upper() and "GCC" in method_config.name.upper():
+                     display_flags.append("GCC")
                 
-                if is_msc:
-                    # MSC link flags
-                    ldflags = [
-                        "/nologo", "/machine:x64", f"/out:{output_executable_path}",
-                        "/subsystem:console"
-                    ]
+                if "DEBUG" not in display_flags and "RELEASE" not in display_flags:
                     if method_config.config.build_type == BuildType.DEBUG:
-                        # Use /debug and generate pdb
-                        pdb_path = os.path.splitext(output_executable_path)[0] + ".pdb"
-                        ldflags.extend(["/debug", f"/pdb:{pdb_path}", "/incremental:no", "/opt:noref"])
+                        display_flags.extend(["DEBUG", "DEBUG_FULL"])
                     else:
-                        ldflags.extend(["/incremental:no", "/release", "/opt:ref,icf"])
-                    
-                    # Add existing ldflags (e.g., /LIBPATH from .bm file)
-                    ldflags.extend(original_ldflags)
-                    
-                    # Add object files
-                    ldflags.extend(obj_files)
+                        display_flags.append("RELEASE")
+                
+                if "WIN32" not in display_flags and "POSIX" not in display_flags:
+                    if method_config.platform.os == OSFamily.WINDOWS:
+                        if "WIN32" not in display_flags:
+                            display_flags.append("WIN32")
+                    else:
+                        display_flags.extend(["POSIX", "LINUX"])
+                
+                # Print package header similar to umk format
+                flags_str = " ".join(display_flags)
+                print(f"----- {package_name} ( {flags_str} ) ({idx} / {total_packages})")
+
+                # Set up the correct output directory structure like umk
+                home_dir = os.path.expanduser("~")
+                
+                # Derive flags_part similar to umk
+                flags_components = [method_name]
+                if method_config.config.build_type == BuildType.DEBUG:
+                    flags_components.append("Debug")
+                    flags_components.append("Debug_Full")
                 else:
-                    # Original clang/gcc link flags
-                    ldflags = [
-                        "-static", "-o", output_executable_path, "-ggdb",
-                        "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64",
-                    ]
-                    ldflags.extend(original_ldflags)
-                    ldflags.extend(obj_files)
-                    ldflags.extend(["-Wl,--start-group", "-Wl,--end-group"])
-
-                # Add dependency libraries
-                dep_flags_part = flags_part.replace(".Main.", ".")
-                for dep_name in package_names:
-                    if dep_name == package_name:
-                        continue
-                        
-                    lib_ext = ".lib" if is_msc else ".a"
-                    dep_lib_path = os.path.normpath(os.path.join(home_dir, ".cache", "upp.out", dep_name, dep_flags_part, f"{dep_name}{lib_ext}"))
+                    flags_components.append("Release")
+                
+                if package_name == initial_target_name:
+                    flags_components.append("Main")
                     
-                    if os.path.exists(dep_lib_path):
-                        if is_msc:
-                            if dep_lib_path not in ldflags:
-                                ldflags.append(dep_lib_path)
+                flags_components.append("Noblitz")
+                flags_part = ".".join(flags_components)
+                
+                target_base_dir = os.path.join(home_dir, ".cache", "upp.out")
+                target_pkg_dir = os.path.join(target_base_dir, package_name)
+                target_flags_dir = os.path.normpath(os.path.join(target_pkg_dir, flags_part))
+
+                # Create the target directory structure
+                os.makedirs(target_flags_dir, exist_ok=True)
+
+                # Modify the method config to use the correct target directory
+                original_target_dir = method_config.config.target_dir
+                method_config.config.target_dir = target_flags_dir
+
+                # Perform clean if requested
+                if hasattr(args, 'clean_first') and args.clean_first:
+                    if args.verbose:
+                        print(f"Cleaning build artifacts for: {package_name}")
+                    builder = self._create_builder_for_package(package_info, method_config)
+                    if builder:
+                        from maestro.builders.upp import UppPackage
+                        package_obj = UppPackage(
+                            name=package_info.get('name'),
+                            dir=package_info.get('dir', ''),
+                            path=package_info.get('path', '')
+                        )
+                        builder.clean_package(package_obj)
+
+                package_info = self._find_package_info(package_name, repo_model, repo_root)
+                if not package_info:
+                    print(f"Error: Package '{package_name}' not found in repo model.")
+                    return 1
+
+                # Parse the .upp file to get the actual source files
+                upp_file_path = os.path.join(package_info.get('dir', ''), f"{package_name}.upp")
+                if os.path.exists(upp_file_path):
+                    # Parse the .upp file to get source files
+                    from maestro.builders.upp import UppBuilder
+                    from maestro.builders.host import LocalHost
+                    builder_instance = UppBuilder(LocalHost(), method_config)
+                    parsed_package = builder_instance.parse_upp_file(upp_file_path)
+                    # Update the package_info with the parsed files
+                    package_info['files'] = parsed_package.files
+
+                # If this is the main package, we need to set up for executable build
+                original_ldflags = None
+                original_cxxflags = None
+                original_defines = None
+                original_name = None
+                
+                if package_name == initial_target_name:
+                    original_ldflags = list(method_config.compiler.ldflags) if hasattr(method_config.compiler, 'ldflags') else []
+                    original_cxxflags = list(method_config.compiler.cxxflags) if hasattr(method_config.compiler, 'cxxflags') else []
+                    original_defines = list(method_config.compiler.defines) if hasattr(method_config.compiler, 'defines') else []
+                    original_name = method_config.name
+
+                    # Add flagMAIN and other flags from display_flags as defines
+                    for f in display_flags:
+                        def_flag = f"flag{f}"
+                        if def_flag not in method_config.compiler.defines:
+                            method_config.compiler.defines.append(def_flag)
+                    
+                # Special handling for MSC if detected
+                    is_msc = any(f.upper().startswith("MSC") for f in display_flags)
+                    
+                    if not is_msc:
+                        # Original clang/gcc specific flags
+                        method_config.compiler.cxxflags.extend([
+                            "-ggdb", "-g2", "-fexceptions",
+                            "-Wno-logical-op-parentheses"
+                        ])
+
+                    # Determine the executable output path
+                    if hasattr(args, 'target') and args.target:
+                        output_executable_path = os.path.abspath(args.target)
+                    else:
+                        # Default to placing it in the build directory
+                        ext = ".exe" if method_config.platform.os == OSFamily.WINDOWS else ""
+                        output_executable_path = os.path.join(target_flags_dir, f"{package_name}{ext}")
+
+                    # Determine the object files produced by compilation
+                    obj_files = []
+                    obj_ext = ".obj" if is_msc else ".o"
+                    source_extensions = ['.cpp', '.c', '.cxx', '.cc', '.rc']
+                    for source_file in package_info.get('files', []):
+                        _, ext = os.path.splitext(source_file.lower())
+                        if ext in source_extensions:
+                            if ext == '.rc' and is_msc:
+                                obj_name = os.path.splitext(os.path.basename(source_file))[0] + "$rc.obj"
+                            else:
+                                obj_name = os.path.splitext(os.path.basename(source_file))[0] + obj_ext
+                            obj_files.append(os.path.join(target_flags_dir, obj_name))
+                    
+                    if is_msc:
+                        # MSC link flags
+                        ldflags = [
+                            "/nologo", "/machine:x64", f"/out:{output_executable_path}",
+                            "/subsystem:console"
+                        ]
+                        if method_config.config.build_type == BuildType.DEBUG:
+                            # Use /debug and generate pdb
+                            pdb_path = os.path.splitext(output_executable_path)[0] + ".pdb"
+                            ldflags.extend(["/debug", f"/pdb:{pdb_path}", "/incremental:no", "/opt:noref"])
                         else:
-                            if dep_lib_path not in ldflags:
-                                # Insert the dependency library between start-group and end-group
-                                ldflags.insert(-1, dep_lib_path)
+                            ldflags.extend(["/incremental:no", "/release", "/opt:ref,icf"])
+                        
+                        # Add existing ldflags (e.g., /LIBPATH from .bm file)
+                        ldflags.extend(original_ldflags)
+                        
+                        # Add object files
+                        ldflags.extend(obj_files)
+                    else:
+                        # Original clang/gcc link flags
+                        ldflags = [
+                            "-static", "-o", output_executable_path, "-ggdb",
+                            "-L/usr/lib64", "-L/usr/lib", "-L/usr/lib/llvm/19/lib", "-L/usr/lib/llvm/19/lib64",
+                        ]
+                        ldflags.extend(original_ldflags)
+                        ldflags.extend(obj_files)
+                        ldflags.extend(["-Wl,--start-group", "-Wl,--end-group"])
 
-                method_config.compiler.ldflags = ldflags
-                method_config.name = f"{method_name}-exe"
+                    # Add dependency libraries
+                    dep_flags_part = flags_part.replace(".Main.", ".")
+                    for dep_name in package_names:
+                        if dep_name == package_name:
+                            continue
+                            
+                        lib_ext = ".lib" if is_msc else ".a"
+                        dep_lib_path = os.path.normpath(os.path.join(home_dir, ".cache", "upp.out", dep_name, dep_flags_part, f"{dep_name}{lib_ext}"))
+                        
+                        if os.path.exists(dep_lib_path):
+                            if is_msc:
+                                if dep_lib_path not in ldflags:
+                                    ldflags.append(dep_lib_path)
+                            else:
+                                if dep_lib_path not in ldflags:
+                                    # Insert the dependency library between start-group and end-group
+                                    ldflags.insert(-1, dep_lib_path)
 
-            builder = self._create_builder_for_package(package_info, method_config)
-            if not builder:
-                print(f"Error: Could not create builder for package '{package_name}'")
-                return 1
+                    method_config.compiler.ldflags = ldflags
+                    method_config.name = f"{method_name}-exe"
 
-            reset_command_output_log()
-            success = builder.build_package(package_info, method_config, verbose=args.verbose)
+                builder = self._create_builder_for_package(package_info, method_config)
+                if not builder:
+                    print(f"Error: Could not create builder for package '{package_name}'")
+                    return 1
 
-            # Restore original config if modified
-            if package_name == initial_target_name:
-                if original_ldflags is not None:
-                    method_config.compiler.ldflags = original_ldflags
-                if original_cxxflags is not None:
-                    method_config.compiler.cxxflags = original_cxxflags
-                if original_defines is not None:
-                    method_config.compiler.defines = original_defines
-                if original_name is not None:
-                    method_config.name = original_name
-            # Restore original target directory
-            method_config.config.target_dir = original_target_dir
+                reset_command_output_log()
+                success = builder.build_package(package_info, method_config, verbose=args.verbose)
+
+                # Restore original config if modified
+                if package_name == initial_target_name:
+                    if original_ldflags is not None:
+                        method_config.compiler.ldflags = original_ldflags
+                    if original_cxxflags is not None:
+                        method_config.compiler.cxxflags = original_cxxflags
+                    if original_defines is not None:
+                        method_config.compiler.defines = original_defines
+                    if original_name is not None:
+                        method_config.name = original_name
+                # Restore original target directory
+                method_config.config.target_dir = original_target_dir
+            else:
+                # Generic build for other systems
+                print(f"----- {package_name} ( {build_system} ) ({idx} / {total_packages})")
+                builder = self._create_builder_for_package(package_info, method_config)
+                if not builder:
+                    print(f"Error: Could not create builder for package '{package_name}'")
+                    return 1
+                
+                from maestro.builders.base import Package as BuilderPackage
+                package_obj = BuilderPackage(
+                    name=package_name,
+                    directory=package_info.get('dir', ''),
+                    build_system=build_system,
+                    source_files=package_info.get('files', []),
+                    dependencies=package_info.get('dependencies', []),
+                    metadata=package_info.get('metadata', {})
+                )
+                
+                # Perform clean if requested
+                if hasattr(args, 'clean_first') and args.clean_first:
+                    builder.clean_package(package_obj)
+                
+                reset_command_output_log()
+                # For non-U++ builders, we try to call with just the package object first
+                # but many existing builders might expect legacy arguments
+                try:
+                    success = builder.build_package(package_obj)
+                except TypeError:
+                    # Fallback to legacy call if needed
+                    success = builder.build_package(package_info, method_config, verbose=args.verbose)
 
             if not success:
                 print(f"Failed to build package: {package_name}")
@@ -858,23 +895,8 @@ class MakeCommand:
 
     def _create_builder_for_package(self, package_info: Dict, method_config: 'MethodConfig'):
         """Create appropriate builder for the package."""
-        from maestro.builders.upp import UppBuilder
-        from maestro.builders.host import LocalHost
-
-        # Create host instance
-        host = LocalHost()
-
-        # Create the appropriate builder based on method_config
-        msc_names = ["msc-debug", "msc-release", "msvc-debug", "msvc-release"]
-        if (method_config.builder == "upp" or 
-            method_config.name in ["clang-debug", "gcc-debug", "clang-release", "gcc-release"] or
-            method_config.name in msc_names or
-            "msvc" in method_config.name.lower() or
-            "msc" in method_config.name.lower()):
-            return UppBuilder(host, method_config)
-        else:
-            # Default to UppBuilder for now for U++ repos
-            return UppBuilder(host, method_config)
+        from maestro.builders.builder_selector import select_builder
+        return select_builder(package_info, method_config)
 
     def _detect_current_package(self, current_dir: str, repo_model: Dict) -> Optional[str]:
         """Detect the current package based on the current directory."""

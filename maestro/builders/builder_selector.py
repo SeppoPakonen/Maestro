@@ -33,6 +33,11 @@ def select_builder(package_info: Dict[str, Any], config: MethodConfig = None) ->
     """
     build_system = package_info.get('build_system', 'upp')
     
+    # Handle multi-build system packages
+    if build_system == 'multi' and 'metadata' in package_info:
+        metadata = package_info['metadata']
+        build_system = metadata.get('primary_build_system', build_system)
+    
     # Create a default config if none provided
     if config is None:
         from .config import MethodConfig, BuildType
