@@ -85,3 +85,6 @@ venv/
 *.swp
 .DS_Store
 CLAUDE.md
+
+# Claude Code local settings
+.claude/
