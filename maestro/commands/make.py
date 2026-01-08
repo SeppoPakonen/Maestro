@@ -468,6 +468,8 @@ class MakeCommand:
             method_config.config.jobs = args.jobs
         if hasattr(args, 'verbose') and args.verbose:
             method_config.config.verbose = True
+        if hasattr(args, 'quiet') and args.quiet:
+            method_config.config.quiet = True
         
         method_config.config.assembly_roots = assembly_roots
 

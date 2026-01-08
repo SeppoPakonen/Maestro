@@ -249,7 +249,12 @@ class GradleBuilder(Builder):
         if not build_info:
             return False
             
-        print(f"Building {package.name} directly using javac...")
+        # Output control based on configuration
+        is_quiet = getattr(self.config.config, 'quiet', False)
+        is_verbose = getattr(self.config.config, 'verbose', False)
+        
+        if not is_quiet:
+            print(f"Building {package.name} directly using javac...")
         
         from .jdk import find_system_jdk
         jdk = find_system_jdk()
@@ -288,8 +293,27 @@ class GradleBuilder(Builder):
         
         cmd.extend(sources)
         
-        print(f"Executing direct javac build for {package.name}")
-        return execute_command(cmd)
+        if is_verbose:
+            print(f"Executing: {' '.join(cmd)}")
+        elif not is_quiet:
+            # Normal output: list files being compiled
+            # We use relative paths for better readability
+            from ..repo.storage import find_repo_root
+            try:
+                repo_root = find_repo_root()
+            except:
+                repo_root = os.getcwd()
+                
+            for s in sources:
+                try:
+                    rel_path = os.path.relpath(s, repo_root)
+                    print(rel_path)
+                except:
+                    print(s)
+        
+        # Use execute_command, passing verbose=False to it because we handled our own output
+        # unless it's verbose mode where we might want to see additional stdout from javac
+        return execute_command(cmd, verbose=is_verbose)
 
     def link(self, linkfiles: List[str], linkoptions: Dict[str, Any]) -> bool:
         """Linking for Java is often part of compilation or JAR creation."""

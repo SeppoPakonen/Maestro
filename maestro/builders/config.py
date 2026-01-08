@@ -85,6 +85,7 @@ class BuildConfig:
     jobs: int = 0  # 0 means use CPU count
     clean_first: bool = False
     verbose: bool = False
+    quiet: bool = False
     skip_tests: bool = False
     offline: bool = False
     profile: Optional[str] = None
