@@ -1,0 +1,9 @@
+{
+  "run_id": "20251230_031625_ops_run_6300",
+  "plan_name": "Test plan - ops doctor",
+  "plan_path": "/tmp/test_plan.yaml",
+  "started_at": "2025-12-30T03:16:25.887366",
+  "completed_at": "2025-12-30T03:16:25.887497",
+  "dry_run": true,
+  "exit_code": 0
+}

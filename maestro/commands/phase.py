@@ -233,11 +233,6 @@ def show_phase(phase_id: str, args):
                             print(f"      - {cleaned_desc}")
         print()
 
-    # Link to detailed file
-    if phase_file.exists():
-        print(f"Detailed documentation: {phase_file}")
-        print()
-
     return 0
 
 

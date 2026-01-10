@@ -64,7 +64,6 @@ external/
 
 
 # Maestro runtime state (repo-local)
-docs/maestro/
 
 # AI logs/state
 /docs/logs/ai/

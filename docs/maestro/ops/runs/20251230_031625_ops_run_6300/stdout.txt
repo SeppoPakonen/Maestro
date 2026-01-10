@@ -1,0 +1,6 @@
+=== Step 0: ops doctor --format json ===
+[DRY RUN]
+
+=== Step 1: ops list ===
+[DRY RUN]
+

@@ -1,0 +1,8 @@
+{
+  "pipeline_id": "demo-pipe",
+  "status": "done",
+  "created_at": "2025-12-29T17:18:22.989843Z",
+  "updated_at": "2025-12-29T17:18:52.658873Z",
+  "source_repo": "/e/active/sblo/Dev/Maestro",
+  "target_repo": "/e/active/sblo/Dev/Maestro"
+}

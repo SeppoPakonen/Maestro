@@ -1,0 +1,18 @@
+{
+  "track_id": "test-project-ops-track",
+  "name": "Test Project Ops Track",
+  "status": "proposed",
+  "completion": 0,
+  "description": [],
+  "phases": [
+    "initial-implementation",
+    "initial-implementation",
+    "initial-implementation"
+  ],
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2025-12-24T21:07:07.511006",
+  "tags": [],
+  "owner": null,
+  "is_top_priority": false
+}

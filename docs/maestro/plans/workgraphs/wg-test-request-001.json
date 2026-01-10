@@ -1,0 +1,101 @@
+{
+  "schema_version": "v1",
+  "id": "wg-test-request-001",
+  "domain": "general",
+  "profile": "default",
+  "goal": "Produce a minimal executable plan for a test request in the Maestro repo",
+  "repo_discovery": {
+    "evidence": [
+      {
+        "kind": "file",
+        "path": "README.md",
+        "summary": "README file (1000 chars)"
+      },
+      {
+        "kind": "structure",
+        "path": "/e/active/sblo/Dev/Maestro",
+        "summary": "Top-level: 55 entries"
+      },
+      {
+        "kind": "file",
+        "path": "Makefile",
+        "summary": "Build system: Makefile"
+      }
+    ],
+    "warnings": [],
+    "budget": {
+      "max_files": 40,
+      "max_bytes": 200000,
+      "files_processed": 2,
+      "bytes_collected": 1000
+    }
+  },
+  "track": {
+    "id": "TRK-001",
+    "name": "Test Request Planning",
+    "goal": "Validate planning workflow using Maestro CLI conventions"
+  },
+  "phases": [
+    {
+      "id": "umk1-initial",
+      "name": "Initial Validation",
+      "tasks": [
+        {
+          "id": "TASK-001",
+          "title": "Confirm Maestro CLI availability",
+          "intent": "Ensure Maestro commands are accessible for track/phase/task operations",
+          "definition_of_done": [
+            {
+              "kind": "command",
+              "cmd": "python maestro.py track list",
+              "path": null,
+              "expect": "exit 0"
+            }
+          ],
+          "verification": [],
+          "inputs": [
+            "maestro.py"
+          ],
+          "outputs": [
+            "Track list output"
+          ],
+          "risk": {
+            "level": "low",
+            "notes": "Command may fail if CLI entrypoint differs"
+          }
+        },
+        {
+          "id": "TASK-002",
+          "title": "Confirm phase listing",
+          "intent": "Validate phase query command for planning workflow",
+          "definition_of_done": [
+            {
+              "kind": "command",
+              "cmd": "python maestro.py phase list",
+              "path": null,
+              "expect": "exit 0"
+            }
+          ],
+          "verification": [],
+          "inputs": [
+            "maestro.py"
+          ],
+          "outputs": [
+            "Phase list output"
+          ],
+          "risk": {
+            "level": "low",
+            "notes": "Command may differ if CLI uses alternate subcommands"
+          }
+        }
+      ]
+    }
+  ],
+  "stop_conditions": [
+    {
+      "when": "Maestro CLI commands are unavailable or exit non-zero",
+      "action": "create_issue",
+      "notes": "Capture the CLI usage guidance and update plan to align with actual commands"
+    }
+  ]
+}

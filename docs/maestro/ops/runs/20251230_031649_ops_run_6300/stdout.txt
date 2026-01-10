@@ -1,0 +1,76 @@
+=== Step 0: ops doctor --format json ===
+{
+  "findings": [
+    {
+      "id": "REPO_LOCK",
+      "severity": "ok",
+      "message": "No active repository lock",
+      "details": null,
+      "recommended_commands": []
+    },
+    {
+      "id": "DIRTY_TREE",
+      "severity": "warning",
+      "message": "Working tree has uncommitted changes",
+      "details": "1209 modified files",
+      "recommended_commands": [
+        "git status",
+        "git add <files>",
+        "git commit -m '<message>'"
+      ]
+    },
+    {
+      "id": "DETACHED_HEAD",
+      "severity": "ok",
+      "message": "On branch main",
+      "details": null,
+      "recommended_commands": []
+    },
+    {
+      "id": "REPO_TRUTH_EXISTS",
+      "severity": "warning",
+      "message": "Repository model not found",
+      "details": "Expected at docs/maestro/repo/model.json",
+      "recommended_commands": [
+        "maestro repo resolve"
+      ]
+    },
+    {
+      "id": "REPO_CONF_EXISTS",
+      "severity": "warning",
+      "message": "Repository configuration not found",
+      "details": "Expected at docs/maestro/repo/conf.json",
+      "recommended_commands": [
+        "maestro repo resolve",
+        "maestro repo conf show"
+      ]
+    },
+    {
+      "id": "BLOCKED_BY_ISSUES",
+      "severity": "ok",
+      "message": "No blocker issues found",
+      "details": null,
+      "recommended_commands": []
+    }
+  ],
+  "exit_code": 0,
+  "summary": {
+    "total": 6,
+    "ok": 3,
+    "warnings": 3,
+    "errors": 0,
+    "blockers": 0
+  }
+}
+
+
+=== Step 1: ops list ===
+Ops Runs (1 total):
+
+  ✓ 20251230_031625_ops_run_6300
+     Plan: Test plan - ops doctor
+     Started: 2025-12-30T03:16:25.887366
+     Exit code: 0
+
+
+

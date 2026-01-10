@@ -1,0 +1,32 @@
+{
+  "id": "rb-test-runbook-from-stdin-6adc7a5f",
+  "title": "Test runbook from stdin",
+  "goal": "Test runbook from stdin\n",
+  "prerequisites": [],
+  "steps": [
+    {
+      "cmd": "echo \"Implement actual steps based on requirements\"",
+      "expect": "Command executes successfully",
+      "notes": "Original input: Test runbook from stdin\n"
+    }
+  ],
+  "artifacts": [],
+  "invariants": [],
+  "tags": [
+    "generated"
+  ],
+  "created_at": "2026-01-01T02:26:50.548368",
+  "updated_at": "2026-01-01T02:26:50.548378",
+  "repo_evidence": {
+    "repo_model": {
+      "packages_count": 15,
+      "assemblies_count": 1,
+      "has_virtual_packages": false
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "chore/hygiene-sweep",
+      "has_uncommitted_changes": true
+    }
+  }
+}

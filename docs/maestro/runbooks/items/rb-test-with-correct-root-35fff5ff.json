@@ -1,0 +1,32 @@
+{
+  "id": "rb-test-with-correct-root-35fff5ff",
+  "title": "test with correct root",
+  "goal": "test with correct root",
+  "prerequisites": [],
+  "steps": [
+    {
+      "cmd": "echo \"Implement actual steps based on requirements\"",
+      "expect": "Command executes successfully",
+      "notes": "Original input: test with correct root"
+    }
+  ],
+  "artifacts": [],
+  "invariants": [],
+  "tags": [
+    "generated"
+  ],
+  "created_at": "2026-01-01T10:33:16.898823",
+  "updated_at": "2026-01-01T10:33:16.898839",
+  "repo_evidence": {
+    "repo_model": {
+      "packages_count": 15,
+      "assemblies_count": 1,
+      "has_virtual_packages": false
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "main",
+      "has_uncommitted_changes": true
+    }
+  }
+}

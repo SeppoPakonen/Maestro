@@ -1,0 +1,11 @@
+{
+  "last_resolved_at": "2026-01-07T22:35:37.177478",
+  "repo_root": "/e/active/sblo/Dev/Maestro",
+  "repo_model_path": "docs/maestro/repo_model.json",
+  "packages_count": 45,
+  "assemblies_count": 15,
+  "user_assemblies_count": 0,
+  "internal_packages_count": 15,
+  "unknown_count": 4329,
+  "scanner_version": "0.9.0"
+}

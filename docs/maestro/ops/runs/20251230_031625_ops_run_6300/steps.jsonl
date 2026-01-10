@@ -1,0 +1,2 @@
+{"step_index": 0, "command": "ops doctor --format json", "started_at": "2025-12-30T03:16:25.887453", "exit_code": 0, "duration_ms": 0}
+{"step_index": 1, "command": "ops list", "started_at": "2025-12-30T03:16:25.887462", "exit_code": 0, "duration_ms": 0}

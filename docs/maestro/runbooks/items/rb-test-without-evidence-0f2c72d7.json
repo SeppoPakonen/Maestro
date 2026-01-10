@@ -1,0 +1,18 @@
+{
+  "id": "rb-test-without-evidence-0f2c72d7",
+  "title": "test without evidence",
+  "goal": "test without evidence",
+  "steps": [
+    {
+      "n": 1,
+      "actor": "dev",
+      "action": "Implement steps based on requirements",
+      "expected": "Requirements fulfilled"
+    }
+  ],
+  "tags": [
+    "generated"
+  ],
+  "created_at": "2026-01-01T11:25:36.092298",
+  "updated_at": "2026-01-01T11:25:36.092314"
+}

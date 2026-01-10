@@ -197,7 +197,7 @@ class TableRenderer:
             content_widths.append(col_content_width)
         
         # Apply minimum widths
-        min_widths = [1, 2, 6, 6, 6]  # Minimum widths for #, ID, Name, Status, etc.
+        min_widths = [4, 2, 6, 6, 6]  # Minimum widths for #, ID, Name, Status, etc.
         for i in range(len(content_widths)):
             content_widths[i] = max(content_widths[i], min_widths[i] if i < len(min_widths) else 6)
         

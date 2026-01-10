@@ -1,0 +1,41 @@
+{
+  "id": "rb-test-fake-engine-724c5214",
+  "title": "test fake engine",
+  "goal": "Implement commands based on evidence from /e/active/sblo/Dev/Maestro",
+  "prerequisites": [],
+  "steps": [
+    {
+      "n": 1,
+      "actor": "dev",
+      "action": "Verify CLI help is available",
+      "expected": "Help text should be available once the binary is built"
+    },
+    {
+      "n": 2,
+      "actor": "dev",
+      "action": "Review docs/commands/batch_script_foo.md and create a minimal script exercising Batch Script Command",
+      "expected": "Semantics of Batch Script Command captured; add/adjust a test script"
+    },
+    {
+      "n": 3,
+      "actor": "dev",
+      "action": "Build the binary and test with sample commands",
+      "expected": "Binary builds successfully and responds to commands"
+    }
+  ],
+  "artifacts": [],
+  "invariants": [],
+  "tags": [
+    "generated",
+    "evidence-based"
+  ],
+  "created_at": "2026-01-01T11:24:42.874414",
+  "updated_at": "2026-01-01T11:24:42.874423",
+  "repo_evidence": {
+    "repo_root": "/e/active/sblo/Dev/Maestro",
+    "commands_docs_count": 1,
+    "help_available": false,
+    "help_bin_path": null,
+    "warnings_count": 0
+  }
+}

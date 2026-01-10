@@ -1,0 +1,17 @@
+{
+  "run_id": "run-20251229T171847Z",
+  "pipeline_id": "demo-pipe",
+  "status": "done",
+  "started_at": "2025-12-29T17:18:47.578339Z",
+  "completed_at": "2025-12-29T17:18:52.644090Z",
+  "source_repo": "/e/active/sblo/Dev/Maestro",
+  "target_repo": "/e/active/sblo/Dev/Maestro",
+  "inputs": {
+    "plan_path": "/e/active/sblo/Dev/Maestro/docs/maestro/convert/pipelines/demo-pipe/plan.json"
+  },
+  "outputs": {
+    "run_dir": "/e/active/sblo/Dev/Maestro/docs/maestro/convert/pipelines/demo-pipe/runs/run-20251229T171847Z"
+  },
+  "ignore_gates": false,
+  "prompt_hash": null
+}

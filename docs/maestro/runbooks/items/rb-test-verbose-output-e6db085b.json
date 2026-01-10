@@ -1,0 +1,32 @@
+{
+  "id": "rb-test-verbose-output-e6db085b",
+  "title": "Test verbose output",
+  "goal": "Test verbose output",
+  "prerequisites": [],
+  "steps": [
+    {
+      "cmd": "echo \"Implement actual steps based on requirements\"",
+      "expect": "Command executes successfully",
+      "notes": "Original input: Test verbose output"
+    }
+  ],
+  "artifacts": [],
+  "invariants": [],
+  "tags": [
+    "generated"
+  ],
+  "created_at": "2026-01-01T02:26:57.520735",
+  "updated_at": "2026-01-01T02:26:57.520746",
+  "repo_evidence": {
+    "repo_model": {
+      "packages_count": 15,
+      "assemblies_count": 1,
+      "has_virtual_packages": false
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "chore/hygiene-sweep",
+      "has_uncommitted_changes": true
+    }
+  }
+}

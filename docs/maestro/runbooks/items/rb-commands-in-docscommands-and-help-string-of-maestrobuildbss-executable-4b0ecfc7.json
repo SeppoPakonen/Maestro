@@ -1,0 +1,32 @@
+{
+  "id": "rb-commands-in-docscommands-and-help-string-of-maestrobuildbss-executable-4b0ecfc7",
+  "title": "commands in docs/commands/ and --help string of maestro_build/bss executable",
+  "goal": "commands in docs/commands/ and --help string of maestro_build/bss executable",
+  "prerequisites": [],
+  "steps": [
+    {
+      "cmd": "echo \"Implement actual steps based on requirements\"",
+      "expect": "Command executes successfully",
+      "notes": "Original input: commands in docs/commands/ and --help string of maestro_build/bss executable"
+    }
+  ],
+  "artifacts": [],
+  "invariants": [],
+  "tags": [
+    "generated"
+  ],
+  "created_at": "2026-01-01T10:49:49.242822",
+  "updated_at": "2026-01-01T10:49:49.242832",
+  "repo_evidence": {
+    "repo_model": {
+      "packages_count": 15,
+      "assemblies_count": 1,
+      "has_virtual_packages": false
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "main",
+      "has_uncommitted_changes": true
+    }
+  }
+}

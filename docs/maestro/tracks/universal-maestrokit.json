@@ -1,0 +1,30 @@
+{
+  "track_id": "universal-maestrokit",
+  "name": "Universal MaestroKit Build System",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "Universal build system abstraction supporting U++, CMake, Autotools, MSBuild, Maven and more"
+  ],
+  "phases": [
+    "umk1",
+    "umk2",
+    "umk3",
+    "umk4",
+    "umk5",
+    "umk5_5",
+    "umk6",
+    "umk7",
+    "umk8",
+    "umk9",
+    "umk10",
+    "umk11",
+    "umk12"
+  ],
+  "priority": 0,
+  "created_at": null,
+  "updated_at": null,
+  "tags": [],
+  "owner": null,
+  "is_top_priority": false
+}

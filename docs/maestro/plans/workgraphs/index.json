@@ -1,0 +1,16 @@
+{
+  "workgraphs": [
+    {
+      "id": "wg-test-request-001",
+      "domain": "general",
+      "profile": "default",
+      "goal": "Produce a minimal executable plan for a test request in the Maestro repo",
+      "path": "wg-test-request-001.json",
+      "created_at": "2026-01-01T14:23:42.432513",
+      "track_name": "Test Request Planning",
+      "phase_count": 1,
+      "task_count": 2
+    }
+  ],
+  "last_updated": "2026-01-01T14:23:42.432562"
+}

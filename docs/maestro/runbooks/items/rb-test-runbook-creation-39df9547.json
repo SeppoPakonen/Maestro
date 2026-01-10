@@ -1,0 +1,32 @@
+{
+  "id": "rb-test-runbook-creation-39df9547",
+  "title": "Test runbook creation",
+  "goal": "Test runbook creation",
+  "prerequisites": [],
+  "steps": [
+    {
+      "cmd": "echo \"Implement actual steps based on requirements\"",
+      "expect": "Command executes successfully",
+      "notes": "Original input: Test runbook creation"
+    }
+  ],
+  "artifacts": [],
+  "invariants": [],
+  "tags": [
+    "generated"
+  ],
+  "created_at": "2026-01-01T02:26:41.199094",
+  "updated_at": "2026-01-01T02:26:41.199106",
+  "repo_evidence": {
+    "repo_model": {
+      "packages_count": 15,
+      "assemblies_count": 1,
+      "has_virtual_packages": false
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "chore/hygiene-sweep",
+      "has_uncommitted_changes": true
+    }
+  }
+}
