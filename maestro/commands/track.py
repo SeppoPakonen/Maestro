@@ -229,7 +229,7 @@ def show_track(track_identifier: str, args) -> int:
     # Print done phases
     if visible_done:
         print(f"\n✅ {done_title}:" if unicode_symbols else f"\n{done_title}:")
-        for line in render_phase_table(visible_done):
+        for line in render_phase_table(done_rows):
             print(line)
 
     return 0
@@ -357,6 +357,7 @@ def add_track(name: str, args) -> int:
     """
     from maestro.tracks.json_store import JsonStore
     from maestro.tracks.models import Track
+    from maestro.data.track_cache import TrackDataCache
 
     json_store = JsonStore()
 
@@ -391,6 +392,15 @@ def add_track(name: str, args) -> int:
     # Save track
     json_store.save_track(track)
 
+    # Update index
+    index = json_store.load_index()
+    if track_id not in index.tracks:
+        index.tracks.append(track_id)
+        json_store.save_index(index)
+
+    # Invalidate cache
+    TrackDataCache(Path('.')).invalidate()
+
     print(f"Added track '{track_id}' ({name}).")
     return 0
 
@@ -400,6 +410,7 @@ def remove_track(track_identifier: str, args) -> int:
     Remove a track from JSON storage.
     """
     from maestro.tracks.json_store import JsonStore
+    from maestro.data.track_cache import TrackDataCache
 
     verbose = getattr(args, 'verbose', False)
     json_store = JsonStore()
@@ -431,6 +442,9 @@ def remove_track(track_identifier: str, args) -> int:
     if track_id in index.tracks:
         index.tracks.remove(track_id)
         json_store.save_index(index)
+
+    # Invalidate cache
+    TrackDataCache(Path('.')).invalidate()
 
     print(f"Removed track: {track_id}")
     return 0
@@ -695,33 +709,33 @@ maestro track - Manage project tracks
 USAGE:
     maestro track list                    List all tracks
     maestro track add <name>              Add new track
-    maestro track remove <id|#>           Remove a track
-    maestro track discuss [id|#]          Discuss tracks with AI
-    maestro track <id|#>                  Show track details
-    maestro track <id|#> show             Show track details
-    maestro track <id|#> list             List phases in this track
-    maestro track <id|#> details          Show track details with phases/tasks
-    maestro track <id|#> edit             Edit track in $EDITOR
-    maestro track <id|#> status <status>  Update track status
-    maestro track <id|#> set              Set current track context
-    maestro track text <id|#>             Show raw track block
-    maestro track set-text <id|#>         Replace track block (stdin or --file)
+    maestro track remove <id|#>		  Remove a track
+    maestro track discuss [id|#]	  Discuss tracks with AI
+    maestro track <id|#>		  Show track details
+    maestro track <id|#> show 	  Show track details
+    maestro track <id|#> list 	  List phases in this track
+    maestro track <id|#> details 	  Show track details with phases/tasks
+    maestro track <id|#> edit 	  Edit track in $EDITOR
+    maestro track <id|#> status <status>	  Update track status
+    maestro track <id|#> set 	  Set current track context
+    maestro track text <id|#>		  Show raw track block
+    maestro track set-text <id|#>		  Replace track block (stdin or --file)
 
 TRACK IDENTIFIERS:
     You can use either the track ID (e.g., 'umk') or the track number (e.g., '2')
     from the track list. Both work identically.
 
 ALIASES:
-    list:   ls, l
-    add:    a
+    list:	ls, l
+    add:	a
     remove: rm, r
     discuss: d
     show:   s, sh
     details: dt
     edit:   e
     status: set-status
-    set:    st
-    text:   raw
+    set:	st
+    text:	raw
     set-text: setraw
 
 EXAMPLES:
@@ -745,12 +759,12 @@ def print_track_item_help() -> None:
 maestro track <id> - Manage a specific track
 
 USAGE:
-    maestro track <id> show               Show track details
-    maestro track <id> list               List phases in this track
-    maestro track <id> details            Show track details with phases/tasks
-    maestro track <id> edit               Edit track in $EDITOR
-    maestro track <id> discuss            Discuss track with AI
-    maestro track <id> set                Set current track context
+    maestro track <id> show 			  Show track details
+    maestro track <id> list 			  List phases in this track
+    maestro track <id> details 			  Show track details with phases/tasks
+    maestro track <id> edit 			  Edit track in $EDITOR
+    maestro track <id> discuss 			  Discuss track with AI
+    maestro track <id> set 			  Set current track context
 
 ALIASES:
     show: s, sh
