@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Tuple
 from maestro.tracks.json_store import JsonStore
 from maestro.tracks.models import Track, Phase, Task
 
-_VALIDATE_CACHE = False
+_VALIDATE_CACHE = True
 
 
 def set_cache_validation(enabled: bool) -> None:
