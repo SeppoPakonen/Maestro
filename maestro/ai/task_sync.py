@@ -21,21 +21,53 @@ SHARED_SYNC_SIZE = 65536
 
 
 def find_task_context(task_id: str) -> Optional[Dict[str, Any]]:
-    phases_dir = Path("docs/phases")
-    if not phases_dir.exists():
-        return None
+    from maestro.tracks.json_store import JsonStore
+    json_store = JsonStore()
 
-    for phase_file in phases_dir.glob("*.md"):
-        phase = parse_phase_md(str(phase_file))
-        for task in phase.get("tasks", []):
-            candidate = task.get("task_id") or task.get("task_number")
-            if candidate == task_id:
-                return {
-                    "task": task,
-                    "phase": phase,
-                    "phase_file": phase_file,
-                }
-    return None
+    try:
+        # Load the task
+        task = json_store.load_task(task_id)
+        if not task:
+            return None
+
+        # Load the associated phase
+        phase = json_store.load_phase(task.phase_id, load_tasks=True) if task.phase_id else None
+        if not phase:
+            return None
+
+        # Convert to dict format expected by caller
+        task_dict = {
+            "task_id": task.task_id,
+            "name": task.name,
+            "status": task.status,
+            "completed": task.completed,
+            "description": task.description,
+        }
+
+        phase_dict = {
+            "phase_id": phase.phase_id,
+            "name": phase.name,
+            "status": phase.status,
+            "track_id": phase.track_id,
+            "tasks": []
+        }
+
+        # Add all tasks from the phase
+        for t in phase.tasks:
+            if hasattr(t, 'task_id'):
+                phase_dict["tasks"].append({
+                    "task_id": t.task_id,
+                    "name": t.name,
+                    "status": t.status,
+                })
+
+        return {
+            "task": task_dict,
+            "phase": phase_dict,
+            "phase_file": None,  # No longer relevant with JSON storage
+        }
+    except Exception:
+        return None
 
 
 def build_task_queue(phase: Dict[str, Any]) -> List[str]:

@@ -165,35 +165,30 @@ def parse_todo_md(path: Optional[str] = None) -> Dict[str, Any]:
 
 
 def load_issues() -> List[Dict[str, Any]]:
-    """Load all issues from docs/issues/."""
-    issues_dir = Path("docs/issues")
-    if not issues_dir.exists():
+    """Load all issues from JSON storage."""
+    try:
+        from maestro.issues.json_store import list_issues_json
+    except ImportError:
         return []
 
-    issues = []
-    for issue_file in issues_dir.glob("*.md"):
-        content = issue_file.read_text()
-        # Extract issue ID from filename
-        issue_id = issue_file.stem
-        title_match = re.match(r'^# (.+)', content)
-        title = title_match.group(1) if title_match else issue_id
+    try:
+        # Get all issues from JSON storage
+        all_issues = list_issues_json()
 
-        # Basic issue metadata extraction
-        issue = {
-            "id": issue_id,
-            "title": title,
-            "type": "issue",
-            "status": "open",  # Default to open
-            "description": content
-        }
+        # Convert to the format expected by this function
+        issues = []
+        for issue_obj in all_issues:
+            issues.append({
+                "id": issue_obj.issue_id,
+                "title": issue_obj.title,
+                "type": "issue",
+                "status": issue_obj.status,
+                "description": "\n".join(issue_obj.description) if isinstance(issue_obj.description, list) else issue_obj.description
+            })
 
-        # Check if issue is completed by looking for resolution markers
-        if "**Status: Resolved**" in content or "**Status: Closed**" in content:
-            issue["status"] = "closed"
-
-        issues.append(issue)
-
-    return issues
+        return issues
+    except Exception:
+        return []
 
 
 def check_work_gates(ignore_gates: bool = False, repo_root: Optional[str] = None) -> bool:
@@ -230,31 +225,31 @@ def check_work_gates(ignore_gates: bool = False, repo_root: Optional[str] = None
 
     # Check if any blockers have linked in-progress tasks
     blocking_issues = []
+    from maestro.tracks.json_store import JsonStore
+    json_store = JsonStore()
+
     for issue in blocker_issues:
         has_in_progress_task = False
 
         # Check if issue has linked tasks in progress
         if issue.linked_tasks:
-            phases_dir = Path(repo_root) / "docs" / "phases"
-            if phases_dir.exists():
-                for phase_file in phases_dir.glob("*.md"):
-                    try:
-                        phase = parse_phase_md(str(phase_file))
-                        for task in phase.get("tasks", []):
-                            task_id = task.get("task_id")
-                            task_number = task.get("task_number")
-                            # Check if either task_id or task_number matches linked tasks
-                            task_matches = (task_id and task_id in issue.linked_tasks) or \
-                                         (task_number and task_number in issue.linked_tasks)
-                            if task_matches:
-                                task_status = task.get("status", "").lower()
-                                if task_status in ["in_progress", "in progress", "active"]:
-                                    has_in_progress_task = True
-                                    break
-                        if has_in_progress_task:
-                            break
-                    except Exception:
+            # Get all tasks from JSON storage
+            all_task_ids = json_store.list_all_tasks()
+            for task_id in all_task_ids:
+                try:
+                    task = json_store.load_task(task_id)
+                    if not task:
                         continue
+
+                    # Check if task matches linked tasks
+                    task_matches = (task.task_id in issue.linked_tasks)
+                    if task_matches:
+                        task_status = task.status.lower()
+                        if task_status in ["in_progress", "in progress", "active"]:
+                            has_in_progress_task = True
+                            break
+                except Exception:
+                    continue
 
         if not has_in_progress_task:
             blocking_issues.append(issue)
@@ -1040,25 +1035,46 @@ async def handle_work_issue(args):
 
 def _load_task_entries() -> List[Dict[str, Any]]:
     tasks: List[Dict[str, Any]] = []
-    phases_dir = Path("docs/phases")
-    if not phases_dir.exists():
-        return tasks
+    from maestro.tracks.json_store import JsonStore
+    json_store = JsonStore()
 
-    for phase_file in phases_dir.glob("*.md"):
-        phase = parse_phase_md(str(phase_file))
-        for task in phase.get("tasks", []):
-            task_id = task.get("task_id") or task.get("task_number")
-            if not task_id:
+    try:
+        # Get all phases from JSON storage
+        all_phase_ids = json_store.list_all_phases()
+        for phase_id in all_phase_ids:
+            try:
+                phase = json_store.load_phase(phase_id, load_tasks=True)
+                if not phase:
+                    continue
+
+                # Get phase tasks
+                for task in phase.tasks:
+                    # Handle both Task objects and task IDs
+                    if hasattr(task, 'task_id'):
+                        task_obj = task
+                    else:
+                        # It's a task ID string, load it
+                        task_obj = json_store.load_task(task)
+                        if not task_obj:
+                            continue
+
+                    if not task_obj.task_id:
+                        continue
+                    if task_obj.completed or task_obj.status.lower() == "done":
+                        continue
+
+                    tasks.append({
+                        "id": task_obj.task_id,
+                        "name": task_obj.name,
+                        "phase_id": phase.phase_id,
+                        "phase_name": phase.name,
+                        "track_id": phase.track_id,
+                    })
+            except Exception:
                 continue
-            if task_is_done(task):
-                continue
-            tasks.append({
-                "id": task_id,
-                "name": task.get("name", "Unnamed Task"),
-                "phase_id": phase.get("phase_id"),
-                "phase_name": phase.get("name"),
-                "track_id": phase.get("track_id"),
-            })
+    except Exception:
+        pass
+
     return tasks
 
 

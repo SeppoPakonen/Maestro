@@ -328,7 +328,7 @@ def check_blocker_issues(docs_root: Optional[Path] = None) -> Finding:
 
     try:
         from maestro.issues.json_store import list_issues_json
-        from maestro.data import parse_phase_md
+        from maestro.tracks.json_store import JsonStore
     except ImportError:
         return Finding(
             id="BLOCKED_BY_ISSUES",
@@ -350,30 +350,28 @@ def check_blocker_issues(docs_root: Optional[Path] = None) -> Finding:
 
     # Reuse work gate logic: only blockers without linked in-progress tasks block
     blocking_issues = []
-    phases_dir = Path(repo_root) / "docs" / "phases"
+    json_store = JsonStore()
 
     for issue in blocker_issues:
         has_in_progress_task = False
 
-        if issue.linked_tasks and phases_dir.exists():
-            for phase_file in phases_dir.glob("*.md"):
+        if issue.linked_tasks:
+            # Get all tasks from JSON storage
+            all_task_ids = json_store.list_all_tasks()
+            for task_id in all_task_ids:
                 try:
-                    phase = parse_phase_md(str(phase_file))
-                except Exception:
-                    continue
+                    task = json_store.load_task(task_id)
+                    if not task:
+                        continue
 
-                for task in phase.get("tasks", []):
-                    task_id = task.get("task_id")
-                    task_number = task.get("task_number")
-                    task_matches = (task_id and task_id in issue.linked_tasks) or \
-                                 (task_number and task_number in issue.linked_tasks)
+                    task_matches = (task.task_id in issue.linked_tasks)
                     if task_matches:
-                        task_status = task.get("status", "").lower()
+                        task_status = task.status.lower()
                         if task_status in ["in_progress", "in progress", "active"]:
                             has_in_progress_task = True
                             break
-                if has_in_progress_task:
-                    break
+                except Exception:
+                    continue
 
         if not has_in_progress_task:
             blocking_issues.append(issue)
