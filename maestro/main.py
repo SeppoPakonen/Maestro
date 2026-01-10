@@ -157,6 +157,19 @@ def _print_legacy_disabled(command_name: str, replacement: str) -> None:
 
 def main():
     """Main entry point for the Maestro CLI."""
+    # Configure UTF-8 encoding for stdout/stderr on Windows
+    # This fixes Unicode encoding errors when printing track lists, etc.
+    if sys.platform == "win32":
+        try:
+            import io
+            if hasattr(sys.stdout, 'buffer'):
+                sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            if hasattr(sys.stderr, 'buffer'):
+                sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        except Exception:
+            # If reconfiguration fails, continue anyway
+            pass
+
     if os.environ.get("MAESTRO_DEBUG_HANG") == "1":
         import faulthandler
 
