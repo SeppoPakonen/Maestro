@@ -9,6 +9,7 @@ Supports multiple build systems:
 - Gradle
 - Maven
 - Visual Studio
+- Xcode
 
 Each build system scanner returns packages in a universal format.
 """
@@ -34,7 +35,7 @@ class BuildSystemPackage:
 def detect_build_system(repo_root: str) -> List[str]:
     """
     Detect which build systems are present in the repository.
-    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp', 'msvs', 'maven', 'gradle']
+    Returns list of build system identifiers: ['cmake', 'make', 'autoconf', 'upp', 'msvs', 'xcode', 'maven', 'gradle']
     """
     systems = []
 
@@ -43,8 +44,10 @@ def detect_build_system(repo_root: str) -> List[str]:
         systems.append('cmake')
 
     # Check for Makefiles
-    for makefile_name in ['Makefile', 'GNUmakefile', 'makefile']:
-        if os.path.exists(os.path.join(repo_root, makefile_name)):
+    makefile_names = ['Makefile', 'GNUmakefile', 'makefile']
+    for root, dirs, files in os.walk(repo_root):
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+        if any(name in files for name in makefile_names):
             systems.append('make')
             break
 
@@ -75,6 +78,15 @@ def detect_build_system(repo_root: str) -> List[str]:
 
         if any(f.endswith('.sln') for f in files):
             systems.append('msvs')
+            break
+
+    # Check for Xcode (*.xcodeproj directories)
+    for root, dirs, files in os.walk(repo_root):
+        # Skip hidden directories
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        if any(d.endswith('.xcodeproj') for d in dirs):
+            systems.append('xcode')
             break
 
     # Check for U++ (*.upp files)
@@ -192,12 +204,129 @@ def scan_cmake_packages(repo_root: str, verbose: bool = False) -> List[BuildSyst
     return packages
 
 
+def _read_makefile_lines(makefile_path: str) -> List[str]:
+    lines = []
+    buffer = ""
+    with open(makefile_path, 'r', encoding='utf-8', errors='ignore') as f:
+        for raw_line in f:
+            line = raw_line.rstrip('\n')
+            if buffer:
+                line = buffer + line.lstrip()
+            if line.endswith('\\'):
+                buffer = line[:-1].rstrip() + " "
+                continue
+            buffer = ""
+            lines.append(line)
+    if buffer:
+        lines.append(buffer)
+    return lines
+
+
+def _tokenize_makefile_value(value: str) -> List[str]:
+    return re.findall(r'`[^`]+`|\S+', value)
+
+
+def _expand_makefile_tokens(tokens: List[str], variables: Dict[str, List[str]], depth: int = 0) -> List[str]:
+    if depth > 5:
+        return tokens
+    expanded = []
+    for token in tokens:
+        match = re.fullmatch(r'\$\(([^)]+)\)|\${([^}]+)}', token)
+        if match:
+            var_name = match.group(1) or match.group(2)
+            expanded.extend(_expand_makefile_tokens(variables.get(var_name, []), variables, depth + 1))
+        else:
+            expanded.append(token)
+    return expanded
+
+
+def _parse_makefile_variables(lines: List[str]) -> Dict[str, List[str]]:
+    variables: Dict[str, List[str]] = {}
+    var_pattern = re.compile(r'^(?:override\s+)?([A-Za-z0-9_]+)\s*([+:]?=)\s*(.*)$')
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        if line.startswith('\t'):
+            continue
+        match = var_pattern.match(line)
+        if not match:
+            continue
+        var_name, op, value = match.groups()
+        value = value.split('#', 1)[0].strip()
+        tokens = _tokenize_makefile_value(value)
+        if op == '+=' and var_name in variables:
+            variables[var_name] = variables[var_name] + tokens
+        else:
+            variables[var_name] = tokens
+
+    return variables
+
+
+def _resolve_obj_to_source(obj_path: str, base_dir: str) -> Optional[str]:
+    if not obj_path.endswith('.o'):
+        return None
+    base = obj_path[:-2]
+    for ext in ('.cpp', '.c', '.cc', '.cxx', '.m', '.mm'):
+        candidate = base + ext
+        abs_candidate = os.path.join(base_dir, candidate)
+        if os.path.exists(abs_candidate):
+            return os.path.normpath(candidate)
+    return None
+
+
+def _parse_makefile_targets(lines: List[str], variables: Dict[str, List[str]]) -> Dict[str, Dict[str, Any]]:
+    targets: Dict[str, Dict[str, Any]] = {}
+    target_pattern = re.compile(r'^([A-Za-z0-9_.-]+)\s*:\s*(.*)$')
+
+    idx = 0
+    while idx < len(lines):
+        line = lines[idx]
+        if line.startswith('\t'):
+            idx += 1
+            continue
+        match = target_pattern.match(line)
+        if not match:
+            idx += 1
+            continue
+        target_name, deps_raw = match.groups()
+        if target_name in ('.PHONY',):
+            idx += 1
+            continue
+        deps_tokens = _tokenize_makefile_value(deps_raw)
+        deps_expanded = _expand_makefile_tokens(deps_tokens, variables)
+
+        recipe_lines = []
+        idx += 1
+        while idx < len(lines) and lines[idx].startswith('\t'):
+            recipe_lines.append(lines[idx].lstrip())
+            idx += 1
+
+        output_name = None
+        for recipe in recipe_lines:
+            recipe_tokens = _tokenize_makefile_value(recipe)
+            if '-o' in recipe_tokens:
+                try:
+                    output_name = recipe_tokens[recipe_tokens.index('-o') + 1]
+                except IndexError:
+                    output_name = None
+
+        targets[target_name] = {
+            'deps_raw': deps_tokens,
+            'deps': deps_expanded,
+            'recipe': recipe_lines,
+            'output': output_name
+        }
+
+    return targets
+
+
 def scan_makefile_packages(repo_root: str, verbose: bool = False) -> List[BuildSystemPackage]:
     """
     Scan Makefile-based build system for packages/targets.
 
-    This is a stub implementation. Full Makefile parsing is complex.
-    For now, we just detect presence and create a placeholder package.
+    Best-effort parsing extracts object lists, sources, targets, and core flags.
     """
     packages = []
 
@@ -212,24 +341,77 @@ def scan_makefile_packages(repo_root: str, verbose: bool = False) -> List[BuildS
             if makefile_name in files:
                 makefile_path = os.path.join(root, makefile_name)
                 makefile_dir = os.path.dirname(makefile_path)
+                rel_dir = os.path.relpath(makefile_dir, repo_root)
 
-                # Create a stub package
-                pkg_name = os.path.basename(makefile_dir) or os.path.basename(repo_root)
+                try:
+                    lines = _read_makefile_lines(makefile_path)
+                    variables = _parse_makefile_variables(lines)
+                    targets = _parse_makefile_targets(lines, variables)
 
-                pkg = BuildSystemPackage(
-                    name=f"{pkg_name}-makefile",
-                    build_system='make',
-                    dir=makefile_dir,
-                    files=[],  # TODO: Parse Makefile for sources
-                    metadata={
-                        'makefile': os.path.relpath(makefile_path, repo_root),
-                        'status': 'stub'
+                    expanded_vars = {
+                        name: _expand_makefile_tokens(tokens, variables)
+                        for name, tokens in variables.items()
                     }
-                )
-                packages.append(pkg)
 
-                if verbose:
-                    print(f"[make] found Makefile in {os.path.relpath(makefile_dir, repo_root)}")
+                    object_vars = {k: v for k, v in expanded_vars.items() if k.endswith('_OBJS')}
+                    sources_by_var: Dict[str, List[str]] = {}
+                    all_sources: List[str] = []
+
+                    for var_name, obj_tokens in object_vars.items():
+                        source_files = []
+                        for token in obj_tokens:
+                            source_path = _resolve_obj_to_source(token, makefile_dir)
+                            if source_path:
+                                abs_path = os.path.join(makefile_dir, source_path)
+                                rel_path = os.path.relpath(abs_path, repo_root)
+                                source_files.append(rel_path)
+                        sources_by_var[var_name] = source_files
+                        all_sources.extend(source_files)
+
+                    # Map target dependencies to source lists
+                    target_entries = []
+                    for target_name, target_info in targets.items():
+                        target_sources = []
+                        for dep in target_info.get('deps', []):
+                            if dep.endswith('.o'):
+                                source_path = _resolve_obj_to_source(dep, makefile_dir)
+                                if source_path:
+                                    abs_path = os.path.join(makefile_dir, source_path)
+                                    target_sources.append(os.path.relpath(abs_path, repo_root))
+                        target_entries.append({
+                            'name': target_name,
+                            'output': target_info.get('output'),
+                            'sources': sorted(set(target_sources))
+                        })
+
+                    project_name = os.path.basename(repo_root)
+                    dir_basename = os.path.basename(makefile_dir)
+                    if makefile_dir == repo_root or dir_basename in ('src', 'source'):
+                        pkg_name = project_name
+                    else:
+                        pkg_name = dir_basename or project_name
+
+                    pkg = BuildSystemPackage(
+                        name=pkg_name,
+                        build_system='make',
+                        dir=makefile_dir,
+                        files=sorted(set(all_sources)),
+                        metadata={
+                            'makefile': os.path.relpath(makefile_path, repo_root),
+                            'package_root': makefile_dir,
+                            'repo_root': repo_root,
+                            'project_name': project_name,
+                            'targets': target_entries,
+                            'variables': expanded_vars
+                        }
+                    )
+                    packages.append(pkg)
+
+                    if verbose:
+                        print(f"[make] found Makefile in {rel_dir} ({len(pkg.files)} sources)")
+                except Exception as e:
+                    if verbose:
+                        print(f"[make] error parsing {makefile_path}: {e}")
 
                 break  # Only one Makefile per directory
 
@@ -476,13 +658,17 @@ def scan_msvs_packages(repo_root: str, verbose: bool = False) -> List[BuildSyste
 
                 # Parse project file based on extension
                 source_files = []
+                package_root = proj_dir
+                if os.path.basename(proj_dir).lower() in ('vcpp', 'msvs', 'visualstudio'):
+                    package_root = os.path.dirname(proj_dir)
                 project_metadata = {
                     'solution': os.path.relpath(sln_path, repo_root),
                     'project_file': os.path.relpath(proj_file_path, repo_root),
                     'project_guid': proj_guid,
                     'type_guid': type_guid,
                     'format_version': format_version,
-                    'vs_version': vs_version
+                    'vs_version': vs_version,
+                    'package_root': package_root
                 }
 
                 try:
@@ -527,6 +713,76 @@ def scan_msvs_packages(repo_root: str, verbose: bool = False) -> List[BuildSyste
         except Exception as e:
             if verbose:
                 print(f"[msvs] error parsing solution {sln_path}: {e}")
+
+    return packages
+
+
+def _parse_xcode_project_files(pbxproj_path: str, project_dir: str, repo_root: str, verbose: bool) -> List[str]:
+    source_files = []
+    try:
+        with open(pbxproj_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+
+        file_pattern = r'path = ([^;]+);'
+        matches = re.findall(file_pattern, content)
+        for raw_path in matches:
+            path = raw_path.strip().strip('"\'')
+            if path.endswith(('.c', '.cc', '.cpp', '.cxx', '.m', '.mm', '.h', '.hpp', '.hxx')):
+                if path.startswith('/'):
+                    continue
+                abs_path = os.path.normpath(os.path.join(project_dir, path))
+                if os.path.exists(abs_path):
+                    source_files.append(os.path.relpath(abs_path, repo_root))
+    except Exception as e:
+        if verbose:
+            print(f"[xcode] error parsing {pbxproj_path}: {e}")
+
+    return sorted(set(source_files))
+
+
+def scan_xcode_packages(repo_root: str, verbose: bool = False) -> List[BuildSystemPackage]:
+    """
+    Scan Xcode projects for package info.
+
+    Detects *.xcodeproj directories and extracts file references from project.pbxproj.
+    """
+    packages = []
+
+    for root, dirs, files in os.walk(repo_root):
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        for dirname in list(dirs):
+            if not dirname.endswith('.xcodeproj'):
+                continue
+            project_dir = root
+            project_name = os.path.splitext(dirname)[0]
+            xcodeproj_path = os.path.join(root, dirname)
+            pbxproj_path = os.path.join(xcodeproj_path, 'project.pbxproj')
+
+            files_list = []
+            if os.path.exists(pbxproj_path):
+                files_list = _parse_xcode_project_files(pbxproj_path, project_dir, repo_root, verbose)
+
+            package_root = project_dir
+            if os.path.basename(project_dir).lower() in ('xcode',):
+                package_root = os.path.dirname(project_dir)
+
+            pkg = BuildSystemPackage(
+                name=project_name,
+                build_system='xcode',
+                dir=project_dir,
+                files=files_list,
+                metadata={
+                    'xcodeproj': os.path.relpath(xcodeproj_path, repo_root),
+                    'package_root': package_root,
+                    'project_name': project_name
+                }
+            )
+            packages.append(pkg)
+
+            if verbose:
+                rel_dir = os.path.relpath(project_dir, repo_root)
+                print(f"[xcode] found project '{project_name}' in {rel_dir} ({len(files_list)} files)")
 
     return packages
 
@@ -977,6 +1233,9 @@ def scan_all_build_systems(repo_root: str, verbose: bool = False) -> Dict[str, L
     if 'msvs' in detected:
         results['msvs'] = scan_msvs_packages(repo_root, verbose)
 
+    if 'xcode' in detected:
+        results['xcode'] = scan_xcode_packages(repo_root, verbose)
+
     # Note: U++ scanning is handled separately in scan_uplusplus_repo()
 
     # Deduplicate packages that exist in multiple build systems
@@ -993,13 +1252,21 @@ def deduplicate_packages(results: Dict[str, List[BuildSystemPackage]], verbose: 
     For packages with the same name and directory, merge them into a single package
     with multiple build systems listed in metadata.
     """
-    # Group packages by name and directory
+    # Group packages by name/directory or explicit package_root
     package_groups = {}
+    priority_order = ['make', 'xcode', 'msvs', 'cmake', 'autoconf', 'gradle', 'maven']
+    priority_rank = {name: idx for idx, name in enumerate(priority_order)}
 
     for build_system, packages in results.items():
         for pkg in packages:
             # Create a key based on name and directory
-            key = (pkg.name, pkg.dir)
+            pkg_root = None
+            if pkg.metadata:
+                pkg_root = pkg.metadata.get('package_root')
+            if pkg_root:
+                key = ('root', os.path.normpath(pkg_root))
+            else:
+                key = ('name', pkg.name, pkg.dir)
 
             if key not in package_groups:
                 package_groups[key] = []
@@ -1025,7 +1292,10 @@ def deduplicate_packages(results: Dict[str, List[BuildSystemPackage]], verbose: 
     for (name, directory), pkg_list in package_groups.items():
         if len(pkg_list) > 1:
             # Multiple packages with same name and directory - merge them
-            primary_pkg = pkg_list[0]
+            primary_pkg = min(
+                pkg_list,
+                key=lambda p: priority_rank.get(p.metadata.get('primary_build_system', p.metadata.get('build_systems', ['unknown'])[0]), 999)
+            )
 
             # Collect all build systems
             all_build_systems = []
@@ -1042,7 +1312,10 @@ def deduplicate_packages(results: Dict[str, List[BuildSystemPackage]], verbose: 
             # Update metadata
             merged_metadata = dict(primary_pkg.metadata)
             merged_metadata['build_systems'] = unique_build_systems
-            merged_metadata['primary_build_system'] = unique_build_systems[0] if unique_build_systems else 'unknown'
+            merged_metadata['primary_build_system'] = min(
+                unique_build_systems,
+                key=lambda bs: priority_rank.get(bs, 999)
+            ) if unique_build_systems else 'unknown'
 
             # Combine files from all packages
             all_files = set()
