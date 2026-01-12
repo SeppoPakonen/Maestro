@@ -1,0 +1,21 @@
+{
+  "track_id": "pkg_discovery",
+  "name": "Package Discovery",
+  "status": "planned",
+  "completion": 0,
+  "description": [
+    "Enable recognition of Makefile, VCPP, and Xcode as the same package and implement internal Makefile build."
+  ],
+  "phases": [
+    "pkg1",
+    "pkg2",
+    "pkg3",
+    "pkg4"
+  ],
+  "priority": 0,
+  "created_at": null,
+  "updated_at": "2026-01-12T13:05:35.276401",
+  "tags": [],
+  "owner": null,
+  "is_top_priority": false
+}

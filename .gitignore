@@ -87,3 +87,7 @@ CLAUDE.md
 
 # Claude Code local settings
 .claude/
+
+tmp
+.tmp
+

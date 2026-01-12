@@ -1,0 +1,16 @@
+{
+  "task_id": "pkg-task-1-2",
+  "name": "Upgrade scan_makefile_packages to functional scanner",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "pkg1",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2026-01-12T13:05:58.745979",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

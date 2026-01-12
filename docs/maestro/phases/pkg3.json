@@ -1,0 +1,20 @@
+{
+  "phase_id": "pkg3",
+  "name": "MSBuild (VCPP) Dry-run Support",
+  "status": "planned",
+  "completion": 0,
+  "description": [],
+  "tasks": [
+    "pkg-task-3-1",
+    "pkg-task-3-2",
+    "pkg-task-3-3"
+  ],
+  "track_id": "pkg_discovery",
+  "priority": "P2",
+  "created_at": null,
+  "updated_at": "2026-01-12T13:05:50.634900",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

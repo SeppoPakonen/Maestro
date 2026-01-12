@@ -1,0 +1,16 @@
+{
+  "task_id": "pkg-task-4-2",
+  "name": "Ensure consistent metadata and status reporting",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "pkg4",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2026-01-12T13:06:24.200041",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

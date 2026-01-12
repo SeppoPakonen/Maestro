@@ -1,0 +1,16 @@
+{
+  "task_id": "pkg-task-3-2",
+  "name": "Ensure maestro build --dry-run works for VCPP on Linux",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "pkg3",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2026-01-12T13:06:17.143492",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

@@ -1,0 +1,19 @@
+{
+  "phase_id": "pkg4",
+  "name": "Final Integration & Error Handling",
+  "status": "planned",
+  "completion": 0,
+  "description": [],
+  "tasks": [
+    "pkg-task-4-1",
+    "pkg-task-4-2"
+  ],
+  "track_id": "pkg_discovery",
+  "priority": "P2",
+  "created_at": null,
+  "updated_at": "2026-01-12T13:05:52.448990",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

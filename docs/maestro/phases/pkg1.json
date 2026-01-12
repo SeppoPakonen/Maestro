@@ -1,0 +1,21 @@
+{
+  "phase_id": "pkg1",
+  "name": "Enhanced Repository Discovery & Recognition",
+  "status": "planned",
+  "completion": 0,
+  "description": [],
+  "tasks": [
+    "pkg-task-1-1",
+    "pkg-task-1-2",
+    "pkg-task-1-3",
+    "pkg-task-1-4"
+  ],
+  "track_id": "pkg_discovery",
+  "priority": "P2",
+  "created_at": null,
+  "updated_at": "2026-01-12T13:05:46.946962",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

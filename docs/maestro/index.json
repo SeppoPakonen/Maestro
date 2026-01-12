@@ -10,7 +10,8 @@
     "universal-maestrokit",
     "portage-integration",
     "ecosystem-support",
-    "ast-infrastructure"
+    "ast-infrastructure",
+    "pkg_discovery"
   ],
   "top_priority_track": null,
   "created_at": null,

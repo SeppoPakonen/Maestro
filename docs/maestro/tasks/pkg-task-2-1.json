@@ -1,0 +1,16 @@
+{
+  "task_id": "pkg-task-2-1",
+  "name": "Implement Makefile parser for internal analysis",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "pkg2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2026-01-12T13:06:06.898158",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}

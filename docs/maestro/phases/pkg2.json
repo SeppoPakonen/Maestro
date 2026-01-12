@@ -1,0 +1,21 @@
+{
+  "phase_id": "pkg2",
+  "name": "Internal Makefile Build System",
+  "status": "planned",
+  "completion": 0,
+  "description": [],
+  "tasks": [
+    "pkg-task-2-1",
+    "pkg-task-2-2",
+    "pkg-task-2-3",
+    "pkg-task-2-4"
+  ],
+  "track_id": "pkg_discovery",
+  "priority": "P2",
+  "created_at": null,
+  "updated_at": "2026-01-12T13:05:48.698455",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "order": null
+}

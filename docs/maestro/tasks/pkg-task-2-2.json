@@ -1,0 +1,16 @@
+{
+  "task_id": "pkg-task-2-2",
+  "name": "Implement GccBuilder.build_package for internal compilation",
+  "status": "planned",
+  "priority": "P2",
+  "estimated_hours": null,
+  "description": [],
+  "phase_id": "pkg2",
+  "completed": false,
+  "created_at": null,
+  "updated_at": "2026-01-12T13:06:08.491535",
+  "tags": [],
+  "owner": null,
+  "dependencies": [],
+  "subtasks": []
+}
