@@ -338,7 +338,7 @@ class MakeCommand:
         
         package_name = args.package
         if not package_name:
-            package_name = self._detect_current_package(os.getcwd(), repo_model)
+            package_name = self._detect_current_package(os.getcwd(), repo_model, repo_root)
             
         if not package_name:
             print("Error: No package to clean specified.")
@@ -427,10 +427,15 @@ class MakeCommand:
         package_name = args.package
         if not package_name:
             if repoconf and repoconf.get("selected_target"):
-                package_name = repoconf["selected_target"]
+                selected_target = repoconf["selected_target"]
+                if selected_target not in (".", "./"):
+                    package_name = selected_target
+                else:
+                    current_dir = os.getcwd()
+                    package_name = self._detect_current_package(current_dir, repo_model, repo_root)
             else:
                 current_dir = os.getcwd()
-                package_name = self._detect_current_package(current_dir, repo_model)
+                package_name = self._detect_current_package(current_dir, repo_model, repo_root)
 
         if not package_name:
             print("Error: No package to run. Specify a package or run from package directory.")
@@ -616,12 +621,17 @@ class MakeCommand:
         if args.package:
             initial_target_name = args.package
         elif repoconf and repoconf.get("selected_target"):
-            initial_target_name = repoconf["selected_target"]
-            if args.verbose:
-                print(f"Using default target from repoconf: {initial_target_name}")
+            selected_target = repoconf["selected_target"]
+            if selected_target not in (".", "./"):
+                initial_target_name = selected_target
+                if args.verbose:
+                    print(f"Using default target from repoconf: {initial_target_name}")
+            else:
+                current_dir = os.getcwd()
+                initial_target_name = self._detect_current_package(current_dir, repo_model, repo_root)
         else:
             current_dir = os.getcwd()
-            initial_target_name = self._detect_current_package(current_dir, repo_model)
+            initial_target_name = self._detect_current_package(current_dir, repo_model, repo_root)
 
         if not initial_target_name:
             print("Error: No package to build. Specify a package, set a default, or run from a package directory.")
@@ -1023,7 +1033,7 @@ class MakeCommand:
         from maestro.builders.builder_selector import select_builder
         return select_builder(package_info, method_config)
 
-    def _detect_current_package(self, current_dir: str, repo_model: Dict) -> Optional[str]:
+    def _detect_current_package(self, current_dir: str, repo_model: Dict, repo_root: Optional[str] = None) -> Optional[str]:
         """Detect the current package based on the current directory."""
         # 1. Check if we're in a package directory by looking for .upp file
         current_package_name = os.path.basename(current_dir)
@@ -1036,6 +1046,47 @@ class MakeCommand:
         if os.path.exists(os.path.join(current_dir, "build.gradle")) or \
            os.path.exists(os.path.join(current_dir, "build.gradle.kts")):
             return current_package_name
+
+        if not repo_root:
+            repo_root = self._find_repo_root()
+
+        if repo_root and repo_model:
+            packages = []
+            seen = set()
+            for key in ("packages", "packages_detected"):
+                for pkg in repo_model.get(key, []):
+                    name = pkg.get('name')
+                    if not name or name in seen:
+                        continue
+                    packages.append(pkg)
+                    seen.add(name)
+
+            # 3. Check for a package whose directory matches the current directory
+            dir_matches = []
+            for pkg in packages:
+                pkg_dir = pkg.get('dir')
+                if not pkg_dir and pkg.get('dir_relpath'):
+                    pkg_dir = os.path.join(repo_root, pkg['dir_relpath'])
+                if pkg_dir and os.path.normpath(pkg_dir) == os.path.normpath(current_dir):
+                    dir_matches.append(pkg)
+                    if pkg.get('build_system') != 'virtual':
+                        return pkg.get('name')
+
+            # 4. If we're at repo root, prefer a package that matches repo name
+            if os.path.normpath(current_dir) == os.path.normpath(repo_root):
+                repo_name = os.path.basename(repo_root)
+                for pkg in packages:
+                    if pkg.get('name') == repo_name:
+                        return repo_name
+
+            # 5. If we only matched virtual packages in this dir, use the first match
+            if dir_matches:
+                return dir_matches[0].get('name')
+
+            # 6. If there's a single non-virtual package, default to it
+            non_virtual = [pkg for pkg in packages if pkg.get('build_system') != 'virtual']
+            if len(non_virtual) == 1:
+                return non_virtual[0].get('name')
 
         return None
 
