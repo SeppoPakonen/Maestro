@@ -215,6 +215,11 @@ class WorkGraphMaterializer:
             index.updated_at = datetime.now()
             self.json_store.save_index(index)
 
+        # Invalidate cache
+        from maestro.data.track_cache import TrackDataCache
+        from maestro.config.paths import get_docs_root
+        TrackDataCache(get_docs_root()).invalidate()
+
         # Return summary
         return {
             'track_id': track_id,
@@ -461,6 +466,11 @@ class WorkGraphMaterializer:
             index.tracks.append(track_id)
             index.updated_at = datetime.now()
             self.json_store.save_index(index)
+
+        # Invalidate cache
+        from maestro.data.track_cache import TrackDataCache
+        from maestro.config.paths import get_docs_root
+        TrackDataCache(get_docs_root()).invalidate()
 
         # Return summary
         return {

@@ -26,8 +26,12 @@ class JsonStoreError(Exception):
 class JsonStore:
     """Handles JSON-based storage for tracks, phases, and tasks."""
 
-    def __init__(self, base_path: str = "docs/maestro"):
-        self.base_path = Path(base_path)
+    def __init__(self, base_path: Optional[str] = None):
+        from maestro.config.paths import get_docs_root
+        if base_path is None:
+            self.base_path = get_docs_root() / "docs" / "maestro"
+        else:
+            self.base_path = Path(base_path)
         self.tracks_dir = self.base_path / "tracks"
         self.phases_dir = self.base_path / "phases"
         self.tasks_dir = self.base_path / "tasks"

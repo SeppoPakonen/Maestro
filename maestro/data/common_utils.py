@@ -92,19 +92,11 @@ def _extract_phase_ids(track: Track) -> List[str]:
 
 
 def parse_todo_safe(todo_path: Path = None, verbose: bool = False) -> Optional[dict]:
-    """
-    Safely load todo data from JSON storage with error handling.
-
-    Args:
-        todo_path: Ignored (kept for backward compatibility)
-        verbose: Whether to print verbose error messages
-
-    Returns:
-        Dict with 'tracks' key containing list of track dicts, or None on error
-    """
+    # ...
     try:
+        from maestro.config.paths import get_docs_root
         json_store = JsonStore()
-        cache = TrackDataCache(Path('.'))
+        cache = TrackDataCache(get_docs_root())
         result = cache.load_or_rebuild(json_store, validate=cache_validation_enabled())
         if not result.cached:
             print_warning(f"Track cache not used ({result.reason or 'rebuilt'}); reloading from JSON.")
@@ -155,8 +147,9 @@ def parse_done_safe(done_path: Path = None, verbose: bool = False) -> Optional[d
         Dict with 'tracks' key containing list of archived track dicts, or None on error
     """
     try:
+        from maestro.config.paths import get_docs_root
         json_store = JsonStore()
-        cache = TrackDataCache(Path('.'))
+        cache = TrackDataCache(get_docs_root())
         result = cache.load_or_rebuild(json_store, validate=cache_validation_enabled())
         if not result.cached:
             print_warning(f"Track cache not used ({result.reason or 'rebuilt'}); reloading from JSON.")

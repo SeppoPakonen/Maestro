@@ -1300,7 +1300,7 @@ def handle_plan_enact(args):
             print()
 
     # Create materializer
-    base_path = args.out if args.out else "docs/maestro"
+    base_path = args.out if args.out else None
     json_store = JsonStore(base_path=base_path)
     materializer = WorkGraphMaterializer(json_store=json_store)
 
@@ -1368,7 +1368,7 @@ def handle_plan_enact(args):
             for item in summary['updated_items']:
                 print_info(f"  - {item}", 2)
 
-        print_info(f"Files written to: {base_path}/{{tracks,phases,tasks}}/", 2)
+        print_info(f"Files written to: {base_path or json_store.base_path}/{{tracks,phases,tasks}}/", 2)
 
 
 def handle_plan_run(args):
@@ -1704,7 +1704,7 @@ def handle_plan_sprint(args):
     if verbose or very_verbose:
         print_info(f"Enacting {len(selection_result.ordered_task_ids)} tasks...", 2)
 
-    base_path = args.out if args.out else "docs/maestro"
+    base_path = args.out if args.out else None
     json_store = JsonStore(base_path=base_path)
     materializer = WorkGraphMaterializer(json_store=json_store)
 
@@ -1830,6 +1830,7 @@ def handle_plan_sprint(args):
             print_info(f"Dependencies added: {len(selection_result.closure_task_ids)}", 2)
 
         print_info(f"Materialized total: {len(selection_result.ordered_task_ids)} tasks to {enact_summary['track_id']}", 2)
+        print_info(f"Files written to: {base_path or json_store.base_path}/{{tracks,phases,tasks}}/", 2)
         print_info(f"Run ID: {run_summary['run_id']}", 2)
         print_info(f"Tasks completed: {run_summary['tasks_completed']}", 2)
         print_info(f"Tasks failed: {run_summary['tasks_failed']}", 2)

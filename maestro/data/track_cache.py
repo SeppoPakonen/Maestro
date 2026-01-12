@@ -81,7 +81,7 @@ class TrackDataCache:
         try:
             payload = pickle.loads(self.data_file.read_bytes())
             return CacheLoadResult(snapshot=payload, cached=True)
-        except Exception:
+        except Exception as e:
             snapshot = self._build_and_persist(json_store)
             return CacheLoadResult(snapshot=snapshot, cached=False, reason="invalid cache payload")
 

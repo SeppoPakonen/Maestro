@@ -399,7 +399,8 @@ def add_track(name: str, args) -> int:
         json_store.save_index(index)
 
     # Invalidate cache
-    TrackDataCache().invalidate()
+    from maestro.config.paths import get_docs_root
+    TrackDataCache(get_docs_root()).invalidate()
 
     print(f"Added track '{track_id}' ({name}).")
     return 0
@@ -444,7 +445,8 @@ def remove_track(track_identifier: str, args) -> int:
         json_store.save_index(index)
 
     # Invalidate cache
-    TrackDataCache().invalidate()
+    from maestro.config.paths import get_docs_root
+    TrackDataCache(get_docs_root()).invalidate()
 
     print(f"Removed track: {track_id}")
     return 0
