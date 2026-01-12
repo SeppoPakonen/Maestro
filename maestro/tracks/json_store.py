@@ -66,7 +66,8 @@ class JsonStore:
             "tags": task.tags,
             "owner": task.owner,
             "dependencies": task.dependencies,
-            "subtasks": [st.task_id if isinstance(st, Task) else st for st in task.subtasks]
+            "subtasks": [st.task_id if isinstance(st, Task) else st for st in task.subtasks],
+            "details": task.details
         }
         task_file.write_text(json.dumps(data, indent=2), encoding='utf-8')
 
@@ -92,7 +93,8 @@ class JsonStore:
                 tags=data.get("tags", []),
                 owner=data.get("owner"),
                 dependencies=data.get("dependencies", []),
-                subtasks=data.get("subtasks", [])
+                subtasks=data.get("subtasks", []),
+                details=data.get("details", {})
             )
         except (json.JSONDecodeError, KeyError) as e:
             raise JsonStoreError(f"Failed to load task {task_id}: {e}")

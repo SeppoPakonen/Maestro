@@ -12,10 +12,12 @@ Commands:
 - maestro task <id> set - Set current task context
 """
 
+import argparse
 import json
 import re
 import sys
 import tempfile
+import types
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 from maestro.tracks.json_store import JsonStore
@@ -200,6 +202,7 @@ def _collect_task_entries(verbose: bool = False) -> List[Dict[str, str]]:
                         "owner": task.owner,
                         "dependencies": task.dependencies,
                         "subtasks": task.subtasks,
+                        "details": task.details,
                     },
                 })
 
@@ -397,6 +400,19 @@ def show_task(task_id: str, args):
                 print(f"  {line}")
         print()
 
+    # Details
+    details = task.get('details', {})
+    if details:
+        print("Details:")
+        for key, value in details.items():
+            if isinstance(value, str) and '\n' in value:
+                print(f"  {key:>10}:")
+                for line in value.splitlines():
+                    print(f"    {line}")
+            else:
+                print(f"  {key:>10}: {value}")
+        print()
+
     # Subtasks
     subtasks = task.get('subtasks', [])
     if subtasks:
@@ -489,7 +505,8 @@ def add_task(name: str, args):
         tags=[],
         owner=None,
         dependencies=[],
-        subtasks=[]
+        subtasks=[],
+        details={},
     )
 
     # Save task
@@ -604,6 +621,59 @@ def set_task_status(task_id: str, args) -> int:
     return 0
 
 
+def set_task_details(task_id: str, args):
+    """Set a detail (key-value pair) for a task."""
+    from maestro.tracks.json_store import JsonStore
+
+    key = getattr(args, 'key', None)
+    value_str = getattr(args, 'value', None)
+    delete = getattr(args, 'delete', False)
+
+    if not key:
+        print("Error: Key is required.")
+        return 1
+
+    verbose = getattr(args, 'verbose', False)
+    json_store = JsonStore()
+    task = json_store.load_task(task_id)
+
+    if not task:
+        print(f"Error: Task '{task_id}' not found.")
+        if verbose:
+            print("Verbose: Use 'maestro task list' to see available task IDs.")
+        return 1
+
+    if not hasattr(task, 'details'):
+        task.details = {}
+
+    if delete:
+        if key in task.details:
+            del task.details[key]
+            json_store.save_task(task)
+            print(f"Deleted detail '{key}' from task '{task_id}'.")
+        else:
+            print(f"Detail '{key}' not found in task '{task_id}'.")
+        return 0
+
+    if value_str is None:
+        value_str = _resolve_text_input(args)
+
+    # Try to parse as a number
+    try:
+        value = int(value_str)
+    except ValueError:
+        try:
+            value = float(value_str)
+        except ValueError:
+            value = value_str
+
+    task.details[key] = value
+    json_store.save_task(task)
+
+    print(f"Set detail '{key}' for task '{task_id}'.")
+    return 0
+
+
 def edit_task(task_id: str, args):
     """
     Edit a task in $EDITOR.
@@ -674,93 +744,93 @@ def handle_task_command(args):
 
     Routes to appropriate subcommand handler.
     """
-    # Handle 'maestro task discuss <task_id>' (new subcommand format)
-    if hasattr(args, 'task_subcommand') and args.task_subcommand in ['discuss', 'd']:
-        if hasattr(args, 'task_id_arg'):
+    subcommand = getattr(args, 'task_subcommand', None)
+
+    if subcommand in ['list', 'ls', 'l']:
+        return list_tasks(args)
+    if subcommand in ['add', 'a']:
+        if not hasattr(args, 'name') or not args.name:
+            print("Error: Task name required. Usage: maestro task add <name>")
+            return 1
+        name = " ".join(args.name) if isinstance(args.name, list) else args.name
+        return add_task(name, args)
+    if subcommand in ['remove', 'rm', 'r']:
+        if not hasattr(args, 'task_id') or not args.task_id:
+            print("Error: Task ID required. Usage: maestro task remove <id>")
+            return 1
+        return remove_task(args.task_id, args)
+    if subcommand in ['status', 'set-status']:
+        if not hasattr(args, 'task_id') or not args.task_id:
+            print("Error: Task ID required. Usage: maestro task status <id> <status>")
+            return 1
+        if not getattr(args, 'status', None):
+            print("Error: Status required. Usage: maestro task status <id> <status>")
+            return 1
+        return set_task_status(args.task_id, args)
+    if subcommand in ['set-details', 'details']:
+        if not hasattr(args, 'task_id') or not args.task_id:
+            print("Error: Task ID required. Usage: maestro task set-details <id> <key> [value]")
+            return 1
+        return set_task_details(args.task_id, args)
+    if subcommand in ['text', 'raw']:
+        if not hasattr(args, 'task_id') or not args.task_id:
+            print("Error: Task ID required. Usage: maestro task text <id>")
+            return 1
+        json_store = JsonStore()
+        task_file = json_store.tasks_dir / f"{args.task_id}.json"
+        if not task_file.exists():
+            print(f"Error: Task '{args.task_id}' not found.")
+            return 1
+        print(task_file.read_text(encoding='utf-8').rstrip())
+        return 0
+    if subcommand in ['set-text', 'setraw']:
+        if not hasattr(args, 'task_id') or not args.task_id:
+            print("Error: Task ID required. Usage: maestro task set-text <id> [--file path]")
+            return 1
+        new_block = _resolve_text_input(args)
+        if not new_block.strip():
+            print("Error: Replacement text is empty.")
+            return 1
+        try:
+            json.loads(new_block)
+        except json.JSONDecodeError as exc:
+            print(f"Error: Updated content is not valid JSON: {exc}")
+            return 1
+        json_store = JsonStore()
+        task_file = json_store.tasks_dir / f"{args.task_id}.json"
+        if not task_file.exists():
+            print(f"Error: Task '{args.task_id}' not found.")
+            return 1
+        task_file.write_text(new_block, encoding='utf-8')
+        print(f"Updated task '{args.task_id}' JSON.")
+        return 0
+    if subcommand in ['discuss', 'd']:
+        if not hasattr(args, 'task_id_arg') or not args.task_id_arg:
+            print("Error: Task ID required. Usage: maestro task discuss <id>")
+            return 1
+        from .discuss import handle_task_discuss
+        return handle_task_discuss(args.task_id_arg, args)
+    if subcommand in ['help', 'h']:
+        print_task_help()
+        return 0
+    if subcommand in ['show', 'sh']:
+        task_id = getattr(args, 'task_id_arg', None)
+        if not task_id:
+            print("Error: Task ID required. Usage: maestro task <id> [show|edit|complete|discuss|set]")
+            return 1
+        item_subcommand = getattr(args, 'task_item_subcommand', None)
+        if item_subcommand in ['help', 'h']:
+            print_task_item_help()
+            return 0
+        if item_subcommand in ['edit', 'e']:
+            return edit_task(task_id, args)
+        if item_subcommand in ['complete', 'c', 'done']:
+            return complete_task(task_id, args)
+        if item_subcommand in ['discuss', 'd']:
             from .discuss import handle_task_discuss
-            return handle_task_discuss(args.task_id_arg, args)
-
-    # Handle 'maestro task list [phase_id]'
-    if hasattr(args, 'task_subcommand'):
-        if args.task_subcommand in ['list', 'ls', 'l']:
-            return list_tasks(args)
-        elif args.task_subcommand in ['add', 'a']:
-            if not hasattr(args, 'name') or not args.name:
-                print("Error: Task name required. Usage: maestro task add <name>")
-                return 1
-            name = " ".join(args.name) if isinstance(args.name, list) else args.name
-            return add_task(name, args)
-        elif args.task_subcommand in ['remove', 'rm', 'r']:
-            if not hasattr(args, 'task_id') or not args.task_id:
-                print("Error: Task ID required. Usage: maestro task remove <id>")
-                return 1
-            return remove_task(args.task_id, args)
-        elif args.task_subcommand in ['status', 'set-status']:
-            if not hasattr(args, 'task_id') or not args.task_id:
-                print("Error: Task ID required. Usage: maestro task status <id> <status>")
-                return 1
-            if not getattr(args, 'status', None):
-                print("Error: Status required. Usage: maestro task status <id> <status>")
-                return 1
-            return set_task_status(args.task_id, args)
-        elif args.task_subcommand in ['text', 'raw']:
-            if not hasattr(args, 'task_id') or not args.task_id:
-                print("Error: Task ID required. Usage: maestro task text <id>")
-                return 1
-            json_store = JsonStore()
-            task_file = json_store.tasks_dir / f"{args.task_id}.json"
-            if not task_file.exists():
-                print(f"Error: Task '{args.task_id}' not found.")
-                return 1
-            print(task_file.read_text(encoding='utf-8').rstrip())
-            return 0
-        elif args.task_subcommand in ['set-text', 'setraw']:
-            if not hasattr(args, 'task_id') or not args.task_id:
-                print("Error: Task ID required. Usage: maestro task set-text <id> [--file path]")
-                return 1
-            new_block = _resolve_text_input(args)
-            if not new_block.strip():
-                print("Error: Replacement text is empty.")
-                return 1
-            try:
-                json.loads(new_block)
-            except json.JSONDecodeError as exc:
-                print(f"Error: Updated content is not valid JSON: {exc}")
-                return 1
-            json_store = JsonStore()
-            task_file = json_store.tasks_dir / f"{args.task_id}.json"
-            if not task_file.exists():
-                print(f"Error: Task '{args.task_id}' not found.")
-                return 1
-            task_file.write_text(new_block, encoding='utf-8')
-            print(f"Updated task '{args.task_id}' JSON.")
-            return 0
-        elif args.task_subcommand in ['help', 'h']:
-            print_task_help()
-            return 0
-
-    # Handle 'maestro task <id>' or 'maestro task <id> <subcommand>'
-    if hasattr(args, 'task_id_arg') and args.task_id_arg:
-        task_id = args.task_id_arg
-
-        # Check if there's a task-specific subcommand
-        subcommand = getattr(args, 'task_item_subcommand', None)
-        if subcommand:
-            if subcommand == 'show':
-                return show_task(task_id, args)
-            elif subcommand == 'edit':
-                return edit_task(task_id, args)
-            elif subcommand == 'complete':
-                return complete_task(task_id, args)
-            elif subcommand == 'discuss':
-                from .discuss import handle_task_discuss
-                return handle_task_discuss(task_id, args)
-            elif subcommand == 'set':
-                return set_task_context(task_id, args)
-            elif subcommand == 'help' or subcommand == 'h':
-                print_task_item_help()
-                return 0
-        # Default to 'show' if no subcommand
+            return handle_task_discuss(task_id, args)
+        if item_subcommand in ['set', 'st']:
+            return set_task_context(task_id, args)
         return show_task(task_id, args)
 
     # No subcommand - show help or list based on context
@@ -791,6 +861,7 @@ USAGE:
     maestro task <id> status <status>     Update task status
     maestro task text <id>                Show raw task block
     maestro task set-text <id>            Replace task block (stdin or --file)
+    maestro task set-details <id> <key> [value]  Set a detail (key-value) for a task
     maestro task <id> discuss             Discuss task with AI
     maestro task <id> set                 Set current task context
 
@@ -823,6 +894,7 @@ EXAMPLES:
     maestro task cli-tpt-1-1 edit         # Edit task in $EDITOR
     maestro task cli-tpt-1-1 complete     # Mark task as complete
     maestro task cli-tpt-1-1 status done --summary "Finished validation"
+    maestro task cli-tpt-1-1 set-details "owner" "John Doe"
     maestro task cli-tpt-1-1 discuss      # Discuss task with AI
     maestro task cli-tpt-1-1 set          # Set current task context
 """
@@ -868,30 +940,29 @@ def add_task_parser(subparsers):
     Args:
         subparsers: The subparsers object from argparse
     """
-    if len(sys.argv) >= 3 and sys.argv[1] in ['task', 'ta']:
-        arg = sys.argv[2]
-        known_subcommands = [
-            'list', 'ls', 'l', 'add', 'a', 'remove', 'rm', 'r', 'text', 'raw',
-            'set-text', 'setraw', 'help', 'h', 'discuss', 'd', 'show', 'sh',
-            'status', 'set-status'
-        ]
-        # Only modify the command if it's not a global argument like --help
-        if not arg.startswith('-') and arg not in known_subcommands and arg not in ['--help', '-h']:
-            if len(sys.argv) >= 4 and sys.argv[3] in [
-                'show', 'sh', 'edit', 'e', 'complete', 'c', 'done', 'discuss', 'd',
-                'set', 'st', 'help', 'h', 'status', 'set-status'
-            ]:
-                subcommand = sys.argv[3]
-                task_id = sys.argv[2]
-                if subcommand in ['status', 'set-status']:
-                    sys.argv[2] = subcommand
-                    sys.argv[3] = task_id
-                else:
-                    sys.argv[2] = 'show'
-                    sys.argv[3] = task_id
-                    sys.argv.insert(4, subcommand)
-            else:
-                sys.argv.insert(2, 'show')
+    class _TaskSubparsersAction(argparse._SubParsersAction):
+        def __call__(self, parser, namespace, values, option_string=None):
+            if not values:
+                return
+
+            subcommand = values[0]
+            if subcommand in self._name_parser_map:
+                return super().__call__(parser, namespace, values, option_string)
+
+            task_id_first = {
+                'status', 'set-status',
+                'set-details', 'details',
+                'set-text', 'setraw',
+            }
+            if len(values) > 1 and values[1] in task_id_first:
+                remapped = [values[1], values[0]] + values[2:]
+                return super().__call__(parser, namespace, remapped, option_string)
+
+            show_parser = self._name_parser_map.get('show')
+            if not show_parser:
+                parser.error(f"Unknown task subcommand: {subcommand}")
+            setattr(namespace, self.dest, 'show')
+            show_parser.parse_args(values, namespace)
 
     # Main task command
     task_parser = subparsers.add_parser(
@@ -903,8 +974,18 @@ def add_task_parser(subparsers):
     # Task subcommands
     task_subparsers = task_parser.add_subparsers(
         dest='task_subcommand',
-        help='Task subcommands'
+        help='Task subcommands',
+        action=_TaskSubparsersAction
     )
+
+    original_check_value = task_parser._check_value
+
+    def _check_value(self, action, value):
+        if isinstance(action, _TaskSubparsersAction):
+            return
+        return original_check_value(action, value)
+
+    task_parser._check_value = types.MethodType(_check_value, task_parser)
 
     # maestro task list [phase_id]
     task_list_parser = task_subparsers.add_parser(
@@ -976,6 +1057,19 @@ def add_task_parser(subparsers):
     )
     task_set_text_parser.add_argument('task_id', help='Task ID to replace')
     task_set_text_parser.add_argument('--file', dest='text_file', help='Read replacement text from file')
+
+    # maestro task set-details <id> <key> [value]
+    task_set_details_parser = task_subparsers.add_parser(
+        'set-details',
+        aliases=['details'],
+        help='Set a detail (key-value pair) for a task'
+    )
+    task_set_details_parser.add_argument('task_id', help='Task ID to update')
+    task_set_details_parser.add_argument('key', help='The detail key')
+    task_set_details_parser.add_argument('value', nargs='?', help='The detail value (reads from stdin if not provided)')
+    task_set_details_parser.add_argument('--delete', action='store_true', help='Delete the detail')
+    task_set_details_parser.add_argument('--file', dest='text_file', help='Read replacement text from file')
+    
 
     # maestro task help
     task_subparsers.add_parser(

@@ -27,6 +27,7 @@ class Task:
     owner: Optional[str] = None
     dependencies: List[str] = field(default_factory=list)
     subtasks: List['Task'] = field(default_factory=list)
+    details: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
