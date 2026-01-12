@@ -485,6 +485,439 @@ def set_phase_context(phase_id: str, args):
     return 0
 
 
+def _validate_phase_id(phase_id: str) -> tuple:
+    """
+    Validate phase ID follows naming convention.
+
+    Args:
+        phase_id: Phase ID to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not phase_id or not phase_id.strip():
+        return False, "Phase ID cannot be empty"
+
+    # Must be non-numeric
+    if phase_id.isdigit():
+        return False, "Phase ID cannot be purely numeric"
+
+    # Must be lowercase alphanumeric with hyphens
+    # Pattern: phase-N-description or track-prefix-N
+    if not re.fullmatch(r'^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$', phase_id):
+        return False, "Phase ID must be lowercase alphanumeric with hyphens (e.g., 'phase-1-description')"
+
+    return True, ""
+
+
+def _suggest_phase_id_from_name(phase_name: str) -> str:
+    """
+    Generate proper phase ID from phase name.
+
+    Examples:
+        "Phase 1: Core Flag Filtering" -> "phase-1-core-flag-filtering"
+        "Phase 2: Build Planning & Verbosity" -> "phase-2-build-planning-verbosity"
+
+    Args:
+        phase_name: Phase name/title
+
+    Returns:
+        Suggested phase ID
+    """
+    # Convert to lowercase
+    suggested = phase_name.lower()
+
+    # Replace special characters and spaces with hyphens
+    suggested = re.sub(r'[^\w\s-]', '', suggested)  # Remove special chars except hyphens and spaces
+    suggested = re.sub(r'[\s_]+', '-', suggested)    # Replace spaces/underscores with hyphens
+    suggested = re.sub(r'-+', '-', suggested)        # Remove consecutive hyphens
+    suggested = suggested.strip('-')                  # Remove leading/trailing hyphens
+
+    return suggested
+
+
+def _discover_references(old_id: str, json_store: JsonStore) -> Dict:
+    """
+    Find all references to a phase ID.
+
+    Args:
+        old_id: Phase ID to find references for
+        json_store: JsonStore instance
+
+    Returns:
+        Dictionary with all references: {
+            'phase': Phase object,
+            'tasks': List of Task objects,
+            'track': Track object,
+            'dependent_phases': List of Phase objects that depend on this phase,
+            'settings_reference': bool (True if current_phase == old_id)
+        }
+    """
+    from maestro.config.settings import get_settings
+
+    refs = {
+        'phase': None,
+        'tasks': [],
+        'track': None,
+        'dependent_phases': [],
+        'settings_reference': False
+    }
+
+    # Load the phase itself
+    phase = json_store.load_phase(old_id, load_tasks=False)
+    if not phase:
+        return refs
+    refs['phase'] = phase
+
+    # Find all tasks with this phase_id
+    all_task_ids = json_store.list_all_tasks()
+    for task_id in all_task_ids:
+        task = json_store.load_task(task_id)
+        if task and task.phase_id == old_id:
+            refs['tasks'].append(task)
+
+    # Find the parent track
+    if phase.track_id:
+        track = json_store.load_track(phase.track_id, load_phases=False, load_tasks=False)
+        if track:
+            refs['track'] = track
+
+    # Find dependent phases (phases that have old_id in their dependencies)
+    all_phase_ids = json_store.list_all_phases()
+    for phase_id in all_phase_ids:
+        if phase_id == old_id:
+            continue
+        dep_phase = json_store.load_phase(phase_id, load_tasks=False)
+        if dep_phase and dep_phase.dependencies and old_id in dep_phase.dependencies:
+            refs['dependent_phases'].append(dep_phase)
+
+    # Check if phase is in settings context
+    settings = get_settings()
+    if settings.current_phase == old_id:
+        refs['settings_reference'] = True
+
+    return refs
+
+
+def _create_backup(refs: Dict, json_store: JsonStore) -> Optional[Path]:
+    """
+    Create temporary backup of files to be modified.
+
+    Args:
+        refs: References dictionary from _discover_references()
+        json_store: JsonStore instance
+
+    Returns:
+        Path to backup directory, or None if backup fails
+    """
+    import shutil
+
+    try:
+        backup_dir = Path(tempfile.mkdtemp(prefix='maestro_rename_'))
+
+        # Backup phase file
+        if refs['phase']:
+            phase_file = json_store.phases_dir / f"{refs['phase'].phase_id}.json"
+            if phase_file.exists():
+                shutil.copy2(phase_file, backup_dir / phase_file.name)
+
+        # Backup task files
+        for task in refs['tasks']:
+            task_file = json_store.tasks_dir / f"{task.task_id}.json"
+            if task_file.exists():
+                shutil.copy2(task_file, backup_dir / task_file.name)
+
+        # Backup track file
+        if refs['track']:
+            track_file = json_store.tracks_dir / f"{refs['track'].track_id}.json"
+            if track_file.exists():
+                shutil.copy2(track_file, backup_dir / track_file.name)
+
+        # Backup dependent phase files
+        for dep_phase in refs['dependent_phases']:
+            phase_file = json_store.phases_dir / f"{dep_phase.phase_id}.json"
+            if phase_file.exists():
+                shutil.copy2(phase_file, backup_dir / phase_file.name)
+
+        # Backup settings file
+        from maestro.config.settings import get_settings
+        settings_file = Path("docs/config.md")
+        if settings_file.exists():
+            shutil.copy2(settings_file, backup_dir / "config.md")
+
+        return backup_dir
+    except Exception as e:
+        print_error(f"Failed to create backup: {e}")
+        return None
+
+
+def _restore_from_backup(backup_dir: Path, json_store: JsonStore) -> bool:
+    """
+    Restore all files from backup.
+
+    Args:
+        backup_dir: Path to backup directory
+        json_store: JsonStore instance
+
+    Returns:
+        True if restore successful, False otherwise
+    """
+    import shutil
+
+    try:
+        # Restore all files from backup
+        for backup_file in backup_dir.iterdir():
+            if backup_file.name == "config.md":
+                dest = Path("docs/config.md")
+            elif backup_file.suffix == ".json":
+                # Determine destination directory based on file content
+                # For simplicity, check if it's in phases, tasks, or tracks
+                if (json_store.phases_dir / backup_file.name).exists():
+                    dest = json_store.phases_dir / backup_file.name
+                elif (json_store.tasks_dir / backup_file.name).exists():
+                    dest = json_store.tasks_dir / backup_file.name
+                elif (json_store.tracks_dir / backup_file.name).exists():
+                    dest = json_store.tracks_dir / backup_file.name
+                else:
+                    # Try to guess from backup location
+                    # This handles new files that were created during rename
+                    continue
+            else:
+                continue
+
+            shutil.copy2(backup_file, dest)
+
+        return True
+    except Exception as e:
+        print_error(f"Failed to restore from backup: {e}")
+        return False
+
+
+def rename_phase(old_id: str, new_id: Optional[str], args) -> int:
+    """
+    Rename a phase and update all references.
+
+    This command atomically renames a phase ID throughout the system, updating:
+    - The phase file (renamed and phase_id field updated)
+    - All tasks belonging to this phase (phase_id field)
+    - The parent track's phases array
+    - Any other phases that depend on this phase
+    - The current phase context in settings (if applicable)
+    - Cache invalidation
+
+    Args:
+        old_id: Current phase ID
+        new_id: New phase ID (optional if using --auto-suggest)
+        args: Command arguments (dry_run, force, auto_suggest, verbose)
+
+    Returns:
+        0 on success, 1 on failure
+    """
+    from maestro.config.settings import get_settings
+    from maestro.data.track_cache import TrackDataCache
+
+    json_store = JsonStore()
+    verbose = getattr(args, 'verbose', False)
+    dry_run = getattr(args, 'dry_run', False)
+    force = getattr(args, 'force', False)
+    auto_suggest = getattr(args, 'auto_suggest', False)
+
+    # Step 1: Validation
+    phase = json_store.load_phase(old_id, load_tasks=False)
+    if not phase:
+        print_error(f"Phase '{old_id}' not found")
+        if verbose:
+            available = json_store.list_all_phases()
+            if available:
+                print(f"Available phases: {', '.join(available)}")
+        return 1
+
+    # Auto-suggest new ID if requested
+    if auto_suggest and not new_id:
+        new_id = _suggest_phase_id_from_name(phase.name)
+        print(f"\nSuggested phase ID based on name '{phase.name}':")
+        print(f"  {new_id}")
+        print()
+
+        if not force:
+            response = input(f"Use this ID? [Y/n]: ").strip().lower()
+            if response in ['n', 'no']:
+                new_id_input = input("Enter new phase ID: ").strip()
+                if not new_id_input:
+                    print_error("No phase ID provided")
+                    return 1
+                new_id = new_id_input
+
+    if not new_id:
+        print_error("New phase ID required. Use --auto-suggest or provide new_id argument.")
+        return 1
+
+    # Validate new ID
+    is_valid, error_msg = _validate_phase_id(new_id)
+    if not is_valid:
+        print_error(f"Invalid new phase ID: {error_msg}")
+        return 1
+
+    # Check new ID doesn't already exist
+    existing_phase = json_store.load_phase(new_id, load_tasks=False)
+    if existing_phase:
+        print_error(f"Phase '{new_id}' already exists")
+        return 1
+
+    # Step 2: Discovery
+    if verbose:
+        print("Discovering references...")
+    refs = _discover_references(old_id, json_store)
+
+    # Step 3: Display dry-run report or confirmation
+    print()
+    if dry_run:
+        print(f"DRY RUN: Phase rename '{old_id}' -> '{new_id}'")
+    else:
+        print(f"Phase rename: '{old_id}' -> '{new_id}'")
+    print("=" * 60)
+    print()
+
+    print("Files to be modified:")
+    print(f"  - Phase file: phases/{old_id}.json -> phases/{new_id}.json")
+    print(f"    Update phase_id field: '{old_id}' -> '{new_id}'")
+    print()
+
+    if refs['tasks']:
+        print(f"  - {len(refs['tasks'])} task file(s):")
+        for task in refs['tasks']:
+            print(f"    * {task.task_id}: tasks/{task.task_id}.json")
+        print()
+
+    if refs['track']:
+        print(f"  - Track file: tracks/{refs['track'].track_id}.json")
+        print(f"    Update phases array")
+        print()
+
+    if refs['dependent_phases']:
+        print(f"  - {len(refs['dependent_phases'])} dependent phase file(s):")
+        for dep_phase in refs['dependent_phases']:
+            print(f"    * {dep_phase.phase_id}: phases/{dep_phase.phase_id}.json")
+        print()
+
+    if refs['settings_reference']:
+        print("  - Settings file: docs/config.md")
+        print(f"    Update current_phase: '{old_id}' -> '{new_id}'")
+        print()
+
+    print("  - Cache: Will be invalidated")
+    print()
+
+    if dry_run:
+        print("Run without --dry-run to execute the rename.")
+        return 0
+
+    # Confirmation prompt
+    if not force:
+        print(f"You are about to rename phase '{old_id}' to '{new_id}'")
+        print()
+        print("This will update:")
+        print(f"  - 1 phase file")
+        print(f"  - {len(refs['tasks'])} task file(s)")
+        if refs['track']:
+            print(f"  - 1 track file")
+        if refs['dependent_phases']:
+            print(f"  - {len(refs['dependent_phases'])} dependent phase file(s)")
+        if refs['settings_reference']:
+            print(f"  - Settings file")
+        print()
+
+        response = input("Continue? [y/N]: ").strip().lower()
+        if response not in ['y', 'yes']:
+            print("Rename cancelled")
+            return 0
+
+    # Step 4: Create backup
+    if verbose:
+        print("Creating backup...")
+    backup_dir = _create_backup(refs, json_store)
+    if not backup_dir:
+        print_error("Failed to create backup. Aborting.")
+        return 1
+
+    # Step 5: Execute rename with rollback on error
+    try:
+        if verbose:
+            print("Executing rename...")
+
+        # Update phase object and save to new file
+        phase.phase_id = new_id
+        json_store.save_phase(phase)
+
+        # Delete old phase file
+        old_phase_file = json_store.phases_dir / f"{old_id}.json"
+        if old_phase_file.exists():
+            old_phase_file.unlink()
+
+        # Update all tasks
+        if verbose and refs['tasks']:
+            print(f"Updating {len(refs['tasks'])} task(s)...")
+        for task in refs['tasks']:
+            task.phase_id = new_id
+            json_store.save_task(task)
+
+        # Update parent track
+        if refs['track']:
+            if verbose:
+                print(f"Updating track '{refs['track'].track_id}'...")
+            refs['track'].phases = [new_id if p == old_id else p for p in refs['track'].phases]
+            json_store.save_track(refs['track'])
+
+        # Update dependent phases
+        if refs['dependent_phases']:
+            if verbose:
+                print(f"Updating {len(refs['dependent_phases'])} dependent phase(s)...")
+            for dep_phase in refs['dependent_phases']:
+                dep_phase.dependencies = [new_id if d == old_id else d for d in dep_phase.dependencies]
+                json_store.save_phase(dep_phase)
+
+        # Update settings if needed
+        if refs['settings_reference']:
+            if verbose:
+                print("Updating settings...")
+            settings = get_settings()
+            settings.current_phase = new_id
+            settings.save()
+
+        # Invalidate cache
+        if verbose:
+            print("Invalidating cache...")
+        cache = TrackDataCache(Path.cwd())
+        cache.invalidate()
+
+        # Clean up backup
+        import shutil
+        shutil.rmtree(backup_dir)
+
+        print()
+        print_info(f"Successfully renamed phase '{old_id}' to '{new_id}'")
+        return 0
+
+    except Exception as e:
+        print()
+        print_error(f"Rename failed: {e}")
+        print("Rolling back changes...")
+
+        # Restore from backup
+        if _restore_from_backup(backup_dir, json_store):
+            print_info("Rollback successful - no changes were made")
+
+            # Clean up backup
+            import shutil
+            shutil.rmtree(backup_dir)
+        else:
+            print_error("CRITICAL: Rollback failed. Backup preserved at:")
+            print(f"  {backup_dir}")
+            print("Manual recovery may be needed.")
+
+        return 1
+
+
 def handle_phase_command(args):
     """
     Main handler for phase commands.
