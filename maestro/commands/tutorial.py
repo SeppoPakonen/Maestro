@@ -50,10 +50,11 @@ Welcome to Maestro! Here's how to get started with basic project management:
    - Add tasks to phases: maestro task add --phase <phase_id> "Task Name"
    - List your work: maestro task list
    - Update task status: maestro task <task_id> complete
-   - Add detailed task notes (work steps, hints, links, run commands):
-     * maestro task set-details <task_id> steps "1) Locate Xcode projects; 2) Add scanner; 3) Verify output"
-     * maestro task set-details <task_id> commands "rg -n \"\\.xcodeproj\" ."
-     * maestro task set-details <task_id> context "Scope: repo discovery only; avoid build changes"
+   - Add verbose instructions and information about the task (steps, scope, constraints, commands, links):
+     * maestro task set-details <task_id> steps "1) Locate Xcode projects in src/; 2) Add scanner entry; 3) Verify output"
+     * maestro task set-details <task_id> commands "rg -n \"\\.xcodeproj\" src/"
+     * maestro task set-details <task_id> context "Scope: discovery only; avoid build changes; note ownership in README"
+     * echo "Step 1: scan with rg; Step 2: map to package; Step 3: capture evidence" | maestro task set-details <task_id> steps
    - You can edit or remove details as you learn more:
      * maestro task set-details <task_id> steps "New plan: ... "
      * maestro task set-details <task_id> steps --delete
