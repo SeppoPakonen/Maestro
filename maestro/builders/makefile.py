@@ -233,6 +233,7 @@ class MakefileBuilder(Builder):
 
             obj_files = []
             compile_cmds: List[List[str]] = []
+            compile_sources: List[str] = []
             for src in sources:
                 abs_src = _resolve_source_path(src, package.dir, repo_root)
                 rel_obj = os.path.splitext(src)[0] + ".o"
@@ -241,6 +242,14 @@ class MakefileBuilder(Builder):
                 cmd = [cxx] + cxxflags + ["-c", abs_src, "-o", obj_path]
                 compile_cmds.append(cmd)
                 obj_files.append(obj_path)
+                compile_sources.append(abs_src)
+
+            for abs_src in compile_sources:
+                if repo_root:
+                    display_src = os.path.relpath(abs_src, repo_root)
+                else:
+                    display_src = os.path.relpath(abs_src, package.dir)
+                print(display_src)
 
             if build_config.parallel and len(compile_cmds) > 1:
                 max_jobs = build_config.jobs or os.cpu_count() or 4
@@ -289,6 +298,7 @@ class MakefileBuilder(Builder):
             link_cmd = [cxx] + obj_files + link_flags + ["-o", output_path]
             if not execute_command(link_cmd, cwd=package.dir, verbose=verbose):
                 return False
+            print(output_path)
 
         return True
 

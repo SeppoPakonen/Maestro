@@ -56,6 +56,7 @@ class GccBuilder(Builder):
 
         obj_files: List[str] = []
         compile_cmds: List[List[str]] = []
+        compile_sources: List[str] = []
         for src in sources:
             if os.path.isabs(src):
                 abs_src = src
@@ -69,6 +70,14 @@ class GccBuilder(Builder):
             cmd = [cxx] + cxxflags + ["-c", abs_src, "-o", obj_path]
             compile_cmds.append(cmd)
             obj_files.append(obj_path)
+            compile_sources.append(abs_src)
+
+        for abs_src in compile_sources:
+            if repo_root:
+                display_src = os.path.relpath(abs_src, repo_root)
+            else:
+                display_src = os.path.relpath(abs_src, package.dir)
+            print(display_src)
 
         if build_config.parallel and len(compile_cmds) > 1:
             max_jobs = build_config.jobs or os.cpu_count() or 4
@@ -86,7 +95,10 @@ class GccBuilder(Builder):
         output_path = os.path.join(build_root, output_name)
 
         link_cmd = [cxx] + obj_files + ldflags + ["-o", output_path]
-        return execute_command(link_cmd, cwd=package.dir, verbose=verbose)
+        if not execute_command(link_cmd, cwd=package.dir, verbose=verbose):
+            return False
+        print(output_path)
+        return True
 
     def link(self, linkfiles: List[str], linkoptions: Dict[str, Any]) -> bool:
         return True
