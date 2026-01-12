@@ -167,13 +167,13 @@ def execute_command(cmd: List[str], cwd: str = None, verbose: bool = True) -> bo
         return False
 
 
-def parallel_execute(commands: List[List[str]], max_jobs: int = 4) -> List[bool]:
+def parallel_execute(commands: List[List[str]], max_jobs: int = 4, cwd: str = None) -> List[bool]:
     """Execute multiple commands in parallel."""
     import sys
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def run_command(cmd):
-        return execute_command(cmd, verbose=False)
+        return execute_command(cmd, cwd=cwd, verbose=False)
 
     results = []
     with ThreadPoolExecutor(max_workers=max_jobs) as executor:
