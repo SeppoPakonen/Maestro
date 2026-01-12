@@ -51,7 +51,7 @@ Welcome to Maestro! Here's how to get started with basic project management:
    - List your work: maestro task list
    - Update task status: maestro task <task_id> complete
    - Add detailed task notes (work steps, hints, links, run commands):
-     * maestro task set-details <task_id> steps "1) Locate Xcode projects\n2) Add scanner\n3) Verify output"
+     * maestro task set-details <task_id> steps "1) Locate Xcode projects; 2) Add scanner; 3) Verify output"
      * maestro task set-details <task_id> commands "rg -n \"\\.xcodeproj\" ."
      * maestro task set-details <task_id> context "Scope: repo discovery only; avoid build changes"
    - You can edit or remove details as you learn more:
