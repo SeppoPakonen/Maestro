@@ -17,6 +17,7 @@ from .gradle import GradleBuilder
 from .android import AndroidBuilder
 from .java import JavaBuilder
 from .upp import UppBuilder
+from .makefile import MakefileBuilder
 from .config import MethodConfig
 
 
@@ -69,6 +70,8 @@ def select_builder(package_info: Dict[str, Any], config: MethodConfig = None) ->
         builder = GccBuilder(config)
     elif build_system == 'msvc':
         builder = MsvcBuilder(config)
+    elif build_system == 'make':
+        builder = MakefileBuilder(config)
     else:
         # Default fallback to UppBuilder for unknown systems
         host = get_current_host()
@@ -104,7 +107,8 @@ def get_builder_by_name(builder_name: str, config: MethodConfig = None) -> Optio
         'maven': MavenBuilder,
         'gradle': GradleBuilder,
         'android': AndroidBuilder,
-        'java': JavaBuilder
+        'java': JavaBuilder,
+        'make': MakefileBuilder
     }
     
     builder_constructor = builder_map.get(builder_name.lower())
@@ -138,6 +142,7 @@ def get_available_builders() -> Dict[str, Type[Builder]]:
         'gradle': GradleBuilder,
         'android': AndroidBuilder,
         'java': JavaBuilder,
+        'make': MakefileBuilder,
         'upp_factory': create_upp_builder  # Special factory for UppBuilder
     }
 
@@ -162,6 +167,7 @@ def validate_builder_compatibility(builder: Builder, package_info: Dict[str, Any
         'cmake': ['cmake'],
         'autotools': ['autotools'],
         'msvs': ['msbuild'],
+        'make': ['make'],
         'gradle': ['gradle'],
         'maven': ['maven'],
         'android': ['android'],
@@ -185,6 +191,7 @@ def get_builder_priority_list() -> list:
         'gradle',    # Gradle projects
         'maven',     # Maven projects
         'autotools', # Autotools projects
+        'make',      # Makefile projects
         'msbuild',   # MSBuild projects
         'android',   # Android projects
         'java',      # Java projects

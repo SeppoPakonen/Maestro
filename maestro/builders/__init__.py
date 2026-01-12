@@ -23,6 +23,7 @@ from .maven import MavenBuilder
 from .gradle import GradleBuilder
 from .android import AndroidBuilder
 from .java import JavaBuilder
+from .makefile import MakefileBuilder
 from .upp import UppBuilder, UppPackage, BlitzBuilder
 from .workspace import Workspace, PackageResolver, CircularDependencyError
 from .cache import BuildCache, PPInfoCache, IncrementalBuilder
@@ -65,6 +66,7 @@ __all__ = [
     'GradleBuilder',
     'AndroidBuilder',
     'JavaBuilder',
+    'MakefileBuilder',
     'UppBuilder',
     'UppPackage',
     'BlitzBuilder',
