@@ -1879,6 +1879,7 @@ def handle_runbook_resolve(args: argparse.Namespace) -> None:
                     help_bin_path = item.source.replace(" --help", "")
 
         evidence = RunbookEvidence(
+            repo_root=evidence_pack.meta.repo_root,
             commands_docs=commands_docs,
             help_text=help_text,
             help_bin_path=help_bin_path,
