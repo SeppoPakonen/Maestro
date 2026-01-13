@@ -10,6 +10,7 @@ import json
 import tempfile
 import shutil
 import difflib
+from typing import Optional, List
 from pathlib import Path
 from datetime import datetime
 
@@ -56,6 +57,78 @@ MAESTRO_DIR = Path.home() / ".maestro"
 AI_RUN_DIR = MAESTRO_DIR / "ai-run"
 BACKUP_DIR = MAESTRO_DIR / "backups"
 HISTORY_FILE = AI_RUN_DIR / "history.jsonl"
+
+class DiscoveryEngine:
+    """Handles smart path detection and Maestro interface discovery."""
+    
+    def __init__(self, script_path=None):
+        self.cwd = Path.cwd().absolute()
+        self.script_path = Path(script_path).absolute() if script_path else None
+        self.maestro_path = self._discover_maestro()
+        self.maestro_version = self._get_maestro_version()
+
+    def _discover_maestro(self) -> Optional[Path]:
+        """Prioritized discovery logic for maestro.py."""
+        # 1. Local Discovery (CWD or Script Dir)
+        search_dirs = [self.cwd]
+        if self.script_path:
+            search_dirs.append(self.script_path.parent)
+        
+        for d in search_dirs:
+            p = d / "maestro.py"
+            if p.exists():
+                return p
+        
+        # 2. Developer Default (Primary Guess)
+        dev_default = Path.home() / "Dev" / "Maestro" / "maestro.py"
+        if dev_default.exists():
+            return dev_default
+            
+        # 3. System PATH
+        maestro_bin = shutil.which("maestro")
+        if maestro_bin:
+            return Path(maestro_bin)
+            
+        return None
+
+    def _get_maestro_version(self) -> str:
+        """Attempt to extract version from maestro if found."""
+        if not self.maestro_path:
+            return "Unknown"
+        
+        try:
+            # Assuming maestro.py has a --version flag or we can grep __version__
+            # Let's try running it
+            cmd = [sys.executable, str(self.maestro_path), "--version"] if self.maestro_path.suffix == ".py" else [str(self.maestro_path), "--version"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except:
+            pass
+        return "Found but unresponsive"
+
+    def get_context_header(self) -> str:
+        """Format discovery results as an [ENVIRONMENT CONTEXT] header."""
+        header = ["[ENVIRONMENT CONTEXT]"]
+        header.append(f"- Working Directory: {self.cwd}")
+        header.append(f"- Script Path: {self.script_path if self.script_path else 'Interactive Session'}")
+        
+        if self.maestro_path:
+            header.append(f"- Maestro Link: Found at {self.maestro_path} (Version: {self.maestro_version})")
+        else:
+            header.append("- Maestro Link: NOT FOUND (Standalone Mode)")
+            header.append("  HINT: The environment appears to be missing a Maestro project. Consider running 'maestro init'.")
+            
+        # Integration with existing maestro_link metadata if available
+        if link:
+            state = link.get_maestro_context()
+            if state:
+                track = state.get("track_id", "None")
+                task = state.get("task_id", "None")
+                header.append(f"- Track/Task: Track {track}, Task {task}")
+
+        header.append("[END CONTEXT]\n")
+        return "\n".join(header)
 
 def setup_directories():
     AI_RUN_DIR.mkdir(parents=True, exist_ok=True)
@@ -259,8 +332,13 @@ def run_fix_loop(args, prompt, script_path):
         current_code = Path(script_path).read_text()
         
         # Assemble context
+        discovery = DiscoveryEngine(script_path=script_path)
+        env_context = discovery.get_context_header()
+        
         fix_prompt = f"""
 I am running a script that is failing. Please help me fix it.
+
+{env_context}
 
 [MAESTRO PROJECT CONTEXT]
 {link.inject_maestro_context("") if link else "Standalone mode."}
@@ -478,6 +556,11 @@ def main():
     if not prompt and not args.fix:
         print("Error: No prompt provided.")
         sys.exit(1)
+
+    # Context Discovery
+    discovery = DiscoveryEngine(script_path=script_path)
+    env_context = discovery.get_context_header()
+    prompt = env_context + prompt
 
     # Maestro Integration
     if link:
