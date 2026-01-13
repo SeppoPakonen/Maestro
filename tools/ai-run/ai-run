@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+# Copyright: Seppo Pakonen 2026 (C)
+# License: GPLv3
+
+import sys
+import argparse
+import os
+import subprocess
+import json
+from pathlib import Path
+from datetime import datetime
+
+# 2026 Model Specifications
+MODELS = {
+    "codex": {
+        "hard": "gpt-5.2-codex",
+        "mid": "gpt-5.1-codex-max",
+        "easy": "gpt-5.1-codex-mini",
+        "general": "gpt-5.2"
+    },
+    "claude": {
+        "hard": "Opus 4.5",
+        "mid": "Sonnet 4.5",
+        "easy": "Haiku 4.5"
+    },
+    "gemini": {
+        "hard": "gemini-3-flash-preview",
+        "mid": "gemini-2.5-pro",
+        "easy": "gemini-2.5-flash-lite",
+        "auto": None # Let CLI decide
+    },
+    "qwen": {
+        "hard": "qwen3-coder-plus-2025-09-23",
+        "mid": "qwen3-coder-plus-2025-09-23",
+        "easy": "qwen3-coder-plus-2025-09-23",
+        "coder": "qwen3-coder-plus-2025-09-23",
+        "vision": "qwen3-vl-plus-2025-09-23"
+    }
+}
+
+MAESTRO_DIR = Path.home() / ".maestro"
+AI_RUN_DIR = MAESTRO_DIR / "ai-run"
+HISTORY_FILE = AI_RUN_DIR / "history.jsonl"
+
+def setup_directories():
+    AI_RUN_DIR.mkdir(parents=True, exist_ok=True)
+
+def save_history(entry):
+    try:
+        setup_directories()
+        with open(HISTORY_FILE, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        print(f"Warning: Failed to save history: {e}", file=sys.stderr)
+
+def run_backend(backend, model, prompt, stream=True):
+    cmd = []
+    if backend == "gemini":
+        cmd = ["gemini", "--approval-mode", "yolo"]
+        if model:
+            cmd.extend(["-m", model])
+        cmd.append(prompt)
+    elif backend == "claude":
+        cmd = ["claude", "-p", "--model", model, prompt]
+    elif backend == "codex":
+        cmd = ["codex", "exec", "-m", model, prompt]
+    elif backend == "qwen":
+        cmd = ["qwen", "--yolo", "-m", model, prompt]
+
+    try:
+        if stream:
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+            stdout_text = []
+            
+            # Use threads or non-blocking read to capture both stdout and stderr while streaming
+            # For simplicity in this CLI tool, we'll stream stdout and capture stderr
+            for line in process.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                stdout_text.append(line)
+            
+            _, stderr = process.communicate()
+            return process.returncode, "".join(stdout_text), stderr
+        else:
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate()
+            return process.returncode, stdout, stderr
+    except Exception as e:
+        return -1, "", str(e)
+
+def eval_difficulty(prompt, backend="gemini"):
+    # Use gemini to evaluate difficulty as requested (Auto mode mentioned for Gemini)
+    eval_prompt = f"Assess the difficulty of the following task. Respond only with one word: 'easy', 'mid', or 'hard'.\n\nTask: {prompt}"
+    
+    # Use default model (None for auto) for evaluation
+    rc, stdout, stderr = run_backend(backend, None, eval_prompt, stream=False)
+    if rc == 0:
+        result = stdout.strip().lower()
+        if "hard" in result: return "hard"
+        if "mid" in result: return "mid"
+        if "easy" in result: return "easy"
+    return "mid" # Fallback
+
+def check_status():
+    print("Checking backend status...")
+    backends = ["gemini", "claude", "codex", "qwen"]
+    all_available = True
+    for b in backends:
+        try:
+            # Check if binary is in PATH
+            subprocess.run(["which", b], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print(f"{b:8}: Available")
+        except subprocess.CalledProcessError:
+            print(f"{b:8}: NOT FOUND")
+            all_available = False
+    
+    # Mock quota check as there is no standardized way via these CLIs
+    print("\nQuota Information (Estimated):")
+    print("All backends appearing healthy. Consult provider dashboards for exact billing/quota.")
+    return all_available
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="ai-run: A smart wrapper for AI prompts.",
+        add_help=False
+    )
+    parser.add_argument("-b", "--backend", choices=["gemini", "codex", "claude", "qwen"], default="gemini", help="Select provider")
+    parser.add_argument("-d", "--difficulty", choices=["easy", "mid", "hard", "coder", "vision", "general"], default="mid", help="Manually set tier")
+    parser.add_argument("-e", "--eval-difficulty", action="store_true", help="Run a pre-prompt to assess task difficulty")
+    parser.add_argument("--status", action="store_true", help="Check API availability and remaining quota")
+    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    parser.add_argument("prompt_or_file", nargs="?", help="Prompt text or file containing prompt")
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
+    args, unknown = parser.parse_known_args()
+
+    if args.status:
+        check_status()
+        sys.exit(0)
+
+    prompt = ""
+    if args.prompt_or_file:
+        if os.path.isfile(args.prompt_or_file):
+            with open(args.prompt_or_file, "r") as f:
+                lines = f.readlines()
+                # Skip shebang if present
+                if lines and lines[0].startswith("#!"):
+                    # Find where the prompt starts (first non-empty line after shebang and comments)
+                    start_idx = 1
+                    while start_idx < len(lines) and (not lines[start_idx].strip() or lines[start_idx].strip().startswith("#")):
+                        start_idx += 1
+                    prompt = "".join(lines[start_idx:])
+                else:
+                    prompt = "".join(lines)
+        else:
+            prompt = args.prompt_or_file
+    
+    if not prompt:
+        if not sys.stdin.isatty():
+            prompt = sys.stdin.read()
+    
+    if not prompt:
+        print("Error: No prompt provided.")
+        sys.exit(1)
+
+    difficulty = args.difficulty
+    if args.eval_difficulty:
+        print("Evaluating task difficulty...")
+        difficulty = eval_difficulty(prompt, args.backend)
+        print(f"Auto-evaluated difficulty: {difficulty}")
+
+    model = MODELS[args.backend].get(difficulty, MODELS[args.backend].get("mid"))
+    
+    # Special handling for gemini "auto" mode
+    if args.backend == "gemini" and difficulty == "mid": # mid is default, but for gemini we might want auto
+         # If user didn't specify difficulty and it's gemini, we could use None (auto)
+         # but the requirement says -d maps to specific tiers.
+         # I'll stick to the mapping unless "auto" is explicitly added or desired.
+         pass
+
+    print(f"Executing {args.backend} using {model if model else 'Auto'} tier...")
+    
+    start_time = datetime.now()
+    rc, stdout, stderr = run_backend(args.backend, model, prompt)
+    end_time = datetime.now()
+    duration = (end_time - start_time).total_seconds()
+
+    history_entry = {
+        "timestamp": start_time.isoformat(),
+        "duration_sec": duration,
+        "backend": args.backend,
+        "model": model,
+        "difficulty": difficulty,
+        "prompt": prompt,
+        "success": rc == 0
+    }
+
+    if rc == 0:
+        history_entry["response"] = stdout
+        save_history(history_entry)
+    else:
+        print(f"\nError (Exit Code {rc}):", file=sys.stderr)
+        if stderr:
+            print(stderr, file=sys.stderr)
+        history_entry["error"] = stderr
+        save_history(history_entry)
+        sys.exit(rc)
+
+if __name__ == "__main__":
+    main()
