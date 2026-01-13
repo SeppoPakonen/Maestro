@@ -10,7 +10,7 @@ import json
 import tempfile
 import shutil
 import difflib
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pathlib import Path
 from datetime import datetime
 
@@ -59,18 +59,17 @@ BACKUP_DIR = MAESTRO_DIR / "backups"
 HISTORY_FILE = AI_RUN_DIR / "history.jsonl"
 
 class DiscoveryEngine:
-    """Handles smart path detection and Maestro interface discovery."""
+    """Handles autonomous discovery of Maestro and environmental context harvesting."""
     
     def __init__(self, script_path=None):
         self.cwd = Path.cwd().absolute()
         self.script_path = Path(script_path).absolute() if script_path else None
-        self.maestro_path = self._discover_maestro()
-        self.maestro_version = self._get_maestro_version()
-        self.tutorial_bin = self._discover_tutorial_bin()
+        self.maestro_path = self._find_maestro()
+        self.context = self._get_environment_context()
 
-    def _discover_maestro(self) -> Optional[Path]:
-        """Prioritized discovery logic for maestro.py."""
-        # 1. Relative to Script or CWD
+    def _find_maestro(self) -> Optional[Path]:
+        """Prioritized executable search for maestro.py."""
+        # 1. Script-Relative or CWD
         search_dirs = [self.cwd]
         if self.script_path:
             search_dirs.append(self.script_path.parent)
@@ -81,92 +80,65 @@ class DiscoveryEngine:
                 return p.absolute()
         
         # 2. Developer Default (Primary Guess)
-        dev_default = Path.home() / "Dev" / "Maestro" / "maestro.py"
+        dev_default = Path("~").expanduser() / "Dev" / "Maestro" / "maestro.py"
         if dev_default.exists():
             return dev_default.absolute()
             
-        # 3. System PATH
+        # 3. Path Resolution (System PATH)
         maestro_bin = shutil.which("maestro")
         if maestro_bin:
             return Path(maestro_bin).absolute()
             
         return None
 
-    def _discover_tutorial_bin(self) -> Optional[Path]:
-        """Check for tutorial_bin or bin directories."""
-        for name in ["tutorial_bin", "bin"]:
-            p = self.cwd / name
-            if p.is_dir():
-                return p.absolute()
-            if self.script_path and (self.script_path.parent / name).is_dir():
-                return (self.script_path.parent / name).absolute()
-        return None
-
-    def _get_maestro_version(self) -> str:
-        """Attempt to extract version from maestro if found."""
-        if not self.maestro_path:
-            return "Unknown"
+    def _get_environment_context(self) -> Dict[str, Any]:
+        """Harvest environmental metadata."""
+        maestro_active = self.maestro_path is not None
+        executable_cmd = "MAESTRO_NOT_FOUND"
         
-        try:
-            cmd = [sys.executable, str(self.maestro_path), "--version"] if self.maestro_path.suffix == ".py" else [str(self.maestro_path), "--version"]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except:
-            pass
-        return "Found but unresponsive"
+        if maestro_active:
+            if self.maestro_path.suffix == ".py":
+                executable_cmd = f"python3 {self.maestro_path}"
+            else:
+                executable_cmd = str(self.maestro_path)
 
-    def get_context_header(self) -> str:
-        """Format discovery results as an [ENVIRONMENT CONTEXT] header."""
-        header = ["[ENVIRONMENT CONTEXT]"]
-        header.append(f"- Working Directory: {self.cwd}")
-        header.append(f"- Script Path: {self.script_path if self.script_path else 'Interactive Session'}")
-        
+        # Heuristic for project root: where maestro.py or .maestro dir is
+        project_root = "Unknown"
         if self.maestro_path:
-            header.append(f"- Maestro Link: Found at {self.maestro_path} (Version: {self.maestro_version})")
-        else:
-            header.append("- Maestro Link: NOT FOUND (Standalone Mode)")
-            header.append("  HINT: The environment appears to be missing a Maestro project. Consider running 'maestro init'.")
-            
+            project_root = str(self.maestro_path.parent)
+        elif (self.cwd / ".maestro").is_dir():
+            project_root = str(self.cwd)
+
+        return {
+            "executable_cmd": executable_cmd,
+            "project_root": project_root,
+            "current_dir": str(self.cwd),
+            "maestro_active": maestro_active,
+            "maestro_path": str(self.maestro_path) if self.maestro_path else "Not Found"
+        }
+
+    def build_header(self) -> str:
+        """Standardized Markdown header for prompt injection."""
+        ctx = self.context
+        header = ["### SYSTEM ENVIRONMENT CONTEXT"]
+        header.append(f"- Maestro Executable: {ctx['maestro_path']}")
+        header.append(f"- Invocation Command: {ctx['executable_cmd']}")
+        header.append(f"- Working Directory: {ctx['current_dir']}")
+        header.append(f"- Project Context: {'Detected' if ctx['maestro_active'] else 'Not Detected'}")
+        header.append(f"- Maestro Project Root: {ctx['project_root']}")
+        
+        # Maestro-Link Integration
         if link:
             state = link.get_maestro_context()
             if state:
-                track = state.get("track_id", "None")
-                task = state.get("task_id", "None")
-                header.append(f"- Track/Task: Track {track}, Task {task}")
+                track = state.get("track_id")
+                task = state.get("task_id")
+                if track:
+                    header.append(f"- Active Track: {track}")
+                if task:
+                    header.append(f"- Active Task: {task}")
 
-        header.append("[END CONTEXT]\n")
-        return "\n".join(header)
-
-    def get_system_tools_config(self) -> str:
-        """Format discovery results as a [SYSTEM TOOLS CONFIGURATION] header."""
-        header = ["[SYSTEM TOOLS CONFIGURATION]"]
-        
-        if self.maestro_path:
-            header.append(f"The Maestro engine is located at: {self.maestro_path}")
-            if self.maestro_path.suffix == ".py":
-                header.append(f"To run Maestro commands, use: python3 {self.maestro_path} [args]")
-            else:
-                header.append(f"To run Maestro commands, use: {self.maestro_path} [args]")
-        else:
-            header.append("MAESTRO_NOT_FOUND: Maestro executable was not discovered.")
-            header.append("WARNING: AI should operate in standalone mode or suggest the user initializes Maestro via '~/Dev/Maestro/maestro.py init'.")
-
-        # Project Root detection (heuristic: where maestro.py or .maestro dir is)
-        project_root = None
-        if self.maestro_path:
-            project_root = self.maestro_path.parent
-        elif (self.cwd / ".maestro").is_dir():
-            project_root = self.cwd
-            
-        if project_root:
-            header.append(f"Project Root: {project_root}")
-            
-        if self.tutorial_bin:
-            header.append(f"Helper Tools: Found in {self.tutorial_bin}")
-            header.append(f"HINT: Scripts in {self.tutorial_bin} are local utilities.")
-
-        header.append("[END SYSTEM TOOLS CONFIGURATION]\n")
+        header.append("---\n")
         return "\n".join(header)
 
 def setup_directories():
@@ -372,15 +344,12 @@ def run_fix_loop(args, prompt, script_path):
         
         # Assemble context
         discovery = DiscoveryEngine(script_path=script_path)
-        env_context = discovery.get_context_header()
-        tools_context = discovery.get_system_tools_config()
+        header = discovery.build_header()
         
         fix_prompt = f"""
 I am running a script that is failing. Please help me fix it.
 
-{tools_context}
-
-{env_context}
+{header}
 
 [MAESTRO PROJECT CONTEXT]
 {link.inject_maestro_context("") if link else "Standalone mode."}
@@ -599,14 +568,12 @@ def main():
         print("Error: No prompt provided.")
         sys.exit(1)
 
-    # Context Discovery
+    # Context Discovery & Prompt Augmentation
     discovery = DiscoveryEngine(script_path=script_path)
-    env_context = discovery.get_context_header()
-    tools_context = discovery.get_system_tools_config()
-    
-    prompt = tools_context + env_context + prompt
+    header = discovery.build_header()
+    prompt = header + prompt
 
-    # Maestro Integration
+    # Maestro-Link Integration (Legacy context injection)
     if link:
         prompt = link.inject_maestro_context(prompt)
 
