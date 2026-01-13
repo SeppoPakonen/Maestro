@@ -9,6 +9,7 @@ Follow every step, validate the outcome, and use Maestro's track system to manag
 You are an automated tutorial runner. 
 You have access to a helper tool at `./tutorial_bin/maestro-tutorial-helper`.
 The tutorial name is "write-track".
+IMPORTANT: Check the [SYSTEM TOOLS CONFIGURATION] section in your prompt to determine the exact path and command to call Maestro.
 
 [REQUIREMENTS]
 1. Setup the sandbox: Run `./tutorial_bin/maestro-tutorial-helper setup write-track` and change directory to the result.
@@ -17,7 +18,7 @@ The tutorial name is "write-track".
 4. For each step in the tutorial:
    a. Check if the corresponding Maestro task is already "Done".
    b. If not done, execute the commands associated with the step.
-   c. Validate the step: Run `./tutorial_bin/maestro-tutorial-helper validate "<step title>"`.
+   c. Validate the step: Run `./tutorial_bin/maestro-tutorial-helper validate "{step title}"`.
    d. Mark the task as "Done" in Maestro.
 5. If any step fails, try to "Self-Heal" by analyzing why it failed and retrying with a different strategy if appropriate.
 6. Log all progress and AI reasoning to the Maestro task history via `maestro_link`.
