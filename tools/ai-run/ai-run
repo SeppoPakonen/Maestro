@@ -8,6 +8,8 @@ import os
 import subprocess
 import json
 import tempfile
+import shutil
+import difflib
 from pathlib import Path
 from datetime import datetime
 
@@ -52,10 +54,23 @@ MODELS = {
 
 MAESTRO_DIR = Path.home() / ".maestro"
 AI_RUN_DIR = MAESTRO_DIR / "ai-run"
+BACKUP_DIR = MAESTRO_DIR / "backups"
 HISTORY_FILE = AI_RUN_DIR / "history.jsonl"
 
 def setup_directories():
     AI_RUN_DIR.mkdir(parents=True, exist_ok=True)
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+def create_backup(file_path):
+    setup_directories()
+    p = Path(file_path)
+    if not p.exists():
+        return None
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = BACKUP_DIR / f"{p.name}.{timestamp}.bak"
+    shutil.copy2(p, backup_path)
+    return backup_path
 
 def save_history(entry):
     try:
@@ -175,65 +190,165 @@ def run_gen_image(prompt, output_file, backend="gemini"):
         print(f"Failed to run image generation: {e}", file=sys.stderr)
         return -1
 
+def extract_code_block(text, language="python"):
+    import re
+    # Try specified language first
+    pattern = rf"```(?:{language})?\n(.*?)```"
+    match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    
+    # Fallback to any code block
+    match = re.search(r"```\n(.*?)```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    
+    # If no code block, return original text if it looks like code? 
+    # Better to be strict for self-healing.
+    return None
+
 def run_fix_loop(args, prompt, script_path):
-    retries = 3
-    for attempt in range(retries):
-        print(f"Attempting to run script: {script_path} (Attempt {attempt+1}/{retries})...")
+    retries = args.retry
+    history = [] # Keep track of errors and fixes
+    
+    # Determine model - prefer hard for fixing
+    model_tier = args.difficulty
+    if model_tier == "mid" and "hard" in MODELS[args.backend]:
+        model_tier = "hard"
+    model = MODELS[args.backend].get(model_tier, MODELS[args.backend].get("mid"))
+
+    for attempt in range(retries + 1):
+        if attempt > 0:
+            print(f"\n--- [SELF-HEALING] Attempt {attempt}/{retries} ---")
+        
+        # 1. Execution Monitoring
+        print(f"Executing: {script_path}")
+        # We use Popen to stream stdout/stderr
+        # For simplicity in this implementation, we'll run it and capture
         process = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
-        if process.returncode == 0:
-            print("Execution successful.")
+        
+        # Display output
+        if process.stdout:
+            print("\033[94m[STDOUT]\033[0m")
             print(process.stdout)
+        if process.stderr:
+            print("\033[91m[STDERR]\033[0m")
+            print(process.stderr, file=sys.stderr)
+
+        if process.returncode == 0:
+            print("\n\033[92m[SUCCESS] Execution finished successfully.\033[0m")
+            if link:
+                state = link.get_maestro_context()
+                task_id = state.get("task_id")
+                if task_id:
+                    link.update_task_status(task_id, "Fixed", f"Execution successful after {attempt} retries.")
             return 0
         
-        print(f"Execution failed with exit code {process.returncode}.", file=sys.stderr)
-        print("Capturing stderr for self-healing...", file=sys.stderr)
+        if attempt == retries:
+            print(f"\n\033[91m[FAILURE] Reached maximum retries ({retries}).\033[0m")
+            if link:
+                state = link.get_maestro_context()
+                task_id = state.get("task_id")
+                if task_id:
+                    link.update_task_status(task_id, "Failed", f"Failed after {retries} retries.")
+            return process.returncode
+
+        # 2. Analysis & Correction Phase
+        print(f"\n\033[93m[ANALYZING] Failure detected (Exit Code {process.returncode}). Requesting fix...\033[0m")
         
+        current_code = Path(script_path).read_text()
+        
+        # Assemble context
         fix_prompt = f"""
-The following Python script failed execution.
+I am running a script that is failing. Please help me fix it.
+
+[MAESTRO PROJECT CONTEXT]
+{link.inject_maestro_context("") if link else "Standalone mode."}
+
+[ERROR LOG]
 Exit Code: {process.returncode}
 Stderr:
 {process.stderr}
 
-Script Content:
+[ORIGINAL CODE]
 ```python
-{Path(script_path).read_text()}
+{current_code}
 ```
-
-Please fix the script. Respond ONLY with the corrected code inside a python code block.
 """
-        model = MODELS[args.backend].get(args.difficulty, MODELS[args.backend].get("mid"))
-        rc, stdout, stderr = run_backend(args.backend, model, fix_prompt, stream=False, yolo=args.yolo)
+        if history:
+            fix_prompt += "\n[PREVIOUS ATTEMPTS AND FAILURES]\n"
+            for h in history:
+                fix_prompt += f"- Attempt {h['attempt']}: AI proposed fix, but it failed with: {h['error']}\n"
+
+        fix_prompt += "\nINSTRUCTIONS:\nAnalyze the error and provide the COMPLETE corrected file. Respond ONLY with the code inside a ```python block."
+
+        # Repair Request
+        rc, ai_response, ai_err = run_backend(args.backend, model, fix_prompt, stream=False, yolo=args.yolo)
         
-        if rc == 0:
-            # Extract code block
-            import re
-            code_match = re.search(r"```python\n(.*?)```", stdout, re.DOTALL)
-            if not code_match:
-                code_match = re.search(r"```\n(.*?)```", stdout, re.DOTALL)
+        if rc != 0:
+            print(f"AI failed to provide a fix: {ai_err}", file=sys.stderr)
+            return rc
+        
+        # 3. Apply Fix
+        fixed_code = extract_code_block(ai_response, "python")
+        if not fixed_code:
+            print("\n\033[91m[ERROR] Could not extract fixed code from AI response.\033[0m")
+            print("AI Response was:")
+            print(ai_response)
+            return 1
+        
+        # Show Diff
+        diff = difflib.unified_diff(
+            current_code.splitlines(),
+            fixed_code.splitlines(),
+            fromfile=f"{script_path} (Current)",
+            tofile=f"{script_path} (Proposed Fix)",
+            lineterm=""
+        )
+        diff_text = "\n".join(diff)
+        
+        if not diff_text:
+            print("\n\033[93m[INFO] AI proposed no changes.\033[0m")
+            # Maybe the error is environmental? If we retry without change we'll loop.
+            # Feed back to AI that no change was made.
+            history.append({"attempt": attempt + 1, "error": "AI proposed exactly the same code which is failing."})
+            continue
+
+        print("\n\033[95m[PROPOSED FIX]\033[0m")
+        print(diff_text)
+        
+        # Confirmation
+        if not args.yolo and not args.yes:
+            confirm = input("\nApply this fix? [y/N]: ").lower()
+            if confirm != 'y':
+                print("Aborted.")
+                return 1
+        
+        # Backup
+        backup_path = create_backup(script_path)
+        if backup_path:
+            print(f"Backup created: {backup_path}")
             
-            if code_match:
-                fixed_code = code_match.group(1)
-                Path(script_path).write_text(fixed_code)
-                print("Applied fix. Retrying...")
-                
-                # Log fix attempt to Maestro
-                if link:
-                    state = link.get_maestro_context()
-                    task_id = state.get("task_id")
-                    if task_id:
-                        link.log_ai_event(task_id, {
-                            "action": "fix_attempt",
-                            "attempt": attempt + 1,
-                            "backend": args.backend,
-                            "model": model
-                        })
-            else:
-                print("Could not extract fixed code from AI response.", file=sys.stderr)
-                break
-        else:
-            print(f"AI failed to provide a fix: {stderr}", file=sys.stderr)
-            break
-            
+        # Write fix
+        Path(script_path).write_text(fixed_code)
+        print("\033[92mFix applied. Retrying execution...\033[0m")
+        
+        # Log to Maestro
+        if link:
+            state = link.get_maestro_context()
+            task_id = state.get("task_id")
+            if task_id:
+                link.log_ai_event(task_id, {
+                    "action": "self_healing_attempt",
+                    "attempt": attempt + 1,
+                    "backend": args.backend,
+                    "model": model,
+                    "exit_code": process.returncode
+                })
+        
+        # Update history for next iteration
+        history.append({"attempt": attempt + 1, "error": process.stderr.splitlines()[-1] if process.stderr.splitlines() else "Unknown error"})
+
     return 1
 
 def run_debate(args, prompt):
@@ -314,6 +429,7 @@ def main():
     
     # Agentic Modes
     parser.add_argument("--fix", action="store_true", help="Self-healing mode: fix and re-run failing scripts")
+    parser.add_argument("--retry", type=int, default=3, help="Maximum number of retries for self-healing (default: 3)")
     parser.add_argument("--debate", action="store_true", help="Debate mode: Consensus from multiple models")
     parser.add_argument("--step", action="store_true", help="Interactive pause: edit prompt/plan in $EDITOR before execution")
     
