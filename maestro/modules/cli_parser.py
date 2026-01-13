@@ -488,5 +488,12 @@ def normalize_command_aliases(args: argparse.Namespace) -> argparse.Namespace:
                 'h': 'help'
             }
             args.structure_subcommand = structure_subcommand_alias_map.get(args.structure_subcommand, args.structure_subcommand)
+    elif args.command == 'tutorial' and hasattr(args, 'tutorial_subcommand') and args.tutorial_subcommand:
+        tutorial_subcommand_alias_map = {
+            'ls': 'list',
+            'l': 'list',
+            'h': 'help'
+        }
+        args.tutorial_subcommand = tutorial_subcommand_alias_map.get(args.tutorial_subcommand, args.tutorial_subcommand)
 
     return args

@@ -86,7 +86,7 @@ if __name__ == "__main__":
                 sys.exit(1)
             include_legacy = True
 
-        bare_help_commands = {"make", "workflow", "repo", "task"}
+        bare_help_commands = {"make", "workflow", "repo", "task", "tutorial"}
         if help_command in bare_help_commands:
             help_argv = [help_command, "--help"]
         else:
