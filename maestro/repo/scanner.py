@@ -132,9 +132,15 @@ def detect_upp_assemblies(
                 rel_root = os.path.relpath(str(asm_root), str(repo_root_resolved))
                 print(f"[maestro] skip assembly (pkg root): {rel_root}")
             continue
+        def _pkg_sort_key(pkg: PackageInfo) -> str:
+            try:
+                return os.path.relpath(pkg.dir, asm_root)
+            except ValueError:
+                return pkg.dir
+
         packages_sorted = sorted(
             packages_in_dir,
-            key=lambda pkg: os.path.relpath(pkg.dir, asm_root),
+            key=_pkg_sort_key,
         )
         package_dirs = [str(Path(pkg.dir).resolve()) for pkg in packages_sorted]
         package_names = [pkg.name for pkg in packages_sorted]

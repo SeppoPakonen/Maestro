@@ -5,6 +5,7 @@ import sys
 import toml
 import json
 import platform
+import copy
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union, Any
@@ -510,10 +511,10 @@ class MethodManager:
             self.save_method(cmake_config)
             created_methods.append("cmake-default")
         
-        # Create MSBuild method
+        # Create MSBuild methods
         if 'msbuild' in detected_tools:
-            msbuild_config = MethodConfig(
-                name="msbuild-default",
+            msbuild_debug_config = MethodConfig(
+                name="msbuild-debug",
                 builder="msbuild",
                 config=BuildConfig(
                     build_type=BuildType.DEBUG,
@@ -525,8 +526,24 @@ class MethodManager:
                     arch="x64"
                 )
             )
-            self.save_method(msbuild_config)
-            created_methods.append("msbuild-default")
+            self.save_method(msbuild_debug_config)
+            created_methods.append("msbuild-debug")
+
+            msbuild_release_config = MethodConfig(
+                name="msbuild-release",
+                builder="msbuild",
+                config=BuildConfig(
+                    build_type=BuildType.RELEASE,
+                    parallel=True,
+                    jobs=os.cpu_count() or 4
+                ),
+                platform=PlatformConfig(
+                    os=OSFamily.WINDOWS,
+                    arch="x64"
+                )
+            )
+            self.save_method(msbuild_release_config)
+            created_methods.append("msbuild-release")
         
         # Create Maven method
         if 'maven' in detected_tools:
@@ -566,7 +583,7 @@ class MethodManager:
             ("gcc", "gcc-debug"),
             ("clang", "clang-debug"),
             ("cmake", "cmake-default"),
-            ("msbuild", "msbuild-default"),
+            ("msbuild", "msbuild-debug"),
             ("maven", "maven-default")
         ]
 
@@ -574,6 +591,8 @@ class MethodManager:
         for tool_key, method_name in priority_order:
             if tool_key in detected_tools and method_name in available_methods:
                 return method_name
+        if "msbuild" in detected_tools and "msbuild-default" in available_methods:
+            return "msbuild-default"
 
         # If no pre-existing method found, try to create default methods
         if not available_methods:
@@ -584,6 +603,8 @@ class MethodManager:
         for tool_key, method_name in priority_order:
             if tool_key in detected_tools and method_name in available_methods:
                 return method_name
+        if "msbuild" in detected_tools and "msbuild-default" in available_methods:
+            return "msbuild-default"
 
         # If still no method found, return the first available method
         if available_methods:
@@ -595,6 +616,15 @@ class MethodManager:
         """Load a method by name."""
         if not self._loaded:
             self.load_all_methods()
+
+        if name in ("msbuild-debug", "msbuild-release") and "msbuild-default" in self._methods:
+            self._ensure_msbuild_variants()
+
+        if name == "msbuild-default":
+            if "msbuild-debug" in self._methods:
+                return self._resolve_inheritance(self._methods["msbuild-debug"])
+            if "msbuild-release" in self._methods:
+                return self._resolve_inheritance(self._methods["msbuild-release"])
 
         if name in self._methods:
             # Return resolved config with inheritance applied
@@ -1007,8 +1037,27 @@ class MethodManager:
                 self._methods[method_name] = method_config
             except Exception as e:
                 print(f"Error loading method from {toml_file}: {e}", file=sys.stderr)
-        
+        self._ensure_msbuild_variants()
         self._loaded = True
+
+    def _clone_method_with_build_type(self, base: MethodConfig, name: str, build_type: BuildType) -> MethodConfig:
+        clone = copy.deepcopy(base)
+        clone.name = name
+        clone.config.build_type = build_type
+        return clone
+
+    def _ensure_msbuild_variants(self) -> None:
+        if "msbuild-default" not in self._methods:
+            return
+        base = self._methods["msbuild-default"]
+        if "msbuild-debug" not in self._methods:
+            self._methods["msbuild-debug"] = self._clone_method_with_build_type(
+                base, "msbuild-debug", BuildType.DEBUG
+            )
+        if "msbuild-release" not in self._methods:
+            self._methods["msbuild-release"] = self._clone_method_with_build_type(
+                base, "msbuild-release", BuildType.RELEASE
+            )
     
     def save_method(self, config: MethodConfig):
         """Save a method configuration to a TOML file."""
@@ -1062,8 +1111,10 @@ class MethodManager:
         """Get list of available method names."""
         if not self._loaded:
             self.load_all_methods()
-        
+        self._ensure_msbuild_variants()
         methods = list(self._methods.keys())
+        if "msbuild-default" in methods and ("msbuild-debug" in methods or "msbuild-release" in methods):
+            methods = [m for m in methods if m != "msbuild-default"]
         
         # Also add U++ build methods
         upp_config_dirs = [

@@ -71,12 +71,12 @@ def detect_build_system(repo_root: str) -> List[str]:
             systems.append('maven')
             break
 
-    # Check for Visual Studio (*.sln files)
+    # Check for Visual Studio (*.sln, *.vcxproj, *.vcproj, *.csproj files)
     for root, dirs, files in os.walk(repo_root):
         # Skip hidden directories
         dirs[:] = [d for d in dirs if not d.startswith('.')]
 
-        if any(f.endswith('.sln') for f in files):
+        if any(f.endswith(('.sln', '.vcxproj', '.vcproj', '.csproj')) for f in files):
             systems.append('msvs')
             break
 
@@ -604,6 +604,7 @@ def scan_msvs_packages(repo_root: str, verbose: bool = False) -> List[BuildSyste
 
     # Find all .sln files
     sln_files = []
+    project_files = []
     for root, dirs, files in os.walk(repo_root):
         # Skip hidden directories
         dirs[:] = [d for d in dirs if not d.startswith('.')]
@@ -612,6 +613,10 @@ def scan_msvs_packages(repo_root: str, verbose: bool = False) -> List[BuildSyste
             if file.endswith('.sln'):
                 sln_path = os.path.join(root, file)
                 sln_files.append(sln_path)
+            elif file.endswith(('.vcxproj', '.vcproj', '.csproj')):
+                project_files.append(os.path.join(root, file))
+
+    seen_projects = set()
 
     # Parse each solution file
     for sln_path in sln_files:
@@ -652,6 +657,7 @@ def scan_msvs_packages(repo_root: str, verbose: bool = False) -> List[BuildSyste
                     if verbose:
                         print(f"[msvs] warning: project file not found: {proj_path}")
                     continue
+                seen_projects.add(os.path.normpath(proj_file_path))
 
                 proj_dir = os.path.dirname(proj_file_path)
                 proj_ext = os.path.splitext(proj_file_path)[1].lower()
@@ -713,6 +719,64 @@ def scan_msvs_packages(repo_root: str, verbose: bool = False) -> List[BuildSyste
         except Exception as e:
             if verbose:
                 print(f"[msvs] error parsing solution {sln_path}: {e}")
+
+    # Add standalone project files not referenced by solutions
+    for proj_file_path in project_files:
+        proj_file_path = os.path.normpath(proj_file_path)
+        if proj_file_path in seen_projects:
+            continue
+        proj_dir = os.path.dirname(proj_file_path)
+        proj_name = os.path.splitext(os.path.basename(proj_file_path))[0]
+        proj_ext = os.path.splitext(proj_file_path)[1].lower()
+
+        source_files = []
+        package_root = proj_dir
+        if os.path.basename(proj_dir).lower() in ('vcpp', 'msvs', 'visualstudio'):
+            package_root = os.path.dirname(proj_dir)
+        project_metadata = {
+            'solution': None,
+            'project_file': os.path.relpath(proj_file_path, repo_root),
+            'project_guid': None,
+            'type_guid': None,
+            'format_version': None,
+            'vs_version': None,
+            'package_root': package_root
+        }
+
+        try:
+            if proj_ext in ['.vcxproj', '.csproj']:
+                source_files = _parse_msbuild_project(proj_file_path, proj_dir, repo_root, verbose)
+                project_metadata['format'] = 'MSBuild'
+            elif proj_ext == '.vcproj':
+                source_files = _parse_vcproj_project(proj_file_path, proj_dir, repo_root, verbose)
+                project_metadata['format'] = 'VC++ 2005/2008'
+            else:
+                if verbose:
+                    print(f"[msvs] unsupported project format: {proj_ext}")
+                continue
+
+            if proj_ext == '.vcxproj' or proj_ext == '.vcproj':
+                project_metadata['project_type'] = 'C++'
+            elif proj_ext == '.csproj':
+                project_metadata['project_type'] = 'C#'
+            else:
+                project_metadata['project_type'] = 'unknown'
+
+            pkg = BuildSystemPackage(
+                name=proj_name,
+                build_system='msvs',
+                dir=proj_dir,
+                files=source_files,
+                metadata=project_metadata
+            )
+            packages.append(pkg)
+
+            if verbose:
+                print(f"[msvs] found {project_metadata.get('project_type', 'unknown')} project '{proj_name}' ({len(source_files)} sources)")
+
+        except Exception as e:
+            if verbose:
+                print(f"[msvs] error parsing project {proj_file_path}: {e}")
 
     return packages
 

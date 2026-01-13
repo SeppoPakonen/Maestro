@@ -159,6 +159,7 @@ class MakefileBuilder(Builder):
     def build_package(self, package: Package, method_config: Optional[MethodConfig] = None, verbose: bool = False) -> bool:
         if method_config is not None:
             self.config = method_config
+        dry_run = bool(self.config.custom.get("dry_run"))
 
         build_config = self.config.config
         variables = package.metadata.get('variables', {}) if package.metadata else {}
@@ -251,6 +252,15 @@ class MakefileBuilder(Builder):
                     display_src = os.path.relpath(abs_src, package.dir)
                 print(display_src)
 
+            output_name = target.get('output') or target_name
+            if self.config.platform.os == OSFamily.WINDOWS and not output_name.endswith('.exe'):
+                output_name += '.exe'
+            output_path = os.path.join(build_root, output_name)
+
+            if dry_run:
+                print(output_path)
+                continue
+
             if build_config.parallel and len(compile_cmds) > 1:
                 max_jobs = build_config.jobs or os.cpu_count() or 4
                 results = parallel_execute(compile_cmds, max_jobs=max_jobs, cwd=package.dir)
@@ -260,11 +270,6 @@ class MakefileBuilder(Builder):
                 for cmd in compile_cmds:
                     if not execute_command(cmd, cwd=package.dir, verbose=verbose):
                         return False
-
-            output_name = target.get('output') or target_name
-            if self.config.platform.os == OSFamily.WINDOWS and not output_name.endswith('.exe'):
-                output_name += '.exe'
-            output_path = os.path.join(build_root, output_name)
 
             if 'client' in target_name and any(flag == "-lenet" for flag in link_flags):
                 enet_dir = os.path.join(package.dir, "enet")

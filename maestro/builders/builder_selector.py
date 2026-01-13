@@ -6,6 +6,7 @@ that chooses the appropriate builder based on package type and configuration.
 """
 
 from typing import Dict, Any, Optional, Type
+import platform as py_platform
 from .base import Builder, Package
 from .gcc import GccBuilder
 from .msvc import MsvcBuilder
@@ -37,7 +38,22 @@ def select_builder(package_info: Dict[str, Any], config: MethodConfig = None) ->
     # Handle multi-build system packages
     if build_system == 'multi' and 'metadata' in package_info:
         metadata = package_info['metadata']
-        build_system = metadata.get('primary_build_system', build_system)
+        build_systems = metadata.get('build_systems', [])
+        current_os = None
+        if config and hasattr(config, "platform"):
+            current_os = getattr(config.platform, "os", None)
+            if hasattr(current_os, "value"):
+                current_os = current_os.value
+        if not current_os:
+            current_os = py_platform.system().lower()
+        if current_os.startswith("win") and "msvs" in build_systems:
+            build_system = "msvs"
+        elif current_os.startswith("linux") and "make" in build_systems:
+            build_system = "make"
+        elif current_os.startswith("darwin") and "xcode" in build_systems:
+            build_system = "xcode"
+        else:
+            build_system = metadata.get('primary_build_system', build_system)
     
     # Create a default config if none provided
     if config is None:

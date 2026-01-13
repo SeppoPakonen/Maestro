@@ -10,6 +10,7 @@ import sys
 import os
 import shutil
 import subprocess
+import re
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from pathlib import Path
 
@@ -84,6 +85,40 @@ def add_make_parser(subparsers: Any) -> argparse.ArgumentParser:
     build_parser.add_argument(
         '-t', '--target',
         help='Target directory override for output'
+    )
+    build_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Preview build steps without executing commands'
+    )
+    build_parser.add_argument(
+        '-A', '--arch',
+        help='Target CPU architecture (e.g. x64, x86, arm64)'
+    )
+    build_parser.add_argument(
+        '--arch-list',
+        action='store_true',
+        help='List supported architecture aliases and exit'
+    )
+    build_parser.add_argument(
+        '-ml', '--method-list',
+        action='store_true',
+        help='List available build methods and exit'
+    )
+    build_parser.add_argument(
+        '-tl', '--target-list',
+        action='store_true',
+        help='List available build targets and exit'
+    )
+    build_parser.add_argument(
+        '--msbuild-property',
+        action='append',
+        default=[],
+        help='Extra MSBuild property (repeatable, e.g. PlatformToolset=v143)'
+    )
+    build_parser.add_argument(
+        '--toolset',
+        help='MSBuild PlatformToolset override (e.g. v143)'
     )
 
     # Clean subcommand
@@ -356,6 +391,11 @@ class MakeCommand:
         if not method_config:
             print(f"Error: Could not load build method '{method_name}'")
             return 1
+        method_config.custom['dry_run'] = getattr(args, 'dry_run', False)
+        if args.toolset:
+            method_config.custom['platform_toolset'] = args.toolset
+        if args.msbuild_property:
+            method_config.custom['msbuild_properties'] = list(args.msbuild_property)
 
         for name in package_names:
             package_info = self._find_package_info(name, repo_model, repo_root)
@@ -389,7 +429,7 @@ class MakeCommand:
 
     def list_methods(self, args: argparse.Namespace) -> int:
         """List available build methods."""
-        methods = self.method_manager.list_methods()
+        methods = self.method_manager.get_available_methods()
         print("Available build methods:")
         for method in methods:
             print(f"  - {method}")
@@ -526,9 +566,31 @@ class MakeCommand:
         from maestro.git_guard import check_branch_guard
 
         repo_root = self._find_repo_root()
+        if getattr(args, "arch_list", False):
+            self._print_arch_list()
+            return 0
         require_repo_model(repo_root)
         repoconf = load_repoconf(repo_root)
         repo_model = load_repo_model(repo_root)
+        if getattr(args, "method_list", False):
+            return self.list_methods(args)
+
+        if getattr(args, "target_list", False):
+            package_names = []
+            seen = set()
+            for key in ("packages", "packages_detected"):
+                for pkg in repo_model.get(key, []):
+                    name = pkg.get('name')
+                    if not name or name in seen:
+                        continue
+                    package_names.append(name)
+                    seen.add(name)
+            if not package_names:
+                package_names = self._get_all_packages(repo_model)
+            print("Available build targets:")
+            for name in sorted(package_names):
+                print(f"  - {name}")
+            return 0
         branch_guard_error = check_branch_guard(repo_root)
         if branch_guard_error:
             print(f"Error: {branch_guard_error}")
@@ -590,6 +652,12 @@ class MakeCommand:
         if not method_config:
             print(f"Error: Could not load build method '{method_name}'")
             return 1
+        method_config.custom['dry_run'] = getattr(args, 'dry_run', False)
+        if getattr(args, "arch", None):
+            normalized_arch = self._normalize_arch(args.arch)
+            method_config.config.flags['platform'] = normalized_arch
+            method_config.custom['platform'] = normalized_arch
+            method_config.platform.arch = normalized_arch
 
         # Update method config with command-line options
         if hasattr(args, 'jobs') and args.jobs:
@@ -844,8 +912,9 @@ class MakeCommand:
                     
                     if is_msc:
                         # MSC link flags
+                        machine_flag = self._msvc_machine_flag(method_config)
                         ldflags = [
-                            "/nologo", "/machine:x64", f"/out:{output_executable_path}",
+                            "/nologo", machine_flag, f"/out:{output_executable_path}",
                             "/subsystem:console"
                         ]
                         if method_config.config.build_type == BuildType.DEBUG:
@@ -1100,6 +1169,53 @@ class MakeCommand:
         # If no packages in repo model, try to discover them from the file system
         # This is a fallback for the HelloWorldStd case
         return ['HelloWorld2', 'HelloWorldStd']  # Common U++ test packages
+
+    def _arch_aliases(self) -> Dict[str, List[str]]:
+        return {
+            "x86": ["x86", "i386", "i686", "x86-32", "x86_32", "win32", "32", "32bit", "32-bit", "ia32"],
+            "x64": ["x64", "amd64", "x86_64", "x86-64", "win64", "64", "64bit", "64-bit"],
+            "arm": ["arm", "armv7", "armv7l", "armv7le", "arm32", "armv7-a", "armv7a"],
+            "arm64": ["arm64", "aarch64", "armv8", "armv8a", "arm64e"],
+        }
+
+    def _normalize_arch(self, arch: str) -> str:
+        if not arch:
+            return arch
+        normalized = re.sub(r"[^a-z0-9]", "", arch.strip().lower())
+        for canonical, aliases in self._arch_aliases().items():
+            for alias in aliases:
+                alias_norm = re.sub(r"[^a-z0-9]", "", alias.lower())
+                if normalized == alias_norm:
+                    return canonical
+        return arch.strip()
+
+    def _default_arch(self) -> str:
+        import platform
+        machine = platform.machine()
+        return self._normalize_arch(machine) or machine.lower()
+
+    def _print_arch_list(self) -> None:
+        default_arch = self._default_arch()
+        print("Available architectures:")
+        for canonical, aliases in self._arch_aliases().items():
+            alias_text = ", ".join(sorted(set(aliases)))
+            print(f"  - {canonical} (aliases: {alias_text})")
+        print(f"Default: {default_arch}")
+
+    def _msvc_machine_flag(self, method_config: 'MethodConfig') -> str:
+        arch = None
+        if getattr(method_config.config, "flags", None):
+            arch = method_config.config.flags.get('platform')
+        if not arch and getattr(method_config.platform, "arch", None):
+            arch = method_config.platform.arch
+        normalized = self._normalize_arch(str(arch)) if arch else ""
+        machine_map = {
+            "x86": "X86",
+            "x64": "X64",
+            "arm": "ARM",
+            "arm64": "ARM64",
+        }
+        return f"/machine:{machine_map.get(normalized, 'X64')}"
 
     def _find_repo_root(self) -> Optional[str]:
         """Find the repository root by looking for common U++ project markers."""
