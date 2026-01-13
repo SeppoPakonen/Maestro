@@ -1,0 +1,32 @@
+#!/usr/bin/env ai-run
+# -Y -b gemini -d hard
+
+[GOAL]
+Execute the Maestro "intro" tutorial automatically in a sandbox environment.
+Follow every step, validate the outcome, and use Maestro's track system to manage state.
+
+[CONTEXT]
+You are an automated tutorial runner. 
+You have access to a helper tool at `./tutorial_bin/maestro-tutorial-helper`.
+The tutorial name is "intro".
+
+[REQUIREMENTS]
+1. Setup the sandbox: Run `./tutorial_bin/maestro-tutorial-helper setup intro` and change directory to the result.
+2. Initialize tutorial state: Run `./tutorial_bin/maestro-tutorial-helper track intro` to ensure a Maestro track exists for this tutorial.
+3. Get tutorial steps: Run `./tutorial_bin/maestro-tutorial-helper steps intro`.
+4. For each step in the tutorial:
+   a. Check if the corresponding Maestro task is already "Done".
+   b. If not done, execute the commands associated with the step.
+   c. Validate the step: Run `./tutorial_bin/maestro-tutorial-helper validate "<step title>"`.
+   d. Mark the task as "Done" in Maestro.
+5. If any step fails, try to "Self-Heal" by analyzing why it failed and retrying with a different strategy if appropriate.
+6. Log all progress and AI reasoning to the Maestro task history via `maestro_link`.
+
+[ACCEPTANCE CRITERIA]
+- All steps of the "intro" tutorial are executed successfully.
+- Maestro track for "intro" is updated to show 100% completion.
+- The final state of the sandbox matches the expected outcome of the tutorial.
+
+[DELIVERABLES]
+- A summary of the tutorial execution.
+- A fully initialized and configured Maestro sandbox for the "intro" tutorial.

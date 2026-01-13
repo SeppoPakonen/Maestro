@@ -481,6 +481,25 @@ Batch jobs also compute confidence scores, and batch-level confidence can be agg
 
 ---
 
+## Automated Tutorial Runners
+
+Maestro provides a suite of automated execution scripts to guide you through various features using AI. These runners are located in the `bin/` directory and use the `ai-run` interpreter.
+
+### Features
+- **Autonomous Sandbox Setup**: Automatically clones real-world repositories to use as subjects for tutorials.
+- **State-Aware Execution**: Progress is tracked via Maestro tracks, allowing you to resume interrupted tutorials.
+- **AI-Driven Self-Healing**: If a tutorial step fails, the AI attempts to fix the environment and retry.
+
+### Usage
+```bash
+./tutorial_bin/run-tutorial-intro
+./tutorial_bin/run-tutorial-work-track
+```
+
+See [bin/README.md](bin/README.md) for more details.
+
+---
+
 ## Semantic Integrity Panel (TUI Feature)
 
 The Semantic Integrity Panel is a dedicated TUI screen that makes semantic risks visible, understandable, and actionable by humans during code conversion. It addresses the critical question:

@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""
+Maestro Tutorial Helper - Utility for automated tutorial runners.
+"""
+import os
+import sys
+import subprocess
+import json
+import random
+from pathlib import Path
+
+# Ensure repo root is in path
+repo_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(repo_root))
+
+from maestro.ai.maestro_link import get_link
+
+TARGET_REPOS = [
+    "https://github.com/pallets/flask.git",
+    "https://github.com/psf/requests.git",
+    "https://github.com/encode/django-rest-framework.git",
+    "https://github.com/tiangolo/fastapi.git",
+    "https://github.com/python-poetry/poetry.git"
+]
+
+def setup_sandbox(tutorial_name):
+    """Clone a random repo and initialize maestro."""
+    sandbox_root = Path.home() / ".maestro" / "tutorials" / tutorial_name
+    if sandbox_root.exists():
+        # Maybe resume?
+        print(f"Sandbox already exists at {sandbox_root}")
+        return sandbox_root
+
+    sandbox_root.mkdir(parents=True, exist_ok=True)
+    repo_url = random.choice(TARGET_REPOS)
+    repo_name = repo_url.split("/")[-1].replace(".git", "")
+    target_path = sandbox_root / repo_name
+
+    print(f"Cloning {repo_url} into {target_path}...")
+    subprocess.run(["git", "clone", "--depth", "1", repo_url, str(target_path)], check=True)
+    
+    os.chdir(target_path)
+    print(f"Initializing Maestro in {target_path}...")
+    subprocess.run([sys.executable, "-m", "maestro", "init"], check=True)
+    
+    return target_path
+
+def get_tutorial_steps(tutorial_name):
+    """Extract tutorial steps from maestro tutorial command."""
+    # We could import TUTORIALS from maestro.commands.tutorial, but let's use the CLI as requested
+    result = subprocess.run([sys.executable, "-m", "maestro", "tutorial", tutorial_name], 
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    
+    # Simple heuristic to extract commands
+    lines = result.stdout.split("\n")
+    steps = []
+    current_step = None
+    
+    for line in lines:
+        line = line.strip()
+        if not line: continue
+        
+        # Check if it's a step header (e.g. 1. PROJECT SETUP)
+        if line[0].isdigit() and (line[1] == "." or (len(line) > 2 and line[2] == ".")):
+            current_step = {"title": line, "commands": []}
+            steps.append(current_step)
+        elif line.startswith("- ") or line.startswith("* "):
+            # It's an instruction or command
+            if "maestro " in line:
+                # Extract command
+                cmd = line.split("#")[0].strip() # Remove comments
+                if ":" in cmd:
+                    cmd = cmd.split(":")[-1].strip()
+                if cmd.startswith("* ") or cmd.startswith("- "):
+                    cmd = cmd[2:].strip()
+                if current_step:
+                    current_step["commands"].append(cmd)
+    
+    return steps
+
+def get_or_create_tutorial_track(tutorial_name):
+    """Use Maestro to track tutorial progress."""
+    link = get_link()
+    state = link.get_maestro_context()
+    
+    # Check if a track already exists for this tutorial
+    track_id = None
+    # This is a bit hacky since we don't have a direct 'list tracks' API in maestro_link yet
+    # but we can try to find it in ~/.maestro/tracks
+    tracks_dir = Path.cwd() / ".maestro" / "tracks"
+    for track_file in tracks_dir.glob("*.json"):
+        with open(track_file, "r") as f:
+            data = json.load(f)
+            if data.get("name") == f"Tutorial: {tutorial_name}":
+                track_id = data.get("track_id")
+                break
+    
+    if not track_id:
+        print(f"Creating new track for tutorial: {tutorial_name}")
+        # Run maestro command to create track
+        proc = subprocess.run([sys.executable, "-m", "maestro", "track", "add", f"Tutorial: {tutorial_name}"],
+                              capture_output=True, text=True)
+        # Extract track ID from output? Maestro output format varies.
+        # Let's assume we can find it by listing tracks
+        track_id = _find_latest_track_id()
+        
+        # Add phases for each tutorial step
+        steps = get_tutorial_steps(tutorial_name)
+        if steps:
+            for step in steps:
+                subprocess.run([sys.executable, "-m", "maestro", "phase", "add", "--track", track_id, step["title"]])
+                phase_id = _find_latest_phase_id()
+                for cmd in step["commands"]:
+                    subprocess.run([sys.executable, "-m", "maestro", "task", "add", "--phase", phase_id, cmd])
+
+    return track_id
+
+def _find_latest_track_id():
+    tracks_dir = Path.cwd() / ".maestro" / "tracks"
+    latest_file = max(tracks_dir.glob("*.json"), key=os.path.getmtime)
+    return latest_file.stem
+
+def _find_latest_phase_id():
+    phases_dir = Path.cwd() / ".maestro" / "phases"
+    latest_file = max(phases_dir.glob("*.json"), key=os.path.getmtime)
+    return latest_file.stem
+
+def validate_step(step_title):
+    """Placeholder for validation logic."""
+    # In a real scenario, this would check side effects
+    return True
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: maestro-tutorial-helper <setup|steps|track|validate> <tutorial_name>")
+        sys.exit(1)
+    
+    cmd = sys.argv[1]
+    name = sys.argv[2]
+    
+    if cmd == "setup":
+        print(setup_sandbox(name))
+    elif cmd == "steps":
+        print(json.dumps(get_tutorial_steps(name)))
+    elif cmd == "track":
+        print(get_or_create_tutorial_track(name))
+    elif cmd == "validate":
+        print(validate_step(name))
