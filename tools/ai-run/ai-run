@@ -19,9 +19,9 @@ MODELS = {
         "general": "gpt-5.2"
     },
     "claude": {
-        "hard": "Opus 4.5",
-        "mid": "Sonnet 4.5",
-        "easy": "Haiku 4.5"
+        "hard": "opus-4.5",
+        "mid": "sonnet-4.5",
+        "easy": "haiku-4.5"
     },
     "gemini": {
         "hard": "gemini-3-flash-preview",
@@ -30,11 +30,11 @@ MODELS = {
         "auto": None # Let CLI decide
     },
     "qwen": {
-        "hard": "qwen3-coder-plus-2025-09-23",
-        "mid": "qwen3-coder-plus-2025-09-23",
-        "easy": "qwen3-coder-plus-2025-09-23",
-        "coder": "qwen3-coder-plus-2025-09-23",
-        "vision": "qwen3-vl-plus-2025-09-23"
+        "hard": "qwen3-coder",
+        "mid": "qwen3-coder",
+        "easy": "qwen3-coder",
+        "coder": "qwen3-coder",
+        "vision": "qwen3-vl"
     }
 }
 
@@ -53,19 +53,41 @@ def save_history(entry):
     except Exception as e:
         print(f"Warning: Failed to save history: {e}", file=sys.stderr)
 
-def run_backend(backend, model, prompt, stream=True):
+def run_backend(backend, model, prompt, stream=True, yolo=False):
     cmd = []
     if backend == "gemini":
-        cmd = ["gemini", "--approval-mode", "yolo"]
+        cmd = ["gemini"]
+        if yolo:
+            cmd.append("-y")
+        else:
+            cmd.extend(["--approval-mode", "default"])
         if model:
             cmd.extend(["-m", model])
         cmd.append(prompt)
     elif backend == "claude":
-        cmd = ["claude", "-p", "--model", model, prompt]
+        cmd = ["claude", "-p"]
+        if yolo:
+            cmd.append("--dangerously-skip-permissions")
+        if model:
+            cmd.extend(["--model", model])
+        cmd.append(prompt)
     elif backend == "codex":
-        cmd = ["codex", "exec", "-m", model, prompt]
+        cmd = ["codex", "exec"]
+        if yolo:
+            cmd.append("--dangerously-bypass-approvals-and-sandbox")
+        if model:
+            cmd.extend(["-m", model])
+        cmd.append(prompt)
     elif backend == "qwen":
-        cmd = ["qwen", "--yolo", "-m", model, prompt]
+        cmd = ["qwen"]
+        if yolo:
+            cmd.append("-y")
+        if model:
+            cmd.extend(["-m", model])
+        cmd.append(prompt)
+
+    if yolo:
+        print("WARNING: YOLO mode active. Bypassing safety restrictions and sandboxes.", file=sys.stderr)
 
     try:
         if stream:
@@ -126,7 +148,8 @@ def main():
     )
     parser.add_argument("-b", "--backend", choices=["gemini", "codex", "claude", "qwen"], default="gemini", help="Select provider")
     parser.add_argument("-d", "--difficulty", choices=["easy", "mid", "hard", "coder", "vision", "general"], default="mid", help="Manually set tier")
-    parser.add_argument("-e", "--eval-difficulty", action="store_true", help="Run a pre-prompt to assess task difficulty")
+    parser.add_argument("-e", "--eval-difficulty", "-ed", action="store_true", help="Run a pre-prompt to assess task difficulty")
+    parser.add_argument("-y", "--yolo", action="store_true", help="Enable unrestricted execution (bypass safety/sandboxes)")
     parser.add_argument("--status", action="store_true", help="Check API availability and remaining quota")
     parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
     parser.add_argument("prompt_or_file", nargs="?", help="Prompt text or file containing prompt")
@@ -168,23 +191,16 @@ def main():
 
     difficulty = args.difficulty
     if args.eval_difficulty:
-        print("Evaluating task difficulty...")
+        print("Evaluating task difficulty...", file=sys.stderr)
         difficulty = eval_difficulty(prompt, args.backend)
-        print(f"Auto-evaluated difficulty: {difficulty}")
+        print(f"Auto-evaluated difficulty: {difficulty}", file=sys.stderr)
 
     model = MODELS[args.backend].get(difficulty, MODELS[args.backend].get("mid"))
     
-    # Special handling for gemini "auto" mode
-    if args.backend == "gemini" and difficulty == "mid": # mid is default, but for gemini we might want auto
-         # If user didn't specify difficulty and it's gemini, we could use None (auto)
-         # but the requirement says -d maps to specific tiers.
-         # I'll stick to the mapping unless "auto" is explicitly added or desired.
-         pass
-
-    print(f"Executing {args.backend} using {model if model else 'Auto'} tier...")
+    print(f"Executing {args.backend} using {model if model else 'Auto'} tier...", file=sys.stderr)
     
     start_time = datetime.now()
-    rc, stdout, stderr = run_backend(args.backend, model, prompt)
+    rc, stdout, stderr = run_backend(args.backend, model, prompt, yolo=args.yolo)
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
 
@@ -195,6 +211,7 @@ def main():
         "model": model,
         "difficulty": difficulty,
         "prompt": prompt,
+        "yolo": args.yolo,
         "success": rc == 0
     }
 
