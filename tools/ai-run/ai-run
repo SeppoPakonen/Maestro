@@ -16,9 +16,10 @@ repo_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo_root))
 
 try:
-    from maestro.ai import maestro_link
+    from maestro.ai.maestro_link import get_link
+    link = get_link()
 except ImportError:
-    maestro_link = None
+    link = None
 
 # 2026 Model Specifications
 MODELS = {
@@ -214,6 +215,18 @@ Please fix the script. Respond ONLY with the corrected code inside a python code
                 fixed_code = code_match.group(1)
                 Path(script_path).write_text(fixed_code)
                 print("Applied fix. Retrying...")
+                
+                # Log fix attempt to Maestro
+                if link:
+                    state = link.get_maestro_context()
+                    task_id = state.get("task_id")
+                    if task_id:
+                        link.log_ai_event(task_id, {
+                            "action": "fix_attempt",
+                            "attempt": attempt + 1,
+                            "backend": args.backend,
+                            "model": model
+                        })
             else:
                 print("Could not extract fixed code from AI response.", file=sys.stderr)
                 break
@@ -258,6 +271,17 @@ Synthesize a final consensus response that captures the best of both perspective
 """
     print(f"Passing debate to Judge ({judge_model})...")
     rc, stdout, stderr = run_backend("codex", judge_model, judge_prompt, stream=True, yolo=args.yolo)
+    
+    if rc == 0 and link:
+        state = link.get_maestro_context()
+        task_id = state.get("task_id")
+        if task_id:
+            link.log_ai_event(task_id, {
+                "action": "debate_consensus",
+                "backends": [r[0] for r in responses],
+                "judge": "codex"
+            })
+            
     return rc
 
 def handle_step(prompt):
@@ -339,12 +363,9 @@ def main():
         print("Error: No prompt provided.")
         sys.exit(1)
 
-    if args.yes:
-        args.yolo = True
-
     # Maestro Integration
-    if maestro_link:
-        prompt = maestro_link.inject_maestro_context(prompt)
+    if link:
+        prompt = link.inject_maestro_context(prompt)
 
     if args.step and not args.yes:
         prompt = handle_step(prompt)
@@ -385,12 +406,37 @@ def main():
     if rc == 0:
         history_entry["response"] = stdout
         save_history(history_entry)
+        
+        # Maestro status update
+        if link:
+            state = link.get_maestro_context()
+            task_id = state.get("task_id")
+            if task_id:
+                link.log_ai_event(task_id, {
+                    "backend": args.backend,
+                    "model": model,
+                    "difficulty": difficulty,
+                    "duration": duration,
+                    "yolo": args.yolo
+                })
+                if args.fix:
+                    link.update_task_status(task_id, "Fixed", f"Auto-fixed using {model}")
+                elif args.yolo:
+                    link.update_task_status(task_id, "Attempted", "Unrestricted (YOLO) execution completed")
     else:
         print(f"\nError (Exit Code {rc}):", file=sys.stderr)
         if stderr:
             print(stderr, file=sys.stderr)
         history_entry["error"] = stderr
         save_history(history_entry)
+        
+        # Maestro status update for failure
+        if link:
+            state = link.get_maestro_context()
+            task_id = state.get("task_id")
+            if task_id:
+                link.update_task_status(task_id, "Failed", f"Execution failed with code {rc}: {stderr[:100]}...")
+        
         sys.exit(rc)
 
 if __name__ == "__main__":

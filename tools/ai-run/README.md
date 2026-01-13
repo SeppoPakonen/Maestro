@@ -5,8 +5,9 @@
 ## Features
 
 - **Interpreter Mode:** Support for `#!/usr/bin/env ai-run`.
+- **Maestro Metadata Bridge (`maestro-link`):** Robust project awareness. Automatically reads Track/Phase/Task state and writes execution metadata back to Maestro.
 - **Maestro Context Awareness:** Automatically injects Track, Phase, Task, and Runbook metadata into prompts.
-- **Self-Healing Loop (`--fix`):** Automatically captures errors from failing scripts and re-prompts the AI for a fix.
+- **Self-Healing Loop (`--fix`):** Automatically captures errors from failing scripts and re-prompts the AI for a fix. Reports fixes/failures back to Maestro task logs.
 - **Debate Mode (`--debate`):** Orchestrates a multi-model consensus by consulting multiple backends and a judge.
 - **Interactive Pause (`--step`):** Pauses execution to allow human review and editing of the plan/prompt in `$EDITOR`.
 - **Auto-Approve (`-Y` / `--yes`):** Global non-interactive mode. Automatically approves all prompts and skips interactive pauses (implies `--yolo`).
