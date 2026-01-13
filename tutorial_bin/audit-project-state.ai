@@ -1,0 +1,38 @@
+#!/usr/bin/env ai-run
+# -b gemini -d hard
+
+[GOAL]
+Audit the project state by cross-referencing Maestro metadata (Tracks/Phases/Tasks) against the physical state of the codebase. Identify "Metadata Drift" where Maestro status does not match reality.
+
+[CONTEXT]
+You are a Project State Auditor. You have access to the Maestro CLI via the path provided in the [SYSTEM TOOLS CONFIGURATION] and ### SYSTEM ENVIRONMENT CONTEXT sections.
+You must use `maestro task list --json` (or equivalent) to extract structured data.
+
+[STEPS]
+1. **Discovery**: Identify the absolute path to `maestro.py` and the Project Root from the provided context.
+2. **Metadata Extraction**:
+   - List all active tracks and their phases.
+   - Extract a list of all tasks currently marked as 'todo', 'started', 'in_progress', or 'pending'.
+3. **Physical Verification (Reality Check)**:
+   - For every unfinished task, identify relevant files/directories based on the task name or description.
+   - Inspect the codebase (read files, check for implementation vs. TODOs).
+   - Determine if the work described has actually been:
+     - Not Started
+     - Partially Implemented
+     - Fully Implemented
+4. **Metadata Drift Detection**:
+   - Flag tasks that are marked 'Pending' but appear 'Implemented' in code (Stale Status).
+   - Flag tasks that are marked 'In Progress' but have no relevant code changes (Empty Progress).
+5. **Auto-Correction (YOLO MODE ONLY)**:
+   - If the `--yolo` or `--yes` flag is active in your environment, proceed to update Maestro task statuses to match your findings using the appropriate `maestro task status` commands.
+6. **Reporting**:
+   - Generate a Markdown table summary.
+
+[OUTPUT FORMAT]
+Provide a final report with the following table:
+
+| Task ID | Task Name | Maestro Status | Actual Status (Verified) | Drift Detected | Recommended Action |
+|---------|-----------|----------------|--------------------------|----------------|--------------------|
+| ...     | ...       | ...            | ...                      | Yes/No         | ...                |
+
+Include a "Summary of Findings" section highlighting critical discrepancies.

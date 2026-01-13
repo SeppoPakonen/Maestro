@@ -311,7 +311,14 @@ def list_tasks(args):
         tasks = [task for task in tasks if task.get('status') == status_filter]
 
     if not tasks:
-        print("No tasks found.")
+        if getattr(args, 'json', False):
+            print(json.dumps([]))
+        else:
+            print("No tasks found.")
+        return 0
+
+    if getattr(args, 'json', False):
+        print(json.dumps(tasks, indent=2))
         return 0
 
     # Format the data with index values for the table renderer
@@ -992,6 +999,11 @@ def add_task_parser(subparsers):
         'list',
         aliases=['ls', 'l'],
         help='List all tasks (or tasks in phase)'
+    )
+    task_list_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output in JSON format'
     )
     task_list_parser.add_argument(
         'filters',
