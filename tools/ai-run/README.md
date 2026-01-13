@@ -1,16 +1,18 @@
-# ai-run
+# ai-run (2026 Edition)
 
-`ai-run` is a smart command-line wrapper and interpreter for AI prompts. It supports multiple backends and automatically maps task difficulty to the appropriate 2026 model tiers.
+`ai-run` is a next-generation AI orchestration CLI and script interpreter. It serves as the intelligent execution layer for the **Maestro** project management system.
 
 ## Features
 
-- **Shebang Support:** Use `#!/usr/bin/env ai-run` to create executable prompt files.
-- **Backend Selection:** Easily switch between Gemini, Codex, Claude, and Qwen.
-- **Difficulty Mapping:** Automatically or manually select model tiers (easy, mid, hard).
-- **YOLO Mode (`-y` / `--yolo`):** Unrestricted execution mode that bypasses safety sandboxes and approval prompts.
-- **Auto-Evaluation:** Uses AI to assess the difficulty of your prompt and selects the best model for the task.
-- **Persistent Memory:** Keeps track of all executions and history in `~/.maestro/ai-run/`.
-- **Status Check:** Verify backend availability and estimated quota.
+- **Interpreter Mode:** Support for `#!/usr/bin/env ai-run`.
+- **Maestro Context Awareness:** Automatically injects Track, Phase, Task, and Runbook metadata into prompts.
+- **Self-Healing Loop (`--fix`):** Automatically captures errors from failing scripts and re-prompts the AI for a fix.
+- **Debate Mode (`--debate`):** Orchestrates a multi-model consensus by consulting multiple backends and a judge.
+- **Interactive Pause (`--step`):** Pauses execution to allow human review and editing of the plan/prompt in `$EDITOR`.
+- **Auto-Approve (`-Y` / `--yes`):** Global non-interactive mode. Automatically approves all prompts and skips interactive pauses (implies `--yolo`).
+- **Multimodal Support:** Pass images, audio, or video files directly to backends like Gemini and Qwen.
+- **Image Generation (`--gen-image`):** Generate high-fidelity architectural blueprints or icons.
+- **YOLO Mode (`-y`):** Unrestricted execution bypassing safety sandboxes and approval prompts.
 
 ## 2026 Model Tiers
 
@@ -21,58 +23,49 @@
 | **Codex** | `gpt-5.1-codex-mini` | `gpt-5.1-codex-max` | `gpt-5.2-codex` |
 | **Qwen** | `qwen3-coder` | `qwen3-coder` | `qwen3-coder` |
 
-*Note: Qwen also supports `-d coder` and `-d vision` (using `qwen3-vl`) for specific model variants.*
+## Usage Examples
+
+### Maestro Integration
+`ai-run` automatically detects the current Maestro state:
+```bash
+ai-run "Analyze the current phase and suggest improvements"
+```
+
+### Self-Healing
+```bash
+ai-run --fix --backend gemini my_failing_script.py
+```
+
+### Multi-Model Debate
+```bash
+ai-run --debate "How should we structure the Maestro translation units?"
+```
+
+### Interactive Step
+```bash
+ai-run --step "Create a complex migration plan for the database"
+```
+
+### Multimodal Input
+```bash
+ai-run -b qwen "Identify the CSS alignment error" bug_screenshot.png
+```
+
+### Image Generation
+```bash
+ai-run --gen-image "Minimalist conductor baton logo" -o logo.png
+```
+
+### YOLO Mode
+```bash
+ai-run -y --backend codex "Refactor the entire core logic"
+```
 
 ## Installation
 
-1. Copy `ai-run` to a directory in your `PATH` (e.g., `/usr/local/bin/` or `~/bin/`).
+1. Copy `ai-run` to a directory in your `PATH`.
 2. Ensure it is executable: `chmod +x ai-run`.
-
-## Usage
-
-### Simple Prompt
-```bash
-ai-run "Explain quantum entanglement"
-```
-
-### YOLO Mode (Unrestricted)
-```bash
-ai-run -y "Analyze system logs and fix any critical issues found"
-```
-
-### Select Backend and Difficulty
-```bash
-ai-run -b claude -d hard "Write a complex rust macro"
-```
-
-### Auto-Evaluate Difficulty
-```bash
-ai-run -ed "Refactor this 1000-line legacy C++ file"
-```
-
-### As an Interpreter (Shebang)
-Create a file named `task.ai`:
-```bash
-#!/usr/bin/env ai-run
-# -y -b gemini -d hard
-Please analyze the performance bottlenecks in the following code:
-...
-```
-Then run it:
-```bash
-chmod +x task.ai
-./task.ai
-```
-
-### Check Status
-```bash
-ai-run --status
-```
-
-## Configuration & History
-
-- **History:** Stored in `~/.maestro/ai-run/history.jsonl`.
-- **Requirements:** Requires the respective backend CLI tools (`gemini`, `claude`, `codex`, `qwen`) to be installed and configured in your environment.
+3. Set your preferred editor: `export EDITOR=code --wait` or `export EDITOR=vi`.
 
 ## Licensing
 
