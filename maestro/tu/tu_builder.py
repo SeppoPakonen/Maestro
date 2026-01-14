@@ -23,7 +23,7 @@ class TUBuilder:
         self.hasher = FileHasher(self.cache_dir / "file_hashes.json")
         self.cache = ASTCache(self.cache_dir)
 
-    def build(self, files: Sequence[Union[str, Path]], *, compile_flags: Optional[Sequence[str]] = None) -> Dict[str, ASTDocument]:
+    def build(self, files: Sequence[Union[str, Path]], *, compile_flags: Optional[Sequence[str]] = None, verbose: bool = False) -> Dict[str, ASTDocument]:
         """Build translation units for the given files."""
         results = {}
         flags_list = list(compile_flags) if compile_flags else None
@@ -41,7 +41,7 @@ class TUBuilder:
                 results[abs_path] = document
             else:
                 # Parse the file
-                document = self.parser.parse_file(abs_path, compile_flags=compile_flags)
+                document = self.parser.parse_file(abs_path, compile_flags=compile_flags, verbose=verbose)
 
                 # Store in cache
                 metadata = CacheMetadata(

@@ -236,7 +236,12 @@ class MakefileBuilder(Builder):
             compile_cmds: List[List[str]] = []
             compile_sources: List[str] = []
             for src in sources:
-                abs_src = _resolve_source_path(src, package.dir, repo_root)
+                # Normalize source path: replace extra 'src/' prefix if package.dir already contains it
+                normalized_src = src.replace('\\', '/')
+                if package.dir.endswith('/src') and normalized_src.startswith('src/'):
+                    normalized_src = normalized_src[4:] # Remove 'src/'
+
+                abs_src = _resolve_source_path(normalized_src, package.dir, repo_root)
                 rel_obj = os.path.splitext(src)[0] + ".o"
                 obj_path = os.path.join(build_root, rel_obj.replace('/', os.sep))
                 os.makedirs(os.path.dirname(obj_path), exist_ok=True)

@@ -756,6 +756,8 @@ class MakeCommand:
                 package_info['dir'] = os.path.join(repo_root, package_info['dir_relpath'])
             if not package_info.get('path') and 'package_relpath' in package_info:
                 package_info['path'] = os.path.join(repo_root, package_info['package_relpath'])
+
+            print(f"DEBUG: package_info for {package_name}: {package_info}")
             
             build_system = package_info.get('build_system', 'upp')
             

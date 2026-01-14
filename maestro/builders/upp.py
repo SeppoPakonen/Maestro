@@ -140,7 +140,7 @@ class UppBuilder(Builder):
                         # First try to find quoted file names
                         file_matches = re.findall(r'"([^"]*(?:\\.[^"]*)*)"', file_line)
                         for file_match in file_matches:
-                            package.files.append(file_match)
+                            package.files.append(file_match.replace('\\', '/'))
                         
                         # If no quoted files found, try to extract unquoted file names
                         if not file_matches:
@@ -149,7 +149,7 @@ class UppBuilder(Builder):
                             # Using greedy match to capture full filename
                             unquoted_matches = re.findall(r'([a-zA-Z0-9_./][a-zA-Z0-9_./-]*)[,;]', file_line)
                             for match in unquoted_matches:
-                                package.files.append(match.strip())
+                                package.files.append(match.strip().replace('\\', '/'))
                             
                             # Also check for lines that might not have a trailing separator yet
                             if not unquoted_matches and file_line and not file_line.startswith(('readonly', 'separator', 'config')):

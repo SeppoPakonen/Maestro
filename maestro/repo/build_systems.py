@@ -363,7 +363,7 @@ def scan_makefile_packages(repo_root: str, verbose: bool = False) -> List[BuildS
                             source_path = _resolve_obj_to_source(token, makefile_dir)
                             if source_path:
                                 abs_path = os.path.join(makefile_dir, source_path)
-                                rel_path = os.path.relpath(abs_path, repo_root)
+                                rel_path = os.path.relpath(abs_path, makefile_dir)
                                 source_files.append(rel_path)
                         sources_by_var[var_name] = source_files
                         all_sources.extend(source_files)
@@ -377,7 +377,7 @@ def scan_makefile_packages(repo_root: str, verbose: bool = False) -> List[BuildS
                                 source_path = _resolve_obj_to_source(dep, makefile_dir)
                                 if source_path:
                                     abs_path = os.path.join(makefile_dir, source_path)
-                                    target_sources.append(os.path.relpath(abs_path, repo_root))
+                                    target_sources.append(os.path.relpath(abs_path, makefile_dir))
                         target_entries.append({
                             'name': target_name,
                             'output': target_info.get('output'),

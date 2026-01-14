@@ -1,20 +1,28 @@
-import abc
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Sequence
-
 from .ast_nodes import ASTDocument
 
 
-def ensure_path(path) -> Path:
-    if isinstance(path, Path):
-        return path
-    return Path(path)
+class TranslationUnitParser(ABC):
+    """Abstract base class for language-specific translation unit parsers."""
 
+    @abstractmethod
+    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None, verbose: bool = False) -> ASTDocument:
+        """
+        Parse a single file and return its AST.
 
-class TranslationUnitParser(abc.ABC):
-    """Abstract base class for translation unit parsers."""
+        Args:
+            path: Path to the source file
+            compile_flags: Optional list of compiler flags
+            verbose: Optional flag for verbose output
 
-    @abc.abstractmethod
-    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None) -> ASTDocument:
-        """Parse a file and return an ASTDocument."""
+        Returns:
+            ASTDocument: The parsed AST document
+        """
         raise NotImplementedError
+
+
+def ensure_path(path: str) -> Path:
+    """Ensure that a path is a Path object."""
+    return Path(path) if isinstance(path, str) else path

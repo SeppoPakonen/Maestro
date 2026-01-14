@@ -33,7 +33,7 @@ class ClangParser(TranslationUnitParser):
     def __init__(self):
         self.clang = _lazy_import_clang()
 
-    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None) -> ASTDocument:
+    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None, verbose: bool = False) -> ASTDocument:
         path_obj = ensure_path(path)
         if not path_obj.exists():
             raise FileNotFoundError(f"File not found: {path_obj}")
@@ -41,6 +41,8 @@ class ClangParser(TranslationUnitParser):
         try:
             index = self.clang.Index.create()
             flags = list(compile_flags) if compile_flags else get_default_compile_flags()
+            if verbose:
+                print(f"clang_parser.py:parse_file: file={path}, flags={flags}")
             tu = index.parse(
                 str(path_obj),
                 args=flags,
