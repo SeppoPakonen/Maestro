@@ -69,6 +69,55 @@ def get_default_compile_flags(language: str = "c++", extra: Optional[Iterable[st
     return flags
 
 
+def filter_clang_flags(flags: List[str]) -> List[str]:
+    """
+    Filter out flags that are incompatible with libclang or unnecessary for AST generation.
+    """
+    filtered = []
+    skip_next = False
+    
+    # Incompatible or unnecessary flag prefixes
+    exclude_prefixes = (
+        "-O",      # Optimization
+        "-g",      # Debug info
+        "-M",      # Dependency generation
+        "-W",      # Warnings (keep some if needed, but often noisy)
+        "-fstack-",
+        "-fomit-frame-pointer",
+        "-mtune=",
+        "-march=",
+    )
+    
+    # Linker flags to remove
+    linker_prefixes = (
+        "-l",
+        "-L",
+        "-Wl,",
+    )
+
+    for i, flag in enumerate(flags):
+        if skip_next:
+            skip_next = False
+            continue
+            
+        # Skip flags that take an argument we don't want
+        if flag in ("-o", "--output"):
+            skip_next = True
+            continue
+            
+        if flag.startswith(exclude_prefixes):
+            # Keep some warnings if explicitly desired, but generally skip
+            continue
+            
+        if flag.startswith(linker_prefixes):
+            continue
+            
+        # Keep defines, includes, and language standards
+        filtered.append(flag)
+        
+    return filtered
+
+
 def safe_get_usr(cursor) -> Optional[str]:
     try:
         return cursor.get_usr() or None

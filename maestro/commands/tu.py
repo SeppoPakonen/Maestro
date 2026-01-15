@@ -14,6 +14,8 @@ from ..tu import (
     ASTSerializer, SymbolIndex, CompletionProvider, ASTPrinter
 )
 from ..tu.lsp_server import MaestroLSPServer
+from ..tu.clang_utils import filter_clang_flags
+from maestro.builders.config import get_method
 from maestro.repo.storage import (
     find_repo_root as find_repo_root_v3,
     require_repo_model,
@@ -77,22 +79,51 @@ def get_files_by_language(path: str, lang: str) -> List[str]:
     return files
 
 
+def resolve_tu_compile_flags(lang: str, extra_flags: Optional[List[str]] = None, verbose: bool = False) -> List[str]:
+    """Resolve compile flags for a given language using the selected toolchain."""
+    try:
+        repo_root = find_repo_root_v3()
+        if not repo_root:
+            return extra_flags or []
+            
+        repoconf = ensure_repoconf_target(repo_root)
+        toolchain_name = repoconf.get("toolchain")
+        if not toolchain_name:
+            if verbose:
+                print("No toolchain selected in repoconf.")
+            return extra_flags or []
+
+        method_config = get_method(toolchain_name)
+        if not method_config:
+            if verbose:
+                print(f"Toolchain '{toolchain_name}' not found.")
+            return extra_flags or []
+
+        toolchain_flags = []
+        if lang.lower() in ['cpp', 'c++', 'cxx', 'cc', 'c', 'h', 'hpp']:
+            toolchain_flags = method_config.get_compile_flags(lang)
+            toolchain_flags = filter_clang_flags(toolchain_flags)
+            if verbose:
+                print(f"Using toolchain '{toolchain_name}' flags: {toolchain_flags}")
+
+        return (extra_flags or []) + toolchain_flags
+    except Exception as e:
+        if verbose:
+            print(f"Error resolving toolchain flags: {e}")
+        return extra_flags or []
+
+
 def handle_tu_build_command(args):
     """Handle maestro tu build [PACKAGE]"""
     print(f"Building translation unit for path: {args.path}")
 
     repo_root = find_repo_root_v3()
     require_repo_model(repo_root)
-    repoconf = ensure_repoconf_target(repo_root)
     branch_guard_error = check_branch_guard(repo_root)
     if branch_guard_error:
         print(f"Error: {branch_guard_error}")
         return 1
-    if not repoconf.get("toolchain"):
-        print("Error: Toolchain not selected for TU build.")
-        print("Run 'maestro select toolchain set <profile>' first.")
-        return 1
-
+    
     # Determine language
     lang = args.lang
     if not lang:
@@ -121,6 +152,9 @@ def handle_tu_build_command(args):
 
     print(f"Found {len(files)} {lang} files")
 
+    # Resolve compile flags using toolchain
+    compile_flags = resolve_tu_compile_flags(lang, args.compile_flags, args.verbose)
+
     # Setup TU builder
     builder = TUBuilder(parser, cache_dir=args.output)
 
@@ -136,7 +170,7 @@ def handle_tu_build_command(args):
         # Build TUs for all files
         results = builder.build(
             files=files,
-            compile_flags=args.compile_flags or []
+            compile_flags=compile_flags
         )
 
         print(f"Successfully built translation units for {len(results)} files")
@@ -318,6 +352,9 @@ def handle_tu_transform_command(args):
     # 1. First parse the original files to extract information for primary header
     # 2. Then update files to include the generated primary header
 
+    # Resolve compile flags using toolchain
+    compile_flags = resolve_tu_compile_flags(lang, args.compile_flags, args.verbose)
+
     try:
         # Phase 1: Parse original files to extract information for header generation
         # Build basic TUs for analysis without symbol indexing to avoid include issues
@@ -326,7 +363,7 @@ def handle_tu_transform_command(args):
             abs_path = str(Path(file_path).resolve())
 
             # Parse the file directly without includes to the primary header that doesn't exist yet
-            document = parser.parse_file(abs_path, compile_flags=args.compile_flags or [])
+            document = parser.parse_file(abs_path, compile_flags=compile_flags)
             results[abs_path] = document
 
         print(f"Successfully parsed {len(results)} files for header generation")
@@ -505,8 +542,11 @@ def handle_tu_print_ast_command(args):
         return 1
 
     try:
+        # Resolve compile flags using toolchain
+        compile_flags = resolve_tu_compile_flags(lang, args.compile_flags, args.verbose)
+
         # Parse the file
-        document = parser.parse_file(file_path, compile_flags=args.compile_flags or [])
+        document = parser.parse_file(file_path, compile_flags=compile_flags)
 
         # Create printer with options
         printer = ASTPrinter(

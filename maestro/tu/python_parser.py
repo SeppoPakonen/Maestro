@@ -12,7 +12,7 @@ from .ast_nodes import ASTNode, SourceLocation, Symbol, ASTDocument
 class PythonParser(TranslationUnitParser):
     """Python parser using the built-in ast module."""
 
-    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None) -> ASTDocument:
+    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None, verbose: bool = False) -> ASTDocument:
         """Parse a Python file and return an ASTDocument."""
         path_obj = Path(path)
         if not path_obj.exists():

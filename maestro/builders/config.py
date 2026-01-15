@@ -127,6 +127,32 @@ class MethodConfig:
     # Additional custom properties
     custom: Dict[str, Any] = field(default_factory=dict)
 
+    def get_compile_flags(self, language: str = "c++") -> List[str]:
+        """Get a list of flags for compilation (Clang-compatible)."""
+        flags = []
+
+        # Add defines
+        for d in self.compiler.defines:
+            if d.startswith("-D"):
+                flags.append(d)
+            else:
+                flags.append(f"-D{d}")
+
+        # Add includes
+        for i in self.compiler.includes:
+            if i.startswith("-I"):
+                flags.append(i)
+            else:
+                flags.append(f"-I{i}")
+
+        # Add language-specific flags
+        if language.lower() in ("c", "c89", "c99", "c11"):
+            flags.extend(self.compiler.cflags)
+        else:
+            flags.extend(self.compiler.cxxflags)
+
+        return flags
+
 
 @dataclass
 class BuildMethod:

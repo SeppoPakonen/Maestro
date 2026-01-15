@@ -34,7 +34,7 @@ class JavaParser(TranslationUnitParser):
         self.language = tree_sitter.Language(tree_sitter_java.language())
         self.parser = tree_sitter.Parser(self.language)
 
-    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None) -> ASTDocument:
+    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None, verbose: bool = False) -> ASTDocument:
         from pathlib import Path
 
         path_obj = Path(path)
