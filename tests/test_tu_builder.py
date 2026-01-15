@@ -118,7 +118,7 @@ def test_tu_builder_incremental_behavior():
             def __init__(self):
                 self.parse_count = 0
             
-            def parse_file(self, path: str, *, compile_flags=None) -> ASTDocument:
+            def parse_file(self, path: str, *, compile_flags=None, verbose=False) -> ASTDocument:
                 self.parse_count += 1
                 loc = SourceLocation(file=path, line=1, column=1)
                 node = ASTNode(kind="File", name=Path(path).name, loc=loc)
