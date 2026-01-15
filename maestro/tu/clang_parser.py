@@ -51,7 +51,11 @@ class ClangParser(TranslationUnitParser):
 
             for diag in tu.diagnostics:
                 if diag.severity >= self.clang.Diagnostic.Error:
+                    if verbose:
+                        print(f"CLANG ERROR: {diag.location.file}:{diag.location.line} - {diag.spelling}")
                     raise ParserExecutionError(f"CIndex diagnostic error: {diag.spelling}")
+                elif diag.severity >= self.clang.Diagnostic.Warning and verbose:
+                    print(f"CLANG WARNING: {diag.location.file}:{diag.location.line} - {diag.spelling}")
 
             symbols: List[Symbol] = []
             root_node = self._cursor_to_ast_node(tu.cursor, symbols, is_root=True)

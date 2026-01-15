@@ -79,30 +79,213 @@ def get_files_by_language(path: str, lang: str) -> List[str]:
     return files
 
 
-def resolve_tu_compile_flags(lang: str, extra_flags: Optional[List[str]] = None, verbose: bool = False) -> List[str]:
-    """Resolve compile flags for a given language using the selected toolchain."""
+def find_package_by_path(path: str, repo_model: dict, repo_root: str) -> Optional[dict]:
+    """Find the package that contains the given path."""
+    abs_path = os.path.abspath(path)
+    
+    # 1. Try to find an exact directory match
+    for pkg in repo_model.get("packages", []):
+        pkg_dir = pkg.get("dir")
+        if not pkg_dir and pkg.get("dir_relpath"):
+            pkg_dir = os.path.join(repo_root, pkg["dir_relpath"])
+        
+        if pkg_dir and os.path.normpath(pkg_dir) == os.path.normpath(abs_path):
+            pkg_copy = pkg.copy()
+            pkg_copy["dir_abs"] = os.path.abspath(pkg_dir)
+            return pkg_copy
+
+    # 2. Try to find the closest parent directory that is a package
+    best_match = None
+    best_match_len = -1
+    
+    for pkg in repo_model.get("packages", []):
+        pkg_dir = pkg.get("dir")
+        if not pkg_dir and pkg.get("dir_relpath"):
+            pkg_dir = os.path.join(repo_root, pkg["dir_relpath"])
+            
+        if pkg_dir:
+            pkg_dir_abs = os.path.abspath(pkg_dir)
+            if abs_path.startswith(pkg_dir_abs):
+                if len(pkg_dir_abs) > best_match_len:
+                    best_match = pkg.copy()
+                    best_match["dir_abs"] = pkg_dir_abs
+                    best_match_len = len(pkg_dir_abs)
+                    
+    return best_match
+
+
+def resolve_tu_compile_flags(lang: str, path: Optional[str] = None, extra_flags: Optional[List[str]] = None, verbose: bool = False) -> List[str]:
+    """Resolve compile flags for a given language and path using toolchain or default discovery."""
     try:
         repo_root = find_repo_root_v3()
         if not repo_root:
+            if verbose:
+                print("Repo root not found, using provided flags.")
             return extra_flags or []
             
-        repoconf = ensure_repoconf_target(repo_root)
+        # 1. Load repo model and repoconf
+        from maestro.repo.storage import load_repo_model, load_repoconf
+        repo_model = {}
+        try:
+            repo_model = load_repo_model(repo_root)
+        except Exception:
+            pass
+            
+        repoconf = {}
+        try:
+            repoconf = load_repoconf(repo_root)
+        except Exception:
+            pass
+
         toolchain_name = repoconf.get("toolchain")
+        
+        # 2. If no toolchain in repoconf, try to detect default method (like 'make' does)
+        from maestro.builders.config import get_global_method_manager
+        method_manager = get_global_method_manager()
+        
         if not toolchain_name:
             if verbose:
-                print("No toolchain selected in repoconf.")
-            return extra_flags or []
+                print("No toolchain selected in repoconf. Attempting automatic discovery...")
+            toolchain_name = method_manager.detect_default_method()
+            if not toolchain_name:
+                if verbose:
+                    print("No default build method detected.")
+                return extra_flags or []
+            if verbose:
+                print(f"Auto-detected default toolchain: {toolchain_name}")
 
-        method_config = get_method(toolchain_name)
+        # 3. Load the method configuration
+        method_config = method_manager.load_method(toolchain_name)
         if not method_config:
             if verbose:
                 print(f"Toolchain '{toolchain_name}' not found.")
             return extra_flags or []
 
+        # 4. Extract assembly roots (mirroring maestro make logic)
+        from maestro.repo.assembly_config_commands import load_asm_configs
+        asm_configs = load_asm_configs(repo_root)
+        selected_asm_name = asm_configs.get("selected")
+        
+        assembly_roots = []
+        if selected_asm_name and selected_asm_name in asm_configs.get("configurations", {}):
+            config = asm_configs["configurations"][selected_asm_name]
+            roots = config.get("roots", [])
+            for root in roots:
+                abs_path_asm = os.path.normpath(os.path.join(repo_root, root))
+                if os.path.exists(abs_path_asm):
+                    if abs_path_asm not in assembly_roots:
+                        assembly_roots.append(abs_path_asm)
+                elif os.path.exists(root):
+                    abs_path_asm = os.path.normpath(root)
+                    if abs_path_asm not in assembly_roots:
+                        assembly_roots.append(abs_path_asm)
+        
+        if assembly_roots:
+            method_config.config.assembly_roots = assembly_roots
+            if verbose:
+                print(f"Using assembly roots: {assembly_roots}")
+
+        # 5. Find relevant package for the path to get extra metadata (includes/defines)
+        package_info = None
+        if path:
+            package_info = find_package_by_path(path, repo_model, repo_root)
+            if package_info and verbose:
+                print(f"Detected package '{package_info.get('name')}' for path '{path}'")
+
+        # 6. Extract and filter flags
         toolchain_flags = []
         if lang.lower() in ['cpp', 'c++', 'cxx', 'cc', 'c', 'h', 'hpp']:
-            toolchain_flags = method_config.get_compile_flags(lang)
-            toolchain_flags = filter_clang_flags(toolchain_flags)
+            # For U++ methods, we should probably use UppBuilder.get_compiler_flags if available
+            if method_config.builder == 'upp' or (package_info and package_info.get('build_system') == 'upp'):
+                from maestro.builders.upp import UppBuilder, UppPackage
+                from maestro.builders.host import get_current_host
+                builder = UppBuilder(get_current_host(), method_config)
+                
+                # Create a package object
+                pkg_name = package_info.get('name', 'dummy') if package_info else 'dummy'
+                pkg_dir = package_info.get('dir_abs') if package_info and 'dir_abs' in package_info else repo_root
+                
+                pkg_obj = UppPackage(name=pkg_name, dir=pkg_dir)
+                # If we have real package info, parse its .upp file for more flags
+                upp_file = os.path.join(pkg_dir, f"{pkg_name}.upp")
+                if os.path.exists(upp_file):
+                    parsed = builder.parse_upp_file(upp_file)
+                    pkg_obj.__dict__.update(parsed.__dict__)
+                
+                flags_dict = builder.get_compiler_flags(pkg_obj, method_config)
+                toolchain_flags = flags_dict['cxxflags'] if lang.lower() != 'c' else flags_dict['cflags']
+            else:
+                # Standard builder extraction
+                toolchain_flags = method_config.get_compile_flags(lang)
+                
+                # If it's a Makefile-based project (like Sauerbraten), extract its INCLUDES/CXXFLAGS
+                if package_info and package_info.get('build_system') == 'multi':
+                    metadata = package_info.get('metadata', {})
+                    variables = metadata.get('variables', {})
+                    if variables:
+                        # Extract INCLUDES and CXXFLAGS from Makefile variables
+                        from maestro.builders.makefile import _select_tokens
+                        pkg_dir = package_info.get('dir_abs', repo_root)
+                        
+                        # Add standard includes
+                        toolchain_flags.extend(_select_tokens(variables, 'INCLUDES', pkg_dir, verbose))
+                        
+                        # Add target-specific includes if applicable (heuristic)
+                        if "client" in (path or "").lower() or any("engine" in p for p in (path or "").split(os.sep)):
+                            toolchain_flags.extend(_select_tokens(variables, 'CLIENT_INCLUDES', pkg_dir, verbose))
+                        if "server" in (path or "").lower() or "master" in (path or "").lower():
+                            toolchain_flags.extend(_select_tokens(variables, 'SERVER_INCLUDES', pkg_dir, verbose))
+                            
+                        toolchain_flags.extend(_select_tokens(variables, 'CXXFLAGS', pkg_dir, verbose))
+                
+                # Add assembly roots manually for non-upp builders if not already there
+                for root in assembly_roots:
+                    if not any(f.endswith(root) for f in toolchain_flags if f.startswith("-I")):
+                        toolchain_flags.append(f"-I{root}")
+                
+                # Fallback for Sauerbraten structure if it's detected
+                if package_info and package_info.get('name') == 'Tesseract-Sauerbraten':
+                    pkg_dir = package_info.get('dir_abs', repo_root)
+                    for sub in ['shared', 'engine', 'game', 'enet/include', 'include']:
+                        abs_sub = os.path.join(pkg_dir, sub)
+                        if os.path.exists(abs_sub):
+                            if not any(f.endswith(abs_sub) for f in toolchain_flags if f.startswith("-I")):
+                                toolchain_flags.append(f"-I{abs_sub}")
+                    
+                    # Heuristic: Add all subdirs of pkg_dir that have .h files
+                    for root, dirs, files in os.walk(pkg_dir):
+                        if any(f.endswith('.h') for f in files):
+                            if not any(f.endswith(root) for f in toolchain_flags if f.startswith("-I")):
+                                toolchain_flags.append(f"-I{root}")
+
+            # 7. Post-process: Make all relative -I paths absolute
+            final_flags = []
+            pkg_dir = package_info.get('dir_abs', repo_root) if package_info else repo_root
+            for flag in toolchain_flags:
+                if flag.startswith("-I"):
+                    inc_path = flag[2:].strip()
+                    if not os.path.isabs(inc_path):
+                        abs_inc = os.path.normpath(os.path.join(pkg_dir, inc_path))
+                        final_flags.append(f"-I{abs_inc}")
+                    else:
+                        final_flags.append(flag)
+                else:
+                    final_flags.append(flag)
+            
+            toolchain_flags = filter_clang_flags(final_flags)
+            
+            # 8. Add builtin include paths for standard headers (stddef.h, etc.)
+            # Use -isystem to tell Clang these are system headers
+            from maestro.tu.clang_utils import get_builtin_include_paths
+            for inc in get_builtin_include_paths():
+                if not any(f.endswith(inc) for f in toolchain_flags if f.startswith(("-I", "-isystem"))):
+                    toolchain_flags.append(f"-isystem{inc}")
+            
+            # 9. Add common flags for libclang compatibility
+            if lang.lower() in ['cpp', 'c++', 'cxx', 'cc']:
+                if "-nostdinc++" not in toolchain_flags:
+                    toolchain_flags.append("-nostdinc++")
+            
             if verbose:
                 print(f"Using toolchain '{toolchain_name}' flags: {toolchain_flags}")
 
@@ -110,6 +293,8 @@ def resolve_tu_compile_flags(lang: str, extra_flags: Optional[List[str]] = None,
     except Exception as e:
         if verbose:
             print(f"Error resolving toolchain flags: {e}")
+            import traceback
+            traceback.print_exc()
         return extra_flags or []
 
 
@@ -153,7 +338,7 @@ def handle_tu_build_command(args):
     print(f"Found {len(files)} {lang} files")
 
     # Resolve compile flags using toolchain
-    compile_flags = resolve_tu_compile_flags(lang, args.compile_flags, args.verbose)
+    compile_flags = resolve_tu_compile_flags(lang, args.path, args.compile_flags, args.verbose)
 
     # Setup TU builder
     builder = TUBuilder(parser, cache_dir=args.output)
@@ -175,8 +360,8 @@ def handle_tu_build_command(args):
 
         print(f"Successfully built translation units for {len(results)} files")
         if args.verbose:
-            for result in results:
-                print(f"  - {result.file_path}: {'success' if result.success else 'failed'}")
+            for file_path, document in results.items():
+                print(f"  - {file_path}: {'success' if document else 'failed'}")
 
         return 0
 
@@ -353,7 +538,7 @@ def handle_tu_transform_command(args):
     # 2. Then update files to include the generated primary header
 
     # Resolve compile flags using toolchain
-    compile_flags = resolve_tu_compile_flags(lang, args.compile_flags, args.verbose)
+    compile_flags = resolve_tu_compile_flags(lang, args.package, args.compile_flags, args.verbose)
 
     try:
         # Phase 1: Parse original files to extract information for header generation
@@ -363,7 +548,7 @@ def handle_tu_transform_command(args):
             abs_path = str(Path(file_path).resolve())
 
             # Parse the file directly without includes to the primary header that doesn't exist yet
-            document = parser.parse_file(abs_path, compile_flags=compile_flags)
+            document = parser.parse_file(abs_path, compile_flags=compile_flags, verbose=args.verbose)
             results[abs_path] = document
 
         print(f"Successfully parsed {len(results)} files for header generation")
@@ -543,10 +728,10 @@ def handle_tu_print_ast_command(args):
 
     try:
         # Resolve compile flags using toolchain
-        compile_flags = resolve_tu_compile_flags(lang, args.compile_flags, args.verbose)
+        compile_flags = resolve_tu_compile_flags(lang, file_path, args.compile_flags, args.verbose)
 
         # Parse the file
-        document = parser.parse_file(file_path, compile_flags=compile_flags)
+        document = parser.parse_file(file_path, compile_flags=compile_flags, verbose=args.verbose)
 
         # Create printer with options
         printer = ASTPrinter(
