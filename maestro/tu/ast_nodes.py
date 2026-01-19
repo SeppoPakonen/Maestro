@@ -38,6 +38,7 @@ class Symbol:
     loc: SourceLocation
     refers_to: Optional[str] = None
     target: Optional[str] = None
+    access_specifier: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         result = {
@@ -49,6 +50,8 @@ class Symbol:
             result['refers_to'] = self.refers_to
         if self.target is not None:
             result['target'] = self.target
+        if self.access_specifier is not None:
+            result['access_specifier'] = self.access_specifier
         return result
 
     @classmethod
@@ -60,6 +63,7 @@ class Symbol:
             loc=loc,
             refers_to=data.get('refers_to'),
             target=data.get('target'),
+            access_specifier=data.get('access_specifier'),
         )
 
 
@@ -71,6 +75,7 @@ class ASTNode:
     type: Optional[str] = None
     value: Optional[str] = None
     modifiers: Optional[List[str]] = None
+    access_specifier: Optional[str] = None
     children: Optional[List['ASTNode']] = None
     symbol_refs: Optional[List[Symbol]] = None
     usr: Optional[str] = None
@@ -88,6 +93,8 @@ class ASTNode:
             result['value'] = self.value
         if self.modifiers is not None:
             result['modifiers'] = self.modifiers
+        if self.access_specifier is not None:
+            result['access_specifier'] = self.access_specifier
         if self.children is not None:
             result['children'] = [child.to_dict() for child in self.children]
         if self.symbol_refs is not None:
@@ -119,6 +126,7 @@ class ASTNode:
             type=data.get('type'),
             value=data.get('value'),
             modifiers=data.get('modifiers'),
+            access_specifier=data.get('access_specifier'),
             children=children,
             symbol_refs=symbol_refs,
             usr=usr,

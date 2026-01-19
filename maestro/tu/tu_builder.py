@@ -37,9 +37,13 @@ class TUBuilder:
             # Check if cached
             cached_result = self.cache.load_if_present(current_hash)
             if cached_result is not None:
+                if verbose:
+                    print(f"  Cache hit for {abs_path}")
                 document, _ = cached_result
                 results[abs_path] = document
             else:
+                if verbose:
+                    print(f"  Cache miss for {abs_path}. Parsing...")
                 # Parse the file
                 document = self.parser.parse_file(abs_path, compile_flags=compile_flags, verbose=verbose)
 

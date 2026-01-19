@@ -1,0 +1,10 @@
+Building translation unit for path: .
+Auto-detected language: cpp
+Found 184 cpp files
+Normalized 1 absolute paths to repo-relative form[0m
+No toolchain selected in repoconf. Attempting automatic discovery...
+Auto-detected default toolchain: gcc-debug
+Using assembly roots: ['/common/active/sblo/Dev/Tesseract-Sauerbraten/src']
+Detected package 'scripts-other' for path '.'
+Using toolchain 'gcc-debug' flags: ['-std=c++17', '-I/common/active/sblo/Dev/Tesseract-Sauerbraten/src', '-isystem/usr/lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15', '-isystem/usr/lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/x86_64-pc-linux-gnu', '-isystem/usr/lib/gcc/x86_64-pc-linux-gnu/15/include/g++-v15/backward', '-isystem/usr/lib/llvm/21/bin/../../../../lib/clang/21/include', '-isystem/usr/local/include', '-isystem/usr/include', '-nostdinc++']
+Error building translation units: CIndex diagnostic error: 'cube.h' file not found

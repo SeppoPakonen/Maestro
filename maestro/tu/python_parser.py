@@ -12,7 +12,7 @@ from .ast_nodes import ASTNode, SourceLocation, Symbol, ASTDocument
 class PythonParser(TranslationUnitParser):
     """Python parser using the built-in ast module."""
 
-    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None, verbose: bool = False) -> ASTDocument:
+    def parse_file(self, path: str, *, compile_flags: Optional[Sequence[str]] = None, verbose: bool = False, **kwargs) -> ASTDocument:
         """Parse a Python file and return an ASTDocument."""
         path_obj = Path(path)
         if not path_obj.exists():
@@ -84,13 +84,13 @@ class PythonParser(TranslationUnitParser):
 
         # Convert children
         children = []
-        for field, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                for item in value:
+        for field, field_value in ast.iter_fields(node):
+            if isinstance(field_value, list):
+                for item in field_value:
                     if isinstance(item, ast.AST):
                         children.append(self._py_ast_to_ast_node(item, symbols, file_path))
-            elif isinstance(value, ast.AST):
-                children.append(self._py_ast_to_ast_node(value, symbols, file_path))
+            elif isinstance(field_value, ast.AST):
+                children.append(self._py_ast_to_ast_node(field_value, symbols, file_path))
 
         # Add symbols for definitions
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

@@ -12,7 +12,7 @@ from typing import List, Dict, Optional, Any
 from .dataclasses import Colors
 
 
-def styled_print(text, color=None, style=None, indent=0):
+def styled_print(text, color=None, style=None, indent=0, file=sys.stdout):
     """
     Print styled text with optional color, style, and indentation.
 
@@ -21,17 +21,18 @@ def styled_print(text, color=None, style=None, indent=0):
         color (str): Color from Colors class
         style (str): Style from Colors class
         indent (int): Number of spaces to indent
+        file (file-like): File object to print to (default: sys.stdout)
     """
     indent_str = " " * indent
     color_code = color or ""
     style_code = style or ""
 
     # Only apply colors if we're in a terminal that supports them
-    if not (hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()):
+    if not (hasattr(file, 'isatty') and file.isatty()):
         color_code = style_code = ""
 
     formatted_text = f"{indent_str}{color_code}{style_code}{text}{Colors.RESET}"
-    print(formatted_text)
+    print(formatted_text, file=file)
 
 
 def print_header(text):
@@ -53,22 +54,22 @@ def print_success(text, indent=0):
 
 def print_warning(text, indent=0):
     """Print warning message in yellow."""
-    styled_print(text, Colors.YELLOW, Colors.BOLD, indent)
+    styled_print(text, Colors.YELLOW, Colors.BOLD, indent, file=sys.stderr)
 
 
 def print_error(text, indent=0):
     """Print error message in red."""
-    styled_print(text, Colors.RED, Colors.BOLD, indent)
+    styled_print(text, Colors.RED, Colors.BOLD, indent, file=sys.stderr)
 
 
 def print_info(text, indent=0):
     """Print info message in blue."""
-    styled_print(text, Colors.BLUE, None, indent)
+    styled_print(text, Colors.BLUE, None, indent, file=sys.stderr)
 
 
 def print_debug(text, indent=0):
     """Print debug message in magenta."""
-    styled_print(text, Colors.MAGENTA, None, indent)
+    styled_print(text, Colors.MAGENTA, None, indent, file=sys.stderr)
 
 
 def print_ai_response(text):
